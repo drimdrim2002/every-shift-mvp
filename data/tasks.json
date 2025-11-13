@@ -1,19 +1,13 @@
 {
-  "metadata": {
-    "phase": "phase-0-infrastructure",
-    "label": "Infrastructure Setup",
-    "description": "Project setup, packages, build tools, linting",
-    "taskCount": 10
-  },
   "tasks": [
     {
       "id": "b3449519-413b-40ec-9cea-c8adc211e52e",
       "name": "Vite 프로젝트 생성 및 TypeScript 설정 확인",
       "description": "Vue 3 + TypeScript 템플릿으로 Vite 프로젝트를 생성하고, TypeScript 설정이 올바른지 확인. 프로젝트명은 'everyshift-mvp'로 설정.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T14:54:49.822Z",
       "relatedFiles": [
         {
           "path": "package.json",
@@ -43,7 +37,9 @@
       ],
       "implementationGuide": "1. 터미널에서 `npm create vite@latest everyshift-mvp -- --template vue-ts` 실행\n2. `cd everyshift-mvp && npm install` 실행\n3. `npm run dev` 실행하여 개발 서버가 정상 작동하는지 확인\n4. tsconfig.json 파일 확인 (strict 모드 활성화 여부)\n5. src/App.vue, src/main.ts 파일이 TypeScript로 작성되어 있는지 확인",
       "verificationCriteria": "1. npm run dev 실행 시 브라우저에서 Vite + Vue 초기 화면 표시\n2. TypeScript 컴파일 에러 없음\n3. Hot Module Replacement 정상 작동",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "✅ Vite 6.3.5 + Vue 3.5.17 + TypeScript 5.8.3 프로젝트 생성 완료 (CLAUDE.md 스펙 준수)\n\n**완료 항목**:\n1. Vue 3 + TypeScript 템플릿으로 프로젝트 생성 완료\n2. 프로젝트명 'everyshift-mvp'로 정확히 설정\n3. package.json 버전을 CLAUDE.md 스펙에 맞게 조정 (Vue 3.5.17, TS 5.8.3, Vite 6.3.5)\n4. 의존성 설치 완료 (53 packages)\n5. tsconfig.app.json 검증: strict 모드 활성화, path alias 설정 추가 (@/ → ./src/)\n6. vite.config.ts 검증: Vue plugin 설정, path alias 설정 추가\n7. 개발 서버 정상 실행 확인 (http://localhost:5173, 379ms 준비 완료)\n8. TypeScript 컴파일 에러 없음\n9. Hot Module Replacement 정상 작동\n10. src/ 구조 생성 완료 (main.ts, App.vue, components/, assets/)\n\n**검증 기준 충족**:\n✅ npm run dev 실행 시 Vite + Vue 초기 화면 표시\n✅ TypeScript 컴파일 에러 없음\n✅ HMR 정상 작동\n\n**다음 단계 준비 완료**: Task 2~6 (Naive UI, Tailwind CSS, TanStack Table, Pinia, Supabase Client 설치 가능)",
+      "completedAt": "2025-11-13T14:54:49.816Z"
     },
     {
       "id": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7",
@@ -145,7 +141,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T13:29:29.640582Z",
+      "updatedAt": "2025-11-13T13:29:29.640Z",
       "relatedFiles": [
         {
           "path": "package.json",
@@ -245,8 +241,8 @@
       "description": "코드 품질과 포맷팅 일관성을 위한 ESLint 및 Prettier 설정. Vue 3, TypeScript, Tailwind CSS 규칙 적용.",
       "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911823Z",
-      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "createdAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-13T13:51:54.911Z",
       "relatedFiles": [
         {
           "path": ".eslintrc.cjs",
@@ -279,8 +275,8 @@
       "description": "Naive UI의 message, dialog, notification 등을 전역에서 사용할 수 있도록 설정. window.$message 등으로 접근 가능하게 함.",
       "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911823Z",
-      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "createdAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-13T13:51:54.911Z",
       "relatedFiles": [
         {
           "path": "src/main.ts",
@@ -303,8 +299,8 @@
       "description": "브라우저 탭 아이콘(favicon)과 제목(title)을 EveryShift에 맞게 설정. 브랜딩 강화.",
       "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911823Z",
-      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "createdAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-13T13:51:54.911Z",
       "relatedFiles": [
         {
           "path": "public/favicon.ico",
