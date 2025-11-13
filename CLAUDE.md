@@ -10,6 +10,45 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Timeline**: 8-week MVP development cycle
 **Tech Stack**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table
 
+## Tech Stack
+
+### Frontend
+
+| Category | Technology | Version | Purpose |
+|----------|------------|---------|---------|
+| **Framework** | Vue 3 | 3.5.17 | Composition API-based reactive framework |
+| **Language** | TypeScript | 5.8.3 | Type safety and developer experience |
+| **Build Tool** | Vite | 6.3.5 | Fast development server and build |
+| **Styling** | Tailwind CSS | 3.4.17 | Utility-first CSS framework |
+| **Admin Template** | Vben Admin | 5.x | Layout structure and patterns (reference only) |
+| **Grid Library** | TanStack Table | v8 | High-performance scheduling grid (30×36 cells) |
+| **State Management** | Pinia | 2.x | Vue 3 state management |
+| **Date Utilities** | Day.js | 1.x | Lightweight date manipulation |
+| **UI Components** | Naive UI | 2.42.0 | Forms, modals, buttons, and UI primitives |
+| **Utilities** | @vueuse/core | latest | Vue composition utilities |
+| **Excel Export** | xlsx | latest | Schedule export functionality |
+
+### Backend
+
+| Category | Technology | Purpose |
+|----------|------------|---------|
+| **Database** | Supabase PostgreSQL | Data persistence and querying |
+| **Authentication** | Supabase Auth | Email/password authentication (simplified for MVP) |
+| **Row-Level Security** | Supabase RLS | Data access control (admin-only in MVP) |
+
+### AI Solver (External)
+
+| Category | Technology | Status |
+|----------|------------|--------|
+| **Platform** | Google Cloud Run | Deployed (URL known) |
+| **Engine** | OptaPlanner | Java-based constraint solver |
+| **Integration** | REST API (assumed) | Mock responses in MVP |
+
+### Development Tools
+
+- **Package Manager**: npm or pnpm
+- **Version Control**: Git
+
 ## Development Commands
 
 ### Setup & Installation
@@ -19,9 +58,9 @@ npm create vite@latest everyshift-mvp -- --template vue-ts
 cd everyshift-mvp
 npm install
 
-# Install all dependencies
-npm install naive-ui @tanstack/vue-table pinia vue-router@4 @supabase/supabase-js dayjs @vueuse/core xlsx
-npm install -D tailwindcss@3.4.17 postcss autoprefixer
+# Install all dependencies (versions match Tech Stack table)
+npm install naive-ui@2.42.0 @tanstack/vue-table@8 pinia@2 vue-router@4 @supabase/supabase-js dayjs@1 @vueuse/core xlsx
+npm install -D tailwindcss@3.4.17 postcss autoprefixer typescript@5.8.3
 npx tailwindcss init -p
 ```
 
@@ -39,10 +78,7 @@ npm run preview
 
 ### Database Setup
 ```bash
-# Install Supabase CLI (optional)
-npm install -g supabase
-
-# Alternative: Use Supabase SQL Editor directly
+# Use Supabase SQL Editor directly
 # 1. Go to https://supabase.com
 # 2. Open SQL Editor
 # 3. Run migrations from supabase/migrations/001_initial_schema.sql
@@ -109,24 +145,80 @@ organizations
 - Organization store: Load and cache org data (no CRUD operations in MVP)
 - Schedule store: Wizard state, temporary data, AI solver status polling
 
+### Routing Structure
+
+**Authentication Routes**:
+- `/login` - Login page (public)
+
+**Schedule Workflow Routes** (protected):
+- `/schedule/step1` - Step1BasicInfo.vue (기본 정보 설정)
+- `/schedule/step2` - Step2SiteInfo.vue (사이트 정보 설정)
+- `/schedule/step3` - Step3InitialData.vue (초기 데이터 입력)
+- `/schedule/step4` - Step4Result.vue (결과 확인)
+
+**Route Guards**:
+- Authentication check: Redirect to `/login` if not authenticated
+- Step progression: Prevent skipping steps (e.g., cannot access Step 3 without completing Step 1-2)
+- Data validation: Check required data before navigation
+
+**Navigation Flow**:
+```
+Login → Step 1 → Step 2 → Step 3 → [AI Processing] → Step 4 → Save/Export
+  ↑                                                        ↓
+  └────────────────── Logout ←──────────────────────────┘
+```
+
 ### Component Architecture
 
-**Critical Components**:
+**View Components** (Page-level):
 
-1. **ScheduleGrid.vue** (가장 중요)
+1. **Step1BasicInfo.vue** - 기본 정보 설정
+   - Planning month selection (date picker)
+   - Organization info display (read-only from seed)
+   - Navigate to Step 2
+
+2. **Step2SiteInfo.vue** - 사이트 정보 설정
+   - Site requirements grid (7 days × 3 shifts)
+   - Set required staff count per shift per day-of-week
+   - Navigate to Step 3
+
+3. **Step3InitialData.vue** - 초기 데이터 입력 (핵심 화면)
+   - Contains ScheduleGrid component
+   - Previous month data input (5 days, required)
+   - Current month data input (31 days, optional)
+   - Validation before AI generation
+   - "생성" button triggers AI Solver
+
+4. **Step4Result.vue** - 결과 확인 및 편집
+   - Display AI-generated schedule in ScheduleGrid
+   - Manual editing capability
+   - Excel export functionality
+   - Save and publish schedule
+
+**Critical Grid Components**:
+
+5. **ScheduleGrid.vue** (가장 중요)
    - TanStack Table implementation for 30×36 grid
    - Renders 1080 cells with ShiftSelector in each cell
    - Props: `data`, `readonly`, `showPreviousMonth`
    - Events: `@update:data` for bidirectional binding
    - Features: Sticky name column, 3-level headers, row/column statistics
 
-2. **ShiftSelector.vue**
+6. **ShiftSelector.vue**
    - Button group for D/E/N/O shift selection
    - Props: `modelValue`, `availableShifts`, `disabled`
    - Color coding: D=#92D050, E=#FFC000, N=#4472C4, O=#D9D9D9
    - Keyboard accessible (Space/Enter to toggle)
 
-3. **StepIndicator.vue**
+7. **StatisticsSummary.vue**
+   - Display row/column statistics for grid
+   - Shows shift count per employee (D/E/N/O totals)
+   - Shows daily staff count per shift
+   - Real-time updates on grid changes
+
+**Shared Components**:
+
+8. **StepIndicator.vue**
    - Progress indicator for 4-step wizard
    - Props: `currentStep`, `steps`
    - Visual: ● (active) ○ (inactive)
@@ -159,28 +251,21 @@ organizations
 
 ### Composables Strategy
 
-**useScheduleGrid.ts** - Grid data management:
-```typescript
-// Manages grid data structure
-// Handles cell updates with reactivity
-// Integrates with TanStack Table
-// Provides utility functions for date calculations
-```
+**useScheduleGrid.ts** - Grid data management
+- Manages grid data structure and cell updates with reactivity
+- Integrates with TanStack Table
+- Provides utility functions for date calculations
 
-**useAISolver.ts** - AI Solver integration:
-```typescript
-// Polling mechanism (5-second intervals)
-// Status state machine: created → running → complete/error
-// Mock data generation for MVP
-// Error handling and retry logic
-```
+**useAISolver.ts** - AI Solver integration
+- Polling mechanism (5-second intervals)
+- Status state machine: created → running → complete/error
+- Mock data generation for MVP
+- Error handling and retry logic
 
-**useAuth.ts** - Authentication wrapper:
-```typescript
-// Supabase auth abstraction
-// Session persistence
-// Route guard integration
-```
+**useAuth.ts** - Authentication wrapper
+- Supabase auth abstraction
+- Session persistence
+- Route guard integration
 
 ### Data Flow Patterns
 
@@ -315,19 +400,79 @@ Common reactivity issues:
 - Types/Interfaces: PascalCase (Schedule, Employee)
 
 ### File Organization
+
+**Complete Project Structure**:
 ```
-src/
-├── components/       # UI components
-│   ├── layout/      # Layout shells
-│   ├── schedule/    # Domain-specific components
-│   └── ui/          # Generic UI components
-├── composables/     # Reusable composition functions
-├── stores/          # Pinia stores
-├── views/           # Page-level components
-├── api/             # API client functions
-├── types/           # TypeScript definitions
-└── utils/           # Pure utility functions
+everyshift-mvp/
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── DefaultLayout.vue      # Main app shell
+│   │   │   ├── Header.vue             # Top navigation
+│   │   │   └── Sidebar.vue            # Side menu
+│   │   ├── schedule/
+│   │   │   ├── ScheduleGrid.vue       # [CRITICAL] TanStack Table grid
+│   │   │   ├── ShiftSelector.vue      # Shift selection buttons
+│   │   │   ├── StepIndicator.vue      # Wizard progress
+│   │   │   └── StatisticsSummary.vue  # Grid statistics
+│   │   └── ui/
+│   │       ├── Button.vue             # Generic button (if needed)
+│   │       ├── Card.vue               # Generic card (if needed)
+│   │       └── Modal.vue              # Generic modal (if needed)
+│   ├── views/
+│   │   ├── auth/
+│   │   │   └── Login.vue              # Login page
+│   │   └── schedule/
+│   │       ├── Step1BasicInfo.vue     # 7.1 기본 정보
+│   │       ├── Step2SiteInfo.vue      # 7.2 사이트 정보
+│   │       ├── Step3InitialData.vue   # 7.3 초기 데이터 (grid)
+│   │       └── Step4Result.vue        # 7.4 결과 확인
+│   ├── composables/
+│   │   ├── useAuth.ts                 # Supabase auth wrapper
+│   │   ├── useScheduleGrid.ts         # Grid data management
+│   │   └── useAISolver.ts             # AI Solver integration
+│   ├── stores/
+│   │   ├── auth.ts                    # Auth state
+│   │   ├── organization.ts            # Org/employee/shift data
+│   │   └── schedule.ts                # Schedule workflow state
+│   ├── router/
+│   │   ├── index.ts                   # Router setup
+│   │   ├── routes.ts                  # Route definitions
+│   │   └── guards.ts                  # Auth & validation guards
+│   ├── api/
+│   │   ├── supabase.ts                # Supabase client
+│   │   ├── schedule.ts                # Schedule CRUD
+│   │   └── solver.ts                  # AI Solver API (mock)
+│   ├── types/
+│   │   ├── schedule.ts                # Schedule types
+│   │   ├── employee.ts                # Employee types
+│   │   └── shift.ts                   # Shift types
+│   ├── utils/
+│   │   ├── date.ts                    # Date utilities (Day.js)
+│   │   └── validation.ts              # Validation helpers
+│   ├── assets/                        # Static assets
+│   └── main.ts                        # App entry point
+├── supabase/
+│   ├── migrations/
+│   │   └── 001_initial_schema.sql     # DB schema
+│   └── seed.sql                       # Initial data
+├── public/                            # Public static files
+├── .env.local                         # Local environment variables
+├── .env.example                       # Environment template
+├── package.json                       # Dependencies
+├── tsconfig.json                      # TypeScript config
+├── tailwind.config.js                 # Tailwind config
+├── vite.config.ts                     # Vite config
+└── CLAUDE.md                          # This file
 ```
+
+**Key Directories**:
+- `components/schedule/`: Core scheduling components (80% of complexity)
+- `views/schedule/`: 4-step wizard pages
+- `composables/`: Reusable logic (grid, solver, auth)
+- `stores/`: Pinia state management
+- `api/`: Backend communication layer
+- `types/`: TypeScript definitions
 
 ## Important Notes for AI Development
 
@@ -341,8 +486,13 @@ src/
 
 ## Reference Documentation
 
-- **PRD.md**: Complete product requirements (read sections 4.3, 5.1 for grid details)
-- Supabase Docs: https://supabase.com/docs
+### Internal Documentation
+- **docs/prd/01-overview-architecture.md**: Project overview, tech stack, architecture
+- **docs/prd/**: Additional PRD documents (if available)
+
+### External Documentation
+- Supabase: https://supabase.com/docs
 - TanStack Table: https://tanstack.com/table/v8/docs/guide/introduction
 - Naive UI: https://www.naiveui.com/en-US/os-theme
 - Vue 3: https://vuejs.org/guide/introduction.html
+- Tailwind CSS: https://tailwindcss.com/docs
