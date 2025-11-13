@@ -110,14 +110,14 @@
       "id": "cc672606-607c-4315-8edb-8ba2d5ab0dbb",
       "name": "그리드 및 상태 관리 패키지 설치 (TanStack Table, Pinia, Vue Router)",
       "description": "근무표 그리드 구현을 위한 TanStack Table, 전역 상태 관리를 위한 Pinia, 라우팅을 위한 Vue Router를 설치.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
         }
       ],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T15:26:07.633Z",
       "relatedFiles": [
         {
           "path": "package.json",
@@ -132,7 +132,9 @@
       ],
       "implementationGuide": "1. TanStack Table 설치: `npm install @tanstack/vue-table`\n2. Pinia 설치: `npm install pinia`\n3. Vue Router 설치: `npm install vue-router@4`\n4. main.ts에서 Pinia와 Vue Router 플러그인 등록:\n```typescript\nimport { createPinia } from 'pinia'\nimport { createRouter, createWebHistory } from 'vue-router'\nconst pinia = createPinia()\napp.use(pinia)\napp.use(router)\n```",
       "verificationCriteria": "1. npm install 성공\n2. import { createPinia } from 'pinia' 에러 없음\n3. import { createRouter } from 'vue-router' 에러 없음\n4. import { useTable } from '@tanstack/vue-table' 에러 없음",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "모든 필수 패키지가 성공적으로 설치되었습니다: @tanstack/vue-table ^8.21.3, pinia ^3.0.4, vue-router ^4.6.3. src/router/index.ts에 기본 라우터 구성을 생성하고, src/main.ts에 Pinia와 Vue Router 플러그인을 올바른 순서(Pinia → Router → Naive UI)로 등록했습니다. 개발 서버가 에러 없이 성공적으로 실행되어 모든 import 구문이 정상 작동함을 확인했습니다. 모든 검증 기준을 충족했습니다.",
+      "completedAt": "2025-11-13T15:26:07.629Z"
     },
     {
       "id": "cbab63dd-291c-49ba-af19-878efd0b063a",
