@@ -140,14 +140,14 @@
       "id": "cbab63dd-291c-49ba-af19-878efd0b063a",
       "name": "백엔드 연동 패키지 설치 (Supabase JS Client)",
       "description": "Supabase 데이터베이스 및 인증 시스템과 연동하기 위한 Supabase JavaScript 클라이언트 라이브러리를 설치.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
         }
       ],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T13:29:29.640Z",
+      "updatedAt": "2025-11-13T15:57:57.796Z",
       "relatedFiles": [
         {
           "path": "package.json",
@@ -158,7 +158,9 @@
       "implementationGuide": "1. Supabase JS 설치: `npm install @supabase/supabase-js`\n2. 설치 확인: package.json에서 @supabase/supabase-js 버전 확인\n3. 간단한 import 테스트:\n```typescript\nimport { createClient } from '@supabase/supabase-js'\n```",
       "verificationCriteria": "1. npm install 성공\n2. import { createClient } from '@supabase/supabase-js' TypeScript 에러 없음\n3. package.json에 @supabase/supabase-js 의존성 추가 확인",
       "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "estimatedMinutes": 5
+      "estimatedMinutes": 5,
+      "summary": "Supabase JS 클라이언트 라이브러리 설치 완료. npm install로 @supabase/supabase-js ^2.81.1 설치 성공, package.json에 정상 추가 확인, TypeScript import 테스트 통과 (에러 없음). 모든 검증 기준 충족.",
+      "completedAt": "2025-11-13T15:57:57.792Z"
     },
     {
       "id": "b4729e4b-52b4-4536-a781-6f83387b603b",

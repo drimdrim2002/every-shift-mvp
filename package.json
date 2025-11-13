@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.81.1",
     "@tanstack/vue-table": "^8.21.3",
     "naive-ui": "^2.43.1",
     "pinia": "^3.0.4",
