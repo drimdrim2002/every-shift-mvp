@@ -1013,7 +1013,7 @@
     {
       "id": "554e3f6a-f3ca-48b9-bf2a-078981c219b5",
       "name": "ScheduleGrid 컴포넌트 - ShiftSelector 통합 및 이벤트 처리",
-      "description": "그리드 셀에 ShiftSelector 컴포넌트 통합, shift 선택 이벤트 처리.",
+      "description": "ScheduleGrid의 각 셀에서 ShiftSelector 컴포넌트를 렌더링하고, 클릭 시 시프트 선택 이벤트 처리.\n\n상세 구현 요구사항:\n1. TanStack Table cell renderer에서 ShiftSelector 컴포넌트 렌더링\n2. 셀 위치 계산 및 ShiftSelector 위치 조정\n3. 시프트 선택 시 assignments 업데이트 및 색상 적용\n4. 셀 클릭 이벤트 핸들러 구현\n5. 선택된 시프트를 시각적으로 강조 (불투명도, 배경색)",
       "status": "pending",
       "dependencies": [
         {
@@ -1024,7 +1024,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:48:55.450Z",
-      "updatedAt": "2025-11-13T11:48:55.450Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1094,7 +1094,7 @@
     {
       "id": "27f7dba4-d851-4f13-a47a-44c0729115bf",
       "name": "Step 3: ScheduleGrid 통합 및 데이터 연동",
-      "description": "Step3 페이지에 ScheduleGrid 컴포넌트 통합, useScheduleGrid로 데이터 로드 및 관리.",
+      "description": "Step3InitialData 페이지와 ScheduleGrid 컴포넌트를 통합하고 데이터 양방향 바인딩 구현.\n\n상세 구현 요구사항:\n1. ScheduleGrid Props 정의 (employees, dates, assignments, readonly)\n2. update:assignment 이벤트로 데이터 변경 처리\n3. 통계 데이터 실시간 업데이트\n4. 전월/당월 구분 표시 (배경색)",
       "status": "pending",
       "dependencies": [
         {
@@ -1108,7 +1108,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:48:55.450Z",
-      "updatedAt": "2025-11-13T11:48:55.450Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
       "relatedFiles": [
         {
           "path": "src/views/schedule/Step3InitialData.vue",
@@ -1343,7 +1343,7 @@
     {
       "id": "8f3056c8-375e-4ca3-8330-5dc40a5d9ed4",
       "name": "Step 3에서 Step 4로 연결 (근무표 생성 호출)",
-      "description": "Step 3의 handleGenerate 함수 완성. schedules 레코드 생성 및 AI Solver 호출.",
+      "description": "Step 3에서 \"근무표 생성\" 버튼 클릭 시 AI Solver 호출 및 polling 로직 구현.\n\n상세 구현 요구사항:\n1. 전월 데이터 검증 (validateLastMonthData)\n2. Supabase에 schedule 레코드 생성 (status='created')\n3. AI Solver API 호출 (비동기)\n4. 5초 간격 polling으로 status 체크\n5. 로딩 UI 표시 (모달 또는 인라인)\n6. complete 시 Step 4로 네비게이션\n7. error 시 에러 메시지 표시 및 재시도 옵션",
       "status": "pending",
       "dependencies": [
         {
@@ -1357,7 +1357,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:50:43.100Z",
-      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
       "relatedFiles": [
         {
           "path": "src/views/schedule/Step3InitialData.vue",
@@ -1454,6 +1454,397 @@
       "implementationGuide": "1. src/main.ts 파일 생성\n2. Vue 앱 인스턴스 생성\n3. Pinia store 등록\n4. Vue Router 등록\n5. Naive UI 등록 (필요시)\n6. Tailwind CSS import\n7. #app에 마운트\n\n예시 구조:\n```typescript\nimport { createApp } from 'vue';\nimport { createPinia } from 'pinia';\nimport router from './router';\nimport App from './App.vue';\nimport './assets/index.css';\n\nconst app = createApp(App);\nconst pinia = createPinia();\n\napp.use(pinia);\napp.use(router);\napp.mount('#app');\n```",
       "verificationCriteria": "1. src/main.ts 파일이 생성되었는지 확인\n2. Vue 앱 인스턴스가 올바르게 생성되었는지 확인\n3. Pinia와 Router가 등록되었는지 확인\n4. Tailwind CSS가 import되었는지 확인\n5. app.mount('#app')이 호출되었는지 확인\n6. npm run dev 실행 시 앱이 정상적으로 렌더링되는지 확인",
       "analysisResult": "EveryShift MVP - 간호사 근무표 자동 생성 시스템. 4단계 워크플로우 (기본 정보 → 사이트 정보 → 그리드 입력 → AI 결과 확인)를 통해 30명×36일 근무표를 생성. Vue 3 + TypeScript + Vite + Supabase + TanStack Table 기반. 80%의 개발 노력이 Step 3 ScheduleGrid 컴포넌트에 집중됨."
+    },
+    {
+      "id": "465736f0-3781-40e2-99ff-ac3be05b0214",
+      "name": "Step 1: 월 선택 및 조직 정보 통합",
+      "description": "Step1BasicInfo 페이지에서 월 선택 드롭다운과 조직 정보 표시를 Organization Store와 통합. 선택한 월을 Schedule Store에 저장하고 Step 2로 네비게이션.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "815ca0d3-e230-4c3e-9905-98ad90e66d66"
+        },
+        {
+          "taskId": "2fea27dc-6a6a-4ffb-a713-65a3561d4e7a"
+        },
+        {
+          "taskId": "ab08ce06-628c-4add-84a3-82ecfa564fd8"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "월 선택 및 조직 정보 표시 로직 추가"
+        },
+        {
+          "path": "src/stores/schedule.ts",
+          "type": "TO_MODIFY",
+          "description": "선택한 월 저장 액션 추가"
+        }
+      ],
+      "implementationGuide": "1. Step1BasicInfo.vue에 다음 기능 추가:\n- Naive UI NSelect 컴포넌트로 월 선택 드롭다운\n- getAvailableMonths() 함수로 선택 가능한 월 목록 생성\n- Organization Store에서 조직 정보, 직원 수, 시프트 정보 표시\n- \"다음\" 버튼 클릭 시:\n  - scheduleStore.setBasicInfo({ month, organizationId, ... })\n  - router.push('/schedule/step2')\n\n2. Schedule Store에 setBasicInfo 액션 추가\n\n예시 코드:\n```vue\n<template>\n  <div class=\"p-6\">\n    <n-form>\n      <n-form-item label=\"계획 월\">\n        <n-select v-model:value=\"selectedMonth\" :options=\"monthOptions\" />\n      </n-form-item>\n\n      <n-card title=\"조직 정보\">\n        <p>조직명: {{ orgStore.organization?.name }}</p>\n        <p>직원 수: {{ orgStore.employees.length }}명</p>\n        <div>등록된 시프트:</div>\n        <ul>\n          <li v-for=\"shift in orgStore.shifts\" :key=\"shift.id\">\n            {{ shift.name }} ({{ shift.code }}): {{ shift.startTime }} - {{ shift.endTime }}\n          </li>\n        </ul>\n      </n-card>\n\n      <n-button type=\"primary\" @click=\"handleNext\">다음 단계</n-button>\n    </n-form>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, computed, onMounted } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { useOrganizationStore } from '@/stores/organization';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { getAvailableMonths, getNextMonth } from '@/utils/date';\n\nconst router = useRouter();\nconst orgStore = useOrganizationStore();\nconst scheduleStore = useScheduleStore();\n\nconst selectedMonth = ref(getNextMonth());\nconst monthOptions = computed(() =>\n  getAvailableMonths().map(m => ({ label: m, value: m }))\n);\n\nonMounted(async () => {\n  await orgStore.loadOrganization();\n});\n\nfunction handleNext() {\n  scheduleStore.setBasicInfo({\n    month: selectedMonth.value,\n    organizationId: orgStore.organization!.id,\n    organizationName: orgStore.organization!.name,\n    organizationType: orgStore.organization!.type,\n    employeeCount: orgStore.employees.length,\n    shifts: orgStore.shifts,\n  });\n  router.push('/schedule/step2');\n}\n</script>\n```",
+      "verificationCriteria": "1. 드롭다운에서 월 선택 가능 (이번 달, 다음 달, 다다음 달)\n2. 조직 정보 정상 표시 (이름, 직원 수, 시프트 목록)\n3. \"다음\" 버튼 클릭 시 Schedule Store에 데이터 저장\n4. /schedule/step2로 네비게이션 성공",
+      "analysisResult": "Step 1 통합 작업. 월 선택과 조직 정보를 Organization Store와 연동하여 사용자가 직관적으로 근무표 생성을 시작할 수 있도록 함."
+    },
+    {
+      "id": "2f033c77-b3b8-4907-957e-e5b9061fa837",
+      "name": "Step 2: Site Requirements 그리드 데이터 바인딩",
+      "description": "Step2SiteInfo 페이지에서 요일별 필요 인력 그리드를 useSiteRequirements와 연동. 7행(일~토) × 4열(D/E/N/O) 입력 그리드 구현.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9d0b427-ea0b-462a-9f08-f66ef061af94"
+        },
+        {
+          "taskId": "43d82d62-c79b-448a-85e1-c955ae429469"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "그리드 데이터 바인딩 추가"
+        }
+      ],
+      "implementationGuide": "1. useSiteRequirements에서 요일별 필요 인력 로드\n2. Naive UI NInputNumber로 각 셀 편집 가능하게 구현\n3. 입력값 변경 시 real-time으로 requirements 객체 업데이트\n4. Total 행 자동 계산 (D + E + N + O)\n\n예시 코드:\n```vue\n<template>\n  <div class=\"p-6\">\n    <h2>{{ scheduleStore.basicInfo?.month }} 필요 인력</h2>\n\n    <table class=\"border-collapse w-full\">\n      <thead>\n        <tr>\n          <th>요일</th>\n          <th>D (Day)</th>\n          <th>E (Evening)</th>\n          <th>N (Night)</th>\n          <th>O (Off)</th>\n          <th>Total</th>\n        </tr>\n      </thead>\n      <tbody>\n        <tr v-for=\"dayOfWeek in [0,1,2,3,4,5,6]\" :key=\"dayOfWeek\">\n          <td>{{ ['일','월','화','수','목','금','토'][dayOfWeek] }}</td>\n          <td>\n            <n-input-number\n              v-model:value=\"requirements[dayOfWeek].D\"\n              :min=\"0\"\n              @update:value=\"updateRequirement(dayOfWeek, 'D', $event)\"\n            />\n          </td>\n          <td>\n            <n-input-number\n              v-model:value=\"requirements[dayOfWeek].E\"\n              :min=\"0\"\n            />\n          </td>\n          <td>\n            <n-input-number\n              v-model:value=\"requirements[dayOfWeek].N\"\n              :min=\"0\"\n            />\n          </td>\n          <td>\n            <n-input-number\n              v-model:value=\"requirements[dayOfWeek].O\"\n              :min=\"0\"\n            />\n          </td>\n          <td class=\"font-bold\">{{ calculateTotal(dayOfWeek) }}</td>\n        </tr>\n      </tbody>\n    </table>\n\n    <div class=\"mt-6 flex justify-between\">\n      <n-button @click=\"router.push('/schedule/step1')\">이전</n-button>\n      <n-button type=\"primary\" @click=\"handleNext\">다음 단계</n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, computed } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { useSiteRequirements } from '@/composables/useSiteRequirements';\n\nconst router = useRouter();\nconst scheduleStore = useScheduleStore();\nconst { requirements, loadRequirements, saveRequirements } = useSiteRequirements();\n\nonMounted(async () => {\n  await loadRequirements();\n});\n\nfunction calculateTotal(dayOfWeek: number) {\n  const req = requirements.value[dayOfWeek];\n  return (req.D || 0) + (req.E || 0) + (req.N || 0) + (req.O || 0);\n}\n\nasync function handleNext() {\n  await saveRequirements();\n  router.push('/schedule/step3');\n}\n</script>\n```",
+      "verificationCriteria": "1. 7행 × 4열 그리드 정상 렌더링\n2. NInputNumber에서 숫자 입력 가능\n3. Total 열이 자동 계산됨\n4. 음수 입력 불가 (min=0)",
+      "analysisResult": "Step 2 그리드 데이터 바인딩. 요일별 필요 인력을 입력받아 Step 3에서 AI Solver가 이를 기반으로 최적화된 근무표를 생성하는 데 사용."
+    },
+    {
+      "id": "b1997dac-fe81-457f-ad80-dd32b2a14d8e",
+      "name": "Step 2: 데이터 저장 및 네비게이션",
+      "description": "Step 2에서 입력한 site_requirements 데이터를 Supabase에 저장하고, Schedule Store 업데이트 후 Step 3로 이동.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "43d82d62-c79b-448a-85e1-c955ae429469"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/composables/useSiteRequirements.ts",
+          "type": "TO_MODIFY",
+          "description": "saveRequirements 함수 구현"
+        }
+      ],
+      "implementationGuide": "1. useSiteRequirements에 saveRequirements 함수 추가\n2. Supabase site_requirements 테이블에 upsert\n3. Schedule Store에 siteRequirements 저장\n\n```typescript\nexport function useSiteRequirements() {\n  const requirements = ref<Record<number, DailyRequirement>>({});\n  const scheduleStore = useScheduleStore();\n  const orgStore = useOrganizationStore();\n\n  async function saveRequirements() {\n    // Supabase에 저장\n    const upsertData = [];\n    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {\n      const req = requirements.value[dayOfWeek];\n\n      for (const shift of orgStore.shifts) {\n        if (shift.code === 'H') continue; // Holiday 제외\n\n        const count = req[shift.code as keyof DailyRequirement] || 0;\n\n        upsertData.push({\n          organization_id: orgStore.organization!.id,\n          shift_id: shift.id,\n          day_of_week: dayOfWeek,\n          required_count: count\n        });\n      }\n    }\n\n    const { error } = await supabase\n      .from('site_requirements')\n      .upsert(upsertData, {\n        onConflict: 'organization_id,shift_id,day_of_week'\n      });\n\n    if (error) {\n      console.error('Error saving site requirements:', error);\n      throw error;\n    }\n\n    // Schedule Store 업데이트\n    scheduleStore.setSiteRequirements(requirements.value);\n  }\n\n  return { requirements, loadRequirements, saveRequirements };\n}\n```",
+      "verificationCriteria": "1. saveRequirements 호출 시 Supabase에 21개 레코드 저장 (7일 × 3시프트)\n2. Schedule Store에 requirements 저장 확인\n3. 에러 발생 시 사용자에게 알림 표시",
+      "analysisResult": "Step 2 데이터 저장. 입력한 요일별 필요 인력을 Supabase에 영구 저장하여 다음 로그인 시에도 불러올 수 있도록 함."
+    },
+    {
+      "id": "416df5b8-2373-4984-ae52-d0d92ebe139f",
+      "name": "Step 3: ScheduleGrid 셀 렌더링 및 시프트 배정 통합",
+      "description": "ScheduleGrid의 각 셀에서 ShiftSelector 버튼 그룹을 렌더링하고, 클릭 시 시프트 배정. 셀에 선택된 시프트 색상 적용.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "554e3f6a-f3ca-48b9-bf2a-078981c219b5"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ScheduleGrid.vue",
+          "type": "TO_MODIFY",
+          "description": "셀 렌더링 및 시프트 배정 로직 추가"
+        }
+      ],
+      "implementationGuide": "1. TanStack Table의 cell renderer에서 ShiftSelector 컴포넌트 사용\n2. 각 셀에 현재 배정된 시프트 표시 (색상 포함)\n3. 클릭 시 ShiftSelector 표시 및 선택 시 assignments 업데이트\n\n예시 코드:\n```vue\n<template>\n  <td\n    v-for=\"date in dates\"\n    :key=\"date.date\"\n    :class=\"getCellClass(date)\"\n    class=\"border border-gray-300 p-1\"\n  >\n    <div\n      v-if=\"!readonly\"\n      class=\"flex gap-1 justify-center\"\n    >\n      <button\n        v-for=\"shiftCode in employee.availableShifts\"\n        :key=\"shiftCode\"\n        :class=\"getShiftButtonClass(shiftCode, employee.id, date.date)\"\n        @click=\"handleShiftClick(employee.id, date.date, shiftCode)\"\n        class=\"w-8 h-8 rounded text-xs font-bold border-2 transition-all\"\n      >\n        {{ shiftCode }}\n      </button>\n    </div>\n    <div v-else class=\"text-center font-bold\" :class=\"getShiftColorClass(employee.id, date.date)\">\n      {{ assignments[employee.id]?.[date.date] || '-' }}\n    </div>\n  </td>\n</template>\n\n<script setup lang=\"ts\">\nfunction getShiftButtonClass(shiftCode: string, employeeId: string, date: string) {\n  const isSelected = assignments.value[employeeId]?.[date] === shiftCode;\n  const colorMap = {\n    D: isSelected ? 'bg-lime-400 border-lime-600' : 'border-lime-400 text-lime-700',\n    E: isSelected ? 'bg-orange-400 border-orange-600' : 'border-orange-400 text-orange-700',\n    N: isSelected ? 'bg-blue-600 border-blue-800 text-white' : 'border-blue-600 text-blue-700',\n    O: isSelected ? 'bg-gray-400 border-gray-600' : 'border-gray-400 text-gray-700',\n  };\n  return `${colorMap[shiftCode]} ${isSelected ? 'opacity-100' : 'opacity-40'} hover:opacity-80`;\n}\n\nfunction handleShiftClick(employeeId: string, date: string, shiftCode: string) {\n  emit('update:assignment', { employeeId, date, shiftCode });\n}\n</script>\n```",
+      "verificationCriteria": "1. 각 셀에 4개 시프트 버튼 렌더링 (D/E/N/O)\n2. 클릭 시 선택 상태로 변경 (배경색 채움)\n3. 선택된 시프트만 불투명하게 표시\n4. assignments 객체가 정상 업데이트됨",
+      "analysisResult": "Step 3 핵심 기능. 30명 × 36일 = 1,080개 셀의 시프트 배정 UI를 구현하여 사용자가 전월 데이터와 확정된 당월 데이터를 입력할 수 있도록 함."
+    },
+    {
+      "id": "f9ce7472-2bd7-41bb-b8d8-1d004a8ea947",
+      "name": "Step 3: 실시간 통계 업데이트 통합",
+      "description": "ScheduleGrid에서 useScheduleGridStatistics를 사용하여 assignments 변경 시 행/열 통계를 실시간으로 계산 및 표시.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0cf02d47-06cb-4311-87eb-72a2a9dde547"
+        },
+        {
+          "taskId": "d366f4b1-0468-4a6a-8669-96658ae01e6c"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ScheduleGrid.vue",
+          "type": "TO_MODIFY",
+          "description": "실시간 통계 watch 추가"
+        }
+      ],
+      "implementationGuide": "1. useScheduleGridStatistics에서 assignments를 watch (deep: true)\n2. 변경 시 자동으로 rowStats, columnStats 재계산\n3. 통계 행/열에 계산된 값 표시\n\n예시 코드:\n```typescript\n// useScheduleGridStatistics.ts\nexport function useScheduleGridStatistics(\n  employees: Ref<Employee[]>,\n  dates: Ref<GridColumn[]>,\n  assignments: Ref<AssignmentMap>\n) {\n  const rowStats = ref<Record<string, RowStat>>({});\n  const columnStats = ref<Record<string, ColumnStat>>({});\n\n  // assignments 변경 감지\n  watch(\n    () => assignments.value,\n    () => {\n      calculateStatistics();\n    },\n    { deep: true, immediate: true }\n  );\n\n  function calculateStatistics() {\n    // 행 통계 (근무자별)\n    rowStats.value = {};\n    for (const emp of employees.value) {\n      const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };\n      const empAssignments = assignments.value[emp.id] || {};\n\n      for (const shiftCode of Object.values(empAssignments)) {\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        if (shiftCode !== 'O') stat.total++;\n      }\n\n      rowStats.value[emp.id] = stat;\n    }\n\n    // 열 통계 (날짜별)\n    columnStats.value = {};\n    for (const date of dates.value) {\n      const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };\n\n      for (const emp of employees.value) {\n        const shiftCode = assignments.value[emp.id]?.[date.date];\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        if (shiftCode && shiftCode !== 'O') stat.total++;\n      }\n\n      columnStats.value[date.date] = stat;\n    }\n  }\n\n  return { rowStats, columnStats };\n}\n```",
+      "verificationCriteria": "1. 시프트 선택 시 통계가 즉시 업데이트됨\n2. 행 통계: 각 근무자의 D/E/N 합계 정확\n3. 열 통계: 각 날짜의 D/E/N 합계 정확\n4. Total 값이 정확히 계산됨 (O 제외)",
+      "analysisResult": "실시간 통계 기능. 사용자가 데이터를 입력하는 즉시 각 근무자의 근무일 수와 각 날짜의 배정 인원을 확인할 수 있어 입력 오류를 사전에 방지."
+    },
+    {
+      "id": "fa3cea3d-c35e-4994-9e04-1ef8e36e61b0",
+      "name": "Step 3: 그리드 초기화 및 데이터 로딩 로직",
+      "description": "Step3InitialData 페이지 mount 시 30명 직원 × 36일 날짜 데이터를 로드하고, assignments 객체를 초기화. localStorage에서 임시 저장 데이터 복원.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "27f7dba4-d851-4f13-a47a-44c0729115bf"
+        },
+        {
+          "taskId": "1b7c4930-77fb-4604-89b5-519dab1c560b"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step3InitialData.vue",
+          "type": "TO_MODIFY",
+          "description": "그리드 초기화 로직 추가"
+        }
+      ],
+      "implementationGuide": "1. onMounted에서 다음 순서로 초기화:\n   - Organization Store에서 employees 로드\n   - 전월 5일 + 당월 31일 = 36일 dates 생성\n   - 빈 assignments 객체 초기화\n   - localStorage에서 임시 저장 데이터 복원\n\n예시 코드:\n```vue\n<script setup lang=\"ts\">\nimport { ref, onMounted } from 'vue';\nimport { useOrganizationStore } from '@/stores/organization';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';\nimport type { AssignmentMap, GridColumn } from '@/types/schedule';\n\nconst orgStore = useOrganizationStore();\nconst scheduleStore = useScheduleStore();\n\nconst employees = computed(() => orgStore.employees);\nconst dates = ref<GridColumn[]>([]);\nconst assignments = ref<AssignmentMap>({});\n\nonMounted(async () => {\n  // 1. Employees 로드\n  if (orgStore.employees.length === 0) {\n    await orgStore.loadEmployees();\n  }\n\n  // 2. Dates 생성 (전월 5일 + 당월 31일)\n  const month = scheduleStore.basicInfo!.month;\n  const lastMonth = getLastDaysOfPreviousMonth(month, 5);\n  const thisMonth = getDaysInMonth(month);\n  dates.value = [...lastMonth, ...thisMonth];\n\n  // 3. Assignments 초기화\n  for (const emp of employees.value) {\n    assignments.value[emp.id] = {};\n  }\n\n  // 4. LocalStorage 복원\n  const storageKey = `everyshift_temp_schedule_${month}`;\n  const saved = localStorage.getItem(storageKey);\n  if (saved) {\n    try {\n      const restored = JSON.parse(saved);\n      assignments.value = restored;\n      console.log('Restored from localStorage:', restored);\n    } catch (e) {\n      console.error('Failed to restore from localStorage:', e);\n    }\n  }\n});\n\n// 5. Auto-save to localStorage (debounced)\nwatchDebounced(\n  assignments,\n  (newVal) => {\n    const storageKey = `everyshift_temp_schedule_${scheduleStore.basicInfo!.month}`;\n    localStorage.setItem(storageKey, JSON.stringify(newVal));\n  },\n  { debounce: 500, deep: true }\n);\n</script>\n```",
+      "verificationCriteria": "1. 페이지 로드 시 30명 직원 데이터 로드 확인\n2. 36개 날짜 컬럼 생성 (전월 5일 + 당월 31일)\n3. 빈 assignments 객체 생성\n4. localStorage에 저장된 데이터가 있으면 복원",
+      "analysisResult": "Step 3 초기화. 그리드를 렌더링하기 전에 필요한 모든 데이터를 로드하고 초기화하여 사용자가 즉시 입력을 시작할 수 있도록 함."
+    },
+    {
+      "id": "869ce64c-35c1-49eb-a340-39d6b1c524f4",
+      "name": "Step 3: AI Solver Polling UI 구현",
+      "description": "근무표 생성 버튼 클릭 시 로딩 모달 표시, AI Solver 상태를 5초마다 polling하여 진행률 표시, 완료 시 Step 4로 이동.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "1acadf16-0806-4386-b005-ebf1804a01d6"
+        },
+        {
+          "taskId": "8f3056c8-375e-4ca3-8330-5dc40a5d9ed4"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step3InitialData.vue",
+          "type": "TO_MODIFY",
+          "description": "AI Solver 호출 및 polling UI 추가"
+        },
+        {
+          "path": "src/components/ui/LoadingModal.vue",
+          "type": "CREATE",
+          "description": "로딩 모달 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. \"근무표 생성\" 버튼에 AI Solver 호출 로직 연결\n2. Naive UI NModal로 로딩 모달 표시\n3. useAISolver의 startSolver 및 polling 로직 사용\n4. 상태별 메시지 표시:\n   - created: \"요청 생성 중...\"\n   - running: \"처리 중... (N초 경과)\"\n   - complete: \"완료! 결과를 불러오는 중...\"\n   - error: \"오류 발생\"\n5. complete 시 Step 4로 자동 이동\n\n예시 코드:\n```vue\n<template>\n  <!-- 기존 그리드 -->\n  <ScheduleGrid ... />\n\n  <div class=\"mt-6 flex justify-between\">\n    <n-button @click=\"router.push('/schedule/step2')\">이전</n-button>\n    <n-button\n      type=\"primary\"\n      :loading=\"isGenerating\"\n      @click=\"handleGenerate\"\n    >\n      근무표 생성\n    </n-button>\n  </div>\n\n  <!-- Loading Modal -->\n  <n-modal\n    v-model:show=\"showModal\"\n    :mask-closable=\"false\"\n    title=\"근무표 생성 중\"\n  >\n    <n-card>\n      <div class=\"text-center\">\n        <n-spin size=\"large\" />\n        <p class=\"mt-4 text-lg\">{{ statusMessage }}</p>\n        <p class=\"text-sm text-gray-500\">경과 시간: {{ elapsedTime }}초</p>\n        <n-progress\n          v-if=\"status === 'running'\"\n          type=\"line\"\n          :percentage=\"progress\"\n          status=\"info\"\n        />\n        <n-button\n          class=\"mt-4\"\n          @click=\"handleCancel\"\n        >\n          취소\n        </n-button>\n      </div>\n    </n-card>\n  </n-modal>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, computed } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { useAISolver } from '@/composables/useAISolver';\nimport { validateLastMonthData } from '@/utils/validation';\n\nconst router = useRouter();\nconst { status, startSolver, stopPolling } = useAISolver();\n\nconst showModal = ref(false);\nconst isGenerating = ref(false);\nconst elapsedTime = ref(0);\nlet timerInterval: number | null = null;\n\nconst statusMessage = computed(() => {\n  switch (status.value) {\n    case 'created': return '요청 생성 중...';\n    case 'running': return '처리 중... 잠시만 기다려주세요.';\n    case 'complete': return '완료! 결과를 불러오는 중...';\n    case 'error': return '오류가 발생했습니다.';\n    default: return '';\n  }\n});\n\nconst progress = computed(() => {\n  // Mock progress (실제로는 AI Solver가 제공해야 함)\n  return Math.min(elapsedTime.value * 2, 95);\n});\n\nasync function handleGenerate() {\n  // 1. 전월 데이터 검증\n  const validation = validateLastMonthData(employees.value, dates.value, assignments.value);\n  if (!validation.isValid) {\n    window.$message.error(`전월 데이터를 모두 입력해주세요: ${validation.errors[0]}`);\n    return;\n  }\n\n  // 2. Supabase에 schedule 레코드 생성\n  const scheduleId = await createSchedule();\n\n  // 3. AI Solver 시작 및 Polling\n  showModal.value = true;\n  isGenerating.value = true;\n  elapsedTime.value = 0;\n\n  // 타이머 시작\n  timerInterval = setInterval(() => {\n    elapsedTime.value++;\n  }, 1000);\n\n  try {\n    await startSolver(scheduleId, {\n      employees: employees.value,\n      assignments: assignments.value,\n      // ... 기타 필요한 데이터\n    });\n\n    // 4. 완료 시 Step 4로 이동\n    if (status.value === 'complete') {\n      localStorage.removeItem(`everyshift_temp_schedule_${scheduleStore.basicInfo!.month}`);\n      router.push(`/schedule/step4?scheduleId=${scheduleId}`);\n    }\n  } catch (error) {\n    window.$message.error('근무표 생성 중 오류가 발생했습니다.');\n  } finally {\n    isGenerating.value = false;\n    if (timerInterval) clearInterval(timerInterval);\n  }\n}\n\nfunction handleCancel() {\n  stopPolling();\n  showModal.value = false;\n  isGenerating.value = false;\n  if (timerInterval) clearInterval(timerInterval);\n}\n\nonUnmounted(() => {\n  stopPolling();\n  if (timerInterval) clearInterval(timerInterval);\n});\n</script>\n```",
+      "verificationCriteria": "1. \"근무표 생성\" 버튼 클릭 시 모달 표시\n2. 상태 메시지가 정상적으로 업데이트됨\n3. 경과 시간이 1초마다 증가\n4. complete 상태 시 Step 4로 자동 이동\n5. \"취소\" 버튼으로 polling 중지 가능",
+      "analysisResult": "AI Solver Polling UI. 사용자에게 근무표 생성 진행 상황을 실시간으로 보여주어 대기 시간 동안의 UX를 개선."
+    },
+    {
+      "id": "4d33bb07-3036-46b1-9051-31faf7a3a581",
+      "name": "AI Solver 에러 핸들링 및 재시도",
+      "description": "useAISolver에서 timeout, network error, solver error 처리. 최대 5분 polling 후 timeout, 에러 발생 시 재시도 옵션 제공.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "1acadf16-0806-4386-b005-ebf1804a01d6"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/composables/useAISolver.ts",
+          "type": "TO_MODIFY",
+          "description": "에러 핸들링 로직 추가"
+        }
+      ],
+      "implementationGuide": "1. Polling에 최대 시도 횟수 제한 (60회 = 5분)\n2. Network error 발생 시 exponential backoff retry\n3. Solver error 발생 시 에러 메시지 저장\n4. Timeout 시 사용자에게 알림\n\n예시 코드:\n```typescript\nexport function useAISolver() {\n  const status = ref<string>('idle');\n  const error = ref<string | null>(null);\n  const maxPollingAttempts = 60; // 5분 (5초 × 60회)\n  let pollingAttempts = 0;\n  let pollingInterval: number | null = null;\n\n  async function startSolver(scheduleId: string, payload: SolverPayload) {\n    status.value = 'created';\n    error.value = null;\n    pollingAttempts = 0;\n\n    try {\n      // 1. Schedule status를 'running'으로 변경\n      await supabase\n        .from('schedules')\n        .update({ status: 'running' })\n        .eq('id', scheduleId);\n\n      status.value = 'running';\n\n      // 2. AI Solver API 호출 (비동기)\n      requestAISolver(scheduleId, payload)\n        .then(result => {\n          saveResult(scheduleId, result);\n        })\n        .catch(err => {\n          console.error('AI Solver error:', err);\n          error.value = err.message;\n          supabase\n            .from('schedules')\n            .update({ status: 'error' })\n            .eq('id', scheduleId);\n        });\n\n      // 3. Polling 시작\n      await startPolling(scheduleId);\n    } catch (err: any) {\n      error.value = err.message;\n      status.value = 'error';\n      throw err;\n    }\n  }\n\n  async function startPolling(scheduleId: string) {\n    return new Promise<void>((resolve, reject) => {\n      pollingInterval = setInterval(async () => {\n        pollingAttempts++;\n\n        // Timeout 체크\n        if (pollingAttempts > maxPollingAttempts) {\n          stopPolling();\n          error.value = 'Timeout: 근무표 생성이 5분을 초과했습니다. 다시 시도해주세요.';\n          status.value = 'error';\n          reject(new Error(error.value));\n          return;\n        }\n\n        try {\n          // Supabase에서 status 조회\n          const { data, error: fetchError } = await supabase\n            .from('schedules')\n            .select('status, hard_score, soft_score')\n            .eq('id', scheduleId)\n            .single();\n\n          if (fetchError) {\n            throw fetchError;\n          }\n\n          status.value = data.status;\n\n          if (data.status === 'complete') {\n            stopPolling();\n            resolve();\n          } else if (data.status === 'error') {\n            stopPolling();\n            error.value = 'AI Solver에서 오류가 발생했습니다.';\n            reject(new Error(error.value));\n          }\n        } catch (err: any) {\n          console.error('Polling error:', err);\n          // Network error는 다음 polling에서 재시도\n          if (pollingAttempts > maxPollingAttempts) {\n            stopPolling();\n            error.value = 'Network error: 연결이 불안정합니다.';\n            status.value = 'error';\n            reject(new Error(error.value));\n          }\n        }\n      }, 5000); // 5초마다\n    });\n  }\n\n  function stopPolling() {\n    if (pollingInterval) {\n      clearInterval(pollingInterval);\n      pollingInterval = null;\n    }\n  }\n\n  return { status, error, startSolver, stopPolling };\n}\n```",
+      "verificationCriteria": "1. 5분(60회) 이후 timeout 발생\n2. Network error 시 다음 polling 재시도\n3. Solver error 시 error 상태로 변경\n4. 에러 메시지가 error ref에 저장됨",
+      "analysisResult": "AI Solver 에러 핸들링. 네트워크 오류, Solver 오류, Timeout 등 다양한 실패 시나리오에 대응하여 안정적인 사용자 경험 제공."
+    },
+    {
+      "id": "af35c607-9eef-49e6-8c2e-de6dd0b996ac",
+      "name": "Step 4: AI 결과 로드 및 그리드 표시 상세 구현",
+      "description": "Step4Result 페이지에서 schedule_id로 schedule_assignments를 조회하여 AssignmentMap으로 변환, ScheduleGrid에 전달하여 AI 생성 결과 표시.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0"
+        },
+        {
+          "taskId": "4e11a307-d943-4f6a-881a-903d99c71007"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "AI 결과 로드 로직 추가"
+        },
+        {
+          "path": "src/api/schedule.ts",
+          "type": "TO_MODIFY",
+          "description": "loadScheduleAssignments 함수 추가"
+        }
+      ],
+      "implementationGuide": "1. URL query parameter에서 scheduleId 가져오기\n2. Schedule API를 통해 schedule과 schedule_assignments 조회\n3. schedule_assignments를 AssignmentMap 형식으로 변환\n4. ScheduleGrid에 전달하여 렌더링\n\n예시 코드:\n```vue\n<template>\n  <div class=\"p-6\">\n    <n-card title=\"근무표 생성 결과\">\n      <div class=\"mb-4 flex justify-between items-center\">\n        <div>\n          <n-tag :type=\"getStatusType(schedule?.status)\">\n            {{ getStatusLabel(schedule?.status) }}\n          </n-tag>\n          <span class=\"ml-4\">Hard Score: {{ schedule?.hard_score || 0 }}</span>\n          <span class=\"ml-4\">Soft Score: {{ schedule?.soft_score || 0 }}</span>\n        </div>\n        <div class=\"flex gap-2\">\n          <n-button @click=\"handleRegenerate\">더 개선하기</n-button>\n          <n-button type=\"primary\" @click=\"handleExport\">엑셀 다운로드</n-button>\n        </div>\n      </div>\n\n      <ScheduleGrid\n        v-if=\"employees.length > 0 && dates.length > 0\"\n        :employees=\"employees\"\n        :dates=\"dates\"\n        :assignments=\"assignments\"\n        :readonly=\"false\"\n        @update:assignment=\"handleAssignmentUpdate\"\n      />\n    </n-card>\n\n    <div class=\"mt-6 flex justify-between\">\n      <n-button @click=\"router.push('/schedule/step3')\">이전</n-button>\n      <n-button type=\"primary\" @click=\"handleSave\">저장 및 완료</n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, onMounted } from 'vue';\nimport { useRoute, useRouter } from 'vue-router';\nimport { useOrganizationStore } from '@/stores/organization';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { loadScheduleAssignments, updateScheduleAssignment } from '@/api/schedule';\nimport { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';\nimport type { AssignmentMap, GridColumn } from '@/types/schedule';\n\nconst route = useRoute();\nconst router = useRouter();\nconst orgStore = useOrganizationStore();\nconst scheduleStore = useScheduleStore();\n\nconst scheduleId = ref<string>('');\nconst schedule = ref<any>(null);\nconst employees = computed(() => orgStore.employees);\nconst dates = ref<GridColumn[]>([]);\nconst assignments = ref<AssignmentMap>({});\nconst changedCells = ref<Set<string>>(new Set()); // 변경된 셀 추적\n\nonMounted(async () => {\n  scheduleId.value = route.query.scheduleId as string;\n\n  if (!scheduleId.value) {\n    window.$message.error('잘못된 접근입니다.');\n    router.push('/schedule/step1');\n    return;\n  }\n\n  // 1. Employees 로드\n  if (orgStore.employees.length === 0) {\n    await orgStore.loadEmployees();\n  }\n\n  // 2. Dates 생성\n  const month = scheduleStore.basicInfo!.month;\n  const lastMonth = getLastDaysOfPreviousMonth(month, 5);\n  const thisMonth = getDaysInMonth(month);\n  dates.value = [...lastMonth, ...thisMonth];\n\n  // 3. Schedule 및 Assignments 로드\n  const result = await loadScheduleAssignments(scheduleId.value);\n  schedule.value = result.schedule;\n  assignments.value = result.assignments;\n});\n\nfunction handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {\n  assignments.value[payload.employeeId][payload.date] = payload.shiftCode;\n  changedCells.value.add(`${payload.employeeId}_${payload.date}`);\n}\n\nasync function handleSave() {\n  if (changedCells.value.size > 0) {\n    // 변경된 셀만 Supabase에 업데이트\n    for (const key of changedCells.value) {\n      const [employeeId, date] = key.split('_');\n      const shiftCode = assignments.value[employeeId][date];\n      await updateScheduleAssignment(scheduleId.value, employeeId, date, shiftCode);\n    }\n\n    // Schedule status를 'changed'로 업데이트\n    await supabase\n      .from('schedules')\n      .update({ status: 'changed' })\n      .eq('id', scheduleId.value);\n\n    window.$message.success('저장되었습니다.');\n  }\n\n  router.push('/');\n}\n</script>\n```\n\n```typescript\n// api/schedule.ts\nexport async function loadScheduleAssignments(scheduleId: string) {\n  // Schedule 조회\n  const { data: schedule, error: scheduleError } = await supabase\n    .from('schedules')\n    .select('*')\n    .eq('id', scheduleId)\n    .single();\n\n  if (scheduleError) throw scheduleError;\n\n  // Schedule Assignments 조회\n  const { data: assignmentRows, error: assignmentsError } = await supabase\n    .from('schedule_assignments')\n    .select(`\n      employee_id,\n      date,\n      shifts (code)\n    `)\n    .eq('schedule_id', scheduleId);\n\n  if (assignmentsError) throw assignmentsError;\n\n  // AssignmentMap으로 변환\n  const assignments: AssignmentMap = {};\n  for (const row of assignmentRows) {\n    if (!assignments[row.employee_id]) {\n      assignments[row.employee_id] = {};\n    }\n    assignments[row.employee_id][row.date] = row.shifts.code;\n  }\n\n  return { schedule, assignments };\n}\n\nexport async function updateScheduleAssignment(\n  scheduleId: string,\n  employeeId: string,\n  date: string,\n  shiftCode: string\n) {\n  // shift_id 조회\n  const { data: shift } = await supabase\n    .from('shifts')\n    .select('id')\n    .eq('code', shiftCode)\n    .single();\n\n  if (!shift) throw new Error('Invalid shift code');\n\n  // Update or Insert\n  const { error } = await supabase\n    .from('schedule_assignments')\n    .upsert({\n      schedule_id: scheduleId,\n      employee_id: employeeId,\n      shift_id: shift.id,\n      date,\n    }, {\n      onConflict: 'schedule_id,employee_id,date'\n    });\n\n  if (error) throw error;\n}\n```",
+      "verificationCriteria": "1. Step 4 페이지 로드 시 AI 결과 정상 표시\n2. Schedule 상태와 Score 표시\n3. 그리드에 모든 assignments 렌더링\n4. 셀 수정 시 changedCells에 추적",
+      "analysisResult": "Step 4 AI 결과 표시. AI Solver가 생성한 최적화된 근무표를 사용자에게 보여주고, 필요시 수동으로 수정할 수 있도록 함."
+    },
+    {
+      "id": "65ea57ca-d50b-4ae6-a962-7f51f3d5facf",
+      "name": "Step 4: 수동 편집 및 저장 기능",
+      "description": "Step 4에서 사용자가 AI 생성 결과를 수동으로 수정할 수 있도록 편집 기능 제공. 변경된 셀만 Supabase에 업데이트하고 status를 'changed'로 변경.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "수동 편집 및 저장 로직"
+        }
+      ],
+      "implementationGuide": "1. ScheduleGrid의 readonly를 false로 설정하여 편집 가능하게 함\n2. update:assignment 이벤트로 변경 사항 추적\n3. \"저장\" 버튼으로 변경된 셀만 Supabase에 업데이트\n\n예시 코드는 앞의 task에 포함되어 있음.\n\n추가 기능:\n- 변경된 셀을 시각적으로 표시 (border 색상 변경 등)\n- \"변경 사항 취소\" 버튼으로 원래 AI 결과로 복원\n- 저장 전 확인 모달 표시",
+      "verificationCriteria": "1. 그리드에서 시프트 변경 가능\n2. 변경된 셀이 changedCells에 추적됨\n3. \"저장\" 버튼으로 변경 사항만 Supabase에 업데이트\n4. Schedule status가 'changed'로 변경",
+      "analysisResult": "Step 4 수동 편집. AI가 생성한 결과가 완벽하지 않을 수 있으므로, 사용자가 직접 수정하여 최종 근무표를 완성할 수 있도록 함."
+    },
+    {
+      "id": "7270b220-cc07-4802-bef3-5974f26e1800",
+      "name": "Router Guards: Step 진행 Validation",
+      "description": "Vue Router guards에서 각 Step 접근 시 이전 Step 완료 여부를 검증. Step 순서를 건너뛰거나 데이터 없이 접근하는 것을 방지.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e5371342-e3f2-4d8e-b3ea-c340b981456e"
+        },
+        {
+          "taskId": "2fea27dc-6a6a-4ffb-a713-65a3561d4e7a"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/router/guards.ts",
+          "type": "CREATE",
+          "description": "Step validation guards"
+        },
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "Guards 적용"
+        }
+      ],
+      "implementationGuide": "1. router/guards.ts 파일 생성\n2. Step별 진행 조건 검증 함수 작성\n3. router.beforeEach에 guard 추가\n\n예시 코드:\n```typescript\n// router/guards.ts\nimport type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';\nimport { useScheduleStore } from '@/stores/schedule';\n\nexport function stepProgressGuard(\n  to: RouteLocationNormalized,\n  from: RouteLocationNormalized,\n  next: NavigationGuardNext\n) {\n  const scheduleStore = useScheduleStore();\n\n  // Step 2 접근 시 Step 1 완료 확인\n  if (to.path === '/schedule/step2') {\n    if (!scheduleStore.basicInfo?.month) {\n      window.$message.warning('먼저 기본 정보를 입력해주세요.');\n      next('/schedule/step1');\n      return;\n    }\n  }\n\n  // Step 3 접근 시 Step 2 완료 확인\n  if (to.path === '/schedule/step3') {\n    if (!scheduleStore.basicInfo?.month) {\n      next('/schedule/step1');\n      return;\n    }\n    // siteRequirements 확인은 optional (사용자가 저장하지 않을 수도 있음)\n  }\n\n  // Step 4 접근 시 scheduleId 필수\n  if (to.path === '/schedule/step4') {\n    if (!to.query.scheduleId) {\n      window.$message.warning('잘못된 접근입니다.');\n      next('/schedule/step3');\n      return;\n    }\n  }\n\n  next();\n}\n\n// router/index.ts\nimport { stepProgressGuard } from './guards';\n\nrouter.beforeEach((to, from, next) => {\n  // Auth guard\n  if (to.meta.requiresAuth && !authStore.isAuthenticated) {\n    next('/login');\n    return;\n  }\n\n  // Step progress guard\n  if (to.path.startsWith('/schedule/step')) {\n    stepProgressGuard(to, from, next);\n    return;\n  }\n\n  next();\n});\n```",
+      "verificationCriteria": "1. Step 2 직접 접근 시 Step 1로 리다이렉트\n2. Step 3 직접 접근 시 basicInfo 없으면 Step 1로 리다이렉트\n3. Step 4 직접 접근 시 scheduleId 없으면 Step 3로 리다이렉트\n4. 경고 메시지 표시",
+      "analysisResult": "Router Guards. 사용자가 Step을 건너뛰거나 잘못된 순서로 접근하는 것을 방지하여 데이터 무결성을 보장."
+    },
+    {
+      "id": "c85b26a3-1777-46dc-bc10-689ead894a01",
+      "name": "StatisticsSummary 컴포넌트 구현",
+      "description": "그리드 하단에 표시할 통계 요약 컴포넌트. 전체 D/E/N 합계, 평균, 제약 조건 위반 여부를 표시.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0cf02d47-06cb-4311-87eb-72a2a9dde547"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/StatisticsSummary.vue",
+          "type": "CREATE",
+          "description": "통계 요약 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. Props로 rowStats, columnStats 받기\n2. 전체 D/E/N 합계 계산\n3. 평균 계산 (총 근무일 / 직원 수)\n4. 제약 조건 위반 체크 (예: 일일 필요 인력 미달)\n\n예시 코드:\n```vue\n<template>\n  <n-card title=\"통계 요약\" class=\"mt-4\">\n    <n-grid cols=\"4\" x-gap=\"12\">\n      <n-gi>\n        <n-statistic label=\"Day 근무\">\n          <template #suffix>일</template>\n          {{ totalD }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"Evening 근무\">\n          <template #suffix>일</template>\n          {{ totalE }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"Night 근무\">\n          <template #suffix>일</template>\n          {{ totalN }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"평균 근무일\">\n          <template #suffix>일/인</template>\n          {{ averageWorkDays.toFixed(1) }}\n        </n-statistic>\n      </n-gi>\n    </n-grid>\n\n    <n-alert\n      v-if=\"violations.length > 0\"\n      type=\"warning\"\n      title=\"제약 조건 위반\"\n      class=\"mt-4\"\n    >\n      <ul>\n        <li v-for=\"v in violations\" :key=\"v\">{{ v }}</li>\n      </ul>\n    </n-alert>\n  </n-card>\n</template>\n\n<script setup lang=\"ts\">\nimport { computed } from 'vue';\nimport type { RowStat, ColumnStat } from '@/types/schedule';\n\ninterface Props {\n  rowStats: Record<string, RowStat>;\n  columnStats: Record<string, ColumnStat>;\n  employeeCount: number;\n}\n\nconst props = defineProps<Props>();\n\nconst totalD = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.D, 0);\n});\n\nconst totalE = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.E, 0);\n});\n\nconst totalN = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.N, 0);\n});\n\nconst totalWorkDays = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.total, 0);\n});\n\nconst averageWorkDays = computed(() => {\n  return props.employeeCount > 0 ? totalWorkDays.value / props.employeeCount : 0;\n});\n\nconst violations = computed(() => {\n  const v: string[] = [];\n\n  // 제약 조건 체크 로직\n  // 예: 일일 필요 인력 미달, 개인별 과도한 야간 근무 등\n\n  return v;\n});\n</script>\n```",
+      "verificationCriteria": "1. D/E/N 전체 합계 정확히 계산\n2. 평균 근무일 계산 정확\n3. 제약 조건 위반 시 경고 표시\n4. 실시간으로 통계 업데이트",
+      "analysisResult": "StatisticsSummary 컴포넌트. 전체 근무표의 통계를 한눈에 볼 수 있게 하여 사용자가 공정성과 제약 조건 준수 여부를 빠르게 파악할 수 있도록 함."
+    },
+    {
+      "id": "d51c33e6-b453-4137-9177-e240f49bd6ae",
+      "name": "LoadingModal 컴포넌트 (AI Solver용)",
+      "description": "AI Solver 처리 중 표시할 로딩 모달 컴포넌트. 스피너, 상태 메시지, 경과 시간, 진행률, 취소 버튼 포함.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/ui/LoadingModal.vue",
+          "type": "CREATE",
+          "description": "로딩 모달 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. Naive UI NModal, NSpin, NProgress 사용\n2. Props: show, status, message, elapsedTime, progress\n3. Emit: cancel\n\n예시 코드:\n```vue\n<template>\n  <n-modal\n    :show=\"show\"\n    :mask-closable=\"false\"\n    title=\"근무표 생성 중\"\n    preset=\"card\"\n    style=\"width: 500px\"\n  >\n    <div class=\"text-center py-6\">\n      <n-spin size=\"large\" />\n\n      <p class=\"mt-6 text-lg font-semibold\">{{ message }}</p>\n\n      <div class=\"mt-4 text-sm text-gray-500\">\n        경과 시간: {{ elapsedTime }}초\n      </div>\n\n      <n-progress\n        v-if=\"status === 'running'\"\n        type=\"line\"\n        :percentage=\"progress\"\n        status=\"info\"\n        class=\"mt-4\"\n      />\n\n      <n-button\n        class=\"mt-6\"\n        @click=\"emit('cancel')\"\n      >\n        취소\n      </n-button>\n    </div>\n  </n-modal>\n</template>\n\n<script setup lang=\"ts\">\ninterface Props {\n  show: boolean;\n  status: string;\n  message: string;\n  elapsedTime: number;\n  progress: number;\n}\n\nconst props = defineProps<Props>();\nconst emit = defineEmits<{\n  cancel: [];\n}>();\n</script>\n```",
+      "verificationCriteria": "1. 모달이 정상적으로 표시됨\n2. 스피너 애니메이션 작동\n3. 메시지, 경과 시간이 정상 표시\n4. 진행률 바가 업데이트됨\n5. \"취소\" 버튼 클릭 시 cancel 이벤트 emit",
+      "analysisResult": "LoadingModal 컴포넌트. AI Solver 처리 중 사용자에게 명확한 피드백을 제공하여 대기 시간 동안의 UX를 개선."
+    },
+    {
+      "id": "c49d7612-e612-490a-925f-bfa565c5d329",
+      "name": "useScheduleGridInit Composable - 그리드 초기화 로직 분리",
+      "description": "ScheduleGrid 초기화 로직을 별도 composable로 분리하여 재사용성 향상. 직원 로드, 날짜 생성, TanStack Table 설정을 캡슐화.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "ecef5ddf-8b06-40aa-93b6-2cb6459b516d"
+        },
+        {
+          "taskId": "13da374f-1c07-4102-b10c-46f3ac58a447"
+        }
+      ],
+      "createdAt": "2025-11-13T13:19:03.005101Z",
+      "updatedAt": "2025-11-13T13:19:03.005101Z",
+      "relatedFiles": [
+        {
+          "path": "src/composables/useScheduleGridInit.ts",
+          "type": "CREATE",
+          "description": "그리드 초기화 로직 composable"
+        }
+      ],
+      "implementationGuide": "1. src/composables/useScheduleGridInit.ts 파일 생성\n2. 그리드 초기화에 필요한 모든 로직을 캡슐화\n\n예시 코드:\n```typescript\nimport { ref, computed } from 'vue';\nimport type { Ref } from 'vue';\nimport { useOrganizationStore } from '@/stores/organization';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\nexport function useScheduleGridInit() {\n  const orgStore = useOrganizationStore();\n  const scheduleStore = useScheduleStore();\n\n  const employees = ref<Employee[]>([]);\n  const dates = ref<GridColumn[]>([]);\n  const assignments = ref<AssignmentMap>({});\n  const isInitialized = ref(false);\n\n  /**\n   * 그리드 초기화\n   * @param includeLastMonth - 전월 데이터 포함 여부 (Step 3에서만 true)\n   */\n  async function initializeGrid(includeLastMonth = false) {\n    if (isInitialized.value) {\n      console.warn('Grid already initialized');\n      return;\n    }\n\n    // 1. Employees 로드\n    if (orgStore.employees.length === 0) {\n      await orgStore.loadEmployees();\n    }\n    employees.value = orgStore.employees;\n\n    // 2. Dates 생성\n    const month = scheduleStore.basicInfo?.month;\n    if (!month) {\n      throw new Error('Month not selected in Schedule Store');\n    }\n\n    if (includeLastMonth) {\n      // Step 3: 전월 5일 + 당월 31일\n      const lastMonth = getLastDaysOfPreviousMonth(month, 5);\n      const thisMonth = getDaysInMonth(month);\n      dates.value = [...lastMonth, ...thisMonth];\n    } else {\n      // Step 2, Step 4: 당월만\n      dates.value = getDaysInMonth(month);\n    }\n\n    // 3. Assignments 초기화\n    for (const emp of employees.value) {\n      assignments.value[emp.id] = {};\n    }\n\n    isInitialized.value = true;\n\n    console.log(`Grid initialized: ${employees.value.length} employees, ${dates.value.length} dates`);\n  }\n\n  /**\n   * 그리드 리셋 (다른 월로 변경 시)\n   */\n  function resetGrid() {\n    employees.value = [];\n    dates.value = [];\n    assignments.value = {};\n    isInitialized.value = false;\n  }\n\n  /**\n   * TanStack Table용 컬럼 정의 생성\n   */\n  const columns = computed(() => {\n    // TanStack Table column definitions\n    // 여기서는 간단히 날짜 컬럼 리스트만 반환\n    return dates.value.map(date => ({\n      accessorKey: date.date,\n      header: `${date.day}일`,\n      meta: {\n        date: date.date,\n        isLastMonth: date.isLastMonth,\n      },\n    }));\n  });\n\n  return {\n    // State\n    employees,\n    dates,\n    assignments,\n    isInitialized,\n\n    // Computed\n    columns,\n\n    // Methods\n    initializeGrid,\n    resetGrid,\n  };\n}\n```\n\n3. Step 3에서 사용 예시:\n```typescript\n// views/schedule/Step3InitialData.vue\nimport { useScheduleGridInit } from '@/composables/useScheduleGridInit';\nimport { useScheduleGridPersistence } from '@/composables/useScheduleGridPersistence';\n\nconst { employees, dates, assignments, initializeGrid } = useScheduleGridInit();\nconst { restoreFromStorage, saveToStorage } = useScheduleGridPersistence(assignments);\n\nonMounted(async () => {\n  await initializeGrid(true); // 전월 포함\n  restoreFromStorage(); // localStorage 복원\n});\n```",
+      "verificationCriteria": "1. useScheduleGridInit composable 파일 생성\n2. initializeGrid() 호출 시 employees, dates, assignments 초기화\n3. includeLastMonth 파라미터에 따라 날짜 범위 조정\n4. resetGrid()로 초기화 상태 리셋 가능\n5. TypeScript 타입 에러 없음",
+      "analysisResult": "그리드 초기화 로직 분리. 복잡한 초기화 로직을 composable로 캡슐화하여 Step 2, 3, 4에서 재사용 가능하게 하고 코드 가독성을 향상."
+    },
+    {
+      "id": "4c0036b1-9fb7-413a-b472-61ae9629d1d9",
+      "name": "useScheduleGridPersistence Composable - LocalStorage 로직 분리",
+      "description": "LocalStorage 저장/복원 로직을 별도 composable로 분리. Debounced auto-save, 버전 관리, 데이터 마이그레이션 기능 포함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "1b7c4930-77fb-4604-89b5-519dab1c560b"
+        },
+        {
+          "taskId": "b4729e4b-52b4-4536-a781-6f83387b603b"
+        }
+      ],
+      "createdAt": "2025-11-13T13:19:03.005101Z",
+      "updatedAt": "2025-11-13T13:19:03.005101Z",
+      "relatedFiles": [
+        {
+          "path": "src/composables/useScheduleGridPersistence.ts",
+          "type": "CREATE",
+          "description": "LocalStorage persistence composable"
+        }
+      ],
+      "implementationGuide": "1. src/composables/useScheduleGridPersistence.ts 파일 생성\n2. VueUse의 watchDebounced 사용하여 auto-save 구현\n3. 버전 관리로 데이터 구조 변경 대응\n\n예시 코드:\n```typescript\nimport { watchDebounced } from '@vueuse/core';\nimport type { Ref } from 'vue';\nimport { useScheduleStore } from '@/stores/schedule';\nimport type { AssignmentMap } from '@/types/schedule';\n\n// localStorage 데이터 버전\nconst STORAGE_VERSION = 1;\n\ninterface StoredData {\n  version: number;\n  assignments: AssignmentMap;\n  savedAt: string;\n}\n\nexport function useScheduleGridPersistence(assignments: Ref<AssignmentMap>) {\n  const scheduleStore = useScheduleStore();\n\n  /**\n   * Storage key 생성\n   */\n  function getStorageKey(): string {\n    const month = scheduleStore.basicInfo?.month;\n    if (!month) {\n      throw new Error('Month not selected');\n    }\n    return `everyshift_temp_schedule_${month}`;\n  }\n\n  /**\n   * LocalStorage에서 복원\n   */\n  function restoreFromStorage(): boolean {\n    try {\n      const key = getStorageKey();\n      const saved = localStorage.getItem(key);\n\n      if (!saved) {\n        console.log('No saved data found');\n        return false;\n      }\n\n      const data: StoredData = JSON.parse(saved);\n\n      // 버전 체크\n      if (data.version !== STORAGE_VERSION) {\n        console.warn(`Storage version mismatch: ${data.version} vs ${STORAGE_VERSION}`);\n        // 필요시 데이터 마이그레이션 로직 추가\n        return false;\n      }\n\n      // Assignments 복원\n      assignments.value = data.assignments;\n\n      const savedTime = new Date(data.savedAt).toLocaleString('ko-KR');\n      console.log(`Restored from localStorage: ${savedTime}`);\n      window.$message?.success(`저장된 데이터를 불러왔습니다 (${savedTime})`);\n\n      return true;\n    } catch (error) {\n      console.error('Failed to restore from localStorage:', error);\n      return false;\n    }\n  }\n\n  /**\n   * LocalStorage에 저장 (즉시)\n   */\n  function saveToStorage() {\n    try {\n      const key = getStorageKey();\n      const data: StoredData = {\n        version: STORAGE_VERSION,\n        assignments: assignments.value,\n        savedAt: new Date().toISOString(),\n      };\n\n      localStorage.setItem(key, JSON.stringify(data));\n      console.log('Saved to localStorage');\n    } catch (error) {\n      console.error('Failed to save to localStorage:', error);\n    }\n  }\n\n  /**\n   * LocalStorage에서 삭제\n   */\n  function clearStorage() {\n    try {\n      const key = getStorageKey();\n      localStorage.removeItem(key);\n      console.log('Cleared localStorage');\n    } catch (error) {\n      console.error('Failed to clear localStorage:', error);\n    }\n  }\n\n  /**\n   * Auto-save 설정 (500ms debounce)\n   */\n  function setupAutoSave() {\n    watchDebounced(\n      assignments,\n      () => {\n        saveToStorage();\n      },\n      { debounce: 500, deep: true }\n    );\n\n    console.log('Auto-save enabled (500ms debounce)');\n  }\n\n  /**\n   * 저장된 데이터 존재 여부 확인\n   */\n  function hasSavedData(): boolean {\n    try {\n      const key = getStorageKey();\n      return localStorage.getItem(key) !== null;\n    } catch {\n      return false;\n    }\n  }\n\n  /**\n   * 저장된 데이터 정보 가져오기\n   */\n  function getSavedDataInfo(): { savedAt: string; version: number } | null {\n    try {\n      const key = getStorageKey();\n      const saved = localStorage.getItem(key);\n\n      if (!saved) return null;\n\n      const data: StoredData = JSON.parse(saved);\n      return {\n        savedAt: data.savedAt,\n        version: data.version,\n      };\n    } catch {\n      return null;\n    }\n  }\n\n  return {\n    // Methods\n    restoreFromStorage,\n    saveToStorage,\n    clearStorage,\n    setupAutoSave,\n    hasSavedData,\n    getSavedDataInfo,\n  };\n}\n```\n\n3. Step 3에서 사용 예시:\n```typescript\n// views/schedule/Step3InitialData.vue\nimport { useScheduleGridInit } from '@/composables/useScheduleGridInit';\nimport { useScheduleGridPersistence } from '@/composables/useScheduleGridPersistence';\n\nconst { employees, dates, assignments, initializeGrid } = useScheduleGridInit();\nconst {\n  restoreFromStorage,\n  setupAutoSave,\n  clearStorage,\n  hasSavedData,\n  getSavedDataInfo\n} = useScheduleGridPersistence(assignments);\n\nonMounted(async () => {\n  await initializeGrid(true);\n\n  // 저장된 데이터 확인\n  if (hasSavedData()) {\n    const info = getSavedDataInfo();\n    const savedTime = new Date(info!.savedAt).toLocaleString('ko-KR');\n\n    // 사용자에게 확인 요청\n    const confirmed = confirm(`저장된 데이터가 있습니다. (${savedTime})\\n불러오시겠습니까?`);\n    if (confirmed) {\n      restoreFromStorage();\n    }\n  }\n\n  // Auto-save 활성화\n  setupAutoSave();\n});\n\n// AI Solver 완료 시 localStorage 삭제\nasync function handleGenerate() {\n  // ... AI Solver 로직 ...\n\n  if (status.value === 'complete') {\n    clearStorage(); // 임시 데이터 삭제\n    router.push(`/schedule/step4?scheduleId=${scheduleId}`);\n  }\n}\n```",
+      "verificationCriteria": "1. useScheduleGridPersistence composable 파일 생성\n2. restoreFromStorage()로 localStorage 데이터 복원\n3. setupAutoSave()로 500ms debounced auto-save 작동\n4. clearStorage()로 데이터 삭제 가능\n5. hasSavedData()로 저장 데이터 존재 확인\n6. 버전 관리로 데이터 구조 변경 시 안전하게 처리",
+      "analysisResult": "LocalStorage 로직 분리. 자동 저장, 데이터 복원, 버전 관리를 composable로 캡슐화하여 Step 3에서 사용자가 입력한 데이터를 안전하게 보존."
     }
   ]
 }
