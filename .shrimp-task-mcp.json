@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+     "shrimp-task-manager": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/mcp/shrimp-task-manager.sh"]
+    },
+  }
+}

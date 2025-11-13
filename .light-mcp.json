@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/mcp/context7.sh"]
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/mcp/sequential-thinking.sh"]
+    }
+  }
+}
