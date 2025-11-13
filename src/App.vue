@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import HelloWorld from './components/HelloWorld.vue'
+import { NButton, NSpace } from 'naive-ui'
 </script>
 
 <template>
@@ -12,6 +13,15 @@ import HelloWorld from './components/HelloWorld.vue'
     </a>
   </div>
   <HelloWorld msg="Vite + Vue" />
+
+  <!-- Test Tailwind CSS and Naive UI -->
+  <div class="mt-8 p-4 bg-blue-100 rounded-lg">
+    <p class="text-blue-600 font-bold mb-4">Tailwind CSS Test: This text should be blue and bold</p>
+    <NSpace>
+      <NButton type="primary">Naive UI Primary Button</NButton>
+      <NButton type="success">Naive UI Success Button</NButton>
+    </NSpace>
+  </div>
 </template>
 
 <style scoped>
