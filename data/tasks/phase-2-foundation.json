@@ -1,0 +1,321 @@
+{
+  "metadata": {
+    "phase": "phase-2-foundation",
+    "label": "Foundation Layer",
+    "description": "TypeScript types, utilities, API clients, layout components",
+    "taskCount": 12
+  },
+  "tasks": [
+    {
+      "id": "9b220011-43f5-4bf5-9f1c-1083deab00f8",
+      "name": "Supabase 클라이언트 생성 및 연결 테스트 (api/supabase.ts)",
+      "description": "Supabase JavaScript 클라이언트를 생성하고, 간단한 쿼리로 데이터베이스 연결을 테스트.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "48f3a743-a0ff-4fb3-8970-2877edcbc56e"
+        },
+        {
+          "taskId": "cbab63dd-291c-49ba-af19-878efd0b063a"
+        },
+        {
+          "taskId": "ad6edb9e-3bf9-4f70-9882-0b9c451678f8"
+        },
+        {
+          "taskId": "86cd143d-005a-4596-8247-f65afd33407b"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T13:29:29.640963Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/supabase.ts",
+          "type": "CREATE",
+          "description": "Supabase 클라이언트 생성 및 export"
+        }
+      ],
+      "implementationGuide": "1. src/api/supabase.ts 파일 생성\n2. 다음 코드 작성:\n```typescript\nimport { createClient } from '@supabase/supabase-js'\n\nconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL\nconst supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY\n\nif (!supabaseUrl || !supabaseKey) {\n  throw new Error('Missing Supabase environment variables')\n}\n\nexport const supabase = createClient(supabaseUrl, supabaseKey)\n\n// 타입 정의는 나중에 추가 예정\nexport type Database = {\n  public: {\n    Tables: {\n      // TODO: 타입 정의 추가\n    }\n  }\n}\n```\n3. App.vue 또는 테스트 컴포넌트에서 연결 테스트:\n```typescript\nimport { supabase } from '@/api/supabase'\nimport { onMounted } from 'vue'\n\nonMounted(async () => {\n  const { data, error } = await supabase\n    .from('organizations')\n    .select('*')\n  \n  if (error) {\n    console.error('Supabase connection error:', error)\n  } else {\n    console.log('Supabase connected! Organizations:', data)\n  }\n})\n```\n4. 브라우저 콘솔에서 데이터 출력 확인",
+      "verificationCriteria": "1. api/supabase.ts 파일 생성 완료\n2. createClient 호출 성공 (에러 없음)\n3. organizations 테이블 쿼리 성공 (1개 레코드 반환)\n4. 브라우저 콘솔에 '세브란스병원' 데이터 출력",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 10
+    },
+    {
+      "id": "acd2c70e-193a-4776-bf58-2e3ba7f1011a",
+      "name": "TypeScript 타입 정의: Schedule 관련 (types/schedule.ts)",
+      "description": "근무표 관련 TypeScript 인터페이스 정의: ScheduleBasicInfo, GridColumn, AssignmentMap, RowStat, ColumnStat, GridStatistics, SiteRequirements, DailyRequirement.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/schedule.ts",
+          "type": "CREATE",
+          "description": "근무표 관련 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/schedule.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\n// 기본 정보 (Step 1)\nexport interface ScheduleBasicInfo {\n  month: string;           // \"2025-12\"\n  organizationId: string;  // UUID\n  organizationName: string;\n  organizationType: string;\n  employeeCount: number;\n  shifts: Shift[];\n}\n\n// 그리드 컬럼 정보\nexport interface GridColumn {\n  date: string;         // \"2025-11-27\"\n  day: number;          // 27\n  dayOfWeek: number;    // 0-6\n  dayName: string;      // \"일\", \"월\", ...\n  isLastMonth: boolean; // 전월 여부\n}\n\n// 배정 맵: employeeId -> date -> shiftCode\nexport type AssignmentMap = Record<string, Record<string, string>>;\n\n// 행/열 통계\nexport interface RowStat {\n  D: number;\n  E: number;\n  N: number;\n  total: number;\n}\n\nexport interface ColumnStat {\n  D: number;\n  E: number;\n  N: number;\n  total: number;\n}\n\nexport interface GridStatistics {\n  rowStats: Record<string, RowStat>;    // employeeId별\n  columnStats: Record<string, ColumnStat>;  // date별\n}\n\n// 사이트 요구사항 (Step 2)\nexport interface SiteRequirements {\n  [date: string]: DailyRequirement;  // \"2025-12-01\": { D: 3, E: 4, ... }\n}\n\nexport interface DailyRequirement {\n  D: number;\n  E: number;\n  N: number;\n  O: number;\n  total: number;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. schedule.ts 파일 생성 완료\n2. 8개 인터페이스/타입 정의\n3. TypeScript 컴파일 에러 없음\n4. import { ScheduleBasicInfo } from '@/types/schedule' 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "7ae710d4-353c-4868-9c98-f5b209dd6468",
+      "name": "TypeScript 타입 정의: Employee (types/employee.ts)",
+      "description": "직원 관련 TypeScript 인터페이스 정의: Employee.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/employee.ts",
+          "type": "CREATE",
+          "description": "직원 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/employee.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Employee {\n  id: string;              // UUID\n  organizationId: string;  // UUID\n  employeeId: string;      // 직번 (예: \"40627\")\n  name: string;            // 이름 (예: \"박지현\")\n  availableShifts: string[]; // [\"D\", \"E\", \"N\", \"O\"]\n  createdAt?: string;\n  updatedAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. employee.ts 파일 생성 완료\n2. Employee 인터페이스 정의\n3. availableShifts가 string 배열 타입\n4. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "06f80588-a7c5-44ca-883d-8548c0c62e0a",
+      "name": "TypeScript 타입 정의: Shift (types/shift.ts)",
+      "description": "시프트 관련 TypeScript 인터페이스 정의: Shift.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/shift.ts",
+          "type": "CREATE",
+          "description": "시프트 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/shift.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Shift {\n  id: string;           // UUID\n  organizationId: string;\n  code: string;         // \"D\", \"E\", \"N\", \"O\"\n  name: string;         // \"Day\", \"Evening\", \"Night\", \"Off\"\n  colorCode: string;    // \"#92D050\", \"#FFC000\", \"#4472C4\", \"#D9D9D9\"\n  startTime: string | null;  // \"08:00:00\" or null for Off\n  endTime: string | null;    // \"16:00:00\" or null for Off\n  createdAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. shift.ts 파일 생성 완료\n2. Shift 인터페이스 정의\n3. startTime, endTime이 nullable\n4. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "8558cd41-39ef-4913-baba-a195cd42bd7b",
+      "name": "TypeScript 타입 정의: Organization (types/organization.ts)",
+      "description": "조직 관련 TypeScript 인터페이스 정의: Organization.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/organization.ts",
+          "type": "CREATE",
+          "description": "조직 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/organization.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Organization {\n  id: string;       // UUID\n  name: string;     // \"세브란스병원\"\n  type: string;     // \"hospital\", \"fire\", \"police\"\n  createdAt?: string;\n  updatedAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. organization.ts 파일 생성 완료\n2. Organization 인터페이스 정의\n3. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "13da374f-1c07-4102-b10c-46f3ac58a447",
+      "name": "Utility 함수: 날짜 처리 (utils/date.ts)",
+      "description": "Day.js를 사용한 날짜 유틸리티 함수 구현: getNextMonth(), getAvailableMonths(), getDaysInMonth().",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b4729e4b-52b4-4536-a781-6f83387b603b"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/date.ts",
+          "type": "CREATE",
+          "description": "날짜 유틸리티 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/date.ts 파일 생성\n2. Day.js import\n3. 함수 구현:\n\n```typescript\nimport dayjs from 'dayjs';\nimport type { GridColumn } from '@/types/schedule';\n\n// 다음 달 반환 (YYYY-MM)\nexport function getNextMonth(): string {\n  return dayjs().add(1, 'month').format('YYYY-MM');\n}\n\n// 선택 가능한 월 목록 (이번 달, 다음 달, 다다음 달)\nexport function getAvailableMonths(): string[] {\n  return [\n    dayjs().format('YYYY-MM'),\n    dayjs().add(1, 'month').format('YYYY-MM'),\n    dayjs().add(2, 'month').format('YYYY-MM'),\n  ];\n}\n\n// 해당 월의 모든 날짜 정보 반환\nexport function getDaysInMonth(month: string): GridColumn[] {\n  const start = dayjs(month + '-01');\n  const daysCount = start.daysInMonth();\n  \n  return Array.from({ length: daysCount }, (_, i) => {\n    const date = start.add(i, 'day');\n    return {\n      date: date.format('YYYY-MM-DD'),\n      day: date.date(),\n      dayOfWeek: date.day(),  // 0(일) ~ 6(토)\n      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],\n      isLastMonth: false,\n    };\n  });\n}\n\n// 전월 마지막 N일 반환\nexport function getLastDaysOfPreviousMonth(month: string, count: number): GridColumn[] {\n  const currentMonthStart = dayjs(month + '-01');\n  const previousMonthEnd = currentMonthStart.subtract(1, 'day');\n  \n  const days: GridColumn[] = [];\n  for (let i = count - 1; i >= 0; i--) {\n    const date = previousMonthEnd.subtract(i, 'day');\n    days.push({\n      date: date.format('YYYY-MM-DD'),\n      day: date.date(),\n      dayOfWeek: date.day(),\n      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],\n      isLastMonth: true,\n    });\n  }\n  return days;\n}\n```\n\n4. export 확인",
+      "verificationCriteria": "1. date.ts 파일 생성 완료\n2. 4개 함수 정의\n3. getNextMonth() 실행 시 다음 달 문자열 반환\n4. getDaysInMonth('2025-12') 실행 시 31개 GridColumn 반환",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "2b774c1e-9422-4fc9-aa73-a77faad93f62",
+      "name": "Utility 함수: 검증 로직 (utils/validation.ts)",
+      "description": "근무표 데이터 검증 함수 구현: validateLastMonthData() - 전월 5일 데이터 입력 확인.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/validation.ts",
+          "type": "CREATE",
+          "description": "검증 유틸리티 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/validation.ts 파일 생성\n2. 함수 구현:\n\n```typescript\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 전월 데이터 검증 (5일 모두 입력되었는지)\nexport function validateLastMonthData(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap\n): { isValid: boolean; errors: string[] } {\n  const errors: string[] = [];\n  const lastMonthDates = dates.filter(d => d.isLastMonth).map(d => d.date);\n  \n  for (const employee of employees) {\n    for (const date of lastMonthDates) {\n      const shift = assignments[employee.id]?.[date];\n      if (!shift) {\n        errors.push(`${employee.name}의 ${date} 데이터가 입력되지 않았습니다.`);\n      }\n    }\n  }\n  \n  return {\n    isValid: errors.length === 0,\n    errors,\n  };\n}\n\n// 시프트 코드 유효성 검증\nexport function isValidShiftCode(code: string): boolean {\n  return ['D', 'E', 'N', 'O', 'H'].includes(code);\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. validation.ts 파일 생성 완료\n2. validateLastMonthData 함수 정의\n3. 빈 assignments 전달 시 errors 배열 반환\n4. isValidShiftCode('D') === true",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "7a035827-f29c-4c19-881f-22b926ad3bc1",
+      "name": "Utility 함수: Excel 내보내기 (utils/excel.ts)",
+      "description": "XLSX 라이브러리를 사용한 근무표 엑셀 내보내기 함수 구현: exportToExcel().",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b4729e4b-52b4-4536-a781-6f83387b603b"
+        },
+        {
+          "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/excel.ts",
+          "type": "CREATE",
+          "description": "Excel 내보내기 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/excel.ts 파일 생성\n2. XLSX 라이브러리 import\n3. 함수 구현:\n\n```typescript\nimport * as XLSX from 'xlsx';\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 근무표를 Excel 파일로 내보내기\nexport function exportToExcel(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap,\n  filename: string = 'schedule.xlsx'\n): void {\n  // 1. 데이터 변환\n  const rows = employees.map(emp => {\n    const row: any = {\n      '직번': emp.employeeId,\n      '이름': emp.name,\n    };\n    \n    // 각 날짜별 시프트 추가\n    dates.forEach(date => {\n      const shift = assignments[emp.id]?.[date.date] || '';\n      row[`${date.day}일`] = shift;\n    });\n    \n    return row;\n  });\n  \n  // 2. 워크시트 생성\n  const ws = XLSX.utils.json_to_sheet(rows);\n  \n  // 3. 워크북 생성\n  const wb = XLSX.utils.book_new();\n  XLSX.utils.book_append_sheet(wb, ws, '근무표');\n  \n  // 4. 파일 다운로드\n  XLSX.writeFile(wb, filename);\n}\n```\n\n4. export 확인",
+      "verificationCriteria": "1. excel.ts 파일 생성 완료\n2. exportToExcel 함수 정의\n3. XLSX.writeFile 호출 확인\n4. 테스트 데이터로 실행 시 .xlsx 파일 다운로드",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "f6820857-3c14-47d1-aef8-0117422bc458",
+      "name": "Layout: DefaultLayout 컴포넌트 (components/layout/DefaultLayout.vue)",
+      "description": "Naive UI의 n-layout을 사용한 메인 레이아웃 컴포넌트. Header와 Sidebar 포함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/DefaultLayout.vue",
+          "type": "CREATE",
+          "description": "메인 레이아웃"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/DefaultLayout.vue 파일 생성\n2. Naive UI n-layout 사용:\n\n```vue\n<template>\n  <n-layout has-sider class=\"h-screen\">\n    <n-layout-sider\n      bordered\n      collapse-mode=\"width\"\n      :collapsed-width=\"64\"\n      :width=\"240\"\n      show-trigger\n    >\n      <Sidebar />\n    </n-layout-sider>\n    <n-layout>\n      <n-layout-header bordered class=\"h-16 flex items-center px-6\">\n        <Header />\n      </n-layout-header>\n      <n-layout-content class=\"p-6\">\n        <router-view />\n      </n-layout-content>\n    </n-layout>\n  </n-layout>\n</template>\n\n<script setup lang=\"ts\">\nimport { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent } from 'naive-ui';\nimport Header from './Header.vue';\nimport Sidebar from './Sidebar.vue';\n</script>\n```\n\n3. Tailwind 클래스로 기본 스타일 적용",
+      "verificationCriteria": "1. DefaultLayout.vue 파일 생성 완료\n2. n-layout-sider 사이드바 표시\n3. router-view로 페이지 콘텐츠 렌더링\n4. Header, Sidebar 컴포넌트 import (아직 생성 안됨)",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "dd3d84d7-d57f-48c6-b505-4b1b7ecab140",
+      "name": "Layout: Header 컴포넌트 (components/layout/Header.vue)",
+      "description": "상단 헤더 컴포넌트. 로고, 사용자 정보, 로그아웃 버튼 포함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/Header.vue",
+          "type": "CREATE",
+          "description": "헤더 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/Header.vue 파일 생성\n2. 간단한 헤더 구현:\n\n```vue\n<template>\n  <div class=\"flex items-center justify-between w-full\">\n    <div class=\"flex items-center gap-4\">\n      <h1 class=\"text-xl font-bold\">EveryShift</h1>\n    </div>\n    <div class=\"flex items-center gap-4\">\n      <span class=\"text-sm text-gray-600\">관리자</span>\n      <n-button text @click=\"handleLogout\">\n        로그아웃\n      </n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NButton } from 'naive-ui';\n\nfunction handleLogout() {\n  // TODO: 로그아웃 로직은 Auth Store 생성 후 구현\n  console.log('로그아웃');\n}\n</script>\n```",
+      "verificationCriteria": "1. Header.vue 파일 생성 완료\n2. EveryShift 타이틀 표시\n3. 로그아웃 버튼 렌더링\n4. 버튼 클릭 시 콘솔 로그 출력",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "539ea1da-e550-4ea6-b425-ebee0ad2bd89",
+      "name": "Layout: Sidebar 컴포넌트 (components/layout/Sidebar.vue)",
+      "description": "사이드바 네비게이션 컴포넌트. 근무표 생성 메뉴만 포함 (MVP 단순화).",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/Sidebar.vue",
+          "type": "CREATE",
+          "description": "사이드바 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/Sidebar.vue 파일 생성\n2. Naive UI n-menu 사용:\n\n```vue\n<template>\n  <div class=\"h-full flex flex-col\">\n    <div class=\"p-4 text-center font-bold border-b\">\n      메뉴\n    </div>\n    <n-menu\n      :options=\"menuOptions\"\n      :default-value=\"currentRoute\"\n      @update:value=\"handleMenuClick\"\n    />\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NMenu } from 'naive-ui';\nimport { ref, computed } from 'vue';\nimport { useRouter, useRoute } from 'vue-router';\n\nconst router = useRouter();\nconst route = useRoute();\n\nconst menuOptions = ref([\n  {\n    label: '근무표 생성',\n    key: '/schedule/step1',\n  },\n]);\n\nconst currentRoute = computed(() => route.path);\n\nfunction handleMenuClick(key: string) {\n  router.push(key);\n}\n</script>\n```",
+      "verificationCriteria": "1. Sidebar.vue 파일 생성 완료\n2. n-menu 렌더링\n3. '근무표 생성' 메뉴 항목 표시\n4. 클릭 시 router.push 호출",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "b52cad79-2603-4489-a52e-c0c963526239",
+      "name": "Tailwind CSS 스타일 파일 생성 (assets/index.css)",
+      "description": "Tailwind CSS directives를 import하는 메인 CSS 파일 생성. @tailwind base, @tailwind components, @tailwind utilities 포함.",
+      "notes": "이 파일은 main.ts에서 import되어 Tailwind CSS가 앱 전체에 적용됩니다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "57b08cdd-f193-4475-85e3-148f0af29c8c"
+        }
+      ],
+      "createdAt": "2025-11-13T11:54:05.778Z",
+      "updatedAt": "2025-11-13T11:54:05.778Z",
+      "relatedFiles": [
+        {
+          "path": "src/assets/index.css",
+          "type": "CREATE",
+          "description": "Tailwind CSS directives를 포함한 메인 스타일 파일"
+        }
+      ],
+      "implementationGuide": "1. src/assets/index.css 파일 생성\n2. Tailwind CSS directives 추가:\n```css\n@tailwind base;\n@tailwind components;\n@tailwind utilities;\n```\n3. 추가 커스텀 스타일이 필요하면 여기에 작성",
+      "verificationCriteria": "1. src/assets/index.css 파일이 생성되었는지 확인\n2. @tailwind base, components, utilities가 모두 포함되었는지 확인\n3. 파일이 유효한 CSS 형식인지 확인",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 자동 생성 시스템. 4단계 워크플로우 (기본 정보 → 사이트 정보 → 그리드 입력 → AI 결과 확인)를 통해 30명×36일 근무표를 생성. Vue 3 + TypeScript + Vite + Supabase + TanStack Table 기반. 80%의 개발 노력이 Step 3 ScheduleGrid 컴포넌트에 집중됨."
+    }
+  ]
+}
