@@ -5,9 +5,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 **EveryShift MVP** - A nurse scheduling system focused on generating fair shift schedules for hospitals. This MVP implements only the core schedule generation workflow (7장: Chapter 7 of the full system), reducing manual Excel-based scheduling from 4-8 hours to automated generation in seconds.
-
-**Goal**: 90% reduction in schedule creation time with guaranteed fairness constraints
-**Timeline**: 8-week MVP development cycle
 **Tech Stack**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table
 
 ## Tech Stack
@@ -48,42 +45,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Package Manager**: npm or pnpm
 - **Version Control**: Git
-
-## Development Commands
-
-### Setup & Installation
-```bash
-# Create project (if starting fresh)
-npm create vite@latest everyshift-mvp -- --template vue-ts
-cd everyshift-mvp
-npm install
-
-# Install all dependencies (versions match Tech Stack table)
-npm install naive-ui@2.42.0 @tanstack/vue-table@8 pinia@2 vue-router@4 @supabase/supabase-js dayjs@1 @vueuse/core xlsx
-npm install -D tailwindcss@3.4.17 postcss autoprefixer typescript@5.8.3
-npx tailwindcss init -p
-```
-
-### Development
-```bash
-# Start dev server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-### Database Setup
-```bash
-# Use Supabase SQL Editor directly
-# 1. Go to https://supabase.com
-# 2. Open SQL Editor
-# 3. Run migrations from supabase/migrations/001_initial_schema.sql
-# 4. Run seed data from supabase/seed.sql
-```
 
 ## Architecture Overview
 
