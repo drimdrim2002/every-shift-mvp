@@ -238,6 +238,118 @@ organizations
 6. **Tailwind Only**: Use Tailwind CSS utilities; avoid custom CSS unless absolutely necessary
 7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
 
+## Naive UI Global API Usage
+
+### CRITICAL Pattern (Mandatory)
+
+This project uses **createDiscreteApi** for global access to Naive UI's message, dialog, notification, and loading bar APIs. This pattern was established after extensive debugging and MUST be followed.
+
+**✅ Correct Pattern (Always Use This)**:
+
+```typescript
+// main.ts - Already configured
+import { createDiscreteApi } from 'naive-ui';
+
+const { message, dialog, notification, loadingBar } = createDiscreteApi([
+  'message',
+  'dialog',
+  'notification',
+  'loadingBar',
+]);
+
+window.$message = message;
+window.$dialog = dialog;
+window.$notification = notification;
+window.$loadingBar = loadingBar;
+```
+
+```vue
+<!-- In Components - Always wrap in methods -->
+<script setup lang="ts">
+const showSuccess = () => {
+  window.$message?.success('성공!'); // Always use optional chaining
+};
+</script>
+
+<template>
+  <n-button @click="showSuccess">클릭</n-button>
+</template>
+```
+
+### Mandatory Rules
+
+1. **NEVER access window.$ directly in templates**
+   - ❌ `<n-button @click="window.$message.success('...')">` → WILL BREAK
+   - ✅ `<n-button @click="showSuccess">` with method wrapper → SAFE
+
+2. **ALWAYS use optional chaining (?.)**
+   - ❌ `window.$message.success(...)` → Can throw undefined errors
+   - ✅ `window.$message?.success(...)` → Safe
+
+3. **NEVER use Provider pattern with createDiscreteApi**
+   - ❌ Mixing `<n-message-provider>` with `createDiscreteApi` → Inconsistent behavior
+   - ✅ Only use `createDiscreteApi` → Global, consistent access
+
+4. **NEVER call useMessage() in onMounted or outside setup**
+   - ❌ `onMounted(() => { const msg = useMessage(); })` → Provider context error
+   - ✅ Use `window.$message` which is already initialized in main.ts
+
+### Common Errors (Documented)
+
+If you encounter these errors, refer to `docs/naive/troubleshooting.md`:
+
+1. `[naive/use-message]: No outer <n-message-provider /> founded`
+   - Cause: Trying to use Provider pattern
+   - Solution: Use createDiscreteApi pattern shown above
+
+2. `Cannot read properties of undefined (reading 'success')`
+   - Cause: Direct template access to window.$message
+   - Solution: Wrap in methods with optional chaining
+
+3. HMR-related undefined errors
+   - Cause: Hot module reload timing issues
+   - Solution: Full browser refresh (Ctrl+Shift+R) or use utility functions
+
+### Documentation
+
+Complete Naive UI documentation is in `docs/naive/`:
+- **README.md** - Documentation index and navigation
+- **naive-ui-document.md** - Comprehensive guide (1600+ lines)
+- **createDiscreteApi.md** - Discrete API reference
+- **troubleshooting.md** - Real-world error solutions
+- **best-practices.md** - DO/DON'T patterns
+
+**Why local docs?** Claude Code can only access github.com, not naiveui.com. All documentation is cached locally.
+
+### TypeScript Configuration
+
+Global types are already configured in `src/types/global.d.ts`:
+
+```typescript
+import type { MessageApi, DialogApi, NotificationApi, LoadingBarApi } from 'naive-ui';
+
+declare global {
+  interface Window {
+    $message: MessageApi;
+    $dialog: DialogApi;
+    $notification: NotificationApi;
+    $loadingBar: LoadingBarApi;
+  }
+}
+```
+
+### Utility Functions (Recommended)
+
+For cleaner code, use utility functions in `src/utils/message.ts`:
+
+```typescript
+import { showSuccess, showError, showWarning, showInfo } from '@/utils/message';
+
+// In components
+showSuccess('저장 완료!');
+showError('저장 실패!');
+```
+
 ## Troubleshooting Quick Reference
 
 ### Grid Performance

@@ -288,10 +288,10 @@
       "id": "5bdb124f-fdd7-4d5a-8ee5-b44b2661c8c1",
       "name": "Naive UI Global Config 설정 (main.ts)",
       "description": "Naive UI의 message, dialog, notification 등을 전역에서 사용할 수 있도록 설정. window.$message 등으로 접근 가능하게 함.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-14T14:42:20.428Z",
       "relatedFiles": [
         {
           "path": "src/main.ts",
@@ -306,7 +306,9 @@
       ],
       "implementationGuide": "1. src/main.ts 수정:\n```typescript\nimport { createApp } from 'vue';\nimport { createPinia } from 'pinia';\nimport naive from 'naive-ui';\nimport App from './App.vue';\nimport router from './router';\nimport './assets/index.css';\n\nconst app = createApp(App);\n\napp.use(createPinia());\napp.use(router);\napp.use(naive);\n\napp.mount('#app');\n\n// Naive UI meta 설정\nconst meta = document.createElement('meta');\nmeta.name = 'naive-ui-style';\ndocument.head.appendChild(meta);\n```\n\n2. src/types/global.d.ts 생성:\n```typescript\nimport type {\n  DialogApi,\n  LoadingBarApi,\n  MessageApi,\n  NotificationApi,\n} from 'naive-ui';\n\ndeclare global {\n  interface Window {\n    $message: MessageApi;\n    $dialog: DialogApi;\n    $notification: NotificationApi;\n    $loadingBar: LoadingBarApi;\n  }\n}\n\nexport {};\n```\n\n3. App.vue에서 global 설정:\n```vue\n<template>\n  <n-config-provider>\n    <n-message-provider>\n      <n-dialog-provider>\n        <n-notification-provider>\n          <n-loading-bar-provider>\n            <AppContent />\n          </n-loading-bar-provider>\n        </n-notification-provider>\n      </n-dialog-provider>\n    </n-message-provider>\n  </n-config-provider>\n</template>\n\n<script setup lang=\"ts\">\nimport {\n  NConfigProvider,\n  NMessageProvider,\n  NDialogProvider,\n  NNotificationProvider,\n  NLoadingBarProvider,\n  useMessage,\n  useDialog,\n  useNotification,\n  useLoadingBar,\n} from 'naive-ui';\nimport { onMounted } from 'vue';\nimport AppContent from './AppContent.vue';\n\nonMounted(() => {\n  window.$message = useMessage();\n  window.$dialog = useDialog();\n  window.$notification = useNotification();\n  window.$loadingBar = useLoadingBar();\n});\n</script>\n```\n\n4. AppContent.vue 생성 (실제 라우팅 컴포넌트):\n```vue\n<template>\n  <router-view />\n</template>\n\n<script setup lang=\"ts\">\n// 라우팅 컴포넌트\n</script>\n```\n\n5. 사용 예시:\n```typescript\n// 컴포넌트 내부\nwindow.$message.success('저장되었습니다!');\nwindow.$message.error('오류가 발생했습니다.');\nwindow.$message.warning('주의: 전월 데이터를 입력해주세요.');\nwindow.$message.info('정보: 근무표 생성 중입니다.');\n\nwindow.$dialog.warning({\n  title: '경고',\n  content: '전월 데이터가 입력되지 않았습니다.',\n  positiveText: '확인',\n  onPositiveClick: () => {\n    console.log('확인 클릭');\n  },\n});\n\nwindow.$notification.success({\n  title: '근무표 생성 완료',\n  content: '2025년 12월 근무표가 성공적으로 생성되었습니다.',\n  duration: 3000,\n});\n```\n\n6. tsconfig.json 업데이트:\n```json\n{\n  \"compilerOptions\": {\n    \"types\": [\"vite/client\", \"naive-ui/volar\"]\n  }\n}\n```",
       "verificationCriteria": "1. src/types/global.d.ts 파일 생성\n2. App.vue에서 Naive UI Provider 설정\n3. window.$message, $dialog 등이 전역에서 사용 가능\n4. TypeScript 타입 에러 없음\n5. 컴포넌트에서 window.$message.success() 정상 동작",
-      "analysisResult": "Naive UI Global Config. 전역에서 일관된 방식으로 메시지, 다이얼로그를 사용하여 UX를 개선."
+      "analysisResult": "Naive UI Global Config. 전역에서 일관된 방식으로 메시지, 다이얼로그를 사용하여 UX를 개선.",
+      "summary": "Naive UI Global Config 설정이 성공적으로 완료되었습니다.\n\n**구현 완료 사항:**\n\n1. ✅ **src/types/global.d.ts 생성** - Window 인터페이스에 Naive UI API 타입 정의 추가\n2. ✅ **App.vue Provider 설정** - NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, NLoadingBarProvider 적용\n3. ✅ **전역 API 바인딩** - onMounted에서 window.$message, $dialog, $notification, $loadingBar 설정\n4. ✅ **AppContent.vue 생성** - 기존 App.vue 콘텐츠를 분리하고 전역 메시지 테스트 버튼 추가\n5. ✅ **main.ts 업데이트** - Naive UI meta 태그 추가 및 코드 정리\n6. ✅ **tsconfig.app.json 업데이트** - \"naive-ui/volar\" 타입 추가\n7. ✅ **Lint 통과** - ESLint 및 Prettier 규칙 준수\n\n**테스트 가능:**\n- AppContent.vue에 추가된 4개의 버튼(Success, Error, Warning, Info)을 통해 window.$message API가 정상 동작하는지 확인 가능\n\n**주요 결정 사항:**\n- 기존 App.vue의 테스트 콘텐츠를 AppContent.vue로 분리하여 Provider 계층과 콘텐츠 계층을 명확히 구분\n- 전역 메시지 테스트를 위한 4개 버튼 추가로 즉시 검증 가능하도록 구성",
+      "completedAt": "2025-11-14T14:42:20.424Z"
     },
     {
       "id": "0725e1c4-f74d-4f5f-b1ab-9eb18b4410ec",
