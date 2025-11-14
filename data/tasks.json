@@ -166,14 +166,14 @@
       "id": "b4729e4b-52b4-4536-a781-6f83387b603b",
       "name": "유틸리티 패키지 설치 (Day.js, VueUse, XLSX)",
       "description": "날짜 처리(Day.js), Vue 유틸리티(VueUse), 엑셀 내보내기(XLSX) 기능을 위한 패키지를 설치.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
         }
       ],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-14T00:00:00.000Z",
       "relatedFiles": [
         {
           "path": "package.json",
@@ -183,7 +183,10 @@
       ],
       "implementationGuide": "1. Day.js 설치: `npm install dayjs`\n2. VueUse 설치: `npm install @vueuse/core`\n3. XLSX 설치: `npm install xlsx`\n4. 각 패키지 import 테스트:\n```typescript\nimport dayjs from 'dayjs'\nimport { watchDebounced } from '@vueuse/core'\nimport * as XLSX from 'xlsx'\n```",
       "verificationCriteria": "1. npm install 성공\n2. dayjs import 에러 없음\n3. @vueuse/core의 watchDebounced import 에러 없음\n4. xlsx import 에러 없음",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 5,
+      "summary": "유틸리티 패키지 설치 완료: Day.js (v1.11.19), VueUse Core (v14.0.0), XLSX (v0.18.5)를 성공적으로 설치. npm install로 14개의 패키지가 추가되었으며, package.json에 3개의 의존성이 정상 추가됨을 확인. TypeScript 타입 체크(vue-tsc --noEmit)를 통해 dayjs, watchDebounced, XLSX 모듈의 import가 에러 없이 정상 작동함을 검증. 모든 검증 기준 충족.",
+      "completedAt": "2025-11-14T00:00:00.000Z"
     },
     {
       "id": "e6ade1e6-1f68-4bf5-9175-a97bae945462",
