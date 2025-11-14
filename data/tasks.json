@@ -192,14 +192,14 @@
       "id": "e6ade1e6-1f68-4bf5-9175-a97bae945462",
       "name": "프로젝트 폴더 구조 생성",
       "description": "Vue 3 Composition API 패턴에 맞는 프로젝트 폴더 구조를 생성. components, composables, stores, router, views, api, types, utils 디렉토리 생성.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
         }
       ],
       "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-14T23:15:00.000Z",
       "relatedFiles": [
         {
           "path": "src/components/",
@@ -244,7 +244,9 @@
       ],
       "implementationGuide": "1. 터미널에서 다음 명령어 실행:\n```bash\nmkdir -p src/components/layout\nmkdir -p src/components/schedule\nmkdir -p src/components/ui\nmkdir -p src/composables\nmkdir -p src/stores\nmkdir -p src/router\nmkdir -p src/views/auth\nmkdir -p src/views/schedule\nmkdir -p src/api\nmkdir -p src/types\nmkdir -p src/utils\n```\n2. 각 디렉토리가 생성되었는지 확인",
       "verificationCriteria": "1. src/ 하위에 8개 주요 디렉토리 존재\n2. components/ 하위에 layout, schedule, ui 서브디렉토리 존재\n3. views/ 하위에 auth, schedule 서브디렉토리 존재",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "✅ Vue 3 Composition API 패턴에 맞는 프로젝트 폴더 구조 생성 완료\n\n**완료 항목**:\n1. 8개 주요 디렉토리 생성: components, composables, stores, router, views, api, types, utils\n2. components/ 하위 3개 서브디렉토리 생성: layout, schedule, ui\n3. views/ 하위 2개 서브디렉토리 생성: auth, schedule\n4. 모든 빈 디렉토리에 .gitkeep 파일 생성 (Git 추적 보장)\n5. 구조 검증 완료 - 총 15개 디렉토리 생성 확인\n\n**검증 기준 충족**:\n✅ src/ 하위에 8개 주요 디렉토리 존재 (components, composables, stores, router, views, api, types, utils)\n✅ components/ 하위에 3개 서브디렉토리 존재 (layout, schedule, ui)\n✅ views/ 하위에 2개 서브디렉토리 존재 (auth, schedule)\n\n**다음 단계 준비 완료**: 각 디렉토리에 실제 파일 생성 가능 (컴포넌트, Pinia stores, API 클라이언트 등)",
+      "completedAt": "2025-11-14T23:15:00.000Z"
     },
     {
       "id": "34398a7c-beda-4667-b06b-acb5fb9dc9f5",
