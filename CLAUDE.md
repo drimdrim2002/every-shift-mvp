@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Tech Stack
 
 ### Frontend
+
 - **Framework**: Vue 3 (3.5.17) - Composition API
 - **Language**: TypeScript (5.8.3)
 - **Build**: Vite (6.3.5)
@@ -22,11 +23,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Utils**: Day.js, @vueuse/core, xlsx
 
 ### Backend
+
 - **Database**: Supabase PostgreSQL
 - **Authentication**: Supabase Auth (email/password)
 - **RLS**: Admin-only access in MVP
 
 ### AI Solver (External)
+
 - **Platform**: Google Cloud Run
 - **Engine**: OptaPlanner (Java)
 - **Status**: Mock responses in MVP
@@ -43,14 +46,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Key Technical Decisions
 
 **Grid Implementation**: TanStack Table v8 instead of Vben Admin's BasicTable
+
 - Better performance for large grids (30 employees × 36 days)
 - More flexibility for custom shift selector UI
 
 **Vben Admin Usage**: Reference only
+
 - ✅ Layout structure, routing patterns, composable patterns
 - ❌ NOT using complex components (BasicTable, VbenForm, preference system)
 
 **AI Solver Integration**: Mock responses in MVP
+
 - Mock data in `api/solver.ts`
 - Polling: status created → running → complete
 - Real integration deferred post-MVP
@@ -58,6 +64,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Data Model
 
 **6 Core Tables**:
+
 - `organizations` - Hospital info (seed: 1 org)
 - `employees` - Staff (seed: 30 nurses)
 - `shifts` - D/E/N/O definitions
@@ -66,6 +73,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `site_requirements` - Required staff per shift per day-of-week
 
 **Key Relationships**:
+
 ```
 organizations
   ├─→ employees (30 per org)
@@ -77,6 +85,7 @@ organizations
 ### State Management
 
 **Pinia Stores**:
+
 - `auth.ts` - Supabase authentication
 - `organization.ts` - Org/employees/shifts (read-only from seed)
 - `schedule.ts` - Wizard state, temporary data, AI solver polling
@@ -84,6 +93,7 @@ organizations
 ### Routing Structure
 
 **Routes**:
+
 - `/login` - Login page (public)
 - `/schedule/step1` - Step1BasicInfo.vue (기본 정보)
 - `/schedule/step2` - Step2SiteInfo.vue (사이트 정보)
@@ -91,6 +101,7 @@ organizations
 - `/schedule/step4` - Step4Result.vue (결과 확인)
 
 **Route Guards**:
+
 - Authentication check → redirect to `/login`
 - Step progression validation
 - Data validation before navigation
@@ -98,26 +109,31 @@ organizations
 ### Component Architecture
 
 **Critical Components**:
+
 - **ScheduleGrid.vue** - TanStack Table (30×36 grid, 1080 cells)
 - **ShiftSelector.vue** - D/E/N/O button group with color coding
 - **StatisticsSummary.vue** - Real-time shift statistics
 - **StepIndicator.vue** - Wizard progress indicator
 
 **Layout Components**:
+
 - DefaultLayout.vue, Header.vue, Sidebar.vue
 
 **View Components**:
+
 - Step1BasicInfo.vue, Step2SiteInfo.vue, Step3InitialData.vue, Step4Result.vue
 
 ### Key Technical Constraints
 
 **Grid Simplification** (vs. Enhanced PRD):
+
 - Max 30 employees (no virtual scrolling)
 - 36 days total (5 previous + 31 current)
 - Only name column is sticky
 - Basic statistics only
 
 **MVP Exclusions**:
+
 - User registration/approval flow
 - Organization/employee CRUD (seed data only)
 - Dashboard and analytics
@@ -129,16 +145,19 @@ organizations
 ### Composables Strategy
 
 **useScheduleGrid.ts** - Grid data management
+
 - Grid data structure and cell updates with reactivity
 - TanStack Table integration
 - Date calculation utilities
 
 **useAISolver.ts** - AI Solver integration
+
 - Polling mechanism (5-second intervals)
 - Status: created → running → complete/error
 - Mock data generation for MVP
 
 **useAuth.ts** - Authentication wrapper
+
 - Supabase auth abstraction
 - Session persistence
 - Route guard integration
@@ -146,6 +165,7 @@ organizations
 ### Data Flow Patterns
 
 **Step 3 → AI Solver → Step 4**:
+
 1. User inputs data in Step 3 grid
 2. Data saved to Pinia store + localStorage (temporary)
 3. "생성" button creates schedule record (status='created')
@@ -155,6 +175,7 @@ organizations
 7. Step 4 loads schedule_assignments and displays in grid
 
 **Temporary Storage**:
+
 - LocalStorage key: `everyshift_temp_schedule_{month}`
 - Debounced saves (500ms)
 - Auto-restore on page refresh
@@ -163,12 +184,14 @@ organizations
 ### Validation Rules
 
 **Step 3 Previous Month Validation**:
+
 - Previous month's last 5 days MUST be filled (required for AI solver)
 - Current month data is optional
 - Validation triggers on "생성" button click
 - Missing cells highlighted with red border
 
 **Shift Availability Check**:
+
 - Each employee has `available_shifts` JSONB array (e.g., ["D","E","N","O"])
 - ShiftSelector only shows available shifts
 - UI disables unavailable shift buttons
@@ -176,36 +199,43 @@ organizations
 ## Database Conventions
 
 ### UUID Usage
+
 - All primary keys use `gen_random_uuid()`
 - Fixed seed UUID: `'00000000-0000-0000-0000-000000000001'`
 
 ### Timestamps
+
 - `created_at` - Insertion timestamp (DEFAULT NOW())
 - `updated_at` - Last modification timestamp
 
 ### Enums as VARCHAR
+
 - `shifts.code` - 'D', 'E', 'N', 'O', 'H'
 - `schedules.status` - 'created', 'running', 'complete', 'changed', 'error'
 - `organizations.type` - 'hospital', 'fire', 'police'
 
 ### JSONB Fields
+
 - `employees.available_shifts` - Array of shift codes: ["D","E","N","O"]
 
 ## Code Style Conventions
 
 ### Vue 3 Composition API
+
 - Use `<script setup>` syntax
 - Prefer `ref` over `reactive` for primitive values
 - Use `computed` for derived state
 - Use `watch` for side effects only
 
 ### TypeScript
+
 - Define interfaces in `types/` directory
 - Use strict mode
 - Avoid `any` type (use `unknown` if needed)
 - Export types alongside implementation
 
 ### Naming Conventions
+
 - Components: PascalCase (ScheduleGrid.vue)
 - Composables: camelCase with "use" prefix (useScheduleGrid.ts)
 - Stores: camelCase (scheduleStore)
@@ -215,6 +245,7 @@ organizations
 ### File Organization
 
 **Key Directories**:
+
 - `src/components/schedule/` - Core scheduling components (80% of complexity)
 - `src/views/schedule/` - 4-step wizard pages
 - `src/composables/` - Reusable logic (grid, solver, auth)
@@ -223,6 +254,7 @@ organizations
 - `src/types/` - TypeScript definitions
 
 **Key Files**:
+
 - `src/components/schedule/ScheduleGrid.vue` - [CRITICAL] TanStack Table grid
 - `src/composables/useScheduleGrid.ts` - Grid data management
 - `src/composables/useAISolver.ts` - AI Solver integration
@@ -240,140 +272,67 @@ organizations
 
 ## Naive UI Global API Usage
 
-### CRITICAL Pattern (Mandatory)
+### CRITICAL Pattern
 
-This project uses **createDiscreteApi** for global access to Naive UI's message, dialog, notification, and loading bar APIs. This pattern was established after extensive debugging and MUST be followed.
-
-**✅ Correct Pattern (Always Use This)**:
-
-```typescript
-// main.ts - Already configured
-import { createDiscreteApi } from 'naive-ui';
-
-const { message, dialog, notification, loadingBar } = createDiscreteApi([
-  'message',
-  'dialog',
-  'notification',
-  'loadingBar',
-]);
-
-window.$message = message;
-window.$dialog = dialog;
-window.$notification = notification;
-window.$loadingBar = loadingBar;
-```
-
-```vue
-<!-- In Components - Always wrap in methods -->
-<script setup lang="ts">
-const showSuccess = () => {
-  window.$message?.success('성공!'); // Always use optional chaining
-};
-</script>
-
-<template>
-  <n-button @click="showSuccess">클릭</n-button>
-</template>
-```
+This project uses **createDiscreteApi** (configured in `main.ts`).
+**Core Rule**: Never access `window.$message` directly in templates. Always wrap in methods.
 
 ### Mandatory Rules
 
-1. **NEVER access window.$ directly in templates**
-   - ❌ `<n-button @click="window.$message.success('...')">` → WILL BREAK
-   - ✅ `<n-button @click="showSuccess">` with method wrapper → SAFE
+1. NEVER access window.$ directly in templates
+2. ALWAYS use optional chaining (?.)
+3. NEVER use Provider pattern with createDiscreteApi
+4. NEVER call useMessage() outside setup context
 
-2. **ALWAYS use optional chaining (?.)**
-   - ❌ `window.$message.success(...)` → Can throw undefined errors
-   - ✅ `window.$message?.success(...)` → Safe
+### Common Errors
 
-3. **NEVER use Provider pattern with createDiscreteApi**
-   - ❌ Mixing `<n-message-provider>` with `createDiscreteApi` → Inconsistent behavior
-   - ✅ Only use `createDiscreteApi` → Global, consistent access
+See `docs/naive/troubleshooting.md` for detailed solutions:
 
-4. **NEVER call useMessage() in onMounted or outside setup**
-   - ❌ `onMounted(() => { const msg = useMessage(); })` → Provider context error
-   - ✅ Use `window.$message` which is already initialized in main.ts
-
-### Common Errors (Documented)
-
-If you encounter these errors, refer to `docs/naive/troubleshooting.md`:
-
-1. `[naive/use-message]: No outer <n-message-provider /> founded`
-   - Cause: Trying to use Provider pattern
-   - Solution: Use createDiscreteApi pattern shown above
-
-2. `Cannot read properties of undefined (reading 'success')`
-   - Cause: Direct template access to window.$message
-   - Solution: Wrap in methods with optional chaining
-
-3. HMR-related undefined errors
-   - Cause: Hot module reload timing issues
-   - Solution: Full browser refresh (Ctrl+Shift+R) or use utility functions
+- Provider context errors → Use createDiscreteApi pattern
+- Undefined errors → Wrap in methods with optional chaining
+- HMR errors → Full browser refresh or use utility functions
 
 ### Documentation
 
-Complete Naive UI documentation is in `docs/naive/`:
-- **README.md** - Documentation index and navigation
-- **naive-ui-document.md** - Comprehensive guide (1600+ lines)
-- **createDiscreteApi.md** - Discrete API reference
-- **troubleshooting.md** - Real-world error solutions
-- **best-practices.md** - DO/DON'T patterns
+Complete Naive UI documentation: `docs/naive/` directory
+- `troubleshooting.md` - Real-world error solutions
+- `best-practices.md` - DO/DON'T patterns
+- `createDiscreteApi.md` - API reference
 
-**Why local docs?** Claude Code can only access github.com, not naiveui.com. All documentation is cached locally.
+### Utility Functions
 
-### TypeScript Configuration
-
-Global types are already configured in `src/types/global.d.ts`:
-
-```typescript
-import type { MessageApi, DialogApi, NotificationApi, LoadingBarApi } from 'naive-ui';
-
-declare global {
-  interface Window {
-    $message: MessageApi;
-    $dialog: DialogApi;
-    $notification: NotificationApi;
-    $loadingBar: LoadingBarApi;
-  }
-}
-```
-
-### Utility Functions (Recommended)
-
-For cleaner code, use utility functions in `src/utils/message.ts`:
-
-```typescript
-import { showSuccess, showError, showWarning, showInfo } from '@/utils/message';
-
-// In components
-showSuccess('저장 완료!');
-showError('저장 실패!');
-```
+Use `src/utils/message.ts` for cleaner code. Global types already configured in `src/types/global.d.ts`.
 
 ## Troubleshooting Quick Reference
 
 ### Grid Performance
+
 - Use `v-memo` on table rows
 - Cache computed statistics
 - Check for unnecessary `watch` with `deep: true`
 
 ### AI Solver Polling
+
 - Ensure cleanup on component unmount with `onUnmounted()`
 
 ### Supabase Connection
+
 - Check `.env.local` for `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
 - Restart Vite after .env changes
 
 ### Statistics Calculation
+
 - Use `watch` with `deep: true` for nested object changes
 - Ensure assignments array is properly reactive (`ref` or `reactive`)
 
 ## Reference Documentation
 
 ### Internal
+
 - `docs/prd/01-overview-architecture.md` - Project overview, tech stack, architecture
 
 ### External
+
 - Supabase: https://supabase.com/docs
 - TanStack Table: https://tanstack.com/table/v8/docs/guide/introduction
 - Naive UI: https://www.naiveui.com/en-US/os-theme
