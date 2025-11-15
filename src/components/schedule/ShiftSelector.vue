@@ -1,5 +1,5 @@
 <template>
-  <div class="flex gap-1 p-1">
+  <div class="flex gap-0.5 p-0.5">
     <button
       v-for="shift in availableShifts"
       :key="shift"
@@ -30,7 +30,7 @@ const emit = defineEmits<Emits>()
 
 function getShiftButtonClass(shiftCode: string) {
   const isSelected = props.currentShift === shiftCode
-  const baseClass = 'w-8 h-8 rounded text-xs font-semibold border-2 transition-opacity'
+  const baseClass = 'w-7 h-7 rounded text-xs font-semibold border-2 transition-opacity'
 
   const colorMap: Record<string, string> = {
     D: 'border-shift-day text-green-700',

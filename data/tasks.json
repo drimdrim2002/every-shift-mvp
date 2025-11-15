@@ -1173,7 +1173,7 @@
       "id": "d366f4b1-0468-4a6a-8669-96658ae01e6c",
       "name": "ScheduleGrid 컴포넌트 - 통계 행/열 렌더링",
       "description": "그리드 우측 통계 컬럼 및 하단 통계 행 렌더링. useScheduleGridStatistics 통합.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "554e3f6a-f3ca-48b9-bf2a-078981c219b5"
@@ -1183,7 +1183,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:48:55.450Z",
-      "updatedAt": "2025-11-15T09:27:15.634Z",
+      "updatedAt": "2025-11-15T10:39:34.541Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1194,8 +1194,8 @@
       "implementationGuide": "1. ScheduleGrid.vue에 useScheduleGridStatistics import\n2. 통계 컬럼 및 tfoot 추가:\n\n```vue\n<script setup lang=\"ts\">\nimport { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';\n\nconst statistics = useScheduleGridStatistics(\n  () => props.employees,\n  () => props.dates,\n  () => props.assignments\n);\n</script>\n\n<template>\n  <tbody>\n    <tr v-for=\"employee in employees\" :key=\"employee.id\" class=\"data-row\">\n      <!-- 기존 셀들 ... -->\n      \n      <!-- 통계 컬럼 (우측) -->\n      <td class=\"stat-cell text-center\">{{ statistics.rowStats[employee.id]?.D || 0 }}</td>\n      <td class=\"stat-cell text-center\">{{ statistics.rowStats[employee.id]?.E || 0 }}</td>\n      <td class=\"stat-cell text-center\">{{ statistics.rowStats[employee.id]?.N || 0 }}</td>\n      <td class=\"stat-cell text-center font-bold\">{{ statistics.rowStats[employee.id]?.total || 0 }}</td>\n    </tr>\n  </tbody>\n  \n  <!-- 통계 행 (하단) -->\n  <tfoot>\n    <tr class=\"stat-row bg-gray-100\">\n      <td class=\"sticky-column font-bold\">Total</td>\n      <td\n        v-for=\"date in dates\"\n        :key=\"date.date\"\n        class=\"stat-cell text-center\"\n      >\n        {{ statistics.columnStats[date.date]?.total || 0 }}\n      </td>\n      <td colspan=\"4\"></td>\n    </tr>\n    <tr class=\"stat-row bg-gray-50\">\n      <td class=\"sticky-column font-bold\">D</td>\n      <td\n        v-for=\"date in dates\"\n        :key=\"date.date\"\n        class=\"stat-cell text-center\"\n      >\n        {{ statistics.columnStats[date.date]?.D || 0 }}\n      </td>\n      <td colspan=\"4\"></td>\n    </tr>\n    <!-- E, N 동일 -->\n  </tfoot>\n</template>\n\n<style scoped>\n.stat-cell {\n  text-align: center;\n  padding: 8px;\n  font-size: 13px;\n}\n\n.stat-row {\n  font-weight: 500;\n}\n</style>\n```",
       "verificationCriteria": "1. 우측 4개 통계 컬럼 (D, E, N, Total)\n2. 하단 4개 통계 행 (Total, D, E, N)\n3. 값 변경 시 자동 재계산\n4. Total: O 제외한 근무일 수",
       "analysisResult": "EveryShift MVP - Phase 6 (Step 3 계속)\n\n**남은 작업**: ScheduleGrid ShiftSelector 통합, 통계 행/열, Step3 페이지, 검증 및 저장",
-      "summary": "ScheduleGrid 컴포넌트에 통계 행/열 렌더링 완료.\n\n구현 내용:\n1. useScheduleGridStatistics composable 통합 (95번째 줄, 125-129번째 줄)\n2. tbody 각 행에 우측 통계 컬럼 4개 추가 (88-99번째 줄)\n   - D, E, N 근무일 수 및 Total (O 제외한 근무일 수)\n3. tfoot에 하단 통계 행 4개 추가 (104-176번째 줄)\n   - Total, D, E, N 행으로 날짜별 근무자 수 표시\n4. 통계 스타일 추가 (313-325번째 줄)\n\n검증 결과:\n✅ 우측 통계 컬럼 4개 (D, E, N, Total) 렌더링\n✅ 하단 통계 행 4개 (Total, D, E, N) 렌더링\n✅ Vue computed를 통한 자동 재계산 구현\n✅ Total 계산 시 O(휴무) 제외 로직 적용\n✅ sticky-column으로 좌측 고정 및 배경색 구분\n✅ HMR 업데이트 성공\n\n통계 값은 assignments 객체가 업데이트되면 자동으로 재계산됩니다.",
-      "completedAt": "2025-11-15T09:27:15.615Z"
+      "summary": "ScheduleGrid 컴포넌트에 통계 행/열 렌더링 완료. useScheduleGridStatistics를 통합하여 우측 4개 통계 컬럼(D, E, N, Total)과 하단 4개 통계 행(Total, D, E, N)을 추가했습니다. 통계는 assignments 변경 시 자동으로 재계산되며, Total은 O(휴무)를 제외한 근무일 수로 정확히 계산됩니다. Lint 통과, HMR 정상 작동 확인.",
+      "completedAt": "2025-11-15T10:39:34.514Z"
     },
     {
       "id": "51569871-de57-4fd6-9084-f4435e474ef8",
