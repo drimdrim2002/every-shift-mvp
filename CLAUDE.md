@@ -294,10 +294,21 @@ See `docs/naive/troubleshooting.md` for detailed solutions:
 
 ### Documentation
 
-Complete Naive UI documentation: `docs/naive/` directory
-- `troubleshooting.md` - Real-world error solutions
-- `best-practices.md` - DO/DON'T patterns
-- `createDiscreteApi.md` - API reference
+Naive UI documentation organized by purpose (7 files):
+- **`00-quick-reference.md`** - Types, imports, frequently used patterns (⚡ read first)
+- **`01-setup.md`** - Installation, configuration, theme customization
+- **`02-forms.md`** - Form, Input, Select, Button components
+- **`03-data-tables.md`** - DataTable implementation guide
+- **`04-feedback.md`** - Modal, Dialog, Message, Notification
+- **`05-discrete-api.md`** - createDiscreteApi (window.$message) **⭐ PROJECT CORE**
+- **`06-patterns.md`** - Practical development patterns
+- **`07-troubleshooting.md`** - Problem solving & resources
+
+**Reading Strategy**:
+- Form implementation → Read `00-quick-reference.md` + `02-forms.md`
+- Table implementation → Read `00-quick-reference.md` + `03-data-tables.md`
+- Global message/dialog → Read `00-quick-reference.md` + `05-discrete-api.md`
+- Error fixing → Read `07-troubleshooting.md`
 
 ### Utility Functions
 
