@@ -376,17 +376,10 @@
       "id": "dd3d84d7-d57f-48c6-b505-4b1b7ecab140",
       "name": "Layout: Header 컴포넌트 (components/layout/Header.vue)",
       "description": "상단 헤더 컴포넌트. 로고, 사용자 정보, 로그아웃 버튼 포함.",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
-        },
-        {
-          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
-        }
-      ],
+      "status": "completed",
+      "dependencies": [],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T06:41:03.770Z",
       "relatedFiles": [
         {
           "path": "src/components/layout/Header.vue",
@@ -396,26 +389,18 @@
       ],
       "implementationGuide": "1. src/components/layout/Header.vue 파일 생성\n2. 간단한 헤더 구현:\n\n```vue\n<template>\n  <div class=\"flex items-center justify-between w-full\">\n    <div class=\"flex items-center gap-4\">\n      <h1 class=\"text-xl font-bold\">EveryShift</h1>\n    </div>\n    <div class=\"flex items-center gap-4\">\n      <span class=\"text-sm text-gray-600\">관리자</span>\n      <n-button text @click=\"handleLogout\">\n        로그아웃\n      </n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NButton } from 'naive-ui';\n\nfunction handleLogout() {\n  // TODO: 로그아웃 로직은 Auth Store 생성 후 구현\n  console.log('로그아웃');\n}\n</script>\n```",
       "verificationCriteria": "1. Header.vue 파일 생성 완료\n2. EveryShift 타이틀 표시\n3. 로그아웃 버튼 렌더링\n4. 버튼 클릭 시 콘솔 로그 출력",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Header.vue 컴포넌트를 성공적으로 구현했습니다. Vue 3 Composition API의 <script setup> 구문을 사용하였고, Naive UI의 NButton 컴포넌트를 활용했습니다. Tailwind CSS로 레이아웃을 구성하였으며, 로그아웃 핸들러 함수는 향후 Auth Store 구현 시 연결될 수 있도록 TODO 주석을 포함했습니다. ESLint/Prettier 검증을 통과하여 코드 품질 기준을 충족했습니다.",
+      "completedAt": "2025-11-15T06:41:03.735Z"
     },
     {
       "id": "539ea1da-e550-4ea6-b425-ebee0ad2bd89",
       "name": "Layout: Sidebar 컴포넌트 (components/layout/Sidebar.vue)",
       "description": "사이드바 네비게이션 컴포넌트. 근무표 생성 메뉴만 포함 (MVP 단순화).",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
-        },
-        {
-          "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
-        },
-        {
-          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
-        }
-      ],
+      "status": "completed",
+      "dependencies": [],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T06:41:52.059Z",
       "relatedFiles": [
         {
           "path": "src/components/layout/Sidebar.vue",
@@ -425,7 +410,9 @@
       ],
       "implementationGuide": "1. src/components/layout/Sidebar.vue 파일 생성\n2. Naive UI n-menu 사용:\n\n```vue\n<template>\n  <div class=\"h-full flex flex-col\">\n    <div class=\"p-4 text-center font-bold border-b\">\n      메뉴\n    </div>\n    <n-menu\n      :options=\"menuOptions\"\n      :default-value=\"currentRoute\"\n      @update:value=\"handleMenuClick\"\n    />\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NMenu } from 'naive-ui';\nimport { ref, computed } from 'vue';\nimport { useRouter, useRoute } from 'vue-router';\n\nconst router = useRouter();\nconst route = useRoute();\n\nconst menuOptions = ref([\n  {\n    label: '근무표 생성',\n    key: '/schedule/step1',\n  },\n]);\n\nconst currentRoute = computed(() => route.path);\n\nfunction handleMenuClick(key: string) {\n  router.push(key);\n}\n</script>\n```",
       "verificationCriteria": "1. Sidebar.vue 파일 생성 완료\n2. n-menu 렌더링\n3. '근무표 생성' 메뉴 항목 표시\n4. 클릭 시 router.push 호출",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Sidebar.vue 컴포넌트를 성공적으로 구현했습니다. Naive UI의 NMenu 컴포넌트를 활용하여 네비게이션 메뉴를 구성하였고, Vue Router와 통합하여 경로 이동 기능을 구현했습니다. Composition API의 computed를 사용하여 현재 경로를 추적하고, menuOptions를 ref로 관리하여 향후 확장 가능한 구조로 설계했습니다. Tailwind CSS로 레이아웃을 구성하였으며, ESLint/Prettier 검증을 통과하여 코드 품질 기준을 충족했습니다.",
+      "completedAt": "2025-11-15T06:41:52.024Z"
     },
     {
       "id": "b52cad79-2603-4489-a52e-c0c963526239",
