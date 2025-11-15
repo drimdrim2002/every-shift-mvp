@@ -926,7 +926,7 @@
       "id": "43d82d62-c79b-448a-85e1-c955ae429469",
       "name": "Step 2: useSiteRequirements Composable (composables/useSiteRequirements.ts)",
       "description": "사이트 필요 인력 데이터 로드 및 계산을 위한 Composable. 요일별 데이터를 날짜별로 매핑.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
@@ -939,7 +939,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:46:03.908Z",
-      "updatedAt": "2025-11-13T11:46:03.908Z",
+      "updatedAt": "2025-11-15T08:44:53.601Z",
       "relatedFiles": [
         {
           "path": "src/composables/useSiteRequirements.ts",
@@ -949,13 +949,15 @@
       ],
       "implementationGuide": "1. src/composables/useSiteRequirements.ts 파일 생성\n2. 구현:\n\n```typescript\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport type { SiteRequirements, DailyRequirement } from '@/types/schedule';\nimport { getDaysInMonth } from '@/utils/date';\n\nexport function useSiteRequirements() {\n  const requirements = ref<SiteRequirements>({});\n  const loading = ref(false);\n  \n  async function loadRequirements(orgId: string, month: string) {\n    loading.value = true;\n    try {\n      // 1. site_requirements 테이블 조회 (요일별)\n      const { data: weeklyReqs, error } = await supabase\n        .from('site_requirements')\n        .select('day_of_week, shift_id, required_count, shifts(code)')\n        .eq('organization_id', orgId);\n      \n      if (error) throw error;\n      \n      // 2. 월의 각 날짜에 매핑\n      const days = getDaysInMonth(month);\n      const reqs: SiteRequirements = {};\n      \n      days.forEach(day => {\n        const dailyReq: DailyRequirement = { D: 0, E: 0, N: 0, O: 0, total: 0 };\n        \n        weeklyReqs\n          ?.filter(r => r.day_of_week === day.dayOfWeek)\n          .forEach(r => {\n            const shiftCode = (r.shifts as any)?.code;\n            if (shiftCode && shiftCode in dailyReq) {\n              (dailyReq as any)[shiftCode] = r.required_count;\n            }\n          });\n        \n        dailyReq.total = dailyReq.D + dailyReq.E + dailyReq.N + dailyReq.O;\n        reqs[day.date] = dailyReq;\n      });\n      \n      requirements.value = reqs;\n      return { success: true };\n    } catch (error: any) {\n      console.error('Failed to load site requirements:', error);\n      return { success: false, error: error.message };\n    } finally {\n      loading.value = false;\n    }\n  }\n  \n  function updateRequirement(date: string, shiftCode: string, count: number) {\n    if (!requirements.value[date]) return;\n    \n    (requirements.value[date] as any)[shiftCode] = count;\n    \n    // 합계 재계산\n    const req = requirements.value[date];\n    req.total = req.D + req.E + req.N + req.O;\n  }\n  \n  return {\n    requirements,\n    loading,\n    loadRequirements,\n    updateRequirement,\n  };\n}\n```",
       "verificationCriteria": "1. useSiteRequirements.ts 파일 생성 완료\n2. loadRequirements 함수 구현\n3. 요일별 데이터를 날짜별로 매핑\n4. updateRequirement로 셀 값 수정 가능",
-      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산"
+      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산",
+      "summary": "useSiteRequirements Composable 구현 완료. 모든 요구사항 충족: (1) src/composables/useSiteRequirements.ts 파일 생성, (2) loadRequirements 함수로 Supabase에서 요일별 데이터를 조회하고 날짜별로 매핑, (3) updateRequirement 함수로 특정 날짜의 교대조 필요 인력 수정 및 합계 자동 재계산 기능 구현. TypeScript 타입 안전성 강화 (SiteRequirementRow, ShiftInfo 인터페이스 정의로 any 타입 제거), JSDoc 주석 추가, 명확한 에러 핸들링. Lint 체크 통과 (생성된 파일에 0 errors, 0 warnings).",
+      "completedAt": "2025-11-15T08:44:53.591Z"
     },
     {
       "id": "a9d0b427-ea0b-462a-9f08-f66ef061af94",
       "name": "Step 2: 사이트 정보 페이지 - 그리드 구조 (views/schedule/Step2SiteInfo.vue)",
       "description": "일별 필요 인력 설정 페이지. 3-level 헤더 HTML 테이블, 인라인 편집, 합계 계산.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "343bb7c4-3925-49ee-91da-1c926056b3f3"
@@ -977,7 +979,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:46:03.908Z",
-      "updatedAt": "2025-11-13T11:46:03.908Z",
+      "updatedAt": "2025-11-15T08:48:51.866Z",
       "relatedFiles": [
         {
           "path": "src/views/schedule/Step2SiteInfo.vue",
@@ -987,13 +989,15 @@
       ],
       "implementationGuide": "1. src/views/schedule/Step2SiteInfo.vue 파일 생성\n2. 3-level 헤더 테이블 구현:\n\n```vue\n<template>\n  <div class=\"max-w-7xl mx-auto\">\n    <StepIndicator :current-step=\"2\" />\n    \n    <n-card title=\"근무표 생성 - 사이트 정보 설정\">\n      <p class=\"mb-4\">{{ scheduleStore.basicInfo?.month }} 필요 인력 ({{ daysInMonth.length }}일)</p>\n      \n      <div class=\"overflow-x-auto\">\n        <table class=\"w-full border-collapse border border-gray-300\">\n          <thead>\n            <!-- Level 1: 월 이름 -->\n            <tr>\n              <th rowspan=\"3\" class=\"border border-gray-300 px-4 py-2 bg-gray-50\">시프트</th>\n              <th\n                :colspan=\"daysInMonth.length\"\n                class=\"border border-gray-300 px-4 py-2 bg-gray-100 text-center\"\n              >\n                {{ monthName }}\n              </th>\n            </tr>\n            <!-- Level 2: 날짜 -->\n            <tr>\n              <th\n                v-for=\"day in daysInMonth\"\n                :key=\"day.date\"\n                class=\"border border-gray-300 px-2 py-1 bg-gray-50 text-center text-sm\"\n              >\n                {{ day.day }}일\n              </th>\n            </tr>\n            <!-- Level 3: 요일 -->\n            <tr>\n              <th\n                v-for=\"day in daysInMonth\"\n                :key=\"day.date\"\n                class=\"border border-gray-300 px-2 py-1 bg-gray-50 text-center text-xs\"\n              >\n                ({{ day.dayName }})\n              </th>\n            </tr>\n          </thead>\n          <tbody>\n            <!-- Total 행 -->\n            <tr>\n              <td class=\"border border-gray-300 px-4 py-2 font-bold\">Total</td>\n              <td\n                v-for=\"day in daysInMonth\"\n                :key=\"day.date\"\n                class=\"border border-gray-300 px-2 py-1 text-center\"\n              >\n                {{ reqs.requirements[day.date]?.total || 0 }}\n              </td>\n            </tr>\n            <!-- D, E, N 행 -->\n            <tr v-for=\"shift in ['D', 'E', 'N']\" :key=\"shift\">\n              <td class=\"border border-gray-300 px-4 py-2 font-semibold\">{{ shift }}</td>\n              <td\n                v-for=\"day in daysInMonth\"\n                :key=\"day.date\"\n                class=\"border border-gray-300 px-2 py-1 text-center\"\n              >\n                <input\n                  type=\"number\"\n                  :value=\"(reqs.requirements[day.date] as any)?.[shift] || 0\"\n                  min=\"0\"\n                  class=\"w-full text-center border-none focus:outline-none focus:ring-2 focus:ring-blue-500\"\n                  @change=\"handleCellChange(day.date, shift, $event)\"\n                />\n              </td>\n            </tr>\n          </tbody>\n        </table>\n      </div>\n      \n      <n-alert type=\"info\" class=\"mt-4\">\n        셀을 클릭하여 필요 인력 수를 수정할 수 있습니다\n      </n-alert>\n      \n      <!-- 버튼 -->\n      <div class=\"flex justify-between pt-4\">\n        <n-button @click=\"handlePrev\">← 이전</n-button>\n        <n-button type=\"primary\" @click=\"handleNext\">다음 단계 →</n-button>\n      </div>\n    </n-card>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, computed, onMounted } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { NCard, NButton, NAlert } from 'naive-ui';\nimport StepIndicator from '@/components/schedule/StepIndicator.vue';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { useSiteRequirements } from '@/composables/useSiteRequirements';\nimport { getDaysInMonth } from '@/utils/date';\nimport dayjs from 'dayjs';\n\nconst router = useRouter();\nconst scheduleStore = useScheduleStore();\nconst reqs = useSiteRequirements();\n\nconst daysInMonth = computed(() => {\n  if (!scheduleStore.basicInfo?.month) return [];\n  return getDaysInMonth(scheduleStore.basicInfo.month);\n});\n\nconst monthName = computed(() => {\n  if (!scheduleStore.basicInfo?.month) return '';\n  return dayjs(scheduleStore.basicInfo.month + '-01').format('YYYY년 MM월');\n});\n\nonMounted(async () => {\n  if (!scheduleStore.basicInfo) {\n    router.push('/schedule/step1');\n    return;\n  }\n  \n  // 사이트 요구사항 로드\n  await reqs.loadRequirements(\n    scheduleStore.basicInfo.organizationId,\n    scheduleStore.basicInfo.month\n  );\n});\n\nfunction handleCellChange(date: string, shiftCode: string, event: Event) {\n  const input = event.target as HTMLInputElement;\n  const value = parseInt(input.value) || 0;\n  reqs.updateRequirement(date, shiftCode, value);\n}\n\nfunction handlePrev() {\n  scheduleStore.prevStep();\n  router.push('/schedule/step1');\n}\n\nfunction handleNext() {\n  scheduleStore.setSiteRequirements(reqs.requirements.value);\n  scheduleStore.nextStep();\n  router.push('/schedule/step3');\n}\n</script>\n```",
       "verificationCriteria": "1. Step2SiteInfo.vue 파일 생성 완료\n2. 3-level 헤더 테이블 렌더링\n3. 31일 컬럼 표시\n4. Total 행 자동 계산\n5. 셀 값 수정 가능",
-      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산"
+      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산",
+      "summary": "Step2SiteInfo.vue 구현 완료. 3-level 헤더 테이블 (월 이름/날짜/요일), Total 행과 D/E/N 시프트별 행, 인라인 편집, 합계 자동 계산 모두 구현됨. useSiteRequirements composable과 통합, route guard 및 네비게이션 완료. ESLint/Prettier 통과, Vite 빌드 성공 (330ms, 에러 없음). 모든 검증 기준 충족.",
+      "completedAt": "2025-11-15T08:48:51.852Z"
     },
     {
       "id": "98db6fe2-558a-43cb-9cbd-80815b845d67",
       "name": "ShiftSelector 컴포넌트 (components/schedule/ShiftSelector.vue)",
       "description": "각 그리드 셀에서 시프트를 선택하는 버튼 그룹 컴포넌트. D/E/N/O 버튼, 선택/미선택 상태 시각화.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
@@ -1003,7 +1007,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:47:36.749Z",
-      "updatedAt": "2025-11-13T11:47:36.749Z",
+      "updatedAt": "2025-11-15T08:52:20.200Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ShiftSelector.vue",
@@ -1013,7 +1017,9 @@
       ],
       "implementationGuide": "1. src/components/schedule/ShiftSelector.vue 파일 생성\n2. Props: employeeId, date, availableShifts, currentShift, readonly\n3. Events: @select\n4. 구현:\n\n```vue\n<template>\n  <div class=\"flex gap-1 p-1\">\n    <button\n      v-for=\"shift in availableShifts\"\n      :key=\"shift\"\n      :class=\"getShiftButtonClass(shift)\"\n      :disabled=\"readonly\"\n      @click=\"handleSelect(shift)\"\n    >\n      {{ shift }}\n    </button>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { computed } from 'vue';\n\ninterface Props {\n  employeeId: string;\n  date: string;\n  availableShifts: string[];\n  currentShift: string | null;\n  readonly?: boolean;\n}\n\ninterface Emits {\n  (e: 'select', shiftCode: string): void;\n}\n\nconst props = defineProps<Props>();\nconst emit = defineEmits<Emits>();\n\nfunction getShiftButtonClass(shiftCode: string) {\n  const isSelected = props.currentShift === shiftCode;\n  const baseClass = 'w-8 h-8 rounded text-xs font-semibold border-2 transition-opacity';\n  \n  const colorMap: Record<string, string> = {\n    D: 'border-shift-day text-green-700',\n    E: 'border-shift-evening text-orange-700',\n    N: 'border-shift-night text-blue-700',\n    O: 'border-shift-off text-gray-700',\n  };\n  \n  const selectedColorMap: Record<string, string> = {\n    D: 'bg-shift-day text-white',\n    E: 'bg-shift-evening text-white',\n    N: 'bg-shift-night text-white',\n    O: 'bg-shift-off text-white',\n  };\n  \n  const color = isSelected ? selectedColorMap[shiftCode] : colorMap[shiftCode];\n  const opacity = isSelected ? 'opacity-100' : 'opacity-40';\n  const hover = !props.readonly ? 'hover:opacity-80 cursor-pointer' : 'cursor-not-allowed';\n  \n  return `${baseClass} ${color} ${opacity} ${hover}`;\n}\n\nfunction handleSelect(shiftCode: string) {\n  if (!props.readonly) {\n    emit('select', shiftCode);\n  }\n}\n</script>\n```",
       "verificationCriteria": "1. ShiftSelector.vue 파일 생성 완료\n2. D/E/N/O 버튼 렌더링\n3. 선택: opacity 1.0, 배경색 채움\n4. 미선택: opacity 0.4, 테두리만\n5. 클릭 시 @select 이벤트 발생",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장",
+      "summary": "ShiftSelector 컴포넌트 구현 완료. 모든 검증 기준 충족: (1) Vue 파일 생성, (2) D/E/N/O 버튼 렌더링 (v-for + availableShifts), (3) 선택 상태 시각화 (opacity-100 + bg-shift-* 색상), (4) 미선택 상태 시각화 (opacity-40 + border-shift-* 테두리), (5) 클릭 이벤트 emit('select'). TypeScript 타입 정의, props/emits 인터페이스, readonly 처리 포함. ESLint 검증 통과, Vite 컴파일 성공.",
+      "completedAt": "2025-11-15T08:52:20.186Z"
     },
     {
       "id": "ecef5ddf-8b06-40aa-93b6-2cb6459b516d",
