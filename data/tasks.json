@@ -796,7 +796,7 @@
       "id": "ab08ce06-628c-4add-84a3-82ecfa564fd8",
       "name": "Organization Store: Pinia 스토어 생성 (stores/organization.ts)",
       "description": "조직, 직원, 시프트 데이터를 Supabase에서 로드하는 Pinia 스토어.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
@@ -815,7 +815,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T07:57:44.940Z",
       "relatedFiles": [
         {
           "path": "src/stores/organization.ts",
@@ -825,7 +825,9 @@
       ],
       "implementationGuide": "1. src/stores/organization.ts 파일 생성\n2. Pinia defineStore 사용:\n\n```typescript\nimport { defineStore } from 'pinia';\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport type { Organization } from '@/types/organization';\nimport type { Employee } from '@/types/employee';\nimport type { Shift } from '@/types/shift';\n\nexport const useOrganizationStore = defineStore('organization', () => {\n  const current = ref<Organization | null>(null);\n  const employees = ref<Employee[]>([]);\n  const shifts = ref<Shift[]>([]);\n  const loading = ref(false);\n  \n  // 조직 정보 로드 (직원, 시프트 포함)\n  async function loadOrganization(orgId: string) {\n    loading.value = true;\n    try {\n      // 조직 정보\n      const { data: orgData, error: orgError } = await supabase\n        .from('organizations')\n        .select('*')\n        .eq('id', orgId)\n        .single();\n      \n      if (orgError) throw orgError;\n      current.value = orgData;\n      \n      // 직원 목록\n      const { data: empData, error: empError } = await supabase\n        .from('employees')\n        .select('*')\n        .eq('organization_id', orgId);\n      \n      if (empError) throw empError;\n      employees.value = empData;\n      \n      // 시프트 정의\n      const { data: shiftData, error: shiftError } = await supabase\n        .from('shifts')\n        .select('*')\n        .eq('organization_id', orgId);\n      \n      if (shiftError) throw shiftError;\n      shifts.value = shiftData;\n      \n      return { success: true };\n    } catch (error: any) {\n      console.error('Failed to load organization:', error);\n      return { success: false, error: error.message };\n    } finally {\n      loading.value = false;\n    }\n  }\n  \n  return {\n    current,\n    employees,\n    shifts,\n    loading,\n    loadOrganization,\n  };\n});\n```",
       "verificationCriteria": "1. organization.ts 파일 생성 완료\n2. useOrganizationStore 정의\n3. loadOrganization 함수 구현\n4. 테스트: loadOrganization('00000000-0000-0000-0000-000000000001') 호출 시 30명 직원, 4개 시프트 로드",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Organization Store 생성 완료. Pinia 스토어로 조직, 직원, 시프트 데이터를 Supabase에서 로드하는 기능 구현. Supabase snake_case를 TypeScript camelCase로 변환하는 로직 추가. 타입 안전성 확보를 위해 OrganizationRow, EmployeeRow, ShiftRow 인터페이스 정의. loadOrganization 함수는 조직 정보, 직원 목록, 시프트 정의를 동시에 로드하며, 에러 처리 및 로딩 상태 관리 포함. ESLint 경고 모두 해결 및 컴파일 에러 없음 확인.",
+      "completedAt": "2025-11-15T07:57:44.802Z"
     },
     {
       "id": "2fea27dc-6a6a-4ffb-a713-65a3561d4e7a",

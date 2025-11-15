@@ -10,6 +10,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: '로그인' },
   },
   {
+    path: '/test',
+    name: 'TestOrganization',
+    component: () => import('@/views/TestOrganization.vue'),
+    meta: { requiresAuth: false, title: 'Organization Store 테스트' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
