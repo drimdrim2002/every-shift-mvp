@@ -299,7 +299,7 @@
       "id": "2b774c1e-9422-4fc9-aa73-a77faad93f62",
       "name": "Utility 함수: 검증 로직 (utils/validation.ts)",
       "description": "근무표 데이터 검증 함수 구현: validateLastMonthData() - 전월 5일 데이터 입력 확인.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
@@ -309,7 +309,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:40:53.273Z",
       "relatedFiles": [
         {
           "path": "src/utils/validation.ts",
@@ -319,7 +319,9 @@
       ],
       "implementationGuide": "1. src/utils/validation.ts 파일 생성\n2. 함수 구현:\n\n```typescript\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 전월 데이터 검증 (5일 모두 입력되었는지)\nexport function validateLastMonthData(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap\n): { isValid: boolean; errors: string[] } {\n  const errors: string[] = [];\n  const lastMonthDates = dates.filter(d => d.isLastMonth).map(d => d.date);\n  \n  for (const employee of employees) {\n    for (const date of lastMonthDates) {\n      const shift = assignments[employee.id]?.[date];\n      if (!shift) {\n        errors.push(`${employee.name}의 ${date} 데이터가 입력되지 않았습니다.`);\n      }\n    }\n  }\n  \n  return {\n    isValid: errors.length === 0,\n    errors,\n  };\n}\n\n// 시프트 코드 유효성 검증\nexport function isValidShiftCode(code: string): boolean {\n  return ['D', 'E', 'N', 'O', 'H'].includes(code);\n}\n```\n\n3. export 확인",
       "verificationCriteria": "1. validation.ts 파일 생성 완료\n2. validateLastMonthData 함수 정의\n3. 빈 assignments 전달 시 errors 배열 반환\n4. isValidShiftCode('D') === true",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "validation.ts 파일 생성 완료. isValidShiftCode() 함수는 D, E, N, O, H 코드 검증을 정확히 수행하며, validateLastMonthData() 함수는 구현 가이드의 파라미터 순서(employees, dates, assignments)를 준수하고 전월 5일 데이터 누락을 체계적으로 검사하여 직원별/날짜별 에러 메시지를 반환합니다. 빈 assignments 입력 시 에러 배열 정상 반환, TypeScript 타입 안정성 확보, ESLint 규칙 준수. 검증 기준 4가지 모두 충족.",
+      "completedAt": "2025-11-15T04:40:53.247Z"
     },
     {
       "id": "7a035827-f29c-4c19-881f-22b926ad3bc1",
