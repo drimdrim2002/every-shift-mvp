@@ -1,0 +1,325 @@
+{
+  "metadata": {
+    "phase": "phase-0-infrastructure",
+    "label": "Infrastructure Setup",
+    "description": "Project setup, packages, build tools, linting",
+    "taskCount": 10
+  },
+  "tasks": [
+    {
+      "id": "b3449519-413b-40ec-9cea-c8adc211e52e",
+      "name": "Vite 프로젝트 생성 및 TypeScript 설정 확인",
+      "description": "Vue 3 + TypeScript 템플릿으로 Vite 프로젝트를 생성하고, TypeScript 설정이 올바른지 확인. 프로젝트명은 'everyshift-mvp'로 설정.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "CREATE",
+          "description": "프로젝트 메타데이터 및 의존성 정보"
+        },
+        {
+          "path": "tsconfig.json",
+          "type": "CREATE",
+          "description": "TypeScript 컴파일러 설정"
+        },
+        {
+          "path": "vite.config.ts",
+          "type": "CREATE",
+          "description": "Vite 빌드 도구 설정"
+        },
+        {
+          "path": "src/main.ts",
+          "type": "CREATE",
+          "description": "애플리케이션 진입점"
+        },
+        {
+          "path": "src/App.vue",
+          "type": "CREATE",
+          "description": "루트 Vue 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. 터미널에서 `npm create vite@latest everyshift-mvp -- --template vue-ts` 실행\n2. `cd everyshift-mvp && npm install` 실행\n3. `npm run dev` 실행하여 개발 서버가 정상 작동하는지 확인\n4. tsconfig.json 파일 확인 (strict 모드 활성화 여부)\n5. src/App.vue, src/main.ts 파일이 TypeScript로 작성되어 있는지 확인",
+      "verificationCriteria": "1. npm run dev 실행 시 브라우저에서 Vite + Vue 초기 화면 표시\n2. TypeScript 컴파일 에러 없음\n3. Hot Module Replacement 정상 작동",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7",
+      "name": "UI 및 스타일링 패키지 설치 (Naive UI, Tailwind CSS)",
+      "description": "사용자 인터페이스 구축을 위한 Naive UI 컴포넌트 라이브러리와 Tailwind CSS 유틸리티 프레임워크를 설치하고 기본 설정을 수행.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "dependencies 섹션에 naive-ui, tailwindcss 추가"
+        },
+        {
+          "path": "tailwind.config.js",
+          "type": "CREATE",
+          "description": "Tailwind CSS 설정 파일"
+        },
+        {
+          "path": "postcss.config.js",
+          "type": "CREATE",
+          "description": "PostCSS 설정 파일"
+        },
+        {
+          "path": "src/style.css",
+          "type": "TO_MODIFY",
+          "description": "Tailwind directives 추가"
+        }
+      ],
+      "implementationGuide": "1. Naive UI 설치: `npm install naive-ui`\n2. Tailwind CSS 설치: `npm install -D tailwindcss@3.4.17 postcss autoprefixer`\n3. Tailwind 초기화: `npx tailwindcss init -p`\n4. tailwind.config.js에서 content 경로 설정: [\"./index.html\", \"./src/**/*.{vue,js,ts,jsx,tsx}\"]\n5. src/style.css 파일에 Tailwind directives 추가: @tailwind base; @tailwind components; @tailwind utilities;\n6. main.ts에서 'naive-ui' import하여 테스트",
+      "verificationCriteria": "1. npm install 성공적으로 완료\n2. tailwind.config.js 생성 확인\n3. Tailwind 유틸리티 클래스 (예: text-blue-500) 적용 시 스타일 반영\n4. Naive UI 컴포넌트 (예: n-button) import 가능",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "57b08cdd-f193-4475-85e3-148f0af29c8c",
+      "name": "Tailwind CSS 커스텀 색상 설정 (시프트 색상)",
+      "description": "근무 시프트별 색상 코드를 Tailwind CSS theme에 추가. D(Day)=#92D050, E(Evening)=#FFC000, N(Night)=#4472C4, O(Off)=#D9D9D9.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "tailwind.config.js",
+          "type": "TO_MODIFY",
+          "description": "theme.extend.colors에 시프트 색상 추가"
+        }
+      ],
+      "implementationGuide": "1. tailwind.config.js 파일 열기\n2. theme.extend.colors 섹션에 커스텀 색상 추가:\n```javascript\nshift: {\n  day: '#92D050',\n  evening: '#FFC000',\n  night: '#4472C4',\n  off: '#D9D9D9',\n}\n```\n3. 테스트용 컴포넌트에서 bg-shift-day, text-shift-night 등 클래스 사용하여 색상 적용 확인",
+      "verificationCriteria": "1. bg-shift-day 클래스 적용 시 #92D050 색상 표시\n2. bg-shift-evening 클래스 적용 시 #FFC000 색상 표시\n3. bg-shift-night 클래스 적용 시 #4472C4 색상 표시\n4. bg-shift-off 클래스 적용 시 #D9D9D9 색상 표시",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "cc672606-607c-4315-8edb-8ba2d5ab0dbb",
+      "name": "그리드 및 상태 관리 패키지 설치 (TanStack Table, Pinia, Vue Router)",
+      "description": "근무표 그리드 구현을 위한 TanStack Table, 전역 상태 관리를 위한 Pinia, 라우팅을 위한 Vue Router를 설치.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "dependencies에 @tanstack/vue-table, pinia, vue-router 추가"
+        },
+        {
+          "path": "src/main.ts",
+          "type": "TO_MODIFY",
+          "description": "Pinia, Router 플러그인 등록"
+        }
+      ],
+      "implementationGuide": "1. TanStack Table 설치: `npm install @tanstack/vue-table`\n2. Pinia 설치: `npm install pinia`\n3. Vue Router 설치: `npm install vue-router@4`\n4. main.ts에서 Pinia와 Vue Router 플러그인 등록:\n```typescript\nimport { createPinia } from 'pinia'\nimport { createRouter, createWebHistory } from 'vue-router'\nconst pinia = createPinia()\napp.use(pinia)\napp.use(router)\n```",
+      "verificationCriteria": "1. npm install 성공\n2. import { createPinia } from 'pinia' 에러 없음\n3. import { createRouter } from 'vue-router' 에러 없음\n4. import { useTable } from '@tanstack/vue-table' 에러 없음",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "cbab63dd-291c-49ba-af19-878efd0b063a",
+      "name": "백엔드 연동 패키지 설치 (Supabase JS Client)",
+      "description": "Supabase 데이터베이스 및 인증 시스템과 연동하기 위한 Supabase JavaScript 클라이언트 라이브러리를 설치.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T13:29:29.640582Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "dependencies에 @supabase/supabase-js 추가"
+        }
+      ],
+      "implementationGuide": "1. Supabase JS 설치: `npm install @supabase/supabase-js`\n2. 설치 확인: package.json에서 @supabase/supabase-js 버전 확인\n3. 간단한 import 테스트:\n```typescript\nimport { createClient } from '@supabase/supabase-js'\n```",
+      "verificationCriteria": "1. npm install 성공\n2. import { createClient } from '@supabase/supabase-js' TypeScript 에러 없음\n3. package.json에 @supabase/supabase-js 의존성 추가 확인",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 5
+    },
+    {
+      "id": "b4729e4b-52b4-4536-a781-6f83387b603b",
+      "name": "유틸리티 패키지 설치 (Day.js, VueUse, XLSX)",
+      "description": "날짜 처리(Day.js), Vue 유틸리티(VueUse), 엑셀 내보내기(XLSX) 기능을 위한 패키지를 설치.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "TO_MODIFY",
+          "description": "dependencies에 dayjs, @vueuse/core, xlsx 추가"
+        }
+      ],
+      "implementationGuide": "1. Day.js 설치: `npm install dayjs`\n2. VueUse 설치: `npm install @vueuse/core`\n3. XLSX 설치: `npm install xlsx`\n4. 각 패키지 import 테스트:\n```typescript\nimport dayjs from 'dayjs'\nimport { watchDebounced } from '@vueuse/core'\nimport * as XLSX from 'xlsx'\n```",
+      "verificationCriteria": "1. npm install 성공\n2. dayjs import 에러 없음\n3. @vueuse/core의 watchDebounced import 에러 없음\n4. xlsx import 에러 없음",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "e6ade1e6-1f68-4bf5-9175-a97bae945462",
+      "name": "프로젝트 폴더 구조 생성",
+      "description": "Vue 3 Composition API 패턴에 맞는 프로젝트 폴더 구조를 생성. components, composables, stores, router, views, api, types, utils 디렉토리 생성.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-13T11:42:27.631Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/",
+          "type": "CREATE",
+          "description": "Vue 컴포넌트 디렉토리"
+        },
+        {
+          "path": "src/composables/",
+          "type": "CREATE",
+          "description": "Composition API 재사용 로직"
+        },
+        {
+          "path": "src/stores/",
+          "type": "CREATE",
+          "description": "Pinia stores"
+        },
+        {
+          "path": "src/router/",
+          "type": "CREATE",
+          "description": "Vue Router 설정"
+        },
+        {
+          "path": "src/views/",
+          "type": "CREATE",
+          "description": "페이지 레벨 컴포넌트"
+        },
+        {
+          "path": "src/api/",
+          "type": "CREATE",
+          "description": "API 클라이언트 함수"
+        },
+        {
+          "path": "src/types/",
+          "type": "CREATE",
+          "description": "TypeScript 타입 정의"
+        },
+        {
+          "path": "src/utils/",
+          "type": "CREATE",
+          "description": "유틸리티 함수"
+        }
+      ],
+      "implementationGuide": "1. 터미널에서 다음 명령어 실행:\n```bash\nmkdir -p src/components/layout\nmkdir -p src/components/schedule\nmkdir -p src/components/ui\nmkdir -p src/composables\nmkdir -p src/stores\nmkdir -p src/router\nmkdir -p src/views/auth\nmkdir -p src/views/schedule\nmkdir -p src/api\nmkdir -p src/types\nmkdir -p src/utils\n```\n2. 각 디렉토리가 생성되었는지 확인",
+      "verificationCriteria": "1. src/ 하위에 8개 주요 디렉토리 존재\n2. components/ 하위에 layout, schedule, ui 서브디렉토리 존재\n3. views/ 하위에 auth, schedule 서브디렉토리 존재",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성"
+    },
+    {
+      "id": "34398a7c-beda-4667-b06b-acb5fb9dc9f5",
+      "name": "ESLint 및 Prettier 설정",
+      "description": "코드 품질과 포맷팅 일관성을 위한 ESLint 및 Prettier 설정. Vue 3, TypeScript, Tailwind CSS 규칙 적용.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-13T13:51:54.911823Z",
+      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "relatedFiles": [
+        {
+          "path": ".eslintrc.cjs",
+          "type": "CREATE",
+          "description": "ESLint 설정"
+        },
+        {
+          "path": ".prettierrc.json",
+          "type": "CREATE",
+          "description": "Prettier 설정"
+        },
+        {
+          "path": ".eslintignore",
+          "type": "CREATE",
+          "description": "ESLint ignore 설정"
+        },
+        {
+          "path": ".prettierignore",
+          "type": "CREATE",
+          "description": "Prettier ignore 설정"
+        }
+      ],
+      "implementationGuide": "1. 패키지 설치:\n```bash\nnpm install -D eslint prettier eslint-plugin-vue @vue/eslint-config-typescript @vue/eslint-config-prettier eslint-plugin-tailwindcss\n```\n\n2. .eslintrc.cjs 생성:\n```javascript\n/* eslint-env node */\nmodule.exports = {\n  root: true,\n  env: {\n    browser: true,\n    es2021: true,\n    node: true,\n  },\n  extends: [\n    'plugin:vue/vue3-recommended',\n    '@vue/eslint-config-typescript',\n    '@vue/eslint-config-prettier',\n    'plugin:tailwindcss/recommended',\n  ],\n  parserOptions: {\n    ecmaVersion: 'latest',\n    sourceType: 'module',\n  },\n  rules: {\n    'vue/multi-word-component-names': 'off',\n    'vue/no-v-html': 'warn',\n    '@typescript-eslint/no-explicit-any': 'warn',\n    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],\n    'tailwindcss/no-custom-classname': 'off',\n  },\n};\n```\n\n3. .prettierrc.json 생성:\n```json\n{\n  \"semi\": true,\n  \"singleQuote\": true,\n  \"printWidth\": 100,\n  \"tabWidth\": 2,\n  \"trailingComma\": \"es5\",\n  \"arrowParens\": \"always\",\n  \"endOfLine\": \"lf\",\n  \"plugins\": [\"prettier-plugin-tailwindcss\"]\n}\n```\n\n4. .eslintignore 생성:\n```\ndist\nnode_modules\n.env.local\n*.config.js\n```\n\n5. .prettierignore 생성:\n```\ndist\nnode_modules\n.env.local\npnpm-lock.yaml\n```\n\n6. package.json에 스크립트 추가:\n```json\n{\n  \"scripts\": {\n    \"lint\": \"eslint . --ext .vue,.js,.ts,.tsx --fix\",\n    \"format\": \"prettier --write \"src/**/*.{vue,js,ts,tsx,json,css,md}\"\"\n  }\n}\n```\n\n7. VS Code 설정 (.vscode/settings.json):\n```json\n{\n  \"editor.formatOnSave\": true,\n  \"editor.codeActionsOnSave\": {\n    \"source.fixAll.eslint\": true\n  },\n  \"eslint.validate\": [\n    \"javascript\",\n    \"typescript\",\n    \"vue\"\n  ]\n}\n```\n\n8. 실행 및 검증:\n```bash\n# Lint 체크\nnpm run lint\n\n# 포맷팅\nnpm run format\n```",
+      "verificationCriteria": "1. ESLint 및 Prettier 설정 파일 생성\n2. npm run lint 실행 시 에러 없음\n3. npm run format 실행 시 코드 포맷팅 적용\n4. VS Code에서 저장 시 자동 포맷팅 동작\n5. Tailwind CSS 클래스 정렬 자동 적용",
+      "analysisResult": "ESLint/Prettier 설정. 코드 품질과 일관성을 유지하여 협업 및 유지보수를 용이하게 함."
+    },
+    {
+      "id": "5bdb124f-fdd7-4d5a-8ee5-b44b2661c8c1",
+      "name": "Naive UI Global Config 설정 (main.ts)",
+      "description": "Naive UI의 message, dialog, notification 등을 전역에서 사용할 수 있도록 설정. window.$message 등으로 접근 가능하게 함.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-13T13:51:54.911823Z",
+      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "relatedFiles": [
+        {
+          "path": "src/main.ts",
+          "type": "TO_MODIFY",
+          "description": "Naive UI naive-ui 설정 추가"
+        },
+        {
+          "path": "src/types/global.d.ts",
+          "type": "CREATE",
+          "description": "전역 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/main.ts 수정:\n```typescript\nimport { createApp } from 'vue';\nimport { createPinia } from 'pinia';\nimport naive from 'naive-ui';\nimport App from './App.vue';\nimport router from './router';\nimport './assets/index.css';\n\nconst app = createApp(App);\n\napp.use(createPinia());\napp.use(router);\napp.use(naive);\n\napp.mount('#app');\n\n// Naive UI meta 설정\nconst meta = document.createElement('meta');\nmeta.name = 'naive-ui-style';\ndocument.head.appendChild(meta);\n```\n\n2. src/types/global.d.ts 생성:\n```typescript\nimport type {\n  DialogApi,\n  LoadingBarApi,\n  MessageApi,\n  NotificationApi,\n} from 'naive-ui';\n\ndeclare global {\n  interface Window {\n    $message: MessageApi;\n    $dialog: DialogApi;\n    $notification: NotificationApi;\n    $loadingBar: LoadingBarApi;\n  }\n}\n\nexport {};\n```\n\n3. App.vue에서 global 설정:\n```vue\n<template>\n  <n-config-provider>\n    <n-message-provider>\n      <n-dialog-provider>\n        <n-notification-provider>\n          <n-loading-bar-provider>\n            <AppContent />\n          </n-loading-bar-provider>\n        </n-notification-provider>\n      </n-dialog-provider>\n    </n-message-provider>\n  </n-config-provider>\n</template>\n\n<script setup lang=\"ts\">\nimport {\n  NConfigProvider,\n  NMessageProvider,\n  NDialogProvider,\n  NNotificationProvider,\n  NLoadingBarProvider,\n  useMessage,\n  useDialog,\n  useNotification,\n  useLoadingBar,\n} from 'naive-ui';\nimport { onMounted } from 'vue';\nimport AppContent from './AppContent.vue';\n\nonMounted(() => {\n  window.$message = useMessage();\n  window.$dialog = useDialog();\n  window.$notification = useNotification();\n  window.$loadingBar = useLoadingBar();\n});\n</script>\n```\n\n4. AppContent.vue 생성 (실제 라우팅 컴포넌트):\n```vue\n<template>\n  <router-view />\n</template>\n\n<script setup lang=\"ts\">\n// 라우팅 컴포넌트\n</script>\n```\n\n5. 사용 예시:\n```typescript\n// 컴포넌트 내부\nwindow.$message.success('저장되었습니다!');\nwindow.$message.error('오류가 발생했습니다.');\nwindow.$message.warning('주의: 전월 데이터를 입력해주세요.');\nwindow.$message.info('정보: 근무표 생성 중입니다.');\n\nwindow.$dialog.warning({\n  title: '경고',\n  content: '전월 데이터가 입력되지 않았습니다.',\n  positiveText: '확인',\n  onPositiveClick: () => {\n    console.log('확인 클릭');\n  },\n});\n\nwindow.$notification.success({\n  title: '근무표 생성 완료',\n  content: '2025년 12월 근무표가 성공적으로 생성되었습니다.',\n  duration: 3000,\n});\n```\n\n6. tsconfig.json 업데이트:\n```json\n{\n  \"compilerOptions\": {\n    \"types\": [\"vite/client\", \"naive-ui/volar\"]\n  }\n}\n```",
+      "verificationCriteria": "1. src/types/global.d.ts 파일 생성\n2. App.vue에서 Naive UI Provider 설정\n3. window.$message, $dialog 등이 전역에서 사용 가능\n4. TypeScript 타입 에러 없음\n5. 컴포넌트에서 window.$message.success() 정상 동작",
+      "analysisResult": "Naive UI Global Config. 전역에서 일관된 방식으로 메시지, 다이얼로그를 사용하여 UX를 개선."
+    },
+    {
+      "id": "0725e1c4-f74d-4f5f-b1ab-9eb18b4410ec",
+      "name": "favicon 및 title 설정",
+      "description": "브라우저 탭 아이콘(favicon)과 제목(title)을 EveryShift에 맞게 설정. 브랜딩 강화.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-13T13:51:54.911823Z",
+      "updatedAt": "2025-11-13T13:51:54.911823Z",
+      "relatedFiles": [
+        {
+          "path": "public/favicon.ico",
+          "type": "TO_MODIFY",
+          "description": "Favicon 파일"
+        },
+        {
+          "path": "index.html",
+          "type": "TO_MODIFY",
+          "description": "HTML title 및 meta 태그"
+        }
+      ],
+      "implementationGuide": "1. Favicon 생성:\n\n**방법 1: 온라인 도구 사용**\n- [Favicon.io](https://favicon.io/) - 텍스트 또는 이미지에서 favicon 생성\n- [RealFaviconGenerator](https://realfavicongenerator.net/) - 다양한 플랫폼용 favicon 생성\n\n**방법 2: 기존 이미지 변환**\n```bash\n# ImageMagick으로 PNG → ICO 변환\nconvert logo.png -resize 32x32 public/favicon.ico\n```\n\n**권장 색상**:\n- 배경: #4472C4 (Night 시프트 파란색)\n- 텍스트: 흰색 \"ES\" (EveryShift)\n\n2. public/favicon.ico 교체:\n```bash\n# 기존 Vite favicon 제거\nrm public/favicon.ico\n\n# 새 favicon 추가\ncp path/to/everyshift-favicon.ico public/favicon.ico\n```\n\n3. index.html 수정:\n```html\n<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n\n    <!-- Primary Meta Tags -->\n    <title>EveryShift - 스마트 근무표 생성 시스템</title>\n    <meta name=\"title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta name=\"description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta name=\"keywords\" content=\"근무표, 스케줄링, 간호사, 병원, AI, 자동화\" />\n    <meta name=\"author\" content=\"EveryShift Team\" />\n\n    <!-- Open Graph / Facebook -->\n    <meta property=\"og:type\" content=\"website\" />\n    <meta property=\"og:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"og:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"og:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta property=\"og:image\" content=\"/og-image.png\" />\n\n    <!-- Twitter -->\n    <meta property=\"twitter:card\" content=\"summary_large_image\" />\n    <meta property=\"twitter:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"twitter:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"twitter:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템.\" />\n    <meta property=\"twitter:image\" content=\"/og-image.png\" />\n\n    <!-- Theme Color -->\n    <meta name=\"theme-color\" content=\"#4472C4\" />\n  </head>\n  <body>\n    <div id=\"app\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n  </body>\n</html>\n```\n\n4. (선택) Open Graph 이미지 생성:\n```bash\n# 1200x630 이미지 생성 (소셜 미디어 공유용)\n# Figma, Canva 등 디자인 도구 사용\n# public/og-image.png에 저장\n```\n\n5. 동적 title 설정 (router/index.ts):\n```typescript\nrouter.afterEach((to) => {\n  const baseTitle = 'EveryShift';\n  const pageTitle = to.meta.title as string;\n\n  document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;\n});\n```\n\n6. routes.ts에 title meta 추가:\n```typescript\nexport const routes = [\n  {\n    path: '/schedule/step1',\n    name: 'ScheduleStep1',\n    component: () => import('@/views/schedule/Step1BasicInfo.vue'),\n    meta: { title: '기본 정보 설정' },\n  },\n  // ...\n];\n```",
+      "verificationCriteria": "1. public/favicon.ico 파일 교체\n2. index.html의 title이 'EveryShift - 스마트 근무표 생성 시스템'으로 변경\n3. 브라우저 탭에서 favicon이 표시됨\n4. 각 페이지별로 동적 title이 변경됨\n5. meta 태그가 SEO에 적합하게 설정됨",
+      "analysisResult": "Favicon 및 title 설정. 브랜딩을 강화하고 사용자가 여러 탭을 열었을 때 쉽게 식별할 수 있도록 함."
+    }
+  ]
+}

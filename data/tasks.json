@@ -1,0 +1,459 @@
+{
+  "tasks": [
+    {
+      "id": "0c2615ea-94e8-4674-8ba0-eb8297e1a89a",
+      "name": "Supabase 프로젝트 생성 및 접속 정보 확보",
+      "description": "Supabase 웹 콘솔에서 새 프로젝트를 생성하고, API URL과 anon key를 확보.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-15T02:58:14.569Z",
+      "relatedFiles": [],
+      "implementationGuide": "1. https://supabase.com 접속 후 로그인\n2. 'New Project' 버튼 클릭\n3. 프로젝트 정보 입력:\n   - Name: everyshift-mvp\n   - Database Password: 안전한 비밀번호 생성 및 보관\n   - Region: Northeast Asia (Seoul) 선택\n4. 프로젝트 생성 완료 대기 (1-2분 소요)\n5. Project Settings → API 메뉴에서 다음 정보 복사:\n   - Project URL (SUPABASE_URL)\n   - anon public key (SUPABASE_ANON_KEY)\n6. 정보를 안전한 곳에 임시 저장 (다음 작업에서 .env.local에 입력)",
+      "verificationCriteria": "1. Supabase 대시보드에서 프로젝트 생성 완료\n2. Project URL 형식: https://xxxxx.supabase.co\n3. Anon key 형식: eyJxxxxx... (JWT 토큰)\n4. 데이터베이스 비밀번호 안전하게 보관",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 10,
+      "summary": "Supabase 프로젝트가 이미 성공적으로 생성되어 정상 작동 중입니다:\n\n**검증 완료 항목**:\n1. ✅ Supabase 프로젝트 \"every-shift-mvp\" 생성 완료 (ACTIVE_HEALTHY 상태)\n2. ✅ Project URL: https://vjmerqaxguovnojinxfq.supabase.co (정상 형식)\n3. ✅ Anon Key: JWT 토큰 형식으로 정상 발급 및 저장\n4. ✅ 환경 변수 .env.local에 안전하게 저장 완료\n5. ✅ MCP 서버 설정 완료 (.shrimp-supabase.json)\n\n**프로젝트 세부 정보**:\n- Region: ap-southeast-1 (Singapore)\n- Database Version: PostgreSQL 17.6.1\n- Status: ACTIVE_HEALTHY\n- Created: 2025-11-13\n\n모든 검증 기준을 충족하며, 다음 작업(환경 변수 설정)도 이미 완료되어 있습니다.",
+      "completedAt": "2025-11-15T02:58:14.564Z"
+    },
+    {
+      "id": "ad6edb9e-3bf9-4f70-9882-0b9c451678f8",
+      "name": "환경 변수 설정 (.env.local 및 .env.example)",
+      "description": "Supabase 접속 정보를 환경 변수 파일에 저장. .env.local은 실제 값, .env.example은 템플릿.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "0c2615ea-94e8-4674-8ba0-eb8297e1a89a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-15T03:02:32.967Z",
+      "relatedFiles": [
+        {
+          "path": ".env.local",
+          "type": "CREATE",
+          "description": "실제 환경 변수 (Git 제외)"
+        },
+        {
+          "path": ".env.example",
+          "type": "CREATE",
+          "description": "환경 변수 템플릿"
+        },
+        {
+          "path": ".gitignore",
+          "type": "REFERENCE",
+          "description": ".env.local 제외 확인"
+        }
+      ],
+      "implementationGuide": "1. 프로젝트 루트에 .env.local 파일 생성\n2. 다음 내용 입력 (이전 작업에서 확보한 실제 값):\n```\nVITE_SUPABASE_URL=https://xxxxx.supabase.co\nVITE_SUPABASE_ANON_KEY=eyJxxxxx...\n```\n3. .env.example 파일 생성 (템플릿):\n```\nVITE_SUPABASE_URL=your_supabase_project_url\nVITE_SUPABASE_ANON_KEY=your_supabase_anon_key\n```\n4. .gitignore에 .env.local 추가 확인 (Vite 템플릿에 기본 포함)\n5. Vite 개발 서버 재시작하여 환경 변수 로드 확인",
+      "verificationCriteria": "1. .env.local 파일 존재 및 실제 값 포함\n2. .env.example 파일 존재 및 플레이스홀더 포함\n3. import.meta.env.VITE_SUPABASE_URL로 접근 가능\n4. .gitignore에 .env.local 포함",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 5,
+      "summary": "환경 변수 설정이 완벽하게 완료되었습니다:\n\n**완료된 작업**:\n1. ✅ .env.local 파일 존재 및 실제 Supabase 접속 정보 포함\n   - VITE_SUPABASE_URL: https://vjmerqaxguovnojinxfq.supabase.co\n   - VITE_SUPABASE_ANON_KEY: JWT 토큰 정상 저장\n\n2. ✅ .env.example 파일 생성 완료 (플레이스홀더 템플릿)\n   - 팀원들이 참고할 수 있는 환경 변수 템플릿 제공\n\n3. ✅ Vite 환경 변수 규칙 준수\n   - VITE_ 접두사 사용으로 import.meta.env에서 접근 가능\n\n4. ✅ .gitignore 설정 확인\n   - .env.local이 Git에서 제외되어 보안 유지\n\n**보안 및 관리**:\n- 실제 접속 정보는 .env.local에만 저장되어 Git에서 제외\n- .env.example은 버전 관리되어 팀원들이 쉽게 설정 가능",
+      "completedAt": "2025-11-15T03:02:32.956Z"
+    },
+    {
+      "id": "ef7a9c3d-2b84-4f1a-9e5d-6c7f8a9b0c1d",
+      "name": "Supabase UUID Extension 활성화",
+      "description": "Supabase 데이터베이스에서 UUID 생성 기능을 활성화하기 위한 uuid-ossp 확장 설치. 이후 테이블 생성 시 gen_random_uuid() 사용 가능.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "ad6edb9e-3bf9-4f70-9882-0b9c451678f8"
+        }
+      ],
+      "createdAt": "2025-11-13T15:00:00.000Z",
+      "updatedAt": "2025-11-15T03:29:19.709Z",
+      "relatedFiles": [],
+      "estimatedMinutes": 2,
+      "implementationGuide": "1. Supabase 대시보드 → SQL Editor 메뉴 열기\n2. 'New Query' 클릭\n3. 다음 SQL 실행:\n\n```sql\nCREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";\n```\n\n4. 실행 성공 확인 (에러 없음)\n\n**참고**: 이 확장은 gen_random_uuid() 함수를 활성화하여 테이블의 기본 키 생성에 필요합니다. Supabase는 기본적으로 이 확장을 포함하고 있지만, 명시적으로 활성화하는 것이 좋은 practice입니다.\n\n**PRD 참조**: docs/prd/02-database-migration.md Section 3.1, line 474",
+      "verificationCriteria": "1. SQL 실행 성공 (에러 없음)\n2. 다음 쿼리로 확장 설치 확인:\n```sql\nSELECT * FROM pg_extension WHERE extname = 'uuid-ossp';\n```\n3. gen_random_uuid() 함수 테스트:\n```sql\nSELECT gen_random_uuid();\n```\n결과: UUID 형식 문자열 반환 (예: 550e8400-e29b-41d4-a716-446655440000)",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "Supabase uuid-ossp 확장 활성화 완료. gen_random_uuid() 함수 정상 작동 확인 (테스트 결과: 53598e48-6dc4-4da6-9b00-e5d1bf6b5309). 이제 데이터베이스 테이블 생성 시 gen_random_uuid()를 기본 키 생성에 사용할 수 있습니다.",
+      "completedAt": "2025-11-15T03:29:19.703Z"
+    },
+    {
+      "id": "c44240eb-9148-4a0b-8787-b9560b29af7f",
+      "name": "Supabase 데이터베이스 스키마 마이그레이션 (6개 테이블)",
+      "description": "PRD 섹션 3.2의 SQL 스키마를 Supabase SQL Editor에서 실행하여 6개 테이블 생성: organizations, employees, shifts, schedules, schedule_assignments, site_requirements.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "ef7a9c3d-2b84-4f1a-9e5d-6c7f8a9b0c1d"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-15T03:40:45.547Z",
+      "relatedFiles": [],
+      "implementationGuide": "**중요**: UUID extension이 먼저 활성화되어 있어야 합니다 (이전 작업 참조).\n\n1. Supabase 대시보드 → SQL Editor 메뉴 열기\n2. 'New Query' 클릭\n3. 다음 전체 마이그레이션 SQL을 복사하여 실행:\n\n```sql\n-- 1. organizations 테이블\nCREATE TABLE organizations (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    name VARCHAR(255) NOT NULL,\n    type VARCHAR(50) NOT NULL,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()\n);\n\n-- 2. employees 테이블\nCREATE TABLE employees (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    organization_id UUID NOT NULL REFERENCES organizations(id),\n    employee_id VARCHAR(50) NOT NULL,\n    name VARCHAR(100) NOT NULL,\n    available_shifts JSONB NOT NULL,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    UNIQUE(organization_id, employee_id)\n);\n\nCREATE INDEX idx_employees_org ON employees(organization_id);\n\n-- 3. shifts 테이블\nCREATE TABLE shifts (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    organization_id UUID NOT NULL REFERENCES organizations(id),\n    code VARCHAR(10) NOT NULL,\n    name VARCHAR(50) NOT NULL,\n    color_code VARCHAR(20) NOT NULL,\n    start_time TIME,\n    end_time TIME,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    UNIQUE(organization_id, code)\n);\n\n-- 4. schedules 테이블\nCREATE TABLE schedules (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    organization_id UUID NOT NULL REFERENCES organizations(id),\n    month VARCHAR(7) NOT NULL,\n    status VARCHAR(20) NOT NULL DEFAULT 'created',\n    hard_score INTEGER DEFAULT 0,\n    soft_score INTEGER DEFAULT 0,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    UNIQUE(organization_id, month)\n);\n\nCREATE INDEX idx_schedules_org_month ON schedules(organization_id, month);\n\n-- 5. schedule_assignments 테이블\nCREATE TABLE schedule_assignments (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    schedule_id UUID NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,\n    employee_id UUID NOT NULL REFERENCES employees(id),\n    shift_id UUID NOT NULL REFERENCES shifts(id),\n    date DATE NOT NULL,\n    is_locked BOOLEAN DEFAULT FALSE,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    UNIQUE(schedule_id, employee_id, date)\n);\n\nCREATE INDEX idx_assignments_schedule ON schedule_assignments(schedule_id);\nCREATE INDEX idx_assignments_employee_date ON schedule_assignments(employee_id, date);\n\n-- 6. site_requirements 테이블\nCREATE TABLE site_requirements (\n    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n    organization_id UUID NOT NULL REFERENCES organizations(id),\n    shift_id UUID NOT NULL REFERENCES shifts(id),\n    day_of_week INTEGER NOT NULL,\n    required_count INTEGER NOT NULL,\n    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),\n    UNIQUE(organization_id, shift_id, day_of_week)\n);\n```\n\n4. 실행 확인 (에러 없어야 함)\n5. Table Editor에서 6개 테이블 생성 확인\n\n**PRD 참조**: docs/prd/02-database-migration.md Section 1.2 (전체 스키마), Section 3.1 (마이그레이션 SQL, lines 468-553)",
+      "verificationCriteria": "1. Supabase Table Editor에서 6개 테이블 모두 존재\n2. employees.available_shifts 컬럼 타입이 jsonb\n3. schedules.status 기본값 'created'\n4. 모든 외래 키 제약조건 정상 생성 (REFERENCES 키워드)\n5. schedule_assignments에 ON DELETE CASCADE 설정 확인\n6. 4개 인덱스 생성 확인:\n   - idx_employees_org\n   - idx_schedules_org_month\n   - idx_assignments_schedule\n   - idx_assignments_employee_date\n7. 모든 created_at, updated_at 컬럼에 DEFAULT NOW() 설정",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 20,
+      "summary": "Supabase 데이터베이스 스키마 마이그레이션 완료. 6개 테이블(organizations, employees, shifts, schedules, schedule_assignments, site_requirements) 생성 성공. 모든 외래 키 제약조건, 인덱스, 기본값 설정 정상 확인. MCP list_tables 도구로 스키마 구조 검증 완료.",
+      "completedAt": "2025-11-15T03:40:45.533Z"
+    },
+    {
+      "id": "1938165e-4b57-43b8-8612-f3cf6d457712",
+      "name": "Supabase RLS 정책 설정 (schedules 테이블)",
+      "description": "schedules 테이블에 Row Level Security 정책을 설정하여 조직별 데이터 접근 제어. MVP에서는 간소화된 정책 사용 (모든 사용자 접근 가능).",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "c44240eb-9148-4a0b-8787-b9560b29af7f"
+        }
+      ],
+      "createdAt": "2025-11-13T13:29:29.640Z",
+      "updatedAt": "2025-11-15T03:46:08.818Z",
+      "relatedFiles": [],
+      "estimatedMinutes": 5,
+      "implementationGuide": "1. Supabase SQL Editor에서 다음 SQL 실행:\n\n```sql\n-- RLS 활성화\nALTER TABLE schedules ENABLE ROW LEVEL SECURITY;\n\n-- SELECT 정책 (MVP: 모든 사용자 조회 가능)\nCREATE POLICY \"Users can view own organization schedules\"\nON schedules FOR SELECT\nUSING (true);\n\n-- INSERT 정책 (MVP: 모든 사용자 생성 가능)\nCREATE POLICY \"Users can insert own organization schedules\"\nON schedules FOR INSERT\nWITH CHECK (true);\n\n-- UPDATE 정책 (MVP: 모든 사용자 수정 가능)\nCREATE POLICY \"Users can update own organization schedules\"\nON schedules FOR UPDATE\nUSING (true)\nWITH CHECK (true);\n\n-- DELETE 정책 (MVP: 모든 사용자 삭제 가능)\nCREATE POLICY \"Users can delete own organization schedules\"\nON schedules FOR DELETE\nUSING (true);\n```\n\n2. Table Editor → schedules 테이블 → Policies 탭에서 정책 확인\n\n**MVP 간소화 주의사항**:\n- 현재 모든 정책이 `USING (true)`로 설정되어 인증 없이 접근 가능\n- Admin 단일 역할만 사용하는 MVP에 적합\n- **프로덕션 TODO**: 다음과 같이 organization_id 기반 필터링으로 교체 필요:\n  ```sql\n  USING (organization_id = current_setting('app.current_organization_id')::uuid)\n  ```\n\n**PRD 참조**: docs/prd/02-database-migration.md Section 1.4 (RLS 정책, lines 391-405)",
+      "verificationCriteria": "1. schedules 테이블에 RLS가 활성화되어 있음\n2. 4개 정책 생성 확인 (SELECT, INSERT, UPDATE, DELETE)\n3. Supabase Authentication 없이도 데이터 접근 가능 (USING true)\n4. 정책 이름이 명확하고 이해하기 쉬움",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "schedules 테이블에 RLS 정책이 성공적으로 설정되었습니다. 4개의 CRUD 정책(SELECT, INSERT, UPDATE, DELETE)이 모두 생성되었으며, MVP 요구사항에 맞게 모든 정책이 `USING (true)`로 설정되어 인증 없이 접근 가능합니다. 정책 이름도 명확하고 이해하기 쉽게 작성되었습니다. 프로덕션 배포 시 organization_id 기반 필터링으로 교체가 필요하다는 주의사항도 문서화되어 있습니다.",
+      "completedAt": "2025-11-15T03:46:08.804Z"
+    },
+    {
+      "id": "48f3a743-a0ff-4fb3-8970-2877edcbc56e",
+      "name": "Supabase Seed 데이터 로드 (조직, 시프트, 직원, 사이트 요구사항)",
+      "description": "PRD 섹션 3.3의 seed.sql을 실행하여 초기 데이터 삽입: 1개 조직(세브란스병원), 4개 시프트(D/E/N/O), 30명 직원, 요일별 필요 인력.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "c44240eb-9148-4a0b-8787-b9560b29af7f"
+        },
+        {
+          "taskId": "1938165e-4b57-43b8-8612-f3cf6d457712"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-15T03:54:36.372Z",
+      "relatedFiles": [],
+      "implementationGuide": "1. Supabase SQL Editor에서 다음 순서로 데이터 삽입:\n\n**1단계: 조직 생성**\n```sql\nINSERT INTO organizations (id, name, type) VALUES\n('00000000-0000-0000-0000-000000000001', '세브란스병원', 'hospital');\n```\n\n**2단계: 시프트 정의**\n```sql\nINSERT INTO shifts (organization_id, code, name, color_code, start_time, end_time) VALUES\n('00000000-0000-0000-0000-000000000001', 'D', 'Day', '#92D050', '08:00', '16:00'),\n('00000000-0000-0000-0000-000000000001', 'E', 'Evening', '#FFC000', '16:00', '00:00'),\n('00000000-0000-0000-0000-000000000001', 'N', 'Night', '#4472C4', '00:00', '08:00'),\n('00000000-0000-0000-0000-000000000001', 'O', 'Off', '#D9D9D9', NULL, NULL);\n```\n\n**3단계: 직원 생성 (30명 전체)**\n```sql\nINSERT INTO employees (organization_id, employee_id, name, available_shifts) VALUES\n('00000000-0000-0000-0000-000000000001', '40627', '박지현', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '41482', '김수빈', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '42635', '김다래', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '43891', '이서연', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '44205', '최유진', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '45678', '정민지', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '46234', '강하늘', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '47890', '윤서아', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '48123', '조예은', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '49456', '임수현', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '50789', '한지우', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '51234', '송민아', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '52567', '홍서진', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '53890', '백현지', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '54321', '문채원', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '55654', '신유리', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '56987', '오지은', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '57234', '안소희', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '58567', '류민정', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '59890', '진서영', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '60123', '표예진', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '61456', '남다은', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '62789', '권지안', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '63234', '황수아', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '64567', '탁지수', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '65890', '노윤서', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '66321', '석민주', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '67654', '양서현', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '68987', '허채린', '[\"D\",\"E\",\"N\",\"O\"]'),\n('00000000-0000-0000-0000-000000000001', '69234', '설아름', '[\"D\",\"E\",\"N\",\"O\"]');\n```\n\n**4단계: 사이트 요구사항 (요일별)**\n```sql\n-- 일요일 (day_of_week=0)\nINSERT INTO site_requirements (organization_id, shift_id, day_of_week, required_count)\nSELECT '00000000-0000-0000-0000-000000000001'::uuid, id, 0,\n  CASE code\n    WHEN 'D' THEN 3\n    WHEN 'E' THEN 3\n    WHEN 'N' THEN 3\n    ELSE 0\n  END\nFROM shifts WHERE organization_id = '00000000-0000-0000-0000-000000000001' AND code IN ('D', 'E', 'N');\n\n-- 월요일 (day_of_week=1)\nINSERT INTO site_requirements (organization_id, shift_id, day_of_week, required_count)\nSELECT '00000000-0000-0000-0000-000000000001'::uuid, id, 1,\n  CASE code\n    WHEN 'D' THEN 3\n    WHEN 'E' THEN 4\n    WHEN 'N' THEN 3\n    ELSE 0\n  END\nFROM shifts WHERE organization_id = '00000000-0000-0000-0000-000000000001' AND code IN ('D', 'E', 'N');\n\n-- 화요일~금요일 (day_of_week=2-5): 월요일과 동일\nINSERT INTO site_requirements (organization_id, shift_id, day_of_week, required_count)\nSELECT '00000000-0000-0000-0000-000000000001'::uuid, id, day_num,\n  CASE code\n    WHEN 'D' THEN 3\n    WHEN 'E' THEN 4\n    WHEN 'N' THEN 3\n    ELSE 0\n  END\nFROM shifts\nCROSS JOIN (SELECT unnest(ARRAY[2,3,4,5]) as day_num) days\nWHERE organization_id = '00000000-0000-0000-0000-000000000001' AND code IN ('D', 'E', 'N');\n\n-- 토요일 (day_of_week=6)\nINSERT INTO site_requirements (organization_id, shift_id, day_of_week, required_count)\nSELECT '00000000-0000-0000-0000-000000000001'::uuid, id, 6,\n  CASE code\n    WHEN 'D' THEN 3\n    WHEN 'E' THEN 3\n    WHEN 'N' THEN 3\n    ELSE 0\n  END\nFROM shifts WHERE organization_id = '00000000-0000-0000-0000-000000000001' AND code IN ('D', 'E', 'N');\n```\n\n2. Table Editor에서 데이터 확인:\n   - organizations: 1개 레코드\n   - shifts: 4개 레코드\n   - employees: 30개 레코드\n   - site_requirements: 21개 레코드 (7일 × 3시프트)\n\n**참고사항**:\n- 위의 SQL은 전체 30명 직원의 완전한 seed 데이터입니다\n- site_requirements의 CROSS JOIN 패턴은 화요일~금요일(2-5)을 한 번에 처리하는 효율적인 방법입니다\n- 요일별 필요 인력: 일요일/토요일 (D:3, E:3, N:3), 평일 (D:3, E:4, N:3)\n\n**PRD 참조**: docs/prd/02-database-migration.md Section 1.3 (Seed 데이터, lines 227-388)",
+      "verificationCriteria": "1. organizations 테이블: 1개 레코드 (세브란스병원)\n2. shifts 테이블: 4개 레코드 (D, E, N, O)\n3. employees 테이블: 30개 레코드 (모든 직원 이름 확인)\n4. site_requirements 테이블: 21개 레코드 (7일 × 3시프트)\n5. available_shifts JSONB 배열 정상 저장 ('[\"D\",\"E\",\"N\",\"O\"]' 형식)",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 10,
+      "summary": "**Supabase Seed 데이터 로드 성공 완료**\n\n**검증 결과 (95점)**:\n\n1. **Requirements Compliance (30/30)**: ✅\n   - organizations: 1개 레코드 (세브란스병원, type='hospital')\n   - shifts: 4개 레코드 (D/E/N/O, 색상 코드 및 시간 정확)\n   - employees: 30개 레코드 (전체 직원 이름 확인, employee_id 정상)\n   - site_requirements: 21개 레코드 (7일 × 3시프트)\n\n2. **Technical Quality (29/30)**: ✅\n   - 외래키 관계 정상 (organization_id 참조 무결성 유지)\n   - JSONB available_shifts 정확한 형식: [\"D\",\"E\",\"N\",\"O\"]\n   - Site requirements 요일별 패턴 정확 검증:\n     * 일요일(0): D=3, E=3, N=3\n     * 월-금(1-5): D=3, E=4, N=3  \n     * 토요일(6): D=3, E=3, N=3\n   - UUID 고정값 정상 사용 (seed 전용)\n\n3. **Integration Compatibility (19/20)**: ✅\n   - 데이터베이스 스키마와 완벽 호환\n   - RLS 정책과 충돌 없음 (schedules 테이블만 RLS 활성화)\n   - 모든 제약조건 통과\n\n4. **Performance Scalability (17/20)**: ⚠️\n   - 수동 실행으로 완료 (Supabase MCP read-only 제한)\n   - 자동화 개선 여지 있음 (향후 migration 파일 고려)\n\n**실행 방법**: Supabase Dashboard SQL Editor 통한 수동 실행\n**검증 쿼리**: COUNT(*) 및 샘플 데이터 조회로 무결성 확인 완료\n**참고**: MCP 도구의 read-only 제한으로 Dashboard 직접 실행 필요했으나, 데이터 품질은 완벽함",
+      "completedAt": "2025-11-15T03:54:36.345Z"
+    },
+    {
+      "id": "86cd143d-005a-4596-8247-f65afd33407b",
+      "name": "Supabase 데이터베이스 마이그레이션 검증",
+      "description": "모든 테이블, 인덱스, RLS 정책, Seed 데이터가 올바르게 생성되었는지 SQL 쿼리로 검증.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "48f3a743-a0ff-4fb3-8970-2877edcbc56e"
+        },
+        {
+          "taskId": "1938165e-4b57-43b8-8612-f3cf6d457712"
+        }
+      ],
+      "createdAt": "2025-11-13T13:29:29.640Z",
+      "updatedAt": "2025-11-15T03:59:53.672Z",
+      "relatedFiles": [],
+      "estimatedMinutes": 15,
+      "implementationGuide": "1. Supabase SQL Editor에서 다음 검증 쿼리 실행:\n\n**1단계: 테이블 존재 확인**\n```sql\nSELECT table_name\nFROM information_schema.tables\nWHERE table_schema = 'public'\n  AND table_name IN (\n    'organizations',\n    'employees',\n    'shifts',\n    'schedules',\n    'schedule_assignments',\n    'site_requirements'\n  )\nORDER BY table_name;\n-- 예상 결과: 6개 행\n```\n\n**2단계: 레코드 수 확인**\n```sql\nSELECT\n  'organizations' as table_name, COUNT(*) as count FROM organizations\nUNION ALL\nSELECT 'employees', COUNT(*) FROM employees\nUNION ALL\nSELECT 'shifts', COUNT(*) FROM shifts\nUNION ALL\nSELECT 'schedules', COUNT(*) FROM schedules\nUNION ALL\nSELECT 'schedule_assignments', COUNT(*) FROM schedule_assignments\nUNION ALL\nSELECT 'site_requirements', COUNT(*) FROM site_requirements;\n-- 예상 결과:\n-- organizations: 1\n-- employees: 30\n-- shifts: 4\n-- schedules: 0 (아직 근무표 생성 전)\n-- schedule_assignments: 0\n-- site_requirements: 21 (7일 × 3시프트)\n```\n\n**3단계: 인덱스 확인**\n```sql\nSELECT\n  schemaname,\n  tablename,\n  indexname\nFROM pg_indexes\nWHERE schemaname = 'public'\n  AND indexname IN (\n    'idx_employees_org',\n    'idx_schedules_org_month',\n    'idx_assignments_schedule',\n    'idx_assignments_employee_date'\n  )\nORDER BY indexname;\n-- 예상 결과: 4개 인덱스\n```\n\n**4단계: RLS 정책 확인**\n```sql\nSELECT\n  schemaname,\n  tablename,\n  policyname,\n  cmd\nFROM pg_policies\nWHERE tablename = 'schedules'\nORDER BY policyname;\n-- 예상 결과: 4개 정책 (SELECT, INSERT, UPDATE, DELETE)\n```\n\n**5단계: 데이터 무결성 확인**\n```sql\n-- 조직 데이터\nSELECT id, name, type FROM organizations;\n-- 예상: 세브란스병원, hospital\n\n-- 시프트 데이터\nSELECT code, name, color_code FROM shifts ORDER BY code;\n-- 예상: D, E, N, O\n\n-- 직원 샘플 (처음 5명)\nSELECT employee_id, name, available_shifts FROM employees LIMIT 5;\n-- 예상: JSONB 배열 형식 [\"D\",\"E\",\"N\",\"O\"]\n\n-- 사이트 요구사항 (일요일)\nSELECT sr.day_of_week, s.code, sr.required_count\nFROM site_requirements sr\nJOIN shifts s ON sr.shift_id = s.id\nWHERE sr.day_of_week = 0\nORDER BY s.code;\n-- 예상: D=3, E=3, N=3\n```\n\n**6단계: CASCADE 제약조건 확인**\n```sql\n-- schedule_assignments 테이블의 ON DELETE CASCADE 확인\nSELECT\n  tc.table_name,\n  kcu.column_name,\n  ccu.table_name AS foreign_table_name,\n  ccu.column_name AS foreign_column_name,\n  rc.delete_rule\nFROM information_schema.table_constraints AS tc\nJOIN information_schema.key_column_usage AS kcu\n  ON tc.constraint_name = kcu.constraint_name\n  AND tc.table_schema = kcu.table_schema\nJOIN information_schema.constraint_column_usage AS ccu\n  ON ccu.constraint_name = tc.constraint_name\n  AND ccu.table_schema = tc.table_schema\nJOIN information_schema.referential_constraints AS rc\n  ON tc.constraint_name = rc.constraint_name\nWHERE tc.table_name = 'schedule_assignments'\n  AND tc.constraint_type = 'FOREIGN KEY'\n  AND ccu.table_name = 'schedules';\n-- 예상: delete_rule = 'CASCADE'\n```\n\n**7단계: updated_at 타임스탬프 기본값 확인**\n```sql\n-- updated_at 컬럼의 DEFAULT 값 확인\nSELECT\n  table_name,\n  column_name,\n  column_default\nFROM information_schema.columns\nWHERE table_schema = 'public'\n  AND column_name = 'updated_at'\nORDER BY table_name;\n-- 예상: 모든 updated_at 컬럼에 now() 기본값\n```\n\n2. 모든 쿼리가 예상대로 결과를 반환하는지 확인\n3. 오류 발생 시 트러블슈팅 체크리스트:\n   - UUID extension 활성화 여부 확인\n   - 테이블 생성 순서 (외래 키 의존성)\n   - Seed 데이터 UUID 충돌 여부\n   - RLS 정책 USING 절 구문 오류\n\n**PRD 참조**: docs/prd/02-database-migration.md Section 3.3 (검증, lines 582-613), Section 4 (트러블슈팅, lines 617-676)",
+      "verificationCriteria": "1. 6개 테이블 모두 존재\n2. organizations: 1개, employees: 30개, shifts: 4개, site_requirements: 21개\n3. 4개 인덱스 모두 생성됨\n4. schedules 테이블에 4개 RLS 정책 활성화\n5. 데이터 무결성 확인 (JSONB 형식, 외래 키, 색상 코드)\n6. schedule_assignments → schedules 관계에 ON DELETE CASCADE 설정됨\n7. 모든 updated_at 컬럼에 DEFAULT NOW() 설정됨\n8. 모든 검증 쿼리가 에러 없이 실행됨",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "summary": "**Supabase 데이터베이스 마이그레이션 검증 완료 - 모든 검증 항목 통과**\n\n**검증 결과 (100점)**:\n\n**1. Requirements Compliance (30/30)**: ✅\n- 테이블 존재 확인: 6개 테이블 모두 존재 (employees, organizations, schedule_assignments, schedules, shifts, site_requirements)\n- 레코드 수 검증: organizations(1), employees(30), shifts(4), site_requirements(21), schedules(0), schedule_assignments(0) - 모두 예상값과 일치\n- 인덱스 검증: 4개 인덱스 모두 생성됨 (idx_employees_org, idx_schedules_org_month, idx_assignments_schedule, idx_assignments_employee_date)\n- RLS 정책: schedules 테이블에 4개 정책 활성화 (SELECT, INSERT, UPDATE, DELETE)\n\n**2. Technical Quality (30/30)**: ✅\n- 데이터 무결성: 조직(세브란스병원, type=hospital), 시프트(D/E/N/O 색상 코드 및 시간 정확), 직원 JSONB 형식 [\"D\",\"E\",\"N\",\"O\"] 정확\n- 외래 키 관계: schedule_assignments → schedules CASCADE 제약조건 확인 (ON DELETE CASCADE 설정됨)\n- 타임스탬프 기본값: 모든 updated_at 컬럼에 DEFAULT now() 설정 확인\n- 사이트 요구사항: 일요일 패턴 정확 (D=3, E=3, N=3)\n\n**3. Integration Compatibility (20/20)**: ✅\n- 스키마 일관성: 모든 테이블, 인덱스, 제약조건이 PRD 스펙과 100% 일치\n- RLS 정책: schedules 테이블 정책 정상 작동, 나머지 테이블은 MVP admin-only 접근으로 RLS 비활성화 (의도된 설계)\n- Seed 데이터: 외래 키 참조 무결성 유지, UUID 충돌 없음\n\n**4. Performance Scalability (20/20)**: ✅\n- 인덱스 최적화: 쿼리 성능을 위한 4개 인덱스 모두 정상 생성\n- CASCADE 동작: 스케줄 삭제 시 자동으로 assignments 정리되어 데이터 정합성 유지\n- 타임스탬프 자동화: updated_at 자동 업데이트로 변경 이력 추적 가능\n\n**검증 방법**: 7단계 SQL 쿼리 실행 (테이블 → 레코드 → 인덱스 → RLS → 데이터 무결성 → CASCADE → 타임스탬프)\n**실행 시간**: 약 5분\n**에러**: 없음 - 모든 검증 쿼리 정상 실행\n**결론**: 데이터베이스 마이그레이션 100% 완료. 프론트엔드 구현 준비 완료.",
+      "completedAt": "2025-11-15T03:59:53.655Z"
+    },
+    {
+      "id": "9b220011-43f5-4bf5-9f1c-1083deab00f8",
+      "name": "Supabase 클라이언트 생성 및 연결 테스트 (api/supabase.ts)",
+      "description": "Supabase JavaScript 클라이언트를 생성하고, 간단한 쿼리로 데이터베이스 연결을 테스트.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "48f3a743-a0ff-4fb3-8970-2877edcbc56e"
+        },
+        {
+          "taskId": "ad6edb9e-3bf9-4f70-9882-0b9c451678f8"
+        },
+        {
+          "taskId": "86cd143d-005a-4596-8247-f65afd33407b"
+        }
+      ],
+      "createdAt": "2025-11-13T11:42:27.631Z",
+      "updatedAt": "2025-11-15T04:13:19.009Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/supabase.ts",
+          "type": "CREATE",
+          "description": "Supabase 클라이언트 생성 및 export"
+        }
+      ],
+      "implementationGuide": "1. src/api/supabase.ts 파일 생성\n2. 다음 코드 작성:\n```typescript\nimport { createClient } from '@supabase/supabase-js'\n\nconst supabaseUrl = import.meta.env.VITE_SUPABASE_URL\nconst supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY\n\nif (!supabaseUrl || !supabaseKey) {\n  throw new Error('Missing Supabase environment variables')\n}\n\nexport const supabase = createClient(supabaseUrl, supabaseKey)\n\n// 타입 정의는 나중에 추가 예정\nexport type Database = {\n  public: {\n    Tables: {\n      // TODO: 타입 정의 추가\n    }\n  }\n}\n```\n3. App.vue 또는 테스트 컴포넌트에서 연결 테스트:\n```typescript\nimport { supabase } from '@/api/supabase'\nimport { onMounted } from 'vue'\n\nonMounted(async () => {\n  const { data, error } = await supabase\n    .from('organizations')\n    .select('*')\n  \n  if (error) {\n    console.error('Supabase connection error:', error)\n  } else {\n    console.log('Supabase connected! Organizations:', data)\n  }\n})\n```\n4. 브라우저 콘솔에서 데이터 출력 확인",
+      "verificationCriteria": "1. api/supabase.ts 파일 생성 완료\n2. createClient 호출 성공 (에러 없음)\n3. organizations 테이블 쿼리 성공 (1개 레코드 반환)\n4. 브라우저 콘솔에 '세브란스병원' 데이터 출력",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
+      "estimatedMinutes": 10,
+      "summary": "Supabase 클라이언트 생성 및 연결 테스트 성공적으로 완료.\n\n**완료 항목**:\n1. src/api/supabase.ts 파일 생성 완료 - createClient, 환경변수 검증, Database 타입 정의 포함\n2. App.vue에 연결 테스트 코드 추가 - onMounted에서 organizations 쿼리 및 결과 표시\n3. Vite 개발 서버 정상 실행 (http://localhost:5173/) - TypeScript 컴파일 에러 없음\n4. Supabase 연결 검증 완료 - organizations 테이블에서 '세브란스병원' 데이터 조회 성공 (MCP 도구로 확인)\n\n**실행 결과**: organizations 테이블 쿼리 성공, 1개 레코드 반환 (id: 00000000-0000-0000-0000-000000000001, name: 세브란스병원, type: hospital)\n\n**브라우저 테스트**: 사용자가 http://localhost:5173/ 접속 시 페이지 로드와 함께 성공 메시지 및 콘솔 로그 확인 가능\n\n**감점 사유** (-5점): WSL2 headless 환경에서 직접 브라우저 콘솔 출력을 확인하지 못함. 단, MCP 도구를 통해 동일한 쿼리로 연결 검증 완료.",
+      "completedAt": "2025-11-15T04:13:18.994Z"
+    },
+    {
+      "id": "acd2c70e-193a-4776-bf58-2e3ba7f1011a",
+      "name": "TypeScript 타입 정의: Schedule 관련 (types/schedule.ts)",
+      "description": "근무표 관련 TypeScript 인터페이스 정의: ScheduleBasicInfo, GridColumn, AssignmentMap, RowStat, ColumnStat, GridStatistics, SiteRequirements, DailyRequirement.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:19:25.395Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/schedule.ts",
+          "type": "CREATE",
+          "description": "근무표 관련 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/schedule.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\n// 기본 정보 (Step 1)\nexport interface ScheduleBasicInfo {\n  month: string;           // \"2025-12\"\n  organizationId: string;  // UUID\n  organizationName: string;\n  organizationType: string;\n  employeeCount: number;\n  shifts: Shift[];\n}\n\n// 그리드 컬럼 정보\nexport interface GridColumn {\n  date: string;         // \"2025-11-27\"\n  day: number;          // 27\n  dayOfWeek: number;    // 0-6\n  dayName: string;      // \"일\", \"월\", ...\n  isLastMonth: boolean; // 전월 여부\n}\n\n// 배정 맵: employeeId -> date -> shiftCode\nexport type AssignmentMap = Record<string, Record<string, string>>;\n\n// 행/열 통계\nexport interface RowStat {\n  D: number;\n  E: number;\n  N: number;\n  total: number;\n}\n\nexport interface ColumnStat {\n  D: number;\n  E: number;\n  N: number;\n  total: number;\n}\n\nexport interface GridStatistics {\n  rowStats: Record<string, RowStat>;    // employeeId별\n  columnStats: Record<string, ColumnStat>;  // date별\n}\n\n// 사이트 요구사항 (Step 2)\nexport interface SiteRequirements {\n  [date: string]: DailyRequirement;  // \"2025-12-01\": { D: 3, E: 4, ... }\n}\n\nexport interface DailyRequirement {\n  D: number;\n  E: number;\n  N: number;\n  O: number;\n  total: number;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. schedule.ts 파일 생성 완료\n2. 8개 인터페이스/타입 정의\n3. TypeScript 컴파일 에러 없음\n4. import { ScheduleBasicInfo } from '@/types/schedule' 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "src/types/schedule.ts 파일 생성 완료. 8개의 TypeScript 인터페이스/타입(ScheduleBasicInfo, GridColumn, AssignmentMap, RowStat, ColumnStat, GridStatistics, SiteRequirements, DailyRequirement) 정의 완료. Shift 타입 dependency를 위해 shift.ts도 함께 생성. TypeScript 컴파일 에러 없음(vue-tsc, Vite 정상 실행), import 테스트 성공.",
+      "completedAt": "2025-11-15T04:19:25.371Z"
+    },
+    {
+      "id": "7ae710d4-353c-4868-9c98-f5b209dd6468",
+      "name": "TypeScript 타입 정의: Employee (types/employee.ts)",
+      "description": "직원 관련 TypeScript 인터페이스 정의: Employee.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:23:37.079Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/employee.ts",
+          "type": "CREATE",
+          "description": "직원 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/employee.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Employee {\n  id: string;              // UUID\n  organizationId: string;  // UUID\n  employeeId: string;      // 직번 (예: \"40627\")\n  name: string;            // 이름 (예: \"박지현\")\n  availableShifts: string[]; // [\"D\", \"E\", \"N\", \"O\"]\n  createdAt?: string;\n  updatedAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. employee.ts 파일 생성 완료\n2. Employee 인터페이스 정의\n3. availableShifts가 string 배열 타입\n4. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Employee 타입 정의 완료. src/types/employee.ts 파일 생성, Employee 인터페이스 정의 완료 (id, organizationId, employeeId, name, availableShifts string[] 타입 포함). TypeScript 컴파일러 타입 검사 통과하여 import 가능 확인.",
+      "completedAt": "2025-11-15T04:23:37.057Z"
+    },
+    {
+      "id": "06f80588-a7c5-44ca-883d-8548c0c62e0a",
+      "name": "TypeScript 타입 정의: Shift (types/shift.ts)",
+      "description": "시프트 관련 TypeScript 인터페이스 정의: Shift.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:26:26.988Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/shift.ts",
+          "type": "CREATE",
+          "description": "시프트 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/shift.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Shift {\n  id: string;           // UUID\n  organizationId: string;\n  code: string;         // \"D\", \"E\", \"N\", \"O\"\n  name: string;         // \"Day\", \"Evening\", \"Night\", \"Off\"\n  colorCode: string;    // \"#92D050\", \"#FFC000\", \"#4472C4\", \"#D9D9D9\"\n  startTime: string | null;  // \"08:00:00\" or null for Off\n  endTime: string | null;    // \"16:00:00\" or null for Off\n  createdAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. shift.ts 파일 생성 완료\n2. Shift 인터페이스 정의\n3. startTime, endTime이 nullable\n4. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Shift 타입 정의 완료. src/types/shift.ts 파일 수정, Shift 인터페이스 정의 완료 (id, organizationId, code, name, colorCode, startTime, endTime, createdAt 포함). startTime과 endTime을 nullable (string | null) 타입으로 정의하여 Off 시프트 지원. TypeScript 문법 검증 완료.",
+      "completedAt": "2025-11-15T04:26:26.963Z"
+    },
+    {
+      "id": "8558cd41-39ef-4913-baba-a195cd42bd7b",
+      "name": "TypeScript 타입 정의: Organization (types/organization.ts)",
+      "description": "조직 관련 TypeScript 인터페이스 정의: Organization.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:29:14.995Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/organization.ts",
+          "type": "CREATE",
+          "description": "조직 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/organization.ts 파일 생성\n2. 다음 인터페이스 정의:\n\n```typescript\nexport interface Organization {\n  id: string;       // UUID\n  name: string;     // \"세브란스병원\"\n  type: string;     // \"hospital\", \"fire\", \"police\"\n  createdAt?: string;\n  updatedAt?: string;\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. organization.ts 파일 생성 완료\n2. Organization 인터페이스 정의\n3. import 가능",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Organization 타입 정의 완료. src/types/organization.ts 파일 생성, Organization 인터페이스 정의 완료 (id, name, type, createdAt, updatedAt 필드 포함). export 확인 완료.",
+      "completedAt": "2025-11-15T04:29:14.971Z"
+    },
+    {
+      "id": "13da374f-1c07-4102-b10c-46f3ac58a447",
+      "name": "Utility 함수: 날짜 처리 (utils/date.ts)",
+      "description": "Day.js를 사용한 날짜 유틸리티 함수 구현: getNextMonth(), getAvailableMonths(), getDaysInMonth().",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:36:14.679Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/date.ts",
+          "type": "CREATE",
+          "description": "날짜 유틸리티 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/date.ts 파일 생성\n2. Day.js import\n3. 함수 구현:\n\n```typescript\nimport dayjs from 'dayjs';\nimport type { GridColumn } from '@/types/schedule';\n\n// 다음 달 반환 (YYYY-MM)\nexport function getNextMonth(): string {\n  return dayjs().add(1, 'month').format('YYYY-MM');\n}\n\n// 선택 가능한 월 목록 (이번 달, 다음 달, 다다음 달)\nexport function getAvailableMonths(): string[] {\n  return [\n    dayjs().format('YYYY-MM'),\n    dayjs().add(1, 'month').format('YYYY-MM'),\n    dayjs().add(2, 'month').format('YYYY-MM'),\n  ];\n}\n\n// 해당 월의 모든 날짜 정보 반환\nexport function getDaysInMonth(month: string): GridColumn[] {\n  const start = dayjs(month + '-01');\n  const daysCount = start.daysInMonth();\n  \n  return Array.from({ length: daysCount }, (_, i) => {\n    const date = start.add(i, 'day');\n    return {\n      date: date.format('YYYY-MM-DD'),\n      day: date.date(),\n      dayOfWeek: date.day(),  // 0(일) ~ 6(토)\n      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],\n      isLastMonth: false,\n    };\n  });\n}\n\n// 전월 마지막 N일 반환\nexport function getLastDaysOfPreviousMonth(month: string, count: number): GridColumn[] {\n  const currentMonthStart = dayjs(month + '-01');\n  const previousMonthEnd = currentMonthStart.subtract(1, 'day');\n  \n  const days: GridColumn[] = [];\n  for (let i = count - 1; i >= 0; i--) {\n    const date = previousMonthEnd.subtract(i, 'day');\n    days.push({\n      date: date.format('YYYY-MM-DD'),\n      day: date.date(),\n      dayOfWeek: date.day(),\n      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],\n      isLastMonth: true,\n    });\n  }\n  return days;\n}\n```\n\n4. export 확인",
+      "verificationCriteria": "1. date.ts 파일 생성 완료\n2. 4개 함수 정의\n3. getNextMonth() 실행 시 다음 달 문자열 반환\n4. getDaysInMonth('2025-12') 실행 시 31개 GridColumn 반환",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "date.ts 파일 생성 완료. 4개의 날짜 유틸리티 함수(getNextMonth, getAvailableMonths, getDaysInMonth, getLastDaysOfPreviousMonth) 모두 정상 구현됨. Day.js를 활용한 날짜 계산 로직이 정확하며, GridColumn 타입과 완벽히 호환됨. JSDoc 주석으로 함수 사용법을 명확히 문서화. 검증 기준 4가지 모두 충족.",
+      "completedAt": "2025-11-15T04:36:14.650Z"
+    },
+    {
+      "id": "2b774c1e-9422-4fc9-aa73-a77faad93f62",
+      "name": "Utility 함수: 검증 로직 (utils/validation.ts)",
+      "description": "근무표 데이터 검증 함수 구현: validateLastMonthData() - 전월 5일 데이터 입력 확인.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/validation.ts",
+          "type": "CREATE",
+          "description": "검증 유틸리티 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/validation.ts 파일 생성\n2. 함수 구현:\n\n```typescript\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 전월 데이터 검증 (5일 모두 입력되었는지)\nexport function validateLastMonthData(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap\n): { isValid: boolean; errors: string[] } {\n  const errors: string[] = [];\n  const lastMonthDates = dates.filter(d => d.isLastMonth).map(d => d.date);\n  \n  for (const employee of employees) {\n    for (const date of lastMonthDates) {\n      const shift = assignments[employee.id]?.[date];\n      if (!shift) {\n        errors.push(`${employee.name}의 ${date} 데이터가 입력되지 않았습니다.`);\n      }\n    }\n  }\n  \n  return {\n    isValid: errors.length === 0,\n    errors,\n  };\n}\n\n// 시프트 코드 유효성 검증\nexport function isValidShiftCode(code: string): boolean {\n  return ['D', 'E', 'N', 'O', 'H'].includes(code);\n}\n```\n\n3. export 확인",
+      "verificationCriteria": "1. validation.ts 파일 생성 완료\n2. validateLastMonthData 함수 정의\n3. 빈 assignments 전달 시 errors 배열 반환\n4. isValidShiftCode('D') === true",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "7a035827-f29c-4c19-881f-22b926ad3bc1",
+      "name": "Utility 함수: Excel 내보내기 (utils/excel.ts)",
+      "description": "XLSX 라이브러리를 사용한 근무표 엑셀 내보내기 함수 구현: exportToExcel().",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b4729e4b-52b4-4536-a781-6f83387b603b"
+        },
+        {
+          "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/excel.ts",
+          "type": "CREATE",
+          "description": "Excel 내보내기 함수"
+        }
+      ],
+      "implementationGuide": "1. src/utils/excel.ts 파일 생성\n2. XLSX 라이브러리 import\n3. 함수 구현:\n\n```typescript\nimport * as XLSX from 'xlsx';\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 근무표를 Excel 파일로 내보내기\nexport function exportToExcel(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap,\n  filename: string = 'schedule.xlsx'\n): void {\n  // 1. 데이터 변환\n  const rows = employees.map(emp => {\n    const row: any = {\n      '직번': emp.employeeId,\n      '이름': emp.name,\n    };\n    \n    // 각 날짜별 시프트 추가\n    dates.forEach(date => {\n      const shift = assignments[emp.id]?.[date.date] || '';\n      row[`${date.day}일`] = shift;\n    });\n    \n    return row;\n  });\n  \n  // 2. 워크시트 생성\n  const ws = XLSX.utils.json_to_sheet(rows);\n  \n  // 3. 워크북 생성\n  const wb = XLSX.utils.book_new();\n  XLSX.utils.book_append_sheet(wb, ws, '근무표');\n  \n  // 4. 파일 다운로드\n  XLSX.writeFile(wb, filename);\n}\n```\n\n4. export 확인",
+      "verificationCriteria": "1. excel.ts 파일 생성 완료\n2. exportToExcel 함수 정의\n3. XLSX.writeFile 호출 확인\n4. 테스트 데이터로 실행 시 .xlsx 파일 다운로드",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "f6820857-3c14-47d1-aef8-0117422bc458",
+      "name": "Layout: DefaultLayout 컴포넌트 (components/layout/DefaultLayout.vue)",
+      "description": "Naive UI의 n-layout을 사용한 메인 레이아웃 컴포넌트. Header와 Sidebar 포함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/DefaultLayout.vue",
+          "type": "CREATE",
+          "description": "메인 레이아웃"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/DefaultLayout.vue 파일 생성\n2. Naive UI n-layout 사용:\n\n```vue\n<template>\n  <n-layout has-sider class=\"h-screen\">\n    <n-layout-sider\n      bordered\n      collapse-mode=\"width\"\n      :collapsed-width=\"64\"\n      :width=\"240\"\n      show-trigger\n    >\n      <Sidebar />\n    </n-layout-sider>\n    <n-layout>\n      <n-layout-header bordered class=\"h-16 flex items-center px-6\">\n        <Header />\n      </n-layout-header>\n      <n-layout-content class=\"p-6\">\n        <router-view />\n      </n-layout-content>\n    </n-layout>\n  </n-layout>\n</template>\n\n<script setup lang=\"ts\">\nimport { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent } from 'naive-ui';\nimport Header from './Header.vue';\nimport Sidebar from './Sidebar.vue';\n</script>\n```\n\n3. Tailwind 클래스로 기본 스타일 적용",
+      "verificationCriteria": "1. DefaultLayout.vue 파일 생성 완료\n2. n-layout-sider 사이드바 표시\n3. router-view로 페이지 콘텐츠 렌더링\n4. Header, Sidebar 컴포넌트 import (아직 생성 안됨)",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "dd3d84d7-d57f-48c6-b505-4b1b7ecab140",
+      "name": "Layout: Header 컴포넌트 (components/layout/Header.vue)",
+      "description": "상단 헤더 컴포넌트. 로고, 사용자 정보, 로그아웃 버튼 포함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/Header.vue",
+          "type": "CREATE",
+          "description": "헤더 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/Header.vue 파일 생성\n2. 간단한 헤더 구현:\n\n```vue\n<template>\n  <div class=\"flex items-center justify-between w-full\">\n    <div class=\"flex items-center gap-4\">\n      <h1 class=\"text-xl font-bold\">EveryShift</h1>\n    </div>\n    <div class=\"flex items-center gap-4\">\n      <span class=\"text-sm text-gray-600\">관리자</span>\n      <n-button text @click=\"handleLogout\">\n        로그아웃\n      </n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NButton } from 'naive-ui';\n\nfunction handleLogout() {\n  // TODO: 로그아웃 로직은 Auth Store 생성 후 구현\n  console.log('로그아웃');\n}\n</script>\n```",
+      "verificationCriteria": "1. Header.vue 파일 생성 완료\n2. EveryShift 타이틀 표시\n3. 로그아웃 버튼 렌더링\n4. 버튼 클릭 시 콘솔 로그 출력",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "539ea1da-e550-4ea6-b425-ebee0ad2bd89",
+      "name": "Layout: Sidebar 컴포넌트 (components/layout/Sidebar.vue)",
+      "description": "사이드바 네비게이션 컴포넌트. 근무표 생성 메뉴만 포함 (MVP 단순화).",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        },
+        {
+          "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/Sidebar.vue",
+          "type": "CREATE",
+          "description": "사이드바 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1. src/components/layout/Sidebar.vue 파일 생성\n2. Naive UI n-menu 사용:\n\n```vue\n<template>\n  <div class=\"h-full flex flex-col\">\n    <div class=\"p-4 text-center font-bold border-b\">\n      메뉴\n    </div>\n    <n-menu\n      :options=\"menuOptions\"\n      :default-value=\"currentRoute\"\n      @update:value=\"handleMenuClick\"\n    />\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { NMenu } from 'naive-ui';\nimport { ref, computed } from 'vue';\nimport { useRouter, useRoute } from 'vue-router';\n\nconst router = useRouter();\nconst route = useRoute();\n\nconst menuOptions = ref([\n  {\n    label: '근무표 생성',\n    key: '/schedule/step1',\n  },\n]);\n\nconst currentRoute = computed(() => route.path);\n\nfunction handleMenuClick(key: string) {\n  router.push(key);\n}\n</script>\n```",
+      "verificationCriteria": "1. Sidebar.vue 파일 생성 완료\n2. n-menu 렌더링\n3. '근무표 생성' 메뉴 항목 표시\n4. 클릭 시 router.push 호출",
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+    },
+    {
+      "id": "b52cad79-2603-4489-a52e-c0c963526239",
+      "name": "Tailwind CSS 스타일 파일 생성 (assets/index.css)",
+      "description": "Tailwind CSS directives를 import하는 메인 CSS 파일 생성. @tailwind base, @tailwind components, @tailwind utilities 포함.",
+      "notes": "이 파일은 main.ts에서 import되어 Tailwind CSS가 앱 전체에 적용됩니다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "57b08cdd-f193-4475-85e3-148f0af29c8c"
+        }
+      ],
+      "createdAt": "2025-11-13T11:54:05.778Z",
+      "updatedAt": "2025-11-13T11:54:05.778Z",
+      "relatedFiles": [
+        {
+          "path": "src/assets/index.css",
+          "type": "CREATE",
+          "description": "Tailwind CSS directives를 포함한 메인 스타일 파일"
+        }
+      ],
+      "implementationGuide": "1. src/assets/index.css 파일 생성\n2. Tailwind CSS directives 추가:\n```css\n@tailwind base;\n@tailwind components;\n@tailwind utilities;\n```\n3. 추가 커스텀 스타일이 필요하면 여기에 작성",
+      "verificationCriteria": "1. src/assets/index.css 파일이 생성되었는지 확인\n2. @tailwind base, components, utilities가 모두 포함되었는지 확인\n3. 파일이 유효한 CSS 형식인지 확인",
+      "analysisResult": "EveryShift MVP - 간호사 근무표 자동 생성 시스템. 4단계 워크플로우 (기본 정보 → 사이트 정보 → 그리드 입력 → AI 결과 확인)를 통해 30명×36일 근무표를 생성. Vue 3 + TypeScript + Vite + Supabase + TanStack Table 기반. 80%의 개발 노력이 Step 3 ScheduleGrid 컴포넌트에 집중됨."
+    }
+  ]
+}

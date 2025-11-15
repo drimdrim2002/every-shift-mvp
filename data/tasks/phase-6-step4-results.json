@@ -1,0 +1,232 @@
+{
+  "metadata": {
+    "phase": "phase-6-step4-results",
+    "label": "Step 4 Results & Export",
+    "description": "Results page, AI solver, Excel export",
+    "taskCount": 8
+  },
+  "tasks": [
+    {
+      "id": "00b3779f-aa01-4e72-9fa6-592070829b50",
+      "name": "AI Solver Mock API (api/solver.ts)",
+      "description": "AI Solver Mock 구현. Mock 데이터 생성 함수, 5초 딜레이 시뮬레이션.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        },
+        {
+          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/solver.ts",
+          "type": "CREATE",
+          "description": "AI Solver Mock API"
+        }
+      ],
+      "implementationGuide": "1. src/api/solver.ts 파일 생성\n2. Mock 구현:\n\n```typescript\nimport type { Employee } from '@/types/employee';\nimport type { AssignmentMap, SiteRequirements } from '@/types/schedule';\n\nexport interface SolverPayload {\n  scheduleId: string;\n  employees: Employee[];\n  requirements: SiteRequirements;\n  lastMonthAssignments: AssignmentMap;\n  thisMonthAssignments: AssignmentMap;\n}\n\nexport interface SolverResponse {\n  scheduleId: string;\n  status: 'complete' | 'error';\n  hardScore: number;\n  softScore: number;\n  assignments: AssignmentMap;\n}\n\n// Mock: 5초 후 완료\nexport async function requestAISolver(payload: SolverPayload): Promise<SolverResponse> {\n  // 실제 환경에서는 Google Cloud Run URL 호출\n  // const response = await fetch(CLOUD_RUN_URL, { method: 'POST', body: JSON.stringify(payload) });\n  \n  await new Promise(resolve => setTimeout(resolve, 5000));\n  \n  return {\n    scheduleId: payload.scheduleId,\n    status: 'complete',\n    hardScore: 0,\n    softScore: Math.floor(Math.random() * 100) + 100,\n    assignments: generateMockAssignments(payload),\n  };\n}\n\nfunction generateMockAssignments(payload: SolverPayload): AssignmentMap {\n  const result: AssignmentMap = {};\n  const shifts = ['D', 'E', 'N', 'O'];\n  \n  payload.employees.forEach(emp => {\n    result[emp.id] = {\n      // 전월 데이터 보존\n      ...payload.lastMonthAssignments[emp.id],\n      // 당월 부분 입력 데이터 보존\n      ...payload.thisMonthAssignments[emp.id],\n    };\n    \n    // 빈 날짜만 자동 배정 (간단한 로테이션)\n    const dates = Object.keys(payload.requirements);\n    dates.forEach(date => {\n      if (!result[emp.id][date]) {\n        const randomShift = shifts[Math.floor(Math.random() * shifts.length)];\n        result[emp.id][date] = randomShift;\n      }\n    });\n  });\n  \n  return result;\n}\n```",
+      "verificationCriteria": "1. solver.ts 파일 생성 완료\n2. requestAISolver 함수 구현\n3. 5초 딜레이 후 complete 반환\n4. generateMockAssignments로 랜덤 배정",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "1acadf16-0806-4386-b005-ebf1804a01d6",
+      "name": "useAISolver Composable (composables/useAISolver.ts)",
+      "description": "AI Solver 상태 관리 및 polling 로직. startSolver, stopPolling 함수.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
+        },
+        {
+          "taskId": "00b3779f-aa01-4e72-9fa6-592070829b50"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/composables/useAISolver.ts",
+          "type": "CREATE",
+          "description": "AI Solver Composable"
+        }
+      ],
+      "implementationGuide": "1. src/composables/useAISolver.ts 파일 생성\n2. 구현:\n\n```typescript\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport { requestAISolver, type SolverPayload } from '@/api/solver';\n\nexport function useAISolver() {\n  const status = ref<string>('created');\n  const hardScore = ref<number>(0);\n  const softScore = ref<number>(0);\n  const progress = ref<number>(0);\n  \n  let pollingInterval: number | null = null;\n  \n  // AI Solver 시작\n  async function startSolver(scheduleId: string, payload: SolverPayload) {\n    // 1. Status를 'running'으로 변경\n    await supabase\n      .from('schedules')\n      .update({ status: 'running' })\n      .eq('id', scheduleId);\n    \n    status.value = 'running';\n    \n    // 2. AI Solver 호출 (비동기)\n    requestAISolver(payload)\n      .then(async result => {\n        // 결과를 Supabase에 저장\n        await saveResult(scheduleId, result);\n      })\n      .catch(async error => {\n        console.error('AI Solver error:', error);\n        await supabase\n          .from('schedules')\n          .update({ status: 'error' })\n          .eq('id', scheduleId);\n      });\n    \n    // 3. Polling 시작\n    startPolling(scheduleId);\n  }\n  \n  // Polling 시작\n  function startPolling(scheduleId: string) {\n    pollingInterval = window.setInterval(async () => {\n      const { data } = await supabase\n        .from('schedules')\n        .select('status, hard_score, soft_score')\n        .eq('id', scheduleId)\n        .single();\n      \n      if (data) {\n        status.value = data.status;\n        hardScore.value = data.hard_score || 0;\n        softScore.value = data.soft_score || 0;\n        \n        // 진행률 시뮬레이션 (Running 시)\n        if (data.status === 'running' && progress.value < 90) {\n          progress.value += Math.random() * 10;\n        }\n        \n        if (data.status !== 'running') {\n          stopPolling();\n          progress.value = 100;\n        }\n      }\n    }, 5000);  // 5초마다\n  }\n  \n  // Polling 중지\n  function stopPolling() {\n    if (pollingInterval) {\n      clearInterval(pollingInterval);\n      pollingInterval = null;\n    }\n  }\n  \n  // 결과 저장\n  async function saveResult(scheduleId: string, result: any) {\n    // schedules 업데이트\n    await supabase\n      .from('schedules')\n      .update({\n        status: result.status,\n        hard_score: result.hardScore,\n        soft_score: result.softScore,\n      })\n      .eq('id', scheduleId);\n    \n    // schedule_assignments 저장 (bulk insert)\n    const assignments = [];\n    for (const [employeeId, dates] of Object.entries(result.assignments)) {\n      for (const [date, shiftCode] of Object.entries(dates as any)) {\n        assignments.push({\n          schedule_id: scheduleId,\n          employee_id: employeeId,\n          shift_id: shiftCode,  // TODO: shift code → shift id 변환 필요\n          date,\n          is_locked: false,\n        });\n      }\n    }\n    \n    // 기존 데이터 삭제 후 삽입\n    await supabase\n      .from('schedule_assignments')\n      .delete()\n      .eq('schedule_id', scheduleId);\n    \n    await supabase\n      .from('schedule_assignments')\n      .insert(assignments);\n  }\n  \n  return {\n    status,\n    hardScore,\n    softScore,\n    progress,\n    startSolver,\n    stopPolling,\n  };\n}\n```",
+      "verificationCriteria": "1. useAISolver.ts 파일 생성 완료\n2. startSolver 함수 구현\n3. 5초마다 polling\n4. status 변경 감지 시 polling 중지",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "4e11a307-d943-4f6a-881a-903d99c71007",
+      "name": "Schedule API (api/schedule.ts)",
+      "description": "근무표 관련 API 함수. createSchedule, getScheduleAssignments, updateAssignment 등.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
+        },
+        {
+          "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/schedule.ts",
+          "type": "CREATE",
+          "description": "근무표 API 함수"
+        }
+      ],
+      "implementationGuide": "1. src/api/schedule.ts 파일 생성\n2. API 함수 구현:\n\n```typescript\nimport { supabase } from './supabase';\nimport type { AssignmentMap } from '@/types/schedule';\n\n// 근무표 생성\nexport async function createSchedule(orgId: string, month: string) {\n  const { data, error } = await supabase\n    .from('schedules')\n    .insert({\n      organization_id: orgId,\n      month,\n      status: 'created',\n    })\n    .select()\n    .single();\n  \n  if (error) throw error;\n  return data;\n}\n\n// 근무표 상태 조회\nexport async function getScheduleStatus(scheduleId: string) {\n  const { data, error } = await supabase\n    .from('schedules')\n    .select('*')\n    .eq('id', scheduleId)\n    .single();\n  \n  if (error) throw error;\n  return data;\n}\n\n// 근무표 배정 조회\nexport async function getScheduleAssignments(scheduleId: string): Promise<AssignmentMap> {\n  const { data, error } = await supabase\n    .from('schedule_assignments')\n    .select('employee_id, date, shifts(code)')\n    .eq('schedule_id', scheduleId);\n  \n  if (error) throw error;\n  \n  // AssignmentMap 형식으로 변환\n  const assignments: AssignmentMap = {};\n  data.forEach(row => {\n    if (!assignments[row.employee_id]) {\n      assignments[row.employee_id] = {};\n    }\n    assignments[row.employee_id][row.date] = (row.shifts as any)?.code || '';\n  });\n  \n  return assignments;\n}\n\n// 배정 수정\nexport async function updateAssignment(\n  scheduleId: string,\n  employeeId: string,\n  date: string,\n  shiftId: string\n) {\n  // Upsert\n  const { error } = await supabase\n    .from('schedule_assignments')\n    .upsert({\n      schedule_id: scheduleId,\n      employee_id: employeeId,\n      shift_id: shiftId,\n      date,\n    }, {\n      onConflict: 'schedule_id,employee_id,date',\n    });\n  \n  if (error) throw error;\n  \n  // 근무표 상태를 'changed'로 변경\n  await supabase\n    .from('schedules')\n    .update({ status: 'changed' })\n    .eq('id', scheduleId);\n}\n\n// 근무표 완료 처리\nexport async function completeSchedule(scheduleId: string) {\n  const { error } = await supabase\n    .from('schedules')\n    .update({ status: 'complete' })\n    .eq('id', scheduleId);\n  \n  if (error) throw error;\n}\n```",
+      "verificationCriteria": "1. schedule.ts 파일 생성 완료\n2. createSchedule, getScheduleStatus 함수 구현\n3. getScheduleAssignments로 AssignmentMap 반환\n4. updateAssignment로 수정 및 상태 변경",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "945c0f8b-546f-4da7-9456-9595da70377d",
+      "name": "Step 4: 결과 페이지 기본 구조 (views/schedule/Step4Result.vue)",
+      "description": "Step 4 페이지 기본 구조. 상태 표시, 그리드, 버튼.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "343bb7c4-3925-49ee-91da-1c926056b3f3"
+        },
+        {
+          "taskId": "1acadf16-0806-4386-b005-ebf1804a01d6"
+        },
+        {
+          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "CREATE",
+          "description": "Step 4 결과 페이지"
+        }
+      ],
+      "implementationGuide": "1. src/views/schedule/Step4Result.vue 파일 생성\n2. 기본 구조:\n\n```vue\n<template>\n  <div class=\"max-w-full mx-auto px-4\">\n    <StepIndicator :current-step=\"4\" />\n    \n    <n-card title=\"근무표 생성 - 결과 확인\">\n      <!-- 상태 표시 -->\n      <div class=\"mb-4 p-4 bg-gray-50 rounded flex items-center justify-between\">\n        <div class=\"flex items-center gap-4\">\n          <n-badge :value=\"statusText\" :type=\"statusType\" />\n          <n-progress\n            v-if=\"solver.status.value === 'running'\"\n            type=\"line\"\n            :percentage=\"solver.progress.value\"\n            class=\"w-48\"\n          />\n        </div>\n        <div class=\"text-sm\">\n          <span class=\"mr-4\">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>\n          <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>\n        </div>\n      </div>\n      \n      <!-- 그리드는 다음 작업에서 추가 -->\n      <div class=\"my-4 text-center text-gray-500\">\n        결과 로딩 중...\n      </div>\n      \n      <!-- 버튼 -->\n      <div class=\"flex justify-between pt-4\">\n        <n-button @click=\"handleBack\">← 이전</n-button>\n        <div class=\"flex gap-2\">\n          <n-button @click=\"handleRegenerate\">더 개선하기</n-button>\n          <n-button @click=\"handleExport\">엑셀 다운로드</n-button>\n          <n-button type=\"primary\" @click=\"handleSave\">저장</n-button>\n        </div>\n      </div>\n    </n-card>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { computed, onMounted, onUnmounted } from 'vue';\nimport { useRoute, useRouter } from 'vue-router';\nimport { NCard, NButton, NBadge, NProgress } from 'naive-ui';\nimport StepIndicator from '@/components/schedule/StepIndicator.vue';\nimport { useAISolver } from '@/composables/useAISolver';\n\nconst route = useRoute();\nconst router = useRouter();\nconst solver = useAISolver();\n\nconst scheduleId = computed(() => route.params.id as string);\n\nconst statusText = computed(() => {\n  const map: Record<string, string> = {\n    running: '생성 중',\n    complete: '완료',\n    error: '오류',\n    changed: '수정됨',\n  };\n  return map[solver.status.value] || '알 수 없음';\n});\n\nconst statusType = computed(() => {\n  const map: Record<string, any> = {\n    running: 'info',\n    complete: 'success',\n    error: 'error',\n    changed: 'warning',\n  };\n  return map[solver.status.value] || 'default';\n});\n\nonMounted(() => {\n  // TODO: polling 시작 (다음 작업에서 구현)\n});\n\nonUnmounted(() => {\n  solver.stopPolling();\n});\n\nfunction handleBack() {\n  router.push('/schedule/step3');\n}\n\nfunction handleRegenerate() {\n  // TODO\n}\n\nfunction handleExport() {\n  // TODO\n}\n\nfunction handleSave() {\n  // TODO\n}\n</script>\n```",
+      "verificationCriteria": "1. Step4Result.vue 파일 생성 완료\n2. 상태 Badge 표시\n3. Running 시 Progress bar\n4. Hard/Soft Score 표시",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0",
+      "name": "Step 4: 결과 그리드 통합 및 데이터 로드",
+      "description": "Step4에 ScheduleGrid 통합, AI 생성 결과 로드 및 표시.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "945c0f8b-546f-4da7-9456-9595da70377d"
+        },
+        {
+          "taskId": "d366f4b1-0468-4a6a-8669-96658ae01e6c"
+        },
+        {
+          "taskId": "4e11a307-d943-4f6a-881a-903d99c71007"
+        },
+        {
+          "taskId": "ecef5ddf-8b06-40aa-93b6-2cb6459b516d"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "그리드 통합 및 데이터 로드"
+        }
+      ],
+      "implementationGuide": "1. Step4Result.vue 수정\n2. 그리드 통합:\n\n```typescript\nimport { ref, onMounted, onUnmounted } from 'vue';\nimport ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';\nimport { useScheduleGrid } from '@/composables/useScheduleGrid';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { getScheduleStatus, getScheduleAssignments } from '@/api/schedule';\n\nconst scheduleStore = useScheduleStore();\nconst grid = useScheduleGrid();\nconst solver = useAISolver();\n\nonMounted(async () => {\n  if (!scheduleStore.basicInfo) {\n    router.push('/schedule/step1');\n    return;\n  }\n  \n  // 직원 로드\n  await grid.loadEmployees(scheduleStore.basicInfo.organizationId);\n  grid.generateDates(scheduleStore.basicInfo.month);\n  \n  // 근무표 상태 조회\n  const schedule = await getScheduleStatus(scheduleId.value);\n  solver.status.value = schedule.status;\n  solver.hardScore.value = schedule.hard_score || 0;\n  solver.softScore.value = schedule.soft_score || 0;\n  \n  // 결과 로드\n  if (schedule.status === 'complete' || schedule.status === 'changed') {\n    const assignments = await getScheduleAssignments(scheduleId.value);\n    grid.assignments.value = assignments;\n  } else if (schedule.status === 'running') {\n    // Polling 시작\n    solver.startPolling(scheduleId.value);\n  }\n});\n\nfunction handleAssignmentUpdate(payload: any) {\n  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);\n}\n```\n\n3. 템플릿에 그리드 추가:\n```vue\n<ScheduleGrid\n  v-if=\"grid.employees.value.length > 0\"\n  :employees=\"grid.employees.value\"\n  :dates=\"grid.dates.value\"\n  :assignments=\"grid.assignments.value\"\n  :readonly=\"false\"\n  :show-last-month=\"true\"\n  @update:assignment=\"handleAssignmentUpdate\"\n/>\n```",
+      "verificationCriteria": "1. AI 생성 결과 그리드에 표시\n2. complete 상태일 때 즉시 로드\n3. running 상태일 때 polling 시작\n4. 수동 편집 가능",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "d887d81f-3a81-4855-9f9d-f7a3452d22ee",
+      "name": "Step 4: Excel 다운로드 기능",
+      "description": "엑셀 다운로드 버튼 기능 구현. exportToExcel 활용.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0"
+        },
+        {
+          "taskId": "7a035827-f29c-4c19-881f-22b926ad3bc1"
+        }
+      ],
+      "createdAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "Excel 다운로드 기능"
+        }
+      ],
+      "implementationGuide": "1. Step4Result.vue의 handleExport 함수 구현\n2. Excel 다운로드:\n\n```typescript\nimport { exportToExcel } from '@/utils/excel';\nimport { useMessage } from 'naive-ui';\n\nconst message = useMessage();\n\nfunction handleExport() {\n  if (grid.employees.value.length === 0) {\n    message.error('데이터가 없습니다');\n    return;\n  }\n  \n  const filename = `schedule_${scheduleStore.basicInfo?.month}.xlsx`;\n  \n  try {\n    exportToExcel(\n      grid.employees.value,\n      grid.dates.value,\n      grid.assignments.value,\n      filename\n    );\n    message.success('엑셀 파일이 다운로드되었습니다');\n  } catch (error) {\n    message.error('다운로드 실패');\n    console.error(error);\n  }\n}\n```",
+      "verificationCriteria": "1. 엑셀 다운로드 버튼 클릭 시 .xlsx 파일 다운로드\n2. 파일명: schedule_YYYY-MM.xlsx\n3. 직번, 이름, 날짜별 시프트 포함\n4. 성공 메시지 표시",
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+    },
+    {
+      "id": "af35c607-9eef-49e6-8c2e-de6dd0b996ac",
+      "name": "Step 4: AI 결과 로드 및 그리드 표시 상세 구현",
+      "description": "Step4Result 페이지에서 schedule_id로 schedule_assignments를 조회하여 AssignmentMap으로 변환, ScheduleGrid에 전달하여 AI 생성 결과 표시.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0"
+        },
+        {
+          "taskId": "4e11a307-d943-4f6a-881a-903d99c71007"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "AI 결과 로드 로직 추가"
+        },
+        {
+          "path": "src/api/schedule.ts",
+          "type": "TO_MODIFY",
+          "description": "loadScheduleAssignments 함수 추가"
+        }
+      ],
+      "implementationGuide": "1. URL query parameter에서 scheduleId 가져오기\n2. Schedule API를 통해 schedule과 schedule_assignments 조회\n3. schedule_assignments를 AssignmentMap 형식으로 변환\n4. ScheduleGrid에 전달하여 렌더링\n\n예시 코드:\n```vue\n<template>\n  <div class=\"p-6\">\n    <n-card title=\"근무표 생성 결과\">\n      <div class=\"mb-4 flex justify-between items-center\">\n        <div>\n          <n-tag :type=\"getStatusType(schedule?.status)\">\n            {{ getStatusLabel(schedule?.status) }}\n          </n-tag>\n          <span class=\"ml-4\">Hard Score: {{ schedule?.hard_score || 0 }}</span>\n          <span class=\"ml-4\">Soft Score: {{ schedule?.soft_score || 0 }}</span>\n        </div>\n        <div class=\"flex gap-2\">\n          <n-button @click=\"handleRegenerate\">더 개선하기</n-button>\n          <n-button type=\"primary\" @click=\"handleExport\">엑셀 다운로드</n-button>\n        </div>\n      </div>\n\n      <ScheduleGrid\n        v-if=\"employees.length > 0 && dates.length > 0\"\n        :employees=\"employees\"\n        :dates=\"dates\"\n        :assignments=\"assignments\"\n        :readonly=\"false\"\n        @update:assignment=\"handleAssignmentUpdate\"\n      />\n    </n-card>\n\n    <div class=\"mt-6 flex justify-between\">\n      <n-button @click=\"router.push('/schedule/step3')\">이전</n-button>\n      <n-button type=\"primary\" @click=\"handleSave\">저장 및 완료</n-button>\n    </div>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref, onMounted } from 'vue';\nimport { useRoute, useRouter } from 'vue-router';\nimport { useOrganizationStore } from '@/stores/organization';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { loadScheduleAssignments, updateScheduleAssignment } from '@/api/schedule';\nimport { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';\nimport type { AssignmentMap, GridColumn } from '@/types/schedule';\n\nconst route = useRoute();\nconst router = useRouter();\nconst orgStore = useOrganizationStore();\nconst scheduleStore = useScheduleStore();\n\nconst scheduleId = ref<string>('');\nconst schedule = ref<any>(null);\nconst employees = computed(() => orgStore.employees);\nconst dates = ref<GridColumn[]>([]);\nconst assignments = ref<AssignmentMap>({});\nconst changedCells = ref<Set<string>>(new Set()); // 변경된 셀 추적\n\nonMounted(async () => {\n  scheduleId.value = route.query.scheduleId as string;\n\n  if (!scheduleId.value) {\n    window.$message.error('잘못된 접근입니다.');\n    router.push('/schedule/step1');\n    return;\n  }\n\n  // 1. Employees 로드\n  if (orgStore.employees.length === 0) {\n    await orgStore.loadEmployees();\n  }\n\n  // 2. Dates 생성\n  const month = scheduleStore.basicInfo!.month;\n  const lastMonth = getLastDaysOfPreviousMonth(month, 5);\n  const thisMonth = getDaysInMonth(month);\n  dates.value = [...lastMonth, ...thisMonth];\n\n  // 3. Schedule 및 Assignments 로드\n  const result = await loadScheduleAssignments(scheduleId.value);\n  schedule.value = result.schedule;\n  assignments.value = result.assignments;\n});\n\nfunction handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {\n  assignments.value[payload.employeeId][payload.date] = payload.shiftCode;\n  changedCells.value.add(`${payload.employeeId}_${payload.date}`);\n}\n\nasync function handleSave() {\n  if (changedCells.value.size > 0) {\n    // 변경된 셀만 Supabase에 업데이트\n    for (const key of changedCells.value) {\n      const [employeeId, date] = key.split('_');\n      const shiftCode = assignments.value[employeeId][date];\n      await updateScheduleAssignment(scheduleId.value, employeeId, date, shiftCode);\n    }\n\n    // Schedule status를 'changed'로 업데이트\n    await supabase\n      .from('schedules')\n      .update({ status: 'changed' })\n      .eq('id', scheduleId.value);\n\n    window.$message.success('저장되었습니다.');\n  }\n\n  router.push('/');\n}\n</script>\n```\n\n```typescript\n// api/schedule.ts\nexport async function loadScheduleAssignments(scheduleId: string) {\n  // Schedule 조회\n  const { data: schedule, error: scheduleError } = await supabase\n    .from('schedules')\n    .select('*')\n    .eq('id', scheduleId)\n    .single();\n\n  if (scheduleError) throw scheduleError;\n\n  // Schedule Assignments 조회\n  const { data: assignmentRows, error: assignmentsError } = await supabase\n    .from('schedule_assignments')\n    .select(`\n      employee_id,\n      date,\n      shifts (code)\n    `)\n    .eq('schedule_id', scheduleId);\n\n  if (assignmentsError) throw assignmentsError;\n\n  // AssignmentMap으로 변환\n  const assignments: AssignmentMap = {};\n  for (const row of assignmentRows) {\n    if (!assignments[row.employee_id]) {\n      assignments[row.employee_id] = {};\n    }\n    assignments[row.employee_id][row.date] = row.shifts.code;\n  }\n\n  return { schedule, assignments };\n}\n\nexport async function updateScheduleAssignment(\n  scheduleId: string,\n  employeeId: string,\n  date: string,\n  shiftCode: string\n) {\n  // shift_id 조회\n  const { data: shift } = await supabase\n    .from('shifts')\n    .select('id')\n    .eq('code', shiftCode)\n    .single();\n\n  if (!shift) throw new Error('Invalid shift code');\n\n  // Update or Insert\n  const { error } = await supabase\n    .from('schedule_assignments')\n    .upsert({\n      schedule_id: scheduleId,\n      employee_id: employeeId,\n      shift_id: shift.id,\n      date,\n    }, {\n      onConflict: 'schedule_id,employee_id,date'\n    });\n\n  if (error) throw error;\n}\n```",
+      "verificationCriteria": "1. Step 4 페이지 로드 시 AI 결과 정상 표시\n2. Schedule 상태와 Score 표시\n3. 그리드에 모든 assignments 렌더링\n4. 셀 수정 시 changedCells에 추적",
+      "analysisResult": "Step 4 AI 결과 표시. AI Solver가 생성한 최적화된 근무표를 사용자에게 보여주고, 필요시 수동으로 수정할 수 있도록 함."
+    },
+    {
+      "id": "65ea57ca-d50b-4ae6-a962-7f51f3d5facf",
+      "name": "Step 4: 수동 편집 및 저장 기능",
+      "description": "Step 4에서 사용자가 AI 생성 결과를 수동으로 수정할 수 있도록 편집 기능 제공. 변경된 셀만 Supabase에 업데이트하고 status를 'changed'로 변경.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "2c4fa9a8-721e-4a49-a87e-cb65b12b2cf0"
+        }
+      ],
+      "createdAt": "2025-11-13T13:15:49.704730Z",
+      "updatedAt": "2025-11-13T13:15:49.704730Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step4Result.vue",
+          "type": "TO_MODIFY",
+          "description": "수동 편집 및 저장 로직"
+        }
+      ],
+      "implementationGuide": "1. ScheduleGrid의 readonly를 false로 설정하여 편집 가능하게 함\n2. update:assignment 이벤트로 변경 사항 추적\n3. \"저장\" 버튼으로 변경된 셀만 Supabase에 업데이트\n\n예시 코드는 앞의 task에 포함되어 있음.\n\n추가 기능:\n- 변경된 셀을 시각적으로 표시 (border 색상 변경 등)\n- \"변경 사항 취소\" 버튼으로 원래 AI 결과로 복원\n- 저장 전 확인 모달 표시",
+      "verificationCriteria": "1. 그리드에서 시프트 변경 가능\n2. 변경된 셀이 changedCells에 추적됨\n3. \"저장\" 버튼으로 변경 사항만 Supabase에 업데이트\n4. Schedule status가 'changed'로 변경",
+      "analysisResult": "Step 4 수동 편집. AI가 생성한 결과가 완벽하지 않을 수 있으므로, 사용자가 직접 수정하여 최종 근무표를 완성할 수 있도록 함."
+    }
+  ]
+}
