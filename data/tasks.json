@@ -833,7 +833,7 @@
       "id": "2fea27dc-6a6a-4ffb-a713-65a3561d4e7a",
       "name": "Schedule Store: Pinia 스토어 기본 구조 (stores/schedule.ts)",
       "description": "근무표 생성 워크플로우 상태 관리를 위한 Pinia 스토어. basicInfo, currentStep, siteRequirements, gridData 상태 관리.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
@@ -843,7 +843,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:46:03.908Z",
-      "updatedAt": "2025-11-13T11:46:03.908Z",
+      "updatedAt": "2025-11-15T08:06:22.748Z",
       "relatedFiles": [
         {
           "path": "src/stores/schedule.ts",
@@ -853,7 +853,9 @@
       ],
       "implementationGuide": "1. src/stores/schedule.ts 파일 생성\n2. 기본 구조:\n\n```typescript\nimport { defineStore } from 'pinia';\nimport { ref } from 'vue';\nimport type { ScheduleBasicInfo, SiteRequirements, AssignmentMap } from '@/types/schedule';\n\nexport const useScheduleStore = defineStore('schedule', () => {\n  // Step 1: 기본 정보\n  const basicInfo = ref<ScheduleBasicInfo | null>(null);\n  \n  // Step 2: 사이트 정보\n  const siteRequirements = ref<SiteRequirements>({});\n  \n  // Step 3: 그리드 데이터\n  const assignments = ref<AssignmentMap>({});\n  \n  // 현재 단계\n  const currentStep = ref<number>(1);\n  \n  // Actions\n  function setBasicInfo(info: ScheduleBasicInfo) {\n    basicInfo.value = info;\n  }\n  \n  function setSiteRequirements(reqs: SiteRequirements) {\n    siteRequirements.value = reqs;\n  }\n  \n  function setAssignments(data: AssignmentMap) {\n    assignments.value = data;\n  }\n  \n  function nextStep() {\n    if (currentStep.value < 4) {\n      currentStep.value++;\n    }\n  }\n  \n  function prevStep() {\n    if (currentStep.value > 1) {\n      currentStep.value--;\n    }\n  }\n  \n  function reset() {\n    basicInfo.value = null;\n    siteRequirements.value = {};\n    assignments.value = {};\n    currentStep.value = 1;\n  }\n  \n  return {\n    basicInfo,\n    siteRequirements,\n    assignments,\n    currentStep,\n    setBasicInfo,\n    setSiteRequirements,\n    setAssignments,\n    nextStep,\n    prevStep,\n    reset,\n  };\n});\n```",
       "verificationCriteria": "1. schedule.ts 파일 생성 완료\n2. useScheduleStore 정의\n3. 4개 ref 상태 (basicInfo, siteRequirements, assignments, currentStep)\n4. 6개 actions 정의",
-      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산"
+      "analysisResult": "EveryShift MVP - Phase 4 (Step 1) & Phase 5 (Step 2)\n\n**Phase 4 범위**: Step 1 기본 정보 설정\n- 계획 월 선택 (다음 달 기본값)\n- 조직 정보 표시 (읽기 전용)\n- Schedule Store 기본 구조\n- StepIndicator 컴포넌트\n\n**Phase 5 범위**: Step 2 사이트 정보 설정  \n- 3-level 헤더 그리드 (HTML table)\n- 요일별 필요 인력 설정\n- useSiteRequirements composable\n- 인라인 편집 및 합계 계산",
+      "summary": "Schedule Store 생성 완료. useScheduleStore 정의 with 4개 ref 상태 (basicInfo, siteRequirements, assignments, currentStep) 및 6개 actions (setBasicInfo, setSiteRequirements, setAssignments, nextStep, prevStep, reset). TypeScript 타입 체크 및 ESLint 검사 통과.",
+      "completedAt": "2025-11-15T08:06:22.641Z"
     },
     {
       "id": "343bb7c4-3925-49ee-91da-1c926056b3f3",

@@ -16,6 +16,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: 'Organization Store 테스트' },
   },
   {
+    path: '/test-schedule',
+    name: 'TestSchedule',
+    component: () => import('@/views/TestSchedule.vue'),
+    meta: { requiresAuth: false, title: 'Schedule Store 테스트' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
