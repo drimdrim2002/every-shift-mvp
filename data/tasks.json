@@ -1025,7 +1025,7 @@
       "id": "ecef5ddf-8b06-40aa-93b6-2cb6459b516d",
       "name": "useScheduleGrid Composable - 데이터 관리 (composables/useScheduleGrid.ts)",
       "description": "그리드 데이터 관리 Composable. employees 로드, assignments 상태 관리, setAssignment 함수.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
@@ -1041,7 +1041,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:47:36.749Z",
-      "updatedAt": "2025-11-13T11:47:36.749Z",
+      "updatedAt": "2025-11-15T08:58:53.748Z",
       "relatedFiles": [
         {
           "path": "src/composables/useScheduleGrid.ts",
@@ -1051,13 +1051,15 @@
       ],
       "implementationGuide": "1. src/composables/useScheduleGrid.ts 파일 생성\n2. 구현:\n\n```typescript\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport type { Employee } from '@/types/employee';\nimport type { AssignmentMap, GridColumn } from '@/types/schedule';\nimport { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';\n\nexport function useScheduleGrid() {\n  const employees = ref<Employee[]>([]);\n  const assignments = ref<AssignmentMap>({});\n  const dates = ref<GridColumn[]>([]);\n  const loading = ref(false);\n  \n  // 직원 목록 로드\n  async function loadEmployees(orgId: string) {\n    loading.value = true;\n    try {\n      const { data, error } = await supabase\n        .from('employees')\n        .select('*')\n        .eq('organization_id', orgId)\n        .order('employee_id');\n      \n      if (error) throw error;\n      \n      employees.value = data;\n      \n      // 초기 assignments 객체 생성\n      const initialAssignments: AssignmentMap = {};\n      data.forEach(emp => {\n        initialAssignments[emp.id] = {};\n      });\n      assignments.value = initialAssignments;\n      \n      return { success: true };\n    } catch (error: any) {\n      console.error('Failed to load employees:', error);\n      return { success: false, error: error.message };\n    } finally {\n      loading.value = false;\n    }\n  }\n  \n  // 날짜 목록 생성 (전월 5일 + 당월)\n  function generateDates(month: string) {\n    const lastMonth = getLastDaysOfPreviousMonth(month, 5);\n    const thisMonth = getDaysInMonth(month);\n    dates.value = [...lastMonth, ...thisMonth];\n  }\n  \n  // 배정 설정\n  function setAssignment(employeeId: string, date: string, shiftCode: string) {\n    if (!assignments.value[employeeId]) {\n      assignments.value[employeeId] = {};\n    }\n    assignments.value[employeeId][date] = shiftCode;\n  }\n  \n  // 배정 가져오기\n  function getAssignment(employeeId: string, date: string): string | null {\n    return assignments.value[employeeId]?.[date] || null;\n  }\n  \n  return {\n    employees,\n    assignments,\n    dates,\n    loading,\n    loadEmployees,\n    generateDates,\n    setAssignment,\n    getAssignment,\n  };\n}\n```",
       "verificationCriteria": "1. useScheduleGrid.ts 파일 생성 완료\n2. loadEmployees 함수로 30명 로드\n3. generateDates로 36일 생성 (5 + 31)\n4. setAssignment로 배정 저장",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장",
+      "summary": "useScheduleGrid.ts composable 구현 완료. loadEmployees 함수로 Supabase에서 직원 데이터 로드, generateDates로 전월 5일 + 당월 날짜 생성, setAssignment/getAssignment로 배정 관리. TypeScript 타입 체크 및 ESLint 검증 통과. 모든 요구사항 충족.",
+      "completedAt": "2025-11-15T08:58:53.732Z"
     },
     {
       "id": "0cf02d47-06cb-4311-87eb-72a2a9dde547",
       "name": "useScheduleGridStatistics Composable - 통계 계산 (composables/useScheduleGridStatistics.ts)",
       "description": "그리드 통계 계산 Composable. 행/열 통계 (D, E, N 카운트, total) 자동 계산.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "acd2c70e-193a-4776-bf58-2e3ba7f1011a"
@@ -1067,7 +1069,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:47:36.749Z",
-      "updatedAt": "2025-11-13T11:47:36.749Z",
+      "updatedAt": "2025-11-15T09:01:40.994Z",
       "relatedFiles": [
         {
           "path": "src/composables/useScheduleGridStatistics.ts",
@@ -1077,13 +1079,15 @@
       ],
       "implementationGuide": "1. src/composables/useScheduleGridStatistics.ts 파일 생성\n2. 구현:\n\n```typescript\nimport { computed, watch } from 'vue';\nimport type { AssignmentMap, GridColumn, GridStatistics, RowStat, ColumnStat } from '@/types/schedule';\nimport type { Employee } from '@/types/employee';\n\nexport function useScheduleGridStatistics(\n  employees: () => Employee[],\n  dates: () => GridColumn[],\n  assignments: () => AssignmentMap\n) {\n  // 행 통계 (직원별)\n  const rowStats = computed(() => {\n    const stats: Record<string, RowStat> = {};\n    \n    employees().forEach(emp => {\n      const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };\n      \n      const empAssignments = assignments()[emp.id] || {};\n      Object.values(empAssignments).forEach(shiftCode => {\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        \n        // Total: O(휴무)를 제외한 근무일 수\n        if (shiftCode !== 'O') stat.total++;\n      });\n      \n      stats[emp.id] = stat;\n    });\n    \n    return stats;\n  });\n  \n  // 열 통계 (날짜별)\n  const columnStats = computed(() => {\n    const stats: Record<string, ColumnStat> = {};\n    \n    dates().forEach(date => {\n      const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };\n      \n      employees().forEach(emp => {\n        const shiftCode = assignments()[emp.id]?.[date.date];\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        \n        if (shiftCode && shiftCode !== 'O') stat.total++;\n      });\n      \n      stats[date.date] = stat;\n    });\n    \n    return stats;\n  });\n  \n  const statistics = computed<GridStatistics>(() => ({\n    rowStats: rowStats.value,\n    columnStats: columnStats.value,\n  }));\n  \n  return statistics;\n}\n```",
       "verificationCriteria": "1. useScheduleGridStatistics.ts 파일 생성 완료\n2. rowStats computed (직원별 D/E/N/total)\n3. columnStats computed (날짜별 D/E/N/total)\n4. assignments 변경 시 자동 재계산",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장",
+      "summary": "useScheduleGridStatistics composable 구현 완료. 모든 검증 기준 충족:\n\n1. ✅ src/composables/useScheduleGridStatistics.ts 파일 생성 완료\n2. ✅ rowStats computed 구현 - 직원별 D/E/N/total 통계 계산\n3. ✅ columnStats computed 구현 - 날짜별 D/E/N/total 통계 계산\n4. ✅ assignments 변경 시 자동 재계산 - computed 속성으로 반응성 보장\n\n구현 세부사항:\n- 타입 안전성: 모든 타입 정의 활용 (AssignmentMap, GridColumn, GridStatistics 등)\n- 반응성: computed를 사용하여 assignments 변경 시 자동 재계산\n- 효율성: 직원별/날짜별 통계를 각각 computed로 분리하여 필요한 부분만 재계산\n- 코드 품질: ESLint 검사 통과, 경고 없음\n\nTotal 계산 로직: O(휴무) 제외한 근무일 수로 정확히 구현",
+      "completedAt": "2025-11-15T09:01:40.978Z"
     },
     {
       "id": "45ec9e06-2657-4220-b74e-771846bb1efe",
       "name": "ScheduleGrid 컴포넌트 - 기본 구조 및 Props (components/schedule/ScheduleGrid.vue)",
       "description": "메인 그리드 컴포넌트 기본 구조. Props/Events 정의, 기본 테이블 구조.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
@@ -1096,7 +1100,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:47:36.749Z",
-      "updatedAt": "2025-11-13T11:47:36.749Z",
+      "updatedAt": "2025-11-15T09:07:15.817Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1106,20 +1110,22 @@
       ],
       "implementationGuide": "1. src/components/schedule/ScheduleGrid.vue 파일 생성\n2. Props/Events 정의:\n\n```vue\n<template>\n  <div class=\"schedule-grid-container overflow-x-auto\">\n    <table class=\"schedule-grid border-collapse w-full\">\n      <!-- 헤더는 다음 작업에서 구현 -->\n      <thead>\n        <tr>\n          <th class=\"sticky-column\">근무자</th>\n          <th v-for=\"date in dates\" :key=\"date.date\">\n            {{ date.day }}\n          </th>\n        </tr>\n      </thead>\n      \n      <!-- 데이터 행 -->\n      <tbody>\n        <tr v-for=\"employee in employees\" :key=\"employee.id\" class=\"data-row\">\n          <td class=\"sticky-column employee-cell\">\n            <div class=\"font-semibold\">{{ employee.name }}</div>\n            <div class=\"text-xs text-gray-500\">{{ employee.employeeId }}</div>\n          </td>\n          \n          <td\n            v-for=\"date in dates\"\n            :key=\"date.date\"\n            :class=\"getCellClass(date)\"\n          >\n            <!-- ShiftSelector는 다음 작업에서 추가 -->\n            <div class=\"text-center\">-</div>\n          </td>\n        </tr>\n      </tbody>\n    </table>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\ninterface Props {\n  employees: Employee[];\n  dates: GridColumn[];\n  assignments: AssignmentMap;\n  readonly?: boolean;\n  showLastMonth?: boolean;\n}\n\ninterface Emits {\n  (e: 'update:assignment', payload: {\n    employeeId: string;\n    date: string;\n    shiftCode: string;\n  }): void;\n}\n\nconst props = defineProps<Props>();\nconst emit = defineEmits<Emits>();\n\nfunction getCellClass(date: GridColumn) {\n  return {\n    'bg-gray-50': date.isLastMonth,\n    'bg-white': !date.isLastMonth,\n    'border border-gray-300': true,\n  };\n}\n</script>\n\n<style scoped>\n.schedule-grid-container {\n  max-height: 70vh;\n  position: relative;\n}\n\n.schedule-grid {\n  font-size: 14px;\n}\n\n.sticky-column {\n  position: sticky;\n  left: 0;\n  z-index: 20;\n  background: white;\n  border-right: 2px solid #e5e7eb;\n}\n\n.employee-cell {\n  padding: 12px;\n  min-width: 150px;\n}\n</style>\n```",
       "verificationCriteria": "1. ScheduleGrid.vue 파일 생성 완료\n2. Props 정의 (employees, dates, assignments)\n3. 기본 테이블 구조 렌더링\n4. 고정 컬럼 sticky 적용",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장",
+      "summary": "ScheduleGrid.vue 컴포넌트 기본 구조 구현 완료. Props (employees, dates, assignments, readonly, showLastMonth) 정의, Emits (update:assignment) 정의, 기본 테이블 구조 렌더링 (thead/tbody), sticky 컬럼 스타일 적용 (position: sticky, left: 0, z-index: 20), 전월/당월 구분 스타일 (bg-gray-50/bg-white), 직원 정보 표시 (이름, 직번), ESLint 검사 통과. 다음 작업에서 헤더 상세 정보 및 ShiftSelector 통합 예정.",
+      "completedAt": "2025-11-15T09:07:15.802Z"
     },
     {
       "id": "a3c0894c-9371-42b9-a74b-66fed98b06f4",
       "name": "ScheduleGrid 컴포넌트 - 3-level 헤더 구현",
       "description": "그리드 3-level 헤더 구현. Level 1: Last Month/This Month, Level 2: 월 이름, Level 3: 일+요일.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "45ec9e06-2657-4220-b74e-771846bb1efe"
         }
       ],
       "createdAt": "2025-11-13T11:47:36.749Z",
-      "updatedAt": "2025-11-13T11:47:36.749Z",
+      "updatedAt": "2025-11-15T09:17:55.328Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1131,7 +1137,9 @@
       ],
       "implementationGuide": "1. ScheduleGrid.vue의 thead 섹션 수정\n2. 3-level 헤더 구현:\n\n```vue\n<thead>\n  <!-- Level 1: Last Month / This Month -->\n  <tr>\n    <th rowspan=\"3\" class=\"sticky-column header-cell\">근무자</th>\n    <th\n      v-for=\"group in headerLevel1\"\n      :key=\"group.label\"\n      :colspan=\"group.count\"\n      class=\"header-level-1 border border-gray-300 px-4 py-2 bg-gray-100\"\n    >\n      {{ group.label }}\n    </th>\n    <th rowspan=\"3\" colspan=\"4\" class=\"header-stats\">통계</th>\n  </tr>\n  \n  <!-- Level 2: 월 이름 -->\n  <tr>\n    <th\n      v-for=\"group in headerLevel2\"\n      :key=\"group.label\"\n      :colspan=\"group.count\"\n      class=\"header-level-2 border border-gray-300 px-4 py-2 bg-gray-50\"\n    >\n      {{ group.label }}\n    </th>\n  </tr>\n  \n  <!-- Level 3: 날짜 + 요일 -->\n  <tr>\n    <th\n      v-for=\"date in dates\"\n      :key=\"date.date\"\n      class=\"header-level-3 border border-gray-300 px-2 py-1 bg-gray-50 text-center text-sm\"\n    >\n      {{ date.day }}일<br />\n      <span class=\"text-xs\">({{ date.dayName }})</span>\n    </th>\n  </tr>\n</thead>\n```\n\n3. computed 속성 추가:\n\n```typescript\nimport { computed } from 'vue';\n\nconst headerLevel1 = computed(() => {\n  const lastMonthCount = props.dates.filter(d => d.isLastMonth).length;\n  const thisMonthCount = props.dates.filter(d => !d.isLastMonth).length;\n  \n  const groups = [];\n  if (props.showLastMonth && lastMonthCount > 0) {\n    groups.push({ label: 'Last Month', count: lastMonthCount });\n  }\n  groups.push({ label: 'This Month', count: thisMonthCount });\n  \n  return groups;\n});\n\nconst headerLevel2 = computed(() => {\n  const groups: any[] = [];\n  let currentMonth = '';\n  let count = 0;\n  \n  props.dates.forEach((date, index) => {\n    const month = date.date.substring(5, 7) + '월';\n    \n    if (month !== currentMonth) {\n      if (count > 0) {\n        groups.push({ label: currentMonth, count });\n      }\n      currentMonth = month;\n      count = 1;\n    } else {\n      count++;\n    }\n    \n    if (index === props.dates.length - 1) {\n      groups.push({ label: currentMonth, count });\n    }\n  });\n  \n  return groups;\n});\n```",
       "verificationCriteria": "1. 3개 tr 행으로 헤더 구성\n2. Level 1: Last Month (5일), This Month (31일) colspan\n3. Level 2: 11월, 12월 colspan\n4. Level 3: 1일(일), 2일(월) 형식",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 초기 데이터 입력)\n\n**Phase 6 범위**: Step 3 근무표 초기 정보 입력 - MVP의 80% 개발 노력 집중\n- ScheduleGrid.vue (30명 × 36일 = 1,080개 셀)\n- ShiftSelector.vue (D/E/N/O 버튼 그룹)\n- useScheduleGrid composable (데이터 관리)\n- useScheduleGridStatistics composable (통계 계산)\n- 전월 5일 검증, LocalStorage 임시 저장",
+      "summary": "ScheduleGrid 컴포넌트 3-level 헤더 구현 완료. Level 1 (전월/당월 그룹, colspan 적용), Level 2 (월 이름 그룹, 11월/12월 colspan), Level 3 (날짜+요일 형식, \"1일(일)\" 형태) 모두 정상 구현. computed 속성 (headerLevel1, headerLevel2) 추가하여 동적 그룹화 로직 구현. 근무자/통계 컬럼 rowspan=\"3\" 적용으로 3-level 헤더와 정렬. Tailwind CSS 스타일링 (bg-gray-100/bg-gray-50) 및 텍스트 정렬 적용. ESLint 검사 통과, Vite HMR 정상 작동 확인.",
+      "completedAt": "2025-11-15T09:17:55.310Z"
     },
     {
       "id": "554e3f6a-f3ca-48b9-bf2a-078981c219b5",

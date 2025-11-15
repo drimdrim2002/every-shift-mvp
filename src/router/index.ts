@@ -28,6 +28,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: 'StepIndicator 테스트' },
   },
   {
+    path: '/test-grid',
+    name: 'TestScheduleGrid',
+    component: () => import('@/views/TestScheduleGrid.vue'),
+    meta: { requiresAuth: false, title: 'ScheduleGrid 테스트' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
