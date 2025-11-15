@@ -706,7 +706,7 @@
       "id": "eef0919d-036e-417e-9d0b-714748b392da",
       "name": "Auth Store: Pinia 스토어 생성 (stores/auth.ts)",
       "description": "Supabase 인증을 위한 Pinia 스토어. 로그인, 로그아웃, 세션 확인 기능.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
@@ -716,7 +716,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T07:34:28.931Z",
       "relatedFiles": [
         {
           "path": "src/stores/auth.ts",
@@ -726,13 +726,15 @@
       ],
       "implementationGuide": "1. src/stores/auth.ts 파일 생성\n2. Pinia defineStore 사용:\n\n```typescript\nimport { defineStore } from 'pinia';\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport type { User } from '@supabase/supabase-js';\n\nexport const useAuthStore = defineStore('auth', () => {\n  const user = ref<User | null>(null);\n  const loading = ref(false);\n  \n  // 로그인\n  async function login(email: string, password: string) {\n    loading.value = true;\n    try {\n      const { data, error } = await supabase.auth.signInWithPassword({\n        email,\n        password,\n      });\n      \n      if (error) throw error;\n      \n      user.value = data.user;\n      return { success: true };\n    } catch (error: any) {\n      return { success: false, error: error.message };\n    } finally {\n      loading.value = false;\n    }\n  }\n  \n  // 로그아웃\n  async function logout() {\n    await supabase.auth.signOut();\n    user.value = null;\n  }\n  \n  // 세션 확인\n  async function checkSession() {\n    const { data } = await supabase.auth.getSession();\n    user.value = data.session?.user ?? null;\n  }\n  \n  return {\n    user,\n    loading,\n    login,\n    logout,\n    checkSession,\n  };\n});\n```",
       "verificationCriteria": "1. auth.ts 파일 생성 완료\n2. useAuthStore 정의\n3. login, logout, checkSession 함수 구현\n4. user ref 반환",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "auth.ts 파일이 올바르게 생성되고 모든 필수 기능이 완벽하게 구현됨. useAuthStore는 Pinia defineStore 패턴을 사용하여 user/loading 상태를 관리하며, login/logout/checkSession 함수가 모두 구현됨. Supabase auth API와 완벽하게 통합되어 있고, TypeScript 타입 안전성도 보장됨. 에러 처리와 로딩 상태 관리가 적절하게 구현되어 있음.",
+      "completedAt": "2025-11-15T07:34:28.833Z"
     },
     {
       "id": "e5371342-e3f2-4d8e-b3ea-c340b981456e",
       "name": "Router: Vue Router 설정 및 Guards (router/index.ts)",
       "description": "Vue Router 설정 파일 생성. 로그인, 근무표 생성 라우트 정의 및 인증 가드 구현.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "cc672606-607c-4315-8edb-8ba2d5ab0dbb"
@@ -745,7 +747,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T07:37:35.006Z",
       "relatedFiles": [
         {
           "path": "src/router/index.ts",
@@ -755,7 +757,9 @@
       ],
       "implementationGuide": "1. src/router/index.ts 파일 생성\n2. Router 설정:\n\n```typescript\nimport { createRouter, createWebHistory } from 'vue-router';\nimport { useAuthStore } from '@/stores/auth';\n\nconst routes = [\n  {\n    path: '/login',\n    name: 'Login',\n    component: () => import('@/views/auth/Login.vue'),\n    meta: { requiresAuth: false },\n  },\n  {\n    path: '/',\n    component: () => import('@/components/layout/DefaultLayout.vue'),\n    meta: { requiresAuth: true },\n    children: [\n      {\n        path: '',\n        redirect: '/schedule/step1',\n      },\n      {\n        path: 'schedule/step1',\n        name: 'Step1',\n        component: () => import('@/views/schedule/Step1BasicInfo.vue'),\n      },\n      {\n        path: 'schedule/step2',\n        name: 'Step2',\n        component: () => import('@/views/schedule/Step2SiteInfo.vue'),\n      },\n      {\n        path: 'schedule/step3',\n        name: 'Step3',\n        component: () => import('@/views/schedule/Step3InitialData.vue'),\n      },\n      {\n        path: 'schedule/step4/:id',\n        name: 'Step4',\n        component: () => import('@/views/schedule/Step4Result.vue'),\n      },\n    ],\n  },\n];\n\nconst router = createRouter({\n  history: createWebHistory(),\n  routes,\n});\n\n// 인증 가드\nrouter.beforeEach(async (to, from, next) => {\n  const authStore = useAuthStore();\n  \n  // 세션 확인\n  if (!authStore.user) {\n    await authStore.checkSession();\n  }\n  \n  const requiresAuth = to.matched.some(record => record.meta.requiresAuth);\n  \n  if (requiresAuth && !authStore.user) {\n    next('/login');\n  } else if (to.path === '/login' && authStore.user) {\n    next('/');\n  } else {\n    next();\n  }\n});\n\nexport default router;\n```\n\n3. main.ts에 router 등록 확인",
       "verificationCriteria": "1. router/index.ts 파일 생성 완료\n2. 6개 라우트 정의 (login, step1-4)\n3. beforeEach 가드 구현\n4. 인증되지 않은 사용자 /login 리다이렉트",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Vue Router 설정 완료. 로그인 라우트(/login), 4개 스케줄 라우트(step1-4), DefaultLayout 중첩 구조, beforeEach 인증 가드(authStore 사용), afterEach 타이틀 설정 모두 구현. ESLint 통과, 개발 서버 정상 실행 확인.",
+      "completedAt": "2025-11-15T07:37:34.858Z"
     },
     {
       "id": "cca8e5ae-0686-4e03-b2ee-5e18cbba0dfd",
