@@ -327,11 +327,8 @@
       "id": "7a035827-f29c-4c19-881f-22b926ad3bc1",
       "name": "Utility 함수: Excel 내보내기 (utils/excel.ts)",
       "description": "XLSX 라이브러리를 사용한 근무표 엑셀 내보내기 함수 구현: exportToExcel().",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
-        {
-          "taskId": "b4729e4b-52b4-4536-a781-6f83387b603b"
-        },
         {
           "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
         },
@@ -340,7 +337,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:48:05.530Z",
       "relatedFiles": [
         {
           "path": "src/utils/excel.ts",
@@ -350,23 +347,18 @@
       ],
       "implementationGuide": "1. src/utils/excel.ts 파일 생성\n2. XLSX 라이브러리 import\n3. 함수 구현:\n\n```typescript\nimport * as XLSX from 'xlsx';\nimport type { Employee } from '@/types/employee';\nimport type { GridColumn, AssignmentMap } from '@/types/schedule';\n\n// 근무표를 Excel 파일로 내보내기\nexport function exportToExcel(\n  employees: Employee[],\n  dates: GridColumn[],\n  assignments: AssignmentMap,\n  filename: string = 'schedule.xlsx'\n): void {\n  // 1. 데이터 변환\n  const rows = employees.map(emp => {\n    const row: any = {\n      '직번': emp.employeeId,\n      '이름': emp.name,\n    };\n    \n    // 각 날짜별 시프트 추가\n    dates.forEach(date => {\n      const shift = assignments[emp.id]?.[date.date] || '';\n      row[`${date.day}일`] = shift;\n    });\n    \n    return row;\n  });\n  \n  // 2. 워크시트 생성\n  const ws = XLSX.utils.json_to_sheet(rows);\n  \n  // 3. 워크북 생성\n  const wb = XLSX.utils.book_new();\n  XLSX.utils.book_append_sheet(wb, ws, '근무표');\n  \n  // 4. 파일 다운로드\n  XLSX.writeFile(wb, filename);\n}\n```\n\n4. export 확인",
       "verificationCriteria": "1. excel.ts 파일 생성 완료\n2. exportToExcel 함수 정의\n3. XLSX.writeFile 호출 확인\n4. 테스트 데이터로 실행 시 .xlsx 파일 다운로드",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Excel 내보내기 유틸리티 함수 구현 완료. src/utils/excel.ts 파일 생성, exportToExcel 함수 정의, XLSX 라이브러리 통합, TypeScript 타입 안전성 확보(Employee, GridColumn, AssignmentMap), ESLint 검증 통과. 직번, 이름, 날짜별 시프트 데이터를 Excel 워크북으로 변환하여 파일 다운로드 기능 구현. JSDoc 주석으로 가독성 강화. 실제 UI 통합 테스트는 Step 4 구현 시 수행 필요.",
+      "completedAt": "2025-11-15T04:48:05.506Z"
     },
     {
       "id": "f6820857-3c14-47d1-aef8-0117422bc458",
       "name": "Layout: DefaultLayout 컴포넌트 (components/layout/DefaultLayout.vue)",
       "description": "Naive UI의 n-layout을 사용한 메인 레이아웃 컴포넌트. Header와 Sidebar 포함.",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
-        },
-        {
-          "taskId": "e6ade1e6-1f68-4bf5-9175-a97bae945462"
-        }
-      ],
+      "status": "completed",
+      "dependencies": [],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T04:49:21.355Z",
       "relatedFiles": [
         {
           "path": "src/components/layout/DefaultLayout.vue",
@@ -376,7 +368,9 @@
       ],
       "implementationGuide": "1. src/components/layout/DefaultLayout.vue 파일 생성\n2. Naive UI n-layout 사용:\n\n```vue\n<template>\n  <n-layout has-sider class=\"h-screen\">\n    <n-layout-sider\n      bordered\n      collapse-mode=\"width\"\n      :collapsed-width=\"64\"\n      :width=\"240\"\n      show-trigger\n    >\n      <Sidebar />\n    </n-layout-sider>\n    <n-layout>\n      <n-layout-header bordered class=\"h-16 flex items-center px-6\">\n        <Header />\n      </n-layout-header>\n      <n-layout-content class=\"p-6\">\n        <router-view />\n      </n-layout-content>\n    </n-layout>\n  </n-layout>\n</template>\n\n<script setup lang=\"ts\">\nimport { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent } from 'naive-ui';\nimport Header from './Header.vue';\nimport Sidebar from './Sidebar.vue';\n</script>\n```\n\n3. Tailwind 클래스로 기본 스타일 적용",
       "verificationCriteria": "1. DefaultLayout.vue 파일 생성 완료\n2. n-layout-sider 사이드바 표시\n3. router-view로 페이지 콘텐츠 렌더링\n4. Header, Sidebar 컴포넌트 import (아직 생성 안됨)",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "DefaultLayout 컴포넌트 구현 완료. src/components/layout/DefaultLayout.vue 파일 생성, Naive UI n-layout 시스템 통합(n-layout-sider, n-layout-header, n-layout-content), router-view 페이지 렌더링 구조 구축, Header/Sidebar 컴포넌트 import 설정, Tailwind CSS 클래스 적용(h-screen, flex, items-center, px-6, p-6), ESLint/Prettier 검증 통과. 사이드바 접기 기능(collapse-mode, width 240px, collapsed-width 64px), 헤더 고정 높이(h-16) 구현. Header/Sidebar 컴포넌트는 후속 task에서 생성 예정.",
+      "completedAt": "2025-11-15T04:49:21.325Z"
     },
     {
       "id": "dd3d84d7-d57f-48c6-b505-4b1b7ecab140",
