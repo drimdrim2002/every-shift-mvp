@@ -765,7 +765,7 @@
       "id": "cca8e5ae-0686-4e03-b2ee-5e18cbba0dfd",
       "name": "Login 페이지 (views/auth/Login.vue)",
       "description": "Naive UI Form을 사용한 로그인 페이지. 이메일/비밀번호 입력 및 Supabase 인증.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
@@ -778,7 +778,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:44:32.612Z",
-      "updatedAt": "2025-11-13T11:44:32.612Z",
+      "updatedAt": "2025-11-15T07:43:37.320Z",
       "relatedFiles": [
         {
           "path": "src/views/auth/Login.vue",
@@ -788,7 +788,9 @@
       ],
       "implementationGuide": "1. src/views/auth/Login.vue 파일 생성\n2. Naive UI Form 사용:\n\n```vue\n<template>\n  <div class=\"min-h-screen flex items-center justify-center bg-gray-50\">\n    <n-card class=\"w-full max-w-md\" title=\"EveryShift 로그인\">\n      <n-form ref=\"formRef\" :model=\"formValue\" :rules=\"rules\">\n        <n-form-item label=\"이메일\" path=\"email\">\n          <n-input\n            v-model:value=\"formValue.email\"\n            placeholder=\"admin@everyshift.com\"\n            @keydown.enter=\"handleLogin\"\n          />\n        </n-form-item>\n        <n-form-item label=\"비밀번호\" path=\"password\">\n          <n-input\n            v-model:value=\"formValue.password\"\n            type=\"password\"\n            placeholder=\"비밀번호 입력\"\n            @keydown.enter=\"handleLogin\"\n          />\n        </n-form-item>\n        <n-button\n          type=\"primary\"\n          block\n          :loading=\"authStore.loading\"\n          @click=\"handleLogin\"\n        >\n          로그인\n        </n-button>\n      </n-form>\n    </n-card>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { ref } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { NCard, NForm, NFormItem, NInput, NButton, useMessage } from 'naive-ui';\nimport { useAuthStore } from '@/stores/auth';\n\nconst router = useRouter();\nconst message = useMessage();\nconst authStore = useAuthStore();\n\nconst formValue = ref({\n  email: '',\n  password: '',\n});\n\nconst rules = {\n  email: {\n    required: true,\n    message: '이메일을 입력하세요',\n    trigger: 'blur',\n  },\n  password: {\n    required: true,\n    message: '비밀번호를 입력하세요',\n    trigger: 'blur',\n  },\n};\n\nasync function handleLogin() {\n  const result = await authStore.login(formValue.value.email, formValue.value.password);\n  \n  if (result.success) {\n    message.success('로그인 성공');\n    router.push('/');\n  } else {\n    message.error(result.error || '로그인 실패');\n  }\n}\n</script>\n```",
       "verificationCriteria": "1. Login.vue 파일 생성 완료\n2. 이메일, 비밀번호 입력 필드 렌더링\n3. 로그인 버튼 클릭 시 authStore.login 호출\n4. 성공 시 / 경로로 리다이렉트",
-      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)"
+      "analysisResult": "EveryShift MVP - Phase 1 (Foundation) & Phase 2 (Authentication)\n\n**목표**: Infrastructure 위에 기초 레이어 구축 - TypeScript 타입 정의, 유틸리티 함수, 기본 컴포넌트, 인증 시스템\n\n**Phase 1 범위**:\n- TypeScript 타입 정의 (schedule.ts, employee.ts, shift.ts, organization.ts)\n- Utility 함수 (date.ts, validation.ts, excel.ts)\n- Layout 컴포넌트 (DefaultLayout, Header, Sidebar)\n\n**Phase 2 범위**:\n- Auth Store (Pinia)\n- Router 구성 및 Guards\n- Login 페이지\n- Organization Store (조직/직원/시프트 데이터 로드)",
+      "summary": "Login 페이지 구현 완료. Naive UI Form, window.$message (Discrete API 패턴), authStore 연동, 폼 검증, Enter 키 지원, 성공 시 /schedule/step1 리다이렉트 구현. Lint 검사 통과.",
+      "completedAt": "2025-11-15T07:43:37.176Z"
     },
     {
       "id": "ab08ce06-628c-4add-84a3-82ecfa564fd8",
