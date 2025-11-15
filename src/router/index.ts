@@ -22,6 +22,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: 'Schedule Store 테스트' },
   },
   {
+    path: '/test-step-indicator',
+    name: 'TestStepIndicator',
+    component: () => import('@/views/TestStepIndicator.vue'),
+    meta: { requiresAuth: false, title: 'StepIndicator 테스트' },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
