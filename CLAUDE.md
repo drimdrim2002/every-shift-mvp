@@ -54,6 +54,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - ✅ Layout structure, routing patterns, composable patterns
 - ❌ NOT using complex components (BasicTable, VbenForm, preference system)
+- 📚 Documentation: `docs/vben/en/` (comprehensive Vben Admin reference)
 
 **AI Solver Integration**: Mock responses in MVP
 
@@ -270,6 +271,26 @@ organizations
 6. **Tailwind Only**: Use Tailwind CSS utilities; avoid custom CSS unless absolutely necessary
 7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
 
+## Documentation Lookup Strategy
+
+**Priority Order** (ALWAYS follow this sequence):
+
+1. **Local Documentation First** (Primary Source)
+   - Naive UI: `docs/naive/*.md`
+   - Vben Admin: `docs/vben/en/guide/`
+   - Project PRD: `docs/prd/*.md`
+
+2. **Context7 MCP** (When local docs insufficient)
+   - Trigger: Missing implementation details, API changes, advanced patterns
+   - Use for: Official documentation, framework updates, best practices
+   - Example: "Local docs don't cover X, checking Context7 for Naive UI X documentation"
+
+3. **WebSearch/Official Sites** (Last Resort)
+   - Only when Context7 unavailable or insufficient
+   - Use official sites: naiveui.com, vben.pro
+
+**Integration Rule**: When using Context7 or WebSearch, **always cross-reference with local documentation** to ensure consistency with project patterns.
+
 ## Naive UI Global API Usage
 
 ### CRITICAL Pattern
@@ -309,6 +330,7 @@ Naive UI documentation organized by purpose (7 files):
 - Table implementation → Read `00-quick-reference.md` + `03-data-tables.md`
 - Global message/dialog → Read `00-quick-reference.md` + `05-discrete-api.md`
 - Error fixing → Read `07-troubleshooting.md`
+- **If insufficient** → Use Context7 MCP for Naive UI official docs
 
 ### Utility Functions
 
@@ -341,6 +363,23 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 ### Internal
 
 - `docs/prd/01-overview-architecture.md` - Project overview, tech stack, architecture
+
+### Vben Admin Documentation
+
+**Location**: `docs/vben/en/`
+
+**Reading Strategy**:
+- Layout/routing work → Read `guide/introduction/` + `guide/essentials/route.md`
+- Component patterns → Read `guide/essentials/` + `guide/in-depth/`
+- Build/configuration → Read `guide/project/` (vite, tailwindcss, standard)
+- Authentication → Read `guide/in-depth/login.md` + `guide/in-depth/access.md`
+- **If insufficient** → Use Context7 MCP for Vben Admin official docs
+
+**Key Documents**:
+- **Introduction**: `guide/introduction/vben.md`, `guide/introduction/quick-start.md`
+- **Essentials**: `guide/essentials/concept.md`, `guide/essentials/route.md`, `guide/essentials/development.md`
+- **Project Setup**: `guide/project/dir.md`, `guide/project/vite.md`, `guide/project/tailwindcss.md`
+- **In-Depth**: `guide/in-depth/layout.md`, `guide/in-depth/theme.md`, `guide/in-depth/access.md`
 
 ### External
 
