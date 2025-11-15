@@ -2,10 +2,25 @@
 import HelloWorld from './components/HelloWorld.vue';
 import { NButton, NSpace } from 'naive-ui';
 import { useGlobalMessage } from '@/composables/useGlobalMessage';
+import { supabase } from '@/api/supabase';
+import { onMounted } from 'vue';
 
 // Naive UI 전역 메시지 API 사용
 // useGlobalMessage composable로 안전하게 래핑됨
 const { success, error, warning, info } = useGlobalMessage();
+
+// Supabase 연결 테스트
+onMounted(async () => {
+  const { data, error: supabaseError } = await supabase.from('organizations').select('*');
+
+  if (supabaseError) {
+    console.error('Supabase connection error:', supabaseError);
+    error(`Supabase 연결 실패: ${supabaseError.message}`);
+  } else {
+    console.log('Supabase connected! Organizations:', data);
+    success(`Supabase 연결 성공! ${data?.length || 0}개 조직 조회됨`);
+  }
+});
 
 // 테스트용 메서드들
 const showSuccess = () => {
