@@ -1,13 +1,13 @@
 <template>
   <div class="schedule-grid-container overflow-x-auto">
-    <table class="schedule-grid w-full border-collapse">
+    <table class="schedule-grid w-full">
       <!-- 3-level 헤더 -->
       <thead>
         <!-- Level 1: Last Month / This Month -->
         <tr>
           <th
             rowspan="3"
-            class="sticky-column header-cell border border-gray-300 bg-white px-4 py-3 font-semibold"
+            class="sticky-column header-cell bg-white px-4 py-3 font-semibold"
           >
             근무자
           </th>
@@ -15,14 +15,14 @@
             v-for="group in headerLevel1"
             :key="group.label"
             :colspan="group.count"
-            class="header-level-1 border border-gray-300 bg-gray-100 px-4 py-2 text-center font-semibold"
+            class="header-level-1 bg-gray-100 px-4 py-2 text-center font-semibold"
           >
             {{ group.label }}
           </th>
           <th
             rowspan="3"
             colspan="4"
-            class="header-stats border border-gray-300 bg-white px-4 py-3 text-center font-semibold"
+            class="header-stats bg-white px-4 py-3 text-center font-semibold"
           >
             통계
           </th>
@@ -34,7 +34,7 @@
             v-for="group in headerLevel2"
             :key="group.label"
             :colspan="group.count"
-            class="header-level-2 border border-gray-300 bg-gray-50 px-4 py-2 text-center font-medium"
+            class="header-level-2 bg-gray-50 px-4 py-2 text-center font-medium"
           >
             {{ group.label }}
           </th>
@@ -45,7 +45,7 @@
           <th
             v-for="date in dates"
             :key="date.date"
-            class="header-level-3 border border-gray-300 bg-gray-50 px-2 py-1 text-center text-sm"
+            class="header-level-3 bg-gray-50 px-2 py-1 text-center text-sm"
           >
             {{ date.day }}일<br>
             <span class="text-xs text-gray-600">({{ date.dayName }})</span>
@@ -154,7 +154,6 @@ function getCellClass(date: GridColumn) {
   return {
     'bg-gray-50': date.isLastMonth,
     'bg-white': !date.isLastMonth,
-    'border border-gray-300': true,
   };
 }
 </script>
@@ -167,6 +166,8 @@ function getCellClass(date: GridColumn) {
 
 .schedule-grid {
   font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .sticky-column {
@@ -183,8 +184,58 @@ function getCellClass(date: GridColumn) {
 }
 
 /* 헤더 스타일 */
-thead th {
+/* Sticky header: 세로 스크롤 시 고정 */
+.schedule-grid thead {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background-color: white; /* tr 사이 간격 배경 (비침 방지 1단계) */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* 시각적 구분 강화 */
+}
+
+/* tr 배경 추가 (비침 방지 2단계) */
+.schedule-grid thead tr {
+  background-color: white;
+}
+
+/* 코너 셀: sticky column + sticky header 교차점 */
+.schedule-grid thead .sticky-column {
+  position: sticky; /* 명시적 sticky 재선언 */
+  left: 0; /* 왼쪽 고정 */
+  z-index: 31; /* thead(30)와 sticky-column(20)보다 높음 */
+  background-color: white; /* 명시적 배경 */
+}
+
+/* 모든 헤더 th 기본 스타일 */
+.schedule-grid thead th {
   font-weight: 600;
+  position: relative; /* 배경 렌더링 보장 */
+  border-right: 1px solid #d1d5db; /* 오른쪽 border */
+  border-bottom: 1px solid #d1d5db; /* 아래쪽 border */
+}
+
+/* 첫 번째 row: 위쪽 border 추가 */
+.schedule-grid thead tr:first-child th {
+  border-top: 1px solid #d1d5db;
+}
+
+/* 첫 번째 column: 왼쪽 border 추가 */
+.schedule-grid thead th:first-child {
+  border-left: 1px solid #d1d5db;
+}
+
+/* Body 셀 border */
+.schedule-grid tbody td {
+  border-right: 1px solid #d1d5db;
+  border-bottom: 1px solid #d1d5db;
+}
+
+.schedule-grid tbody tr:first-child td {
+  border-top: 1px solid #d1d5db;
+}
+
+.schedule-grid tbody td:first-child {
+  border-left: 1px solid #d1d5db;
 }
 
 .header-cell {
