@@ -314,10 +314,10 @@
       "id": "0725e1c4-f74d-4f5f-b1ab-9eb18b4410ec",
       "name": "favicon 및 title 설정",
       "description": "브라우저 탭 아이콘(favicon)과 제목(title)을 EveryShift에 맞게 설정. 브랜딩 강화.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-15T02:24:05.619Z",
       "relatedFiles": [
         {
           "path": "public/favicon.ico",
@@ -332,7 +332,9 @@
       ],
       "implementationGuide": "1. Favicon 생성:\n\n**방법 1: 온라인 도구 사용**\n- [Favicon.io](https://favicon.io/) - 텍스트 또는 이미지에서 favicon 생성\n- [RealFaviconGenerator](https://realfavicongenerator.net/) - 다양한 플랫폼용 favicon 생성\n\n**방법 2: 기존 이미지 변환**\n```bash\n# ImageMagick으로 PNG → ICO 변환\nconvert logo.png -resize 32x32 public/favicon.ico\n```\n\n**권장 색상**:\n- 배경: #4472C4 (Night 시프트 파란색)\n- 텍스트: 흰색 \"ES\" (EveryShift)\n\n2. public/favicon.ico 교체:\n```bash\n# 기존 Vite favicon 제거\nrm public/favicon.ico\n\n# 새 favicon 추가\ncp path/to/everyshift-favicon.ico public/favicon.ico\n```\n\n3. index.html 수정:\n```html\n<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n\n    <!-- Primary Meta Tags -->\n    <title>EveryShift - 스마트 근무표 생성 시스템</title>\n    <meta name=\"title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta name=\"description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta name=\"keywords\" content=\"근무표, 스케줄링, 간호사, 병원, AI, 자동화\" />\n    <meta name=\"author\" content=\"EveryShift Team\" />\n\n    <!-- Open Graph / Facebook -->\n    <meta property=\"og:type\" content=\"website\" />\n    <meta property=\"og:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"og:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"og:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta property=\"og:image\" content=\"/og-image.png\" />\n\n    <!-- Twitter -->\n    <meta property=\"twitter:card\" content=\"summary_large_image\" />\n    <meta property=\"twitter:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"twitter:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"twitter:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템.\" />\n    <meta property=\"twitter:image\" content=\"/og-image.png\" />\n\n    <!-- Theme Color -->\n    <meta name=\"theme-color\" content=\"#4472C4\" />\n  </head>\n  <body>\n    <div id=\"app\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n  </body>\n</html>\n```\n\n4. (선택) Open Graph 이미지 생성:\n```bash\n# 1200x630 이미지 생성 (소셜 미디어 공유용)\n# Figma, Canva 등 디자인 도구 사용\n# public/og-image.png에 저장\n```\n\n5. 동적 title 설정 (router/index.ts):\n```typescript\nrouter.afterEach((to) => {\n  const baseTitle = 'EveryShift';\n  const pageTitle = to.meta.title as string;\n\n  document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;\n});\n```\n\n6. routes.ts에 title meta 추가:\n```typescript\nexport const routes = [\n  {\n    path: '/schedule/step1',\n    name: 'ScheduleStep1',\n    component: () => import('@/views/schedule/Step1BasicInfo.vue'),\n    meta: { title: '기본 정보 설정' },\n  },\n  // ...\n];\n```",
       "verificationCriteria": "1. public/favicon.ico 파일 교체\n2. index.html의 title이 'EveryShift - 스마트 근무표 생성 시스템'으로 변경\n3. 브라우저 탭에서 favicon이 표시됨\n4. 각 페이지별로 동적 title이 변경됨\n5. meta 태그가 SEO에 적합하게 설정됨",
-      "analysisResult": "Favicon 및 title 설정. 브랜딩을 강화하고 사용자가 여러 탭을 열었을 때 쉽게 식별할 수 있도록 함."
+      "analysisResult": "Favicon 및 title 설정. 브랜딩을 강화하고 사용자가 여러 탭을 열었을 때 쉽게 식별할 수 있도록 함.",
+      "summary": "favicon 및 title 설정 작업 완료. 1) public/favicon.ico (16x16, 파란색 배경 #4472C4, 흰색 \"ES\" 텍스트) 생성 완료, 2) public/favicon.svg (벡터 버전) 생성 완료, 3) index.html 업데이트 (title: \"EveryShift - 스마트 근무표 생성 시스템\", lang: \"ko\", SEO meta 태그, OG/Twitter 태그, theme-color 추가), 4) router/index.ts에 afterEach hook 추가하여 동적 title 설정 구현 (페이지별 title - EveryShift 형식), 5) Home route에 meta.title 예시 추가. 브랜딩 강화 및 SEO 최적화 완료.",
+      "completedAt": "2025-11-15T02:24:05.614Z"
     }
   ]
 }

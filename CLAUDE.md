@@ -270,6 +270,7 @@ organizations
 5. **Korean UI**: All user-facing text is in Korean; comments can be English
 6. **Tailwind Only**: Use Tailwind CSS utilities; avoid custom CSS unless absolutely necessary
 7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
+8. **External Library Usage**: When a task can be significantly simplified by installing external tools or libraries (e.g., ImageMagick for image processing, Pillow for Python image manipulation, sharp for Node.js image processing), ALWAYS prefer installing and using the appropriate tool rather than implementing complex manual solutions. Check for tool availability first with `which <tool>` or try importing the library, then install if needed using the appropriate package manager (apt-get, pip, npm, etc.)
 
 ## Documentation Lookup Strategy
 
