@@ -19,7 +19,10 @@
       >
         <Header />
       </n-layout-header>
-      <n-layout-content class="p-6">
+      <n-layout-content
+        class="p-6"
+        style="max-width: none !important"
+      >
         <router-view />
       </n-layout-content>
     </n-layout>

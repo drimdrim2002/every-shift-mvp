@@ -1,5 +1,8 @@
 <template>
-  <div class="p-6">
+  <div
+    class="p-6"
+    style="max-width: none !important; width: 100%"
+  >
     <h1 class="mb-4 text-2xl font-bold">
       Step 3: 초기 데이터
     </h1>

@@ -126,28 +126,8 @@
               {{ statistics?.rowStats[employee.id]?.total || 0 }}
             </td>
           </tr>
-        </tbody>
-      </table>
-    </div>
 
-    <!-- 통계 행 (하단 - 테이블 밖 고정 영역) -->
-    <div class="statistics-footer overflow-x-auto">
-      <table class="statistics-table w-full">
-        <!-- Column width definitions (same as main grid) -->
-        <colgroup>
-          <col style="width: 150px">
-          <col
-            v-for="date in dates"
-            :key="date.date"
-            style="width: 140px"
-          >
-          <col style="width: 60px">
-          <col style="width: 60px">
-          <col style="width: 60px">
-          <col style="width: 60px">
-        </colgroup>
-
-        <tbody>
+          <!-- 통계 행 (하단 고정) -->
           <!-- Total 행 -->
           <tr class="stat-row bg-gray-100">
             <td class="sticky-column employee-cell font-bold">
@@ -321,7 +301,6 @@ function getCellClass(date: GridColumn) {
 .schedule-grid-wrapper {
   display: flex;
   flex-direction: column;
-  max-height: 70vh;
   position: relative;
 }
 
@@ -335,24 +314,6 @@ function getCellClass(date: GridColumn) {
 
 /* 메인 그리드 테이블 */
 .schedule-grid {
-  font-size: 14px;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: auto;
-  min-width: max-content;
-}
-
-/* 통계 Footer: 하단 고정 */
-.statistics-footer {
-  flex-shrink: 0;
-  border-top: 2px solid #d1d5db;
-  background: white;
-  position: relative;
-  z-index: 5;
-}
-
-/* 통계 테이블 */
-.statistics-table {
   font-size: 14px;
   border-collapse: separate;
   border-spacing: 0;
@@ -458,8 +419,37 @@ function getCellClass(date: GridColumn) {
   width: 60px;
 }
 
+/* 통계 행 - 하단 고정 */
 .stat-row {
+  position: sticky;
+  z-index: 10;
   font-weight: 500;
+  border-top: 3px solid #374151; /* 두꺼운 경계선 */
+}
+
+/* 각 통계 행의 bottom 위치 (행 높이는 약 40px로 가정) */
+.stat-row:nth-last-child(4) {
+  bottom: 120px; /* Total 행 */
+}
+
+.stat-row:nth-last-child(3) {
+  bottom: 80px; /* D 행 */
+}
+
+.stat-row:nth-last-child(2) {
+  bottom: 40px; /* E 행 */
+}
+
+.stat-row:nth-last-child(1) {
+  bottom: 0; /* N 행 */
+}
+
+/* 통계 행 첫 번째 셀 (sticky left + sticky bottom) */
+.stat-row .sticky-column {
+  position: sticky;
+  left: 0;
+  z-index: 21; /* thead .sticky-column(31)보다 낮고, tbody .sticky-column(20)보다 높음 */
+  background: white;
 }
 
 .stat-row td {
@@ -469,19 +459,5 @@ function getCellClass(date: GridColumn) {
 
 .stat-row td:first-child {
   border-left: 1px solid #d1d5db;
-}
-
-/* 통계 테이블 border */
-.statistics-table tbody td {
-  border-right: 1px solid #d1d5db;
-  border-bottom: 1px solid #d1d5db;
-}
-
-.statistics-table tbody td:first-child {
-  border-left: 1px solid #d1d5db;
-}
-
-.statistics-table tbody tr:first-child td {
-  border-top: none; /* wrapper의 border-top이 있으므로 */
 }
 </style>
