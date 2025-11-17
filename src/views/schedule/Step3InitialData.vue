@@ -46,18 +46,37 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { watchDebounced } from '@vueuse/core';
 import { NCard, NButton, NAlert, NSpin } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import { showSuccess, showInfo } from '@/utils/message';
+import { showSuccess, showInfo, showError } from '@/utils/message';
+import { validateLastMonthData } from '@/utils/validation';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
 const grid = useScheduleGrid();
+
+// LocalStorage 키 (월별로 구분)
+const STORAGE_KEY = computed(() => {
+  if (!scheduleStore.basicInfo) return '';
+  return `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
+});
+
+// 자동 저장 (2초 debounce)
+watchDebounced(
+  () => grid.assignments.value,
+  (newVal) => {
+    if (STORAGE_KEY.value) {
+      localStorage.setItem(STORAGE_KEY.value, JSON.stringify(newVal));
+    }
+  },
+  { debounce: 2000, deep: true }
+);
 
 onMounted(async () => {
   if (!scheduleStore.basicInfo) {
@@ -71,9 +90,17 @@ onMounted(async () => {
   // 날짜 생성 (전월 5일 + 당월)
   grid.generateDates(scheduleStore.basicInfo.month);
 
-  // 기존 assignments 복원 (있다면)
-  if (Object.keys(scheduleStore.assignments).length > 0) {
-    grid.assignments.value = scheduleStore.assignments;
+  // LocalStorage에서 복원
+  if (STORAGE_KEY.value) {
+    const saved = localStorage.getItem(STORAGE_KEY.value);
+    if (saved) {
+      try {
+        grid.assignments.value = JSON.parse(saved);
+        showInfo('이전 작업이 복원되었습니다');
+      } catch (e) {
+        console.warn('Failed to restore from localStorage:', e);
+      }
+    }
   }
 });
 
@@ -98,7 +125,38 @@ function handleSave() {
 }
 
 function handleGenerate() {
-  // TODO: 검증 로직 (다음 작업에서 구현)
-  showInfo('검증 기능은 다음 작업에서 구현됩니다');
+  // 1. 전월 데이터 검증
+  const validation = validateLastMonthData(
+    grid.employees.value,
+    grid.dates.value,
+    grid.assignments.value
+  );
+
+  if (!validation.isValid) {
+    // 에러 메시지 표시
+    showError('전월 데이터를 모두 입력해주세요');
+
+    // 상세 에러 다이얼로그
+    const errorList = validation.errors.join('\n');
+    window.$dialog?.error({
+      title: '전월 데이터 미입력',
+      content: errorList,
+      positiveText: '확인',
+    });
+    return;
+  }
+
+  // 2. 검증 통과 시 저장 및 다음 단계
+  scheduleStore.setAssignments(grid.assignments.value);
+
+  // LocalStorage 삭제 (임시 저장 불필요)
+  if (STORAGE_KEY.value) {
+    localStorage.removeItem(STORAGE_KEY.value);
+  }
+
+  // TODO: AI Solver 호출 (다음 작업에서 구현)
+  showInfo('검증 완료! AI 생성은 다음 작업에서 구현됩니다');
+  scheduleStore.nextStep();
+  // router.push(`/schedule/step4/${scheduleId}`);
 }
 </script>
