@@ -1201,7 +1201,7 @@
       "id": "51569871-de57-4fd6-9084-f4435e474ef8",
       "name": "Step 3: 페이지 기본 구조 (views/schedule/Step3InitialData.vue)",
       "description": "Step 3 페이지 기본 구조 생성. StepIndicator, 카드 레이아웃, 버튼.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "343bb7c4-3925-49ee-91da-1c926056b3f3"
@@ -1214,7 +1214,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:48:55.450Z",
-      "updatedAt": "2025-11-13T11:48:55.450Z",
+      "updatedAt": "2025-11-16T09:53:03.101Z",
       "relatedFiles": [
         {
           "path": "src/views/schedule/Step3InitialData.vue",
@@ -1224,13 +1224,15 @@
       ],
       "implementationGuide": "1. src/views/schedule/Step3InitialData.vue 파일 생성\n2. 기본 구조:\n\n```vue\n<template>\n  <div class=\"max-w-full mx-auto px-4\">\n    <StepIndicator :current-step=\"3\" />\n    \n    <n-card title=\"근무표 생성 - 초기 정보 입력\">\n      <n-alert type=\"warning\" class=\"mb-4\">\n        <strong>전월 마지막 5일 데이터는 반드시 입력해야 합니다.</strong>\n        당월 데이터는 비워두면 AI가 자동으로 배치합니다.\n      </n-alert>\n      \n      <!-- 그리드는 다음 작업에서 추가 -->\n      <div class=\"my-4 text-center text-gray-500\">\n        그리드 로딩 중...\n      </div>\n      \n      <!-- 버튼 -->\n      <div class=\"flex justify-between pt-4\">\n        <n-button @click=\"handlePrev\">← 이전</n-button>\n        <div class=\"flex gap-2\">\n          <n-button @click=\"handleSave\">임시 저장</n-button>\n          <n-button type=\"primary\" @click=\"handleGenerate\">\n            근무표 생성 →\n          </n-button>\n        </div>\n      </div>\n    </n-card>\n  </div>\n</template>\n\n<script setup lang=\"ts\">\nimport { onMounted } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { NCard, NButton, NAlert, useMessage } from 'naive-ui';\nimport StepIndicator from '@/components/schedule/StepIndicator.vue';\nimport { useScheduleStore } from '@/stores/schedule';\n\nconst router = useRouter();\nconst message = useMessage();\nconst scheduleStore = useScheduleStore();\n\nonMounted(() => {\n  if (!scheduleStore.basicInfo) {\n    router.push('/schedule/step1');\n  }\n});\n\nfunction handlePrev() {\n  scheduleStore.prevStep();\n  router.push('/schedule/step2');\n}\n\nfunction handleSave() {\n  // TODO: 임시 저장 로직 (다음 작업에서 구현)\n  message.info('임시 저장 기능은 다음 작업에서 구현됩니다');\n}\n\nfunction handleGenerate() {\n  // TODO: 검증 및 생성 로직 (다음 작업에서 구현)\n  message.info('생성 기능은 다음 작업에서 구현됩니다');\n}\n</script>\n```",
       "verificationCriteria": "1. Step3InitialData.vue 파일 생성 완료\n2. StepIndicator 표시 (step 3 활성)\n3. 경고 메시지 표시\n4. 3개 버튼 (이전, 임시 저장, 근무표 생성)",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 계속)\n\n**남은 작업**: ScheduleGrid ShiftSelector 통합, 통계 행/열, Step3 페이지, 검증 및 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 계속)\n\n**남은 작업**: ScheduleGrid ShiftSelector 통합, 통계 행/열, Step3 페이지, 검증 및 저장",
+      "summary": "Step3InitialData.vue 페이지 기본 구조 완성. StepIndicator 통합(step=3), NCard 레이아웃, NAlert 경고 메시지, 3개 버튼(이전/임시저장/생성) 모두 구현. createDiscreteApi 패턴(showInfo) 사용으로 Naive UI 규칙 준수. 린트 통과. 다음 작업에서 ScheduleGrid 통합 예정.",
+      "completedAt": "2025-11-16T09:53:03.095Z"
     },
     {
       "id": "27f7dba4-d851-4f13-a47a-44c0729115bf",
       "name": "Step 3: ScheduleGrid 통합 및 데이터 연동",
       "description": "Step3InitialData 페이지와 ScheduleGrid 컴포넌트를 통합하고 데이터 양방향 바인딩 구현.\n\n상세 구현 요구사항:\n1. ScheduleGrid Props 정의 (employees, dates, assignments, readonly)\n2. update:assignment 이벤트로 데이터 변경 처리\n3. 통계 데이터 실시간 업데이트\n4. 전월/당월 구분 표시 (배경색)",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "51569871-de57-4fd6-9084-f4435e474ef8"
@@ -1243,7 +1245,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:48:55.450Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-16T09:55:27.514Z",
       "relatedFiles": [
         {
           "path": "src/views/schedule/Step3InitialData.vue",
@@ -1253,7 +1255,9 @@
       ],
       "implementationGuide": "1. Step3InitialData.vue 수정\n2. useScheduleGrid 통합:\n\n```vue\n<script setup lang=\"ts\">\nimport { onMounted } from 'vue';\nimport { useRouter } from 'vue-router';\nimport { NCard, NButton, NAlert, useMessage, NSpin } from 'naive-ui';\nimport StepIndicator from '@/components/schedule/StepIndicator.vue';\nimport ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';\nimport { useScheduleStore } from '@/stores/schedule';\nimport { useScheduleGrid } from '@/composables/useScheduleGrid';\n\nconst router = useRouter();\nconst message = useMessage();\nconst scheduleStore = useScheduleStore();\nconst grid = useScheduleGrid();\n\nonMounted(async () => {\n  if (!scheduleStore.basicInfo) {\n    router.push('/schedule/step1');\n    return;\n  }\n  \n  // 직원 로드\n  await grid.loadEmployees(scheduleStore.basicInfo.organizationId);\n  \n  // 날짜 생성 (전월 5일 + 당월)\n  grid.generateDates(scheduleStore.basicInfo.month);\n  \n  // 기존 assignments 복원 (있다면)\n  if (Object.keys(scheduleStore.assignments).length > 0) {\n    grid.assignments.value = scheduleStore.assignments;\n  }\n});\n\nfunction handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {\n  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);\n}\n\nfunction handlePrev() {\n  // 현재 상태 저장\n  scheduleStore.setAssignments(grid.assignments.value);\n  scheduleStore.prevStep();\n  router.push('/schedule/step2');\n}\n\nfunction handleSave() {\n  scheduleStore.setAssignments(grid.assignments.value);\n  message.success('임시 저장되었습니다');\n}\n\nfunction handleGenerate() {\n  // TODO: 검증 로직 (다음 작업에서 구현)\n  message.info('검증 기능은 다음 작업에서 구현됩니다');\n}\n</script>\n\n<template>\n  <div class=\"max-w-full mx-auto px-4\">\n    <StepIndicator :current-step=\"3\" />\n    \n    <n-card title=\"근무표 생성 - 초기 정보 입력\">\n      <n-alert type=\"warning\" class=\"mb-4\">\n        <strong>전월 마지막 5일 데이터는 반드시 입력해야 합니다.</strong>\n        당월 데이터는 비워두면 AI가 자동으로 배치합니다.\n      </n-alert>\n      \n      <!-- 그리드 -->\n      <n-spin :show=\"grid.loading.value\">\n        <ScheduleGrid\n          v-if=\"grid.employees.value.length > 0\"\n          :employees=\"grid.employees.value\"\n          :dates=\"grid.dates.value\"\n          :assignments=\"grid.assignments.value\"\n          :readonly=\"false\"\n          :show-last-month=\"true\"\n          @update:assignment=\"handleAssignmentUpdate\"\n        />\n      </n-spin>\n      \n      <!-- 버튼 -->\n      <div class=\"flex justify-between pt-4\">\n        <n-button @click=\"handlePrev\">← 이전</n-button>\n        <div class=\"flex gap-2\">\n          <n-button @click=\"handleSave\">임시 저장</n-button>\n          <n-button type=\"primary\" @click=\"handleGenerate\">\n            근무표 생성 →\n          </n-button>\n        </div>\n      </div>\n    </n-card>\n  </div>\n</template>\n```",
       "verificationCriteria": "1. ScheduleGrid 렌더링 (30명 × 36일)\n2. 직원 데이터 로드 완료\n3. 시프트 선택 가능\n4. 임시 저장 시 scheduleStore 업데이트",
-      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 계속)\n\n**남은 작업**: ScheduleGrid ShiftSelector 통합, 통계 행/열, Step3 페이지, 검증 및 저장"
+      "analysisResult": "EveryShift MVP - Phase 6 (Step 3 계속)\n\n**남은 작업**: ScheduleGrid ShiftSelector 통합, 통계 행/열, Step3 페이지, 검증 및 저장",
+      "summary": "Step3InitialData.vue에 ScheduleGrid 통합 완료. useScheduleGrid composable로 직원/날짜 데이터 로드, assignments 양방향 바인딩 구현. NSpin으로 로딩 상태 표시, handleAssignmentUpdate로 시프트 선택 처리, handleSave로 임시 저장 기능 구현. createDiscreteApi 패턴(showSuccess, showInfo) 준수. 린트 통과. 다음 작업에서 검증 로직 구현 예정.",
+      "completedAt": "2025-11-16T09:55:27.502Z"
     },
     {
       "id": "901fa56f-b908-4784-8486-660993f1ecdc",
