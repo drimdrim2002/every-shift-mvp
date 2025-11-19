@@ -1319,7 +1319,7 @@
       "id": "00b3779f-aa01-4e72-9fa6-592070829b50",
       "name": "AI Solver Mock API (api/solver.ts)",
       "description": "AI Solver Mock 구현. Mock 데이터 생성 함수, 5초 딜레이 시뮬레이션.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "7ae710d4-353c-4868-9c98-f5b209dd6468"
@@ -1332,7 +1332,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:50:43.100Z",
-      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-19T12:56:13.925Z",
       "relatedFiles": [
         {
           "path": "src/api/solver.ts",
@@ -1342,13 +1342,15 @@
       ],
       "implementationGuide": "1. src/api/solver.ts 파일 생성\n2. Mock 구현:\n\n```typescript\nimport type { Employee } from '@/types/employee';\nimport type { AssignmentMap, SiteRequirements } from '@/types/schedule';\n\nexport interface SolverPayload {\n  scheduleId: string;\n  employees: Employee[];\n  requirements: SiteRequirements;\n  lastMonthAssignments: AssignmentMap;\n  thisMonthAssignments: AssignmentMap;\n}\n\nexport interface SolverResponse {\n  scheduleId: string;\n  status: 'complete' | 'error';\n  hardScore: number;\n  softScore: number;\n  assignments: AssignmentMap;\n}\n\n// Mock: 5초 후 완료\nexport async function requestAISolver(payload: SolverPayload): Promise<SolverResponse> {\n  // 실제 환경에서는 Google Cloud Run URL 호출\n  // const response = await fetch(CLOUD_RUN_URL, { method: 'POST', body: JSON.stringify(payload) });\n  \n  await new Promise(resolve => setTimeout(resolve, 5000));\n  \n  return {\n    scheduleId: payload.scheduleId,\n    status: 'complete',\n    hardScore: 0,\n    softScore: Math.floor(Math.random() * 100) + 100,\n    assignments: generateMockAssignments(payload),\n  };\n}\n\nfunction generateMockAssignments(payload: SolverPayload): AssignmentMap {\n  const result: AssignmentMap = {};\n  const shifts = ['D', 'E', 'N', 'O'];\n  \n  payload.employees.forEach(emp => {\n    result[emp.id] = {\n      // 전월 데이터 보존\n      ...payload.lastMonthAssignments[emp.id],\n      // 당월 부분 입력 데이터 보존\n      ...payload.thisMonthAssignments[emp.id],\n    };\n    \n    // 빈 날짜만 자동 배정 (간단한 로테이션)\n    const dates = Object.keys(payload.requirements);\n    dates.forEach(date => {\n      if (!result[emp.id][date]) {\n        const randomShift = shifts[Math.floor(Math.random() * shifts.length)];\n        result[emp.id][date] = randomShift;\n      }\n    });\n  });\n  \n  return result;\n}\n```",
       "verificationCriteria": "1. solver.ts 파일 생성 완료\n2. requestAISolver 함수 구현\n3. 5초 딜레이 후 complete 반환\n4. generateMockAssignments로 랜덤 배정",
-      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드",
+      "summary": "AI Solver Mock API 구현 완료. src/api/solver.ts 파일을 생성하고 다음 기능을 구현했습니다:\n\n1. **Type Definitions**: SolverPayload 및 SolverResponse 인터페이스 정의\n2. **requestAISolver 함수**: 5초 딜레이 후 complete 상태로 응답하는 Mock API\n3. **generateMockAssignments 함수**: \n   - 전월 데이터 보존\n   - 당월 부분 입력 데이터 보존\n   - 빈 날짜에 대해 랜덤 시프트 배정 (D, E, N, O)\n   - hardScore 0, softScore 랜덤(100-200) 반환\n\n코드는 TypeScript 타입 안전성을 준수하며, ESLint 검사를 통과했습니다.",
+      "completedAt": "2025-11-19T12:56:13.917Z"
     },
     {
       "id": "1acadf16-0806-4386-b005-ebf1804a01d6",
       "name": "useAISolver Composable (composables/useAISolver.ts)",
       "description": "AI Solver 상태 관리 및 polling 로직. startSolver, stopPolling 함수.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
@@ -1358,7 +1360,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:50:43.100Z",
-      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-19T12:59:17.879Z",
       "relatedFiles": [
         {
           "path": "src/composables/useAISolver.ts",
@@ -1368,13 +1370,15 @@
       ],
       "implementationGuide": "1. src/composables/useAISolver.ts 파일 생성\n2. 구현:\n\n```typescript\nimport { ref } from 'vue';\nimport { supabase } from '@/api/supabase';\nimport { requestAISolver, type SolverPayload } from '@/api/solver';\n\nexport function useAISolver() {\n  const status = ref<string>('created');\n  const hardScore = ref<number>(0);\n  const softScore = ref<number>(0);\n  const progress = ref<number>(0);\n  \n  let pollingInterval: number | null = null;\n  \n  // AI Solver 시작\n  async function startSolver(scheduleId: string, payload: SolverPayload) {\n    // 1. Status를 'running'으로 변경\n    await supabase\n      .from('schedules')\n      .update({ status: 'running' })\n      .eq('id', scheduleId);\n    \n    status.value = 'running';\n    \n    // 2. AI Solver 호출 (비동기)\n    requestAISolver(payload)\n      .then(async result => {\n        // 결과를 Supabase에 저장\n        await saveResult(scheduleId, result);\n      })\n      .catch(async error => {\n        console.error('AI Solver error:', error);\n        await supabase\n          .from('schedules')\n          .update({ status: 'error' })\n          .eq('id', scheduleId);\n      });\n    \n    // 3. Polling 시작\n    startPolling(scheduleId);\n  }\n  \n  // Polling 시작\n  function startPolling(scheduleId: string) {\n    pollingInterval = window.setInterval(async () => {\n      const { data } = await supabase\n        .from('schedules')\n        .select('status, hard_score, soft_score')\n        .eq('id', scheduleId)\n        .single();\n      \n      if (data) {\n        status.value = data.status;\n        hardScore.value = data.hard_score || 0;\n        softScore.value = data.soft_score || 0;\n        \n        // 진행률 시뮬레이션 (Running 시)\n        if (data.status === 'running' && progress.value < 90) {\n          progress.value += Math.random() * 10;\n        }\n        \n        if (data.status !== 'running') {\n          stopPolling();\n          progress.value = 100;\n        }\n      }\n    }, 5000);  // 5초마다\n  }\n  \n  // Polling 중지\n  function stopPolling() {\n    if (pollingInterval) {\n      clearInterval(pollingInterval);\n      pollingInterval = null;\n    }\n  }\n  \n  // 결과 저장\n  async function saveResult(scheduleId: string, result: any) {\n    // schedules 업데이트\n    await supabase\n      .from('schedules')\n      .update({\n        status: result.status,\n        hard_score: result.hardScore,\n        soft_score: result.softScore,\n      })\n      .eq('id', scheduleId);\n    \n    // schedule_assignments 저장 (bulk insert)\n    const assignments = [];\n    for (const [employeeId, dates] of Object.entries(result.assignments)) {\n      for (const [date, shiftCode] of Object.entries(dates as any)) {\n        assignments.push({\n          schedule_id: scheduleId,\n          employee_id: employeeId,\n          shift_id: shiftCode,  // TODO: shift code → shift id 변환 필요\n          date,\n          is_locked: false,\n        });\n      }\n    }\n    \n    // 기존 데이터 삭제 후 삽입\n    await supabase\n      .from('schedule_assignments')\n      .delete()\n      .eq('schedule_id', scheduleId);\n    \n    await supabase\n      .from('schedule_assignments')\n      .insert(assignments);\n  }\n  \n  return {\n    status,\n    hardScore,\n    softScore,\n    progress,\n    startSolver,\n    stopPolling,\n  };\n}\n```",
       "verificationCriteria": "1. useAISolver.ts 파일 생성 완료\n2. startSolver 함수 구현\n3. 5초마다 polling\n4. status 변경 감지 시 polling 중지",
-      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드",
+      "summary": "useAISolver Composable 구현 완료. src/composables/useAISolver.ts 파일을 생성하고 다음 핵심 기능을 구현했습니다:\n\n1. **상태 관리**: status, hardScore, softScore, progress의 반응형 상태\n2. **startSolver 함수**: \n   - Supabase schedules 테이블 status를 'running'으로 업데이트\n   - requestAISolver API 호출 (비동기)\n   - 결과 자동 저장 및 에러 처리\n   - 자동 polling 시작\n3. **Polling 메커니즘**: \n   - 5초 간격으로 Supabase에서 status 확인\n   - progress 시뮬레이션 (0-90% 랜덤 증가)\n   - status가 'running'이 아닐 때 자동 중지\n4. **stopPolling 함수**: 수동 polling 중지 및 리소스 정리\n5. **saveResult 함수**: \n   - AI Solver 결과를 schedules 테이블에 저장\n   - schedule_assignments 테이블에 bulk insert\n   - 기존 데이터 삭제 후 신규 데이터 삽입\n6. **리소스 관리**: onUnmounted 훅으로 컴포넌트 언마운트 시 polling 자동 정리\n\n코드는 TypeScript 타입 안전성을 준수하며 ESLint 검사를 통과했습니다.",
+      "completedAt": "2025-11-19T12:59:17.873Z"
     },
     {
       "id": "4e11a307-d943-4f6a-881a-903d99c71007",
       "name": "Schedule API (api/schedule.ts)",
       "description": "근무표 관련 API 함수. createSchedule, getScheduleAssignments, updateAssignment 등.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "9b220011-43f5-4bf5-9f1c-1083deab00f8"
@@ -1384,7 +1388,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:50:43.100Z",
-      "updatedAt": "2025-11-13T11:50:43.100Z",
+      "updatedAt": "2025-11-19T13:02:09.162Z",
       "relatedFiles": [
         {
           "path": "src/api/schedule.ts",
@@ -1394,7 +1398,9 @@
       ],
       "implementationGuide": "1. src/api/schedule.ts 파일 생성\n2. API 함수 구현:\n\n```typescript\nimport { supabase } from './supabase';\nimport type { AssignmentMap } from '@/types/schedule';\n\n// 근무표 생성\nexport async function createSchedule(orgId: string, month: string) {\n  const { data, error } = await supabase\n    .from('schedules')\n    .insert({\n      organization_id: orgId,\n      month,\n      status: 'created',\n    })\n    .select()\n    .single();\n  \n  if (error) throw error;\n  return data;\n}\n\n// 근무표 상태 조회\nexport async function getScheduleStatus(scheduleId: string) {\n  const { data, error } = await supabase\n    .from('schedules')\n    .select('*')\n    .eq('id', scheduleId)\n    .single();\n  \n  if (error) throw error;\n  return data;\n}\n\n// 근무표 배정 조회\nexport async function getScheduleAssignments(scheduleId: string): Promise<AssignmentMap> {\n  const { data, error } = await supabase\n    .from('schedule_assignments')\n    .select('employee_id, date, shifts(code)')\n    .eq('schedule_id', scheduleId);\n  \n  if (error) throw error;\n  \n  // AssignmentMap 형식으로 변환\n  const assignments: AssignmentMap = {};\n  data.forEach(row => {\n    if (!assignments[row.employee_id]) {\n      assignments[row.employee_id] = {};\n    }\n    assignments[row.employee_id][row.date] = (row.shifts as any)?.code || '';\n  });\n  \n  return assignments;\n}\n\n// 배정 수정\nexport async function updateAssignment(\n  scheduleId: string,\n  employeeId: string,\n  date: string,\n  shiftId: string\n) {\n  // Upsert\n  const { error } = await supabase\n    .from('schedule_assignments')\n    .upsert({\n      schedule_id: scheduleId,\n      employee_id: employeeId,\n      shift_id: shiftId,\n      date,\n    }, {\n      onConflict: 'schedule_id,employee_id,date',\n    });\n  \n  if (error) throw error;\n  \n  // 근무표 상태를 'changed'로 변경\n  await supabase\n    .from('schedules')\n    .update({ status: 'changed' })\n    .eq('id', scheduleId);\n}\n\n// 근무표 완료 처리\nexport async function completeSchedule(scheduleId: string) {\n  const { error } = await supabase\n    .from('schedules')\n    .update({ status: 'complete' })\n    .eq('id', scheduleId);\n  \n  if (error) throw error;\n}\n```",
       "verificationCriteria": "1. schedule.ts 파일 생성 완료\n2. createSchedule, getScheduleStatus 함수 구현\n3. getScheduleAssignments로 AssignmentMap 반환\n4. updateAssignment로 수정 및 상태 변경",
-      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드"
+      "analysisResult": "EveryShift MVP - Phase 7 (Step 4 결과 확인)\n\n**Phase 7 범위**: Step 4 근무표 생성 결과 확인\n- AI Solver Mock 구현\n- useAISolver composable (polling)\n- Step4Result 페이지\n- 수동 편집 및 Excel 다운로드",
+      "summary": "Schedule API 구현 완료. src/api/schedule.ts 파일을 생성하고 다음 핵심 API 함수를 구현했습니다:\n\n1. **createSchedule**: 새로운 근무표 생성 (organization_id, month, status='created')\n2. **getScheduleStatus**: 근무표 상태 조회 (id로 조회)\n3. **getScheduleAssignments**: \n   - schedule_assignments 테이블에서 배정 데이터 조회\n   - shifts 테이블 조인으로 shift code 조회\n   - AssignmentMap 형식으로 변환 (employeeId → date → shiftCode)\n4. **updateAssignment**: \n   - Upsert로 배정 수정 (conflict 처리)\n   - 자동으로 schedule status를 'changed'로 업데이트\n5. **completeSchedule**: 근무표 완료 처리 (status='complete')\n\n**기술적 개선사항**:\n- TypeScript 타입 안전성 강화: ShiftReference, AssignmentRow 인터페이스 정의\n- any 타입 제거 및 타입 캐스팅 사용\n- ESLint 검사 통과 (0 errors)\n\n모든 함수는 Supabase 에러 처리를 포함하고 있으며, Step 3와 Step 4에서 사용될 예정입니다.",
+      "completedAt": "2025-11-19T13:02:09.154Z"
     },
     {
       "id": "945c0f8b-546f-4da7-9456-9595da70377d",
