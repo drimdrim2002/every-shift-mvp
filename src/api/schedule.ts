@@ -11,8 +11,34 @@ interface AssignmentRow {
   shifts: ShiftReference | null;
 }
 
-// 근무표 생성
+// 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
 export async function createSchedule(orgId: string, month: string) {
+  // 1. 기존 schedule 확인
+  const { data: existing } = await supabase
+    .from('schedules')
+    .select('*')
+    .eq('organization_id', orgId)
+    .eq('month', month)
+    .maybeSingle();
+
+  // 2. 기존 schedule이 있으면 재사용 (status 리셋)
+  if (existing) {
+    const { data, error } = await supabase
+      .from('schedules')
+      .update({
+        status: 'created',
+        hard_score: null,
+        soft_score: null,
+      })
+      .eq('id', existing.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // 3. 없으면 새로 생성
   const { data, error } = await supabase
     .from('schedules')
     .insert({

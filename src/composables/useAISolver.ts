@@ -2,6 +2,7 @@ import { ref, onUnmounted } from 'vue';
 import { supabase } from '@/api/supabase';
 import { requestAISolver, type SolverPayload, type SolverResponse } from '@/api/solver';
 import type { AssignmentMap } from '@/types/schedule';
+import type { Shift } from '@/types/shift';
 
 export function useAISolver() {
   const status = ref<string>('created');
@@ -12,7 +13,7 @@ export function useAISolver() {
   let pollingInterval: number | null = null;
 
   // AI Solver 시작
-  async function startSolver(scheduleId: string, payload: SolverPayload) {
+  async function startSolver(scheduleId: string, payload: SolverPayload, organizationId: string) {
     // 1. Status를 'running'으로 변경
     await supabase.from('schedules').update({ status: 'running' }).eq('id', scheduleId);
 
@@ -22,7 +23,7 @@ export function useAISolver() {
     requestAISolver(payload)
       .then(async (result) => {
         // 결과를 Supabase에 저장
-        await saveResult(scheduleId, result);
+        await saveResult(scheduleId, result, organizationId);
       })
       .catch(async (_error) => {
         await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
@@ -68,8 +69,8 @@ export function useAISolver() {
   }
 
   // 결과 저장
-  async function saveResult(scheduleId: string, result: SolverResponse) {
-    // schedules 업데이트
+  async function saveResult(scheduleId: string, result: SolverResponse, organizationId: string) {
+    // 1. schedules 업데이트
     await supabase
       .from('schedules')
       .update({
@@ -79,26 +80,42 @@ export function useAISolver() {
       })
       .eq('id', scheduleId);
 
-    // schedule_assignments 저장 (bulk insert)
+    // 2. Shifts 조회 (code → id 매핑)
+    const { data: shifts } = await supabase
+      .from('shifts')
+      .select('id, code')
+      .eq('organization_id', organizationId);
+
+    const shiftMap = new Map<string, string>();
+    (shifts as Shift[])?.forEach((shift) => {
+      shiftMap.set(shift.code, shift.id);
+    });
+
+    // 3. schedule_assignments 저장 (bulk insert)
     const assignments = [];
     const assignmentMap: AssignmentMap = result.assignments;
 
     for (const [employeeId, dates] of Object.entries(assignmentMap)) {
       for (const [date, shiftCode] of Object.entries(dates)) {
-        assignments.push({
-          schedule_id: scheduleId,
-          employee_id: employeeId,
-          shift_id: shiftCode, // TODO: shift code → shift id 변환 필요
-          date,
-          is_locked: false,
-        });
+        const shiftId = shiftMap.get(shiftCode);
+        if (shiftId) {
+          assignments.push({
+            schedule_id: scheduleId,
+            employee_id: employeeId,
+            shift_id: shiftId,
+            date,
+            is_locked: false,
+          });
+        }
       }
     }
 
-    // 기존 데이터 삭제 후 삽입
+    // 4. 기존 데이터 삭제 후 삽입
     await supabase.from('schedule_assignments').delete().eq('schedule_id', scheduleId);
 
-    await supabase.from('schedule_assignments').insert(assignments);
+    if (assignments.length > 0) {
+      await supabase.from('schedule_assignments').insert(assignments);
+    }
   }
 
   // 컴포넌트 언마운트 시 polling 정리
@@ -112,6 +129,7 @@ export function useAISolver() {
     softScore,
     progress,
     startSolver,
+    startPolling,
     stopPolling,
   };
 }
