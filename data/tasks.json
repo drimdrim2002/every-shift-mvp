@@ -1499,7 +1499,7 @@
       "id": "8f3056c8-375e-4ca3-8330-5dc40a5d9ed4",
       "name": "Step 3에서 Step 4로 연결 (근무표 생성 호출)",
       "description": "Step 3에서 \"근무표 생성\" 버튼 클릭 시 AI Solver 호출 및 polling 로직 구현.\n\n상세 구현 요구사항:\n1. 전월 데이터 검증 (validateLastMonthData)\n2. Supabase에 schedule 레코드 생성 (status='created')\n3. AI Solver API 호출 (비동기)\n4. 5초 간격 polling으로 status 체크\n5. 로딩 UI 표시 (모달 또는 인라인)\n6. complete 시 Step 4로 네비게이션\n7. error 시 에러 메시지 표시 및 재시도 옵션",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "901fa56f-b908-4784-8486-660993f1ecdc"
