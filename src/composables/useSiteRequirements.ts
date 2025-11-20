@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { supabase } from '@/api/supabase';
 import type { SiteRequirements, DailyRequirement } from '@/types/schedule';
 import { getDaysInMonth } from '@/utils/date';
+import { useOrganizationStore } from '@/stores/organization';
 
 interface ShiftInfo {
   code: string;
@@ -17,6 +18,7 @@ interface SiteRequirementRow {
 export function useSiteRequirements() {
   const requirements = ref<SiteRequirements>({});
   const loading = ref(false);
+  const orgStore = useOrganizationStore();
 
   /**
    * 사이트 필요 인력 데이터를 로드하여 날짜별로 매핑
@@ -86,10 +88,113 @@ export function useSiteRequirements() {
     }
   }
 
+  /**
+   * 요일별 필요 인력을 Supabase에서 로드
+   * @param orgId - 조직 ID
+   * @returns 요일별 필요 인력 객체
+   */
+  async function loadWeeklyRequirements(orgId: string) {
+    loading.value = true;
+    try {
+      // site_requirements 테이블 조회 (요일별)
+      const { data: weeklyReqs, error } = await supabase
+        .from('site_requirements')
+        .select('day_of_week, shift_id, required_count, shifts(code)')
+        .eq('organization_id', orgId);
+
+      if (error) throw error;
+
+      // 요일별로 그룹화 (0: 일요일 ~ 6: 토요일)
+      const weeklyData: Record<number, DailyRequirement> = {};
+
+      // 초기화
+      for (let i = 0; i < 7; i++) {
+        weeklyData[i] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+      }
+
+      // 데이터 매핑
+      (weeklyReqs as SiteRequirementRow[])?.forEach((row) => {
+        const dayOfWeek = row.day_of_week;
+        const shiftCode = row.shifts?.code as keyof Omit<DailyRequirement, 'total'>;
+
+        if (shiftCode && shiftCode in weeklyData[dayOfWeek]) {
+          weeklyData[dayOfWeek][shiftCode] = row.required_count;
+        }
+      });
+
+      // Total 계산
+      for (let i = 0; i < 7; i++) {
+        const req = weeklyData[i];
+        req.total = req.D + req.E + req.N + req.O;
+      }
+
+      return { success: true, data: weeklyData };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage, data: null };
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
+   * 요일별 필요 인력을 Supabase에 저장
+   * @param weeklyReqs - 요일별 필요 인력 (0: 일요일 ~ 6: 토요일)
+   * @param orgId - 조직 ID
+   * @returns 성공 여부와 에러 메시지
+   */
+  async function saveRequirements(
+    weeklyReqs: Record<number, DailyRequirement>,
+    orgId: string
+  ) {
+    loading.value = true;
+    try {
+      // Supabase에 저장할 데이터 준비
+      const upsertData = [];
+
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const req = weeklyReqs[dayOfWeek];
+
+        // 각 시프트별로 레코드 생성
+        for (const shift of orgStore.shifts) {
+          // Holiday 시프트는 제외
+          if (shift.code === 'H') continue;
+
+          const count = req[shift.code as keyof Omit<DailyRequirement, 'total'>] || 0;
+
+          upsertData.push({
+            organization_id: orgId,
+            shift_id: shift.id,
+            day_of_week: dayOfWeek,
+            required_count: count,
+          });
+        }
+      }
+
+      // Supabase에 upsert (insert or update)
+      const { error } = await supabase
+        .from('site_requirements')
+        .upsert(upsertData, {
+          onConflict: 'organization_id,shift_id,day_of_week',
+        });
+
+      if (error) throw error;
+
+      return { success: true };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: errorMessage };
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     requirements,
     loading,
     loadRequirements,
+    loadWeeklyRequirements,
     updateRequirement,
+    saveRequirements,
   };
 }
