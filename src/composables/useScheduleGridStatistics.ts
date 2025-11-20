@@ -1,4 +1,4 @@
-import { computed } from 'vue';
+import { ref, watch } from 'vue';
 import type {
   AssignmentMap,
   GridColumn,
@@ -13,10 +13,18 @@ export function useScheduleGridStatistics(
   dates: () => GridColumn[],
   assignments: () => AssignmentMap
 ) {
-  // 행 통계 (직원별)
-  const rowStats = computed(() => {
-    const stats: Record<string, RowStat> = {};
+  // 통계 데이터 (ref로 변경)
+  const statistics = ref<GridStatistics>({
+    rowStats: {},
+    columnStats: {},
+  });
 
+  // 통계 계산 함수
+  function calculateStatistics() {
+    const rowStats: Record<string, RowStat> = {};
+    const columnStats: Record<string, ColumnStat> = {};
+
+    // 행 통계 (직원별)
     employees().forEach((emp) => {
       const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
 
@@ -30,16 +38,10 @@ export function useScheduleGridStatistics(
         if (shiftCode !== 'O') stat.total++;
       });
 
-      stats[emp.id] = stat;
+      rowStats[emp.id] = stat;
     });
 
-    return stats;
-  });
-
-  // 열 통계 (날짜별)
-  const columnStats = computed(() => {
-    const stats: Record<string, ColumnStat> = {};
-
+    // 열 통계 (날짜별)
     dates().forEach((date) => {
       const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };
 
@@ -52,16 +54,20 @@ export function useScheduleGridStatistics(
         if (shiftCode && shiftCode !== 'O') stat.total++;
       });
 
-      stats[date.date] = stat;
+      columnStats[date.date] = stat;
     });
 
-    return stats;
-  });
+    // 통계 업데이트
+    statistics.value = {
+      rowStats,
+      columnStats,
+    };
+  }
 
-  const statistics = computed<GridStatistics>(() => ({
-    rowStats: rowStats.value,
-    columnStats: columnStats.value,
-  }));
+  // assignments 변경 감지 및 실시간 통계 재계산
+  watch(assignments, () => {
+    calculateStatistics();
+  }, { deep: true, immediate: true });
 
   return statistics;
 }

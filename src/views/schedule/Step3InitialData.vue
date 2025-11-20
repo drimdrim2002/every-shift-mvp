@@ -65,7 +65,7 @@ import { useAISolver } from '@/composables/useAISolver';
 import { showSuccess, showInfo, showError } from '@/utils/message';
 import { validateLastMonthData } from '@/utils/validation';
 import { createSchedule } from '@/api/schedule';
-import type { AssignmentMap } from '@/types/schedule';
+import type { AssignmentMap, SiteRequirements } from '@/types/schedule';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
@@ -218,20 +218,32 @@ async function handleGenerate() {
       });
     });
 
-    // 5. AI Solver 시작
+    // 5. 요일별 requirements를 날짜별로 변환
+    const dateBasedRequirements: SiteRequirements = {};
+    thisMonthDates.forEach((dateStr) => {
+      const date = new Date(dateStr as string);
+      const dayOfWeek = date.getDay(); // 0-6
+      // scheduleStore.siteRequirements는 요일별 데이터
+      const weeklyReq = scheduleStore.siteRequirements[dayOfWeek];
+      if (weeklyReq) {
+        dateBasedRequirements[dateStr as string] = weeklyReq;
+      }
+    });
+
+    // 6. AI Solver 시작
     await solver.startSolver(
       schedule.id,
       {
         scheduleId: schedule.id,
         employees: grid.employees.value,
-        requirements: scheduleStore.siteRequirements,
+        requirements: dateBasedRequirements,
         lastMonthAssignments,
         thisMonthAssignments,
       },
       scheduleStore.basicInfo.organizationId
     );
 
-    // 6. Step 4로 이동
+    // 7. Step 4로 이동
     scheduleStore.nextStep();
     showSuccess('근무표 생성을 시작합니다');
     router.push(`/schedule/step4/${schedule.id}`);

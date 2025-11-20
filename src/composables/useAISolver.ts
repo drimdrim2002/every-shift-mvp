@@ -35,6 +35,11 @@ export function useAISolver() {
 
   // Polling 시작
   function startPolling(scheduleId: string) {
+    // 이미 polling이 시작되었으면 중복 실행 방지
+    if (pollingInterval) {
+      return;
+    }
+
     pollingInterval = window.setInterval(async () => {
       const { data } = await supabase
         .from('schedules')
@@ -114,7 +119,13 @@ export function useAISolver() {
     await supabase.from('schedule_assignments').delete().eq('schedule_id', scheduleId);
 
     if (assignments.length > 0) {
-      await supabase.from('schedule_assignments').insert(assignments);
+      console.log('Inserting assignments:', { count: assignments.length, sample: assignments[0] });
+      const { error } = await supabase.from('schedule_assignments').insert(assignments);
+      if (error) {
+        console.error('Failed to insert schedule_assignments:', error);
+        console.error('Sample assignment:', assignments[0]);
+        throw error;
+      }
     }
   }
 

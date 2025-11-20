@@ -1709,14 +1709,14 @@
       "id": "416df5b8-2373-4984-ae52-d0d92ebe139f",
       "name": "Step 3: ScheduleGrid 셀 렌더링 및 시프트 배정 통합",
       "description": "ScheduleGrid의 각 셀에서 ShiftSelector 버튼 그룹을 렌더링하고, 클릭 시 시프트 배정. 셀에 선택된 시프트 색상 적용.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "554e3f6a-f3ca-48b9-bf2a-078981c219b5"
         }
       ],
       "createdAt": "2025-11-13T13:15:49.704Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-20T23:12:37.798Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1726,13 +1726,15 @@
       ],
       "implementationGuide": "1. TanStack Table의 cell renderer에서 ShiftSelector 컴포넌트 사용\n2. 각 셀에 현재 배정된 시프트 표시 (색상 포함)\n3. 클릭 시 ShiftSelector 표시 및 선택 시 assignments 업데이트\n\n예시 코드:\n```vue\n<template>\n  <td\n    v-for=\"date in dates\"\n    :key=\"date.date\"\n    :class=\"getCellClass(date)\"\n    class=\"border border-gray-300 p-1\"\n  >\n    <div\n      v-if=\"!readonly\"\n      class=\"flex gap-1 justify-center\"\n    >\n      <button\n        v-for=\"shiftCode in employee.availableShifts\"\n        :key=\"shiftCode\"\n        :class=\"getShiftButtonClass(shiftCode, employee.id, date.date)\"\n        @click=\"handleShiftClick(employee.id, date.date, shiftCode)\"\n        class=\"w-8 h-8 rounded text-xs font-bold border-2 transition-all\"\n      >\n        {{ shiftCode }}\n      </button>\n    </div>\n    <div v-else class=\"text-center font-bold\" :class=\"getShiftColorClass(employee.id, date.date)\">\n      {{ assignments[employee.id]?.[date.date] || '-' }}\n    </div>\n  </td>\n</template>\n\n<script setup lang=\"ts\">\nfunction getShiftButtonClass(shiftCode: string, employeeId: string, date: string) {\n  const isSelected = assignments.value[employeeId]?.[date] === shiftCode;\n  const colorMap = {\n    D: isSelected ? 'bg-lime-400 border-lime-600' : 'border-lime-400 text-lime-700',\n    E: isSelected ? 'bg-orange-400 border-orange-600' : 'border-orange-400 text-orange-700',\n    N: isSelected ? 'bg-blue-600 border-blue-800 text-white' : 'border-blue-600 text-blue-700',\n    O: isSelected ? 'bg-gray-400 border-gray-600' : 'border-gray-400 text-gray-700',\n  };\n  return `${colorMap[shiftCode]} ${isSelected ? 'opacity-100' : 'opacity-40'} hover:opacity-80`;\n}\n\nfunction handleShiftClick(employeeId: string, date: string, shiftCode: string) {\n  emit('update:assignment', { employeeId, date, shiftCode });\n}\n</script>\n```",
       "verificationCriteria": "1. 각 셀에 4개 시프트 버튼 렌더링 (D/E/N/O)\n2. 클릭 시 선택 상태로 변경 (배경색 채움)\n3. 선택된 시프트만 불투명하게 표시\n4. assignments 객체가 정상 업데이트됨",
-      "analysisResult": "Step 3 핵심 기능. 30명 × 36일 = 1,080개 셀의 시프트 배정 UI를 구현하여 사용자가 전월 데이터와 확정된 당월 데이터를 입력할 수 있도록 함."
+      "analysisResult": "Step 3 핵심 기능. 30명 × 36일 = 1,080개 셀의 시프트 배정 UI를 구현하여 사용자가 전월 데이터와 확정된 당월 데이터를 입력할 수 있도록 함.",
+      "summary": "ScheduleGrid 셀 렌더링 및 시프트 배정 통합 완료. ShiftSelector 컴포넌트를 통해 각 셀에 D/E/N/O 버튼이 정상적으로 렌더링되며, 클릭 시 선택 상태가 배경색으로 표시됩니다. useScheduleGrid의 setAssignment 함수에 반응성 보장을 위한 객체 교체 로직을 추가하여 assignments 업데이트가 정상적으로 동작합니다. 개발 서버 실행 성공 및 lint 통과 확인.",
+      "completedAt": "2025-11-20T23:12:37.791Z"
     },
     {
       "id": "f9ce7472-2bd7-41bb-b8d8-1d004a8ea947",
       "name": "Step 3: 실시간 통계 업데이트 통합",
       "description": "ScheduleGrid에서 useScheduleGridStatistics를 사용하여 assignments 변경 시 행/열 통계를 실시간으로 계산 및 표시.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "0cf02d47-06cb-4311-87eb-72a2a9dde547"
@@ -1742,7 +1744,7 @@
         }
       ],
       "createdAt": "2025-11-13T13:15:49.704Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-20T23:44:33.432Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/ScheduleGrid.vue",
@@ -1752,7 +1754,9 @@
       ],
       "implementationGuide": "1. useScheduleGridStatistics에서 assignments를 watch (deep: true)\n2. 변경 시 자동으로 rowStats, columnStats 재계산\n3. 통계 행/열에 계산된 값 표시\n\n예시 코드:\n```typescript\n// useScheduleGridStatistics.ts\nexport function useScheduleGridStatistics(\n  employees: Ref<Employee[]>,\n  dates: Ref<GridColumn[]>,\n  assignments: Ref<AssignmentMap>\n) {\n  const rowStats = ref<Record<string, RowStat>>({});\n  const columnStats = ref<Record<string, ColumnStat>>({});\n\n  // assignments 변경 감지\n  watch(\n    () => assignments.value,\n    () => {\n      calculateStatistics();\n    },\n    { deep: true, immediate: true }\n  );\n\n  function calculateStatistics() {\n    // 행 통계 (근무자별)\n    rowStats.value = {};\n    for (const emp of employees.value) {\n      const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };\n      const empAssignments = assignments.value[emp.id] || {};\n\n      for (const shiftCode of Object.values(empAssignments)) {\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        if (shiftCode !== 'O') stat.total++;\n      }\n\n      rowStats.value[emp.id] = stat;\n    }\n\n    // 열 통계 (날짜별)\n    columnStats.value = {};\n    for (const date of dates.value) {\n      const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };\n\n      for (const emp of employees.value) {\n        const shiftCode = assignments.value[emp.id]?.[date.date];\n        if (shiftCode === 'D') stat.D++;\n        else if (shiftCode === 'E') stat.E++;\n        else if (shiftCode === 'N') stat.N++;\n        if (shiftCode && shiftCode !== 'O') stat.total++;\n      }\n\n      columnStats.value[date.date] = stat;\n    }\n  }\n\n  return { rowStats, columnStats };\n}\n```",
       "verificationCriteria": "1. 시프트 선택 시 통계가 즉시 업데이트됨\n2. 행 통계: 각 근무자의 D/E/N 합계 정확\n3. 열 통계: 각 날짜의 D/E/N 합계 정확\n4. Total 값이 정확히 계산됨 (O 제외)",
-      "analysisResult": "실시간 통계 기능. 사용자가 데이터를 입력하는 즉시 각 근무자의 근무일 수와 각 날짜의 배정 인원을 확인할 수 있어 입력 오류를 사전에 방지."
+      "analysisResult": "실시간 통계 기능. 사용자가 데이터를 입력하는 즉시 각 근무자의 근무일 수와 각 날짜의 배정 인원을 확인할 수 있어 입력 오류를 사전에 방지.",
+      "summary": "useScheduleGridStatistics composable을 watch 기반으로 성공적으로 수정 완료.\n\n**구현 내용**:\n- computed → ref + watch 변경 (deep: true, immediate: true)\n- calculateStatistics() 함수로 통계 계산 로직 분리\n- assignments의 중첩 객체 변경도 안정적으로 감지\n\n**검증 결과**:\n- ScheduleGrid.vue 변경 불필요 (기존 코드 호환)\n- Step3InitialData.vue, Step4Result.vue 모두 정상 동작\n- Lint 검증 통과\n- 행/열 통계가 assignments 변경 시 실시간 재계산됨\n\n**기술적 개선**:\n- Getter 함수 패턴 유지로 기존 API 호환성 보장\n- immediate: true로 초기 로드 시에도 통계 자동 계산\n- deep watch로 AssignmentMap의 깊은 변경 감지",
+      "completedAt": "2025-11-20T23:44:33.425Z"
     },
     {
       "id": "fa3cea3d-c35e-4994-9e04-1ef8e36e61b0",

@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NBadge, NProgress } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
@@ -147,6 +147,18 @@ onMounted(async () => {
 
 onUnmounted(() => {
   solver.stopPolling();
+});
+
+// status가 complete로 변경되면 assignments 로드
+watch(() => solver.status.value, async (newStatus) => {
+  if (newStatus === 'complete' || newStatus === 'changed') {
+    try {
+      const assignments = await getScheduleAssignments(scheduleId.value);
+      grid.assignments.value = assignments;
+    } catch (error) {
+      console.warn('Assignments 로드 중 오류:', error);
+    }
+  }
 });
 
 function handleBack() {

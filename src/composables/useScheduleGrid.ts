@@ -72,6 +72,8 @@ export function useScheduleGrid() {
       assignments.value[employeeId] = {};
     }
     assignments.value[employeeId][date] = shiftCode;
+    // 반응성 트리거를 위해 새 객체로 교체
+    assignments.value = { ...assignments.value };
   }
 
   // 배정 가져오기
