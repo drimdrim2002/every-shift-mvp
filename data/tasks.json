@@ -1581,7 +1581,7 @@
       "name": "main.ts 앱 진입점 생성",
       "description": "Vue 앱의 진입점 파일 생성. Vue 인스턴스 생성, Pinia, Router, Naive UI 등록, Tailwind CSS import, 앱 마운트.",
       "notes": "이 파일은 index.html에서 <script type=\"module\" src=\"/src/main.ts\"></script>로 참조됩니다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b52cad79-2603-4489-a52e-c0c963526239"
@@ -1597,7 +1597,7 @@
         }
       ],
       "createdAt": "2025-11-13T11:54:05.778Z",
-      "updatedAt": "2025-11-13T11:54:05.778Z",
+      "updatedAt": "2025-11-20T15:24:27.711Z",
       "relatedFiles": [
         {
           "path": "src/main.ts",
@@ -1612,7 +1612,9 @@
       ],
       "implementationGuide": "1. src/main.ts 파일 생성\n2. Vue 앱 인스턴스 생성\n3. Pinia store 등록\n4. Vue Router 등록\n5. Naive UI 등록 (필요시)\n6. Tailwind CSS import\n7. #app에 마운트\n\n예시 구조:\n```typescript\nimport { createApp } from 'vue';\nimport { createPinia } from 'pinia';\nimport router from './router';\nimport App from './App.vue';\nimport './assets/index.css';\n\nconst app = createApp(App);\nconst pinia = createPinia();\n\napp.use(pinia);\napp.use(router);\napp.mount('#app');\n```",
       "verificationCriteria": "1. src/main.ts 파일이 생성되었는지 확인\n2. Vue 앱 인스턴스가 올바르게 생성되었는지 확인\n3. Pinia와 Router가 등록되었는지 확인\n4. Tailwind CSS가 import되었는지 확인\n5. app.mount('#app')이 호출되었는지 확인\n6. npm run dev 실행 시 앱이 정상적으로 렌더링되는지 확인",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 자동 생성 시스템. 4단계 워크플로우 (기본 정보 → 사이트 정보 → 그리드 입력 → AI 결과 확인)를 통해 30명×36일 근무표를 생성. Vue 3 + TypeScript + Vite + Supabase + TanStack Table 기반. 80%의 개발 노력이 Step 3 ScheduleGrid 컴포넌트에 집중됨."
+      "analysisResult": "EveryShift MVP - 간호사 근무표 자동 생성 시스템. 4단계 워크플로우 (기본 정보 → 사이트 정보 → 그리드 입력 → AI 결과 확인)를 통해 30명×36일 근무표를 생성. Vue 3 + TypeScript + Vite + Supabase + TanStack Table 기반. 80%의 개발 노력이 Step 3 ScheduleGrid 컴포넌트에 집중됨.",
+      "summary": "main.ts 앱 진입점 파일이 완벽하게 구현되었습니다. \n\n**구현 내역:**\n1. ✅ Vue 앱 인스턴스 생성 (createApp)\n2. ✅ Pinia store 등록 (createPinia)\n3. ✅ Vue Router 등록\n4. ✅ Naive UI discrete API 설정 (createDiscreteApi)\n5. ✅ window 전역 API 할당 ($message, $dialog, $notification, $loadingBar)\n6. ✅ Tailwind CSS import (style.css)\n7. ✅ #app에 앱 마운트\n\n**프로젝트 패턴 준수:**\n- CLAUDE.md의 Naive UI Global API 패턴 완벽 구현\n- createDiscreteApi를 사용하여 Provider 없이 전역 API 제공\n- 모든 의존성 파일과 올바르게 통합\n\n**추가 개선사항:**\n- router/index.ts의 미사용 매개변수 타입 오류 수정 (from → _from)\n\n파일이 이미 존재했으며, 모든 필수 구성 요소가 올바르게 구현되어 있어 추가 작업이 필요하지 않았습니다.",
+      "completedAt": "2025-11-20T15:24:27.702Z"
     },
     {
       "id": "465736f0-3781-40e2-99ff-ac3be05b0214",

@@ -76,7 +76,7 @@ const router = createRouter({
 });
 
 // 인증 가드
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore();
 
   // 세션 확인
