@@ -26,13 +26,19 @@ export function useScheduleGridStatistics(
 
       if (!rowCache.has(cacheKey)) {
         const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
-        Object.values(empAssignments).forEach((shiftCode) => {
+
+        // 버그 수정: 그리드에 표시된 날짜만 계산
+        dates().forEach((date) => {
+          const shiftCode = empAssignments[date.date];
+
+          // 빈 셀 및 O(휴무) 처리
+          if (!shiftCode || shiftCode === 'O') return;
+
           if (shiftCode === 'D') stat.D++;
           else if (shiftCode === 'E') stat.E++;
           else if (shiftCode === 'N') stat.N++;
 
-          // Total: O(휴무)를 제외한 근무일 수
-          if (shiftCode !== 'O') stat.total++;
+          stat.total++;
         });
         rowCache.set(cacheKey, stat);
       }

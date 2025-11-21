@@ -2159,14 +2159,14 @@
       "id": "098baa43-dff9-41e3-8383-38761507e536",
       "name": "통계 계산 검증 및 버그 수정",
       "description": "행/열 통계 계산 로직의 정확성을 검증하고 발견된 버그를 수정. Edge case 처리 및 테스트 케이스 추가.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "65ea57ca-d50b-4ae6-a962-7f51f3d5facf"
         }
       ],
       "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-21T01:38:26.908Z",
       "relatedFiles": [
         {
           "path": "src/composables/useScheduleGridStatistics.ts",
@@ -2181,7 +2181,9 @@
       ],
       "implementationGuide": "1. 버그 패턴 확인:\n   - Deep reactivity 문제 (assignments 중첩 객체)\n   - O(Off) 시프트 처리 오류\n   - 빈 셀(undefined) 처리 오류\n   - 통계 합계 불일치\n\n2. 수정 방안:\n```typescript\n// 버그 수정 예시\nexport function useScheduleGridStatistics(\n  employees: Ref<Employee[]>,\n  dates: Ref<GridColumn[]>,\n  assignments: Ref<AssignmentMap>\n) {\n  // Deep watch로 중첩 객체 변경 감지\n  const rowStats = computed(() => {\n    const stats: Record<string, RowStat> = {};\n\n    for (const emp of employees.value) {\n      const empAssignments = assignments.value[emp.id] || {};\n      const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };\n\n      for (const date of dates.value) {\n        const shift = empAssignments[date.date];\n\n        // 빈 셀 및 O 처리\n        if (!shift || shift === 'O') continue;\n\n        if (shift === 'D') stat.D++;\n        else if (shift === 'E') stat.E++;\n        else if (shift === 'N') stat.N++;\n\n        stat.total++;\n      }\n\n      stats[emp.id] = stat;\n    }\n\n    return stats;\n  });\n\n  // 열 통계도 동일하게 수정\n  // ...\n\n  return { rowStats, columnStats };\n}\n```\n\n3. 단위 테스트 작성:\n```typescript\n// tests/unit/statistics.spec.ts\ndescribe('useScheduleGridStatistics', () => {\n  it('행 통계 정확성', () => {\n    // Mock 데이터 준비\n    const employees = ref([...]);\n    const dates = ref([...]);\n    const assignments = ref({ ... });\n\n    const { rowStats } = useScheduleGridStatistics(employees, dates, assignments);\n\n    // 검증\n    expect(rowStats.value['emp1'].D).toBe(8);\n    expect(rowStats.value['emp1'].total).toBe(22);\n  });\n});\n```",
       "verificationCriteria": "1. 행/열 통계가 수동 계산과 일치\n2. O(Off) 시프트가 total에 포함되지 않음\n3. 빈 셀이 있어도 오류 없음\n4. 단위 테스트 통과",
-      "analysisResult": "통계 계산 검증. 정확한 통계 정보를 제공하여 사용자가 근무표의 공정성을 신뢰할 수 있도록 함."
+      "analysisResult": "통계 계산 검증. 정확한 통계 정보를 제공하여 사용자가 근무표의 공정성을 신뢰할 수 있도록 함.",
+      "summary": "통계 계산 검증 및 버그 수정 완료. 주요 수정사항: (1) 행 통계 계산 버그 수정 - Object.values()가 그리드 외부 날짜까지 계산하던 문제를 dates 배열 기반 순회로 변경하여 행/열 통계 일관성 확보, (2) O(휴무) 시프트가 total에 포함되지 않도록 정확한 조건 검증, (3) 빈 셀(undefined) 처리 검증 완료, (4) 포괄적인 단위 테스트 작성 (9개 테스트 케이스, 모두 통과) - 행/열 통계 정확성, O 시프트 처리, 빈 셀 처리, 그리드 외부 날짜 제외, 통계 일관성 검증 포함. pnpm lint 통과, 코드 품질 검증 완료.",
+      "completedAt": "2025-11-21T01:38:26.879Z"
     },
     {
       "id": "9721fba1-bb53-4cb4-b64d-d021df12bb9e",
