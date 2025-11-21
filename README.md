@@ -27,6 +27,46 @@
 - ✅ **데이터 검증**: 전월 마지막 5일 필수 입력 검증
 - ✅ **Supabase Auth**: 이메일/비밀번호 기반 인증
 
+## 📸 스크린샷
+
+### 로그인 및 워크플로우
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/01-login.png" alt="로그인 페이지" />
+      <p align="center"><b>로그인 페이지</b></p>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/02-step1-basic-info.png" alt="Step 1 - 기본 정보" />
+      <p align="center"><b>Step 1 - 기본 정보 설정</b></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/03-step2-site-info.png" alt="Step 2 - 사이트 정보" />
+      <p align="center"><b>Step 2 - 요일별 필요 인력</b></p>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/04-step3-grid.png" alt="Step 3 - 초기 데이터" />
+      <p align="center"><b>Step 3 - 30×36 그리드</b></p>
+    </td>
+  </tr>
+</table>
+
+### UI 상태
+<table>
+  <tr>
+    <td width="50%">
+      <img src="docs/screenshots/05-step3-sidebar-collapsed.png" alt="사이드바 축소" />
+      <p align="center"><b>사이드바 축소 상태</b></p>
+    </td>
+    <td width="50%">
+      <img src="docs/screenshots/07-step1-sidebar-expanded.png" alt="사이드바 확장" />
+      <p align="center"><b>사이드바 확장 상태</b></p>
+    </td>
+  </tr>
+</table>
+
 ## 🚀 기술 스택
 
 ### Frontend
