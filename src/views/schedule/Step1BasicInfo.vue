@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-4xl">
+  <div class="mx-auto max-w-7xl px-4">
     <StepIndicator :current-step="1" />
 
     <n-card title="근무표 생성 - 기본 정보 설정">
@@ -9,7 +9,7 @@
       >
         <!-- 계획 월 선택 -->
         <div>
-          <h3 class="mb-4 text-lg font-semibold">
+          <h3 class="mb-4 text-xl font-semibold">
             계획 월 선택
           </h3>
           <n-select
@@ -27,7 +27,7 @@
 
         <!-- 조직 정보 -->
         <div v-if="orgStore.current">
-          <h3 class="mb-4 text-lg font-semibold">
+          <h3 class="mb-4 text-xl font-semibold">
             조직 정보 확인
           </h3>
           <div class="space-y-2">
@@ -53,12 +53,16 @@
         </div>
 
         <!-- 버튼 -->
-        <div class="flex justify-between pt-4">
-          <n-button @click="handleCancel">
+        <div class="flex justify-between pt-6">
+          <n-button
+            size="medium"
+            @click="handleCancel"
+          >
             취소
           </n-button>
           <n-button
             type="primary"
+            size="medium"
             @click="handleNext"
           >
             다음 단계 →

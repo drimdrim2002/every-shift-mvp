@@ -33,6 +33,9 @@ export function useScheduleGrid() {
 
       if (error) throw error;
 
+      // 디버깅: 조회된 직원 수 확인
+      console.log('[loadEmployees] Raw data count:', data?.length);
+
       // Snake_case to camelCase 변환
       employees.value = (data as EmployeeRow[]).map(emp => ({
         id: emp.id,
@@ -44,12 +47,17 @@ export function useScheduleGrid() {
         updatedAt: emp.updated_at,
       }));
 
+      console.log('[loadEmployees] Employees count after mapping:', employees.value.length);
+      console.log('[loadEmployees] Last 3 employees:', employees.value.slice(-3).map(e => ({ id: e.id, name: e.name })));
+
       // 초기 assignments 객체 생성
       const initialAssignments: AssignmentMap = {};
       employees.value.forEach(emp => {
         initialAssignments[emp.id] = {};
       });
       assignments.value = initialAssignments;
+
+      console.log('[loadEmployees] Initial assignments keys:', Object.keys(initialAssignments).length);
 
       return { success: true };
     } catch (error: unknown) {

@@ -1,9 +1,9 @@
 <template>
-  <div class="mx-auto max-w-5xl">
+  <div class="mx-auto max-w-7xl px-4">
     <StepIndicator :current-step="2" />
 
     <n-card title="근무표 생성 - 사이트 정보 설정">
-      <p class="mb-4 text-gray-600">
+      <p class="mb-6 text-base text-gray-600">
         {{ scheduleStore.basicInfo?.month }} 요일별 필요 인력을 설정합니다
       </p>
 
@@ -86,7 +86,7 @@
 
       <n-alert
         type="info"
-        class="mt-4"
+        class="mt-6"
       >
         각 요일별로 필요한 시프트별 인력 수를 입력하세요. 이 패턴이 해당 월의 모든 날짜에 적용됩니다.
       </n-alert>
@@ -94,6 +94,7 @@
       <!-- 버튼 -->
       <div class="flex justify-between pt-6">
         <n-button
+          size="medium"
           :disabled="isSaving || loading"
           @click="handlePrev"
         >
@@ -101,6 +102,7 @@
         </n-button>
         <n-button
           type="primary"
+          size="medium"
           :loading="isSaving || loading"
           @click="handleNext"
         >

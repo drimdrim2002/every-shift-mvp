@@ -1,5 +1,5 @@
 <template>
-  <div class="schedule-grid-wrapper">
+  <div class="schedule-grid-wrapper text-sm">
     <div class="schedule-grid-container overflow-x-auto">
       <table class="schedule-grid w-full">
         <!-- Column width definitions -->
@@ -127,6 +127,14 @@
             </td>
           </tr>
 
+          <!-- Spacer: 마지막 직원들이 통계 행 위로 스크롤될 수 있도록 -->
+          <tr class="spacer-row">
+            <td
+              :colspan="dates.length + 5"
+              style="height: 80px; padding: 0; border: none;"
+            />
+          </tr>
+
           <!-- 통계 행 (하단 고정) -->
           <!-- Total 행 -->
           <tr class="stat-row bg-gray-100">
@@ -245,6 +253,11 @@ const statistics = useScheduleGridStatistics(
 
 // 성능 측정: 초기 렌더링
 onMounted(() => {
+  // 디버깅: 렌더링된 직원 수 확인
+  console.log('[ScheduleGrid] Mounted with employees:', props.employees.length);
+  console.log('[ScheduleGrid] Last 3 employees:', props.employees.slice(-3).map(e => ({ id: e.id, name: e.name })));
+  console.log('[ScheduleGrid] Assignments keys:', Object.keys(props.assignments).length);
+
   if (import.meta.env.DEV) {
     performance.mark('schedule-grid-mounted');
     performance.measure(
@@ -255,7 +268,7 @@ onMounted(() => {
 
     const measure = performance.getEntriesByName('schedule-grid-initial-render')[0];
     if (measure) {
-       
+
       console.log(`[ScheduleGrid] Initial render: ${measure.duration.toFixed(2)}ms`);
     }
   }
@@ -359,7 +372,6 @@ function getCellClass(date: GridColumn) {
 
 /* 메인 그리드 테이블 */
 .schedule-grid {
-  font-size: 14px;
   border-collapse: separate;
   border-spacing: 0;
   table-layout: auto;
@@ -375,7 +387,7 @@ function getCellClass(date: GridColumn) {
 }
 
 .employee-cell {
-  padding: 12px;
+  padding: 0.75rem;
   min-width: 150px;
   width: 150px;
 }
@@ -451,17 +463,22 @@ function getCellClass(date: GridColumn) {
 
 /* Shift selector 셀 스타일 */
 .shift-cell {
-  padding: 2px;
+  padding: 0.5rem;
   min-width: 140px;
   width: 140px;
 }
 
 /* 통계 셀 스타일 */
 .stat-cell {
-  padding: 8px;
-  font-size: 13px;
+  padding: 0.5rem;
   min-width: 60px;
   width: 60px;
+}
+
+/* Spacer 행 스타일 */
+.spacer-row td {
+  background: transparent;
+  border: none !important;
 }
 
 /* 통계 행 - 하단 고정 */

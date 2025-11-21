@@ -115,6 +115,10 @@ export function useAISolver() {
 
   // 결과 저장
   async function saveResult(scheduleId: string, result: SolverResponse, organizationId: string) {
+    // 디버깅: Solver 결과 확인
+    console.log('[saveResult] Result assignments keys:', Object.keys(result.assignments).length);
+    console.log('[saveResult] Last 3 keys:', Object.keys(result.assignments).slice(-3));
+
     // 1. schedules 업데이트
     await supabase
       .from('schedules')

@@ -1,10 +1,10 @@
 <template>
-  <div class="mx-auto max-w-full px-4">
+  <div class="mx-auto max-w-7xl px-4">
     <StepIndicator :current-step="4" />
 
     <n-card title="근무표 생성 - 결과 확인">
       <!-- 상태 표시 -->
-      <div class="mb-4 flex items-center justify-between rounded bg-gray-50 p-4">
+      <div class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4">
         <div class="flex items-center gap-4">
           <n-badge
             :value="statusText"
@@ -27,13 +27,13 @@
       <n-alert
         v-if="changedCells.size > 0"
         type="warning"
-        class="mb-4"
+        class="mb-6"
       >
         <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
       </n-alert>
 
       <!-- 그리드 -->
-      <div class="my-4">
+      <div class="my-6">
         <ScheduleGrid
           v-if="grid.employees.value.length > 0"
           :employees="grid.employees.value"
@@ -52,25 +52,36 @@
       </div>
 
       <!-- 버튼 -->
-      <div class="flex justify-between pt-4">
-        <n-button @click="handleBack">
+      <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
+        <n-button
+          size="medium"
+          @click="handleBack"
+        >
           ← 이전
         </n-button>
-        <div class="flex gap-2">
+        <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
             v-if="changedCells.size > 0"
+            size="medium"
             @click="handleReset"
           >
             변경 사항 취소
           </n-button>
-          <n-button @click="handleRegenerate">
+          <n-button
+            size="medium"
+            @click="handleRegenerate"
+          >
             더 개선하기
           </n-button>
-          <n-button @click="handleExport">
+          <n-button
+            size="medium"
+            @click="handleExport"
+          >
             엑셀 다운로드
           </n-button>
           <n-button
             type="primary"
+            size="medium"
             @click="handleSave"
           >
             저장
@@ -157,6 +168,12 @@ onMounted(async () => {
       grid.assignments.value = assignments;
       // 원본 데이터 백업 (deep copy)
       originalAssignments.value = JSON.parse(JSON.stringify(assignments));
+
+      // 디버깅: 로드된 데이터 확인
+      console.log('[Step4] Loaded employees count:', grid.employees.value.length);
+      console.log('[Step4] Loaded assignments keys count:', Object.keys(assignments).length);
+      console.log('[Step4] Last 3 employees:', grid.employees.value.slice(-3).map(e => ({ id: e.id, name: e.name })));
+      console.log('[Step4] Last 3 assignment keys:', Object.keys(assignments).slice(-3));
     } else if (schedule.status === 'running') {
       // Polling 시작
       solver.startPolling(scheduleId.value);
@@ -181,6 +198,9 @@ watch(() => solver.status.value, async (newStatus) => {
       originalAssignments.value = JSON.parse(JSON.stringify(assignments));
       // 변경 사항 초기화
       changedCells.value.clear();
+
+      // 디버깅: 로드된 데이터 확인
+      console.log('[Step4 Watch] Assignments keys count:', Object.keys(assignments).length);
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }

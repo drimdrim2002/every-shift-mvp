@@ -11,6 +11,13 @@ interface AssignmentRow {
   shifts: ShiftReference | null;
 }
 
+// Supabase 조회 결과 타입 (shifts가 배열로 반환될 수 있음)
+interface AssignmentQueryResult {
+  employee_id: string;
+  date: string;
+  shifts: ShiftReference | ShiftReference[] | null;
+}
+
 // 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
 export async function createSchedule(orgId: string, month: string) {
   // 1. 기존 schedule 확인
@@ -67,21 +74,54 @@ export async function getScheduleStatus(scheduleId: string) {
 
 // 근무표 배정 조회
 export async function getScheduleAssignments(scheduleId: string): Promise<AssignmentMap> {
-  const { data, error } = await supabase
-    .from('schedule_assignments')
-    .select('employee_id, date, shifts(code)')
-    .eq('schedule_id', scheduleId);
+  // Supabase 기본 limit은 1000개이므로, 여러 번 조회하여 모든 데이터 가져오기
+  // 30명 × 36일 = 1080개 필요
 
-  if (error) throw error;
+  const allData: AssignmentRow[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  // 1000개씩 페이지네이션하여 모든 데이터 조회
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('schedule_assignments')
+      .select('employee_id, date, shifts(code)')
+      .eq('schedule_id', scheduleId)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    if (data && data.length > 0) {
+      // Supabase 조회 결과를 AssignmentRow로 변환
+      const queryResults = data as AssignmentQueryResult[];
+      const normalizedRows: AssignmentRow[] = queryResults.map((row) => ({
+        employee_id: row.employee_id,
+        date: row.date,
+        shifts: Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts,
+      }));
+      allData.push(...normalizedRows);
+      from += pageSize;
+      hasMore = data.length === pageSize; // 정확히 pageSize만큼 받았으면 더 있을 가능성
+    } else {
+      hasMore = false;
+    }
+  }
+
+  // 디버깅: 조회된 데이터 확인
+  console.log('[getScheduleAssignments] Total rows:', allData.length);
+  console.log('[getScheduleAssignments] Unique employees:', new Set(allData.map((r) => r.employee_id)).size);
 
   // AssignmentMap 형식으로 변환
   const assignments: AssignmentMap = {};
-  (data as AssignmentRow[]).forEach((row) => {
+  allData.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
     }
-    assignments[row.employee_id][row.date] = row.shifts?.code || '';
+    assignments[row.employee_id][row.date] = row.shifts?.code ?? '';
   });
+
+  console.log('[getScheduleAssignments] Assignment keys count:', Object.keys(assignments).length);
 
   return assignments;
 }

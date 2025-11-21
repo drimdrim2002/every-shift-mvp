@@ -1,11 +1,11 @@
 <template>
-  <div class="mx-auto max-w-full px-4">
+  <div class="mx-auto max-w-7xl px-4">
     <StepIndicator :current-step="3" />
 
     <n-card title="근무표 생성 - 초기 정보 입력">
       <n-alert
         type="warning"
-        class="mb-4"
+        class="mb-6"
       >
         <strong>전월 마지막 5일 데이터는 반드시 입력해야 합니다.</strong>
         당월 데이터는 비워두면 AI가 자동으로 배치합니다.
@@ -25,23 +25,31 @@
       </n-spin>
 
       <!-- 버튼 -->
-      <div class="flex justify-between pt-4">
-        <n-button @click="handlePrev">
+      <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
+        <n-button
+          size="medium"
+          @click="handlePrev"
+        >
           ← 이전
         </n-button>
-        <div class="flex gap-2">
+        <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
             secondary
             type="info"
+            size="medium"
             @click="handleLoadSampleData"
           >
             📝 샘플 데이터 로드
           </n-button>
-          <n-button @click="handleSave">
+          <n-button
+            size="medium"
+            @click="handleSave"
+          >
             임시 저장
           </n-button>
           <n-button
             type="primary"
+            size="medium"
             @click="handleGenerate"
           >
             근무표 생성 →
@@ -171,7 +179,12 @@ onMounted(async () => {
     const saved = localStorage.getItem(STORAGE_KEY.value);
     if (saved) {
       try {
-        grid.assignments.value = JSON.parse(saved);
+        const savedAssignments = JSON.parse(saved);
+        // 기존 초기화된 객체와 병합 (모든 직원의 키 보존)
+        grid.assignments.value = {
+          ...grid.assignments.value,
+          ...savedAssignments,
+        };
         showInfo('이전 작업이 복원되었습니다');
       } catch (e) {
         console.warn('Failed to restore from localStorage:', e);
@@ -260,6 +273,11 @@ async function handleGenerate() {
     const thisMonthAssignments: AssignmentMap = {};
 
     grid.employees.value.forEach((emp) => {
+      // 안전장치: assignments 객체가 없으면 빈 객체로 초기화
+      if (!grid.assignments.value[emp.id]) {
+        grid.assignments.value[emp.id] = {};
+      }
+
       lastMonthAssignments[emp.id] = {};
       thisMonthAssignments[emp.id] = {};
 
@@ -296,6 +314,13 @@ async function handleGenerate() {
     timerInterval = window.setInterval(() => {
       elapsedTime.value++;
     }, 1000);
+
+    // 디버깅: Solver에 전달되는 데이터 확인
+    console.log('[Step3] Employees count:', grid.employees.value.length);
+    console.log('[Step3] Last 3 employees:', grid.employees.value.slice(-3).map(e => ({ id: e.id, name: e.name })));
+    console.log('[Step3] LastMonth assignments keys:', Object.keys(lastMonthAssignments).length);
+    console.log('[Step3] ThisMonth assignments keys:', Object.keys(thisMonthAssignments).length);
+    console.log('[Step3] Last 3 lastMonth keys:', Object.keys(lastMonthAssignments).slice(-3));
 
     // 7. AI Solver 시작
     await solver.startSolver(

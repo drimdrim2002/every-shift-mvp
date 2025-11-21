@@ -14,9 +14,6 @@ export default {
           off: '#D9D9D9',      // O (Off) - 회색
         },
       },
-      maxWidth: {
-        '7xl': 'none',  // ScheduleGrid를 위해 제한 제거
-      },
     },
   },
   plugins: [],

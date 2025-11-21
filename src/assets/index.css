@@ -1,3 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * EveryShift MVP Global Styles
+ *
+ * Design System:
+ * - Container: max-w-7xl mx-auto px-4
+ * - Spacing: mb-6, mb-8 (sections), gap-4 (buttons), p-6 (cards)
+ * - Typography: text-2xl (page title), text-xl (section title), text-base (body), text-sm (small)
+ * - Colors: blue-600 (primary), gray-600 (secondary), green-500 (success), orange-500 (warning), red-500 (error)
+ * - Shift Colors: shift-day, shift-evening, shift-night, shift-off (defined in tailwind.config.js)
+ */

@@ -36,6 +36,9 @@ export async function requestAISolver(payload: SolverPayload): Promise<SolverRes
 function generateMockAssignments(payload: SolverPayload): AssignmentMap {
   const result: AssignmentMap = {};
 
+  console.log('[generateMockAssignments] Payload employees count:', payload.employees.length);
+  console.log('[generateMockAssignments] Last 3 employees:', payload.employees.slice(-3).map(e => ({ id: e.id, name: e.name })));
+
   payload.employees.forEach((emp) => {
     result[emp.id] = {
       // 전월 데이터 보존
@@ -56,6 +59,9 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
       }
     });
   });
+
+  console.log('[generateMockAssignments] Result keys count:', Object.keys(result).length);
+  console.log('[generateMockAssignments] Last 3 result keys:', Object.keys(result).slice(-3));
 
   return result;
 }
