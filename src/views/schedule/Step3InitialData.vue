@@ -49,14 +49,58 @@
         </div>
       </div>
     </n-card>
+
+    <!-- Loading Modal -->
+    <n-modal
+      v-model:show="showModal"
+      :mask-closable="false"
+      preset="card"
+      title="근무표 생성 중"
+      class="w-96"
+    >
+      <div class="text-center">
+        <n-spin
+          v-if="solver.status.value !== 'error'"
+          size="large"
+        />
+        <p class="mt-4 text-lg font-medium">
+          {{ statusMessage }}
+        </p>
+        <p
+          v-if="solver.error.value"
+          class="mt-2 text-sm text-red-500"
+        >
+          {{ solver.error.value }}
+        </p>
+        <p
+          v-else
+          class="mt-2 text-sm text-gray-500"
+        >
+          경과 시간: {{ elapsedTime }}초
+        </p>
+        <n-progress
+          v-if="solver.status.value === 'running'"
+          type="line"
+          :percentage="solver.progress.value"
+          status="info"
+          class="mt-4"
+        />
+        <n-button
+          class="mt-6"
+          @click="handleCancel"
+        >
+          {{ solver.status.value === 'error' ? '닫기' : '취소' }}
+        </n-button>
+      </div>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { watchDebounced } from '@vueuse/core';
-import { NCard, NButton, NAlert, NSpin } from 'naive-ui';
+import { NCard, NButton, NAlert, NSpin, NModal, NProgress } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useScheduleStore } from '@/stores/schedule';
@@ -72,10 +116,31 @@ const scheduleStore = useScheduleStore();
 const grid = useScheduleGrid();
 const solver = useAISolver();
 
+// Modal 상태
+const showModal = ref(false);
+const elapsedTime = ref(0);
+let timerInterval: number | null = null;
+
 // LocalStorage 키 (월별로 구분)
 const STORAGE_KEY = computed(() => {
   if (!scheduleStore.basicInfo) return '';
   return `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
+});
+
+// 상태 메시지
+const statusMessage = computed(() => {
+  switch (solver.status.value) {
+    case 'created':
+      return '요청 생성 중...';
+    case 'running':
+      return '처리 중... 잠시만 기다려주세요.';
+    case 'complete':
+      return '완료! 결과를 불러오는 중...';
+    case 'error':
+      return '오류가 발생했습니다.';
+    default:
+      return '';
+  }
 });
 
 // 자동 저장 (2초 debounce)
@@ -178,11 +243,6 @@ async function handleGenerate() {
   // 2. 검증 통과 시 저장 및 다음 단계
   scheduleStore.setAssignments(grid.assignments.value);
 
-  // LocalStorage 삭제 (임시 저장 불필요)
-  if (STORAGE_KEY.value) {
-    localStorage.removeItem(STORAGE_KEY.value);
-  }
-
   try {
     // 3. Schedule 레코드 생성
     if (!scheduleStore.basicInfo) return;
@@ -230,7 +290,14 @@ async function handleGenerate() {
       }
     });
 
-    // 6. AI Solver 시작
+    // 6. 모달 표시 및 타이머 시작
+    showModal.value = true;
+    elapsedTime.value = 0;
+    timerInterval = window.setInterval(() => {
+      elapsedTime.value++;
+    }, 1000);
+
+    // 7. AI Solver 시작
     await solver.startSolver(
       schedule.id,
       {
@@ -243,13 +310,52 @@ async function handleGenerate() {
       scheduleStore.basicInfo.organizationId
     );
 
-    // 7. Step 4로 이동
-    scheduleStore.nextStep();
-    showSuccess('근무표 생성을 시작합니다');
-    router.push(`/schedule/step4/${schedule.id}`);
-  } catch (error) {
-    console.warn('Schedule creation error:', error);
+    // 8. 상태 변화 감지 및 자동 이동
+    const checkStatusInterval = setInterval(() => {
+      if (solver.status.value === 'complete') {
+        clearInterval(checkStatusInterval);
+        if (timerInterval) clearInterval(timerInterval);
+
+        // LocalStorage 삭제 (임시 저장 불필요)
+        if (STORAGE_KEY.value) {
+          localStorage.removeItem(STORAGE_KEY.value);
+        }
+
+        // Step 4로 이동
+        scheduleStore.nextStep();
+        showSuccess('근무표 생성이 완료되었습니다');
+        showModal.value = false;
+        router.push(`/schedule/step4/${schedule.id}`);
+      } else if (solver.status.value === 'error') {
+        clearInterval(checkStatusInterval);
+        if (timerInterval) clearInterval(timerInterval);
+        showModal.value = false;
+        showError('근무표 생성 중 오류가 발생했습니다');
+      }
+    }, 500);
+  } catch {
+    if (timerInterval) clearInterval(timerInterval);
+    showModal.value = false;
     showError('근무표 생성 중 오류가 발생했습니다');
   }
 }
+
+function handleCancel() {
+  solver.stopPolling();
+  showModal.value = false;
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  showInfo('근무표 생성이 취소되었습니다');
+}
+
+// Cleanup on unmount
+onUnmounted(() => {
+  solver.stopPolling();
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+});
 </script>

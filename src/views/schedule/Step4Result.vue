@@ -23,6 +23,15 @@
         </div>
       </div>
 
+      <!-- 변경 사항 알림 -->
+      <n-alert
+        v-if="changedCells.size > 0"
+        type="warning"
+        class="mb-4"
+      >
+        <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
+      </n-alert>
+
       <!-- 그리드 -->
       <div class="my-4">
         <ScheduleGrid
@@ -48,6 +57,12 @@
           ← 이전
         </n-button>
         <div class="flex gap-2">
+          <n-button
+            v-if="changedCells.size > 0"
+            @click="handleReset"
+          >
+            변경 사항 취소
+          </n-button>
           <n-button @click="handleRegenerate">
             더 개선하기
           </n-button>
@@ -67,9 +82,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -78,6 +93,9 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { getScheduleStatus, getScheduleAssignments, updateAssignment } from '@/api/schedule';
 import { exportToExcel } from '@/utils/excel';
+import { showSuccess, showError, showInfo } from '@/utils/message';
+import { supabase } from '@/api/supabase';
+import type { AssignmentMap } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -87,6 +105,8 @@ const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
 
 const scheduleId = computed(() => route.params.id as string);
+const changedCells = ref<Set<string>>(new Set()); // 변경된 셀 추적
+const originalAssignments = ref<AssignmentMap>({}); // 원본 데이터 백업
 
 const statusText = computed(() => {
   const map: Record<string, string> = {
@@ -135,6 +155,8 @@ onMounted(async () => {
     if (schedule.status === 'complete' || schedule.status === 'changed') {
       const assignments = await getScheduleAssignments(scheduleId.value);
       grid.assignments.value = assignments;
+      // 원본 데이터 백업 (deep copy)
+      originalAssignments.value = JSON.parse(JSON.stringify(assignments));
     } else if (schedule.status === 'running') {
       // Polling 시작
       solver.startPolling(scheduleId.value);
@@ -155,6 +177,10 @@ watch(() => solver.status.value, async (newStatus) => {
     try {
       const assignments = await getScheduleAssignments(scheduleId.value);
       grid.assignments.value = assignments;
+      // 원본 데이터 백업 (deep copy)
+      originalAssignments.value = JSON.parse(JSON.stringify(assignments));
+      // 변경 사항 초기화
+      changedCells.value.clear();
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }
@@ -165,27 +191,33 @@ function handleBack() {
   router.push('/schedule/step3');
 }
 
-async function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
-  try {
-    // shiftCode를 shiftId로 변환
-    const shift = organizationStore.shifts.find(s => s.code === payload.shiftCode);
-    if (!shift) {
-      window.$message?.error('잘못된 근무 유형입니다.');
-      return;
-    }
+function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
+  // 그리드 업데이트
+  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
 
-    // 그리드 업데이트
-    grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
+  // 변경된 셀 추적
+  const cellKey = `${payload.employeeId}_${payload.date}`;
+  changedCells.value.add(cellKey);
+}
 
-    // API 호출
-    await updateAssignment(scheduleId.value, payload.employeeId, payload.date, shift.id);
-
-    // 상태 업데이트
-    solver.status.value = 'changed';
-  } catch (error) {
-    console.warn('근무 배정 업데이트 중 오류:', error);
-    window.$message?.error('근무 배정 업데이트 중 오류가 발생했습니다.');
+function handleReset() {
+  if (changedCells.value.size === 0) {
+    showInfo('변경사항이 없습니다');
+    return;
   }
+
+  window.$dialog?.warning({
+    title: '변경 사항 취소',
+    content: `${changedCells.value.size}개의 변경사항을 취소하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+    positiveText: '취소하기',
+    negativeText: '돌아가기',
+    onPositiveClick: () => {
+      // 원본 데이터로 복원 (deep copy)
+      grid.assignments.value = JSON.parse(JSON.stringify(originalAssignments.value));
+      changedCells.value.clear();
+      showSuccess('변경사항이 취소되었습니다');
+    },
+  });
 }
 
 function handleRegenerate() {
@@ -215,6 +247,52 @@ function handleExport() {
 }
 
 function handleSave() {
-  // TODO
+  if (changedCells.value.size === 0) {
+    showInfo('변경사항이 없습니다');
+    router.push('/');
+    return;
+  }
+
+  // 저장 확인 다이얼로그
+  window.$dialog?.info({
+    title: '근무표 저장',
+    content: `${changedCells.value.size}개의 변경사항을 저장하시겠습니까?`,
+    positiveText: '저장',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      try {
+        // 변경된 셀만 Supabase에 업데이트
+        for (const cellKey of changedCells.value) {
+          const [employeeId, date] = cellKey.split('_');
+          const shiftCode = grid.assignments.value[employeeId]?.[date];
+
+          if (!shiftCode) continue;
+
+          // shiftCode를 shiftId로 변환
+          const shift = organizationStore.shifts.find(s => s.code === shiftCode);
+          if (!shift) {
+            console.warn(`Invalid shift code: ${shiftCode}`);
+            continue;
+          }
+
+          // API 호출
+          await updateAssignment(scheduleId.value, employeeId, date, shift.id);
+        }
+
+        // Schedule status를 'changed'로 업데이트
+        await supabase
+          .from('schedules')
+          .update({ status: 'changed' })
+          .eq('id', scheduleId.value);
+
+        showSuccess('저장되었습니다');
+        changedCells.value.clear();
+        router.push('/');
+      } catch (error) {
+        console.warn('저장 중 오류:', error);
+        showError('저장 중 오류가 발생했습니다');
+      }
+    },
+  });
 }
 </script>

@@ -9,11 +9,19 @@ export function useAISolver() {
   const hardScore = ref<number>(0);
   const softScore = ref<number>(0);
   const progress = ref<number>(0);
+  const error = ref<string | null>(null);
 
+  const maxPollingAttempts = 60; // 5분 (5초 × 60회)
+  let pollingAttempts = 0;
   let pollingInterval: number | null = null;
 
   // AI Solver 시작
   async function startSolver(scheduleId: string, payload: SolverPayload, organizationId: string) {
+    // 초기화
+    error.value = null;
+    pollingAttempts = 0;
+    progress.value = 0;
+
     // 1. Status를 'running'으로 변경
     await supabase.from('schedules').update({ status: 'running' }).eq('id', scheduleId);
 
@@ -25,7 +33,9 @@ export function useAISolver() {
         // 결과를 Supabase에 저장
         await saveResult(scheduleId, result, organizationId);
       })
-      .catch(async (_error) => {
+      .catch(async (solverError) => {
+        console.error('AI Solver error:', solverError);
+        error.value = solverError instanceof Error ? solverError.message : 'AI Solver 오류';
         await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
       });
 
@@ -41,25 +51,55 @@ export function useAISolver() {
     }
 
     pollingInterval = window.setInterval(async () => {
-      const { data } = await supabase
-        .from('schedules')
-        .select('status, hard_score, soft_score')
-        .eq('id', scheduleId)
-        .single();
+      pollingAttempts++;
 
-      if (data) {
-        status.value = data.status;
-        hardScore.value = data.hard_score || 0;
-        softScore.value = data.soft_score || 0;
+      // Timeout 체크 (60회 = 5분)
+      if (pollingAttempts > maxPollingAttempts) {
+        stopPolling();
+        error.value = 'Timeout: 근무표 생성이 5분을 초과했습니다. 다시 시도해주세요.';
+        status.value = 'error';
+        return;
+      }
 
-        // 진행률 시뮬레이션 (Running 시)
-        if (data.status === 'running' && progress.value < 90) {
-          progress.value += Math.random() * 10;
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('schedules')
+          .select('status, hard_score, soft_score')
+          .eq('id', scheduleId)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
         }
 
-        if (data.status !== 'running') {
+        if (data) {
+          status.value = data.status;
+          hardScore.value = data.hard_score || 0;
+          softScore.value = data.soft_score || 0;
+
+          // 진행률 시뮬레이션 (Running 시)
+          if (data.status === 'running' && progress.value < 90) {
+            progress.value += Math.random() * 10;
+          }
+
+          if (data.status === 'complete') {
+            stopPolling();
+            progress.value = 100;
+            error.value = null;
+          } else if (data.status === 'error') {
+            stopPolling();
+            error.value = 'AI Solver에서 오류가 발생했습니다.';
+            progress.value = 0;
+          }
+        }
+      } catch (networkError) {
+        console.error('Polling error:', networkError);
+        // Network error는 다음 polling에서 재시도
+        // maxPollingAttempts 초과 시에만 실패 처리
+        if (pollingAttempts >= maxPollingAttempts) {
           stopPolling();
-          progress.value = 100;
+          error.value = 'Network error: 연결이 불안정합니다.';
+          status.value = 'error';
         }
       }
     }, 5000); // 5초마다
@@ -139,6 +179,7 @@ export function useAISolver() {
     hardScore,
     softScore,
     progress,
+    error,
     startSolver,
     startPolling,
     stopPolling,
