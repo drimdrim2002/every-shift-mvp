@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "shrimp-task-manager": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/mcp/shrimp-task-manager.sh"]
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/mcp/context7.sh"]
+    },
+
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/brown/projects"]
+    },
+    "git": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "/home/brown/projects/every-shift-mvp"]
+    }
+  }
+}
