@@ -1906,7 +1906,7 @@
       "id": "7270b220-cc07-4802-bef3-5974f26e1800",
       "name": "Router Guards: Step 진행 Validation",
       "description": "Vue Router guards에서 각 Step 접근 시 이전 Step 완료 여부를 검증. Step 순서를 건너뛰거나 데이터 없이 접근하는 것을 방지.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "e5371342-e3f2-4d8e-b3ea-c340b981456e"
@@ -1916,7 +1916,7 @@
         }
       ],
       "createdAt": "2025-11-13T13:15:49.704Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-21T00:18:07.292Z",
       "relatedFiles": [
         {
           "path": "src/router/guards.ts",
@@ -1931,20 +1931,22 @@
       ],
       "implementationGuide": "1. router/guards.ts 파일 생성\n2. Step별 진행 조건 검증 함수 작성\n3. router.beforeEach에 guard 추가\n\n예시 코드:\n```typescript\n// router/guards.ts\nimport type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';\nimport { useScheduleStore } from '@/stores/schedule';\n\nexport function stepProgressGuard(\n  to: RouteLocationNormalized,\n  from: RouteLocationNormalized,\n  next: NavigationGuardNext\n) {\n  const scheduleStore = useScheduleStore();\n\n  // Step 2 접근 시 Step 1 완료 확인\n  if (to.path === '/schedule/step2') {\n    if (!scheduleStore.basicInfo?.month) {\n      window.$message.warning('먼저 기본 정보를 입력해주세요.');\n      next('/schedule/step1');\n      return;\n    }\n  }\n\n  // Step 3 접근 시 Step 2 완료 확인\n  if (to.path === '/schedule/step3') {\n    if (!scheduleStore.basicInfo?.month) {\n      next('/schedule/step1');\n      return;\n    }\n    // siteRequirements 확인은 optional (사용자가 저장하지 않을 수도 있음)\n  }\n\n  // Step 4 접근 시 scheduleId 필수\n  if (to.path === '/schedule/step4') {\n    if (!to.query.scheduleId) {\n      window.$message.warning('잘못된 접근입니다.');\n      next('/schedule/step3');\n      return;\n    }\n  }\n\n  next();\n}\n\n// router/index.ts\nimport { stepProgressGuard } from './guards';\n\nrouter.beforeEach((to, from, next) => {\n  // Auth guard\n  if (to.meta.requiresAuth && !authStore.isAuthenticated) {\n    next('/login');\n    return;\n  }\n\n  // Step progress guard\n  if (to.path.startsWith('/schedule/step')) {\n    stepProgressGuard(to, from, next);\n    return;\n  }\n\n  next();\n});\n```",
       "verificationCriteria": "1. Step 2 직접 접근 시 Step 1로 리다이렉트\n2. Step 3 직접 접근 시 basicInfo 없으면 Step 1로 리다이렉트\n3. Step 4 직접 접근 시 scheduleId 없으면 Step 3로 리다이렉트\n4. 경고 메시지 표시",
-      "analysisResult": "Router Guards. 사용자가 Step을 건너뛰거나 잘못된 순서로 접근하는 것을 방지하여 데이터 무결성을 보장."
+      "analysisResult": "Router Guards. 사용자가 Step을 건너뛰거나 잘못된 순서로 접근하는 것을 방지하여 데이터 무결성을 보장.",
+      "summary": "Router Guards 구현 완료. stepProgressGuard 함수를 통해 Step 진행 순서 검증 구현. Step 2/3 접근 시 basicInfo.month 체크, Step 4 접근 시 params.id 체크, 모든 케이스에서 경고 메시지 표시. router/index.ts의 기존 인증 가드와 통합하여 인증 체크 → Step 검증 순서로 동작. Optional chaining을 사용하여 Naive UI 메시지 API의 안전한 호출 보장. Lint 검사 통과.",
+      "completedAt": "2025-11-21T00:18:07.277Z"
     },
     {
       "id": "c85b26a3-1777-46dc-bc10-689ead894a01",
       "name": "StatisticsSummary 컴포넌트 구현",
       "description": "그리드 하단에 표시할 통계 요약 컴포넌트. 전체 D/E/N 합계, 평균, 제약 조건 위반 여부를 표시.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "0cf02d47-06cb-4311-87eb-72a2a9dde547"
         }
       ],
       "createdAt": "2025-11-13T13:15:49.704Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-21T00:24:02.088Z",
       "relatedFiles": [
         {
           "path": "src/components/schedule/StatisticsSummary.vue",
@@ -1954,16 +1956,18 @@
       ],
       "implementationGuide": "1. Props로 rowStats, columnStats 받기\n2. 전체 D/E/N 합계 계산\n3. 평균 계산 (총 근무일 / 직원 수)\n4. 제약 조건 위반 체크 (예: 일일 필요 인력 미달)\n\n예시 코드:\n```vue\n<template>\n  <n-card title=\"통계 요약\" class=\"mt-4\">\n    <n-grid cols=\"4\" x-gap=\"12\">\n      <n-gi>\n        <n-statistic label=\"Day 근무\">\n          <template #suffix>일</template>\n          {{ totalD }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"Evening 근무\">\n          <template #suffix>일</template>\n          {{ totalE }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"Night 근무\">\n          <template #suffix>일</template>\n          {{ totalN }}\n        </n-statistic>\n      </n-gi>\n      <n-gi>\n        <n-statistic label=\"평균 근무일\">\n          <template #suffix>일/인</template>\n          {{ averageWorkDays.toFixed(1) }}\n        </n-statistic>\n      </n-gi>\n    </n-grid>\n\n    <n-alert\n      v-if=\"violations.length > 0\"\n      type=\"warning\"\n      title=\"제약 조건 위반\"\n      class=\"mt-4\"\n    >\n      <ul>\n        <li v-for=\"v in violations\" :key=\"v\">{{ v }}</li>\n      </ul>\n    </n-alert>\n  </n-card>\n</template>\n\n<script setup lang=\"ts\">\nimport { computed } from 'vue';\nimport type { RowStat, ColumnStat } from '@/types/schedule';\n\ninterface Props {\n  rowStats: Record<string, RowStat>;\n  columnStats: Record<string, ColumnStat>;\n  employeeCount: number;\n}\n\nconst props = defineProps<Props>();\n\nconst totalD = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.D, 0);\n});\n\nconst totalE = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.E, 0);\n});\n\nconst totalN = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.N, 0);\n});\n\nconst totalWorkDays = computed(() => {\n  return Object.values(props.rowStats).reduce((sum, stat) => sum + stat.total, 0);\n});\n\nconst averageWorkDays = computed(() => {\n  return props.employeeCount > 0 ? totalWorkDays.value / props.employeeCount : 0;\n});\n\nconst violations = computed(() => {\n  const v: string[] = [];\n\n  // 제약 조건 체크 로직\n  // 예: 일일 필요 인력 미달, 개인별 과도한 야간 근무 등\n\n  return v;\n});\n</script>\n```",
       "verificationCriteria": "1. D/E/N 전체 합계 정확히 계산\n2. 평균 근무일 계산 정확\n3. 제약 조건 위반 시 경고 표시\n4. 실시간으로 통계 업데이트",
-      "analysisResult": "StatisticsSummary 컴포넌트. 전체 근무표의 통계를 한눈에 볼 수 있게 하여 사용자가 공정성과 제약 조건 준수 여부를 빠르게 파악할 수 있도록 함."
+      "analysisResult": "StatisticsSummary 컴포넌트. 전체 근무표의 통계를 한눈에 볼 수 있게 하여 사용자가 공정성과 제약 조건 준수 여부를 빠르게 파악할 수 있도록 함.",
+      "summary": "StatisticsSummary 컴포넌트 구현 완료. rowStats를 기반으로 D/E/N 전체 합계 및 평균 근무일을 computed로 계산하여 실시간 업데이트 지원. Naive UI의 n-card, n-grid, n-statistic을 활용한 4열 통계 레이아웃 구현. 제약 조건 위반 시 n-alert로 경고 표시 기능 추가 (MVP에서는 기본 통계만 표시). TypeScript 타입 안전성 확보 및 Lint 검사 통과.",
+      "completedAt": "2025-11-21T00:24:02.072Z"
     },
     {
       "id": "d51c33e6-b453-4137-9177-e240f49bd6ae",
       "name": "LoadingModal 컴포넌트 (AI Solver용)",
       "description": "AI Solver 처리 중 표시할 로딩 모달 컴포넌트. 스피너, 상태 메시지, 경과 시간, 진행률, 취소 버튼 포함.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2025-11-13T13:15:49.704Z",
-      "updatedAt": "2025-11-13T13:15:49.704Z",
+      "updatedAt": "2025-11-21T00:27:21.625Z",
       "relatedFiles": [
         {
           "path": "src/components/ui/LoadingModal.vue",
@@ -1973,7 +1977,9 @@
       ],
       "implementationGuide": "1. Naive UI NModal, NSpin, NProgress 사용\n2. Props: show, status, message, elapsedTime, progress\n3. Emit: cancel\n\n예시 코드:\n```vue\n<template>\n  <n-modal\n    :show=\"show\"\n    :mask-closable=\"false\"\n    title=\"근무표 생성 중\"\n    preset=\"card\"\n    style=\"width: 500px\"\n  >\n    <div class=\"text-center py-6\">\n      <n-spin size=\"large\" />\n\n      <p class=\"mt-6 text-lg font-semibold\">{{ message }}</p>\n\n      <div class=\"mt-4 text-sm text-gray-500\">\n        경과 시간: {{ elapsedTime }}초\n      </div>\n\n      <n-progress\n        v-if=\"status === 'running'\"\n        type=\"line\"\n        :percentage=\"progress\"\n        status=\"info\"\n        class=\"mt-4\"\n      />\n\n      <n-button\n        class=\"mt-6\"\n        @click=\"emit('cancel')\"\n      >\n        취소\n      </n-button>\n    </div>\n  </n-modal>\n</template>\n\n<script setup lang=\"ts\">\ninterface Props {\n  show: boolean;\n  status: string;\n  message: string;\n  elapsedTime: number;\n  progress: number;\n}\n\nconst props = defineProps<Props>();\nconst emit = defineEmits<{\n  cancel: [];\n}>();\n</script>\n```",
       "verificationCriteria": "1. 모달이 정상적으로 표시됨\n2. 스피너 애니메이션 작동\n3. 메시지, 경과 시간이 정상 표시\n4. 진행률 바가 업데이트됨\n5. \"취소\" 버튼 클릭 시 cancel 이벤트 emit",
-      "analysisResult": "LoadingModal 컴포넌트. AI Solver 처리 중 사용자에게 명확한 피드백을 제공하여 대기 시간 동안의 UX를 개선."
+      "analysisResult": "LoadingModal 컴포넌트. AI Solver 처리 중 사용자에게 명확한 피드백을 제공하여 대기 시간 동안의 UX를 개선.",
+      "summary": "LoadingModal 컴포넌트 구현 완료. Naive UI의 n-modal, n-spin, n-progress, n-button을 활용하여 AI Solver 처리 중 로딩 UI 구현. Props로 show, status, message, elapsedTime, progress를 받아 실시간 업데이트 지원. 진행률 바는 status='running'일 때만 표시하도록 조건부 렌더링. 취소 버튼 클릭 시 cancel 이벤트 emit. mask-closable=false로 모달 외부 클릭 방지. TypeScript 타입 안전성 확보 및 Lint 검사 통과.",
+      "completedAt": "2025-11-21T00:27:21.610Z"
     },
     {
       "id": "c49d7612-e612-490a-925f-bfa565c5d329",

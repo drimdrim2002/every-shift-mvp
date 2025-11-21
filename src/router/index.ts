@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { stepProgressGuard } from './guards';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -75,8 +76,8 @@ const router = createRouter({
   routes,
 });
 
-// 인증 가드
-router.beforeEach(async (to, _from, next) => {
+// 인증 가드 및 Step 진행 검증 가드
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore();
 
   // 세션 확인
@@ -86,13 +87,24 @@ router.beforeEach(async (to, _from, next) => {
 
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
 
+  // 1. 인증 체크
   if (requiresAuth && !authStore.user) {
     next('/login');
-  } else if (to.path === '/login' && authStore.user) {
-    next('/');
-  } else {
-    next();
+    return;
   }
+
+  if (to.path === '/login' && authStore.user) {
+    next('/');
+    return;
+  }
+
+  // 2. Step 진행 순서 검증 (인증된 사용자만 해당)
+  if (to.path.startsWith('/schedule/step')) {
+    stepProgressGuard(to, from, next);
+    return;
+  }
+
+  next();
 });
 
 // 동적 title 설정
