@@ -249,6 +249,7 @@ function handleExport() {
 function handleSave() {
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
+    // 대시보드로 이동
     router.push('/');
     return;
   }
@@ -287,6 +288,7 @@ function handleSave() {
 
         showSuccess('저장되었습니다');
         changedCells.value.clear();
+        // 대시보드로 이동
         router.push('/');
       } catch (error) {
         console.warn('저장 중 오류:', error);

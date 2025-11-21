@@ -120,3 +120,15 @@ export async function completeSchedule(scheduleId: string) {
 
   if (error) throw error;
 }
+
+// 조직의 근무표 목록 조회
+export async function getScheduleList(orgId: string) {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('month', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
