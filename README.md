@@ -111,16 +111,24 @@ pnpm install
 npm install
 ```
 
-### 4. 환경 변수 설정
+### 4. 환경 변수 설정 ⚙️
+
+**.env.local 파일 생성**:
 ```bash
 cp .env.example .env.local
 ```
 
-`.env.local` 파일을 열어 Supabase 프로젝트 정보 입력:
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+**.env.local 파일 편집**:
+```bash
+# Supabase 프로젝트 정보 입력
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 ```
+
+**Supabase 정보 확인 방법**:
+1. [Supabase Dashboard](https://supabase.com/dashboard) 로그인
+2. 프로젝트 선택 → Settings → API
+3. URL과 anon public key 복사
 
 ### 5. Supabase 데이터베이스 설정
 

@@ -2456,10 +2456,10 @@
       "id": "bc00251e-be39-4f2b-a2cc-b51dc7a11945",
       "name": "환경 변수 템플릿 (.env.example) 생성",
       "description": ".env.local 파일의 템플릿인 .env.example을 생성하여 다른 개발자가 쉽게 환경 설정을 할 수 있도록 함.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-13T13:51:54.911Z",
+      "updatedAt": "2025-11-21T09:41:55.146Z",
       "relatedFiles": [
         {
           "path": ".env.example",
@@ -2479,7 +2479,9 @@
       ],
       "implementationGuide": "1. .env.example 파일 생성:\n```bash\n# EveryShift MVP - Environment Variables Template\n# Copy this file to .env.local and fill in your actual values\n\n# Supabase Configuration\nVITE_SUPABASE_URL=https://YOUR_PROJECT_ID.supabase.co\nVITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY\n\n# AI Solver Configuration (Optional - using Mock in MVP)\n# VITE_AI_SOLVER_URL=https://YOUR_CLOUD_RUN_URL\n\n# Application Configuration\nVITE_APP_NAME=EveryShift\nVITE_APP_VERSION=1.0.0-mvp\n\n# Feature Flags (Optional)\nVITE_ENABLE_MOCK_SOLVER=true\nVITE_ENABLE_DEBUG=false\n```\n\n2. .gitignore 확인 및 수정:\n```bash\n# Environment Variables\n.env.local\n.env.*.local\n\n# Dependencies\nnode_modules\n\n# Build Output\ndist\ndist-ssr\n*.local\n\n# IDE\n.vscode/*\n!.vscode/extensions.json\n.idea\n\n# OS\n.DS_Store\nThumbs.db\n```\n\n3. README.md에 환경 변수 섹션 추가:\n```markdown\n## 🛠️ 설치 및 실행\n\n### 1. Prerequisites\n- Node.js 18+\n- npm 또는 pnpm\n\n### 2. 환경 변수 설정 ⚙️\n\n**.env.local 파일 생성**:\n```bash\ncp .env.example .env.local\n```\n\n**.env.local 파일 편집**:\n```bash\n# Supabase 프로젝트 정보 입력\nVITE_SUPABASE_URL=https://xxxxx.supabase.co\nVITE_SUPABASE_ANON_KEY=eyJxxxxx...\n```\n\n**Supabase 정보 확인 방법**:\n1. [Supabase Dashboard](https://supabase.com/dashboard) 로그인\n2. 프로젝트 선택 → Settings → API\n3. URL과 anon public key 복사\n\n### 3. 의존성 설치\n```bash\nnpm install\n```\n\n### 4. 개발 서버 실행\n```bash\nnpm run dev\n```\n\n브라우저에서 `http://localhost:5173` 접속\n```\n\n4. package.json에 환경 체크 스크립트 추가 (선택):\n```json\n{\n  \"scripts\": {\n    \"check-env\": \"node scripts/check-env.js\"\n  }\n}\n```\n\n5. scripts/check-env.js 생성 (선택):\n```javascript\n#!/usr/bin/env node\nimport { existsSync } from 'fs';\nimport { resolve } from 'path';\n\nconst envFile = resolve(process.cwd(), '.env.local');\n\nif (!existsSync(envFile)) {\n  console.error('❌ .env.local 파일이 없습니다!');\n  console.log('📝 다음 명령어를 실행하세요:');\n  console.log('   cp .env.example .env.local');\n  console.log('   # .env.local 파일을 열어 Supabase 정보를 입력하세요');\n  process.exit(1);\n}\n\nconsole.log('✅ .env.local 파일 확인 완료');\n```\n\n6. vite.config.ts에서 환경 변수 검증 (선택):\n```typescript\nimport { defineConfig, loadEnv } from 'vite';\nimport vue from '@vitejs/plugin-vue';\n\nexport default defineConfig(({ mode }) => {\n  const env = loadEnv(mode, process.cwd(), '');\n\n  // 필수 환경 변수 체크\n  const required = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];\n  const missing = required.filter(key => !env[key]);\n\n  if (missing.length > 0) {\n    console.warn(`⚠️ Missing environment variables: ${missing.join(', ')}`);\n  }\n\n  return {\n    plugins: [vue()],\n    // ...\n  };\n});\n```",
       "verificationCriteria": "1. .env.example 파일 생성\n2. .gitignore에 .env.local 제외 확인\n3. README.md에 환경 변수 설정 가이드 추가\n4. .env.local이 없는 상태에서 npm run dev 시 경고 메시지 표시\n5. 신규 개발자가 .env.example을 참고하여 쉽게 환경 설정 가능",
-      "analysisResult": "환경 변수 템플릿. 다른 개발자가 프로젝트를 클론했을 때 빠르게 환경을 구성할 수 있도록 명확한 가이드를 제공."
+      "analysisResult": "환경 변수 템플릿. 다른 개발자가 프로젝트를 클론했을 때 빠르게 환경을 구성할 수 있도록 명확한 가이드를 제공.",
+      "summary": "환경 변수 템플릿 (.env.example) 생성 및 개선 작업 완료. 기존 .env.example을 더 상세한 템플릿으로 업데이트하고, README.md에 Supabase 정보 확인 방법을 포함한 상세 가이드 추가. 추가로 package.json에 check-env 스크립트, scripts/check-env.js 환경 체크 유틸리티, vite.config.ts에 환경 변수 검증 로직을 추가하여 개발자 경험 개선. .env.local 파일 누락 시 명확한 에러 메시지와 가이드 제공. pnpm lint 통과, check-env 스크립트 정상 작동 확인, 개발 서버 환경 변수 검증 동작 확인 완료.",
+      "completedAt": "2025-11-21T09:41:55.137Z"
     }
   ]
 }
