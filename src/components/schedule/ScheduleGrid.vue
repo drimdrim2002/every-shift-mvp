@@ -206,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUpdated } from 'vue';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap } from '@/types/schedule';
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';
@@ -231,6 +231,11 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
+// 성능 측정
+if (import.meta.env.DEV) {
+  performance.mark('schedule-grid-setup-start');
+}
+
 // 통계 계산
 const statistics = useScheduleGridStatistics(
   () => props.employees,
@@ -238,13 +243,53 @@ const statistics = useScheduleGridStatistics(
   () => props.assignments
 );
 
+// 성능 측정: 초기 렌더링
+onMounted(() => {
+  if (import.meta.env.DEV) {
+    performance.mark('schedule-grid-mounted');
+    performance.measure(
+      'schedule-grid-initial-render',
+      'schedule-grid-setup-start',
+      'schedule-grid-mounted'
+    );
+
+    const measure = performance.getEntriesByName('schedule-grid-initial-render')[0];
+    if (measure) {
+       
+      console.log(`[ScheduleGrid] Initial render: ${measure.duration.toFixed(2)}ms`);
+    }
+  }
+});
+
+// 성능 측정: 업데이트
+onUpdated(() => {
+  if (import.meta.env.DEV) {
+    performance.mark('schedule-grid-updated');
+  }
+});
+
 // Helper 함수
 function getAssignment(employeeId: string, date: string): string | null {
   return props.assignments[employeeId]?.[date] || null;
 }
 
 function handleShiftSelect(employeeId: string, date: string, shiftCode: string) {
+  if (import.meta.env.DEV) {
+    performance.mark('shift-select-start');
+  }
+
   emit('update:assignment', { employeeId, date, shiftCode });
+
+  if (import.meta.env.DEV) {
+    performance.mark('shift-select-end');
+    performance.measure('shift-select', 'shift-select-start', 'shift-select-end');
+
+    const measure = performance.getEntriesByName('shift-select')[0];
+    if (measure) {
+       
+      console.log(`[ScheduleGrid] Shift select response: ${measure.duration.toFixed(2)}ms`);
+    }
+  }
 }
 
 // Level 1 헤더: 전월/당월 그룹

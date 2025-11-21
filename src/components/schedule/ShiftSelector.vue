@@ -28,24 +28,25 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
+// 색상 맵을 컴포넌트 레벨에서 한 번만 정의 (성능 최적화)
+const colorMap: Record<string, string> = {
+  D: 'border-shift-day text-green-700',
+  E: 'border-shift-evening text-orange-700',
+  N: 'border-shift-night text-blue-700',
+  O: 'border-shift-off text-gray-700',
+}
+
+const selectedColorMap: Record<string, string> = {
+  D: 'bg-shift-day text-white',
+  E: 'bg-shift-evening text-white',
+  N: 'bg-shift-night text-white',
+  O: 'bg-shift-off text-white',
+}
+
+const baseClass = 'w-7 h-7 rounded text-xs font-semibold border-2 transition-opacity'
+
 function getShiftButtonClass(shiftCode: string) {
   const isSelected = props.currentShift === shiftCode
-  const baseClass = 'w-7 h-7 rounded text-xs font-semibold border-2 transition-opacity'
-
-  const colorMap: Record<string, string> = {
-    D: 'border-shift-day text-green-700',
-    E: 'border-shift-evening text-orange-700',
-    N: 'border-shift-night text-blue-700',
-    O: 'border-shift-off text-gray-700',
-  }
-
-  const selectedColorMap: Record<string, string> = {
-    D: 'bg-shift-day text-white',
-    E: 'bg-shift-evening text-white',
-    N: 'bg-shift-night text-white',
-    O: 'bg-shift-off text-white',
-  }
-
   const color = isSelected ? selectedColorMap[shiftCode] : colorMap[shiftCode]
   const opacity = isSelected ? 'opacity-100' : 'opacity-40'
   const hover = !props.readonly ? 'hover:opacity-80 cursor-pointer' : 'cursor-not-allowed'
