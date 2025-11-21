@@ -35,7 +35,6 @@ export async function requestAISolver(payload: SolverPayload): Promise<SolverRes
 
 function generateMockAssignments(payload: SolverPayload): AssignmentMap {
   const result: AssignmentMap = {};
-  const shifts = ['D', 'E', 'N', 'O'];
 
   payload.employees.forEach((emp) => {
     result[emp.id] = {
@@ -45,12 +44,15 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
       ...payload.thisMonthAssignments[emp.id],
     };
 
-    // 빈 날짜만 자동 배정 (간단한 로테이션)
+    // 빈 날짜만 자동 배정 (available_shifts 제약 준수)
     const dates = Object.keys(payload.requirements);
+    const availableShifts = emp.available_shifts || ['D', 'E', 'N', 'O'];
+
     dates.forEach((date) => {
       if (!result[emp.id][date]) {
-        const randomShift = shifts[Math.floor(Math.random() * shifts.length)];
-        result[emp.id][date] = randomShift;
+        // available_shifts 중 랜덤 선택
+        const randomIndex = Math.floor(Math.random() * availableShifts.length);
+        result[emp.id][date] = availableShifts[randomIndex];
       }
     });
   });
