@@ -1,4 +1,5 @@
 import type { Shift } from './shift';
+import type { SiteRequirementRow } from './excel';
 
 // 기본 정보 (Step 1)
 export interface ScheduleBasicInfo {
@@ -9,6 +10,9 @@ export interface ScheduleBasicInfo {
   employeeCount: number;
   shifts: Shift[];
 }
+
+// 요일별 인력 요구사항 (세로형 배열)
+export type SiteRequirementList = SiteRequirementRow[];
 
 // 그리드 컬럼 정보
 export interface GridColumn {

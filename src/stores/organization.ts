@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
+import * as organizationApi from '@/api/organization'
+import * as shiftApi from '@/api/shift'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
@@ -114,11 +116,195 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   }
 
+  /**
+   * 새 조직 생성
+   */
+  async function createOrganization(orgData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>) {
+    loading.value = true
+    try {
+      const newOrg = await organizationApi.createOrganization(orgData)
+      current.value = newOrg
+      employees.value = []
+      shifts.value = []
+      return { success: true, organization: newOrg }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 현재 조직 수정
+   */
+  async function updateCurrentOrganization(orgData: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) {
+    if (!current.value) {
+      return { success: false, error: '수정할 조직이 선택되지 않았습니다.' }
+    }
+
+    loading.value = true
+    try {
+      await organizationApi.updateOrganization(current.value.id, orgData)
+      // 로컬 상태 업데이트
+      current.value = {
+        ...current.value,
+        ...orgData,
+      }
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 시프트만 로드
+   */
+  async function loadShifts(orgId: string) {
+    try {
+      const loadedShifts = await shiftApi.loadShifts(orgId)
+      shifts.value = loadedShifts
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * 시프트 추가
+   */
+  async function addShift(shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>) {
+    if (!current.value) {
+      return { success: false, error: '조직이 선택되지 않았습니다.' }
+    }
+
+    try {
+      const newShift = await shiftApi.createShift(current.value.id, shiftData)
+      shifts.value = [...shifts.value, newShift]
+      return { success: true, shift: newShift }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * 시프트 수정
+   */
+  async function updateShift(
+    shiftId: string,
+    shiftData: Partial<Omit<Shift, 'id' | 'organizationId' | 'createdAt'>>
+  ) {
+    try {
+      await shiftApi.updateShift(shiftId, shiftData)
+      // 로컬 상태 업데이트
+      shifts.value = shifts.value.map((shift) =>
+        shift.id === shiftId ? { ...shift, ...shiftData } : shift
+      )
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * 시프트 삭제
+   */
+  async function deleteShift(shiftId: string) {
+    try {
+      await shiftApi.deleteShift(shiftId)
+      // 로컬 상태에서 제거
+      shifts.value = shifts.value.filter((shift) => shift.id !== shiftId)
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * 모든 시프트를 새 목록으로 교체
+   */
+  async function replaceAllShifts(newShifts: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>[]) {
+    if (!current.value) {
+      return { success: false, error: '조직이 선택되지 않았습니다.' }
+    }
+
+    try {
+      const replacedShifts = await shiftApi.replaceAllShifts(current.value.id, newShifts)
+      shifts.value = replacedShifts
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    }
+  }
+
+  /**
+   * 로컬 시프트 추가 (DB 저장 없이)
+   */
+  function addLocalShift(shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>) {
+    const tempShift: Shift = {
+      ...shiftData,
+      id: `temp-${Date.now()}`,
+      organizationId: current.value?.id || '',
+    }
+    shifts.value = [...shifts.value, tempShift]
+    return tempShift
+  }
+
+  /**
+   * 로컬 시프트 수정 (DB 저장 없이)
+   */
+  function updateLocalShift(shiftId: string, shiftData: Partial<Omit<Shift, 'id' | 'organizationId' | 'createdAt'>>) {
+    shifts.value = shifts.value.map((shift) =>
+      shift.id === shiftId ? { ...shift, ...shiftData } : shift
+    )
+  }
+
+  /**
+   * 로컬 시프트 삭제 (DB 저장 없이)
+   */
+  function deleteLocalShift(shiftId: string) {
+    shifts.value = shifts.value.filter((shift) => shift.id !== shiftId)
+  }
+
+  /**
+   * 스토어 초기화
+   */
+  function resetStore() {
+    current.value = null
+    employees.value = []
+    shifts.value = []
+    loading.value = false
+  }
+
   return {
+    // State
     current,
     employees,
     shifts,
     loading,
+    // Actions - Organization
     loadOrganization,
+    createOrganization,
+    updateCurrentOrganization,
+    // Actions - Shifts (DB)
+    loadShifts,
+    addShift,
+    updateShift,
+    deleteShift,
+    replaceAllShifts,
+    // Actions - Shifts (Local only)
+    addLocalShift,
+    updateLocalShift,
+    deleteLocalShift,
+    // Actions - Reset
+    resetStore,
   }
 })

@@ -1,0 +1,209 @@
+# EveryShift MVP - Cursor Rules
+
+## Project Overview
+
+**EveryShift MVP** - Automated nurse scheduling system for hospitals.
+- **Goal**: 4-8hr manual Excel → seconds (90% time reduction)
+- **Workflow**: 4 steps (Basic Info → Site Info → Initial Data → Result Review)
+- **Core Component**: ScheduleGrid (30×36 grid, 1080 cells) - 80% of dev effort
+
+## Tech Stack
+
+- **Frontend**: Vue 3.5 (Composition API) + TypeScript 5.8 + Vite 6.3
+- **Styling**: Tailwind CSS 3.4 (minimize custom CSS)
+- **UI Library**: Naive UI 2.42 (forms/modals/buttons only, NOT grid)
+- **Grid**: TanStack Table v8 (30×36 grid only)
+- **State**: Pinia 2.x
+- **Backend**: Supabase PostgreSQL + Supabase Auth
+- **AI Solver**: Mock responses (MVP)
+
+## Core Directory Structure
+
+```
+src/
+├── components/schedule/   # Core scheduling (80% complexity)
+│   ├── ScheduleGrid.vue   # [CRITICAL] TanStack Table grid
+│   ├── ShiftSelector.vue  # D/E/N/O shift selector UI
+│   └── StatisticsSummary.vue
+├── composables/           # Reusable logic
+│   ├── useScheduleGrid.ts # Grid data management
+│   └── useAISolver.ts     # AI Solver integration
+├── stores/                # Pinia state
+├── views/schedule/         # 4-step workflow pages
+├── api/                   # Supabase communication
+└── types/                 # TypeScript definitions
+```
+
+## Vue 3 Coding Rules
+
+### Required Pattern
+```vue
+<script setup lang="ts">
+// 1. Imports
+import { ref, computed, watch, onMounted } from 'vue';
+
+// 2. Props & Emits
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+
+// 3. State - use ref for primitives
+const count = ref(0);
+
+// 4. Computed - derived state
+const doubled = computed(() => count.value * 2);
+
+// 5. Methods
+function handleClick() {}
+
+// 6. Lifecycle
+onMounted(() => {});
+</script>
+```
+
+### Forbidden Patterns
+- ❌ `reactive` for primitive values
+- ❌ `any` type (use `unknown`)
+- ❌ Unnecessary `deep: true` in `watch`
+- ❌ Custom CSS (use Tailwind utilities)
+
+## Naming Conventions
+
+| Target | Rule | Example |
+|--------|------|---------|
+| Components | PascalCase | `ScheduleGrid.vue` |
+| Composables | camelCase + "use" | `useScheduleGrid.ts` |
+| Stores | camelCase | `scheduleStore` |
+| API functions | camelCase | `loadSchedule()` |
+| Types/Interfaces | PascalCase | `Schedule`, `Employee` |
+| Constants | UPPER_SNAKE_CASE | `MAX_EMPLOYEES` |
+
+## Naive UI Required Pattern ⭐
+
+This project uses `createDiscreteApi` (configured in `main.ts`).
+
+### Required Rules
+```typescript
+// ✅ Correct - wrap in method + optional chaining
+const showMessage = () => {
+  window.$message?.success('Done');
+};
+
+// ❌ Forbidden - direct template access
+<button @click="window.$message.success('OK')">Click</button>
+```
+
+### Error Prevention
+- Provider context error → Use `createDiscreteApi` pattern
+- undefined error → Wrap in method + optional chaining (`?.`)
+- `useMessage()` → Never call outside setup context
+
+## Grid Performance Optimization
+
+```vue
+<!-- Optimize row rendering with v-memo -->
+<tr v-for="row in rows" :key="row.id" v-memo="[row.id, assignments[row.id]]">
+  <!-- ... -->
+</tr>
+
+<script setup lang="ts">
+// Cache statistics with computed
+const statistics = computed(() => calculateStatistics(assignments.value));
+
+// Minimize deep watch
+watch(assignments, handler, { deep: true }); // Only when needed
+</script>
+```
+
+## AI Solver Polling
+
+```typescript
+// Always cleanup on component unmount
+onUnmounted(() => {
+  stopPolling();
+});
+```
+
+## Data Flow
+
+```
+Step 1 → Step 2 → Step 3 → AI Solver → Step 4
+   ↓        ↓         ↓          ↓          ↓
+Month   Site      Prev Month  Generate   Review
+Select  Info      Data Input  Request    + Edit
+                  (Critical)  + Polling
+```
+
+### LocalStorage Keys
+- Pattern: `everyshift_temp_schedule_{YYYY-MM}`
+- Debounce: 500ms
+- Auto-delete on AI generation complete
+
+## Validation Rules
+
+- **Step 3**: Previous month last 5 days required (for AI Solver)
+- **Shifts**: Only `employees.available_shifts` array allowed
+- **Employees**: Max 30 (no virtual scrolling)
+
+## Documentation Priority
+
+1. **Local docs** (first priority)
+   - Naive UI: `docs/naive/*.md`
+   - Vben Admin: `docs/vben/en/guide/`
+   - PRD: `docs/prd/*.md`
+
+2. **Context7 MCP** (when local docs insufficient)
+
+3. **Web search** (last resort)
+
+### Naive UI Doc Guide
+- Forms → `00-quick-reference.md` + `02-forms.md`
+- Tables → `00-quick-reference.md` + `03-data-tables.md`
+- Messages/Dialogs → `00-quick-reference.md` + `05-discrete-api.md`
+- Errors → `07-troubleshooting.md`
+
+## MVP Scope
+
+### Included
+- 4-step workflow
+- 30×36 grid (name column sticky only)
+- Basic statistics
+- Excel export
+- Mock AI Solver
+
+### Excluded (DO NOT implement)
+- User registration/approval
+- Org/employee/shift CRUD (seed data only)
+- Dashboard/analytics
+- i18n (Korean only)
+- Mobile responsive
+
+## UI Language
+- User interface: Korean
+- Code comments: English allowed
+
+## External Libraries
+Prefer installing external tools/libs over complex manual implementation
+- Image processing: sharp, Pillow, ImageMagick
+- Check availability: `which <tool>` or try import
+
+## Supabase Environment Variables
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+- Restart Vite server after `.env` changes
+
+## Shift Colors
+- **D (Day)**: Blue `#3B82F6`
+- **E (Evening)**: Orange `#F59E0B`
+- **N (Night)**: Purple `#8B5CF6`
+- **O (Off)**: Gray `#6B7280`
+
+## Database Rules
+- PK: `gen_random_uuid()`
+- Fixed seed UUID: `'00000000-0000-0000-0000-000000000001'`
+- Timestamps: `created_at`, `updated_at`
+- Enums stored as VARCHAR
+
+## Response Language
+- Always respond in Korean
