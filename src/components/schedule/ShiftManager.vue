@@ -126,7 +126,9 @@ function resetForm() {
 
 function parseTimeToTimestamp(timeStr: string): number {
   // "HH:mm" or "HH:mm:ss" -> timestamp
-  const [hours, minutes] = timeStr.split(':').map(Number)
+  const parts = timeStr.split(':').map(Number)
+  const hours = parts[0] || 0
+  const minutes = parts[1] || 0
   const date = new Date()
   date.setHours(hours, minutes, 0, 0)
   return date.getTime()
@@ -218,14 +220,12 @@ function handleCodeInput(value: string) {
         label="색상"
         path="colorCode"
       >
-        <div class="flex items-center gap-3">
-          <NColorPicker
-            v-model:value="formData.colorCode"
-            :swatches="defaultColors"
-            :show-alpha="false"
-          />
-          <span class="text-sm text-gray-500">{{ formData.colorCode }}</span>
-        </div>
+        <NColorPicker
+          v-model:value="formData.colorCode"
+          :swatches="defaultColors"
+          :show-alpha="false"
+          style="width: 100%"
+        />
       </NFormItem>
 
       <NFormItem label="시작 시간">
@@ -234,6 +234,7 @@ function handleCodeInput(value: string) {
           format="HH:mm"
           placeholder="선택 (선택사항)"
           clearable
+          style="width: 100%"
         />
       </NFormItem>
 
@@ -243,6 +244,7 @@ function handleCodeInput(value: string) {
           format="HH:mm"
           placeholder="선택 (선택사항)"
           clearable
+          style="width: 100%"
         />
       </NFormItem>
     </NForm>
@@ -263,3 +265,9 @@ function handleCodeInput(value: string) {
   </NModal>
 </template>
 
+<style scoped>
+/* ColorPicker의 텍스트 입력 필드만 숨기기 */
+.color-picker-wrapper :deep(.n-color-picker-trigger__input) {
+  display: none;
+}
+</style>
