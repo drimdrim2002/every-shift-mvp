@@ -84,6 +84,12 @@ const rules: FormRules = {
       trigger: 'blur',
     },
   ],
+  startTime: [
+    { required: true, message: '시작 시간을 선택해주세요', trigger: ['blur', 'change'], type: 'number' },
+  ],
+  endTime: [
+    { required: true, message: '종료 시간을 선택해주세요', trigger: ['blur', 'change'], type: 'number' },
+  ],
 }
 
 // Watch
@@ -228,22 +234,26 @@ function handleCodeInput(value: string) {
         />
       </NFormItem>
 
-      <NFormItem label="시작 시간">
+      <NFormItem
+        label="시작 시간"
+        path="startTime"
+      >
         <NTimePicker
           v-model:value="formData.startTime"
           format="HH:mm"
-          placeholder="선택 (선택사항)"
-          clearable
+          placeholder="시작 시간 선택"
           style="width: 100%"
         />
       </NFormItem>
 
-      <NFormItem label="종료 시간">
+      <NFormItem
+        label="종료 시간"
+        path="endTime"
+      >
         <NTimePicker
           v-model:value="formData.endTime"
           format="HH:mm"
-          placeholder="선택 (선택사항)"
-          clearable
+          placeholder="종료 시간 선택"
           style="width: 100%"
         />
       </NFormItem>
