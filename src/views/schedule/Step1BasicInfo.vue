@@ -247,7 +247,7 @@ const shiftColumns = computed<DataTableColumns<Shift>>(() => [
           class: 'w-6 h-6 rounded',
           style: { backgroundColor: row.colorCode },
         }),
-        h('span', { class: 'text-sm' }, row.colorCode),
+        h('span', { class: 'text-sm' }),
       ]);
     },
   },
@@ -331,7 +331,6 @@ function addDefaultShifts() {
     { code: 'D', name: '주간', colorCode: '#3B82F6', startTime: '09:00', endTime: '18:00' },
     { code: 'E', name: '초번', colorCode: '#F59E0B', startTime: '08:00', endTime: '16:00' },
     { code: 'N', name: '야간', colorCode: '#8B5CF6', startTime: '00:00', endTime: '08:00' },
-    { code: 'O', name: '비번', colorCode: '#6B7280', startTime: null, endTime: null },
   ];
 
   shifts.value = defaultShifts.map((s, i) => ({
