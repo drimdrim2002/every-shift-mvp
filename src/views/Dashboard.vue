@@ -159,6 +159,8 @@ async function loadSchedules() {
 function handleCreateNew() {
   // Store 초기화
   scheduleStore.reset();
+
+  orgStore.resetStore();
   // Step 1로 이동
   router.push('/schedule/step1');
 }
