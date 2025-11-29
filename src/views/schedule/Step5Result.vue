@@ -1,6 +1,6 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="4" />
+    <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
       <!-- 상태 표시 -->
@@ -208,7 +208,7 @@ watch(() => solver.status.value, async (newStatus) => {
 });
 
 function handleBack() {
-  router.push('/schedule/step3');
+  router.push('/schedule/step4');
 }
 
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {

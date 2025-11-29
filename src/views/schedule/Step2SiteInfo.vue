@@ -7,15 +7,6 @@
         {{ scheduleStore.basicInfo?.month }} 요일별 필요 인력을 확인하고 수정합니다
       </p>
 
-      <!-- 엑셀에서 불러온 데이터 안내 -->
-      <n-alert
-        v-if="isExcelMode"
-        type="info"
-        class="mb-6"
-      >
-        엑셀에서 불러온 요일별 인력 데이터입니다. 필요시 수정 후 다음 단계로 진행하세요.
-      </n-alert>
-
       <div class="overflow-x-auto">
         <table class="w-full border-collapse border border-gray-300">
           <thead>
@@ -130,9 +121,6 @@ const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 
 const isSaving = ref(false);
 const loading = ref(false);
-
-// 엑셀 업로드 모드 확인
-const isExcelMode = computed(() => scheduleStore.isExcelUploadMode);
 
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {

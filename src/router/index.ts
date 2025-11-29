@@ -60,13 +60,19 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'schedule/step3',
         name: 'Step3',
-        component: () => import('@/views/schedule/Step3InitialData.vue'),
+        component: () => import('@/views/schedule/Step3EmployeeInfo.vue'),
+        meta: { title: '직원 정보' },
+      },
+      {
+        path: 'schedule/step4',
+        name: 'Step4',
+        component: () => import('@/views/schedule/Step4InitialData.vue'),
         meta: { title: '초기 데이터' },
       },
       {
-        path: 'schedule/step4/:id',
-        name: 'Step4',
-        component: () => import('@/views/schedule/Step4Result.vue'),
+        path: 'schedule/step5/:id',
+        name: 'Step5',
+        component: () => import('@/views/schedule/Step5Result.vue'),
         meta: { title: '결과 확인' },
       },
     ],

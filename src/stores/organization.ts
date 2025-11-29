@@ -96,14 +96,21 @@ export const useOrganizationStore = defineStore('organization', () => {
       if (shiftError) throw shiftError
 
       // Snake_case to camelCase 변환
+      // hh:mm:ss 형태를 hh:mm로 변환
+      const formatTime = (time: string | null): string | null => {
+        if (!time) return null
+        const parts = time.split(':')
+        return `${parts[0]}:${parts[1]}`
+      }
+
       shifts.value = (shiftData as ShiftRow[]).map((shift) => ({
         id: shift.id,
         organizationId: shift.organization_id,
         code: shift.code,
         name: shift.name,
         colorCode: shift.color_code,
-        startTime: shift.start_time,
-        endTime: shift.end_time,
+        startTime: formatTime(shift.start_time),
+        endTime: formatTime(shift.end_time),
         createdAt: shift.created_at,
       }))
 

@@ -86,18 +86,6 @@
           />
         </div>
 
-        <!-- Section 3: 엑셀 업로드 -->
-        <div>
-          <h3 class="mb-4 text-xl font-semibold">
-            3. 엑셀 파일 업로드
-          </h3>
-          <ExcelUploadArea
-            :shifts="shifts"
-            :month="orgForm.month"
-            @file-selected="handleExcelUpload"
-          />
-        </div>
-
         <!-- 버튼 -->
         <div class="flex justify-between pt-6">
           <n-button
@@ -125,15 +113,6 @@
       @confirm="handleShiftConfirm"
       @cancel="handleShiftCancel"
     />
-
-    <!-- 엑셀 미리보기 모달 -->
-    <ExcelPreview
-      :visible="showPreview"
-      :parsed-data="parsedExcelData"
-      :validation-result="validationResult"
-      @confirm="handlePreviewConfirm"
-      @cancel="handlePreviewCancel"
-    />
   </div>
 </template>
 
@@ -156,22 +135,12 @@ import {
   type DataTableColumns,
 } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
-import ExcelUploadArea from '@/components/schedule/ExcelUploadArea.vue';
-import ExcelPreview from '@/components/schedule/ExcelPreview.vue';
 import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { getAvailableMonths } from '@/utils/date';
-import { parseExcelFile } from '@/utils/excelParser';
-import { validateExcelData } from '@/utils/excelValidator';
-import {
-  deleteOrganizationEmployees,
-  createEmployeesBatch,
-  replaceSiteRequirements,
-} from '@/api/employee';
 import { replaceAllShifts } from '@/api/shift';
 import * as organizationApi from '@/api/organization';
-import type { ParsedExcelData, ExcelValidationResult } from '@/types/excel';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
@@ -194,11 +163,6 @@ const shifts = ref<Shift[]>([]);
 // 시프트 모달 상태
 const showShiftModal = ref(false);
 const editingShift = ref<Shift | null>(null);
-
-// 엑셀 업로드 상태
-const parsedExcelData = ref<ParsedExcelData | null>(null);
-const validationResult = ref<ExcelValidationResult | null>(null);
-const showPreview = ref(false);
 
 // 조직 유형 옵션
 const orgTypeOptions = [
@@ -257,7 +221,12 @@ const shiftColumns = computed<DataTableColumns<Shift>>(() => [
     width: 150,
     render(row) {
       if (row.startTime && row.endTime) {
-        return `${row.startTime} - ${row.endTime}`;
+        // hh:mm:ss 형태를 hh:mm로 변환
+        const formatTime = (time: string) => {
+          const parts = time.split(':');
+          return `${parts[0]}:${parts[1]}`;
+        };
+        return `${formatTime(row.startTime)} - ${formatTime(row.endTime)}`;
       }
       return '-';
     },
@@ -303,9 +272,7 @@ const canProceed = computed(() => {
     orgForm.value.name &&
     orgForm.value.type &&
     orgForm.value.month &&
-    shifts.value.length > 0 &&
-    parsedExcelData.value &&
-    validationResult.value?.isValid
+    shifts.value.length > 0
   );
 });
 
@@ -328,8 +295,8 @@ onMounted(async () => {
 // 기본 시프트 추가
 function addDefaultShifts() {
   const defaultShifts: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>[] = [
-    { code: 'D', name: '주간', colorCode: '#3B82F6', startTime: '09:00', endTime: '18:00' },
-    { code: 'E', name: '초번', colorCode: '#F59E0B', startTime: '08:00', endTime: '16:00' },
+    { code: 'D', name: '주간', colorCode: '#3B82F6', startTime: '08:00', endTime: '16:00' },
+    { code: 'E', name: '오후', colorCode: '#F59E0B', startTime: '16:00', endTime: '00:00' },
     { code: 'N', name: '야간', colorCode: '#8B5CF6', startTime: '00:00', endTime: '08:00' },
   ];
 
@@ -401,43 +368,20 @@ function handleCancel() {
   router.push('/');
 }
 
-// 엑셀 업로드 핸들러
-async function handleExcelUpload(file: File) {
+// 다음 단계 핸들러
+async function handleNext() {
+  // 폼 유효성 검증
   try {
-    // 폼 유효성 검증
-    if (!orgForm.value.name || !orgForm.value.type || !orgForm.value.month) {
-      window.$message?.warning('조직 정보를 먼저 입력해주세요.');
-      return;
-    }
-
-    if (shifts.value.length === 0) {
-      window.$message?.warning('시프트를 최소 1개 이상 추가해주세요.');
-      return;
-    }
-
-    // 파싱 (month 매개변수 전달)
-    const parsedData = await parseExcelFile(file, orgForm.value.month);
-
-    // 시프트 코드 배열 생성
-    const shiftCodes = shifts.value.map((s) => s.code);
-
-    // 검증 (shiftCodes, month 전달)
-    const result = validateExcelData(parsedData, shiftCodes, orgForm.value.month);
-
-    // 상태 설정
-    parsedExcelData.value = parsedData;
-    validationResult.value = result;
-
-    // 미리보기 모달 표시
-    showPreview.value = true;
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '파일 처리 중 오류가 발생했습니다.';
-    window.$message?.error(errorMessage);
+    await orgFormRef.value?.validate();
+  } catch {
+    return;
   }
-}
 
-// 미리보기 확인 핸들러
-async function handlePreviewConfirm(data: ParsedExcelData) {
+  if (shifts.value.length === 0) {
+    window.$message?.warning('시프트를 최소 1개 이상 추가해주세요.');
+    return;
+  }
+
   try {
     // 1. 조직 생성 또는 업데이트
     let orgId: string;
@@ -468,74 +412,26 @@ async function handlePreviewConfirm(data: ParsedExcelData) {
     }));
     await replaceAllShifts(orgId, shiftData);
 
-    // 3. 기존 직원 삭제 (CASCADE로 스케줄 데이터도 삭제됨)
-    await deleteOrganizationEmployees(orgId);
-
-    // 4. 직원 일괄 생성
-    await createEmployeesBatch(orgId, data.employees);
-
-    // 5. 요일별 인력 요구사항 교체 (세로형)
-    await replaceSiteRequirements(orgId, data.siteRequirements);
-
-    // 6. 조직 스토어 업데이트 (시프트 새로 로드)
+    // 3. 조직 스토어 업데이트 (시프트 새로 로드)
     await orgStore.loadOrganization(orgId);
 
-    // 7. Pinia schedule store 업데이트
+    // 4. Pinia schedule store 업데이트
     scheduleStore.setBasicInfo({
       month: orgForm.value.month,
       organizationId: orgId,
       organizationName: orgForm.value.name,
       organizationType: orgForm.value.type,
-      employeeCount: data.employees.length,
+      employeeCount: 0, // 직원은 Step3에서 설정
       shifts: orgStore.shifts,
     });
 
-    scheduleStore.setSiteRequirements(data.siteRequirements);
-    scheduleStore.setAssignments(data.previousMonthData);
-    scheduleStore.setExcelUploadMode(true);
-
-    // 8. Step2로 이동
+    // 5. Step2로 이동
     scheduleStore.currentStep = 2;
-
-    // 미리보기 모달 닫기
-    showPreview.value = false;
-
-    // 성공 메시지
-    window.$message?.success('엑셀 데이터를 성공적으로 불러왔습니다.');
-
-    // Step2로 이동
+    window.$message?.success('기본 정보가 저장되었습니다.');
     router.push('/schedule/step2');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '데이터 저장 중 오류가 발생했습니다.';
     window.$message?.error(errorMessage);
   }
-}
-
-// 미리보기 취소 핸들러
-function handlePreviewCancel() {
-  showPreview.value = false;
-}
-
-// 다음 단계 핸들러
-async function handleNext() {
-  // 폼 유효성 검증
-  try {
-    await orgFormRef.value?.validate();
-  } catch {
-    return;
-  }
-
-  if (shifts.value.length === 0) {
-    window.$message?.warning('시프트를 최소 1개 이상 추가해주세요.');
-    return;
-  }
-
-  if (!parsedExcelData.value || !validationResult.value?.isValid) {
-    window.$message?.warning('엑셀 파일을 업로드하고 검증을 완료해주세요.');
-    return;
-  }
-
-  // 미리보기 확인 진행
-  await handlePreviewConfirm(parsedExcelData.value);
 }
 </script>

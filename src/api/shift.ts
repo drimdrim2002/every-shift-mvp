@@ -13,6 +13,13 @@ interface ShiftRow {
   created_at?: string;
 }
 
+// 시간 형식 변환 (hh:mm:ss → hh:mm)
+function formatTime(time: string | null): string | null {
+  if (!time) return null;
+  const parts = time.split(':');
+  return `${parts[0]}:${parts[1]}`;
+}
+
 // snake_case → camelCase 변환
 function toShift(row: ShiftRow): Shift {
   return {
@@ -21,8 +28,8 @@ function toShift(row: ShiftRow): Shift {
     code: row.code,
     name: row.name,
     colorCode: row.color_code,
-    startTime: row.start_time,
-    endTime: row.end_time,
+    startTime: formatTime(row.start_time),
+    endTime: formatTime(row.end_time),
     createdAt: row.created_at,
   };
 }

@@ -38,8 +38,9 @@ const props = defineProps<Props>();
 const steps = [
   { number: 1, label: '기본 정보' },
   { number: 2, label: '사이트 정보' },
-  { number: 3, label: '초기 데이터' },
-  { number: 4, label: '결과 확인' },
+  { number: 3, label: '직원 정보' },
+  { number: 4, label: '초기 데이터' },
+  { number: 5, label: '결과 확인' },
 ];
 
 function getStepCircleClass(stepNumber: number) {

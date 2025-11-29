@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap } from '@/types/schedule';
+import type { EmployeeInput } from '@/types/employee';
 
 export const useScheduleStore = defineStore('schedule', () => {
   // Step 1: 기본 정보
@@ -9,7 +10,10 @@ export const useScheduleStore = defineStore('schedule', () => {
   // Step 2: 사이트 정보 (세로형 배열)
   const siteRequirements = ref<SiteRequirementList>([]);
 
-  // Step 3: 그리드 데이터
+  // Step 3: 직원 정보
+  const employees = ref<EmployeeInput[]>([]);
+
+  // Step 4: 그리드 데이터
   const assignments = ref<AssignmentMap>({});
 
   // 현재 단계
@@ -34,12 +38,16 @@ export const useScheduleStore = defineStore('schedule', () => {
     siteRequirements.value = reqs;
   }
 
+  function setEmployees(data: EmployeeInput[]) {
+    employees.value = data;
+  }
+
   function setAssignments(data: AssignmentMap) {
     assignments.value = data;
   }
 
   function nextStep() {
-    if (currentStep.value < 4) {
+    if (currentStep.value < 5) {
       currentStep.value++;
     }
   }
@@ -53,6 +61,7 @@ export const useScheduleStore = defineStore('schedule', () => {
   function reset() {
     basicInfo.value = null;
     siteRequirements.value = [];
+    employees.value = [];
     assignments.value = {};
     currentStep.value = 1;
     isExcelUpload.value = false;
@@ -61,12 +70,14 @@ export const useScheduleStore = defineStore('schedule', () => {
   return {
     basicInfo,
     siteRequirements,
+    employees,
     assignments,
     currentStep,
     isExcelUpload,
     isExcelUploadMode,
     setBasicInfo,
     setSiteRequirements,
+    setEmployees,
     setAssignments,
     setExcelUploadMode,
     nextStep,

@@ -1,6 +1,6 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="3" />
+    <StepIndicator :current-step="4" />
 
     <n-card title="근무표 생성 - 초기 정보 입력">
       <n-alert
@@ -205,7 +205,7 @@ function handlePrev() {
   // 현재 상태 저장
   scheduleStore.setAssignments(grid.assignments.value);
   scheduleStore.prevStep();
-  router.push('/schedule/step2');
+  router.push('/schedule/step3');
 }
 
 function handleSave() {
@@ -350,7 +350,7 @@ async function handleGenerate() {
         scheduleStore.nextStep();
         showSuccess('근무표 생성이 완료되었습니다');
         showModal.value = false;
-        router.push(`/schedule/step4/${schedule.id}`);
+        router.push(`/schedule/step5/${schedule.id}`);
       } else if (solver.status.value === 'error') {
         clearInterval(checkStatusInterval);
         if (timerInterval) clearInterval(timerInterval);
