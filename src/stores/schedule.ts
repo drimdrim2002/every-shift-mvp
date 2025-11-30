@@ -25,6 +25,9 @@ export const useScheduleStore = defineStore('schedule', () => {
   // 엑셀 업로드 모드 computed getter
   const isExcelUploadMode = computed(() => isExcelUpload.value);
 
+  // scheduleId computed getter
+  const scheduleId = computed(() => basicInfo.value?.scheduleId ?? null);
+
   // Actions
   function setBasicInfo(info: ScheduleBasicInfo) {
     basicInfo.value = info;
@@ -75,6 +78,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     currentStep,
     isExcelUpload,
     isExcelUploadMode,
+    scheduleId,
     setBasicInfo,
     setSiteRequirements,
     setEmployees,

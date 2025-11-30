@@ -3,6 +3,7 @@ import type { SiteRequirementRow } from './excel';
 
 // 기본 정보 (Step 1)
 export interface ScheduleBasicInfo {
+  scheduleId?: string; // Schedule UUID (Step1에서 생성)
   month: string; // "2025-12"
   organizationId: string; // UUID
   organizationName: string;

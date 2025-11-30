@@ -7,51 +7,33 @@
         vertical
         :size="24"
       >
-        <!-- Section 1: 조직 정보 입력 -->
+        <!-- Section 1: 조직 정보 (읽기 전용) -->
         <div>
           <h3 class="mb-4 text-xl font-semibold">
             1. 조직 정보
           </h3>
-          <n-form
-            ref="orgFormRef"
-            :model="orgForm"
-            :rules="orgFormRules"
-            label-placement="left"
-            label-width="100"
-          >
-            <n-form-item
-              label="조직명"
-              path="name"
-            >
-              <n-input
-                v-model:value="orgForm.name"
-                placeholder="예: 서울대학교병원"
-                :maxlength="100"
-              />
-            </n-form-item>
-
-            <n-form-item
-              label="조직 유형"
-              path="type"
-            >
-              <n-select
-                v-model:value="orgForm.type"
-                :options="orgTypeOptions"
-                placeholder="조직 유형 선택"
-              />
-            </n-form-item>
-
-            <n-form-item
-              label="계획월"
-              path="month"
-            >
-              <n-select
-                v-model:value="orgForm.month"
-                :options="monthOptions"
-                placeholder="월 선택"
-              />
-            </n-form-item>
-          </n-form>
+          
+          <!-- 간략한 조직 정보 표시 -->
+          <div class="mb-4 rounded-lg bg-gray-50 p-4">
+            <div class="space-y-2 text-sm">
+              <div>
+                <span class="font-medium text-gray-700">조직명:</span>
+                <span class="ml-2 text-gray-900">{{ orgStore.current?.name || '-' }}</span>
+              </div>
+              <div>
+                <span class="font-medium text-gray-700">조직 유형:</span>
+                <span class="ml-2 text-gray-900">{{ getOrgTypeLabel(orgStore.current?.type) }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 계획월 표시 (읽기 전용) -->
+          <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+            <div class="text-sm">
+              <span class="font-medium text-blue-900">계획월:</span>
+              <span class="ml-2 text-lg font-semibold text-blue-900">{{ scheduleStore.basicInfo?.month || '-' }}</span>
+            </div>
+          </div>
         </div>
 
         <!-- Section 2: 시프트 관리 -->
@@ -70,17 +52,27 @@
           </div>
 
           <n-alert
-            v-if="shifts.length === 0"
+            v-if="shiftsWithTime.length === 0"
             type="warning"
             class="mb-4"
           >
-            시프트를 최소 1개 이상 추가해주세요. 엑셀 템플릿 다운로드 및 업로드가 가능합니다.
+            시프트를 최소 1개 이상 추가해주세요. (시간 정보가 있는 시프트만 표시됩니다)
+          </n-alert>
+          
+          <n-alert
+            v-else
+            type="info"
+            class="mb-4"
+          >
+            💡 시간 정보가 없는 시프트(O, H 등)는 사이트 정보 입력에 사용되지 않으므로 표시되지 않습니다.
+            <br>
+            ⚠️ 시프트 변경 사항은 조직 전체에 영구 반영되며, 이후 생성되는 모든 근무표에도 동일하게 적용됩니다.
           </n-alert>
 
           <n-data-table
-            v-if="shifts.length > 0"
+            v-if="shiftsWithTime.length > 0"
             :columns="shiftColumns"
-            :data="shifts"
+            :data="shiftsWithTime"
             :bordered="false"
             :pagination="false"
           />
@@ -122,72 +114,49 @@ import { useRouter } from 'vue-router';
 import {
   NCard,
   NSpace,
-  NForm,
-  NFormItem,
-  NInput,
-  NSelect,
   NButton,
   NAlert,
   NDataTable,
   NPopconfirm,
-  type FormInst,
-  type FormRules,
   type DataTableColumns,
 } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { getAvailableMonths } from '@/utils/date';
-import { replaceAllShifts } from '@/api/shift';
-import * as organizationApi from '@/api/organization';
+import { createShift, updateShift, deleteShift } from '@/api/shift';
+import { createSchedule } from '@/api/schedule';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 
-// Form Refs
-const orgFormRef = ref<FormInst | null>(null);
-
-// 조직 정보 폼
-const orgForm = ref({
-  name: '',
-  type: '' as 'hospital' | 'fire' | 'police' | '',
-  month: '',
-});
-
 // 시프트 목록 (로컬 상태)
 const shifts = ref<Shift[]>([]);
+
+// 시간 정보가 있는 시프트만 필터링 (computed)
+const shiftsWithTime = computed(() => {
+  return shifts.value.filter(
+    (shift) => shift.startTime !== null && shift.endTime !== null
+  );
+});
 
 // 시프트 모달 상태
 const showShiftModal = ref(false);
 const editingShift = ref<Shift | null>(null);
 
-// 조직 유형 옵션
-const orgTypeOptions = [
-  { label: '병원', value: 'hospital' },
-  { label: '소방서', value: 'fire' },
-  { label: '경찰서', value: 'police' },
-];
+// 조직 유형 라벨 헬퍼 함수
+function getOrgTypeLabel(type?: string): string {
+  const map: Record<string, string> = {
+    hospital: '병원',
+    fire: '소방서',
+    police: '경찰서',
+  };
+  return type ? map[type] || type : '-';
+}
 
-// 월 옵션
-const monthOptions = computed(() => {
-  return getAvailableMonths().map((month) => ({
-    label: month,
-    value: month,
-  }));
-});
-
-// 폼 유효성 검증 규칙
-const orgFormRules: FormRules = {
-  name: [
-    { required: true, message: '조직명을 입력해주세요', trigger: 'blur' },
-    { max: 100, message: '조직명은 100자 이하여야 합니다', trigger: 'blur' },
-  ],
-  type: [{ required: true, message: '조직 유형을 선택해주세요', trigger: 'change' }],
-  month: [{ required: true, message: '계획월을 선택해주세요', trigger: 'change' }],
-};
+// 폼 유효성 검증 규칙 - 제거됨
 
 // 시프트 테이블 컬럼
 const shiftColumns = computed<DataTableColumns<Shift>>(() => [
@@ -269,43 +238,31 @@ const shiftColumns = computed<DataTableColumns<Shift>>(() => [
 // 진행 가능 여부
 const canProceed = computed(() => {
   return (
-    orgForm.value.name &&
-    orgForm.value.type &&
-    orgForm.value.month &&
-    shifts.value.length > 0
+    scheduleStore.basicInfo?.month &&
+    shiftsWithTime.value.length > 0 &&
+    orgStore.current !== null
   );
 });
 
 // 초기화
 onMounted(async () => {
-  // 기존 조직 정보가 있으면 로드
-  if (orgStore.current) {
-    orgForm.value.name = orgStore.current.name;
-    orgForm.value.type = orgStore.current.type as 'hospital' | 'fire' | 'police';
-    shifts.value = [...orgStore.shifts];
-  } else {
-    // 기본 시프트 추가
-    addDefaultShifts();
+  // 조직 정보 로드 (없을 경우에만)
+  if (!orgStore.current) {
+    await orgStore.loadOrganization('00000000-0000-0000-0000-000000000001');
   }
-
-  // 기본값: 다음 달
-  orgForm.value.month = monthOptions.value[1]?.value || '';
+  
+  // Dashboard에서 계획월이 설정되지 않은 경우 Dashboard로 리다이렉트
+  if (!scheduleStore.basicInfo?.month) {
+    window.$message?.warning('계획월을 먼저 선택해주세요');
+    router.push('/');
+    return;
+  }
+  
+  // 시프트는 항상 orgStore에서 가져옴 (최신 상태 반영)
+  if (orgStore.shifts.length > 0) {
+    shifts.value = [...orgStore.shifts];
+  }
 });
-
-// 기본 시프트 추가
-function addDefaultShifts() {
-  const defaultShifts: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>[] = [
-    { code: 'D', name: '주간', colorCode: '#3B82F6', startTime: '08:00', endTime: '16:00' },
-    { code: 'E', name: '오후', colorCode: '#F59E0B', startTime: '16:00', endTime: '00:00' },
-    { code: 'N', name: '야간', colorCode: '#8B5CF6', startTime: '00:00', endTime: '08:00' },
-  ];
-
-  shifts.value = defaultShifts.map((s, i) => ({
-    ...s,
-    id: `temp-${Date.now()}-${i}`,
-    organizationId: '',
-  }));
-}
 
 // 시프트 추가 핸들러
 function handleAddShift() {
@@ -320,41 +277,72 @@ function handleEditShift(shift: Shift) {
 }
 
 // 시프트 삭제 핸들러
-function handleDeleteShift(shiftId: string) {
-  shifts.value = shifts.value.filter((s) => s.id !== shiftId);
-  window.$message?.success('시프트가 삭제되었습니다.');
+async function handleDeleteShift(shiftId: string) {
+  try {
+    // DB에서 삭제
+    await deleteShift(shiftId);
+    
+    // 로컬 상태에서 제거
+    shifts.value = shifts.value.filter((s) => s.id !== shiftId);
+    
+    // orgStore 다시 로드
+    if (orgStore.current) {
+      await orgStore.loadOrganization(orgStore.current.id);
+    }
+    
+    window.$message?.success('시프트가 삭제되었습니다.');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '시프트 삭제 중 오류가 발생했습니다.';
+    window.$message?.error(errorMessage);
+  }
 }
 
 // 시프트 모달 확인 핸들러
-function handleShiftConfirm(shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>) {
-  if (editingShift.value) {
-    // 수정 모드
-    shifts.value = shifts.value.map((s) =>
-      s.id === editingShift.value!.id ? { ...s, ...shiftData } : s
-    );
-    window.$message?.success('시프트가 수정되었습니다.');
-  } else {
-    // 추가 모드
-    // 중복 코드 확인
-    const existingCode = shifts.value.find(
-      (s) => s.code.toUpperCase() === shiftData.code.toUpperCase()
-    );
-    if (existingCode) {
-      window.$message?.error(`시프트 코드 '${shiftData.code}'가 이미 존재합니다.`);
-      return;
-    }
-
-    const newShift: Shift = {
-      ...shiftData,
-      id: `temp-${Date.now()}`,
-      organizationId: '',
-    };
-    shifts.value = [...shifts.value, newShift];
-    window.$message?.success('시프트가 추가되었습니다.');
+async function handleShiftConfirm(shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>) {
+  if (!orgStore.current) {
+    window.$message?.error('조직 정보를 불러올 수 없습니다.');
+    return;
   }
 
-  showShiftModal.value = false;
-  editingShift.value = null;
+  try {
+    if (editingShift.value) {
+      // 수정 모드: DB 업데이트
+      await updateShift(editingShift.value.id, shiftData);
+      
+      // 로컬 상태 업데이트
+      shifts.value = shifts.value.map((s) =>
+        s.id === editingShift.value!.id ? { ...s, ...shiftData } : s
+      );
+      
+      window.$message?.success('시프트가 수정되었습니다.');
+    } else {
+      // 추가 모드: 중복 코드 확인
+      const existingCode = shifts.value.find(
+        (s) => s.code.toUpperCase() === shiftData.code.toUpperCase()
+      );
+      if (existingCode) {
+        window.$message?.error(`시프트 코드 '${shiftData.code}'가 이미 존재합니다.`);
+        return;
+      }
+
+      // DB에 생성
+      const newShift = await createShift(orgStore.current.id, shiftData);
+      
+      // 로컬 상태에 추가
+      shifts.value = [...shifts.value, newShift];
+      
+      window.$message?.success('시프트가 추가되었습니다.');
+    }
+
+    // orgStore 다시 로드
+    await orgStore.loadOrganization(orgStore.current.id);
+
+    showShiftModal.value = false;
+    editingShift.value = null;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '시프트 저장 중 오류가 발생했습니다.';
+    window.$message?.error(errorMessage);
+  }
 }
 
 // 시프트 모달 취소 핸들러
@@ -370,62 +358,34 @@ function handleCancel() {
 
 // 다음 단계 핸들러
 async function handleNext() {
-  // 폼 유효성 검증
-  try {
-    await orgFormRef.value?.validate();
-  } catch {
+  if (!orgStore.current) {
+    window.$message?.error('조직 정보를 불러올 수 없습니다.');
     return;
   }
 
-  if (shifts.value.length === 0) {
-    window.$message?.warning('시프트를 최소 1개 이상 추가해주세요.');
+  if (shiftsWithTime.value.length === 0) {
+    window.$message?.warning('시간 정보가 있는 시프트를 최소 1개 이상 추가해주세요.');
     return;
   }
 
   try {
-    // 1. 조직 생성 또는 업데이트
-    let orgId: string;
+    const orgId = orgStore.current.id;
 
-    if (orgStore.current) {
-      // 기존 조직 업데이트
-      await organizationApi.updateOrganization(orgStore.current.id, {
-        name: orgForm.value.name,
-        type: orgForm.value.type,
-      });
-      orgId = orgStore.current.id;
-    } else {
-      // 새 조직 생성
-      const newOrg = await organizationApi.createOrganization({
-        name: orgForm.value.name,
-        type: orgForm.value.type,
-      });
-      orgId = newOrg.id;
-    }
+    // schedules 테이블에 레코드 생성
+    const schedule = await createSchedule(orgId, scheduleStore.basicInfo?.month || '');
 
-    // 2. 시프트 저장
-    const shiftData = shifts.value.map((s) => ({
-      code: s.code,
-      name: s.name,
-      colorCode: s.colorCode,
-      startTime: s.startTime,
-      endTime: s.endTime,
-    }));
-    await replaceAllShifts(orgId, shiftData);
-
-    // 3. 조직 스토어 업데이트 (시프트 새로 로드)
-    await orgStore.loadOrganization(orgId);
-
-    // 4. Pinia schedule store 업데이트
+    // Pinia schedule store 업데이트 (시간 정보가 있는 시프트만)
     scheduleStore.setBasicInfo({
-      month: orgForm.value.month,
+      scheduleId: schedule.id,
+      month: scheduleStore.basicInfo?.month || '',
       organizationId: orgId,
-      organizationName: orgForm.value.name,
-      organizationType: orgForm.value.type,
-      employeeCount: 0, // 직원은 Step3에서 설정
-      shifts: orgStore.shifts,
+      organizationName: orgStore.current.name,
+      organizationType: orgStore.current.type,
+      employeeCount: 0,
+      shifts: shiftsWithTime.value,
     });
 
-    // 5. Step2로 이동
+    // Step2로 이동
     scheduleStore.currentStep = 2;
     window.$message?.success('기본 정보가 저장되었습니다.');
     router.push('/schedule/step2');

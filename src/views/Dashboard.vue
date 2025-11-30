@@ -101,18 +101,48 @@
         </n-card>
       </div>
     </n-card>
+
+    <!-- 월 선택 모달 -->
+    <n-modal
+      v-model:show="showMonthModal"
+      preset="dialog"
+      title="근무표 생성"
+      positive-text="확인"
+      negative-text="취소"
+      :loading="modalLoading"
+      @positive-click="handleMonthConfirm"
+    >
+      <div class="py-4">
+        <n-form
+          ref="monthFormRef"
+          :model="monthForm"
+        >
+          <n-form-item
+            label="계획월"
+            path="month"
+          >
+            <n-select
+              v-model:value="monthForm.month"
+              :options="monthOptions"
+              placeholder="근무표 생성할 월을 선택하세요"
+            />
+          </n-form-item>
+        </n-form>
+      </div>
+    </n-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NButton, NSpin, NBadge } from 'naive-ui';
+import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleStore } from '@/stores/schedule';
 import { getScheduleList } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
+import { getAvailableMonths } from '@/utils/date';
 import dayjs from 'dayjs';
 
 interface Schedule {
@@ -132,6 +162,22 @@ const scheduleStore = useScheduleStore();
 
 const loading = ref(true);
 const schedules = ref<Schedule[]>([]);
+
+// 월 선택 모달 관련
+const showMonthModal = ref(false);
+const modalLoading = ref(false);
+const monthFormRef = ref();
+const monthForm = ref({
+  month: '',
+});
+
+// 월 옵션
+const monthOptions = computed(() => {
+  return getAvailableMonths().map((month) => ({
+    label: month,
+    value: month,
+  }));
+});
 
 onMounted(async () => {
   // 조직 정보 로드
@@ -157,15 +203,70 @@ async function loadSchedules() {
 }
 
 function handleCreateNew() {
-  // Store 초기화
-  scheduleStore.reset();
+  // 기본값: 다음 달
+  monthForm.value.month = monthOptions.value[1]?.value || '';
+  showMonthModal.value = true;
+}
 
-  orgStore.resetStore();
-  // Step 1로 이동
-  router.push('/schedule/step1');
+async function handleMonthConfirm() {
+  // 월 선택 확인
+  if (!monthForm.value.month) {
+    window.$message?.warning('계획월을 선택해주세요');
+    return false; // 모달 닫기 방지
+  }
+
+  // 중복 체크
+  modalLoading.value = true;
+  try {
+    const { data, error } = await supabase
+      .from('schedules')
+      .select('id, month, status')
+      .eq('organization_id', orgStore.current!.id)
+      .eq('month', monthForm.value.month)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      window.$message?.error(`${monthForm.value.month} 근무표가 이미 존재합니다. 다른 월을 선택해주세요.`);
+      return false; // 모달 닫기 방지
+    }
+
+    // 중복 없음 - scheduleStore에 month 저장 후 Step1으로 이동
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo({
+      month: monthForm.value.month,
+      organizationId: orgStore.current!.id,
+      organizationName: orgStore.current!.name,
+      organizationType: orgStore.current!.type,
+      shifts: orgStore.shifts,
+      employeeCount: orgStore.employees.length,
+    });
+
+    router.push('/schedule/step1');
+    return true; // 모달 닫기 허용
+  } catch (error) {
+    console.warn('중복 체크 실패:', error);
+    window.$message?.error('월 중복 체크 중 오류가 발생했습니다');
+    return false;
+  } finally {
+    modalLoading.value = false;
+  }
 }
 
 function handleViewSchedule(schedule: Schedule) {
+  // scheduleStore에 기본 정보 로드
+  scheduleStore.reset();
+  scheduleStore.setBasicInfo({
+    scheduleId: schedule.id,
+    month: schedule.month,
+    organizationId: orgStore.current!.id,
+    organizationName: orgStore.current!.name,
+    organizationType: orgStore.current!.type,
+    shifts: orgStore.shifts,
+    employeeCount: orgStore.employees.length,
+  });
+  
   if (schedule.status === 'complete' || schedule.status === 'changed') {
     router.push(`/schedule/step4/${schedule.id}`);
   } else if (schedule.status === 'created' || schedule.status === 'running') {
@@ -175,9 +276,22 @@ function handleViewSchedule(schedule: Schedule) {
   }
 }
 
-function handleEdit(schedule: Schedule) {
+async function handleEdit(schedule: Schedule) {
   if (schedule.status === 'complete' || schedule.status === 'changed') {
-    router.push(`/schedule/step4/${schedule.id}`);
+    // scheduleStore에 기본 정보 로드 (처음부터 다시 설정)
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo({
+      scheduleId: schedule.id,
+      month: schedule.month,
+      organizationId: orgStore.current!.id,
+      organizationName: orgStore.current!.name,
+      organizationType: orgStore.current!.type,
+      shifts: orgStore.shifts,
+      employeeCount: orgStore.employees.length,
+    });
+    
+    // Step1부터 다시 시작 (시프트, 사이트 정보 등 재설정)
+    router.push('/schedule/step1');
   } else {
     window.$message?.info('완료되지 않은 근무표는 수정할 수 없습니다');
   }
