@@ -134,14 +134,46 @@ export async function updateShift(
 
 /**
  * 시프트 삭제
- * CASCADE 제약으로 관련 site_requirements, schedule_assignments 자동 삭제
+ * 관련 site_requirements와 schedule_assignments를 먼저 삭제한 후 시프트 삭제
  * @param shiftId - 시프트 ID
  */
 export async function deleteShift(shiftId: string): Promise<void> {
+  // 1. 관련 site_requirements 먼저 삭제
+  const { error: siteReqError } = await supabase
+    .from('site_requirements')
+    .delete()
+    .eq('shift_id', shiftId);
+
+  if (siteReqError) {
+    console.error('[deleteShift] Site requirements delete error:', siteReqError);
+    throw new Error(`관련 사이트 정보 삭제 실패: ${siteReqError.message}`);
+  }
+
+  // 2. 관련 schedule_assignments 삭제 (있을 경우)
+  const { error: assignmentError } = await supabase
+    .from('schedule_assignments')
+    .delete()
+    .eq('shift_id', shiftId);
+
+  if (assignmentError) {
+    console.error('[deleteShift] Schedule assignments delete error:', assignmentError);
+    throw new Error(`관련 배정 정보 삭제 실패: ${assignmentError.message}`);
+  }
+
+  // 3. 시프트 삭제
   const { error } = await supabase.from('shifts').delete().eq('id', shiftId);
 
   if (error) {
     console.error('[deleteShift] Supabase error:', error);
+    
+    // 외래 키 제약 위반 에러 처리 (혹시 모를 경우)
+    if (error.code === '23503') {
+      throw new Error(
+        '이 시프트는 현재 사용 중이어서 삭제할 수 없습니다. ' +
+        '관련된 데이터를 먼저 제거해주세요.'
+      );
+    }
+    
     throw new Error(`시프트 삭제 실패: ${error.message}`);
   }
 }

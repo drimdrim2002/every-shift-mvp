@@ -277,24 +277,26 @@ function handleViewSchedule(schedule: Schedule) {
 }
 
 async function handleEdit(schedule: Schedule) {
-  if (schedule.status === 'complete' || schedule.status === 'changed') {
-    // scheduleStore에 기본 정보 로드 (처음부터 다시 설정)
-    scheduleStore.reset();
-    scheduleStore.setBasicInfo({
-      scheduleId: schedule.id,
-      month: schedule.month,
-      organizationId: orgStore.current!.id,
-      organizationName: orgStore.current!.name,
-      organizationType: orgStore.current!.type,
-      shifts: orgStore.shifts,
-      employeeCount: orgStore.employees.length,
-    });
-    
-    // Step1부터 다시 시작 (시프트, 사이트 정보 등 재설정)
-    router.push('/schedule/step1');
-  } else {
-    window.$message?.info('완료되지 않은 근무표는 수정할 수 없습니다');
+  // running 상태일 때만 수정 불가 (AI 생성 중)
+  if (schedule.status === 'running') {
+    window.$message?.warning('AI가 근무표를 생성 중입니다. 생성이 완료된 후 수정해주세요.');
+    return;
   }
+
+  // created, complete, changed, error 상태는 모두 수정 가능
+  scheduleStore.reset();
+  scheduleStore.setBasicInfo({
+    scheduleId: schedule.id,
+    month: schedule.month,
+    organizationId: orgStore.current!.id,
+    organizationName: orgStore.current!.name,
+    organizationType: orgStore.current!.type,
+    shifts: orgStore.shifts,
+    employeeCount: orgStore.employees.length,
+  });
+  
+  // Step1부터 다시 시작 (시프트, 사이트 정보 등 재설정)
+  router.push('/schedule/step1');
 }
 
 function handleDelete(schedule: Schedule) {
