@@ -237,14 +237,15 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
         jsonData.forEach((row, index) => {
           const rowNum = index + 2; // 헤더 + 1-indexed
 
-          // 이름 필수 검증
-          if (!row.name || row.name.trim() === '') {
+          // 이름 필수 검증 (숫자도 문자열로 변환)
+          const nameValue = row.name ? String(row.name).trim() : '';
+          if (!nameValue) {
             errors.push(`${rowNum}행: 이름이 비어있습니다.`);
             return;
           }
 
-          // 가능 시프트 파싱
-          const shiftsStr = row.availableShifts || '';
+          // 가능 시프트 파싱 (숫자도 문자열로 변환)
+          const shiftsStr = row.availableShifts ? String(row.availableShifts) : '';
           const shiftCodes = shiftsStr
             .split(/[,\s]+/)
             .map((s) => s.trim().toUpperCase())
@@ -258,12 +259,13 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
             return;
           }
 
-          // 직원 ID 생성 (비어있으면 자동 생성)
-          const employeeId = row.employeeId?.trim() || generateEmployeeId();
+          // 직원 ID 생성 (비어있으면 자동 생성, 숫자도 문자열로 변환)
+          const employeeIdValue = row.employeeId ? String(row.employeeId).trim() : '';
+          const employeeId = employeeIdValue || generateEmployeeId();
 
           employees.push({
             employeeId,
-            name: row.name.trim(),
+            name: nameValue,
             availableShifts: validShifts,
           });
         });
@@ -280,7 +282,9 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
 
         resolve(employees);
       } catch (error) {
-        reject(new Error('엑셀 파일 형식이 올바르지 않습니다.'));
+        console.error('엑셀 파싱 에러:', error);
+        const errorMessage = error instanceof Error ? error.message : '엑셀 파일 형식이 올바르지 않습니다.';
+        reject(new Error(`엑셀 파일 형식이 올바르지 않습니다. (${errorMessage})`));
       }
     };
 

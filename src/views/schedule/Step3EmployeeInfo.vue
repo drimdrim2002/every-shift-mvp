@@ -91,6 +91,7 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
+import { supabase } from '@/api/supabase';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
@@ -114,15 +115,44 @@ const canProceed = computed(() => {
 });
 
 // 초기화
-onMounted(() => {
+onMounted(async () => {
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
-  // 기존 직원 데이터 복원
+  // 1. Store에 저장된 데이터가 있으면 복원 (새로 생성하는 경우)
   if (scheduleStore.employees.length > 0) {
     employees.value = [...scheduleStore.employees];
+    return;
+  }
+
+  // 2. DB에서 기존 직원 정보 불러오기 (수정하는 경우)
+  try {
+    const orgId = scheduleStore.basicInfo.organizationId;
+    const { data, error } = await supabase
+      .from('employees')
+      .select('*')
+      .eq('organization_id', orgId)
+      .order('employee_id');
+
+    if (error) {
+      console.error('[Step3] Load employees error:', error);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      // DB 데이터를 EmployeeInput 형식으로 변환
+      employees.value = data.map((emp: any) => ({
+        employeeId: emp.employee_id,
+        name: emp.name,
+        availableShifts: emp.available_shifts,
+      }));
+      
+      window.$message?.info(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
+    }
+  } catch (error) {
+    console.error('[Step3] Failed to load employees:', error);
   }
 });
 
@@ -172,13 +202,33 @@ async function handleNext() {
   try {
     const orgId = scheduleStore.basicInfo.organizationId;
 
-    // 1. 기존 직원 삭제
+    // 1. 기존 직원 ID 조회
+    const { data: existingEmployees } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('organization_id', orgId);
+
+    // 2. 기존 직원들의 schedule_assignments 먼저 삭제 (외래 키 제약 조건 해결)
+    if (existingEmployees && existingEmployees.length > 0) {
+      const employeeIds = existingEmployees.map(e => e.id);
+      const { error: assignmentError } = await supabase
+        .from('schedule_assignments')
+        .delete()
+        .in('employee_id', employeeIds);
+
+      if (assignmentError) {
+        console.error('[handleNext] Assignment delete error:', assignmentError);
+        throw new Error(`배정 데이터 삭제 실패: ${assignmentError.message}`);
+      }
+    }
+
+    // 3. 기존 직원 삭제
     await deleteOrganizationEmployees(orgId);
 
-    // 2. 새 직원 일괄 생성
+    // 4. 새 직원 일괄 생성
     await createEmployeesBatch(orgId, employees.value);
 
-    // 3. Store 업데이트
+    // 5. Store 업데이트
     scheduleStore.setEmployees(employees.value);
     
     // basicInfo의 employeeCount 업데이트

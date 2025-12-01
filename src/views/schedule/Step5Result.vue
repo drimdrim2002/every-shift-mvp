@@ -208,7 +208,7 @@ watch(() => solver.status.value, async (newStatus) => {
 });
 
 function handleBack() {
-  router.push('/schedule/step4');
+  router.push('/');
 }
 
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
@@ -282,9 +282,17 @@ function handleSave() {
     negativeText: '취소',
     onPositiveClick: async () => {
       try {
+        if (!scheduleId.value) {
+          showError('스케줄 ID가 없습니다');
+          return;
+        }
+
         // 변경된 셀만 Supabase에 업데이트
         for (const cellKey of changedCells.value) {
           const [employeeId, date] = cellKey.split('_');
+          
+          if (!employeeId || !date) continue;
+          
           const shiftCode = grid.assignments.value[employeeId]?.[date];
 
           if (!shiftCode) continue;

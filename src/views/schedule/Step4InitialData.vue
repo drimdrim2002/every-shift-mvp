@@ -346,11 +346,11 @@ async function handleGenerate() {
           localStorage.removeItem(STORAGE_KEY.value);
         }
 
-        // Step 4로 이동
+        // Step 5 (결과 확인)로 이동
         scheduleStore.nextStep();
         showSuccess('근무표 생성이 완료되었습니다');
         showModal.value = false;
-        router.push(`/schedule/step4/${schedule.id}`);
+        router.push(`/schedule/step5/${schedule.id}`);
       } else if (solver.status.value === 'error') {
         clearInterval(checkStatusInterval);
         if (timerInterval) clearInterval(timerInterval);

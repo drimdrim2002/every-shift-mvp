@@ -268,9 +268,9 @@ function handleViewSchedule(schedule: Schedule) {
   });
   
   if (schedule.status === 'complete' || schedule.status === 'changed') {
-    router.push(`/schedule/step4/${schedule.id}`);
+    router.push(`/schedule/step5/${schedule.id}`);
   } else if (schedule.status === 'created' || schedule.status === 'running') {
-    router.push(`/schedule/step4/${schedule.id}`);
+    router.push(`/schedule/step5/${schedule.id}`);
   } else {
     window.$message?.info('해당 근무표를 조회할 수 없습니다');
   }

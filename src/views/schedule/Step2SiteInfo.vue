@@ -108,7 +108,7 @@ import { NCard, NButton, NAlert, NInputNumber, NPopconfirm } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { replaceSiteRequirements } from '@/api/employee';
+import { replaceSiteRequirements, loadSiteRequirements } from '@/api/employee';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
@@ -149,13 +149,34 @@ onMounted(async () => {
     return;
   }
 
-  // 스케줄 스토어에서 세로형 데이터를 가로형으로 변환
-  const siteReqs = scheduleStore.siteRequirements;
-  if (siteReqs && Array.isArray(siteReqs) && siteReqs.length > 0) {
-    convertVerticalToHorizontal(siteReqs as SiteRequirementRow[]);
-  } else {
-    // 기본값 초기화
+  loading.value = true;
+
+  try {
+    // 1. Supabase에서 기존 데이터 로드
+    const savedRequirements = await loadSiteRequirements(scheduleStore.basicInfo.organizationId);
+
+    // 2. 데이터가 있으면 변환하여 표시
+    if (savedRequirements && savedRequirements.length > 0) {
+      convertVerticalToHorizontal(savedRequirements);
+      // 스토어에도 저장
+      scheduleStore.setSiteRequirements(savedRequirements);
+    } else {
+      // 3. 스케줄 스토어 확인 (메모리에 있을 수도 있음)
+      const siteReqs = scheduleStore.siteRequirements;
+      if (siteReqs && Array.isArray(siteReqs) && siteReqs.length > 0) {
+        convertVerticalToHorizontal(siteReqs as SiteRequirementRow[]);
+      } else {
+        // 4. 아무것도 없으면 기본값 초기화
+        initDefaultValues();
+      }
+    }
+  } catch (error) {
+    console.error('[Step2SiteInfo] Load error:', error);
+    showError('기존 데이터를 불러오는 중 오류가 발생했습니다.');
+    // 오류 발생 시 기본값으로 초기화
     initDefaultValues();
+  } finally {
+    loading.value = false;
   }
 });
 

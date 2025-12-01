@@ -59,7 +59,7 @@
             시프트를 최소 1개 이상 추가해주세요. (시간 정보가 있는 시프트만 표시됩니다)
           </n-alert>
           
-          <n-alert
+          <!-- <n-alert
             v-else
             type="info"
             class="mb-4"
@@ -67,7 +67,7 @@
             💡 시간 정보가 없는 시프트(O, H 등)는 사이트 정보 입력에 사용되지 않으므로 표시되지 않습니다.
             <br>
             ⚠️ 시프트 변경 사항은 조직 전체에 영구 반영되며, 이후 생성되는 모든 근무표에도 동일하게 적용됩니다.
-          </n-alert>
+          </n-alert> -->
 
           <n-data-table
             v-if="shiftsWithTime.length > 0"
