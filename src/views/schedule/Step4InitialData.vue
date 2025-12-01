@@ -3,129 +3,101 @@
     <StepIndicator :current-step="4" />
 
     <n-card title="근무표 생성 - 초기 정보 입력">
-      <!-- 안내 메시지 -->
-      <n-alert
-        type="info"
-        class="mb-6"
-      >
-        <template #header>
-          <strong>당월 데이터 입력 안내</strong>
-        </template>
-        당월 데이터는 비워두면 AI가 자동으로 배치합니다.
-        이미 확정된 근무가 있다면 해당 셀에 입력해주세요.
-      </n-alert>
-
-      <!-- 전월 데이터 섹션 (접기/펼치기) -->
-      <n-collapse
-        v-model:expanded-names="expandedSections"
-        class="mb-6"
-      >
-        <n-collapse-item
-          title="전월 데이터 (선택)"
-          name="lastMonth"
-        >
-          <template #header-extra>
-            <n-tag
-              v-if="lastMonthDays > 0"
-              type="info"
-              size="small"
-            >
-              {{ lastMonthDays }}일
-            </n-tag>
-            <n-tag
-              v-else
-              type="default"
-              size="small"
-            >
-              미사용
-            </n-tag>
-          </template>
-
-          <div class="space-y-4">
-            <!-- 전월 일수 조절 -->
-            <div class="flex items-center gap-4">
-              <span class="text-sm font-medium text-gray-700">전월 일수:</span>
-              <n-slider
-                v-model:value="lastMonthDays"
-                :min="0"
-                :max="5"
-                :step="1"
-                :marks="{
-                  0: '0일',
-                  1: '1일',
-                  2: '2일',
-                  3: '3일',
-                  4: '4일',
-                  5: '5일',
-                }"
-                class="w-64"
-                @update:value="handleLastMonthDaysChange"
-              />
-              <n-input-number
-                v-model:value="lastMonthDays"
-                :min="0"
-                :max="5"
-                size="small"
-                class="w-20"
-                @update:value="handleLastMonthDaysChange"
-              />
-            </div>
-
-            <n-divider />
-
-            <!-- 엑셀 업로드/템플릿 다운로드 -->
-            <div
-              v-if="lastMonthDays > 0"
-              class="flex flex-wrap items-center gap-4"
-            >
-              <n-button
-                secondary
-                type="primary"
-                size="small"
-                @click="handleDownloadTemplate"
-              >
-                📥 템플릿 다운로드
-              </n-button>
-
-              <n-upload
-                :show-file-list="false"
-                accept=".xlsx,.xls"
-                @change="handleExcelUpload"
-              >
-                <n-button
-                  secondary
-                  type="info"
-                  size="small"
+      <!-- 통합 툴바 영역 -->
+      <div class="mb-4 flex flex-col gap-4 rounded-lg bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <!-- 왼쪽: 전월 데이터 토글 -->
+        <div class="flex items-center gap-3">
+          <n-switch
+            v-model:value="showLastMonth"
+            @update:value="handleLastMonthToggle"
+          />
+          <span class="font-medium text-gray-700">전월 데이터 포함</span>
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <span class="cursor-help text-gray-400">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
                 >
-                  📤 엑셀 업로드
-                </n-button>
-              </n-upload>
-
-              <n-button
-                secondary
-                type="warning"
-                size="small"
-                @click="handleLoadSampleData"
-              >
-                📝 샘플 데이터 로드
-              </n-button>
-
-              <span class="text-xs text-gray-500">
-                * 엑셀 업로드 시 기존 전월 데이터가 덮어쓰기 됩니다.
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
               </span>
-            </div>
+            </template>
+            연속 근무(예: N-D 금지) 규칙을 적용하려면 전월 마지막 근무 기록이 필요합니다.
+          </n-tooltip>
+        </div>
 
-            <n-alert
-              v-if="lastMonthDays === 0"
-              type="warning"
-              class="mt-2"
-            >
-              전월 데이터 없이 근무표를 생성합니다.
-              AI가 연속 근무 제약을 적용하지 못할 수 있습니다.
-            </n-alert>
+        <!-- 오른쪽: 상세 설정 (토글 ON일 때만 표시) -->
+        <div
+          v-if="showLastMonth"
+          class="flex flex-wrap items-center gap-3"
+        >
+          <div class="flex items-center gap-2 border-r border-gray-300 pr-3">
+            <span class="text-xs text-gray-500">기간:</span>
+            <n-input-number
+              v-model:value="lastMonthDays"
+              size="small"
+              :min="1"
+              :max="5"
+              class="w-20"
+              @update:value="handleLastMonthDaysChange"
+            />
+            <span class="text-xs text-gray-500">일</span>
           </div>
-        </n-collapse-item>
-      </n-collapse>
+
+          <n-button-group size="small">
+            <n-button
+              secondary
+              @click="handleDownloadTemplate"
+            >
+              템플릿
+            </n-button>
+            <n-upload
+              :show-file-list="false"
+              accept=".xlsx,.xls"
+              @change="handleExcelUpload"
+            >
+              <n-button secondary>
+                업로드
+              </n-button>
+            </n-upload>
+            <n-button
+              secondary
+              @click="handleLoadSampleData"
+            >
+              샘플
+            </n-button>
+          </n-button-group>
+        </div>
+      </div>
+
+      <!-- 안내 텍스트 (간소화) -->
+      <div class="mb-4 flex items-start gap-2 text-xs text-gray-500">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="mt-0.5 h-4 w-4 text-blue-500"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clip-rule="evenodd"
+          />
+        </svg>
+        <p>
+          당월 데이터는 비워두면 AI가 자동으로 최적의 근무를 배치합니다.
+          <strong>이미 확정된 근무(휴가, 교육 등)가 있다면 해당 셀에 직접 입력해주세요.</strong>
+        </p>
+      </div>
 
       <!-- 그리드 -->
       <n-spin :show="grid.loading.value">
@@ -219,17 +191,14 @@ import { watchDebounced } from '@vueuse/core';
 import {
   NCard,
   NButton,
-  NAlert,
   NSpin,
   NModal,
   NProgress,
-  NCollapse,
-  NCollapseItem,
-  NSlider,
   NInputNumber,
   NUpload,
-  NDivider,
-  NTag,
+  NSwitch,
+  NTooltip,
+  NButtonGroup,
 } from 'naive-ui';
 import type { UploadFileInfo } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
@@ -253,9 +222,9 @@ const showModal = ref(false);
 const elapsedTime = ref(0);
 let timerInterval: number | null = null;
 
-// 전월 데이터 섹션 상태
-const expandedSections = ref<string[]>(['lastMonth']); // 기본: 펼침
-const lastMonthDays = ref(5); // 전월 일수 (0-5)
+// 전월 데이터 상태
+const showLastMonth = ref(false); // 기본: 숨김
+const lastMonthDays = ref(0); // 전월 일수 (0: 숨김, 1-5: 표시)
 
 // LocalStorage 키 (월별로 구분)
 const STORAGE_KEY = computed(() => {
@@ -290,9 +259,29 @@ watchDebounced(
   { debounce: 2000, deep: true }
 );
 
+// 전월 데이터 토글
+function handleLastMonthToggle(value: boolean) {
+  if (value) {
+    // 켜질 때 기본값 5일 설정
+    lastMonthDays.value = 5;
+  } else {
+    // 꺼질 때 0일 설정
+    lastMonthDays.value = 0;
+  }
+  
+  if (scheduleStore.basicInfo) {
+    grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
+  }
+}
+
 // 전월 일수 변경 시 날짜 재생성
 function handleLastMonthDaysChange(value: number | null) {
   if (value === null) return;
+  
+  // 0이 되면 토글도 끔
+  if (value === 0) {
+    showLastMonth.value = false;
+  }
   
   if (scheduleStore.basicInfo) {
     grid.generateDates(scheduleStore.basicInfo.month, value);
@@ -313,9 +302,6 @@ onMounted(async () => {
   // 직원 로드
   await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
 
-  // 날짜 생성 (전월 N일 + 당월)
-  grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
-
   // LocalStorage에서 복원
   if (STORAGE_KEY.value) {
     const saved = localStorage.getItem(STORAGE_KEY.value);
@@ -327,12 +313,21 @@ onMounted(async () => {
           ...grid.assignments.value,
           ...savedAssignments,
         };
+        
+        // 저장된 데이터가 있으면(전월 데이터 포함 여부 확인) 복원 로직 필요할 수 있음
+        // 여기서는 단순히 데이터만 복원하고, lastMonthDays는 0(기본)으로 시작하거나
+        // 필요시 저장된 데이터 날짜를 보고 lastMonthDays를 추론할 수도 있음.
+        // 현재는 UI 초기화는 기본값(숨김)을 따름.
+        
         showInfo('이전 작업이 복원되었습니다');
       } catch (e) {
         console.warn('Failed to restore from localStorage:', e);
       }
     }
   }
+  
+  // 날짜 생성 (기본값 0일 + 당월)
+  grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
 });
 
 function handleAssignmentUpdate(payload: {
