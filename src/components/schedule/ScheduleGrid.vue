@@ -127,14 +127,6 @@
             </td>
           </tr>
 
-          <!-- Spacer: 마지막 직원들이 통계 행 위로 스크롤될 수 있도록 -->
-          <tr class="spacer-row">
-            <td
-              :colspan="dates.length + 5"
-              style="height: 80px; padding: 0; border: none;"
-            />
-          </tr>
-
           <!-- 통계 행 (하단 고정) -->
           <!-- Total 행 -->
           <tr class="stat-row bg-gray-100">
@@ -475,11 +467,6 @@ function getCellClass(date: GridColumn) {
   width: 60px;
 }
 
-/* Spacer 행 스타일 */
-.spacer-row td {
-  background: transparent;
-  border: none !important;
-}
 
 /* 통계 행 - 하단 고정 */
 .stat-row {
