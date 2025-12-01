@@ -4,78 +4,126 @@
 
     <n-card title="근무표 생성 - 초기 정보 입력">
       <!-- 통합 툴바 영역 -->
-      <div class="mb-4 flex flex-col gap-4 rounded-lg bg-gray-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-        <!-- 왼쪽: 전월 데이터 토글 -->
-        <div class="flex items-center gap-3">
-          <n-switch
-            v-model:value="showLastMonth"
-            @update:value="handleLastMonthToggle"
-          />
-          <span class="font-medium text-gray-700">전월 데이터 포함</span>
-          <n-tooltip trigger="hover">
-            <template #trigger>
-              <span class="cursor-help text-gray-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  class="size-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </span>
-            </template>
-            연속 근무(예: N-D 금지) 규칙을 적용하려면 전월 마지막 근무 기록이 필요합니다.
-          </n-tooltip>
-        </div>
-
-        <!-- 오른쪽: 상세 설정 (토글 ON일 때만 표시) -->
-        <div
-          v-if="showLastMonth"
-          class="flex flex-wrap items-center gap-3"
-        >
-          <div class="flex items-center gap-2 border-r border-gray-300 pr-3">
-            <span class="text-xs text-gray-500">기간:</span>
-            <n-input-number
-              v-model:value="lastMonthDays"
-              size="small"
-              :min="1"
-              :max="5"
-              class="w-20"
-              @update:value="handleLastMonthDaysChange"
+      <div class="mb-4 flex flex-col gap-4 rounded-lg bg-gray-50 p-4">
+        <!-- 1열: 주요 컨트롤 (전월 데이터 토글 + 뷰 모드) -->
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <!-- 왼쪽: 전월 데이터 토글 -->
+          <div class="flex items-center gap-3">
+            <n-switch
+              v-model:value="showLastMonth"
+              @update:value="handleLastMonthToggle"
             />
-            <span class="text-xs text-gray-500">일</span>
+            <span class="font-medium text-gray-700">전월 데이터 포함</span>
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <span class="cursor-help text-gray-400">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="size-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </span>
+              </template>
+              연속 근무(예: N-D 금지) 규칙을 적용하려면 전월 마지막 근무 기록이 필요합니다.
+            </n-tooltip>
           </div>
 
-          <n-button-group size="small">
-            <n-button
-              secondary
-              @click="handleDownloadTemplate"
+          <!-- 오른쪽: 뷰 모드 선택 -->
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-gray-500">보기 방식:</span>
+            <n-radio-group
+              v-model:value="viewMode"
+              size="small"
             >
-              템플릿
+              <n-radio-button value="month">
+                월간 (전체)
+              </n-radio-button>
+              <n-radio-button value="week">
+                주간 (7일씩)
+              </n-radio-button>
+            </n-radio-group>
+          </div>
+        </div>
+
+        <!-- 2열: 상세 컨트롤 (조건부 렌더링) -->
+        <div 
+          v-if="showLastMonth || viewMode === 'week'" 
+          class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-3"
+        >
+          <!-- 왼쪽: 전월 데이터 설정 (showLastMonth일 때만) -->
+          <div class="flex items-center gap-3">
+            <template v-if="showLastMonth">
+              <div class="flex items-center gap-2 border-r border-gray-300 pr-3">
+                <span class="text-xs text-gray-500">기간:</span>
+                <n-input-number
+                  v-model:value="lastMonthDays"
+                  size="small"
+                  :min="1"
+                  :max="5"
+                  class="w-20"
+                  @update:value="handleLastMonthDaysChange"
+                />
+                <span class="text-xs text-gray-500">일</span>
+              </div>
+
+              <n-button-group size="small">
+                <n-button
+                  secondary
+                  @click="handleDownloadTemplate"
+                >
+                  템플릿
+                </n-button>
+                <n-upload
+                  :show-file-list="false"
+                  accept=".xlsx,.xls"
+                  @change="handleExcelUpload"
+                >
+                  <n-button secondary>
+                    업로드
+                  </n-button>
+                </n-upload>
+                <n-button
+                  secondary
+                  @click="handleLoadSampleData"
+                >
+                  샘플
+                </n-button>
+              </n-button-group>
+            </template>
+          </div>
+
+          <!-- 오른쪽: 주간 이동 컨트롤 (viewMode === 'week'일 때만) -->
+          <div
+            v-if="viewMode === 'week'"
+            class="flex items-center gap-2"
+          >
+            <n-button 
+              size="small" 
+              :disabled="weekIndex === 0" 
+              @click="handlePrevWeek"
+            >
+              &lt; 이전 주
             </n-button>
-            <n-upload
-              :show-file-list="false"
-              accept=".xlsx,.xls"
-              @change="handleExcelUpload"
+            <span class="min-w-[150px] text-center font-medium text-gray-700">
+              {{ currentWeekLabel }}
+            </span>
+            <n-button 
+              size="small" 
+              :disabled="weekIndex >= weekRanges.length - 1" 
+              @click="handleNextWeek"
             >
-              <n-button secondary>
-                업로드
-              </n-button>
-            </n-upload>
-            <n-button
-              secondary
-              @click="handleLoadSampleData"
-            >
-              샘플
+              다음 주 &gt;
             </n-button>
-          </n-button-group>
+          </div>
         </div>
       </div>
 
@@ -104,7 +152,7 @@
         <ScheduleGrid
           v-if="grid.employees.value.length > 0"
           :employees="grid.employees.value"
-          :dates="grid.dates.value"
+          :dates="visibleDates"
           :assignments="grid.assignments.value"
           :readonly="false"
           :show-last-month="lastMonthDays > 0"
@@ -199,6 +247,8 @@ import {
   NSwitch,
   NTooltip,
   NButtonGroup,
+  NRadioGroup,
+  NRadioButton,
 } from 'naive-ui';
 import type { UploadFileInfo } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
@@ -210,7 +260,7 @@ import { showSuccess, showInfo, showError, showWarning } from '@/utils/message';
 import { validateLastMonthData } from '@/utils/validation';
 import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
 import { createSchedule } from '@/api/schedule';
-import type { AssignmentMap, SiteRequirements } from '@/types/schedule';
+import type { AssignmentMap, SiteRequirements, GridColumn, DailyRequirement } from '@/types/schedule';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
@@ -225,6 +275,59 @@ let timerInterval: number | null = null;
 // 전월 데이터 상태
 const showLastMonth = ref(false); // 기본: 숨김
 const lastMonthDays = ref(0); // 전월 일수 (0: 숨김, 1-5: 표시)
+
+// 뷰 모드 상태 (월간/주간)
+const viewMode = ref<'month' | 'week'>('month');
+const weekIndex = ref(0);
+
+// 주차별 데이터 계산 (7일 단위)
+const weekRanges = computed(() => {
+  const allDates = grid.dates.value;
+  const weeks: GridColumn[][] = [];
+  for (let i = 0; i < allDates.length; i += 7) {
+    weeks.push(allDates.slice(i, i + 7));
+  }
+  return weeks;
+});
+
+// 현재 주차 라벨
+const currentWeekLabel = computed(() => {
+  if (weekRanges.value.length === 0) return '';
+  const currentWeek = weekRanges.value[weekIndex.value];
+  if (!currentWeek || currentWeek.length === 0) return '';
+  
+  const start = currentWeek[0];
+  const end = currentWeek[currentWeek.length - 1];
+  
+  if (!start || !end) return `${weekIndex.value + 1}주차`;
+
+  const format = (d: string) => d.substring(5).replace('-', '.');
+  return `${weekIndex.value + 1}주차 (${format(start.date)} ~ ${format(end.date)})`;
+});
+
+// 그리드에 표시할 날짜 계산
+const visibleDates = computed(() => {
+  if (viewMode.value === 'month') {
+    return grid.dates.value;
+  }
+  return weekRanges.value[weekIndex.value] || [];
+});
+
+// 주차 이동 핸들러
+function handlePrevWeek() {
+  if (weekIndex.value > 0) weekIndex.value--;
+}
+
+function handleNextWeek() {
+  if (weekIndex.value < weekRanges.value.length - 1) weekIndex.value++;
+}
+
+// 날짜 변경 시 주차 인덱스 범위 체크
+watch([() => grid.dates.value.length, viewMode], () => {
+  if (weekIndex.value >= weekRanges.value.length) {
+    weekIndex.value = 0;
+  }
+});
 
 // LocalStorage 키 (월별로 구분)
 const STORAGE_KEY = computed(() => {
@@ -365,7 +468,7 @@ function handleLoadSampleData() {
     lastMonthDates.forEach((dateCol, dateIndex) => {
       // 각 직원마다 다른 패턴으로 배치 (순환)
       const shiftIndex = (empIndex + dateIndex) % 4;
-      const shiftCode = shiftCodes[shiftIndex];
+      const shiftCode = shiftCodes[shiftIndex] || 'D';
 
       grid.setAssignment(employee.id, dateCol.date as string, shiftCode);
     });
@@ -423,14 +526,18 @@ async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
     const lastMonthDateSet = new Set(lastMonthDates.map(d => d.date));
     
     grid.employees.value.forEach(emp => {
-      if (!grid.assignments.value[emp.id]) {
-        grid.assignments.value[emp.id] = {};
+      // 안전하게 가져오거나 초기화
+      let empAssignments = grid.assignments.value[emp.id];
+      if (!empAssignments) {
+        empAssignments = {};
+        grid.assignments.value[emp.id] = empAssignments;
       }
       
       // 전월 날짜만 덮어쓰기
       lastMonthDateSet.forEach(date => {
-        if (parsedAssignments[emp.id]?.[date]) {
-          grid.assignments.value[emp.id][date] = parsedAssignments[emp.id][date];
+        const shift = parsedAssignments[emp.id]?.[date];
+        if (shift) {
+          empAssignments[date] = shift;
         }
       });
     });
@@ -450,7 +557,7 @@ async function handleGenerate() {
   const validation = validateLastMonthData(
     grid.employees.value,
     grid.dates.value,
-    grid.assignments.value,
+    grid.assignments.value as AssignmentMap, // 명시적 형변환 (타입 안전성 보장)
     false // 전월 데이터 필수 아님
   );
 
@@ -480,38 +587,60 @@ async function handleGenerate() {
     const thisMonthAssignments: AssignmentMap = {};
 
     grid.employees.value.forEach((emp) => {
-      // 안전장치: assignments 객체가 없으면 빈 객체로 초기화
-      if (!grid.assignments.value[emp.id]) {
-        grid.assignments.value[emp.id] = {};
-      }
+      // 안전장치: assignments 객체 가져오기
+      const empAssignments = grid.assignments.value[emp.id] || {};
 
-      lastMonthAssignments[emp.id] = {};
-      thisMonthAssignments[emp.id] = {};
+      // 미리 객체 할당
+      const empLast: Record<string, string> = {};
+      const empThis: Record<string, string> = {};
+      
+      lastMonthAssignments[emp.id] = empLast;
+      thisMonthAssignments[emp.id] = empThis;
 
       lastMonthDates.forEach((date) => {
-        const shift = grid.assignments.value[emp.id]?.[date as string] || '';
-        if (shift && lastMonthAssignments[emp.id]) {
-          lastMonthAssignments[emp.id][date as string] = shift;
+        const shift = empAssignments[date as string] || '';
+        if (shift) {
+          empLast[date as string] = shift;
         }
       });
 
       thisMonthDates.forEach((date) => {
-        const shift = grid.assignments.value[emp.id]?.[date as string] || '';
-        if (shift && thisMonthAssignments[emp.id]) {
-          thisMonthAssignments[emp.id][date as string] = shift;
+        const shift = empAssignments[date as string] || '';
+        if (shift) {
+          empThis[date as string] = shift;
         }
       });
     });
 
     // 5. 요일별 requirements를 날짜별로 변환
+    // 먼저 세로형 데이터를 요일별 객체로 변환
+    const weeklyRequirements: Record<number, DailyRequirement> = {};
+
+    scheduleStore.siteRequirements.forEach(req => {
+      if (!weeklyRequirements[req.dayOfWeek]) {
+        weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+      }
+      
+      const shift = req.shiftCode as keyof DailyRequirement;
+      const currentReq = weeklyRequirements[req.dayOfWeek];
+      
+      if (currentReq && ['D', 'E', 'N', 'O'].includes(shift)) {
+        currentReq[shift] = req.requiredCount;
+        currentReq.total += req.requiredCount;
+      }
+    });
+
     const dateBasedRequirements: SiteRequirements = {};
     thisMonthDates.forEach((dateStr) => {
       const date = new Date(dateStr as string);
       const dayOfWeek = date.getDay(); // 0-6
-      // scheduleStore.siteRequirements는 요일별 데이터
-      const weeklyReq = scheduleStore.siteRequirements[dayOfWeek];
+      const weeklyReq = weeklyRequirements[dayOfWeek];
+      
       if (weeklyReq) {
-        dateBasedRequirements[dateStr as string] = weeklyReq;
+        dateBasedRequirements[dateStr as string] = { ...weeklyReq };
+      } else {
+        // 기본값
+        dateBasedRequirements[dateStr as string] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
       }
     });
 
