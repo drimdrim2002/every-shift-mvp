@@ -56,7 +56,9 @@ function getShiftButtonClass(shiftCode: string) {
 
 function handleSelect(shiftCode: string) {
   if (!props.readonly) {
-    emit('select', shiftCode)
+    // 이미 선택된 shift를 다시 클릭하면 해제 (토글 기능)
+    const newShiftCode = props.currentShift === shiftCode ? '' : shiftCode
+    emit('select', newShiftCode)
   }
 }
 </script>
