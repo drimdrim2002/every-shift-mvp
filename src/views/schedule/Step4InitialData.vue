@@ -17,7 +17,7 @@
               <span class="cursor-help text-gray-400">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-4 w-4"
+                  class="size-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -83,7 +83,7 @@
       <div class="mb-4 flex items-start gap-2 text-xs text-gray-500">
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          class="mt-0.5 h-4 w-4 text-blue-500"
+          class="mt-0.5 size-4 text-blue-500"
           viewBox="0 0 20 20"
           fill="currentColor"
         >
