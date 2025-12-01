@@ -1,6 +1,197 @@
 import * as XLSX from 'xlsx';
+import dayjs from 'dayjs';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap } from '@/types/schedule';
+
+// ============================================================================
+// 전월 데이터 엑셀 템플릿/파싱 (Step4InitialData 전용)
+// ============================================================================
+
+/**
+ * 전월 데이터 템플릿 다운로드
+ * @param employees - 직원 목록
+ * @param dates - 전월 날짜 목록 (isLastMonth가 true인 것들만)
+ * @param month - 계획월 (YYYY-MM)
+ */
+export function downloadLastMonthTemplate(
+  employees: Employee[],
+  dates: GridColumn[],
+  month: string
+): void {
+  // 전월 날짜만 필터링
+  const lastMonthDates = dates.filter(d => d.isLastMonth);
+  
+  if (lastMonthDates.length === 0) {
+    throw new Error('전월 날짜가 없습니다. 전월 일수를 1일 이상으로 설정해주세요.');
+  }
+  
+  // 헤더 생성: 이름, 사번, 날짜들...
+  const dateHeaders = lastMonthDates.map(d => {
+    const date = dayjs(d.date);
+    return `${date.format('MM/DD')}(${d.dayName})`;
+  });
+  const headers = ['이름', '사번', ...dateHeaders];
+  
+  // 데이터 행 생성
+  const rows: (string | number)[][] = [headers];
+  employees.forEach(emp => {
+    const row: (string | number)[] = [emp.name, emp.employeeId];
+    // 날짜 컬럼은 빈 값으로
+    lastMonthDates.forEach(() => row.push(''));
+    rows.push(row);
+  });
+  
+  // 워크시트 생성
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  
+  // 컬럼 너비 설정
+  const colWidths: XLSX.ColInfo[] = [
+    { wch: 12 }, // 이름
+    { wch: 10 }, // 사번
+    ...lastMonthDates.map(() => ({ wch: 12 })), // 날짜 컬럼들
+  ];
+  ws['!cols'] = colWidths;
+  
+  // 워크북 생성
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '전월데이터');
+  
+  // 설명 시트 추가
+  const infoData = [
+    ['전월 데이터 입력 안내'],
+    [''],
+    ['1. 이름과 사번은 수정하지 마세요.'],
+    ['2. 각 날짜 컬럼에 근무 코드를 입력하세요.'],
+    ['3. 허용되는 근무 코드: D (주간), E (저녁), N (야간), O (휴무)'],
+    ['4. 빈 칸으로 두면 해당 날짜는 입력되지 않은 것으로 처리됩니다.'],
+  ];
+  const infoSheet = XLSX.utils.aoa_to_sheet(infoData);
+  infoSheet['!cols'] = [{ wch: 60 }];
+  XLSX.utils.book_append_sheet(wb, infoSheet, '안내');
+  
+  // 파일 다운로드
+  const filename = `전월데이터_템플릿_${month}.xlsx`;
+  XLSX.writeFile(wb, filename);
+}
+
+/**
+ * 전월 데이터 엑셀 파싱
+ * @param file - 업로드된 엑셀 파일
+ * @param employees - 직원 목록 (Employee[])
+ * @param dates - 전월 날짜 목록 (GridColumn[])
+ * @returns AssignmentMap (employeeId -> date -> shiftCode)
+ */
+export async function parseLastMonthExcel(
+  file: File,
+  employees: Employee[],
+  dates: GridColumn[]
+): Promise<AssignmentMap> {
+  // 전월 날짜만 필터링
+  const lastMonthDates = dates.filter(d => d.isLastMonth);
+  
+  if (lastMonthDates.length === 0) {
+    throw new Error('전월 날짜가 없습니다.');
+  }
+  
+  // 파일 읽기
+  const arrayBuffer = await readFileAsArrayBuffer(file);
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  
+  // 첫 번째 시트 또는 '전월데이터' 시트 찾기
+  let sheet: XLSX.WorkSheet;
+  if (workbook.Sheets['전월데이터']) {
+    sheet = workbook.Sheets['전월데이터'];
+  } else {
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) {
+      throw new Error('엑셀 파일에 시트가 없습니다.');
+    }
+    sheet = workbook.Sheets[firstSheetName];
+  }
+  
+  // 시트 데이터 파싱
+  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+    header: 1,
+    defval: '',
+  }) as unknown[][];
+  
+  if (data.length < 2) {
+    throw new Error('엑셀 파일에 데이터가 부족합니다. 최소 헤더와 1개의 데이터 행이 필요합니다.');
+  }
+  
+  const assignments: AssignmentMap = {};
+  const validShiftCodes = ['D', 'E', 'N', 'O', 'H'];
+  
+  // 사번 -> 직원 매핑 생성
+  const employeeByEmployeeId = new Map<string, Employee>();
+  employees.forEach(emp => {
+    employeeByEmployeeId.set(emp.employeeId, emp);
+  });
+  
+  // 데이터 행 파싱 (1행부터, 0행은 헤더)
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i] as (string | number)[];
+    const name = String(row[0] || '').trim();
+    const employeeId = String(row[1] || '').trim();
+    
+    // 빈 행 스킵
+    if (!name && !employeeId) {
+      continue;
+    }
+    
+    // 직원 찾기 (사번으로)
+    const employee = employeeByEmployeeId.get(employeeId);
+    if (!employee) {
+      console.warn(`${i + 1}행: 사번 ${employeeId}에 해당하는 직원을 찾을 수 없습니다.`);
+      continue;
+    }
+    
+    // 해당 직원의 assignments 초기화
+    if (!assignments[employee.id]) {
+      assignments[employee.id] = {};
+    }
+    
+    // 날짜별 시프트 추출 (2번 컬럼부터)
+    for (let j = 0; j < lastMonthDates.length; j++) {
+      const shiftCode = String(row[j + 2] || '').trim().toUpperCase();
+      
+      if (shiftCode) {
+        // 유효한 시프트 코드인지 확인
+        if (!validShiftCodes.includes(shiftCode)) {
+          console.warn(`${i + 1}행, ${j + 3}열: 잘못된 근무 코드 "${shiftCode}" (허용: ${validShiftCodes.join(', ')})`);
+          continue;
+        }
+        
+        const dateStr = lastMonthDates[j].date;
+        assignments[employee.id][dateStr] = shiftCode;
+      }
+    }
+  }
+  
+  return assignments;
+}
+
+/**
+ * FileReader를 사용하여 파일을 ArrayBuffer로 읽기
+ */
+function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result instanceof ArrayBuffer) {
+        resolve(e.target.result);
+      } else {
+        reject(new Error('파일 읽기 실패'));
+      }
+    };
+    reader.onerror = () => reject(new Error('파일 읽기 중 오류 발생'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ============================================================================
+// 기존 근무표 내보내기 기능
+// ============================================================================
 
 /**
  * 근무표를 Excel 파일로 내보내기

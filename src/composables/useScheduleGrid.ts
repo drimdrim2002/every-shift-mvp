@@ -9,6 +9,7 @@ export function useScheduleGrid() {
   const assignments = ref<AssignmentMap>({});
   const dates = ref<GridColumn[]>([]);
   const loading = ref(false);
+  const lastMonthDays = ref(5); // 전월 일수 (0-5, 기본값 5)
 
   // Supabase 응답 타입 (snake_case)
   interface EmployeeRow {
@@ -67,9 +68,16 @@ export function useScheduleGrid() {
     }
   }
 
-  // 날짜 목록 생성 (전월 5일 + 당월)
-  function generateDates(month: string) {
-    const lastMonth = getLastDaysOfPreviousMonth(month, 5);
+  // 날짜 목록 생성 (전월 N일 + 당월)
+  function generateDates(month: string, lastMonthDaysCount?: number) {
+    // 파라미터가 제공되면 lastMonthDays ref도 업데이트
+    if (lastMonthDaysCount !== undefined) {
+      lastMonthDays.value = lastMonthDaysCount;
+    }
+    
+    const lastMonth = lastMonthDays.value > 0 
+      ? getLastDaysOfPreviousMonth(month, lastMonthDays.value)
+      : [];
     const thisMonth = getDaysInMonth(month);
     dates.value = [...lastMonth, ...thisMonth];
   }
@@ -94,6 +102,7 @@ export function useScheduleGrid() {
     assignments,
     dates,
     loading,
+    lastMonthDays,
     loadEmployees,
     generateDates,
     setAssignment,

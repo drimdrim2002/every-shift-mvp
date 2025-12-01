@@ -3,13 +3,129 @@
     <StepIndicator :current-step="4" />
 
     <n-card title="근무표 생성 - 초기 정보 입력">
+      <!-- 안내 메시지 -->
       <n-alert
-        type="warning"
+        type="info"
         class="mb-6"
       >
-        <strong>전월 마지막 5일 데이터는 반드시 입력해야 합니다.</strong>
+        <template #header>
+          <strong>당월 데이터 입력 안내</strong>
+        </template>
         당월 데이터는 비워두면 AI가 자동으로 배치합니다.
+        이미 확정된 근무가 있다면 해당 셀에 입력해주세요.
       </n-alert>
+
+      <!-- 전월 데이터 섹션 (접기/펼치기) -->
+      <n-collapse
+        v-model:expanded-names="expandedSections"
+        class="mb-6"
+      >
+        <n-collapse-item
+          title="전월 데이터 (선택)"
+          name="lastMonth"
+        >
+          <template #header-extra>
+            <n-tag
+              v-if="lastMonthDays > 0"
+              type="info"
+              size="small"
+            >
+              {{ lastMonthDays }}일
+            </n-tag>
+            <n-tag
+              v-else
+              type="default"
+              size="small"
+            >
+              미사용
+            </n-tag>
+          </template>
+
+          <div class="space-y-4">
+            <!-- 전월 일수 조절 -->
+            <div class="flex items-center gap-4">
+              <span class="text-sm font-medium text-gray-700">전월 일수:</span>
+              <n-slider
+                v-model:value="lastMonthDays"
+                :min="0"
+                :max="5"
+                :step="1"
+                :marks="{
+                  0: '0일',
+                  1: '1일',
+                  2: '2일',
+                  3: '3일',
+                  4: '4일',
+                  5: '5일',
+                }"
+                class="w-64"
+                @update:value="handleLastMonthDaysChange"
+              />
+              <n-input-number
+                v-model:value="lastMonthDays"
+                :min="0"
+                :max="5"
+                size="small"
+                class="w-20"
+                @update:value="handleLastMonthDaysChange"
+              />
+            </div>
+
+            <n-divider />
+
+            <!-- 엑셀 업로드/템플릿 다운로드 -->
+            <div
+              v-if="lastMonthDays > 0"
+              class="flex flex-wrap items-center gap-4"
+            >
+              <n-button
+                secondary
+                type="primary"
+                size="small"
+                @click="handleDownloadTemplate"
+              >
+                📥 템플릿 다운로드
+              </n-button>
+
+              <n-upload
+                :show-file-list="false"
+                accept=".xlsx,.xls"
+                @change="handleExcelUpload"
+              >
+                <n-button
+                  secondary
+                  type="info"
+                  size="small"
+                >
+                  📤 엑셀 업로드
+                </n-button>
+              </n-upload>
+
+              <n-button
+                secondary
+                type="warning"
+                size="small"
+                @click="handleLoadSampleData"
+              >
+                📝 샘플 데이터 로드
+              </n-button>
+
+              <span class="text-xs text-gray-500">
+                * 엑셀 업로드 시 기존 전월 데이터가 덮어쓰기 됩니다.
+              </span>
+            </div>
+
+            <n-alert
+              v-if="lastMonthDays === 0"
+              type="warning"
+              class="mt-2"
+            >
+              전월 데이터 없이 근무표를 생성합니다.
+              AI가 연속 근무 제약을 적용하지 못할 수 있습니다.
+            </n-alert>
+          </div>
+        </n-collapse-item>
+      </n-collapse>
 
       <!-- 그리드 -->
       <n-spin :show="grid.loading.value">
@@ -19,7 +135,7 @@
           :dates="grid.dates.value"
           :assignments="grid.assignments.value"
           :readonly="false"
-          :show-last-month="true"
+          :show-last-month="lastMonthDays > 0"
           @update:assignment="handleAssignmentUpdate"
         />
       </n-spin>
@@ -33,14 +149,6 @@
           ← 이전
         </n-button>
         <div class="flex flex-col gap-4 sm:flex-row">
-          <n-button
-            secondary
-            type="info"
-            size="medium"
-            @click="handleLoadSampleData"
-          >
-            📝 샘플 데이터 로드
-          </n-button>
           <n-button
             size="medium"
             @click="handleSave"
@@ -105,17 +213,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { watchDebounced } from '@vueuse/core';
-import { NCard, NButton, NAlert, NSpin, NModal, NProgress } from 'naive-ui';
+import {
+  NCard,
+  NButton,
+  NAlert,
+  NSpin,
+  NModal,
+  NProgress,
+  NCollapse,
+  NCollapseItem,
+  NSlider,
+  NInputNumber,
+  NUpload,
+  NDivider,
+  NTag,
+} from 'naive-ui';
+import type { UploadFileInfo } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useAISolver } from '@/composables/useAISolver';
-import { showSuccess, showInfo, showError } from '@/utils/message';
+import { showSuccess, showInfo, showError, showWarning } from '@/utils/message';
 import { validateLastMonthData } from '@/utils/validation';
+import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
 import { createSchedule } from '@/api/schedule';
 import type { AssignmentMap, SiteRequirements } from '@/types/schedule';
 
@@ -128,6 +252,10 @@ const solver = useAISolver();
 const showModal = ref(false);
 const elapsedTime = ref(0);
 let timerInterval: number | null = null;
+
+// 전월 데이터 섹션 상태
+const expandedSections = ref<string[]>(['lastMonth']); // 기본: 펼침
+const lastMonthDays = ref(5); // 전월 일수 (0-5)
 
 // LocalStorage 키 (월별로 구분)
 const STORAGE_KEY = computed(() => {
@@ -162,6 +290,20 @@ watchDebounced(
   { debounce: 2000, deep: true }
 );
 
+// 전월 일수 변경 시 날짜 재생성
+function handleLastMonthDaysChange(value: number | null) {
+  if (value === null) return;
+  
+  if (scheduleStore.basicInfo) {
+    grid.generateDates(scheduleStore.basicInfo.month, value);
+  }
+}
+
+// lastMonthDays 변경 감지하여 grid.lastMonthDays와 동기화
+watch(lastMonthDays, (newValue) => {
+  grid.lastMonthDays.value = newValue;
+});
+
 onMounted(async () => {
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
@@ -171,8 +313,8 @@ onMounted(async () => {
   // 직원 로드
   await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
 
-  // 날짜 생성 (전월 5일 + 당월)
-  grid.generateDates(scheduleStore.basicInfo.month);
+  // 날짜 생성 (전월 N일 + 당월)
+  grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
 
   // LocalStorage에서 복원
   if (STORAGE_KEY.value) {
@@ -214,8 +356,14 @@ function handleSave() {
 }
 
 function handleLoadSampleData() {
-  // 전월 5일 데이터만 샘플로 채우기
+  // 전월 데이터만 샘플로 채우기
   const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
+  
+  if (lastMonthDates.length === 0) {
+    showWarning('전월 일수를 1일 이상으로 설정해주세요');
+    return;
+  }
+  
   const shiftCodes = ['D', 'E', 'N', 'O'];
 
   grid.employees.value.forEach((employee, empIndex) => {
@@ -228,32 +376,96 @@ function handleLoadSampleData() {
     });
   });
 
-  showSuccess('전월 5일 샘플 데이터가 로드되었습니다');
+  showSuccess(`전월 ${lastMonthDates.length}일 샘플 데이터가 로드되었습니다`);
+}
+
+// 엑셀 템플릿 다운로드
+function handleDownloadTemplate() {
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다');
+    return;
+  }
+  
+  const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
+  if (lastMonthDates.length === 0) {
+    showWarning('전월 일수를 1일 이상으로 설정해주세요');
+    return;
+  }
+  
+  try {
+    downloadLastMonthTemplate(
+      grid.employees.value,
+      grid.dates.value,
+      scheduleStore.basicInfo.month
+    );
+    showSuccess('템플릿이 다운로드되었습니다');
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '템플릿 다운로드 실패');
+  }
+}
+
+// 엑셀 업로드 처리
+async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
+  if (!file.file) {
+    showError('파일을 선택해주세요');
+    return;
+  }
+  
+  const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
+  if (lastMonthDates.length === 0) {
+    showWarning('전월 일수를 1일 이상으로 설정해주세요');
+    return;
+  }
+  
+  try {
+    const parsedAssignments = await parseLastMonthExcel(
+      file.file,
+      grid.employees.value,
+      grid.dates.value
+    );
+    
+    // 기존 assignments에 전월 데이터 덮어쓰기
+    const lastMonthDateSet = new Set(lastMonthDates.map(d => d.date));
+    
+    grid.employees.value.forEach(emp => {
+      if (!grid.assignments.value[emp.id]) {
+        grid.assignments.value[emp.id] = {};
+      }
+      
+      // 전월 날짜만 덮어쓰기
+      lastMonthDateSet.forEach(date => {
+        if (parsedAssignments[emp.id]?.[date]) {
+          grid.assignments.value[emp.id][date] = parsedAssignments[emp.id][date];
+        }
+      });
+    });
+    
+    // 반응성 트리거
+    grid.assignments.value = { ...grid.assignments.value };
+    
+    const importedCount = Object.keys(parsedAssignments).length;
+    showSuccess(`${importedCount}명의 전월 데이터가 업로드되었습니다`);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '엑셀 파싱 실패');
+  }
 }
 
 async function handleGenerate() {
-  // 1. 전월 데이터 검증
+  // 1. 전월 데이터 검증 (선택적 - requireLastMonth=false)
   const validation = validateLastMonthData(
     grid.employees.value,
     grid.dates.value,
-    grid.assignments.value
+    grid.assignments.value,
+    false // 전월 데이터 필수 아님
   );
 
-  if (!validation.isValid) {
-    // 에러 메시지 표시
-    showError('전월 데이터를 모두 입력해주세요');
-
-    // 상세 에러 다이얼로그
-    const errorList = validation.errors.join('\n');
-    window.$dialog?.error({
-      title: '전월 데이터 미입력',
-      content: errorList,
-      positiveText: '확인',
-    });
-    return;
+  // 경고가 있으면 사용자에게 알림 (계속 진행 가능)
+  if (validation.warnings.length > 0 && lastMonthDays.value > 0) {
+    const warningCount = validation.warnings.length;
+    showWarning(`전월 데이터 중 ${warningCount}개 셀이 비어있습니다. 계속 진행합니다.`);
   }
 
-  // 2. 검증 통과 시 저장 및 다음 단계
+  // 2. 저장 및 다음 단계
   scheduleStore.setAssignments(grid.assignments.value);
 
   try {
@@ -316,11 +528,10 @@ async function handleGenerate() {
     }, 1000);
 
     // 디버깅: Solver에 전달되는 데이터 확인
-    console.log('[Step3] Employees count:', grid.employees.value.length);
-    console.log('[Step3] Last 3 employees:', grid.employees.value.slice(-3).map(e => ({ id: e.id, name: e.name })));
-    console.log('[Step3] LastMonth assignments keys:', Object.keys(lastMonthAssignments).length);
-    console.log('[Step3] ThisMonth assignments keys:', Object.keys(thisMonthAssignments).length);
-    console.log('[Step3] Last 3 lastMonth keys:', Object.keys(lastMonthAssignments).slice(-3));
+    console.log('[Step4] Employees count:', grid.employees.value.length);
+    console.log('[Step4] LastMonth days:', lastMonthDays.value);
+    console.log('[Step4] LastMonth assignments keys:', Object.keys(lastMonthAssignments).length);
+    console.log('[Step4] ThisMonth assignments keys:', Object.keys(thisMonthAssignments).length);
 
     // 7. AI Solver 시작
     await solver.startSolver(
