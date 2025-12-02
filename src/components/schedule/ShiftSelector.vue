@@ -4,8 +4,13 @@
       v-for="shift in availableShifts"
       :key="shift"
       :disabled="shift !== 'O' || !offReason"
-      trigger="hover"
+      trigger="manual"
+      :show="shift === 'O' && props.currentShift === 'O' && !!offReason"
       placement="top"
+      :y="-5"
+      :show-arrow="false"
+      content-class="shift-selector-tooltip"
+      :content-style="{ padding: '1px 1px', fontSize: '8px', maxWidth: '50px', lineHeight: '1.1' }"
     >
       <template #trigger>
         <button
@@ -16,7 +21,9 @@
           {{ shift }}
         </button>
       </template>
-      <span class="text-sm">{{ offReason }}</span>
+      <div class="text-xs leading-tight">
+        {{ offReason }}
+      </div>
     </n-tooltip>
   </div>
 </template>
@@ -81,3 +88,11 @@ function handleSelect(shiftCode: string) {
   }
 }
 </script>
+
+<style scoped>
+.shift-selector-tooltip {
+  padding: 1px 4px !important;
+  font-size: 10px !important;
+  line-height: 1.1 !important;
+}
+</style>
