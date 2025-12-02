@@ -154,13 +154,15 @@ const formData = ref<EmployeeInput>({
   availableShifts: [],
 });
 
-// 시프트 옵션
+// 시프트 옵션 (O는 제외)
 const availableShiftOptions = computed(() => {
-  return props.shifts.map((s) => ({
-    code: s.code,
-    name: s.name,
-    colorCode: s.colorCode,
-  }));
+  return props.shifts
+    .filter((s) => s.code !== 'O') // O(Off)는 UI에서 숨김
+    .map((s) => ({
+      code: s.code,
+      name: s.name,
+      colorCode: s.colorCode,
+    }));
 });
 
 // Pagination
@@ -203,8 +205,11 @@ const columns = computed<DataTableColumns<EmployeeInput>>(() => [
     title: '가능 시프트',
     key: 'availableShifts',
     render(row) {
+      // O는 표시하지 않음 (UI에서만 필터링)
+      const filteredShifts = row.availableShifts.filter((code) => code !== 'O');
+      
       return h('div', { class: 'flex flex-wrap gap-1' }, 
-        row.availableShifts.map((shiftCode) => {
+        filteredShifts.map((shiftCode) => {
           const shift = props.shifts.find((s) => s.code === shiftCode);
           return h(
             'span',
@@ -263,7 +268,10 @@ function handleAdd() {
   formData.value = {
     employeeId: '',
     name: '',
-    availableShifts: props.shifts.map((s) => s.code), // 기본값: 전체 시프트 선택
+    // 기본값: O를 제외한 시프트만 선택
+    availableShifts: props.shifts
+      .filter((s) => s.code !== 'O')
+      .map((s) => s.code),
   };
   showModal.value = true;
 }

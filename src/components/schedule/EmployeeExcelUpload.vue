@@ -227,8 +227,10 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
           range: 1, // 헤더 행 건너뛰기
         });
 
-        // 유효한 시프트 코드 목록
-        const validShiftCodes = props.shifts.map((s) => s.code.toUpperCase());
+        // 유효한 시프트 코드 목록 (O는 제외)
+        const validShiftCodes = props.shifts
+          .filter((s) => s.code !== 'O')
+          .map((s) => s.code.toUpperCase());
 
         // 데이터 변환 및 검증
         const employees: EmployeeInput[] = [];
@@ -313,8 +315,11 @@ function downloadTemplate() {
     // 워크북 생성
     const wb = XLSX.utils.book_new();
 
-    // 시프트 코드 문자열
-    const shiftCodesStr = props.shifts.map((s) => s.code).join(',');
+    // 시프트 코드 문자열 (O는 제외)
+    const shiftCodesStr = props.shifts
+      .filter((s) => s.code !== 'O')
+      .map((s) => s.code)
+      .join(',');
 
     // 샘플 데이터
     const sampleData = [
