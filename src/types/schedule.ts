@@ -27,6 +27,19 @@ export interface GridColumn {
 // 배정 맵: employeeId -> date -> shiftCode
 export type AssignmentMap = Record<string, Record<string, string>>;
 
+// Off 사유 맵: employeeId -> date -> reason
+export type OffReasonMap = Record<string, Record<string, string>>;
+
+// Off 사유 상수
+export const OFF_REASONS = {
+  VACATION: '휴가',
+  TRAINING: '교육',
+  SICK: '병가',
+  OTHER: '기타',
+} as const;
+
+export type OffReasonType = keyof typeof OFF_REASONS;
+
 // 행/열 통계
 export interface RowStat {
   D: number;

@@ -67,15 +67,24 @@
           </template>
           이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
         </n-popconfirm>
-        <n-button
-          type="primary"
-          size="medium"
-          :disabled="!canProceed"
-          :loading="isSaving"
-          @click="handleNext"
-        >
-          다음 단계 →
-        </n-button>
+        <div class="flex gap-4">
+          <n-button
+            size="medium"
+            :disabled="!canProceed"
+            :loading="isSaving"
+            @click="handleSave"
+          >
+            {{ hasUnsavedChanges ? '저장 *' : '저장' }}
+          </n-button>
+          <n-button
+            type="primary"
+            size="medium"
+            :disabled="!canProceed || hasUnsavedChanges"
+            @click="handleNext"
+          >
+            다음 단계 →
+          </n-button>
+        </div>
       </div>
     </n-card>
   </div>
@@ -103,6 +112,7 @@ const orgStore = useOrganizationStore();
 const activeTab = ref<'manual' | 'excel'>('manual');
 const employees = ref<EmployeeInput[]>([]);
 const isSaving = ref(false);
+const hasUnsavedChanges = ref(false); // 저장되지 않은 변경사항 추적
 
 // 시프트 목록
 const shifts = computed<Shift[]>(() => {
@@ -124,6 +134,7 @@ onMounted(async () => {
   // 1. Store에 저장된 데이터가 있으면 복원 (새로 생성하는 경우)
   if (scheduleStore.employees.length > 0) {
     employees.value = [...scheduleStore.employees];
+    hasUnsavedChanges.value = false;
     return;
   }
 
@@ -149,7 +160,13 @@ onMounted(async () => {
         availableShifts: emp.available_shifts,
       }));
       
+      // DB에서 불러온 데이터는 저장된 상태
+      hasUnsavedChanges.value = false;
+      
       window.$message?.info(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
+    } else {
+      // DB에 데이터가 없으면 처음 입력하는 상태
+      hasUnsavedChanges.value = false;
     }
   } catch (error) {
     console.error('[Step3] Failed to load employees:', error);
@@ -159,6 +176,7 @@ onMounted(async () => {
 // 직원 추가 핸들러
 function handleAddEmployee(employee: EmployeeInput) {
   employees.value = [...employees.value, employee];
+  hasUnsavedChanges.value = true;
 }
 
 // 직원 수정 핸들러
@@ -166,27 +184,24 @@ function handleEditEmployee(index: number, employee: EmployeeInput) {
   const updated = [...employees.value];
   updated[index] = employee;
   employees.value = updated;
+  hasUnsavedChanges.value = true;
 }
 
 // 직원 삭제 핸들러
 function handleDeleteEmployee(index: number) {
   employees.value = employees.value.filter((_, i) => i !== index);
+  hasUnsavedChanges.value = true;
 }
 
 // 엑셀 업로드 핸들러
 function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
   employees.value = uploadedEmployees;
+  hasUnsavedChanges.value = true;
   window.$message?.success(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
-// 이전 버튼 핸들러
-function handlePrev() {
-  scheduleStore.prevStep();
-  router.push('/schedule/step2');
-}
-
-// 다음 버튼 핸들러
-async function handleNext() {
+// 저장 핸들러
+async function handleSave() {
   if (employees.value.length === 0) {
     window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
     return;
@@ -217,18 +232,36 @@ async function handleNext() {
         .in('employee_id', employeeIds);
 
       if (assignmentError) {
-        console.error('[handleNext] Assignment delete error:', assignmentError);
+        console.error('[handleSave] Assignment delete error:', assignmentError);
         throw new Error(`배정 데이터 삭제 실패: ${assignmentError.message}`);
+      }
+      
+      console.log('[Step3] Deleted schedule_assignments for', employeeIds.length, 'employees');
+    }
+
+    // 3. 현재 month의 모든 schedules 삭제 (직원 재생성 시 이전 schedule 무효화)
+    if (scheduleStore.basicInfo) {
+      const { error: scheduleDeleteError } = await supabase
+        .from('schedules')
+        .delete()
+        .eq('organization_id', orgId)
+        .eq('month', scheduleStore.basicInfo.month);
+
+      if (scheduleDeleteError) {
+        console.error('[Step3] Schedule delete error:', scheduleDeleteError);
+        console.warn('[Step3] Failed to delete schedules, continuing...');
+      } else {
+        console.log('[Step3] Deleted schedules for month:', scheduleStore.basicInfo.month);
       }
     }
 
-    // 3. 기존 직원 삭제
+    // 4. 기존 직원 삭제
     await deleteOrganizationEmployees(orgId);
 
-    // 4. 새 직원 일괄 생성
+    // 5. 새 직원 일괄 생성
     await createEmployeesBatch(orgId, employees.value);
 
-    // 5. Store 업데이트
+    // 6. Store 업데이트
     scheduleStore.setEmployees(employees.value);
     
     // basicInfo의 employeeCount 업데이트
@@ -237,16 +270,58 @@ async function handleNext() {
       employeeCount: employees.value.length,
     });
 
-    scheduleStore.nextStep();
+    // 7. LocalStorage 초기화 (새 직원들로 인해 UUID 변경되므로 이전 assignments 무효화)
+    if (scheduleStore.basicInfo) {
+      const storageKey = `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
+      localStorage.removeItem(storageKey);
+      console.log('[Step3] Cleared localStorage for new employees:', storageKey);
+    }
+
+    // 8. Store의 assignments도 초기화
+    scheduleStore.setAssignments({});
+
+    // 9. 저장 완료 플래그
+    hasUnsavedChanges.value = false;
 
     window.$message?.success('직원 정보가 저장되었습니다.');
-    router.push('/schedule/step4');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
     window.$message?.error(errorMessage);
   } finally {
     isSaving.value = false;
   }
+}
+
+// 이전 버튼 핸들러
+function handlePrev() {
+  scheduleStore.prevStep();
+  router.push('/schedule/step2');
+}
+
+// 다음 버튼 핸들러
+async function handleNext() {
+  if (employees.value.length === 0) {
+    window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
+    return;
+  }
+
+  // 저장되지 않은 변경사항이 있으면 경고
+  if (hasUnsavedChanges.value) {
+    window.$message?.warning('변경사항을 먼저 저장해주세요.');
+    return;
+  }
+
+  // Store에 저장 (이미 DB에 저장되어 있음)
+  if (scheduleStore.basicInfo) {
+    scheduleStore.setEmployees(employees.value);
+    scheduleStore.setBasicInfo({
+      ...scheduleStore.basicInfo,
+      employeeCount: employees.value.length,
+    });
+  }
+
+  scheduleStore.nextStep();
+  router.push('/schedule/step4');
 }
 </script>
 

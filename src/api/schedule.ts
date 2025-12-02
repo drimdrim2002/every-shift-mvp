@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { AssignmentMap } from '@/types/schedule';
+import type { AssignmentMap, OffReasonMap } from '@/types/schedule';
 
 interface ShiftReference {
   code: string;
@@ -9,6 +9,7 @@ interface AssignmentRow {
   employee_id: string;
   date: string;
   shifts: ShiftReference | null;
+  off_reason: string | null;
 }
 
 // Supabase 조회 결과 타입 (shifts가 배열로 반환될 수 있음)
@@ -72,8 +73,11 @@ export async function getScheduleStatus(scheduleId: string) {
   return data;
 }
 
-// 근무표 배정 조회
-export async function getScheduleAssignments(scheduleId: string): Promise<AssignmentMap> {
+// 근무표 배정 조회 (assignments와 offReasons 함께 반환)
+export async function getScheduleAssignments(scheduleId: string): Promise<{
+  assignments: AssignmentMap;
+  offReasons: OffReasonMap;
+}> {
   // Supabase 기본 limit은 1000개이므로, 여러 번 조회하여 모든 데이터 가져오기
   // 30명 × 36일 = 1080개 필요
 
@@ -86,7 +90,7 @@ export async function getScheduleAssignments(scheduleId: string): Promise<Assign
   while (hasMore) {
     const { data, error } = await supabase
       .from('schedule_assignments')
-      .select('employee_id, date, shifts(code)')
+      .select('employee_id, date, shifts(code), off_reason')
       .eq('schedule_id', scheduleId)
       .range(from, from + pageSize - 1);
 
@@ -99,6 +103,7 @@ export async function getScheduleAssignments(scheduleId: string): Promise<Assign
         employee_id: row.employee_id,
         date: row.date,
         shifts: Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts,
+        off_reason: (row as any).off_reason || null,
       }));
       allData.push(...normalizedRows);
       from += pageSize;
@@ -112,18 +117,27 @@ export async function getScheduleAssignments(scheduleId: string): Promise<Assign
   console.log('[getScheduleAssignments] Total rows:', allData.length);
   console.log('[getScheduleAssignments] Unique employees:', new Set(allData.map((r) => r.employee_id)).size);
 
-  // AssignmentMap 형식으로 변환
+  // AssignmentMap과 OffReasonMap 형식으로 변환
   const assignments: AssignmentMap = {};
+  const offReasons: OffReasonMap = {};
+  
   allData.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
+      offReasons[row.employee_id] = {};
     }
     assignments[row.employee_id][row.date] = row.shifts?.code ?? '';
+    
+    // off_reason이 있으면 offReasons에 저장
+    if (row.off_reason) {
+      offReasons[row.employee_id][row.date] = row.off_reason;
+    }
   });
 
   console.log('[getScheduleAssignments] Assignment keys count:', Object.keys(assignments).length);
+  console.log('[getScheduleAssignments] OffReason keys count:', Object.keys(offReasons).length);
 
-  return assignments;
+  return { assignments, offReasons };
 }
 
 // 배정 수정
@@ -171,4 +185,111 @@ export async function getScheduleList(orgId: string) {
 
   if (error) throw error;
   return data;
+}
+
+// 임시 저장 - 전체 assignments와 offReasons를 일괄 저장
+export async function saveTempAssignments(
+  orgId: string,
+  month: string,
+  assignments: AssignmentMap,
+  shiftsMap: Record<string, string>, // shiftCode -> shiftId 매핑
+  offReasons?: OffReasonMap // 선택적 파라미터
+) {
+  console.log('[saveTempAssignments] START - orgId:', orgId, 'month:', month);
+  console.log('[saveTempAssignments] shiftsMap:', shiftsMap);
+  console.log('[saveTempAssignments] assignments keys:', Object.keys(assignments).length);
+  
+  // 1. schedule 생성 또는 기존 것 가져오기
+  const schedule = await createSchedule(orgId, month);
+  console.log('[saveTempAssignments] Schedule ID:', schedule.id);
+  console.log('[saveTempAssignments] Schedule status:', schedule.status);
+
+  // 2. assignments를 배열로 변환 (off_reason, is_locked 포함)
+  const rows: Array<{
+    schedule_id: string;
+    employee_id: string;
+    shift_id: string;
+    date: string;
+    off_reason?: string;
+    is_locked: boolean;
+  }> = [];
+
+  let skippedCount = 0;
+  Object.entries(assignments).forEach(([employeeId, dateMap]) => {
+    Object.entries(dateMap).forEach(([date, shiftCode]) => {
+      if (shiftCode && shiftsMap[shiftCode]) {
+        // off_reason이 있는지 확인
+        const offReason = offReasons?.[employeeId]?.[date];
+        // off_reason이 있으면 is_locked=true (AI가 변경 불가)
+        const isLocked = !!offReason;
+        
+        rows.push({
+          schedule_id: schedule.id,
+          employee_id: employeeId,
+          shift_id: shiftsMap[shiftCode],
+          date,
+          off_reason: offReason || undefined,
+          is_locked: isLocked,
+        });
+      } else if (shiftCode) {
+        skippedCount++;
+        console.warn('[saveTempAssignments] Skipped - shiftCode:', shiftCode, 'not in shiftsMap');
+      }
+    });
+  });
+
+  console.log('[saveTempAssignments] Total rows to save:', rows.length);
+  console.log('[saveTempAssignments] Skipped cells:', skippedCount);
+  
+  // 샘플 데이터 출력 (처음 3개)
+  if (rows.length > 0) {
+    console.log('[saveTempAssignments] Sample rows (first 3):', rows.slice(0, 3));
+  }
+
+  if (rows.length === 0) {
+    console.warn('[saveTempAssignments] No assignments to save');
+    return schedule;
+  }
+
+  // 3. 기존 assignments 삭제 후 재삽입 (임시 저장은 전체 교체)
+  const { data: deleteData, error: deleteError } = await supabase
+    .from('schedule_assignments')
+    .delete()
+    .eq('schedule_id', schedule.id)
+    .select();
+
+  if (deleteError) {
+    console.error('[saveTempAssignments] Delete error:', deleteError);
+    throw new Error(`기존 배정 삭제 실패: ${deleteError.message}`);
+  }
+  
+  console.log('[saveTempAssignments] Deleted rows:', deleteData?.length || 0);
+
+  // 4. 새 assignments 삽입
+  const { data: insertData, error: insertError } = await supabase
+    .from('schedule_assignments')
+    .insert(rows)
+    .select();
+
+  if (insertError) {
+    console.error('[saveTempAssignments] Insert error:', insertError);
+    throw new Error(`배정 저장 실패: ${insertError.message}`);
+  }
+
+  console.log('[saveTempAssignments] Insert result - rows inserted:', insertData?.length || 0);
+  console.log('[saveTempAssignments] Successfully saved', rows.length, 'assignments');
+
+  // 5. 검증: 실제로 저장되었는지 확인
+  const { data: verifyData, error: verifyError } = await supabase
+    .from('schedule_assignments')
+    .select('id')
+    .eq('schedule_id', schedule.id);
+  
+  if (verifyError) {
+    console.error('[saveTempAssignments] Verification error:', verifyError);
+  } else {
+    console.log('[saveTempAssignments] VERIFICATION - DB has', verifyData?.length || 0, 'rows for schedule_id:', schedule.id);
+  }
+
+  return schedule;
 }

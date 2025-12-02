@@ -23,6 +23,7 @@ interface Props {
 
 interface Emits {
   (e: 'select', shiftCode: string): void
+  (e: 'select-off', payload: { employeeId: string; date: string }): void
 }
 
 const props = defineProps<Props>()
@@ -56,6 +57,12 @@ function getShiftButtonClass(shiftCode: string) {
 
 function handleSelect(shiftCode: string) {
   if (!props.readonly) {
+    // O(Off) 선택 시 사유 입력을 위한 별도 이벤트 emit
+    if (shiftCode === 'O' && props.currentShift !== 'O') {
+      emit('select-off', { employeeId: props.employeeId, date: props.date })
+      return
+    }
+    
     // 이미 선택된 shift를 다시 클릭하면 해제 (토글 기능)
     const newShiftCode = props.currentShift === shiftCode ? '' : shiftCode
     emit('select', newShiftCode)

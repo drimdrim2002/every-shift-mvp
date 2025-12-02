@@ -1,12 +1,13 @@
 import { ref } from 'vue';
 import { supabase } from '@/api/supabase';
 import type { Employee } from '@/types/employee';
-import type { AssignmentMap, GridColumn } from '@/types/schedule';
+import type { AssignmentMap, GridColumn, OffReasonMap } from '@/types/schedule';
 import { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';
 
 export function useScheduleGrid() {
   const employees = ref<Employee[]>([]);
   const assignments = ref<AssignmentMap>({});
+  const offReasons = ref<OffReasonMap>({});
   const dates = ref<GridColumn[]>([]);
   const loading = ref(false);
   const lastMonthDays = ref(5); // 전월 일수 (0-5, 기본값 5)
@@ -53,12 +54,16 @@ export function useScheduleGrid() {
 
       // 초기 assignments 객체 생성
       const initialAssignments: AssignmentMap = {};
+      const initialOffReasons: OffReasonMap = {};
       employees.value.forEach(emp => {
         initialAssignments[emp.id] = {};
+        initialOffReasons[emp.id] = {};
       });
       assignments.value = initialAssignments;
+      offReasons.value = initialOffReasons;
 
       console.log('[loadEmployees] Initial assignments keys:', Object.keys(initialAssignments).length);
+      console.log('[loadEmployees] Initial offReasons keys:', Object.keys(initialOffReasons).length);
 
       return { success: true };
     } catch (error: unknown) {
@@ -97,9 +102,25 @@ export function useScheduleGrid() {
     return assignments.value[employeeId]?.[date] || null;
   }
 
+  // Off 사유 설정
+  function setOffReason(employeeId: string, date: string, reason: string) {
+    if (!offReasons.value[employeeId]) {
+      offReasons.value[employeeId] = {};
+    }
+    offReasons.value[employeeId][date] = reason;
+    // 반응성 트리거를 위해 새 객체로 교체
+    offReasons.value = { ...offReasons.value };
+  }
+
+  // Off 사유 가져오기
+  function getOffReason(employeeId: string, date: string): string | null {
+    return offReasons.value[employeeId]?.[date] || null;
+  }
+
   return {
     employees,
     assignments,
+    offReasons,
     dates,
     loading,
     lastMonthDays,
@@ -107,5 +128,7 @@ export function useScheduleGrid() {
     generateDates,
     setAssignment,
     getAssignment,
+    setOffReason,
+    getOffReason,
   };
 }

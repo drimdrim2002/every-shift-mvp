@@ -102,13 +102,35 @@
               :class="getCellClass(date)"
               class="shift-cell"
             >
+              <n-tooltip
+                v-if="getOffReason(employee.id, date.date)"
+                trigger="hover"
+                placement="top"
+              >
+                <template #trigger>
+                  <div>
+                    <ShiftSelector
+                      :employee-id="employee.id"
+                      :date="date.date"
+                      :available-shifts="employee.availableShifts"
+                      :current-shift="getAssignment(employee.id, date.date)"
+                      :readonly="readonly"
+                      @select="handleShiftSelect(employee.id, date.date, $event)"
+                      @select-off="handleSelectOff"
+                    />
+                  </div>
+                </template>
+                <span class="text-sm">{{ getOffReason(employee.id, date.date) }}</span>
+              </n-tooltip>
               <ShiftSelector
+                v-else
                 :employee-id="employee.id"
                 :date="date.date"
                 :available-shifts="employee.availableShifts"
                 :current-shift="getAssignment(employee.id, date.date)"
                 :readonly="readonly"
                 @select="handleShiftSelect(employee.id, date.date, $event)"
+                @select-off="handleSelectOff"
               />
             </td>
 
@@ -207,8 +229,9 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUpdated } from 'vue';
+import { NTooltip } from 'naive-ui';
 import type { Employee } from '@/types/employee';
-import type { GridColumn, AssignmentMap } from '@/types/schedule';
+import type { GridColumn, AssignmentMap, OffReasonMap } from '@/types/schedule';
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';
 import ShiftSelector from './ShiftSelector.vue';
 
@@ -216,6 +239,7 @@ interface Props {
   employees: Employee[];
   dates: GridColumn[];
   assignments: AssignmentMap;
+  offReasons?: OffReasonMap;
   readonly?: boolean;
   showLastMonth?: boolean;
 }
@@ -226,6 +250,7 @@ interface Emits {
     date: string;
     shiftCode: string;
   }): void;
+  (e: 'select-off', payload: { employeeId: string; date: string }): void;
 }
 
 const props = defineProps<Props>();
@@ -295,6 +320,14 @@ function handleShiftSelect(employeeId: string, date: string, shiftCode: string) 
       console.log(`[ScheduleGrid] Shift select response: ${measure.duration.toFixed(2)}ms`);
     }
   }
+}
+
+function handleSelectOff(payload: { employeeId: string; date: string }) {
+  emit('select-off', payload);
+}
+
+function getOffReason(employeeId: string, date: string): string | null {
+  return props.offReasons?.[employeeId]?.[date] || null;
 }
 
 // Level 1 헤더: 전월/당월 그룹
