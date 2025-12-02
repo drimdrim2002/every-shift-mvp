@@ -102,32 +102,12 @@
               :class="getCellClass(date)"
               class="shift-cell"
             >
-              <n-tooltip
-                v-if="getOffReason(employee.id, date.date)"
-                trigger="hover"
-                placement="top"
-              >
-                <template #trigger>
-                  <div>
-                    <ShiftSelector
-                      :employee-id="employee.id"
-                      :date="date.date"
-                      :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
-                      :current-shift="getAssignment(employee.id, date.date)"
-                      :readonly="readonly"
-                      @select="handleShiftSelect(employee.id, date.date, $event)"
-                      @select-off="handleSelectOff"
-                    />
-                  </div>
-                </template>
-                <span class="text-sm">{{ getOffReason(employee.id, date.date) }}</span>
-              </n-tooltip>
               <ShiftSelector
-                v-else
                 :employee-id="employee.id"
                 :date="date.date"
                 :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
                 :current-shift="getAssignment(employee.id, date.date)"
+                :off-reason="getOffReason(employee.id, date.date)"
                 :readonly="readonly"
                 @select="handleShiftSelect(employee.id, date.date, $event)"
                 @select-off="handleSelectOff"
@@ -229,7 +209,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUpdated } from 'vue';
-import { NTooltip } from 'naive-ui';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap, OffReasonMap } from '@/types/schedule';
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';

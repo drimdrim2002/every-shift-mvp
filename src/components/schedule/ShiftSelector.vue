@@ -1,24 +1,36 @@
 <template>
   <div class="flex gap-0.5 p-0.5">
-    <button
+    <n-tooltip
       v-for="shift in availableShifts"
       :key="shift"
-      :class="getShiftButtonClass(shift)"
-      :disabled="readonly"
-      @click="handleSelect(shift)"
+      :disabled="shift !== 'O' || !offReason"
+      trigger="hover"
+      placement="top"
     >
-      {{ shift }}
-    </button>
+      <template #trigger>
+        <button
+          :class="getShiftButtonClass(shift)"
+          :disabled="readonly"
+          @click="handleSelect(shift)"
+        >
+          {{ shift }}
+        </button>
+      </template>
+      <span class="text-sm">{{ offReason }}</span>
+    </n-tooltip>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NTooltip } from 'naive-ui';
+
 interface Props {
   employeeId: string
   date: string
   availableShifts: string[]
   currentShift: string | null
   readonly?: boolean
+  offReason?: string | null
 }
 
 interface Emits {
