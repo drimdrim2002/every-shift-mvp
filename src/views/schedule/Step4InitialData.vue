@@ -784,12 +784,13 @@ function handleLoadSampleData() {
     return;
   }
   
-  const shiftCodes = ['D', 'E', 'N', 'O'];
+  // 전월 데이터에서는 'O' (Off) 제외
+  const shiftCodes = ['D', 'E', 'N'];
 
   grid.employees.value.forEach((employee, empIndex) => {
     lastMonthDates.forEach((dateCol, dateIndex) => {
       // 각 직원마다 다른 패턴으로 배치 (순환)
-      const shiftIndex = (empIndex + dateIndex) % 4;
+      const shiftIndex = (empIndex + dateIndex) % 3;
       const shiftCode = shiftCodes[shiftIndex] || 'D';
 
       grid.setAssignment(employee.id, dateCol.date as string, shiftCode);
@@ -838,7 +839,7 @@ async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
   }
   
   try {
-    const parsedAssignments = await parseLastMonthExcel(
+    const { assignments: parsedAssignments, rejectedOffCount } = await parseLastMonthExcel(
       file.file,
       grid.employees.value,
       grid.dates.value
@@ -868,7 +869,13 @@ async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
     grid.assignments.value = { ...grid.assignments.value };
     
     const importedCount = Object.keys(parsedAssignments).length;
-    showSuccess(`${importedCount}명의 전월 데이터가 업로드되었습니다`);
+    
+    // 성공 메시지 (제거된 'O'가 있으면 경고 추가)
+    if (rejectedOffCount > 0) {
+      showWarning(`${importedCount}명의 전월 데이터가 업로드되었습니다. (${rejectedOffCount}개의 'O'는 전월 데이터에서 제외되었습니다)`);
+    } else {
+      showSuccess(`${importedCount}명의 전월 데이터가 업로드되었습니다`);
+    }
   } catch (error) {
     showError(error instanceof Error ? error.message : '엑셀 파싱 실패');
   }

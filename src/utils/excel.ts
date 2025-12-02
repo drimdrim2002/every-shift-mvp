@@ -62,7 +62,8 @@ export function downloadLastMonthTemplate(
     [''],
     ['1. 이름과 사번은 수정하지 마세요.'],
     ['2. 각 날짜 컬럼에 근무 코드를 입력하세요.'],
-    ['3. 허용되는 근무 코드: D (주간), E (저녁), N (야간), O (휴무)'],
+    ['3. 허용되는 근무 코드: D (주간), E (저녁), N (야간)'],
+    ['   ※ 주의: 전월 데이터에는 O (휴무)를 입력할 수 없습니다.'],
     ['4. 빈 칸으로 두면 해당 날짜는 입력되지 않은 것으로 처리됩니다.'],
   ];
   const infoSheet = XLSX.utils.aoa_to_sheet(infoData);
@@ -79,13 +80,13 @@ export function downloadLastMonthTemplate(
  * @param file - 업로드된 엑셀 파일
  * @param employees - 직원 목록 (Employee[])
  * @param dates - 전월 날짜 목록 (GridColumn[])
- * @returns AssignmentMap (employeeId -> date -> shiftCode)
+ * @returns { assignments, rejectedOffCount } - 파싱된 assignments와 제거된 'O' 개수
  */
 export async function parseLastMonthExcel(
   file: File,
   employees: Employee[],
   dates: GridColumn[]
-): Promise<AssignmentMap> {
+): Promise<{ assignments: AssignmentMap; rejectedOffCount: number }> {
   // 전월 날짜만 필터링
   const lastMonthDates = dates.filter(d => d.isLastMonth);
   
@@ -120,7 +121,9 @@ export async function parseLastMonthExcel(
   }
   
   const assignments: AssignmentMap = {};
-  const validShiftCodes = ['D', 'E', 'N', 'O', 'H'];
+  // 전월 데이터에서는 'O' (Off) 제외
+  const validShiftCodes = ['D', 'E', 'N'];
+  const rejectedOffCount = { count: 0 }; // 거부된 'O' 카운트
   
   // 사번 -> 직원 매핑 생성
   const employeeByEmployeeId = new Map<string, Employee>();
@@ -156,6 +159,13 @@ export async function parseLastMonthExcel(
       const shiftCode = String(row[j + 2] || '').trim().toUpperCase();
       
       if (shiftCode) {
+        // 'O' (Off)는 전월 데이터에서 허용되지 않음
+        if (shiftCode === 'O') {
+          rejectedOffCount.count++;
+          console.warn(`${i + 1}행, ${j + 3}열: 전월 데이터에는 'O' (휴무)를 입력할 수 없습니다. 이 셀은 건너뜁니다.`);
+          continue;
+        }
+        
         // 유효한 시프트 코드인지 확인
         if (!validShiftCodes.includes(shiftCode)) {
           console.warn(`${i + 1}행, ${j + 3}열: 잘못된 근무 코드 "${shiftCode}" (허용: ${validShiftCodes.join(', ')})`);
@@ -168,7 +178,12 @@ export async function parseLastMonthExcel(
     }
   }
   
-  return assignments;
+  // 'O'가 발견되었으면 경고 메시지 출력
+  if (rejectedOffCount.count > 0) {
+    console.warn(`총 ${rejectedOffCount.count}개의 'O' (휴무)가 전월 데이터에서 제외되었습니다.`);
+  }
+  
+  return { assignments, rejectedOffCount: rejectedOffCount.count };
 }
 
 /**

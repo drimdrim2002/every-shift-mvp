@@ -112,7 +112,7 @@
                     <ShiftSelector
                       :employee-id="employee.id"
                       :date="date.date"
-                      :available-shifts="employee.availableShifts"
+                      :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
                       :current-shift="getAssignment(employee.id, date.date)"
                       :readonly="readonly"
                       @select="handleShiftSelect(employee.id, date.date, $event)"
@@ -126,7 +126,7 @@
                 v-else
                 :employee-id="employee.id"
                 :date="date.date"
-                :available-shifts="employee.availableShifts"
+                :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
                 :current-shift="getAssignment(employee.id, date.date)"
                 :readonly="readonly"
                 @select="handleShiftSelect(employee.id, date.date, $event)"
@@ -376,6 +376,14 @@ function getCellClass(date: GridColumn) {
     'bg-gray-50': date.isLastMonth,
     'bg-white': !date.isLastMonth,
   };
+}
+
+// 전월 날짜일 때 'O' (Off) 제외
+function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): string[] {
+  if (isLastMonth) {
+    return availableShifts.filter(shift => shift !== 'O');
+  }
+  return availableShifts;
 }
 </script>
 
