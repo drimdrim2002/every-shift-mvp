@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
-import type { AssignmentMap, OffReasonMap } from '@/types/schedule';
+import type { 
+  AssignmentMap, 
+  OffReasonMap,
+  PlanningOrganization,
+  PlanningShift,
+  PlanningEmployee,
+  PlanningAssignment,
+} from '@/types/schedule';
 
 interface ShiftReference {
   code: string;
@@ -292,4 +299,95 @@ export async function saveTempAssignments(
   }
 
   return schedule;
+}
+
+// Planning Payload 데이터 조회 함수들
+
+// 조직 정보 조회
+export async function getPlanningOrganization(organizationId: string): Promise<PlanningOrganization> {
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name, type')
+    .eq('id', organizationId)
+    .single();
+
+  if (error) throw new Error(`조직 정보 조회 실패: ${error.message}`);
+  if (!data) throw new Error('조직 정보를 찾을 수 없습니다');
+
+  return {
+    id: data.id,
+    name: data.name,
+    type: data.type,
+  };
+}
+
+// 시프트 정보 조회
+export async function getPlanningShifts(organizationId: string): Promise<PlanningShift[]> {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('code, name, start_time, end_time')
+    .eq('organization_id', organizationId)
+    .order('code');
+
+  if (error) throw new Error(`시프트 정보 조회 실패: ${error.message}`);
+  if (!data) return [];
+
+  return data.map(shift => ({
+    code: shift.code,
+    name: shift.name,
+    start_time: shift.start_time ?? '00:00:00',
+    end_time: shift.end_time ?? '00:00:00',
+  }));
+}
+
+// 직원 정보 조회
+export async function getPlanningEmployees(organizationId: string): Promise<PlanningEmployee[]> {
+  const { data, error } = await supabase
+    .from('employees')
+    .select('id, name, available_shifts')
+    .eq('organization_id', organizationId)
+    .order('name');
+
+  if (error) throw new Error(`직원 정보 조회 실패: ${error.message}`);
+  if (!data) return [];
+
+  return data.map(emp => ({
+    employee_id: emp.id,
+    name: emp.name,
+    available_shifts: emp.available_shifts || ['D', 'E', 'N', 'O'],
+  }));
+}
+
+// 스케줄 배정 정보 조회 (Planning용)
+export async function getPlanningAssignments(scheduleId: string): Promise<PlanningAssignment[]> {
+  const allData: PlanningAssignment[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  // 페이지네이션하여 모든 데이터 조회
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('schedule_assignments')
+      .select('employee_id, shift_id, date, is_locked')
+      .eq('schedule_id', scheduleId)
+      .range(from, from + pageSize - 1);
+
+    if (error) throw new Error(`배정 정보 조회 실패: ${error.message}`);
+
+    if (data && data.length > 0) {
+      allData.push(...data.map(row => ({
+        employee_id: row.employee_id,
+        shift_id: row.shift_id,
+        date: row.date,
+        is_locked: row.is_locked ?? false,
+      })));
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  return allData;
 }

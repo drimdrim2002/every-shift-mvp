@@ -230,21 +230,26 @@ const columns = computed<DataTableColumns<EmployeeInput>>(() => [
     title: '작업',
     key: 'actions',
     width: 120,
-    render(_row, index) {
+    render(row) {
+      // 페이지네이션을 고려한 실제 인덱스 찾기
+      const actualIndex = props.employees.findIndex(
+        (emp) => emp.employeeId === row.employeeId && emp.name === row.name
+      );
+      
       return h('div', { class: 'flex gap-2' }, [
         h(
           NButton,
           {
             size: 'small',
             quaternary: true,
-            onClick: () => handleEdit(index),
+            onClick: () => handleEdit(actualIndex),
           },
           { default: () => '수정' }
         ),
         h(
           NPopconfirm,
           {
-            onPositiveClick: () => handleDelete(index),
+            onPositiveClick: () => handleDelete(actualIndex),
           },
           {
             trigger: () =>

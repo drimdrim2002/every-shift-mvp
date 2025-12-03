@@ -291,10 +291,27 @@ import { useAISolver } from '@/composables/useAISolver';
 import { showSuccess, showInfo, showError, showWarning } from '@/utils/message';
 import { validateLastMonthData } from '@/utils/validation';
 import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
-import { createSchedule, saveTempAssignments, getScheduleAssignments } from '@/api/schedule';
+import { validatePlanningPayload, summarizePlanningPayload } from '@/utils/planningPayloadValidator';
+import { 
+  createSchedule, 
+  saveTempAssignments, 
+  getScheduleAssignments,
+  getPlanningOrganization,
+  getPlanningShifts,
+  getPlanningEmployees,
+  getPlanningAssignments,
+} from '@/api/schedule';
 import { loadShifts } from '@/api/shift';
 import { supabase } from '@/api/supabase';
-import type { AssignmentMap, SiteRequirements, GridColumn, DailyRequirement, OffReasonMap } from '@/types/schedule';
+import type { 
+  AssignmentMap, 
+  SiteRequirements, 
+  GridColumn, 
+  DailyRequirement, 
+  OffReasonMap,
+  PlanningPayload,
+  PlanningAssignment,
+} from '@/types/schedule';
 import { OFF_REASONS } from '@/types/schedule';
 
 const router = useRouter();
@@ -901,7 +918,10 @@ async function handleGenerate() {
 
   try {
     // 3. Schedule 레코드 생성
-    if (!scheduleStore.basicInfo) return;
+    if (!scheduleStore.basicInfo) {
+      showError('기본 정보가 없습니다');
+      return;
+    }
 
     const schedule = await createSchedule(
       scheduleStore.basicInfo.organizationId,
@@ -973,20 +993,120 @@ async function handleGenerate() {
       }
     });
 
-    // 6. 모달 표시 및 타이머 시작
+    // 6. Planning Payload 구성
+    console.log('[Step4] Building Planning Payload...');
+    
+    // 6-1. 조직 정보 조회
+    const organization = await getPlanningOrganization(scheduleStore.basicInfo.organizationId);
+    console.log('[Step4] Organization:', organization);
+    
+    // 6-2. 시프트 정보 조회
+    const shifts = await getPlanningShifts(scheduleStore.basicInfo.organizationId);
+    console.log('[Step4] Shifts count:', shifts.length);
+    
+    // 6-3. 직원 정보 조회
+    const employees = await getPlanningEmployees(scheduleStore.basicInfo.organizationId);
+    console.log('[Step4] Employees count:', employees.length);
+    
+    // 6-4. 기존 배정 정보 조회 (schedule_assignments 테이블에서)
+    const existingAssignments = await getPlanningAssignments(schedule.id);
+    console.log('[Step4] Existing assignments count:', existingAssignments.length);
+    
+    // 6-5. 현재 그리드의 assignments를 PlanningAssignment 형식으로 변환
+    const shiftsMap: Record<string, string> = {};
+    const shiftsData = await loadShifts(scheduleStore.basicInfo.organizationId);
+    shiftsData.forEach((shift) => {
+      shiftsMap[shift.code] = shift.id;
+    });
+    
+    const gridAssignments: PlanningAssignment[] = [];
+    Object.entries(grid.assignments.value).forEach(([employeeId, dateMap]) => {
+      Object.entries(dateMap).forEach(([date, shiftCode]) => {
+        if (shiftCode && shiftsMap[shiftCode]) {
+          // off_reason이 있으면 is_locked=true
+          const offReason = grid.offReasons.value[employeeId]?.[date];
+          const isLocked = !!offReason;
+          
+          gridAssignments.push({
+            employee_id: employeeId,
+            shift_id: shiftsMap[shiftCode],
+            date,
+            is_locked: isLocked,
+          });
+        }
+      });
+    });
+    
+    // 6-6. 기존 배정과 그리드 배정 병합 (그리드 우선)
+    const assignmentMap = new Map<string, PlanningAssignment>();
+    
+    // 기존 배정 먼저 추가
+    existingAssignments.forEach(assignment => {
+      const key = `${assignment.employee_id}_${assignment.date}`;
+      assignmentMap.set(key, assignment);
+    });
+    
+    // 그리드 배정으로 덮어쓰기 (최신 데이터 우선)
+    gridAssignments.forEach(assignment => {
+      const key = `${assignment.employee_id}_${assignment.date}`;
+      assignmentMap.set(key, assignment);
+    });
+    
+    const finalAssignments = Array.from(assignmentMap.values());
+    console.log('[Step4] Final assignments count:', finalAssignments.length);
+    
+    // 6-7. Planning Payload 구성
+    const planningPayload: PlanningPayload = {
+      organization,
+      shifts,
+      employees,
+      assignments: finalAssignments,
+      requirements: dateBasedRequirements,
+    };
+    
+    // 6-8. Planning Payload 검증
+    const validation = validatePlanningPayload(planningPayload);
+    console.log('[Step4] Planning Payload Validation:', validation);
+    console.log(summarizePlanningPayload(planningPayload));
+    
+    if (!validation.valid) {
+      console.error('[Step4] Planning Payload validation failed:', validation.errors);
+      showError(`Planning Payload 검증 실패: ${validation.errors[0]}`);
+      return;
+    }
+    
+    if (validation.warnings.length > 0) {
+      console.warn('[Step4] Planning Payload warnings:', validation.warnings);
+    }
+    
+    // 디버깅: Planning Payload 출력 및 다운로드 (개발 모드)
+    console.log('[Step4] Planning Payload:', JSON.stringify(planningPayload, null, 2));
+    
+    // 개발 환경에서 Planning Payload를 JSON 파일로 다운로드
+    if (import.meta.env.DEV) {
+      try {
+        const dataStr = JSON.stringify(planningPayload, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `planning-payload-${scheduleStore.basicInfo.month}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        console.log('[Step4] Planning Payload downloaded as JSON file');
+      } catch (downloadError) {
+        console.warn('[Step4] Failed to download Planning Payload:', downloadError);
+      }
+    }
+
+    // 7. 모달 표시 및 타이머 시작
     showModal.value = true;
     elapsedTime.value = 0;
     timerInterval = window.setInterval(() => {
       elapsedTime.value++;
     }, 1000);
 
-    // 디버깅: Solver에 전달되는 데이터 확인
-    console.log('[Step4] Employees count:', grid.employees.value.length);
-    console.log('[Step4] LastMonth days:', lastMonthDays.value);
-    console.log('[Step4] LastMonth assignments keys:', Object.keys(lastMonthAssignments).length);
-    console.log('[Step4] ThisMonth assignments keys:', Object.keys(thisMonthAssignments).length);
-
-    // 7. AI Solver 시작
+    // 8. AI Solver 시작 (Planning Payload 전달)
     await solver.startSolver(
       schedule.id,
       {
@@ -996,10 +1116,11 @@ async function handleGenerate() {
         lastMonthAssignments,
         thisMonthAssignments,
       },
-      scheduleStore.basicInfo.organizationId
+      scheduleStore.basicInfo.organizationId,
+      planningPayload // Planning Payload 전달
     );
 
-    // 8. 상태 변화 감지 및 자동 이동
+    // 9. 상태 변화 감지 및 자동 이동
     const checkStatusInterval = setInterval(() => {
       if (solver.status.value === 'complete') {
         clearInterval(checkStatusInterval);
@@ -1022,10 +1143,12 @@ async function handleGenerate() {
         showError('근무표 생성 중 오류가 발생했습니다');
       }
     }, 500);
-  } catch {
+  } catch (error) {
     if (timerInterval) clearInterval(timerInterval);
     showModal.value = false;
-    showError('근무표 생성 중 오류가 발생했습니다');
+    console.error('[handleGenerate] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : '근무표 생성 중 오류가 발생했습니다';
+    showError(errorMessage);
   }
 }
 

@@ -1,7 +1,7 @@
 import { ref, onUnmounted } from 'vue';
 import { supabase } from '@/api/supabase';
 import { requestAISolver, type SolverPayload, type SolverResponse } from '@/api/solver';
-import type { AssignmentMap } from '@/types/schedule';
+import type { AssignmentMap, PlanningPayload } from '@/types/schedule';
 import type { Shift } from '@/types/shift';
 
 export function useAISolver() {
@@ -16,18 +16,41 @@ export function useAISolver() {
   let pollingInterval: number | null = null;
 
   // AI Solver 시작
-  async function startSolver(scheduleId: string, payload: SolverPayload, organizationId: string) {
+  async function startSolver(
+    scheduleId: string, 
+    payload: SolverPayload, 
+    organizationId: string,
+    planningPayload?: PlanningPayload
+  ) {
     // 초기화
     error.value = null;
     pollingAttempts = 0;
     progress.value = 0;
+
+    // Planning Payload 로깅 (실제 API 호출 시 사용)
+    if (planningPayload) {
+      console.log('[useAISolver] Planning Payload available for API call');
+      console.log('[useAISolver] Organization:', planningPayload.organization.name);
+      console.log('[useAISolver] Shifts:', planningPayload.shifts.length);
+      console.log('[useAISolver] Employees:', planningPayload.employees.length);
+      console.log('[useAISolver] Assignments:', planningPayload.assignments.length);
+      console.log('[useAISolver] Requirements dates:', Object.keys(planningPayload.requirements).length);
+      
+      // 실제 API 호출 시 사용할 수 있도록 저장
+      // TODO: Google Cloud Run API 호출 시 planningPayload 사용
+      // const response = await fetch(CLOUD_RUN_URL, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(planningPayload),
+      // });
+    }
 
     // 1. Status를 'running'으로 변경
     await supabase.from('schedules').update({ status: 'running' }).eq('id', scheduleId);
 
     status.value = 'running';
 
-    // 2. AI Solver 호출 (비동기)
+    // 2. AI Solver 호출 (비동기) - 현재는 Mock 사용
     requestAISolver(payload)
       .then(async (result) => {
         // 결과를 Supabase에 저장

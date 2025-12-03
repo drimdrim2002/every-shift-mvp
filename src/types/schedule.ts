@@ -72,3 +72,38 @@ export interface DailyRequirement {
   O: number;
   total: number;
 }
+
+// Planning Payload 타입 정의
+export interface PlanningOrganization {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface PlanningShift {
+  code: string;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+export interface PlanningEmployee {
+  employee_id: string;
+  name: string;
+  available_shifts: string[];
+}
+
+export interface PlanningAssignment {
+  employee_id: string;
+  shift_id: string;
+  date: string;
+  is_locked: boolean;
+}
+
+export interface PlanningPayload {
+  organization: PlanningOrganization;
+  shifts: PlanningShift[];
+  employees: PlanningEmployee[];
+  assignments: PlanningAssignment[];
+  requirements: SiteRequirements; // 날짜별 요구사항
+}
