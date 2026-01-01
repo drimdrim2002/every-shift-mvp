@@ -78,6 +78,11 @@ export interface PlanningOrganization {
   id: string;
   name: string;
   type: string;
+  shifts: PlanningShift[]; // Moved from top-level
+  lastHistoricalDate: string; // "2025-11-26"
+  firstDraftDate: string; // "2025-12-01"
+  publishLength: number; // 4
+  draftLength: number; // 31
 }
 
 export interface PlanningShift {
@@ -102,7 +107,7 @@ export interface PlanningAssignment {
 
 export interface PlanningPayload {
   organization: PlanningOrganization;
-  shifts: PlanningShift[];
+  // shifts: PlanningShift[]; // Removed
   employees: PlanningEmployee[];
   assignments: PlanningAssignment[];
   requirements: SiteRequirements; // 날짜별 요구사항

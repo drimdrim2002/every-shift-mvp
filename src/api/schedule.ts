@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
-import type { 
-  AssignmentMap, 
+import type {
+  AssignmentMap,
   OffReasonMap,
   PlanningOrganization,
   PlanningShift,
@@ -127,17 +127,17 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
   // AssignmentMap과 OffReasonMap 형식으로 변환
   const assignments: AssignmentMap = {};
   const offReasons: OffReasonMap = {};
-  
+
   allData.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
       offReasons[row.employee_id] = {};
     }
-    assignments[row.employee_id][row.date] = row.shifts?.code ?? '';
-    
+    assignments[row.employee_id]![row.date] = row.shifts?.code ?? '';
+
     // off_reason이 있으면 offReasons에 저장
     if (row.off_reason) {
-      offReasons[row.employee_id][row.date] = row.off_reason;
+      offReasons[row.employee_id]![row.date] = row.off_reason;
     }
   });
 
@@ -205,7 +205,7 @@ export async function saveTempAssignments(
   console.log('[saveTempAssignments] START - orgId:', orgId, 'month:', month);
   console.log('[saveTempAssignments] shiftsMap:', shiftsMap);
   console.log('[saveTempAssignments] assignments keys:', Object.keys(assignments).length);
-  
+
   // 1. schedule 생성 또는 기존 것 가져오기
   const schedule = await createSchedule(orgId, month);
   console.log('[saveTempAssignments] Schedule ID:', schedule.id);
@@ -229,7 +229,7 @@ export async function saveTempAssignments(
         const offReason = offReasons?.[employeeId]?.[date];
         // off_reason이 있으면 is_locked=true (AI가 변경 불가)
         const isLocked = !!offReason;
-        
+
         rows.push({
           schedule_id: schedule.id,
           employee_id: employeeId,
@@ -247,7 +247,7 @@ export async function saveTempAssignments(
 
   console.log('[saveTempAssignments] Total rows to save:', rows.length);
   console.log('[saveTempAssignments] Skipped cells:', skippedCount);
-  
+
   // 샘플 데이터 출력 (처음 3개)
   if (rows.length > 0) {
     console.log('[saveTempAssignments] Sample rows (first 3):', rows.slice(0, 3));
@@ -269,7 +269,7 @@ export async function saveTempAssignments(
     console.error('[saveTempAssignments] Delete error:', deleteError);
     throw new Error(`기존 배정 삭제 실패: ${deleteError.message}`);
   }
-  
+
   console.log('[saveTempAssignments] Deleted rows:', deleteData?.length || 0);
 
   // 4. 새 assignments 삽입
@@ -291,7 +291,7 @@ export async function saveTempAssignments(
     .from('schedule_assignments')
     .select('id')
     .eq('schedule_id', schedule.id);
-  
+
   if (verifyError) {
     console.error('[saveTempAssignments] Verification error:', verifyError);
   } else {
@@ -304,7 +304,7 @@ export async function saveTempAssignments(
 // Planning Payload 데이터 조회 함수들
 
 // 조직 정보 조회
-export async function getPlanningOrganization(organizationId: string): Promise<PlanningOrganization> {
+export async function getPlanningOrganization(organizationId: string): Promise<Pick<PlanningOrganization, 'id' | 'name' | 'type'>> {
   const { data, error } = await supabase
     .from('organizations')
     .select('id, name, type')
