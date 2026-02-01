@@ -12,6 +12,7 @@
 병원 등 24시간 운영 조직에서 간호사 등 근무자의 교대 근무 일정을 **자동으로 생성**하여, 기존 엑셀 수작업(4-8시간)을 **수 분으로 단축**합니다.
 
 **MVP 범위**: 4단계 워크플로우 (근무표 생성)만 구현
+
 - **Step 1**: 기본 정보 설정 (근무표 생성 월 선택)
 - **Step 2**: 사이트 정보 설정 (요일별 필요 인력 입력)
 - **Step 3**: 초기 데이터 입력 (30명 × 36일 그리드, 전월 5일 필수)
@@ -30,6 +31,7 @@
 ## 📸 스크린샷
 
 ### 로그인 및 워크플로우
+
 <table>
   <tr>
     <td width="50%">
@@ -54,6 +56,7 @@
 </table>
 
 ### UI 상태
+
 <table>
   <tr>
     <td width="50%">
@@ -70,6 +73,7 @@
 ## 🚀 기술 스택
 
 ### Frontend
+
 - **Framework**: Vue 3.5.17 (Composition API with `<script setup>`)
 - **Language**: TypeScript 5.8.3 (Strict mode)
 - **Build**: Vite 6.3.5
@@ -80,11 +84,13 @@
 - **Utilities**: Day.js, @vueuse/core, xlsx
 
 ### Backend
+
 - **Database**: Supabase PostgreSQL
 - **Authentication**: Supabase Auth
 - **RLS**: Row Level Security (Admin-only access in MVP)
 
 ### Development Tools
+
 - **Testing**: Vitest (Unit), Playwright (E2E)
 - **Linting**: ESLint + Prettier
 - **Package Manager**: pnpm 10.22.0
@@ -92,17 +98,20 @@
 ## 🛠️ 설치 및 실행
 
 ### 1. Prerequisites
+
 - **Node.js**: 18+
 - **Package Manager**: pnpm (권장) 또는 npm
 - **Supabase Account**: [supabase.com](https://supabase.com)에서 프로젝트 생성
 
 ### 2. 저장소 클론
+
 ```bash
 git clone <repository-url>
 cd every-shift-mvp
 ```
 
 ### 3. 의존성 설치
+
 ```bash
 # pnpm 사용 (권장)
 pnpm install
@@ -114,11 +123,13 @@ npm install
 ### 4. 환경 변수 설정 ⚙️
 
 **.env.local 파일 생성**:
+
 ```bash
 cp .env.example .env.local
 ```
 
 **.env.local 파일 편집**:
+
 ```bash
 # Supabase 프로젝트 정보 입력
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
@@ -126,6 +137,7 @@ VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 ```
 
 **Supabase 정보 확인 방법**:
+
 1. [Supabase Dashboard](https://supabase.com/dashboard) 로그인
 2. 프로젝트 선택 → Settings → API
 3. URL과 anon public key 복사
@@ -133,6 +145,7 @@ VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 ### 5. Supabase 데이터베이스 설정
 
 #### Option 1: Supabase CLI 사용 (권장)
+
 ```bash
 # Supabase CLI 설치
 npm install -g supabase
@@ -148,11 +161,13 @@ supabase db seed
 ```
 
 #### Option 2: Supabase Dashboard 사용
+
 1. [Supabase Dashboard](https://app.supabase.com) 접속
 2. SQL Editor에서 `supabase/migrations/` 폴더의 마이그레이션 파일 순서대로 실행
 3. `supabase/seed.sql` 파일 실행하여 초기 데이터 로드
 
 ### 6. 개발 서버 실행
+
 ```bash
 pnpm dev
 ```
@@ -160,9 +175,11 @@ pnpm dev
 브라우저에서 `http://localhost:5173` 접속
 
 ### 7. 로그인
+
 기본 계정 정보:
+
 - **이메일**: `admin@example.com`
-- **비밀번호**: `password123`
+- **비밀번호**: `admin12345`
 
 ## 📁 프로젝트 구조
 
@@ -219,6 +236,7 @@ everyshift-mvp/
 ## 📊 데이터 모델
 
 ### 핵심 테이블 (6개)
+
 - **organizations**: 병원/조직 정보 (Seed: 1개)
 - **employees**: 직원 정보 (Seed: 30명)
 - **shifts**: 시프트 정의 (D/E/N/O/H)
@@ -227,6 +245,7 @@ everyshift-mvp/
 - **site_requirements**: 요일별 필요 인력
 
 ### 관계도
+
 ```
 organizations
   ├─→ employees (30명)
@@ -238,16 +257,19 @@ organizations
 ## 🎮 사용 방법
 
 ### 1단계: 로그인
+
 ```
 이메일: admin@example.com
 비밀번호: password123
 ```
 
 ### 2단계: 기본 정보 입력
+
 - 근무표 생성할 월 선택 (예: 2025-01)
 - 조직 정보 확인 (읽기 전용)
 
 ### 3단계: 사이트 정보 설정
+
 - 요일별 필요 인력 입력
   - D(Day): 낮 근무
   - E(Evening): 저녁 근무
@@ -255,6 +277,7 @@ organizations
   - O(Off): 휴무
 
 ### 4단계: 초기 데이터 입력 ⭐ **핵심**
+
 - 30명 × 36일 그리드 (1,080 셀)
 - **전월 마지막 5일**: 필수 입력 (AI 학습용)
 - 당월 데이터: 선택 입력
@@ -262,11 +285,13 @@ organizations
 - LocalStorage 자동 저장
 
 ### 5단계: AI 근무표 생성
+
 - "근무표 생성" 버튼 클릭
 - 폴링 상태 표시 (created → running → complete)
 - 자동으로 결과 페이지로 이동
 
 ### 6단계: 결과 확인 및 편집
+
 - AI 생성 결과 확인
 - 수동 수정 가능 (셀 클릭 → 시프트 변경)
 - 통계 실시간 업데이트
@@ -275,6 +300,7 @@ organizations
 ## 🧪 테스트
 
 ### 단위 테스트 (Vitest)
+
 ```bash
 # 모든 테스트 실행
 pnpm test:unit
@@ -287,6 +313,7 @@ pnpm test:unit excel.spec.ts
 ```
 
 ### E2E 테스트 (Playwright)
+
 ```bash
 # E2E 테스트 실행
 pnpm test:e2e
@@ -304,11 +331,13 @@ pnpm test:e2e:report
 ## 📦 빌드 및 배포
 
 ### 프로덕션 빌드
+
 ```bash
 pnpm build
 ```
 
 ### 빌드 미리보기
+
 ```bash
 pnpm preview
 ```
@@ -334,6 +363,7 @@ pnpm format
 이 프로젝트는 **MVP(Minimum Viable Product)**로, 다음 기능은 포함되지 않습니다:
 
 ### 미구현 기능
+
 - ❌ 회원가입 및 승인 프로세스
 - ❌ 조직/직원/시프트 CRUD (Seed 데이터만 사용)
 - ❌ 대시보드 및 분석 기능
@@ -343,6 +373,7 @@ pnpm format
 - ❌ 실제 AI Solver (Mock 응답만)
 
 ### 기술적 제약
+
 - 최대 30명까지만 지원 (Virtual scrolling 없음)
 - 36일 고정 (전월 5일 + 당월 31일)
 - 단일 조직만 지원
@@ -357,17 +388,20 @@ pnpm format
 ## 🗺️ 로드맵
 
 ### Phase 1: MVP (현재)
+
 - ✅ 4단계 워크플로우 구현
 - ✅ TanStack Table 그리드
 - ✅ Mock AI Solver
 - ✅ Excel 내보내기
 
 ### Phase 2: 실제 AI 통합 (예정)
+
 - [ ] OptaPlanner 연동
 - [ ] Google Cloud Run 배포
 - [ ] 실시간 폴링 개선
 
 ### Phase 3: 확장 기능 (예정)
+
 - [ ] 직원/조직 관리 CRUD
 - [ ] 대시보드 및 분석
 - [ ] 모바일 지원
@@ -385,6 +419,7 @@ pnpm format
 Issue 및 Pull Request 환영합니다!
 
 ### 개발 가이드라인
+
 1. `main` 브랜치에서 feature 브랜치 생성
 2. 코드 작성 및 테스트
 3. `pnpm lint` 실행하여 코드 품질 확인

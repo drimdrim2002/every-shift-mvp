@@ -995,6 +995,24 @@ async function handleGenerate() {
 
     // 6. Planning Payload 구성
     console.log('[Step4] Building Planning Payload...');
+
+    // 날짜 계산 로직 (순서 이동: 배정 처리에 필요함)
+    const monthStr = scheduleStore.basicInfo.month; // "2025-12"
+    const [year, month] = monthStr.split('-').map(Number);
+    const firstDraftDate = `${monthStr}-01`;
+    const draftLength = new Date(year, month, 0).getDate();
+    
+    // publishLength: 전월 데이터 표시 일수
+    const publishLength = lastMonthDays.value > 0 ? lastMonthDays.value : 0;
+
+    // lastHistoricalDate calculation: Day before the history starts.
+    const prevMonthLastDate = new Date(year, month - 1, 0); 
+    const prevMonthLastDay = prevMonthLastDate.getDate(); 
+    const historicalAnchorDay = prevMonthLastDay - publishLength; 
+    
+    const prevYear = prevMonthLastDate.getFullYear();
+    const prevMonth = String(prevMonthLastDate.getMonth() + 1).padStart(2, '0');
+    const lastHistoricalDate = `${prevYear}-${prevMonth}-${String(historicalAnchorDay).padStart(2, '0')}`;
     
     // 6-1. 조직 정보 조회 (기본 정보)
     const orgBasic = await getPlanningOrganization(scheduleStore.basicInfo.organizationId);
@@ -1023,9 +1041,16 @@ async function handleGenerate() {
     Object.entries(grid.assignments.value).forEach(([employeeId, dateMap]) => {
       Object.entries(dateMap).forEach(([date, shiftCode]) => {
         if (shiftCode && shiftsMap[shiftCode]) {
-          // off_reason이 있으면 is_locked=true
+          // off_reason이 있으면 is_locked=true (Off 사유 - 사용자 명시적 지정)
           const offReason = grid.offReasons.value[employeeId]?.[date];
-          const isLocked = !!offReason;
+          
+          // Locking Logic:
+          // 1. Historical data (date < firstDraftDate) -> Always LOCKED
+          // 2. Future data -> Locked only if User explicitly set Off (offReason exists)
+          let isLocked = !!offReason;
+          if (date < firstDraftDate) {
+            isLocked = true;
+          }
           
           gridAssignments.push({
             employee_id: employeeId,
@@ -1042,8 +1067,14 @@ async function handleGenerate() {
     
     // 기존 배정 먼저 추가
     existingAssignments.forEach(assignment => {
+      // Re-evaluate lock logic for existing assignments too
+      let isLocked = assignment.is_locked;
+      if (assignment.date < firstDraftDate) {
+        isLocked = true;
+      }
+
       const key = `${assignment.employee_id}_${assignment.date}`;
-      assignmentMap.set(key, assignment);
+      assignmentMap.set(key, { ...assignment, is_locked: isLocked });
     });
     
     // 그리드 배정으로 덮어쓰기 (최신 데이터 우선)
@@ -1054,34 +1085,6 @@ async function handleGenerate() {
     
     const finalAssignments = Array.from(assignmentMap.values());
     console.log('[Step4] Final assignments count:', finalAssignments.length);
-
-    // 날짜 계산 로직
-    const monthStr = scheduleStore.basicInfo.month; // "2025-12"
-    const [year, month] = monthStr.split('-').map(Number);
-    const firstDraftDate = `${monthStr}-01`;
-    const draftLength = new Date(year, month, 0).getDate();
-    
-    // publishLength: 전월 데이터 표시 일수 (Default 4 if user set 0? User example showed 4)
-    // lastMonthDays.value is the user setting. If it's 0, we can't really supply historical data properly if required.
-    // However, the user request implied a fixed structure for the organization.
-    // "전월 데이터는 ... 4일동안이고... publishLength: 4"
-    // I will use lastMonthDays.value if > 0, otherwise 4 as a fallback or minimum?
-    // Let's use lastMonthDays.value but ensure it matches the user expectation if possible.
-    // The user manually sets this in the UI. If they set 0, we send 0.
-    // But for the sake of the specific requirement "publishLength: 4" in the example, I'll trust the user might have set it to 4.
-    // Note: If lastMonthDays.value is logic-bound, I should use it.
-    const publishLength = lastMonthDays.value > 0 ? lastMonthDays.value : 0;
-
-    // lastHistoricalDate calculation: Day before the history starts.
-    // History = [EndPrevMonth - publishLength + 1 ... EndPrevMonth]
-    // Anchor = EndPrevMonth - publishLength
-    const prevMonthLastDate = new Date(year, month - 1, 0); 
-    const prevMonthLastDay = prevMonthLastDate.getDate(); 
-    const historicalAnchorDay = prevMonthLastDay - publishLength; 
-    
-    const prevYear = prevMonthLastDate.getFullYear();
-    const prevMonth = String(prevMonthLastDate.getMonth() + 1).padStart(2, '0');
-    const lastHistoricalDate = `${prevYear}-${prevMonth}-${String(historicalAnchorDay).padStart(2, '0')}`;
 
     // 6-7. Planning Payload 구성
     const planningPayload: PlanningPayload = {

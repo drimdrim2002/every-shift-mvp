@@ -325,7 +325,7 @@ export async function getPlanningOrganization(organizationId: string): Promise<P
 export async function getPlanningShifts(organizationId: string): Promise<PlanningShift[]> {
   const { data, error } = await supabase
     .from('shifts')
-    .select('code, name, start_time, end_time')
+    .select('id, code, name, start_time, end_time')
     .eq('organization_id', organizationId)
     .order('code');
 
@@ -333,6 +333,7 @@ export async function getPlanningShifts(organizationId: string): Promise<Plannin
   if (!data) return [];
 
   return data.map(shift => ({
+    id: shift.id,
     code: shift.code,
     name: shift.name,
     start_time: shift.start_time ?? '00:00:00',

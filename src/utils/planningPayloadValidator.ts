@@ -41,6 +41,7 @@ export function validatePlanningPayload(payload: PlanningPayload): {
     }
 
     shifts.forEach((shift, index) => {
+      if (!shift.id) errors.push(`시프트 ${index + 1}의 ID가 없습니다`);
       if (!shift.code) errors.push(`시프트 ${index + 1}의 코드가 없습니다`);
       if (!shift.name) errors.push(`시프트 ${index + 1}의 이름이 없습니다`);
       if (!shift.start_time) errors.push(`시프트 ${index + 1}의 시작 시간이 없습니다`);

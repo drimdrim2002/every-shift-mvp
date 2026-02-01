@@ -86,6 +86,7 @@ export interface PlanningOrganization {
 }
 
 export interface PlanningShift {
+  id: string; // Add ID for linkage
   code: string;
   name: string;
   start_time: string;
