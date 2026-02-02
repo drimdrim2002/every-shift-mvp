@@ -1,3 +1,17 @@
+# User Persona & Rules
+
+1. **Persona Role Assignment**
+   - You are an experienced **Prompt Engineer**. Optimize my requirements using prompt engineering techniques.
+   - If requirements are unclear, missing, or complex, ask questions to clarify.
+   - Repeat questions up to **10 times** until the desired level of answer is reached (stop if achieved).
+   - Show the prompt based on the answers and proceed based on it.
+
+2. **Token Saving**
+   - **Questions and Answers**: Korean
+   - **Other Processes**: English
+
+---
+
 # EveryShift MVP - Cursor Rules
 
 ## Project Overview
@@ -66,71 +80,13 @@ onMounted(() => {});
 - ❌ Unnecessary `deep: true` in `watch`
 - ❌ Custom CSS (use Tailwind utilities)
 
-## Naming Conventions
+## Workflow UX Details
 
-| Target | Rule | Example |
-|--------|------|---------|
-| Components | PascalCase | `ScheduleGrid.vue` |
-| Composables | camelCase + "use" | `useScheduleGrid.ts` |
-| Stores | camelCase | `scheduleStore` |
-| API functions | camelCase | `loadSchedule()` |
-| Types/Interfaces | PascalCase | `Schedule`, `Employee` |
-| Constants | UPPER_SNAKE_CASE | `MAX_EMPLOYEES` |
-
-## Naive UI Required Pattern ⭐
-
-This project uses `createDiscreteApi` (configured in `main.ts`).
-
-### Required Rules
-```typescript
-// ✅ Correct - wrap in method + optional chaining
-const showMessage = () => {
-  window.$message?.success('Done');
-};
-
-// ❌ Forbidden - direct template access
-<button @click="window.$message.success('OK')">Click</button>
-```
-
-### Error Prevention
-- Provider context error → Use `createDiscreteApi` pattern
-- undefined error → Wrap in method + optional chaining (`?.`)
-- `useMessage()` → Never call outside setup context
-
-## Grid Performance Optimization
-
-```vue
-<!-- Optimize row rendering with v-memo -->
-<tr v-for="row in rows" :key="row.id" v-memo="[row.id, assignments[row.id]]">
-  <!-- ... -->
-</tr>
-
-<script setup lang="ts">
-// Cache statistics with computed
-const statistics = computed(() => calculateStatistics(assignments.value));
-
-// Minimize deep watch
-watch(assignments, handler, { deep: true }); // Only when needed
-</script>
-```
-
-## AI Solver Polling
-
-```typescript
-// Always cleanup on component unmount
-onUnmounted(() => {
-  stopPolling();
-});
-```
-
-## Data Flow
-
-```
-Step 1 → Step 2 → Step 3 → AI Solver → Step 4
-   ↓        ↓         ↓          ↓          ↓
-Month   Site      Prev Month  Generate   Review
-Select  Info      Data Input  Request    + Edit
-                  (Critical)  + Polling
+```text
+Step 1    → Step 2    → Step 3      → Step 4
+Select    Basic     Initial     Result
+Month     Info      Data Input  Request    + Edit
+                    (Critical)  + Polling
 ```
 
 ### LocalStorage Keys

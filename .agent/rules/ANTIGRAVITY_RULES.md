@@ -1,3 +1,17 @@
+# User Persona & Rules
+
+1. **Persona Role Assignment**
+   - You are an experienced **Prompt Engineer**. Optimize my requirements using prompt engineering techniques.
+   - If requirements are unclear, missing, or complex, ask questions to clarify.
+   - Repeat questions up to **10 times** until the desired level of answer is reached (stop if achieved).
+   - Show the prompt based on the answers and proceed based on it.
+
+2. **Token Saving**
+   - **Questions and Answers**: Korean
+   - **Other Processes**: English
+
+---
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -54,283 +68,95 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - ✅ Layout structure, routing patterns, composable patterns
 - ❌ NOT using complex components (BasicTable, VbenForm, preference system)
-- 📚 Documentation: `docs/vben/en/` (comprehensive Vben Admin reference)
+- 📚 Documentation: `docs/vben/en/` (comprehensive local documentation)
 
-**AI Solver Integration**: Mock responses in MVP
+## Coding Standards
 
-- Mock data in `api/solver.ts`
-- Polling: status created → running → complete
-- Real integration deferred post-MVP
+### Vue Component Structure
 
-### Data Model
+```vue
+<script setup lang="ts">
+// 1. Imports
+import { ref, computed, watch, onMounted } from 'vue';
 
-**6 Core Tables**:
+// 2. Props & Emits
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
 
-- `organizations` - Hospital info (seed: 1 org)
-- `employees` - Staff (seed: 30 nurses)
-- `shifts` - D/E/N/O definitions
-- `schedules` - Monthly schedule metadata
-- `schedule_assignments` - Individual assignments (employee × date)
-- `site_requirements` - Required staff per shift per day-of-week
+// 3. State
+const count = ref(0);
 
-**Key Relationships**:
+// 4. Computed
+const doubled = computed(() => count.value * 2);
 
+// 5. Methods
+function handleClick() {
+  count.value++;
+}
+
+// 6. Lifecycle
+onMounted(() => {
+  console.log('Mounted');
+});
+</script>
+
+<template>
+  <div @click="handleClick">{{ doubled }}</div>
+</template>
 ```
-organizations
-  ├─→ employees (30 per org)
-  ├─→ shifts (D, E, N, O)
-  └─→ schedules
-        └─→ schedule_assignments (employee + date + shift)
-```
 
-### State Management
+### TypeScript Rules
 
-**Pinia Stores**:
+- **No `any`**: Use `unknown` or specific types
+- **Explicit Types**: Define interfaces for props, events, and API responses
+- **Enums**: Use string unions or objects with `as const` instead of TypeScript enums
 
-- `auth.ts` - Supabase authentication
-- `organization.ts` - Org/employees/shifts (read-only from seed)
-- `schedule.ts` - Wizard state, temporary data, AI solver polling
+### State Management (Pinia)
 
-### Routing Structure
+- Use Setup Stores (`defineStore('id', () => { ... })`)
+- Separate stores for `auth`, `schedule`, `organization`
 
-**Routes**:
+### Styling
 
-- `/login` - Login page (public)
-- `/schedule/step1` - Step1BasicInfo.vue (기본 정보)
-- `/schedule/step2` - Step2SiteInfo.vue (사이트 정보)
-- `/schedule/step3` - Step3InitialData.vue (초기 데이터)
-- `/schedule/step4` - Step4Result.vue (결과 확인)
+- **Tailwind CSS First**: Use utility classes for 95% of styling
+- **Consistent Colors**: Use `primary`, `success`, `warning`, `error` from theme
+- **Responsive**: Mobile-first approach (though MVP is desktop-focused)
 
-**Route Guards**:
+## Development Workflow
 
-- Authentication check → redirect to `/login`
-- Step progression validation
-- Data validation before navigation
+### Commands
 
-### Component Architecture
+- `pnpm dev`: Start development server (http://localhost:5173)
+- `pnpm build`: Build for production
+- `pnpm lint`: Run ESLint
+- `pnpm format`: Run Prettier
+- `pnpm test:unit`: Run Vitest
+- `pnpm test:e2e`: Run Playwright
 
-**Critical Components**:
+### Error Handling
 
-- **ScheduleGrid.vue** - TanStack Table (30×36 grid, 1080 cells)
-- **ShiftSelector.vue** - D/E/N/O button group with color coding
-- **StatisticsSummary.vue** - Real-time shift statistics
-- **StepIndicator.vue** - Wizard progress indicator
+- **API Errors**: Centralized handling in `src/utils/http/axios` (if using Vben's http) or custom fetch wrapper
+- **UI Feedback**: Use Naive UI's `useMessage` or `useNotification` for user alerts
 
-**Layout Components**:
+## Documentation
 
-- DefaultLayout.vue, Header.vue, Sidebar.vue
+### Priority Order
 
-**View Components**:
+1. **Local Project Docs** (`docs/`) - Look here first!
+2. **Framework/Library Official Docs** - Via Context7 MCP
+3. **Web Search** - Only if specific error/issue not covered above
 
-- Step1BasicInfo.vue, Step2SiteInfo.vue, Step3InitialData.vue, Step4Result.vue
+### Naive UI Documentation Guide
 
-### Key Technical Constraints
+**Location**: `docs/naive/`
 
-**Grid Simplification** (vs. Enhanced PRD):
+**Key Mappings**:
 
-- Max 30 employees (no virtual scrolling)
-- 36 days total (5 previous + 31 current)
-- Only name column is sticky
-- Basic statistics only
-
-**MVP Exclusions**:
-
-- User registration/approval flow
-- Organization/employee CRUD (seed data only)
-- Dashboard and analytics
-- Internationalization (Korean only)
-- Mobile responsiveness
-
-## Important Patterns
-
-### Composables Strategy
-
-**useScheduleGrid.ts** - Grid data management
-
-- Grid data structure and cell updates with reactivity
-- TanStack Table integration
-- Date calculation utilities
-
-**useAISolver.ts** - AI Solver integration
-
-- Polling mechanism (5-second intervals)
-- Status: created → running → complete/error
-- Mock data generation for MVP
-
-**useAuth.ts** - Authentication wrapper
-
-- Supabase auth abstraction
-- Session persistence
-- Route guard integration
-
-### Data Flow Patterns
-
-**Step 3 → AI Solver → Step 4**:
-
-1. User inputs data in Step 3 grid
-2. Data saved to Pinia store + localStorage (temporary)
-3. "생성" button creates schedule record (status='created')
-4. AI Solver API called (mock in MVP)
-5. Status polling every 5s checks schedule.status
-6. When complete, navigate to Step 4
-7. Step 4 loads schedule_assignments and displays in grid
-
-**Temporary Storage**:
-
-- LocalStorage key: `everyshift_temp_schedule_{month}`
-- Debounced saves (500ms)
-- Auto-restore on page refresh
-- Cleared on successful AI generation
-
-### Validation Rules
-
-**Step 3 Previous Month Validation**:
-
-- Previous month's last 5 days MUST be filled (required for AI solver)
-- Current month data is optional
-- Validation triggers on "생성" button click
-- Missing cells highlighted with red border
-
-**Shift Availability Check**:
-
-- Each employee has `available_shifts` JSONB array (e.g., ["D","E","N","O"])
-- ShiftSelector only shows available shifts
-- UI disables unavailable shift buttons
-
-## Database Conventions
-
-### UUID Usage
-
-- All primary keys use `gen_random_uuid()`
-- Fixed seed UUID: `'00000000-0000-0000-0000-000000000001'`
-
-### Timestamps
-
-- `created_at` - Insertion timestamp (DEFAULT NOW())
-- `updated_at` - Last modification timestamp
-
-### Enums as VARCHAR
-
-- `shifts.code` - 'D', 'E', 'N', 'O', 'H'
-- `schedules.status` - 'created', 'running', 'complete', 'changed', 'error'
-- `organizations.type` - 'hospital', 'fire', 'police'
-
-### JSONB Fields
-
-- `employees.available_shifts` - Array of shift codes: ["D","E","N","O"]
-
-## Code Style Conventions
-
-### Vue 3 Composition API
-
-- Use `<script setup>` syntax
-- Prefer `ref` over `reactive` for primitive values
-- Use `computed` for derived state
-- Use `watch` for side effects only
-
-### TypeScript
-
-- Define interfaces in `types/` directory
-- Use strict mode
-- Avoid `any` type (use `unknown` if needed)
-- Export types alongside implementation
-
-### Naming Conventions
-
-- Components: PascalCase (ScheduleGrid.vue)
-- Composables: camelCase with "use" prefix (useScheduleGrid.ts)
-- Stores: camelCase (scheduleStore)
-- API functions: camelCase (loadSchedule)
-- Types/Interfaces: PascalCase (Schedule, Employee)
-
-### File Organization
-
-**Key Directories**:
-
-- `src/components/schedule/` - Core scheduling components (80% of complexity)
-- `src/views/schedule/` - 4-step wizard pages
-- `src/composables/` - Reusable logic (grid, solver, auth)
-- `src/stores/` - Pinia state management
-- `src/api/` - Backend communication layer
-- `src/types/` - TypeScript definitions
-
-**Key Files**:
-
-- `src/components/schedule/ScheduleGrid.vue` - [CRITICAL] TanStack Table grid
-- `src/composables/useScheduleGrid.ts` - Grid data management
-- `src/composables/useAISolver.ts` - AI Solver integration
-- `src/stores/schedule.ts` - Schedule workflow state
-
-## Important Notes for AI Development
-
-1. **Simplified MVP Scope**: Do not implement features marked as "Out-of-Scope"
-2. **No CRUD for Seed Data**: Organizations, employees, and shifts are read-only
-3. **Mock AI Solver**: Always use mock responses
-4. **Grid is Critical**: 80% of development effort focuses on Step 3 ScheduleGrid component
-5. **Korean UI**: All user-facing text is in Korean; comments can be English
-6. **Tailwind Only**: Use Tailwind CSS utilities; avoid custom CSS unless absolutely necessary
-7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
-8. **External Library Usage**: When a task can be significantly simplified by installing external tools or libraries (e.g., ImageMagick for image processing, Pillow for Python image manipulation, sharp for Node.js image processing), ALWAYS prefer installing and using the appropriate tool rather than implementing complex manual solutions. Check for tool availability first with `which <tool>` or try importing the library, then install if needed using the appropriate package manager (apt-get, pip, npm, etc.)
-
-## Documentation Lookup Strategy
-
-**Priority Order** (ALWAYS follow this sequence):
-
-1. **Local Documentation First** (Primary Source)
-   - Naive UI: `docs/naive/*.md`
-   - Vben Admin: `docs/vben/en/guide/`
-   - Project PRD: `docs/prd/*.md`
-
-2. **Context7 MCP** (When local docs insufficient)
-   - Trigger: Missing implementation details, API changes, advanced patterns
-   - Use for: Official documentation, framework updates, best practices
-   - Example: "Local docs don't cover X, checking Context7 for Naive UI X documentation"
-
-3. **WebSearch/Official Sites** (Last Resort)
-   - Only when Context7 unavailable or insufficient
-   - Use official sites: naiveui.com, vben.pro
-
-**Integration Rule**: When using Context7 or WebSearch, **always cross-reference with local documentation** to ensure consistency with project patterns.
-
-## Naive UI Global API Usage
-
-### CRITICAL Pattern
-
-This project uses **createDiscreteApi** (configured in `main.ts`).
-**Core Rule**: Never access `window.$message` directly in templates. Always wrap in methods.
-
-### Mandatory Rules
-
-1. NEVER access window.$ directly in templates
-2. ALWAYS use optional chaining (?.)
-3. NEVER use Provider pattern with createDiscreteApi
-4. NEVER call useMessage() outside setup context
-
-### Common Errors
-
-See `docs/naive/troubleshooting.md` for detailed solutions:
-
-- Provider context errors → Use createDiscreteApi pattern
-- Undefined errors → Wrap in methods with optional chaining
-- HMR errors → Full browser refresh or use utility functions
-
-### Documentation
-
-Naive UI documentation organized by purpose (7 files):
-- **`00-quick-reference.md`** - Types, imports, frequently used patterns (⚡ read first)
-- **`01-setup.md`** - Installation, configuration, theme customization
-- **`02-forms.md`** - Form, Input, Select, Button components
-- **`03-data-tables.md`** - DataTable implementation guide
-- **`04-feedback.md`** - Modal, Dialog, Message, Notification
-- **`05-discrete-api.md`** - createDiscreteApi (window.$message) **⭐ PROJECT CORE**
-- **`06-patterns.md`** - Practical development patterns
-- **`07-troubleshooting.md`** - Problem solving & resources
-
-**Reading Strategy**:
-- Form implementation → Read `00-quick-reference.md` + `02-forms.md`
-- Table implementation → Read `00-quick-reference.md` + `03-data-tables.md`
-- Global message/dialog → Read `00-quick-reference.md` + `05-discrete-api.md`
-- Error fixing → Read `07-troubleshooting.md`
+- Layout components → `01-layout.md`
+- Form inputs → `02-forms.md`
+- Data tables → `03-data-tables.md`
+- Feedback/Modals → `05-discrete-api.md`
+- Common issues → `07-troubleshooting.md`
 - **If insufficient** → Use Context7 MCP for Naive UI official docs
 
 ### Utility Functions
@@ -370,6 +196,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 **Location**: `docs/vben/en/`
 
 **Reading Strategy**:
+
 - Layout/routing work → Read `guide/introduction/` + `guide/essentials/route.md`
 - Component patterns → Read `guide/essentials/` + `guide/in-depth/`
 - Build/configuration → Read `guide/project/` (vite, tailwindcss, standard)
@@ -377,6 +204,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 - **If insufficient** → Use Context7 MCP for Vben Admin official docs
 
 **Key Documents**:
+
 - **Introduction**: `guide/introduction/vben.md`, `guide/introduction/quick-start.md`
 - **Essentials**: `guide/essentials/concept.md`, `guide/essentials/route.md`, `guide/essentials/development.md`
 - **Project Setup**: `guide/project/dir.md`, `guide/project/vite.md`, `guide/project/tailwindcss.md`
