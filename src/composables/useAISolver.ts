@@ -1,8 +1,8 @@
-import { ref, onUnmounted } from 'vue';
-import { supabase } from '@/api/supabase';
 import { requestAISolver, type SolverPayload, type SolverResponse } from '@/api/solver';
+import { supabase } from '@/api/supabase';
 import type { AssignmentMap, PlanningPayload } from '@/types/schedule';
 import type { Shift } from '@/types/shift';
+import { onUnmounted, ref } from 'vue';
 
 export function useAISolver() {
   const status = ref<string>('created');
@@ -31,7 +31,7 @@ export function useAISolver() {
     if (planningPayload) {
       console.log('[useAISolver] Planning Payload available for API call');
       console.log('[useAISolver] Organization:', planningPayload.organization.name);
-      console.log('[useAISolver] Shifts:', planningPayload.shifts.length);
+      console.log('[useAISolver] Shifts:', planningPayload.organization.shifts.length);
       console.log('[useAISolver] Employees:', planningPayload.employees.length);
       console.log('[useAISolver] Assignments:', planningPayload.assignments.length);
       console.log('[useAISolver] Requirements dates:', Object.keys(planningPayload.requirements).length);
@@ -66,7 +66,7 @@ export function useAISolver() {
     startPolling(scheduleId);
   }
 
-  // Polling 시작
+  // Polling 시작 (실제 API 상태 조회)
   function startPolling(scheduleId: string) {
     // 이미 polling이 시작되었으면 중복 실행 방지
     if (pollingInterval) {
@@ -85,6 +85,7 @@ export function useAISolver() {
       }
 
       try {
+        // Supabase에서 schedules 테이블 조회 (기존 방식 유지)
         const { data, error: fetchError } = await supabase
           .from('schedules')
           .select('status, hard_score, soft_score')

@@ -263,56 +263,60 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import { watchDebounced } from '@vueuse/core';
 import {
-  NCard,
-  NButton,
-  NSpin,
-  NModal,
-  NProgress,
-  NInputNumber,
-  NUpload,
-  NSwitch,
-  NTooltip,
-  NButtonGroup,
-  NRadioGroup,
-  NRadioButton,
-  NRadio,
-  NSpace,
-} from 'naive-ui';
-import type { UploadFileInfo } from 'naive-ui';
-import StepIndicator from '@/components/schedule/StepIndicator.vue';
-import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
-import { useScheduleStore } from '@/stores/schedule';
-import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import { useAISolver } from '@/composables/useAISolver';
-import { showSuccess, showInfo, showError, showWarning } from '@/utils/message';
-import { validateLastMonthData } from '@/utils/validation';
-import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
-import { validatePlanningPayload, summarizePlanningPayload } from '@/utils/planningPayloadValidator';
-import { 
-  createSchedule, 
-  saveTempAssignments, 
-  getScheduleAssignments,
+  createSchedule,
+  getPlanningAssignments,
+  getPlanningEmployees,
   getPlanningOrganization,
   getPlanningShifts,
-  getPlanningEmployees,
-  getPlanningAssignments,
+  getScheduleAssignments,
+  saveTempAssignments,
 } from '@/api/schedule';
 import { loadShifts } from '@/api/shift';
+import { createSolverExecution } from '@/api/solver';
 import { supabase } from '@/api/supabase';
-import type { 
-  AssignmentMap, 
-  SiteRequirements, 
-  GridColumn, 
-  DailyRequirement, 
+import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
+import StepIndicator from '@/components/schedule/StepIndicator.vue';
+import { useAISolver } from '@/composables/useAISolver';
+import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import { useScheduleStore } from '@/stores/schedule';
+import type {
+  AssignmentMap,
+  DailyRequirement,
+  GridColumn,
   OffReasonMap,
-  PlanningPayload,
   PlanningAssignment,
+  SiteRequirements,
+  SolverRequest,
+  SolverRequestEmployee,
+  SolverRequestHistoryItem,
+  SolverRequestRequirementItem,
+  SolverRequestUndesirableItem
 } from '@/types/schedule';
 import { OFF_REASONS } from '@/types/schedule';
+import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
+import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
+import { validateLastMonthData } from '@/utils/validation';
+import { watchDebounced } from '@vueuse/core';
+import type { UploadFileInfo } from 'naive-ui';
+import {
+  NButton,
+  NButtonGroup,
+  NCard,
+  NInputNumber,
+  NModal,
+  NProgress,
+  NRadio,
+  NRadioButton,
+  NRadioGroup,
+  NSpace,
+  NSpin,
+  NSwitch,
+  NTooltip,
+  NUpload,
+} from 'naive-ui';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
@@ -1022,9 +1026,17 @@ async function handleGenerate() {
     const shifts = await getPlanningShifts(scheduleStore.basicInfo.organizationId);
     console.log('[Step4] Shifts count:', shifts.length);
     
-    // 6-3. 직원 정보 조회
+    // 6-3. 직원 정보 조회 및 skill_set 추가
     const employees = await getPlanningEmployees(scheduleStore.basicInfo.organizationId);
     console.log('[Step4] Employees count:', employees.length);
+    
+    // API 스펙에 맞게 skill_set 추가
+    const employeesWithSkills: SolverRequestEmployee[] = employees.map(emp => ({
+      employee_id: emp.employee_id,
+      name: emp.name,
+      available_shifts: emp.available_shifts,
+      skill_set: ['ALL'], // MVP에서는 모든 직원이 ALL 스킬
+    }));
     
     // 6-4. 기존 배정 정보 조회 (schedule_assignments 테이블에서)
     const existingAssignments = await getPlanningAssignments(schedule.id);
@@ -1086,54 +1098,83 @@ async function handleGenerate() {
     const finalAssignments = Array.from(assignmentMap.values());
     console.log('[Step4] Final assignments count:', finalAssignments.length);
 
-    // 6-7. Planning Payload 구성
-    const planningPayload: PlanningPayload = {
+    // 6-7. SolverRequest 페이로드 구성 (API 스펙에 맞게)
+    console.log('[Step4] Building SolverRequest Payload...');
+    
+    // 6-7-1. history 배열 생성 (과거 데이터 + 잠금 데이터)
+    const history: SolverRequestHistoryItem[] = finalAssignments
+      .filter(assignment => assignment.date < firstDraftDate || assignment.is_locked)
+      .map(assignment => ({
+        employee_id: assignment.employee_id,
+        shift_id: assignment.shift_id,
+        date: assignment.date,
+        is_locked: true, // history는 모두 잠금
+      }));
+    
+    console.log('[Step4] History count:', history.length);
+    
+    // 6-7-2. undesirable 배열 생성 (현재는 빈 배열 - MVP에서는 미사용)
+    const undesirable: SolverRequestUndesirableItem[] = [];
+    console.log('[Step4] Undesirable count:', undesirable.length);
+    
+    // 6-7-3. requirements 배열 형식으로 변환
+    const requirementsArray: SolverRequestRequirementItem[] = [];
+    const sortedDates = Object.keys(dateBasedRequirements).sort();
+    
+    sortedDates.forEach((date, dayIndex) => {
+      const req = dateBasedRequirements[date];
+      if (!req) return;
+      
+      // 각 Shift별로 항목 생성 (O 제외)
+      shifts.forEach(shift => {
+        const shiftCode = shift.code as 'D' | 'E' | 'N' | 'O';
+        if (shiftCode !== 'O' && req[shiftCode] > 0) {
+          requirementsArray.push({
+            shiftId: shift.id,
+            dayIndex: dayIndex,
+            employeeCount: req[shiftCode],
+          });
+        }
+      });
+    });
+    
+    console.log('[Step4] Requirements array count:', requirementsArray.length);
+    
+    // 6-7-4. SolverRequest 최종 구성
+    const solverRequest: SolverRequest = {
       organization: {
-        ...orgBasic,
+        id: orgBasic.id,
+        name: orgBasic.name,
+        type: orgBasic.type,
         shifts,
         lastHistoricalDate,
         firstDraftDate,
         publishLength,
         draftLength,
       },
-      // shifts, // Removed from top-level
-      employees,
-      assignments: finalAssignments,
-      requirements: dateBasedRequirements,
+      employees: employeesWithSkills,
+      history,
+      undesirable,
+      requirements: requirementsArray,
     };
     
-    // 6-8. Planning Payload 검증
-    const validation = validatePlanningPayload(planningPayload);
-    console.log('[Step4] Planning Payload Validation:', validation);
-    console.log(summarizePlanningPayload(planningPayload));
+    // 디버깅: SolverRequest 출력 및 다운로드 (개발 모드)
+    console.log('[Step4] SolverRequest:', JSON.stringify(solverRequest, null, 2));
     
-    if (!validation.valid) {
-      console.error('[Step4] Planning Payload validation failed:', validation.errors);
-      showError(`Planning Payload 검증 실패: ${validation.errors[0]}`);
-      return;
-    }
-    
-    if (validation.warnings.length > 0) {
-      console.warn('[Step4] Planning Payload warnings:', validation.warnings);
-    }
-    
-    // 디버깅: Planning Payload 출력 및 다운로드 (개발 모드)
-    console.log('[Step4] Planning Payload:', JSON.stringify(planningPayload, null, 2));
-    
-    // 개발 환경에서 Planning Payload를 JSON 파일로 다운로드
+    // 개발 환경에서 SolverRequest를 JSON 파일로 다운로드
     if (import.meta.env.DEV) {
       try {
-        const dataStr = JSON.stringify(planningPayload, null, 2);
+        const dataStr = JSON.stringify(solverRequest, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `planning-payload-${scheduleStore.basicInfo.month}.json`;
+        link.download = `solver-request-${scheduleStore.basicInfo.month}.json`;
         link.click();
         URL.revokeObjectURL(url);
-        console.log('[Step4] Planning Payload downloaded as JSON file');
+        console.log('[Step4] SolverRequest downloaded as JSON file');
       } catch (downloadError) {
-        console.warn('[Step4] Failed to download Planning Payload:', downloadError);
+        console.warn('[Step4] Failed to download SolverRequest:', downloadError);
       }
     }
 
@@ -1144,19 +1185,26 @@ async function handleGenerate() {
       elapsedTime.value++;
     }, 1000);
 
-    // 8. AI Solver 시작 (Planning Payload 전달)
-    // await solver.startSolver(
-    //   schedule.id,
-    //   {
-    //     scheduleId: schedule.id,
-    //     employees: grid.employees.value,
-    //     requirements: dateBasedRequirements,
-    //     lastMonthAssignments,
-    //     thisMonthAssignments,
-    //   },
-    //   scheduleStore.basicInfo.organizationId,
-    //   planningPayload // Planning Payload 전달
-    // );
+    // 8. AI Solver 시작 (SolverRequest 전달)
+    try {
+      const executionId = await createSolverExecution(solverRequest);
+      console.log('[Step4] Solver execution started:', executionId);
+      
+      // Solver 상태를 schedules 테이블에 업데이트
+      await supabase
+        .from('schedules')
+        .update({ status: 'running' })
+        .eq('id', schedule.id);
+      
+      // 폴링 시작 (useAISolver에서 처리)
+      solver.startPolling(schedule.id);
+    } catch (solverError) {
+      console.error('[Step4] Solver execution failed:', solverError);
+      if (timerInterval) clearInterval(timerInterval);
+      showModal.value = false;
+      showError(solverError instanceof Error ? solverError.message : 'AI Solver 호출 실패');
+      return;
+    }
 
     // 9. 상태 변화 감지 및 자동 이동
     const checkStatusInterval = setInterval(() => {

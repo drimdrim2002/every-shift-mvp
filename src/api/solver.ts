@@ -1,5 +1,5 @@
 import type { Employee } from '@/types/employee';
-import type { AssignmentMap, SiteRequirements } from '@/types/schedule';
+import type { AssignmentMap, SiteRequirements, SolverRequest, SolverStatusResponse } from '@/types/schedule';
 
 export interface SolverPayload {
   scheduleId: string;
@@ -17,7 +17,41 @@ export interface SolverResponse {
   assignments: AssignmentMap;
 }
 
-// Mock: 5초 후 완료
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // 개발: '' (프록시 사용), 프로덕션: 전체 URL
+
+// 실제 API 호출: POST /api/solve
+export async function createSolverExecution(request: SolverRequest): Promise<string> {
+  const url = `${API_BASE_URL}/api/solve`;
+  console.log('[createSolverExecution] API_BASE_URL:', API_BASE_URL);
+  console.log('[createSolverExecution] Full URL:', url);
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Solver 요청 실패');
+  }
+
+  const data = await response.json();
+  return data.execution_id;
+}
+
+// 실제 API 호출: GET /api/status/{id}
+export async function getSolverStatus(executionId: string): Promise<SolverStatusResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/status/${executionId}`);
+  
+  if (!response.ok) {
+    throw new Error('상태 조회 실패');
+  }
+  
+  return await response.json();
+}
+
+// Mock: 5초 후 완료 (개발/테스트용)
 export async function requestAISolver(payload: SolverPayload): Promise<SolverResponse> {
   // 실제 환경에서는 Google Cloud Run URL 호출
   // const response = await fetch(CLOUD_RUN_URL, { method: 'POST', body: JSON.stringify(payload) });
@@ -47,15 +81,15 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
       ...payload.thisMonthAssignments[emp.id],
     };
 
-    // 빈 날짜만 자동 배정 (available_shifts 제약 준수)
+    // 빈 날짜만 자동 배정 (availableShifts 제약 준수)
     const dates = Object.keys(payload.requirements);
-    const availableShifts = emp.available_shifts || ['D', 'E', 'N', 'O'];
+    const availableShifts = emp.availableShifts || ['D', 'E', 'N', 'O'];
 
     dates.forEach((date) => {
-      if (!result[emp.id][date]) {
-        // available_shifts 중 랜덤 선택
+      if (!result[emp.id]?.[date]) {
+        // availableShifts 중 랜덤 선택
         const randomIndex = Math.floor(Math.random() * availableShifts.length);
-        result[emp.id][date] = availableShifts[randomIndex];
+        result[emp.id]![date] = availableShifts[randomIndex]!;
       }
     });
   });
@@ -65,3 +99,4 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
 
   return result;
 }
+

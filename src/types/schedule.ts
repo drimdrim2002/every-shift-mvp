@@ -1,5 +1,5 @@
-import type { Shift } from './shift';
 import type { SiteRequirementRow } from './excel';
+import type { Shift } from './shift';
 
 // 기본 정보 (Step 1)
 export interface ScheduleBasicInfo {
@@ -112,4 +112,65 @@ export interface PlanningPayload {
   employees: PlanningEmployee[];
   assignments: PlanningAssignment[];
   requirements: SiteRequirements; // 날짜별 요구사항
+}
+
+// API 요청용 타입 (API_DOCUMENTATION.md 기준)
+export interface SolverRequestEmployee {
+  employee_id: string;
+  name: string;
+  available_shifts: string[];
+  skill_set: string[]; // 예: ["ALL"]
+}
+
+export interface SolverRequestHistoryItem {
+  employee_id: string;
+  shift_id: string;
+  date: string; // "YYYY-MM-DD"
+  is_locked: boolean; // true: 변경 불가
+}
+
+export interface SolverRequestUndesirableItem {
+  employee_id: string;
+  date: string; // "YYYY-MM-DD"
+  is_locked: boolean; // false: 권장 사항 (soft constraint)
+}
+
+export interface SolverRequestRequirementItem {
+  shiftId: string; // shift UUID
+  dayIndex: number; // 0 = 스케줄 시작일 (firstDraftDate) 기준
+  employeeCount: number;
+}
+
+export interface SolverRequest {
+  organization: {
+    id: string;
+    name: string;
+    type: string;
+    shifts: PlanningShift[];
+    lastHistoricalDate: string;
+    firstDraftDate: string;
+    publishLength: number;
+    draftLength: number;
+  };
+  employees: SolverRequestEmployee[];
+  history: SolverRequestHistoryItem[];
+  undesirable: SolverRequestUndesirableItem[];
+  requirements: SolverRequestRequirementItem[];
+}
+
+// API 응답 타입
+export interface SolverStatusResponse {
+  execution_id: string;
+  tenant_id?: string;
+  organization_name?: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  score?: {
+    hard_score: number;
+    soft_score: number;
+  };
+  result?: any;
+  error_message?: string | null;
+  created_at?: string;
+  started_at?: string;
+  completed_at?: string;
 }
