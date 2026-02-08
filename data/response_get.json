@@ -1,0 +1,1522 @@
+{
+  "execution_id": "d7206857-9699-4428-a0cc-fb88dee13d5c",
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "organization_name": "세브란스병원",
+  "status": "COMPLETED",
+  "score": {
+    "hard_score": 0,
+    "soft_score": -91
+  },
+  "result": {
+    "availabilityList": [
+      {
+        "id": 1,
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-31",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 2,
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-30",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 3,
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-29",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 4,
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-28",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 5,
+        "employee": {
+          "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+          "name": "김나빈",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-16",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 6,
+        "employee": {
+          "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+          "name": "김나빈",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-17",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 7,
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-29",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 8,
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-30",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 9,
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-31",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 10,
+        "employee": {
+          "id": "c70c37a0-dc7d-4cd5-978c-87f87b80e72d",
+          "name": "권은비",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-23",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 11,
+        "employee": {
+          "id": "6c5a2e6a-4c0a-48a1-9380-656e644c35ae",
+          "name": "유은형",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-23",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 12,
+        "employee": {
+          "id": "97adefb6-e12c-4aae-9dbd-8af86cb0b832",
+          "name": "이민지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-15",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 13,
+        "employee": {
+          "id": "97adefb6-e12c-4aae-9dbd-8af86cb0b832",
+          "name": "이민지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-16",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 14,
+        "employee": {
+          "id": "cc197ee4-7302-4baf-82ef-08a9fc8e7b29",
+          "name": "남지현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-22",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 15,
+        "employee": {
+          "id": "78800803-e249-40df-98e6-e8c0a252941e",
+          "name": "이소현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-12",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 16,
+        "employee": {
+          "id": "3515886c-6359-4919-9c02-682565bb93c7",
+          "name": "고소영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-05",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 17,
+        "employee": {
+          "id": "3515886c-6359-4919-9c02-682565bb93c7",
+          "name": "고소영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-06",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 18,
+        "employee": {
+          "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+          "name": "이다혜Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-17",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 19,
+        "employee": {
+          "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+          "name": "이다혜Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-18",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 20,
+        "employee": {
+          "id": "2fc273b8-f4c1-475e-be2f-445e87a8b53c",
+          "name": "김수연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-22",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 21,
+        "employee": {
+          "id": "a0083dbe-ca67-4d21-b84d-67918bb7bb99",
+          "name": "정유나Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-15",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 22,
+        "employee": {
+          "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+          "name": "김예은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-06",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 23,
+        "employee": {
+          "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+          "name": "김예은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-07",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 24,
+        "employee": {
+          "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+          "name": "김예은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-08",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 25,
+        "employee": {
+          "id": "3199fc11-99d7-418a-90a0-d73913e2a784",
+          "name": "김고은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-12",
+        "availabilityType": "UNDESIRABLE"
+      },
+      {
+        "id": 26,
+        "employee": {
+          "id": "3199fc11-99d7-418a-90a0-d73913e2a784",
+          "name": "김고은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "date": "2025-12-13",
+        "availabilityType": "UNDESIRABLE"
+      }
+    ],
+    "employeeList": [
+      {
+        "id": "232db1a0-8dc0-4b70-8fc0-2272ce7f3880",
+        "name": "남보미",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+        "name": "김예은",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "a0083dbe-ca67-4d21-b84d-67918bb7bb99",
+        "name": "정유나Q",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "c70c37a0-dc7d-4cd5-978c-87f87b80e72d",
+        "name": "권은비",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+        "name": "소한지",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "6c5a2e6a-4c0a-48a1-9380-656e644c35ae",
+        "name": "유은형",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "78800803-e249-40df-98e6-e8c0a252941e",
+        "name": "이소현",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "cc197ee4-7302-4baf-82ef-08a9fc8e7b29",
+        "name": "남지현",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "2fc273b8-f4c1-475e-be2f-445e87a8b53c",
+        "name": "김수연",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+        "name": "정다래Q",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "97adefb6-e12c-4aae-9dbd-8af86cb0b832",
+        "name": "이민지",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "21b89adb-6341-445a-861e-464bbf79a225",
+        "name": "엄세영",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "3515886c-6359-4919-9c02-682565bb93c7",
+        "name": "고소영",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+        "name": "이다혜Q",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+        "name": "김나빈",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "0a77cb37-d7b9-4a22-800a-1509d5f68d1f",
+        "name": "최진실Q",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "a33ebb37-fecf-4c5a-b3a9-90b7588dedbe",
+        "name": "남재연",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "bc393ec3-72cf-44b9-b999-8fbe02702191",
+        "name": "이민아",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      },
+      {
+        "id": "3199fc11-99d7-418a-90a0-d73913e2a784",
+        "name": "김고은",
+        "skillSet": [
+          "ALL"
+        ],
+        "availableShift": [
+          "D",
+          "E",
+          "N"
+        ]
+      }
+    ],
+    "shiftList": [
+      {
+        "id": 1,
+        "start": "2025-11-30T00:00:00",
+        "end": "2025-11-30T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 2,
+        "start": "2025-12-01T00:00:00",
+        "end": "2025-12-01T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "abf84b88-a0c8-4605-aa44-3aa9e5bb87a9",
+          "name": "소한지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 3,
+        "start": "2025-11-27T08:00:00",
+        "end": "2025-11-27T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+          "name": "김나빈",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 4,
+        "start": "2025-11-28T16:00:00",
+        "end": "2025-11-29T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+          "name": "김나빈",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 5,
+        "start": "2025-11-29T16:00:00",
+        "end": "2025-11-30T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fd8b659-1bef-4aa2-b2ba-bbc7b81b0377",
+          "name": "김나빈",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 6,
+        "start": "2025-11-28T08:00:00",
+        "end": "2025-11-28T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 7,
+        "start": "2025-11-29T08:00:00",
+        "end": "2025-11-29T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 8,
+        "start": "2025-11-30T08:00:00",
+        "end": "2025-11-30T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "6abd9055-8655-44ed-92c4-fdb054278a83",
+          "name": "정다래Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 9,
+        "start": "2025-11-27T16:00:00",
+        "end": "2025-11-28T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "c70c37a0-dc7d-4cd5-978c-87f87b80e72d",
+          "name": "권은비",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 10,
+        "start": "2025-11-29T16:00:00",
+        "end": "2025-11-30T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "c70c37a0-dc7d-4cd5-978c-87f87b80e72d",
+          "name": "권은비",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 11,
+        "start": "2025-11-28T00:00:00",
+        "end": "2025-11-28T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "6c5a2e6a-4c0a-48a1-9380-656e644c35ae",
+          "name": "유은형",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 12,
+        "start": "2025-11-30T16:00:00",
+        "end": "2025-12-01T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "6c5a2e6a-4c0a-48a1-9380-656e644c35ae",
+          "name": "유은형",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 13,
+        "start": "2025-11-29T00:00:00",
+        "end": "2025-11-29T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "97adefb6-e12c-4aae-9dbd-8af86cb0b832",
+          "name": "이민지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 14,
+        "start": "2025-11-30T00:00:00",
+        "end": "2025-11-30T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "97adefb6-e12c-4aae-9dbd-8af86cb0b832",
+          "name": "이민지",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 15,
+        "start": "2025-11-29T00:00:00",
+        "end": "2025-11-29T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "cc197ee4-7302-4baf-82ef-08a9fc8e7b29",
+          "name": "남지현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 16,
+        "start": "2025-11-30T00:00:00",
+        "end": "2025-11-30T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "cc197ee4-7302-4baf-82ef-08a9fc8e7b29",
+          "name": "남지현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 17,
+        "start": "2025-11-28T08:00:00",
+        "end": "2025-11-28T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "232db1a0-8dc0-4b70-8fc0-2272ce7f3880",
+          "name": "남보미",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 18,
+        "start": "2025-11-29T08:00:00",
+        "end": "2025-11-29T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "232db1a0-8dc0-4b70-8fc0-2272ce7f3880",
+          "name": "남보미",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 19,
+        "start": "2025-12-01T00:00:00",
+        "end": "2025-12-01T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "bc393ec3-72cf-44b9-b999-8fbe02702191",
+          "name": "이민아",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 20,
+        "start": "2025-11-28T00:00:00",
+        "end": "2025-11-28T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "78800803-e249-40df-98e6-e8c0a252941e",
+          "name": "이소현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 21,
+        "start": "2025-11-30T08:00:00",
+        "end": "2025-11-30T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "78800803-e249-40df-98e6-e8c0a252941e",
+          "name": "이소현",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 22,
+        "start": "2025-11-27T16:00:00",
+        "end": "2025-11-28T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "3515886c-6359-4919-9c02-682565bb93c7",
+          "name": "고소영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 23,
+        "start": "2025-12-01T00:00:00",
+        "end": "2025-12-01T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "3515886c-6359-4919-9c02-682565bb93c7",
+          "name": "고소영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 24,
+        "start": "2025-11-27T16:00:00",
+        "end": "2025-11-28T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+          "name": "이다혜Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 25,
+        "start": "2025-11-29T00:00:00",
+        "end": "2025-11-29T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+          "name": "이다혜Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 26,
+        "start": "2025-11-30T00:00:00",
+        "end": "2025-11-30T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "1482e2ee-4e0c-4792-ba8d-0bbd4f371824",
+          "name": "이다혜Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 27,
+        "start": "2025-11-27T08:00:00",
+        "end": "2025-11-27T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "21b89adb-6341-445a-861e-464bbf79a225",
+          "name": "엄세영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 28,
+        "start": "2025-11-28T08:00:00",
+        "end": "2025-11-28T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "21b89adb-6341-445a-861e-464bbf79a225",
+          "name": "엄세영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 29,
+        "start": "2025-11-30T16:00:00",
+        "end": "2025-12-01T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "21b89adb-6341-445a-861e-464bbf79a225",
+          "name": "엄세영",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 30,
+        "start": "2025-11-27T08:00:00",
+        "end": "2025-11-27T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fc273b8-f4c1-475e-be2f-445e87a8b53c",
+          "name": "김수연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 31,
+        "start": "2025-11-28T16:00:00",
+        "end": "2025-11-29T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fc273b8-f4c1-475e-be2f-445e87a8b53c",
+          "name": "김수연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 32,
+        "start": "2025-11-29T16:00:00",
+        "end": "2025-11-30T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "2fc273b8-f4c1-475e-be2f-445e87a8b53c",
+          "name": "김수연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 33,
+        "start": "2025-11-30T16:00:00",
+        "end": "2025-12-01T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "0a77cb37-d7b9-4a22-800a-1509d5f68d1f",
+          "name": "최진실Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 34,
+        "start": "2025-11-28T00:00:00",
+        "end": "2025-11-28T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "a0083dbe-ca67-4d21-b84d-67918bb7bb99",
+          "name": "정유나Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 35,
+        "start": "2025-12-01T00:00:00",
+        "end": "2025-12-01T08:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "a0083dbe-ca67-4d21-b84d-67918bb7bb99",
+          "name": "정유나Q",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "493edb73-a7a0-4751-8bc1-92745c8bf729"
+      },
+      {
+        "id": 36,
+        "start": "2025-11-29T08:00:00",
+        "end": "2025-11-29T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+          "name": "김예은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 37,
+        "start": "2025-11-30T08:00:00",
+        "end": "2025-11-30T16:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "7d491634-f2d3-45bf-a89d-4524af7b65d6",
+          "name": "김예은",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c"
+      },
+      {
+        "id": 38,
+        "start": "2025-11-28T16:00:00",
+        "end": "2025-11-29T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "a33ebb37-fecf-4c5a-b3a9-90b7588dedbe",
+          "name": "남재연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      },
+      {
+        "id": 39,
+        "start": "2025-11-30T16:00:00",
+        "end": "2025-12-01T00:00:00",
+        "location": "세브란스병원",
+        "requiredSkill": "ALL",
+        "employee": {
+          "id": "a33ebb37-fecf-4c5a-b3a9-90b7588dedbe",
+          "name": "남재연",
+          "skillSet": [
+            "ALL"
+          ],
+          "availableShift": [
+            "D",
+            "E",
+            "N"
+          ]
+        },
+        "pinned": true,
+        "supabaseId": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d"
+      }
+    ],
+    "score": "0hard/-91soft",
+    "scheduleState": {
+      "tenantId": "00000000-0000-0000-0000-000000000001",
+      "publishLength": 4,
+      "draftLength": 31,
+      "firstDraftDate": "2025-12-01",
+      "lastHistoricDate": "2025-11-26",
+      "name": "세브란스병원",
+      "firstUnplannedDate": "2026-01-01"
+    },
+    "solverStatus": null
+  },
+  "error_message": null,
+  "created_at": "2026-02-02T16:18:16.71",
+  "started_at": "2026-02-02T16:18:18.322",
+  "completed_at": "2026-02-02T16:21:13.321"
+}
