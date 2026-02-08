@@ -163,3 +163,20 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 
 ## Response Language
 - Always respond in Korean
+
+## Vibe Coding Skills
+
+Use the following skills together when planning and implementing tasks:
+
+- `product_engineer`: Prioritize user value, workflow clarity, and strict MVP boundaries.
+- `frontend_craftsman`: Balance UI detail, accessibility, readability, and runtime performance.
+- `systematic_refactorer`: Refactor in small safe steps to minimize regressions.
+- `test_pragmatist`: Add tests for critical paths and high-risk logic first.
+- `docs_first`: Check local docs/PRD before assumptions or external search.
+- `mcp_first`: Prefer MCP/local resources, then web only when truly needed.
+- `minimal_diff`: Keep changes minimal, targeted, and easy to review.
+- `debugger`: Follow reproduce -> isolate -> fix -> verify for all bugs.
+- `performance_minded`: Measure bottlenecks before optimizing hot paths.
+- `ship_fast`: Deliver usable increments quickly and iterate with feedback.
+- `design_taste`: Keep visual direction intentional and consistent with product context.
+- `scope_guard`: Explicitly reject out-of-scope additions unless requested.
