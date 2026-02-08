@@ -1,21 +1,10 @@
-import type { Employee } from '@/types/employee';
-import type { AssignmentMap, SiteRequirements, SolverRequest, SolverStatusResponse } from '@/types/schedule';
-
-export interface SolverPayload {
-  scheduleId: string;
-  employees: Employee[];
-  requirements: SiteRequirements;
-  lastMonthAssignments: AssignmentMap;
-  thisMonthAssignments: AssignmentMap;
-}
-
-export interface SolverResponse {
-  scheduleId: string;
-  status: 'complete' | 'error';
-  hardScore: number;
-  softScore: number;
-  assignments: AssignmentMap;
-}
+import type { 
+  SolverRequest, 
+  SolverStatusResponse, 
+  AssignmentMap, 
+  SolverResult, 
+  ShiftAssignmentItem 
+} from '@/types/schedule';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''; // 개발: '' (프록시 사용), 프로덕션: 전체 URL
 
@@ -25,6 +14,8 @@ export async function createSolverExecution(request: SolverRequest): Promise<str
   console.log('[createSolverExecution] API_BASE_URL:', API_BASE_URL);
   console.log('[createSolverExecution] Full URL:', url);
   
+  console.log('[createSolverExecution] Request Body:', JSON.stringify(request, null, 2));
+
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -32,8 +23,17 @@ export async function createSolverExecution(request: SolverRequest): Promise<str
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Solver 요청 실패');
+    const errorText = await response.text();
+    console.error('[createSolverExecution] Error response:', errorText);
+    try {
+      const errorJson = JSON.parse(errorText);
+      throw new Error(errorJson.error || errorJson.message || `Solver 요청 실패: ${response.status} ${response.statusText}`);
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith('Solver 요청 실패')) {
+        throw e;
+      }
+      throw new Error(`Solver 요청 실패: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
+    }
   }
 
   const data = await response.json();
@@ -51,52 +51,42 @@ export async function getSolverStatus(executionId: string): Promise<SolverStatus
   return await response.json();
 }
 
-// Mock: 5초 후 완료 (개발/테스트용)
-export async function requestAISolver(payload: SolverPayload): Promise<SolverResponse> {
-  // 실제 환경에서는 Google Cloud Run URL 호출
-  // const response = await fetch(CLOUD_RUN_URL, { method: 'POST', body: JSON.stringify(payload) });
-
-  await new Promise((resolve) => setTimeout(resolve, 5000));
-
-  return {
-    scheduleId: payload.scheduleId,
-    status: 'complete',
-    hardScore: 0,
-    softScore: Math.floor(Math.random() * 100) + 100,
-    assignments: generateMockAssignments(payload),
-  };
+// API 상태를 앱 내부 상태로 매핑
+export function mapApiStatusToAppStatus(apiStatus: string): 'created' | 'running' | 'complete' | 'error' {
+  switch (apiStatus) {
+    case 'PENDING':
+    case 'RUNNING':
+      return 'running';
+    case 'COMPLETED':
+      return 'complete';
+    case 'FAILED':
+      return 'error';
+    default:
+      return 'created';
+  }
 }
 
-function generateMockAssignments(payload: SolverPayload): AssignmentMap {
-  const result: AssignmentMap = {};
+// Solver 결과를 AssignmentMap으로 변환
+export function parseSolverResult(result: SolverResult): AssignmentMap {
+  const assignmentMap: AssignmentMap = {};
 
-  console.log('[generateMockAssignments] Payload employees count:', payload.employees.length);
-  console.log('[generateMockAssignments] Last 3 employees:', payload.employees.slice(-3).map(e => ({ id: e.id, name: e.name })));
+  if (!result || !result.shiftList) {
+    return assignmentMap;
+  }
 
-  payload.employees.forEach((emp) => {
-    result[emp.id] = {
-      // 전월 데이터 보존
-      ...payload.lastMonthAssignments[emp.id],
-      // 당월 부분 입력 데이터 보존
-      ...payload.thisMonthAssignments[emp.id],
-    };
+  result.shiftList.forEach((shift: ShiftAssignmentItem) => {
+    // Check if shift has employee and start date
+    if (shift.employee && shift.start) {
+        const employeeId = shift.employee.id;
+        const shiftId = shift.supabaseId; // Use supabaseId as the shift UUID
+        const date = shift.start.split('T')[0]!;
 
-    // 빈 날짜만 자동 배정 (availableShifts 제약 준수)
-    const dates = Object.keys(payload.requirements);
-    const availableShifts = emp.availableShifts || ['D', 'E', 'N', 'O'];
-
-    dates.forEach((date) => {
-      if (!result[emp.id]?.[date]) {
-        // availableShifts 중 랜덤 선택
-        const randomIndex = Math.floor(Math.random() * availableShifts.length);
-        result[emp.id]![date] = availableShifts[randomIndex]!;
-      }
-    });
+        if (!assignmentMap[employeeId]) {
+          assignmentMap[employeeId] = {};
+        }
+        assignmentMap[employeeId]![date] = shiftId;
+    }
   });
 
-  console.log('[generateMockAssignments] Result keys count:', Object.keys(result).length);
-  console.log('[generateMockAssignments] Last 3 result keys:', Object.keys(result).slice(-3));
-
-  return result;
+  return assignmentMap;
 }
-

@@ -168,9 +168,45 @@ export interface SolverStatusResponse {
     hard_score: number;
     soft_score: number;
   };
-  result?: any;
+  result?: SolverResult;
   error_message?: string | null;
   created_at?: string;
   started_at?: string;
   completed_at?: string;
+}
+
+export interface SolverResultEmployee {
+  id: string;
+  name: string;
+  skillSet: string[];
+  availableShift: string[];
+}
+
+export interface ShiftAssignmentItem {
+  id: number;
+  start: string;
+  end: string;
+  location?: string;
+  requiredSkill?: string;
+  employee: SolverResultEmployee;
+  pinned: boolean; // boolean
+  supabaseId: string; // shift id
+}
+
+export interface AvailabilityItem {
+    id: number;
+    employee: SolverResultEmployee;
+    date: string;
+    availabilityType: string;
+}
+
+export interface SolverResult {
+  availabilityList: AvailabilityItem[];
+  employeeList: any[]; 
+  shiftList: ShiftAssignmentItem[];
+  score: {
+      hard_score: number;
+      soft_score: number;
+  };
+  scheduleState: any;
 }

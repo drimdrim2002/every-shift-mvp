@@ -273,8 +273,8 @@ import {
   saveTempAssignments,
 } from '@/api/schedule';
 import { loadShifts } from '@/api/shift';
-import { createSolverExecution } from '@/api/solver';
 import { supabase } from '@/api/supabase';
+import { mapToSolverRequest } from '@/utils/solverMapper';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -997,238 +997,78 @@ async function handleGenerate() {
       }
     });
 
-    // 6. Planning Payload 구성
-    console.log('[Step4] Building Planning Payload...');
+    // 6. Planning Payload 구성 (via SolverMapper)
+    console.log('[Step4] Building SolverRequest Payload via Mapper...');
+    
+    // 6-1. Data gathering
+    if (!scheduleStore.basicInfo) throw new Error('Basic info missing');
+    
+    // Employees 
+    const planningEmployees = await getPlanningEmployees(scheduleStore.basicInfo.organizationId);
 
-    // 날짜 계산 로직 (순서 이동: 배정 처리에 필요함)
-    const monthStr = scheduleStore.basicInfo.month; // "2025-12"
-    const [year, month] = monthStr.split('-').map(Number);
-    const firstDraftDate = `${monthStr}-01`;
-    const draftLength = new Date(year, month, 0).getDate();
-    
-    // publishLength: 전월 데이터 표시 일수
-    const publishLength = lastMonthDays.value > 0 ? lastMonthDays.value : 0;
+    // Shifts
+    // basicInfo.shifts might be different from planning shifts.
+    const shifts = scheduleStore.basicInfo.shifts;
 
-    // lastHistoricalDate calculation: Day before the history starts.
-    const prevMonthLastDate = new Date(year, month - 1, 0); 
-    const prevMonthLastDay = prevMonthLastDate.getDate(); 
-    const historicalAnchorDay = prevMonthLastDay - publishLength; 
-    
-    const prevYear = prevMonthLastDate.getFullYear();
-    const prevMonth = String(prevMonthLastDate.getMonth() + 1).padStart(2, '0');
-    const lastHistoricalDate = `${prevYear}-${prevMonth}-${String(historicalAnchorDay).padStart(2, '0')}`;
-    
-    // 6-1. 조직 정보 조회 (기본 정보)
-    const orgBasic = await getPlanningOrganization(scheduleStore.basicInfo.organizationId);
-    console.log('[Step4] Organization Basic:', orgBasic);
-    
-    // 6-2. 시프트 정보 조회
-    const shifts = await getPlanningShifts(scheduleStore.basicInfo.organizationId);
-    console.log('[Step4] Shifts count:', shifts.length);
-    
-    // 6-3. 직원 정보 조회 및 skill_set 추가
-    const employees = await getPlanningEmployees(scheduleStore.basicInfo.organizationId);
-    console.log('[Step4] Employees count:', employees.length);
-    
-    // API 스펙에 맞게 skill_set 추가
-    const employeesWithSkills: SolverRequestEmployee[] = employees.map(emp => ({
-      employee_id: emp.employee_id,
-      name: emp.name,
-      available_shifts: emp.available_shifts,
-      skill_set: ['ALL'], // MVP에서는 모든 직원이 ALL 스킬
-    }));
-    
-    // 6-4. 기존 배정 정보 조회 (schedule_assignments 테이블에서)
     const existingAssignments = await getPlanningAssignments(schedule.id);
-    console.log('[Step4] Existing assignments count:', existingAssignments.length);
-    
-    // 6-5. 현재 그리드의 assignments를 PlanningAssignment 형식으로 변환
-    const shiftsMap: Record<string, string> = {};
-    const shiftsData = await loadShifts(scheduleStore.basicInfo.organizationId);
-    shiftsData.forEach((shift) => {
-      shiftsMap[shift.code] = shift.id;
-    });
-    
-    const gridAssignments: PlanningAssignment[] = [];
-    Object.entries(grid.assignments.value).forEach(([employeeId, dateMap]) => {
-      Object.entries(dateMap).forEach(([date, shiftCode]) => {
-        if (shiftCode && shiftsMap[shiftCode]) {
-          // off_reason이 있으면 is_locked=true (Off 사유 - 사용자 명시적 지정)
-          const offReason = grid.offReasons.value[employeeId]?.[date];
-          
-          // Locking Logic:
-          // 1. Historical data (date < firstDraftDate) -> Always LOCKED
-          // 2. Future data -> Locked only if User explicitly set Off (offReason exists)
-          let isLocked = !!offReason;
-          if (date < firstDraftDate) {
-            isLocked = true;
-          }
-          
-          gridAssignments.push({
-            employee_id: employeeId,
-            shift_id: shiftsMap[shiftCode],
-            date,
-            is_locked: isLocked,
-          });
-        }
-      });
-    });
-    
-    // 6-6. 기존 배정과 그리드 배정 병합 (그리드 우선)
-    const assignmentMap = new Map<string, PlanningAssignment>();
-    
-    // 기존 배정 먼저 추가
-    existingAssignments.forEach(assignment => {
-      // Re-evaluate lock logic for existing assignments too
-      let isLocked = assignment.is_locked;
-      if (assignment.date < firstDraftDate) {
-        isLocked = true;
-      }
 
-      const key = `${assignment.employee_id}_${assignment.date}`;
-      assignmentMap.set(key, { ...assignment, is_locked: isLocked });
-    });
-    
-    // 그리드 배정으로 덮어쓰기 (최신 데이터 우선)
-    gridAssignments.forEach(assignment => {
-      const key = `${assignment.employee_id}_${assignment.date}`;
-      assignmentMap.set(key, assignment);
-    });
-    
-    const finalAssignments = Array.from(assignmentMap.values());
-    console.log('[Step4] Final assignments count:', finalAssignments.length);
-
-    // 6-7. SolverRequest 페이로드 구성 (API 스펙에 맞게)
-    console.log('[Step4] Building SolverRequest Payload...');
-    
-    // 6-7-1. history 배열 생성 (과거 데이터 + 잠금 데이터)
-    const history: SolverRequestHistoryItem[] = finalAssignments
-      .filter(assignment => assignment.date < firstDraftDate || assignment.is_locked)
-      .map(assignment => ({
-        employee_id: assignment.employee_id,
-        shift_id: assignment.shift_id,
-        date: assignment.date,
-        is_locked: true, // history는 모두 잠금
-      }));
-    
-    console.log('[Step4] History count:', history.length);
-    
-    // 6-7-2. undesirable 배열 생성 (현재는 빈 배열 - MVP에서는 미사용)
-    const undesirable: SolverRequestUndesirableItem[] = [];
-    console.log('[Step4] Undesirable count:', undesirable.length);
-    
-    // 6-7-3. requirements 배열 형식으로 변환
-    const requirementsArray: SolverRequestRequirementItem[] = [];
-    const sortedDates = Object.keys(dateBasedRequirements).sort();
-    
-    sortedDates.forEach((date, dayIndex) => {
-      const req = dateBasedRequirements[date];
-      if (!req) return;
-      
-      // 각 Shift별로 항목 생성 (O 제외)
-      shifts.forEach(shift => {
-        const shiftCode = shift.code as 'D' | 'E' | 'N' | 'O';
-        if (shiftCode !== 'O' && req[shiftCode] > 0) {
-          requirementsArray.push({
-            shiftId: shift.id,
-            dayIndex: dayIndex,
-            employeeCount: req[shiftCode],
-          });
-        }
-      });
-    });
-    
-    console.log('[Step4] Requirements array count:', requirementsArray.length);
-    
-    // 6-7-4. SolverRequest 최종 구성
-    const solverRequest: SolverRequest = {
-      organization: {
-        id: orgBasic.id,
-        name: orgBasic.name,
-        type: orgBasic.type,
-        shifts,
-        lastHistoricalDate,
-        firstDraftDate,
-        publishLength,
-        draftLength,
-      },
-      employees: employeesWithSkills,
-      history,
-      undesirable,
-      requirements: requirementsArray,
-    };
-    
-    // 디버깅: SolverRequest 출력 및 다운로드 (개발 모드)
-    console.log('[Step4] SolverRequest:', JSON.stringify(solverRequest, null, 2));
-    
-    // 개발 환경에서 SolverRequest를 JSON 파일로 다운로드
-    if (import.meta.env.DEV) {
-      try {
-        const dataStr = JSON.stringify(solverRequest, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `solver-request-${scheduleStore.basicInfo.month}.json`;
-        link.click();
-        URL.revokeObjectURL(url);
-        console.log('[Step4] SolverRequest downloaded as JSON file');
-      } catch (downloadError) {
-        console.warn('[Step4] Failed to download SolverRequest:', downloadError);
-      }
-    }
-
-    // 7. 모달 표시 및 타이머 시작
-    showModal.value = true;
-    elapsedTime.value = 0;
-    timerInterval = window.setInterval(() => {
-      elapsedTime.value++;
-    }, 1000);
-
-    // 8. AI Solver 시작 (SolverRequest 전달)
     try {
-      const executionId = await createSolverExecution(solverRequest);
-      console.log('[Step4] Solver execution started:', executionId);
-      
-      // Solver 상태를 schedules 테이블에 업데이트
-      await supabase
-        .from('schedules')
-        .update({ status: 'running' })
-        .eq('id', schedule.id);
-      
-      // 폴링 시작 (useAISolver에서 처리)
-      solver.startPolling(schedule.id);
-    } catch (solverError) {
-      console.error('[Step4] Solver execution failed:', solverError);
-      if (timerInterval) clearInterval(timerInterval);
-      showModal.value = false;
-      showError(solverError instanceof Error ? solverError.message : 'AI Solver 호출 실패');
-      return;
+        const solverRequest = mapToSolverRequest(
+            scheduleStore.basicInfo,
+            dateBasedRequirements, // constructed above
+            grid.assignments.value,
+            grid.offReasons.value,
+            planningEmployees.map(e => ({
+                employee_id: e.employee_id,
+                name: e.name,
+                available_shifts: e.available_shifts,
+                skill_set: ['ALL']
+            })),
+            shifts,
+            existingAssignments
+        );
+
+        // Debug
+        console.log('[Step4] SolverRequest:', JSON.stringify(solverRequest, null, 2));
+
+        // 7. Show Modal
+        showModal.value = true;
+        elapsedTime.value = 0;
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = window.setInterval(() => {
+          elapsedTime.value++;
+        }, 1000);
+
+        // 8. Start Solver
+        // Use useAISolver to handle start & polling
+        await solver.startSolver(schedule.id, solverRequest);
+
+        // 9. Monitor status via watcher or interval on solver.status
+        const checkStatusInterval = setInterval(() => {
+          if (solver.status.value === 'complete') {
+            clearInterval(checkStatusInterval);
+            if (timerInterval) clearInterval(timerInterval);
+             if (STORAGE_KEY.value) localStorage.removeItem(STORAGE_KEY.value);
+            scheduleStore.nextStep();
+            showSuccess('근무표 생성이 완료되었습니다');
+            showModal.value = false;
+            router.push(`/schedule/step5/${schedule.id}`);
+          } else if (solver.status.value === 'error') {
+            clearInterval(checkStatusInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            showModal.value = false;
+            showError(solver.error.value || '오류가 발생했습니다');
+          }
+        }, 500);
+
+    } catch (e: any) {
+        console.error('Mapper Error:', e);
+        showError('데이터 변환 중 오류: ' + e.message);
+        if (timerInterval) clearInterval(timerInterval);
+        showModal.value = false;
+        return;
     }
 
-    // 9. 상태 변화 감지 및 자동 이동
-    const checkStatusInterval = setInterval(() => {
-      if (solver.status.value === 'complete') {
-        clearInterval(checkStatusInterval);
-        if (timerInterval) clearInterval(timerInterval);
-
-        // LocalStorage 삭제 (임시 저장 불필요)
-        if (STORAGE_KEY.value) {
-          localStorage.removeItem(STORAGE_KEY.value);
-        }
-
-        // Step 5 (결과 확인)로 이동
-        scheduleStore.nextStep();
-        showSuccess('근무표 생성이 완료되었습니다');
-        showModal.value = false;
-        router.push(`/schedule/step5/${schedule.id}`);
-      } else if (solver.status.value === 'error') {
-        clearInterval(checkStatusInterval);
-        if (timerInterval) clearInterval(timerInterval);
-        showModal.value = false;
-        showError('근무표 생성 중 오류가 발생했습니다');
-      }
-    }, 500);
   } catch (error) {
     if (timerInterval) clearInterval(timerInterval);
     showModal.value = false;
