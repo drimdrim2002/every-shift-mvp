@@ -1,0 +1,4 @@
+interface:
+  display_name: EveryShift Supabase API Generator
+  short_description: Generate typed Supabase API modules for EveryShift
+  default_prompt: Create typed Supabase CRUD functions with Korean user-facing errors and correct single/maybeSingle usage.

@@ -1,0 +1,4 @@
+interface:
+  display_name: EveryShift Composable Generator
+  short_description: Scaffold strict composables with cleanup and polling
+  default_prompt: Generate a Vue composable for EveryShift with strict TS, robust async error handling, and optional polling/persistence patterns.
