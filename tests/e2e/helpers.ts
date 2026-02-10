@@ -126,15 +126,15 @@ export async function generateSchedule(page: Page, timeout = 30000) {
   // 생성 버튼 클릭
   await page.click('button:has-text("생성")')
 
-  // AI Solver 폴링 대기 (최대 30초)
-  await page.waitForURL('/schedule/step4', { timeout })
+  // 결과 화면 이동 대기 (Step5에서 폴링 진행)
+  await page.waitForURL(/\/schedule\/step5\/.+/, { timeout })
 }
 
 /**
- * Step 4: 결과 확인
+ * Step 5: 결과 확인
  */
 export async function verifyStep4Results(page: Page) {
-  // Step 4 페이지 확인
+  // Step 5 페이지 확인
   await page.waitForSelector('text=근무표 생성 - 결과 확인')
 
   // 그리드 로드 대기

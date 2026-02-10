@@ -44,6 +44,7 @@ export async function createSchedule(orgId: string, month: string) {
         status: 'created',
         hard_score: null,
         soft_score: null,
+        solver_execution_id: null,
       })
       .eq('id', existing.id)
       .select()
@@ -180,6 +181,43 @@ export async function completeSchedule(scheduleId: string) {
   const { error } = await supabase.from('schedules').update({ status: 'complete' }).eq('id', scheduleId);
 
   if (error) throw error;
+}
+
+// 이번달 근무표만 삭제 (지난달 데이터 보존)
+export async function deleteThisMonthAssignments(scheduleId: string, month: string) {
+  // Calculate date range for current month
+  const [year, monthPart] = month.split('-');
+  const startDate = `${month}-01`;
+  
+  // Get last day of month: new Date(year, month, 0) returns last day of previous month
+  // Since monthPart is 1-based, this gives us the correct last day
+  const lastDay = new Date(Number(year), Number(monthPart), 0).getDate();
+  const endDate = `${month}-${String(lastDay).padStart(2, '0')}`;
+  
+  console.log(`[deleteThisMonthAssignments] Deleting assignments from ${startDate} to ${endDate}`);
+  
+  // Delete only current month's assignments
+  const { error: deleteError } = await supabase
+    .from('schedule_assignments')
+    .delete()
+    .eq('schedule_id', scheduleId)
+    .gte('date', startDate)
+    .lte('date', endDate);
+    
+  if (deleteError) throw deleteError;
+  
+  // Reset schedule status
+  const { error: updateError } = await supabase
+    .from('schedules')
+    .update({
+      status: 'created',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: null,
+    })
+    .eq('id', scheduleId);
+    
+  if (updateError) throw updateError;
 }
 
 // 조직의 근무표 목록 조회

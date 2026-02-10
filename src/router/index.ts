@@ -108,7 +108,7 @@ router.beforeEach(async (to, from, next) => {
 
   // 2. Step 진행 순서 검증 (인증된 사용자만 해당)
   if (to.path.startsWith('/schedule/step')) {
-    stepProgressGuard(to, from, next);
+    await stepProgressGuard(to, from, next);
     return;
   }
 

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap } from '@/types/schedule';
+import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap, SolverRequest } from '@/types/schedule';
 import type { EmployeeInput } from '@/types/employee';
 
 export const useScheduleStore = defineStore('schedule', () => {
@@ -15,6 +15,10 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   // Step 4: 그리드 데이터
   const assignments = ref<AssignmentMap>({});
+
+  // Step4 -> Step5 전달용 생성 요청 컨텍스트
+  const pendingSolverRequest = ref<SolverRequest | null>(null);
+  const pendingSolverScheduleId = ref<string | null>(null);
 
   // 현재 단계
   const currentStep = ref<number>(1);
@@ -49,6 +53,16 @@ export const useScheduleStore = defineStore('schedule', () => {
     assignments.value = data;
   }
 
+  function setPendingSolverRequest(scheduleId: string, request: SolverRequest) {
+    pendingSolverScheduleId.value = scheduleId;
+    pendingSolverRequest.value = request;
+  }
+
+  function clearPendingSolverRequest() {
+    pendingSolverScheduleId.value = null;
+    pendingSolverRequest.value = null;
+  }
+
   function nextStep() {
     if (currentStep.value < 5) {
       currentStep.value++;
@@ -66,6 +80,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     siteRequirements.value = [];
     employees.value = [];
     assignments.value = {};
+    clearPendingSolverRequest();
     currentStep.value = 1;
     isExcelUpload.value = false;
   }
@@ -75,6 +90,8 @@ export const useScheduleStore = defineStore('schedule', () => {
     siteRequirements,
     employees,
     assignments,
+    pendingSolverRequest,
+    pendingSolverScheduleId,
     currentStep,
     isExcelUpload,
     isExcelUploadMode,
@@ -83,6 +100,8 @@ export const useScheduleStore = defineStore('schedule', () => {
     setSiteRequirements,
     setEmployees,
     setAssignments,
+    setPendingSolverRequest,
+    clearPendingSolverRequest,
     setExcelUploadMode,
     nextStep,
     prevStep,

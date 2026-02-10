@@ -180,6 +180,8 @@
           <n-button
             type="primary"
             size="medium"
+            :loading="isSubmitting"
+            :disabled="isSubmitting"
             @click="handleGenerate"
           >
             근무표 생성 →
@@ -188,49 +190,23 @@
       </div>
     </n-card>
 
-    <!-- Loading Modal -->
-    <n-modal
-      v-model:show="showModal"
-      :mask-closable="false"
-      preset="card"
-      title="근무표 생성 중"
-      class="w-96"
+    <!-- 기존 스케줄이 있을 때 결과 보기 버튼 -->
+    <n-alert
+      v-if="existingScheduleId"
+      type="info"
+      class="mb-4"
     >
-      <div class="text-center">
-        <n-spin
-          v-if="solver.status.value !== 'error'"
-          size="large"
-        />
-        <p class="mt-4 text-lg font-medium">
-          {{ statusMessage }}
-        </p>
-        <p
-          v-if="solver.error.value"
-          class="mt-2 text-sm text-red-500"
-        >
-          {{ solver.error.value }}
-        </p>
-        <p
-          v-else
-          class="mt-2 text-sm text-gray-500"
-        >
-          경과 시간: {{ elapsedTime }}초
-        </p>
-        <n-progress
-          v-if="solver.status.value === 'running'"
-          type="line"
-          :percentage="solver.progress.value"
-          status="info"
-          class="mt-4"
-        />
+      <div class="flex items-center justify-between">
+        <span>이미 생성된 근무표가 있습니다. 결과를 확인하거나 수정할 수 있습니다.</span>
         <n-button
-          class="mt-6"
-          @click="handleCancel"
+          type="primary"
+          size="small"
+          @click="handleViewExistingSchedule"
         >
-          {{ solver.status.value === 'error' ? '닫기' : '취소' }}
+          결과 보기 →
         </n-button>
       </div>
-    </n-modal>
+    </n-alert>
 
     <!-- Off 사유 선택 Modal -->
     <n-modal
@@ -267,8 +243,6 @@ import {
   createSchedule,
   getPlanningAssignments,
   getPlanningEmployees,
-  getPlanningOrganization,
-  getPlanningShifts,
   getScheduleAssignments,
   saveTempAssignments,
 } from '@/api/schedule';
@@ -277,7 +251,6 @@ import { supabase } from '@/api/supabase';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
-import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useScheduleStore } from '@/stores/schedule';
 import type {
@@ -285,13 +258,7 @@ import type {
   DailyRequirement,
   GridColumn,
   OffReasonMap,
-  PlanningAssignment,
   SiteRequirements,
-  SolverRequest,
-  SolverRequestEmployee,
-  SolverRequestHistoryItem,
-  SolverRequestRequirementItem,
-  SolverRequestUndesirableItem
 } from '@/types/schedule';
 import { OFF_REASONS } from '@/types/schedule';
 import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
@@ -305,7 +272,6 @@ import {
   NCard,
   NInputNumber,
   NModal,
-  NProgress,
   NRadio,
   NRadioButton,
   NRadioGroup,
@@ -314,19 +280,18 @@ import {
   NSwitch,
   NTooltip,
   NUpload,
+  NAlert,
 } from 'naive-ui';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
 const grid = useScheduleGrid();
-const solver = useAISolver();
+const isSubmitting = ref(false);
 
-// Modal 상태
-const showModal = ref(false);
-const elapsedTime = ref(0);
-let timerInterval: number | null = null;
+// 기존 스케줄 ID 추적
+const existingScheduleId = ref<string | null>(null);
 
 // Off 사유 선택 모달 상태
 const showOffReasonModal = ref(false);
@@ -402,22 +367,6 @@ watch([() => grid.dates.value.length, viewMode], () => {
 const STORAGE_KEY = computed(() => {
   if (!scheduleStore.basicInfo) return '';
   return `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
-});
-
-// 상태 메시지
-const statusMessage = computed(() => {
-  switch (solver.status.value) {
-    case 'created':
-      return '요청 생성 중...';
-    case 'running':
-      return '처리 중... 잠시만 기다려주세요.';
-    case 'complete':
-      return '완료! 결과를 불러오는 중...';
-    case 'error':
-      return '오류가 발생했습니다.';
-    default:
-      return '';
-  }
 });
 
 // 자동 저장 (2초 debounce) - assignments와 offReasons 함께 저장
@@ -504,6 +453,16 @@ onMounted(async () => {
       const schedule = existingSchedules[0];
       if (schedule && schedule.id) {
         console.log('[Step4 onMounted] Found existing schedule:', schedule.id, 'status:', schedule.status);
+        
+        // Store the existing schedule ID
+        existingScheduleId.value = schedule.id;
+
+        // 완료된 스케줄은 결과 화면으로 이동 (created는 Step4 유지)
+        if (schedule.status === 'complete' || schedule.status === 'changed') {
+          scheduleStore.currentStep = 5;
+          await router.replace(`/schedule/step5/${schedule.id}`);
+          return;
+        }
 
         // 2. Schedule assignments와 offReasons 조회
         const { assignments, offReasons } = await getScheduleAssignments(schedule.id);
@@ -903,6 +862,10 @@ async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
 }
 
 async function handleGenerate() {
+  if (isSubmitting.value) {
+    return;
+  }
+
   // 1. 전월 데이터 검증 (선택적 - requireLastMonth=false)
   const validation = validateLastMonthData(
     grid.employees.value,
@@ -920,53 +883,24 @@ async function handleGenerate() {
   // 2. 저장 및 다음 단계
   scheduleStore.setAssignments(grid.assignments.value);
 
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다');
+    return;
+  }
+
+  isSubmitting.value = true;
+
   try {
-    // 3. Schedule 레코드 생성
-    if (!scheduleStore.basicInfo) {
-      showError('기본 정보가 없습니다');
-      return;
-    }
+    const basicInfo = scheduleStore.basicInfo;
 
     const schedule = await createSchedule(
-      scheduleStore.basicInfo.organizationId,
-      scheduleStore.basicInfo.month
+      basicInfo.organizationId,
+      basicInfo.month
     );
 
-    // 4. 전월/당월 assignments 분리
-    const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth).map(d => d.date);
+    // 3. 당월 requirement 데이터 구성
     const thisMonthDates = grid.dates.value.filter(d => !d.isLastMonth).map(d => d.date);
 
-    const lastMonthAssignments: AssignmentMap = {};
-    const thisMonthAssignments: AssignmentMap = {};
-
-    grid.employees.value.forEach((emp) => {
-      // 안전장치: assignments 객체 가져오기
-      const empAssignments = grid.assignments.value[emp.id] || {};
-
-      // 미리 객체 할당
-      const empLast: Record<string, string> = {};
-      const empThis: Record<string, string> = {};
-      
-      lastMonthAssignments[emp.id] = empLast;
-      thisMonthAssignments[emp.id] = empThis;
-
-      lastMonthDates.forEach((date) => {
-        const shift = empAssignments[date as string] || '';
-        if (shift) {
-          empLast[date as string] = shift;
-        }
-      });
-
-      thisMonthDates.forEach((date) => {
-        const shift = empAssignments[date as string] || '';
-        if (shift) {
-          empThis[date as string] = shift;
-        }
-      });
-    });
-
-    // 5. 요일별 requirements를 날짜별로 변환
-    // 먼저 세로형 데이터를 요일별 객체로 변환
     const weeklyRequirements: Record<number, DailyRequirement> = {};
 
     scheduleStore.siteRequirements.forEach(req => {
@@ -997,103 +931,42 @@ async function handleGenerate() {
       }
     });
 
-    // 6. Planning Payload 구성 (via SolverMapper)
-    console.log('[Step4] Building SolverRequest Payload via Mapper...');
-    
-    // 6-1. Data gathering
-    if (!scheduleStore.basicInfo) throw new Error('Basic info missing');
-    
-    // Employees 
-    const planningEmployees = await getPlanningEmployees(scheduleStore.basicInfo.organizationId);
-
-    // Shifts
-    // basicInfo.shifts might be different from planning shifts.
-    const shifts = scheduleStore.basicInfo.shifts;
-
+    // 4. Planning Payload 구성
+    const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
+    const shifts = basicInfo.shifts;
     const existingAssignments = await getPlanningAssignments(schedule.id);
 
-    try {
-        const solverRequest = mapToSolverRequest(
-            scheduleStore.basicInfo,
-            dateBasedRequirements, // constructed above
-            grid.assignments.value,
-            grid.offReasons.value,
-            planningEmployees.map(e => ({
-                employee_id: e.employee_id,
-                name: e.name,
-                available_shifts: e.available_shifts,
-                skill_set: ['ALL']
-            })),
-            shifts,
-            existingAssignments
-        );
+    const solverRequest = mapToSolverRequest(
+      basicInfo,
+      dateBasedRequirements,
+      grid.assignments.value,
+      grid.offReasons.value,
+      planningEmployees.map((employee) => ({
+        employee_id: employee.employee_id,
+        name: employee.name,
+        available_shifts: employee.available_shifts,
+        skill_set: ['ALL'],
+      })),
+      shifts,
+      existingAssignments
+    );
 
-        // Debug
-        console.log('[Step4] SolverRequest:', JSON.stringify(solverRequest, null, 2));
-
-        // 7. Show Modal
-        showModal.value = true;
-        elapsedTime.value = 0;
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = window.setInterval(() => {
-          elapsedTime.value++;
-        }, 1000);
-
-        // 8. Start Solver
-        // Use useAISolver to handle start & polling
-        await solver.startSolver(schedule.id, solverRequest);
-
-        // 9. Monitor status via watcher or interval on solver.status
-        const checkStatusInterval = setInterval(() => {
-          if (solver.status.value === 'complete') {
-            clearInterval(checkStatusInterval);
-            if (timerInterval) clearInterval(timerInterval);
-             if (STORAGE_KEY.value) localStorage.removeItem(STORAGE_KEY.value);
-            scheduleStore.nextStep();
-            showSuccess('근무표 생성이 완료되었습니다');
-            showModal.value = false;
-            router.push(`/schedule/step5/${schedule.id}`);
-          } else if (solver.status.value === 'error') {
-            clearInterval(checkStatusInterval);
-            if (timerInterval) clearInterval(timerInterval);
-            showModal.value = false;
-            showError(solver.error.value || '오류가 발생했습니다');
-          }
-        }, 500);
-
-    } catch (e: any) {
-        console.error('Mapper Error:', e);
-        showError('데이터 변환 중 오류: ' + e.message);
-        if (timerInterval) clearInterval(timerInterval);
-        showModal.value = false;
-        return;
-    }
-
+    scheduleStore.setPendingSolverRequest(schedule.id, solverRequest);
+    scheduleStore.nextStep();
+    showInfo('생성 요청을 준비했습니다. 결과 화면으로 이동합니다.');
+    await router.push(`/schedule/step5/${schedule.id}?autostart=1`);
   } catch (error) {
-    if (timerInterval) clearInterval(timerInterval);
-    showModal.value = false;
     console.error('[handleGenerate] Error:', error);
     const errorMessage = error instanceof Error ? error.message : '근무표 생성 중 오류가 발생했습니다';
     showError(errorMessage);
+  } finally {
+    isSubmitting.value = false;
   }
 }
 
-function handleCancel() {
-  solver.stopPolling();
-  showModal.value = false;
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+function handleViewExistingSchedule() {
+  if (existingScheduleId.value) {
+    router.push(`/schedule/step5/${existingScheduleId.value}`);
   }
-  showInfo('근무표 생성이 취소되었습니다');
 }
-
-// Cleanup on unmount
-onUnmounted(() => {
-  solver.stopPolling();
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-});
 </script>

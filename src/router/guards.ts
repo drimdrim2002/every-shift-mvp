@@ -1,5 +1,6 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
+import { supabase } from '@/api/supabase';
 
 /**
  * Step 진행 순서 검증 가드
@@ -8,7 +9,7 @@ import { useScheduleStore } from '@/stores/schedule';
  * - Step 4: Step 3 완료 필요 (employees)
  * - Step 5: scheduleId 필수 (params.id)
  */
-export function stepProgressGuard(
+export async function stepProgressGuard(
   to: RouteLocationNormalized,
   _from: RouteLocationNormalized,
   next: NavigationGuardNext,
@@ -49,6 +50,29 @@ export function stepProgressGuard(
       window.$message?.warning('먼저 직원 정보를 입력해주세요.');
       next('/schedule/step3');
       return;
+    }
+
+    // 완료된 스케줄은 Step5로 우회 (취소 후 created는 Step4 허용)
+    try {
+      const { data, error } = await supabase
+        .from('schedules')
+        .select('id, status')
+        .eq('organization_id', scheduleStore.basicInfo.organizationId)
+        .eq('month', scheduleStore.basicInfo.month)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!error) {
+        const latest = data?.[0];
+        if (latest?.id && (latest.status === 'complete' || latest.status === 'changed')) {
+          next(`/schedule/step5/${latest.id}`);
+          return;
+        }
+      } else {
+        console.warn('[stepProgressGuard] Failed to query latest schedule:', error);
+      }
+    } catch (error) {
+      console.warn('[stepProgressGuard] Unexpected error while checking schedule status:', error);
     }
   }
 

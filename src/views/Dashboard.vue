@@ -277,11 +277,8 @@ function handleViewSchedule(schedule: Schedule) {
 }
 
 async function handleEdit(schedule: Schedule) {
-  // running 상태일 때만 수정 불가 (AI 생성 중)
-  if (schedule.status === 'running') {
-    window.$message?.warning('AI가 근무표를 생성 중입니다. 생성이 완료된 후 수정해주세요.');
-    return;
-  }
+  // running 상태여도 수정 가능하도록 변경 (중간 결과 확인 및 수정 기능 지원)
+  // 이전: if (schedule.status === 'running') { ... return; }
 
   // created, complete, changed, error 상태는 모두 수정 가능
   scheduleStore.reset();

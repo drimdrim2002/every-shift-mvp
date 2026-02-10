@@ -23,6 +23,14 @@
         </div>
       </div>
 
+      <n-alert
+        v-if="showIntermediateWaitingHint"
+        type="info"
+        class="mb-6"
+      >
+        중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
+      </n-alert>
+
       <!-- 변경 사항 알림 -->
       <n-alert
         v-if="changedCells.size > 0"
@@ -39,7 +47,7 @@
           :employees="grid.employees.value"
           :dates="grid.dates.value"
           :assignments="grid.assignments.value"
-          :readonly="false"
+          :readonly="isReadonlyGrid"
           :show-last-month="true"
           @update:assignment="handleAssignmentUpdate"
         />
@@ -58,6 +66,14 @@
           @click="handleBack"
         >
           ← 이전
+        </n-button>
+        <n-button
+          v-if="canCancel"
+          size="medium"
+          type="error"
+          @click="handleCancelSchedule"
+        >
+          근무표 취소
         </n-button>
         <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
@@ -102,7 +118,7 @@ import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { getScheduleStatus, getScheduleAssignments, updateAssignment } from '@/api/schedule';
+import { getScheduleStatus, getScheduleAssignments, updateAssignment, deleteThisMonthAssignments } from '@/api/schedule';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { supabase } from '@/api/supabase';
@@ -115,9 +131,28 @@ const grid = useScheduleGrid();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
 
+const DB_REFRESH_INTERVAL_MS = 10000;
+const MEMORY_TO_DB_GRACE_MS = 2000;
+const WAITING_HINT_TICKS = 3;
+
 const scheduleId = computed(() => route.params.id as string);
+const shouldAutostart = computed(() => route.query.autostart === '1');
 const changedCells = ref<Set<string>>(new Set()); // 변경된 셀 추적
 const originalAssignments = ref<AssignmentMap>({}); // 원본 데이터 백업
+let assignmentRefreshInterval: number | null = null;
+const isDbRefreshing = ref(false);
+const lastMemoryAppliedAt = ref(0);
+const lastMemoryHash = ref('');
+const hasIntermediateResult = ref(false);
+const runningTicksWithoutIntermediate = ref(0);
+const warnedUnknownShiftIds = ref<Set<string>>(new Set());
+
+interface ScheduleStatusRow {
+  status: 'created' | 'running' | 'complete' | 'changed' | 'error';
+  hard_score: number | null;
+  soft_score: number | null;
+  solver_execution_id: string | null;
+}
 
 const statusText = computed(() => {
   const map: Record<string, string> = {
@@ -125,6 +160,7 @@ const statusText = computed(() => {
     complete: '완료',
     error: '오류',
     changed: '수정됨',
+    created: '생성됨',
   };
   return map[solver.status.value] || '알 수 없음';
 });
@@ -135,48 +171,280 @@ const statusType = computed(() => {
     complete: 'success',
     error: 'error',
     changed: 'warning',
+    created: 'default',
   };
   return map[solver.status.value] || 'default';
 });
 
+const isReadonlyGrid = computed(() => {
+  return solver.status.value === 'running' || solver.status.value === 'created';
+});
+
+const showIntermediateWaitingHint = computed(() => {
+  return (
+    solver.status.value === 'running'
+    && !hasIntermediateResult.value
+    && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
+  );
+});
+
+const shiftIdToCodeMap = computed(() => {
+  const map = new Map<string, string>();
+  for (const shift of organizationStore.shifts) {
+    map.set(shift.id, shift.code);
+  }
+  return map;
+});
+
+const knownShiftCodes = computed(() => {
+  return new Set(organizationStore.shifts.map((shift) => shift.code));
+});
+
+// Check if cancellation is possible
+const canCancel = computed(() => {
+  // Check 1: Status is complete or changed
+  if (solver.status.value === 'complete' || solver.status.value === 'changed') {
+    return true;
+  }
+  
+  // Check 2: Has current month data (handles 'created' status bug)
+  if (!scheduleStore.basicInfo?.month) return false;
+  
+  const currentMonth = scheduleStore.basicInfo.month; // e.g., "2024-12"
+  
+  for (const dateMap of Object.values(grid.assignments.value)) {
+    for (const date of Object.keys(dateMap || {})) {
+      if (date.startsWith(currentMonth)) {
+        return true; // Found at least one current month assignment
+      }
+    }
+  }
+  
+  return false;
+});
+
+function resetRealtimeState() {
+  isDbRefreshing.value = false;
+  lastMemoryAppliedAt.value = 0;
+  lastMemoryHash.value = '';
+  hasIntermediateResult.value = false;
+  runningTicksWithoutIntermediate.value = 0;
+  warnedUnknownShiftIds.value = new Set();
+}
+
+function hashAssignmentMap(assignments: AssignmentMap): string {
+  const employeeIds = Object.keys(assignments).sort();
+  return employeeIds
+    .map((employeeId) => {
+      const dateMap = assignments[employeeId] || {};
+      const dates = Object.keys(dateMap).sort();
+      const dateTokens = dates.map((date) => `${date}=${dateMap[date] || ''}`);
+      return `${employeeId}:${dateTokens.join(',')}`;
+    })
+    .join('|');
+}
+
+function mapIntermediateShiftIdsToCodes(intermediateAssignments: AssignmentMap): AssignmentMap {
+  const mappedAssignments: AssignmentMap = {};
+  const idToCode = shiftIdToCodeMap.value;
+  const validCodes = knownShiftCodes.value;
+
+  for (const [employeeId, dateMap] of Object.entries(intermediateAssignments)) {
+    if (!mappedAssignments[employeeId]) {
+      mappedAssignments[employeeId] = {};
+    }
+
+    for (const [date, shiftIdentifier] of Object.entries(dateMap || {})) {
+      if (!shiftIdentifier) continue;
+
+      const mappedShiftCode = idToCode.get(shiftIdentifier);
+      if (mappedShiftCode) {
+        mappedAssignments[employeeId]![date] = mappedShiftCode;
+        continue;
+      }
+
+      if (validCodes.has(shiftIdentifier)) {
+        mappedAssignments[employeeId]![date] = shiftIdentifier;
+        continue;
+      }
+
+      if (!warnedUnknownShiftIds.value.has(shiftIdentifier)) {
+        warnedUnknownShiftIds.value.add(shiftIdentifier);
+        console.warn('[Step5] Unknown shift identifier in intermediate result:', shiftIdentifier);
+      }
+    }
+  }
+
+  return mappedAssignments;
+}
+
+function applyIntermediateAssignments(intermediateAssignments: AssignmentMap): number {
+  const mappedAssignments = mapIntermediateShiftIdsToCodes(intermediateAssignments);
+  const nextAssignments: AssignmentMap = JSON.parse(JSON.stringify(grid.assignments.value || {}));
+  let appliedCount = 0;
+
+  for (const [employeeId, dateMap] of Object.entries(mappedAssignments)) {
+    if (!nextAssignments[employeeId]) {
+      nextAssignments[employeeId] = {};
+    }
+
+    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+      if (!shiftCode) continue;
+      nextAssignments[employeeId]![date] = shiftCode;
+      appliedCount++;
+    }
+  }
+
+  if (appliedCount > 0) {
+    grid.assignments.value = nextAssignments;
+    lastMemoryAppliedAt.value = Date.now();
+  }
+
+  return appliedCount;
+}
+
+function applyScheduleStatus(schedule: ScheduleStatusRow) {
+  solver.status.value = schedule.status;
+  solver.hardScore.value = schedule.hard_score || 0;
+  solver.softScore.value = schedule.soft_score || 0;
+}
+
+async function loadAssignments(options: { syncOriginal?: boolean; clearChanges?: boolean; forceAssignmentSync?: boolean } = {}) {
+  const { syncOriginal = false, clearChanges = false, forceAssignmentSync = false } = options;
+  const data = await getScheduleAssignments(scheduleId.value);
+  const hasDbAssignments = Object.values(data.assignments).some((dateMap) => {
+    return Object.values(dateMap || {}).some((shiftCode) => Boolean(shiftCode));
+  });
+
+  if (solver.status.value === 'running' && hasDbAssignments && !hasIntermediateResult.value) {
+    hasIntermediateResult.value = true;
+    runningTicksWithoutIntermediate.value = 0;
+  }
+
+  const withinGraceWindow = (
+    !forceAssignmentSync
+    && solver.status.value === 'running'
+    && Date.now() - lastMemoryAppliedAt.value < MEMORY_TO_DB_GRACE_MS
+  );
+
+  if (!withinGraceWindow) {
+    grid.assignments.value = data.assignments;
+  }
+
+  grid.offReasons.value = data.offReasons;
+
+  if (syncOriginal) {
+    originalAssignments.value = JSON.parse(JSON.stringify(data.assignments));
+  }
+
+  if (clearChanges) {
+    changedCells.value.clear();
+  }
+}
+
+function startAssignmentsRefresh() {
+  if (assignmentRefreshInterval) return;
+  assignmentRefreshInterval = window.setInterval(async () => {
+    if (solver.status.value !== 'running') return;
+    if (isDbRefreshing.value) return;
+
+    if (!hasIntermediateResult.value) {
+      runningTicksWithoutIntermediate.value++;
+    }
+
+    isDbRefreshing.value = true;
+    try {
+      await loadAssignments();
+    } catch (error) {
+      console.warn('주기적 결과 동기화 중 오류:', error);
+    } finally {
+      isDbRefreshing.value = false;
+    }
+  }, DB_REFRESH_INTERVAL_MS);
+}
+
+function stopAssignmentsRefresh() {
+  if (assignmentRefreshInterval) {
+    clearInterval(assignmentRefreshInterval);
+    assignmentRefreshInterval = null;
+  }
+  isDbRefreshing.value = false;
+}
+
+async function startSolverWithPendingRequest() {
+  const pendingRequest = scheduleStore.pendingSolverRequest;
+  const pendingScheduleId = scheduleStore.pendingSolverScheduleId;
+  scheduleStore.clearPendingSolverRequest();
+  await router.replace({ path: route.path, query: {} });
+
+  if (!pendingRequest || pendingScheduleId !== scheduleId.value) {
+    showError('생성 요청 정보를 찾을 수 없습니다. 초기 데이터 화면으로 이동합니다.');
+    await router.push('/schedule/step4');
+    return;
+  }
+
+  const executionId = await solver.startSolver(scheduleId.value, pendingRequest);
+  if (!executionId) {
+    showError('근무표 생성 시작에 실패했습니다.');
+    return;
+  }
+
+  resetRealtimeState();
+  startAssignmentsRefresh();
+}
+
+async function resumePollingFromSchedule(schedule: ScheduleStatusRow) {
+  if (!schedule.solver_execution_id) {
+    showError('진행 중 작업 정보를 찾을 수 없습니다. 초기 데이터 화면으로 이동합니다.');
+    await router.push('/schedule/step4');
+    return;
+  }
+
+  solver.status.value = 'running';
+  resetRealtimeState();
+  solver.intermediateResults.value = null;
+  solver.startPolling(schedule.solver_execution_id, scheduleId.value);
+  startAssignmentsRefresh();
+}
+
 onMounted(async () => {
-  // 기본 정보 체크
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
   try {
-    // 조직 데이터 로드 (shifts 포함)
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
-
-    // 직원 로드
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
-
-    // 날짜 생성
     grid.generateDates(scheduleStore.basicInfo.month);
 
-    // 근무표 상태 조회
-    const schedule = await getScheduleStatus(scheduleId.value);
-    solver.status.value = schedule.status;
-    solver.hardScore.value = schedule.hard_score || 0;
-    solver.softScore.value = schedule.soft_score || 0;
+    const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
+    applyScheduleStatus(schedule);
 
-    // 결과 로드
-    if (schedule.status === 'complete' || schedule.status === 'changed') {
-      const assignments = await getScheduleAssignments(scheduleId.value);
-      grid.assignments.value = assignments;
-      // 원본 데이터 백업 (deep copy)
-      originalAssignments.value = JSON.parse(JSON.stringify(assignments));
+    if (schedule.status === 'complete' || schedule.status === 'changed' || schedule.status === 'running' || schedule.status === 'created') {
+      await loadAssignments({
+        syncOriginal: schedule.status !== 'running',
+        clearChanges: schedule.status !== 'running',
+      });
+    }
 
-      // 디버깅: 로드된 데이터 확인
-      console.log('[Step4] Loaded employees count:', grid.employees.value.length);
-      console.log('[Step4] Loaded assignments keys count:', Object.keys(assignments).length);
-      console.log('[Step4] Last 3 employees:', grid.employees.value.slice(-3).map(e => ({ id: e.id, name: e.name })));
-      console.log('[Step4] Last 3 assignment keys:', Object.keys(assignments).slice(-3));
-    } else if (schedule.status === 'running') {
-      // Polling 시작
-      solver.startPolling(scheduleId.value);
+    if (shouldAutostart.value) {
+      await startSolverWithPendingRequest();
+      return;
+    }
+
+    if (schedule.status === 'running') {
+      await resumePollingFromSchedule(schedule);
+      return;
+    }
+
+    if (schedule.status === 'created') {
+      if (schedule.solver_execution_id) {
+        await resumePollingFromSchedule(schedule);
+      } else {
+        showInfo('아직 근무표 생성이 시작되지 않았습니다. 초기 데이터 화면으로 이동합니다.');
+        await router.push('/schedule/step4');
+      }
     }
   } catch (error) {
     console.warn('데이터 로드 중 오류:', error);
@@ -186,24 +454,51 @@ onMounted(async () => {
 
 onUnmounted(() => {
   solver.stopPolling();
+  stopAssignmentsRefresh();
+  resetRealtimeState();
 });
 
-// status가 complete로 변경되면 assignments 로드
+// status 변경 시 결과 재동기화 및 interval 정리
 watch(() => solver.status.value, async (newStatus) => {
-  if (newStatus === 'complete' || newStatus === 'changed') {
-    try {
-      const assignments = await getScheduleAssignments(scheduleId.value);
-      grid.assignments.value = assignments;
-      // 원본 데이터 백업 (deep copy)
-      originalAssignments.value = JSON.parse(JSON.stringify(assignments));
-      // 변경 사항 초기화
-      changedCells.value.clear();
+  if (newStatus === 'running') {
+    startAssignmentsRefresh();
+  } else {
+    stopAssignmentsRefresh();
+  }
 
-      // 디버깅: 로드된 데이터 확인
-      console.log('[Step4 Watch] Assignments keys count:', Object.keys(assignments).length);
+  if (newStatus === 'complete' || newStatus === 'changed' || newStatus === 'created' || newStatus === 'error') {
+    try {
+      await loadAssignments({
+        syncOriginal: true,
+        clearChanges: true,
+        forceAssignmentSync: true,
+      });
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }
+  }
+
+  if (newStatus !== 'running') {
+    runningTicksWithoutIntermediate.value = 0;
+  }
+});
+
+watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
+  if (solver.status.value !== 'running' || !intermediateAssignments) {
+    return;
+  }
+
+  const intermediateHash = hashAssignmentMap(intermediateAssignments);
+  if (intermediateHash === lastMemoryHash.value) {
+    return;
+  }
+
+  lastMemoryHash.value = intermediateHash;
+  const appliedCount = applyIntermediateAssignments(intermediateAssignments);
+
+  if (appliedCount > 0) {
+    hasIntermediateResult.value = true;
+    runningTicksWithoutIntermediate.value = 0;
   }
 });
 
@@ -212,6 +507,10 @@ function handleBack() {
 }
 
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
+  if (isReadonlyGrid.value) {
+    return;
+  }
+
   // 그리드 업데이트
   grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
 
@@ -321,6 +620,39 @@ function handleSave() {
       } catch (error) {
         console.warn('저장 중 오류:', error);
         showError('저장 중 오류가 발생했습니다');
+      }
+    },
+  });
+}
+
+async function handleCancelSchedule() {
+  window.$dialog?.warning({
+    title: '이번달 근무표 취소',
+    content: `이번달(${scheduleStore.basicInfo?.month}) 근무표를 삭제하고 다시 작성하시겠습니까?\n\n✓ 지난달 데이터는 보존됩니다\n✗ 이 작업은 되돌릴 수 없습니다`,
+    positiveText: '삭제',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      try {
+        const currentMonth = scheduleStore.basicInfo?.month;
+        if (!currentMonth) {
+          showError('현재 월 정보를 찾을 수 없습니다');
+          return;
+        }
+        
+        await deleteThisMonthAssignments(scheduleId.value, currentMonth);
+
+        solver.stopPolling();
+        stopAssignmentsRefresh();
+        
+        // Clear localStorage for this month
+        const storageKey = `everyshift_temp_schedule_${currentMonth}`;
+        localStorage.removeItem(storageKey);
+        
+        showSuccess('이번달 근무표가 삭제되었습니다. 지난달 데이터는 보존되었습니다.');
+        router.push('/schedule/step4');
+      } catch (error) {
+        console.error('Delete schedule error:', error);
+        showError('근무표 삭제 중 오류가 발생했습니다');
       }
     },
   });

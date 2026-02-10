@@ -100,6 +100,7 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
+import { getScheduleStatus } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
@@ -298,6 +299,47 @@ function handlePrev() {
   router.push('/schedule/step2');
 }
 
+async function getTargetScheduleForNextStep(): Promise<{ id: string; status: string } | null> {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo) return null;
+
+  // 1) scheduleId가 있으면 우선 조회
+  if (basicInfo.scheduleId) {
+    try {
+      const schedule = await getScheduleStatus(basicInfo.scheduleId);
+      if (schedule?.id && schedule?.status) {
+        return { id: schedule.id, status: schedule.status };
+      }
+    } catch (error) {
+      console.warn('[Step3] Failed to load schedule by id:', error);
+    }
+  }
+
+  // 2) fallback: 조직+월 기준 최신 schedule 조회
+  try {
+    const { data, error } = await supabase
+      .from('schedules')
+      .select('id, status')
+      .eq('organization_id', basicInfo.organizationId)
+      .eq('month', basicInfo.month)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.warn('[Step3] Failed to load latest schedule:', error);
+      return null;
+    }
+
+    const latest = data?.[0];
+    if (!latest || !latest.id || !latest.status) return null;
+
+    return { id: latest.id, status: latest.status };
+  } catch (error) {
+    console.warn('[Step3] Failed to query latest schedule:', error);
+    return null;
+  }
+}
+
 // 다음 버튼 핸들러
 async function handleNext() {
   if (employees.value.length === 0) {
@@ -320,10 +362,23 @@ async function handleNext() {
     });
   }
 
+  const targetSchedule = await getTargetScheduleForNextStep();
+
+  if (targetSchedule && (targetSchedule.status === 'complete' || targetSchedule.status === 'changed')) {
+    if (scheduleStore.basicInfo) {
+      scheduleStore.setBasicInfo({
+        ...scheduleStore.basicInfo,
+        scheduleId: targetSchedule.id,
+      });
+    }
+    scheduleStore.currentStep = 5;
+    router.push(`/schedule/step5/${targetSchedule.id}`);
+    return;
+  }
+
   scheduleStore.nextStep();
   router.push('/schedule/step4');
 }
 </script>
-
 
 

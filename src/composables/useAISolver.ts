@@ -9,18 +9,20 @@ import type { SolverRequest, AssignmentMap } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
 
 export function useAISolver() {
-  const status = ref<'created' | 'running' | 'complete' | 'error'>('created');
+  const status = ref<'created' | 'running' | 'complete' | 'error' | 'changed'>('created');
   const hardScore = ref<number>(0);
   const softScore = ref<number>(0);
   const progress = ref<number>(0);
   const error = ref<string | null>(null);
   const executionIdRef = ref<string | null>(null);
+  // Intermediate polling result uses shift UUIDs (not shift codes). UI must map before rendering.
+  const intermediateResults = ref<AssignmentMap | null>(null);
 
   const maxPollingAttempts = 120; // 10 minutes (5s * 120)
   let pollingAttempts = 0;
   let pollingInterval: number | null = null;
 
-  async function startSolver(scheduleId: string, request: SolverRequest) {
+  async function startSolver(scheduleId: string, request: SolverRequest): Promise<string | null> {
     // Reset state
     status.value = 'running';
     error.value = null;
@@ -28,29 +30,47 @@ export function useAISolver() {
     pollingAttempts = 0;
     hardScore.value = 0;
     softScore.value = 0;
+    executionIdRef.value = null;
+    intermediateResults.value = null;
 
     try {
       // 1. Update Supabase status to running
-      await supabase.from('schedules').update({ status: 'running' }).eq('id', scheduleId);
+      await supabase
+        .from('schedules')
+        .update({ status: 'running', solver_execution_id: null })
+        .eq('id', scheduleId);
 
       // 2. Call API
       const executionId = await createSolverExecution(request);
       executionIdRef.value = executionId;
       console.log('[useAISolver] Solver started, executionId:', executionId);
 
+      // 3. Persist execution id for resume/reconnect
+      await supabase
+        .from('schedules')
+        .update({ solver_execution_id: executionId })
+        .eq('id', scheduleId);
+
       // 3. Start Polling
       startPolling(executionId, scheduleId);
+      return executionId;
 
     } catch (e: any) {
       console.error('[useAISolver] Failed to start solver:', e);
       error.value = e.message || 'Failed to start solver';
       status.value = 'error';
-      await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
+      await supabase
+        .from('schedules')
+        .update({ status: 'error', solver_execution_id: null })
+        .eq('id', scheduleId);
+      return null;
     }
   }
 
   function startPolling(executionId: string, scheduleId: string) {
     if (pollingInterval) clearInterval(pollingInterval);
+    executionIdRef.value = executionId;
+    pollingAttempts = 0;
 
     pollingInterval = window.setInterval(async () => {
       pollingAttempts++;
@@ -76,6 +96,13 @@ export function useAISolver() {
         if (appStatus === 'running') {
             // Fake progress if needed
             if (progress.value < 90) progress.value += 2;
+            
+            // Save intermediate results if available
+            if (response.result) {
+                const assignments = parseSolverResult(response.result);
+                intermediateResults.value = assignments;
+                await saveIntermediateResult(scheduleId, assignments, response.score);
+            }
         } else if (appStatus === 'complete') {
             stopPolling();
             progress.value = 100;
@@ -94,7 +121,7 @@ export function useAISolver() {
           console.error('Polling error:', e);
           // Don't stop immediately on network error, just retry
       }
-    }, 5000);
+    }, 10000); // Changed from 5000 to 10000 (10 seconds)
   }
 
   function stopPolling() {
@@ -104,14 +131,34 @@ export function useAISolver() {
       }
   }
 
+  async function saveIntermediateResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
+      console.log('[saveIntermediateResult] Saving intermediate results to database...');
+      // Update schedule with intermediate score (don't change status)
+      await supabase.from('schedules').update({
+          hard_score: score?.hard_score || 0,
+          soft_score: score?.soft_score || 0
+      }).eq('id', scheduleId);
+
+      // Save assignments to DB
+      await saveAssignmentsToDb(scheduleId, assignments);
+      console.log('[saveIntermediateResult] Saved intermediate results.');
+  }
+
   async function saveResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
-      console.log('[saveResult] Saving assignments to database...');
+      console.log('[saveResult] Saving final results to database...');
       // Update schedule status and score
       await supabase.from('schedules').update({
           status: 'complete',
           hard_score: score?.hard_score || 0,
           soft_score: score?.soft_score || 0
       }).eq('id', scheduleId);
+
+      // Save assignments to DB
+      await saveAssignmentsToDb(scheduleId, assignments);
+      console.log('[saveResult] Saved final results.');
+  }
+
+  async function saveAssignmentsToDb(scheduleId: string, assignments: AssignmentMap) {
 
       // Transform AssignmentMap to DB rows
       const rows = [];
@@ -143,7 +190,7 @@ export function useAISolver() {
               throw error;
           }
       }
-      console.log('[saveResult] Saved', rows.length, 'assignments.');
+      console.log('[saveAssignmentsToDb] Saved', rows.length, 'assignments.');
   }
 
   onUnmounted(() => {
@@ -158,5 +205,8 @@ export function useAISolver() {
     error,
     startSolver,
     stopPolling,
+    startPolling,
+    executionIdRef,
+    intermediateResults,
   };
 }
