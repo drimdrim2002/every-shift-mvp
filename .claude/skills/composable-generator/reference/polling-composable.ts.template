@@ -1,0 +1,152 @@
+/**
+ * {{ComposableName}} Composable with Polling
+ * {{description}}
+ *
+ * Polling Pattern:
+ * - Interval: {{pollingInterval}}ms
+ * - Max attempts: {{maxAttempts}}
+ * - Automatic cleanup on unmount
+ */
+
+import { ref, computed, onUnmounted } from 'vue';
+
+export function use{{ComposableName}}() {
+  // State
+  const status = ref<'idle' | 'running' | 'complete' | 'error'>('idle');
+  const progress = ref<number>(0);
+  const error = ref<string | null>(null);
+  const result = ref<{{resultType}} | null>(null);
+
+  // Polling Configuration
+  const POLLING_INTERVAL = {{pollingInterval}}; // milliseconds
+  const MAX_ATTEMPTS = {{maxAttempts}};
+  let pollingAttempts = 0;
+  let pollingInterval: number | null = null;
+
+  // Computed
+  const isLoading = computed(() => status.value === 'running');
+  const isComplete = computed(() => status.value === 'complete');
+  const hasError = computed(() => status.value === 'error');
+
+  /**
+   * Start polling for operation status
+   * @param identifier - Operation identifier to poll for
+   */
+  function startPolling(identifier: string) {
+    // Clear any existing interval
+    stopPolling();
+
+    // Reset state
+    status.value = 'running';
+    error.value = null;
+    progress.value = 0;
+    pollingAttempts = 0;
+
+    console.log(`[use{{ComposableName}}] Starting polling for: ${identifier}`);
+
+    // Start polling
+    pollingInterval = window.setInterval(async () => {
+      pollingAttempts++;
+
+      // Check timeout
+      if (pollingAttempts > MAX_ATTEMPTS) {
+        stopPolling();
+        error.value = `Timeout: Operation exceeded ${MAX_ATTEMPTS * POLLING_INTERVAL / 1000} seconds`;
+        status.value = 'error';
+        console.error(`[use{{ComposableName}}] ${error.value}`);
+        return;
+      }
+
+      try {
+        // Check operation status
+        const response = await checkOperationStatus(identifier);
+
+        // Update progress
+        progress.value = response.progress || Math.min((pollingAttempts / MAX_ATTEMPTS) * 100, 99);
+
+        // Check completion
+        if (response.status === 'complete') {
+          stopPolling();
+          status.value = 'complete';
+          progress.value = 100;
+          result.value = response.data;
+          console.log(`[use{{ComposableName}}] Operation completed successfully`);
+        } else if (response.status === 'error') {
+          stopPolling();
+          status.value = 'error';
+          error.value = response.error || 'Operation failed';
+          console.error(`[use{{ComposableName}}] ${error.value}`);
+        }
+
+        // Log progress in dev mode
+        if (import.meta.env.DEV && pollingAttempts % 10 === 0) {
+          console.log(`[use{{ComposableName}}] Polling attempt ${pollingAttempts}/${MAX_ATTEMPTS}`);
+        }
+      } catch (e: any) {
+        console.error(`[use{{ComposableName}}] Polling error:`, e);
+        // Continue polling on transient errors
+      }
+    }, POLLING_INTERVAL);
+  }
+
+  /**
+   * Stop polling
+   */
+  function stopPolling() {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+      console.log(`[use{{ComposableName}}] Polling stopped after ${pollingAttempts} attempts`);
+    }
+  }
+
+  /**
+   * Reset state
+   */
+  function reset() {
+    stopPolling();
+    status.value = 'idle';
+    progress.value = 0;
+    error.value = null;
+    result.value = null;
+    pollingAttempts = 0;
+  }
+
+  // Cleanup on unmount
+  onUnmounted(() => {
+    stopPolling();
+  });
+
+  return {
+    // State
+    status,
+    progress,
+    error,
+    result,
+    // Computed
+    isLoading,
+    isComplete,
+    hasError,
+    // Methods
+    startPolling,
+    stopPolling,
+    reset,
+  };
+}
+
+/**
+ * Check operation status
+ * Replace with actual API call
+ */
+async function checkOperationStatus(identifier: string): Promise<{
+  status: 'running' | 'complete' | 'error';
+  progress?: number;
+  data?: any;
+  error?: string;
+}> {
+  // TODO: Implement actual API call
+  return {
+    status: 'running',
+    progress: 50,
+  };
+}

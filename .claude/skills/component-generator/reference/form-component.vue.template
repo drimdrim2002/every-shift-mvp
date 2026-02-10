@@ -1,0 +1,150 @@
+<template>
+  <div class="{{component-name-kebab}}-form">
+    <n-form
+      ref="formRef"
+      :model="formValue"
+      :rules="rules"
+      label-placement="left"
+      label-width="120px"
+      class="form-container"
+    >
+{{#each formFields}}
+      <n-form-item label="{{label}}" path="{{name}}">
+        {{#if isInput}}
+        <n-input
+          v-model:value="formValue.{{name}}"
+          placeholder="{{placeholder}}"
+          {{#if disabled}}disabled{{/if}}
+        />
+        {{/if}}
+        {{#if isSelect}}
+        <n-select
+          v-model:value="formValue.{{name}}"
+          :options="{{name}}Options"
+          placeholder="{{placeholder}}"
+        />
+        {{/if}}
+        {{#if isDatePicker}}
+        <n-date-picker
+          v-model:value="formValue.{{name}}"
+          type="date"
+          placeholder="{{placeholder}}"
+        />
+        {{/if}}
+      </n-form-item>
+{{/each}}
+      <n-form-item :show-label="false">
+        <n-space>
+          <n-button type="primary" @click="handleSubmit">저장</n-button>
+          <n-button @click="handleCancel">취소</n-button>
+        </n-space>
+      </n-form-item>
+    </n-form>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, watch } from 'vue';
+import {
+  NForm,
+  NFormItem,
+  NInput,
+  NButton,
+  NSpace,
+  type FormInst,
+  type FormRules,
+} from 'naive-ui';
+import { message } from '@/utils/message';
+
+/**
+ * {{ComponentName}} Form Component
+ * Form with Naive UI integration and validation
+ */
+
+interface Props {
+  data: Record<string, any>;
+}
+
+interface Emits {
+  (e: 'submit', data: Record<string, any>): void;
+  (e: 'cancel'): void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+
+const formRef = ref<FormInst | null>(null);
+
+// Initialize form value from props
+const formValue = reactive<Record<string, any>>({
+{{#each formFields}}
+  {{name}}: props.data?.{{name}} || {{defaultValue}},
+{{/each}}
+});
+
+// Watch for prop changes
+watch(
+  () => props.data,
+  (newData) => {
+    if (newData) {
+      Object.assign(formValue, newData);
+    }
+  },
+  { deep: true }
+);
+
+// Validation rules
+const rules: FormRules = {
+{{#each formFields}}
+{{#if required}}
+  {{name}}: {
+    required: true,
+    message: '{{label}}을(를) 입력해주세요',
+    trigger: ['blur', 'input'],
+  },
+{{/if}}
+{{/each}}
+};
+
+{{#each formFields}}
+{{#if isSelect}}
+// {{name}} options
+const {{name}}Options = ref([
+  { label: '옵션 1', value: 'option1' },
+  { label: '옵션 2', value: 'option2' },
+]);
+{{/if}}
+{{/each}}
+
+// Handlers
+function handleSubmit() {
+  formRef.value?.validate((errors) => {
+    if (!errors) {
+      emit('submit', { ...formValue });
+      message.success('저장되었습니다');
+    } else {
+      message.error('입력값을 확인해주세요');
+    }
+  }).catch(() => {
+    message.error('폼 검증 중 오류가 발생했습니다');
+  });
+}
+
+function handleCancel() {
+  emit('cancel');
+}
+
+// Expose reset method
+defineExpose({
+  reset: () => {
+    formRef.value?.restoreValidation();
+  },
+});
+</script>
+
+<style scoped>
+.form-container {
+  max-width: 600px;
+  padding: 20px;
+}
+</style>

@@ -1,0 +1,193 @@
+<template>
+  <div class="{{component-name-kebab}}-grid-wrapper text-sm">
+    <div class="{{component-name-kebab}}-grid-container overflow-x-auto">
+      <table class="{{component-name-kebab}}-grid w-full border-collapse">
+        <!-- Column width definitions -->
+        <colgroup>
+          <col style="width: 150px">
+          <col
+            v-for="col in columns"
+            :key="col.key"
+            :style="`width: ${col.width}px`"
+          >
+          <col style="width: 60px">
+          <col style="width: 60px">
+          <col style="width: 60px">
+        </colgroup>
+
+        <!-- Header -->
+        <thead>
+          <tr>
+            <th class="sticky-column header-cell bg-white px-4 py-3 font-semibold">
+              {{headerLabel}}
+            </th>
+            <th
+              v-for="col in columns"
+              :key="col.key"
+              class="header-cell bg-gray-100 px-4 py-2 text-center font-semibold"
+            >
+              {{col.label}}
+            </th>
+            <th colspan="3" class="header-cell bg-white px-4 py-3 text-center font-semibold">
+              통계
+            </th>
+          </tr>
+        </thead>
+
+        <!-- Body -->
+        <tbody>
+          <tr
+            v-for="row in rows"
+            :key="row.id"
+            class="border-t hover:bg-gray-50"
+          >
+            <td class="sticky-column cell bg-white px-4 py-2 font-medium">
+              {{row.name}}
+            </td>
+            <td
+              v-for="col in columns"
+              :key="`${row.id}-${col.key}`"
+              class="cell px-2 py-1 text-center"
+            >
+              <!-- Cell content based on data -->
+              <span :class="getCellClass(row.id, col.key)">
+                {{getCellValue(row.id, col.key)}}
+              </span>
+            </td>
+            <!-- Statistics columns -->
+            <td class="cell px-2 py-1 text-center text-blue-600 font-medium">
+              {{getStatistics(row.id, 'D')}}
+            </td>
+            <td class="cell px-2 py-1 text-center text-green-600 font-medium">
+              {{getStatistics(row.id, 'E')}}
+            </td>
+            <td class="cell px-2 py-1 text-center text-purple-600 font-medium">
+              {{getStatistics(row.id, 'N')}}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import type { {{ComponentName}}GridData, {{ComponentName}}Statistics } from '@/types/{{type-file}}';
+
+/**
+ * {{ComponentName}} Grid Component
+ * TanStack Table-based grid with sticky columns and statistics
+ */
+
+interface Props {
+  data: {{ComponentName}}GridData[];
+  columns: Column[];
+  readonly?: boolean;
+}
+
+interface Column {
+  key: string;
+  label: string;
+  width: number;
+}
+
+interface Emits {
+  (e: 'update:cell', payload: { rowId: string; columnKey: string; value: any }): void;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  readonly: false,
+});
+
+const emit = defineEmits<Emits>();
+
+// Statistics computation
+const statistics = computed<Record<string, {{ComponentName}}Statistics>>(() => {
+  const stats: Record<string, {{ComponentName}}Statistics}> = {};
+
+  props.data.forEach((row) => {
+    stats[row.id] = {
+      D: 0,
+      E: 0,
+      N: 0,
+      O: 0,
+      total: 0,
+    };
+
+    // Calculate statistics based on row data
+    Object.entries(row.data).forEach(([_, value]) => {
+      if (value && typeof value === 'string') {
+        const shiftCode = value.toUpperCase();
+        if (shiftCode in stats[row.id]) {
+          stats[row.id][shiftCode as keyof {{ComponentName}}Statistics]++;
+          stats[row.id].total++;
+        }
+      }
+    });
+  });
+
+  return stats;
+});
+
+// Methods
+function getCellValue(rowId: string, columnKey: string): string {
+  const row = props.data.find((r) => r.id === rowId);
+  return row?.data[columnKey] || '';
+}
+
+function getCellClass(rowId: string, columnKey: string): string {
+  const value = getCellValue(rowId, columnKey);
+
+  // Shift-specific coloring
+  const shiftColors: Record<string, string> = {
+    D: 'text-blue-600 font-medium',
+    E: 'text-green-600 font-medium',
+    N: 'text-purple-600 font-medium',
+    O: 'text-gray-400',
+  };
+
+  return shiftColors[value] || '';
+}
+
+function getStatistics(rowId: string, shiftCode: string): number {
+  return statistics.value[rowId]?.[shiftCode as keyof {{ComponentName}}Statistics] || 0;
+}
+
+// Performance logging
+onMounted(() => {
+  if (import.meta.env.DEV) {
+    console.log(`[{{ComponentName}}Grid] Rendered ${props.data.length} rows`);
+  }
+});
+</script>
+
+<style scoped>
+.{{component-name-kebab}}-grid {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.sticky-column {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: white;
+}
+
+.header-cell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border: 1px solid #e5e7eb;
+}
+
+.sticky-column.header-cell {
+  z-index: 30;
+}
+
+.cell {
+  border: 1px solid #e5e7eb;
+  min-height: 36px;
+}
+</style>

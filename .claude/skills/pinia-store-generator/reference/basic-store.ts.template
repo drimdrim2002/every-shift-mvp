@@ -1,0 +1,115 @@
+/**
+ * {{StoreName}} Store
+ * {{description}}
+ */
+
+import { defineStore } from 'pinia';
+import { ref, computed, watch } from 'vue';
+import type { {{StateType}} } from '@/types/{{typeFile}}';
+
+{{#if persist}}
+const STORAGE_KEY = 'everyshift_{{storeName}}';
+{{/if}}
+
+export const use{{StoreName}}Store = defineStore('{{storeName}}', () => {
+  // State
+{{#each state}}
+  const {{name}} = ref<{{type}}>({{defaultValue}});
+{{/each}}
+{{#unless state}}
+  // Add state properties here
+{{/unless}}
+
+  // Getters (Computed)
+{{#each getters}}
+  const {{name}} = computed(() => {
+    // Add getter logic
+    return {{expression}};
+  });
+{{/each}}
+{{#unless getters}}
+  // Add computed getters here if needed
+{{/unless}}
+
+  // Actions
+{{#each actions}}
+  /**
+   * {{description}}
+   */
+  function {{name}}({{#if hasParams}}{{params}}{{/if}}) {
+    // Implementation
+  }
+{{/each}}
+{{#unless actions}}
+  // Add actions here
+{{/unless}}
+
+  /**
+   * Reset store to initial state
+   */
+  function reset() {
+{{#each state}}
+    {{name}}.value = {{defaultValue}};
+{{/each}}
+{{#unless state}}
+    // Reset all state
+{{/unless}}
+{{#if persist}}
+    localStorage.removeItem(STORAGE_KEY);
+{{/if}}
+  }
+
+{{#if persist}}
+  // Persistence
+  function loadFromStorage() {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        const data = JSON.parse(stored);
+{{#each state}}
+        {{name}}.value = data.{{name}};
+{{/each}}
+      } catch (e) {
+        console.error('[{{StoreName}}Store] Failed to load from storage:', e);
+      }
+    }
+  }
+
+  function saveToStorage() {
+    const data = {
+{{#each state}}
+      {{name}}: {{name}}.value,
+{{/each}}
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  // Watch for changes and persist
+  watch(
+    [{{#each state}}{{#if @first}}{{name}}{{else}}, {{name}}{{/if}}{{/each}}],
+    () => {
+      saveToStorage();
+    },
+    { deep: true }
+  );
+{{/if}}
+
+  return {
+    // State
+{{#each state}}
+    {{name}},
+{{/each}}
+    // Getters
+{{#each getters}}
+    {{name}},
+{{/each}}
+    // Actions
+{{#each actions}}
+    {{name}},
+{{/each}}
+    reset,
+{{#if persist}}
+    loadFromStorage,
+{{/if}}
+  };
+});

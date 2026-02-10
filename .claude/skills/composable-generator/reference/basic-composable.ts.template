@@ -1,0 +1,89 @@
+/**
+ * {{ComposableName}} Composable
+ * {{description}}
+ */
+
+import { ref, computed, watch } from 'vue';
+
+// Type definitions
+interface {{ComposableName}}State {
+{{#each refs}}
+  {{name}}: {{type}};
+{{/each}}
+{{#unless refs}}
+  // Add state properties here
+{{/unless}}
+}
+
+export function use{{ComposableName}}() {
+  // Reactive State
+{{#each refs}}
+  const {{name}} = ref<{{type}}>({{defaultValue}});
+{{/each}}
+{{#unless refs}}
+  // Add reactive state here
+  const state = ref<{{ComposableName}}State>({
+    // Initialize state
+  });
+{{/unless}}
+
+  // Computed Properties
+{{#each computed}}
+  const {{name}} = computed(() => {
+    // Add computed logic
+    return {{expression}};
+  });
+{{/each}}
+{{#unless computed}}
+  // Add computed properties here if needed
+{{/unless}}
+
+  // Methods
+{{#each functions}}
+  /**
+   * {{description}}
+   */
+  async function {{name}}({{#if hasParams}}{{params}}{{/if}}) {
+    try {
+      // Implementation
+    } catch (e: any) {
+      console.error('[use{{ComposableName}}] Error in {{name}}:', e);
+      throw e;
+    }
+  }
+{{/each}}
+{{#unless functions}}
+  // Add methods here
+{{/unless}}
+
+  // Watchers
+{{#if hasWatchers}}
+  watch(
+    () => {{watchTarget}},
+    (newVal, oldVal) => {
+      // Handle changes
+    },
+    { deep: {{deepWatch}} }
+  );
+{{/if}}
+
+  // Lifecycle
+  // onMounted(() => { ... });
+  // onUnmounted(() => { ... });
+
+  // Return public API
+  return {
+    // State
+{{#each refs}}
+    {{name}},
+{{/each}}
+    // Computed
+{{#each computed}}
+    {{name}},
+{{/each}}
+    // Methods
+{{#each functions}}
+    {{name}},
+{{/each}}
+  };
+}
