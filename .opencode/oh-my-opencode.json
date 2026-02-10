@@ -1,0 +1,22 @@
+{
+  "agents": {
+    "sisyphus": {
+      "model": "openai/chatgpt-codex-5.3"
+    },
+    "prometheus": {
+      "model": "openai/chatgpt-codex-5.3"
+    },
+    "oracle": {
+      "model": "google/gemini-3-pro-preview"
+    },
+    "librarian": {
+      "model": "openai/chatgpt-codex-5.3"
+    },
+    "multimodal-looker": {
+      "model": "google/gemini-3-pro-preview"
+    },
+    "explore": {
+      "model": "zai-coding/glm-4.7"
+    }
+  }
+}
