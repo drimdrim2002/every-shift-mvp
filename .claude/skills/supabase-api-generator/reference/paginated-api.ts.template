@@ -1,0 +1,44 @@
+import { supabase } from '@/api/supabase';
+
+interface AssignmentRow {
+  employee_id: string;
+  date: string;
+  shift_id: string | null;
+}
+
+interface AssignmentModel {
+  employeeId: string;
+  date: string;
+  shiftId: string | null;
+}
+
+function toAssignmentModel(row: AssignmentRow): AssignmentModel {
+  return {
+    employeeId: row.employee_id,
+    date: row.date,
+    shiftId: row.shift_id,
+  };
+}
+
+export async function getAssignmentsPage(
+  scheduleId: string,
+  page: number,
+  pageSize: number
+): Promise<AssignmentModel[]> {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error } = await supabase
+    .from('schedule_assignments')
+    .select('employee_id,date,shift_id')
+    .eq('schedule_id', scheduleId)
+    .range(from, to)
+    .order('employee_id', { ascending: true });
+
+  if (error) {
+    console.error('[assignmentApi:getAssignmentsPage] query failed', error);
+    throw new Error(`배정 조회 실패: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => toAssignmentModel(row as AssignmentRow));
+}

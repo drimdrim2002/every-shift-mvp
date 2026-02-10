@@ -1,152 +1,93 @@
-/**
- * {{ComposableName}} Composable with Polling
- * {{description}}
- *
- * Polling Pattern:
- * - Interval: {{pollingInterval}}ms
- * - Max attempts: {{maxAttempts}}
- * - Automatic cleanup on unmount
- */
+import { computed, onUnmounted, ref } from 'vue';
 
-import { ref, computed, onUnmounted } from 'vue';
+type PollStatus = 'idle' | 'running' | 'complete' | 'error';
 
-export function use{{ComposableName}}() {
-  // State
-  const status = ref<'idle' | 'running' | 'complete' | 'error'>('idle');
-  const progress = ref<number>(0);
-  const error = ref<string | null>(null);
-  const result = ref<{{resultType}} | null>(null);
+interface PollResponse<T> {
+  status: PollStatus;
+  data?: T;
+  errorMessage?: string;
+}
 
-  // Polling Configuration
-  const POLLING_INTERVAL = {{pollingInterval}}; // milliseconds
-  const MAX_ATTEMPTS = {{maxAttempts}};
-  let pollingAttempts = 0;
-  let pollingInterval: number | null = null;
+export function usePollingTask<T>() {
+  const status = ref<PollStatus>('idle');
+  const progress = ref(0);
+  const result = ref<T | null>(null);
+  const errorMessage = ref<string | null>(null);
 
-  // Computed
-  const isLoading = computed(() => status.value === 'running');
-  const isComplete = computed(() => status.value === 'complete');
-  const hasError = computed(() => status.value === 'error');
+  const intervalMs = 10_000;
+  const maxAttempts = 120;
 
-  /**
-   * Start polling for operation status
-   * @param identifier - Operation identifier to poll for
-   */
-  function startPolling(identifier: string) {
-    // Clear any existing interval
-    stopPolling();
+  let timer: number | null = null;
+  let attempts = 0;
 
-    // Reset state
-    status.value = 'running';
-    error.value = null;
+  const isRunning = computed(() => status.value === 'running');
+
+  function stop(): void {
+    if (timer !== null) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function reset(): void {
+    stop();
+    status.value = 'idle';
     progress.value = 0;
-    pollingAttempts = 0;
+    result.value = null;
+    errorMessage.value = null;
+    attempts = 0;
+  }
 
-    console.log(`[use{{ComposableName}}] Starting polling for: ${identifier}`);
+  function start(fetchStatus: () => Promise<PollResponse<T>>): void {
+    reset();
+    status.value = 'running';
 
-    // Start polling
-    pollingInterval = window.setInterval(async () => {
-      pollingAttempts++;
+    timer = window.setInterval(async () => {
+      attempts += 1;
 
-      // Check timeout
-      if (pollingAttempts > MAX_ATTEMPTS) {
-        stopPolling();
-        error.value = `Timeout: Operation exceeded ${MAX_ATTEMPTS * POLLING_INTERVAL / 1000} seconds`;
+      if (attempts > maxAttempts) {
+        stop();
         status.value = 'error';
-        console.error(`[use{{ComposableName}}] ${error.value}`);
+        errorMessage.value = 'Timeout: 작업 시간이 10분을 초과했습니다.';
         return;
       }
 
       try {
-        // Check operation status
-        const response = await checkOperationStatus(identifier);
+        const response = await fetchStatus();
+        status.value = response.status;
 
-        // Update progress
-        progress.value = response.progress || Math.min((pollingAttempts / MAX_ATTEMPTS) * 100, 99);
-
-        // Check completion
         if (response.status === 'complete') {
-          stopPolling();
-          status.value = 'complete';
+          stop();
           progress.value = 100;
-          result.value = response.data;
-          console.log(`[use{{ComposableName}}] Operation completed successfully`);
-        } else if (response.status === 'error') {
-          stopPolling();
-          status.value = 'error';
-          error.value = response.error || 'Operation failed';
-          console.error(`[use{{ComposableName}}] ${error.value}`);
+          result.value = response.data ?? null;
+          return;
         }
 
-        // Log progress in dev mode
-        if (import.meta.env.DEV && pollingAttempts % 10 === 0) {
-          console.log(`[use{{ComposableName}}] Polling attempt ${pollingAttempts}/${MAX_ATTEMPTS}`);
+        if (response.status === 'error') {
+          stop();
+          errorMessage.value = response.errorMessage ?? '작업 처리 중 오류가 발생했습니다.';
+          return;
         }
-      } catch (e: any) {
-        console.error(`[use{{ComposableName}}] Polling error:`, e);
-        // Continue polling on transient errors
+
+        progress.value = Math.min(progress.value + 5, 95);
+      } catch (error: unknown) {
+        console.error('[usePollingTask] transient polling error', error);
       }
-    }, POLLING_INTERVAL);
+    }, intervalMs);
   }
 
-  /**
-   * Stop polling
-   */
-  function stopPolling() {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
-      console.log(`[use{{ComposableName}}] Polling stopped after ${pollingAttempts} attempts`);
-    }
-  }
-
-  /**
-   * Reset state
-   */
-  function reset() {
-    stopPolling();
-    status.value = 'idle';
-    progress.value = 0;
-    error.value = null;
-    result.value = null;
-    pollingAttempts = 0;
-  }
-
-  // Cleanup on unmount
   onUnmounted(() => {
-    stopPolling();
+    stop();
   });
 
   return {
-    // State
     status,
     progress,
-    error,
     result,
-    // Computed
-    isLoading,
-    isComplete,
-    hasError,
-    // Methods
-    startPolling,
-    stopPolling,
+    errorMessage,
+    isRunning,
+    start,
+    stop,
     reset,
-  };
-}
-
-/**
- * Check operation status
- * Replace with actual API call
- */
-async function checkOperationStatus(identifier: string): Promise<{
-  status: 'running' | 'complete' | 'error';
-  progress?: number;
-  data?: any;
-  error?: string;
-}> {
-  // TODO: Implement actual API call
-  return {
-    status: 'running',
-    progress: 50,
   };
 }

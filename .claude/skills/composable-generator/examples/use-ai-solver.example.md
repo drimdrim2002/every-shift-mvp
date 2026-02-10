@@ -8,7 +8,7 @@
 Polling-based composable for AI solver status checking with automatic cleanup.
 
 ## Key Features
-- 5-second polling interval
+- 10-second polling interval
 - 120 attempt limit (10 minutes max)
 - Automatic cleanup on component unmount
 - Error handling with timeout detection
@@ -76,7 +76,7 @@ function startPolling(scheduleId: string) {
       stopPolling();
       progress.value = 100;
     }
-  }, 5000);
+  }, 10000);
 }
 ```
 

@@ -1078,3 +1078,29 @@ router.beforeEach((to, from, next) => {
 
 **마지막 업데이트**: 2025-11-21
 **버전**: 1.0.0
+
+---
+
+## Skills Operations
+
+### Skill source and mirror
+- Source of truth: `.claude/skills/`
+- Codex mirror: `tools/skills/codex-mirror/`
+- Codex install target: `~/.codex/skills/everyshift-*`
+
+### Validation
+```bash
+bash tools/skills/validate-skills.sh
+```
+
+### Sync to Codex
+```bash
+bash tools/skills/sync-to-codex.sh
+```
+
+### Recommended checks after skill updates
+```bash
+pnpm lint
+pnpm test:unit
+bash tools/skills/validate-skills.sh
+```

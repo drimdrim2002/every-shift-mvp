@@ -1,70 +1,19 @@
 <template>
-  <div class="{{component-name-kebab}}">
-    <!-- Component content here -->
-    <p>{{componentName}} Component</p>
-  </div>
+  <section class="rounded-md border border-gray-200 bg-white p-4">
+    <header class="mb-2 text-sm font-semibold text-gray-900">{{ title }}</header>
+    <p v-if="description" class="text-sm text-gray-600">{{ description }}</p>
+    <slot />
+  </section>
 </template>
 
 <script setup lang="ts">
-/**
- * {{ComponentName}} Component
- * {{description}}
- */
-
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-
-// TypeScript Interfaces for Props
-interface {{ComponentName}}Props {
-{{#each props}}
-  {{name}}: {{type}};
-{{/each}}
-{{#unless props}}
-  // Add props here
-{{/unless}}
+interface Props {
+  title: string;
+  description?: string;
 }
 
-// TypeScript Interfaces for Emits
-interface {{ComponentName}}Emits {
-{{#each emits}}
-  (e: '{{event}}', payload: any): void;
-{{/each}}
-{{#unless emits}}
-  // Add emits here
-{{/unless}}
-}
+const props = defineProps<Props>();
 
-// Define Props and Emits
-const props = defineProps<{{ComponentName}}Props>();
-const emit = defineEmits<{{ComponentName}}Emits>();
-
-// Reactive State
-const localState = ref('');
-
-// Computed Properties
-const computedValue = computed(() => {
-  return props.{{propName}} || 'default';
-});
-
-// Methods
-function handleAction() {
-  emit('{{event}}', localState.value);
-}
-
-// Lifecycle Hooks
-onMounted(() => {
-  if (import.meta.env.DEV) {
-    console.log('[{{ComponentName}}] Component mounted');
-  }
-});
-
-onUnmounted(() => {
-  // Cleanup if needed
-});
+const title = props.title;
+const description = props.description;
 </script>
-
-<style scoped>
-.{{component-name-kebab}} {
-  /* Use Tailwind utilities preferentially */
-  /* Custom styles only when necessary */
-}
-</style>

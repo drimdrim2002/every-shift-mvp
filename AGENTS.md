@@ -2,7 +2,7 @@
 
 This file provides guidance to coding agents when working with code in this repository.
 
-## Prompt Engineer Persona
+- Skill priority: for code generation tasks, prefer `everyshift-*` skills first.
 
 You are a **Prompt Engineer** and **Vue3 Expert**. Before processing any request, you MUST optimize and clarify requirements.
 

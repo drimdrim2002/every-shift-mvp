@@ -1,115 +1,78 @@
-/**
- * {{StoreName}} Store
- * {{description}}
- */
-
 import { defineStore } from 'pinia';
-import { ref, computed, watch } from 'vue';
-import type { {{StateType}} } from '@/types/{{typeFile}}';
+import { computed, ref, watch } from 'vue';
 
-{{#if persist}}
-const STORAGE_KEY = 'everyshift_{{storeName}}';
-{{/if}}
+interface ExampleItem {
+  id: string;
+  name: string;
+}
 
-export const use{{StoreName}}Store = defineStore('{{storeName}}', () => {
-  // State
-{{#each state}}
-  const {{name}} = ref<{{type}}>({{defaultValue}});
-{{/each}}
-{{#unless state}}
-  // Add state properties here
-{{/unless}}
+const STORAGE_KEY = 'everyshift_example_store';
 
-  // Getters (Computed)
-{{#each getters}}
-  const {{name}} = computed(() => {
-    // Add getter logic
-    return {{expression}};
-  });
-{{/each}}
-{{#unless getters}}
-  // Add computed getters here if needed
-{{/unless}}
+export const useExampleStore = defineStore('example', () => {
+  const items = ref<ExampleItem[]>([]);
+  const selectedId = ref<string | null>(null);
 
-  // Actions
-{{#each actions}}
-  /**
-   * {{description}}
-   */
-  function {{name}}({{#if hasParams}}{{params}}{{/if}}) {
-    // Implementation
+  const itemCount = computed(() => items.value.length);
+  const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
+
+  function setItems(nextItems: ExampleItem[]): void {
+    items.value = nextItems;
   }
-{{/each}}
-{{#unless actions}}
-  // Add actions here
-{{/unless}}
 
-  /**
-   * Reset store to initial state
-   */
-  function reset() {
-{{#each state}}
-    {{name}}.value = {{defaultValue}};
-{{/each}}
-{{#unless state}}
-    // Reset all state
-{{/unless}}
-{{#if persist}}
+  function selectItem(id: string | null): void {
+    selectedId.value = id;
+  }
+
+  function reset(): void {
+    items.value = [];
+    selectedId.value = null;
     localStorage.removeItem(STORAGE_KEY);
-{{/if}}
   }
 
-{{#if persist}}
-  // Persistence
-  function loadFromStorage() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-{{#each state}}
-        {{name}}.value = data.{{name}};
-{{/each}}
-      } catch (e) {
-        console.error('[{{StoreName}}Store] Failed to load from storage:', e);
+  function loadFromStorage(): void {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        'items' in parsed &&
+        'selectedId' in parsed
+      ) {
+        const data = parsed as { items: ExampleItem[]; selectedId: string | null };
+        items.value = Array.isArray(data.items) ? data.items : [];
+        selectedId.value = typeof data.selectedId === 'string' || data.selectedId === null ? data.selectedId : null;
       }
+    } catch (error: unknown) {
+      console.error('[useExampleStore] failed to parse persisted state', error);
     }
   }
 
-  function saveToStorage() {
-    const data = {
-{{#each state}}
-      {{name}}: {{name}}.value,
-{{/each}}
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  function saveToStorage(): void {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        items: items.value,
+        selectedId: selectedId.value,
+      })
+    );
   }
 
-  // Watch for changes and persist
-  watch(
-    [{{#each state}}{{#if @first}}{{name}}{{else}}, {{name}}{{/if}}{{/each}}],
-    () => {
-      saveToStorage();
-    },
-    { deep: true }
-  );
-{{/if}}
+  // Keep deep watchers scoped to nested structures that truly require it.
+  watch([items, selectedId], saveToStorage, { deep: true });
 
   return {
-    // State
-{{#each state}}
-    {{name}},
-{{/each}}
-    // Getters
-{{#each getters}}
-    {{name}},
-{{/each}}
-    // Actions
-{{#each actions}}
-    {{name}},
-{{/each}}
+    items,
+    selectedId,
+    itemCount,
+    selectedItem,
+    setItems,
+    selectItem,
     reset,
-{{#if persist}}
     loadFromStorage,
-{{/if}}
   };
 });
