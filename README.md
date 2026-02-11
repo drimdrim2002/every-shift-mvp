@@ -260,7 +260,7 @@ organizations
 
 ```
 이메일: admin@example.com
-비밀번호: password123
+비밀번호: admin123456
 ```
 
 ### 2단계: 기본 정보 입력
