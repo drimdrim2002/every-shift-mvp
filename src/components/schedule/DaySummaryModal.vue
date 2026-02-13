@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { NModal, NTable, NTag, NButton } from 'naive-ui';
 import type { Employee } from '@/types/employee';
 import type { AssignmentMap, CommentMap } from '@/types/schedule';
@@ -70,7 +70,7 @@ const showModal = computed({
 
 const formattedDate = computed(() => {
   if (!props.date) return '';
-  const [year, month, day] = props.date.split('-');
+  const [, month, day] = props.date.split('-');
   return `${month}월 ${day}일`;
 });
 

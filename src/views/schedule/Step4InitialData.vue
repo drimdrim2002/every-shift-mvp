@@ -282,7 +282,7 @@ async function restoreData() {
                 grid.comments.value = { ...grid.comments.value, ...savedComments };
                 
                 showInfo('이전 작업이 복원되었습니다 (LocalStorage)');
-            } catch (e) {
+            } catch {
                 localStorage.removeItem(STORAGE_KEY.value);
             }
         }

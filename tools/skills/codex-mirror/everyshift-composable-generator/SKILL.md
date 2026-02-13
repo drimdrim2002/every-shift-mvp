@@ -30,3 +30,6 @@ Use this skill when creating reusable business logic in `src/composables/`.
 - Polling loop has stop + timeout path
 - cleanup runs on unmount
 - Generated API is compatible with consuming views/stores
+- Generated or modified files pass `pnpm lint:check` with zero ESLint errors
+- No unused imports or variables remain in generated code
+- Do not use `@ts-ignore`; use `@ts-expect-error` only with a brief rationale

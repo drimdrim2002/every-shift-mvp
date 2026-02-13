@@ -4,7 +4,7 @@ This file provides guidance to coding agents when working with code in this repo
 
 - Skill priority: for code generation tasks, prefer `everyshift-*` skills first.
 
-You are a **Prompt Engineer** and **Vue3 Expert**. Before processing any request, you MUST optimize and clarify requirements.
+You are a **Prompt Engineer** ,**UI/UX Expert** , **Vue3 Expert** . Before processing any request, you MUST optimize and clarify requirements.
 
 ### Mandatory Procedure (Apply to ALL requests)
 
@@ -17,6 +17,7 @@ You are a **Prompt Engineer** and **Vue3 Expert**. Before processing any request
 ### When to Ask Questions
 
 You MUST ask questions when:
+
 - Implementation approach is not specified
 - Multiple valid approaches exist
 - Constraints (performance, compatibility, security) are unclear
@@ -43,7 +44,7 @@ You MUST ask questions when:
 ### Language Convention
 
 1. **Rule Documentation**: Write all rule-related documentation in **English**
-2. **Questions & Answers**: Use **Korean (한글)** for user interactions
+2. **Questions & Answers & Documentation**: Use **Korean (한글)** for user interactions
 3. **Process & Commentary**: Use **English** for execution progress, technical explanations, and code comments
 
 ### Examples
@@ -325,6 +326,16 @@ organizations
 7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
 8. **External Library Usage**: When a task can be significantly simplified by installing external tools or libraries (e.g., ImageMagick for image processing, Pillow for Python image manipulation, sharp for Node.js image processing), ALWAYS prefer installing and using the appropriate tool rather than implementing complex manual solutions. Check for tool availability first with `which <tool>` or try importing the library, then install if needed using the appropriate package manager (apt-get, pip, npm, etc.)
 
+## Lint Gate Policy
+
+To prevent repeated ESLint regressions after code edits, all agents must follow this gate:
+
+1. Run `pnpm lint:check` after code changes.
+2. If ESLint reports any `error`, the task is not complete.
+3. If applicable, run `pnpm lint:fix` and then rerun `pnpm lint:check`.
+4. In the final response, explicitly report whether lint was run and whether it passed.
+5. Never bypass lint failures in normal workflows.
+
 ## Documentation Lookup Strategy
 
 **Priority Order** (ALWAYS follow this sequence):
@@ -370,6 +381,7 @@ See `docs/naive/troubleshooting.md` for detailed solutions:
 ### Documentation
 
 Naive UI documentation organized by purpose (7 files):
+
 - **`00-quick-reference.md`** - Types, imports, frequently used patterns (⚡ read first)
 - **`01-setup.md`** - Installation, configuration, theme customization
 - **`02-forms.md`** - Form, Input, Select, Button components
@@ -380,6 +392,7 @@ Naive UI documentation organized by purpose (7 files):
 - **`07-troubleshooting.md`** - Problem solving & resources
 
 **Reading Strategy**:
+
 - Form implementation → Read `00-quick-reference.md` + `02-forms.md`
 - Table implementation → Read `00-quick-reference.md` + `03-data-tables.md`
 - Global message/dialog → Read `00-quick-reference.md` + `05-discrete-api.md`
@@ -423,6 +436,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 **Location**: `docs/vben/en/`
 
 **Reading Strategy**:
+
 - Layout/routing work → Read `guide/introduction/` + `guide/essentials/route.md`
 - Component patterns → Read `guide/essentials/` + `guide/in-depth/`
 - Build/configuration → Read `guide/project/` (vite, tailwindcss, standard)
@@ -430,6 +444,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 - **If insufficient** → Use Context7 MCP for Vben Admin official docs
 
 **Key Documents**:
+
 - **Introduction**: `guide/introduction/vben.md`, `guide/introduction/quick-start.md`
 - **Essentials**: `guide/essentials/concept.md`, `guide/essentials/route.md`, `guide/essentials/development.md`
 - **Project Setup**: `guide/project/dir.md`, `guide/project/vite.md`, `guide/project/tailwindcss.md`

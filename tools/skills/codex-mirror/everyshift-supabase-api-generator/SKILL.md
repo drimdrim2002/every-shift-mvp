@@ -29,3 +29,6 @@ Use when adding API functions under `src/api/`.
 - Error messages are consistent
 - `single/maybeSingle` semantics are correct
 - No untyped `Record<string, any>` in core paths
+- Generated or modified files pass `pnpm lint:check` with zero ESLint errors
+- No unused imports or variables remain in generated code
+- Do not use `@ts-ignore`; use `@ts-expect-error` only with a brief rationale

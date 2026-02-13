@@ -62,7 +62,7 @@ const showModal = computed({
 
 const formattedDate = computed(() => {
   if (!props.date) return '';
-  const [year, month, day] = props.date.split('-');
+  const [, month, day] = props.date.split('-');
   return `${month}월 ${day}일`;
 });
 

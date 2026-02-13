@@ -29,3 +29,6 @@ Use when creating or refactoring stores in `src/stores/`.
 - No nullable assignment crash path in loadFromStorage
 - No broad deep watchers unless needed
 - Return object grouped by state/getters/actions
+- Generated or modified files pass `pnpm lint:check` with zero ESLint errors
+- No unused imports or variables remain in generated code
+- Do not use `@ts-ignore`; use `@ts-expect-error` only with a brief rationale

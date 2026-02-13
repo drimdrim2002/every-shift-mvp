@@ -30,3 +30,6 @@ Generate a compile-safe starter component and align it to project rules.
 - User-facing text is Korean
 - No direct `window.$message` access in templates
 - No unnecessary scoped CSS block
+- Generated or modified files pass `pnpm lint:check` with zero ESLint errors
+- No unused imports or variables remain in generated code
+- Do not use `@ts-ignore`; use `@ts-expect-error` only with a brief rationale

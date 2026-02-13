@@ -132,8 +132,7 @@ export function mapToSolverRequest(
       // 'O' (Off) is usually not a requirement
       const shiftCode = shift.code;
       if (shiftCode !== 'O' && shiftCode in dailyReq) {
-        // @ts-ignore - Dynamic access to DailyRequirement
-        const count = dailyReq[shiftCode] as number;
+        const count = dailyReq[shiftCode as keyof typeof dailyReq] as number;
         if (count > 0) {
           requirements.push({
             shiftId: shift.id,
