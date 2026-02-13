@@ -8,7 +8,7 @@
           <col
             v-for="date in dates"
             :key="date.date"
-            style="width: 140px"
+            style="width: 60px"
           >
           <col style="width: 60px">
           <col style="width: 60px">
@@ -60,7 +60,7 @@
             <th
               v-for="date in dates"
               :key="date.date"
-              class="header-level-3 bg-gray-50 px-2 py-1 text-center text-sm cursor-pointer hover:bg-gray-100 transition-colors"
+              class="header-level-3 cursor-pointer bg-gray-50 px-2 py-1 text-center text-sm transition-colors hover:bg-gray-100"
               @click="handleHeaderClick(date.date)"
             >
               {{ date.day }}일<br>
@@ -88,7 +88,7 @@
             :key="employee.id"
             class="data-row"
           >
-            <td class="sticky-column employee-cell">
+            <td class="sticky-column employee-cell text-center">
               <div class="font-semibold">
                 {{ employee.name }}
               </div>
@@ -426,6 +426,26 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
   overflow-y: auto;
   overflow-x: auto;
   position: relative;
+  
+/* Custom Scrollbar for Webkit */
+.schedule-grid-container::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.schedule-grid-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.schedule-grid-container::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.schedule-grid-container::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
 }
 
 /* 메인 그리드 테이블 */
@@ -522,8 +542,8 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
 /* Shift selector 셀 스타일 */
 .shift-cell {
   padding: 0.5rem;
-  min-width: 140px;
-  width: 140px;
+  min-width: 60px;
+  width: 60px;
 }
 
 /* 통계 셀 스타일 */

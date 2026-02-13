@@ -1,34 +1,46 @@
 <template>
-  <div class="mx-auto max-w-full px-4 h-full flex flex-col">
-    <StepIndicator :current-step="4" class="mb-4" />
+  <div class="mx-auto flex h-full max-w-full flex-col px-4">
+    <StepIndicator
+      :current-step="4"
+      class="mb-4"
+    />
 
-    <div class="flex flex-1 gap-4 min-h-0">
+    <div class="flex min-h-0 flex-1 gap-4">
       <!-- Center Panel: Grid -->
-      <div class="flex-1 flex flex-col min-w-0 bg-white rounded-lg border shadow-sm overflow-hidden">
+      <div class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
         <!-- Debug Info (Dev Only) -->
-        <div v-if="isDev" class="bg-yellow-100 p-2 text-xs font-mono border-b border-yellow-300">
+        <div
+          v-if="isDev"
+          class="border-b border-yellow-300 bg-yellow-100 p-2 font-mono text-xs"
+        >
           DEBUG: Employees={{ grid.employees.value.length }}, Dates={{ grid.dates.value.length }}, Loading={{ grid.loading.value }}
           <span v-if="grid.employees.value.length > 0">Sample Emp: {{ grid.employees.value[0]?.name }}</span>
         </div>
 
-        <div class="p-4 border-b bg-gray-50 flex items-center justify-between">
+        <div class="flex items-center justify-between border-b bg-gray-50 p-4">
           <div class="flex items-center gap-2">
-            <h2 class="font-bold text-lg text-gray-800">
+            <h2 class="text-lg font-bold text-gray-800">
               {{ scheduleStore.basicInfo?.month }}월 제약사항 입력
             </h2>
-            <span v-if="orgStore.current" class="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+            <span
+              v-if="orgStore.current"
+              class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+            >
               {{ orgStore.current.name }}
             </span>
           </div>
           <!-- Tips -->
-          <div class="text-xs text-gray-400 flex gap-3">
-             <span>👆 셀 클릭: H → E → O → 빈칸</span>
-             <span>🖱️ 우클릭: 코멘트 작성</span>
+          <div class="flex gap-3 text-xs text-gray-400">
+            <span>👆 셀 클릭: H → E → O → 빈칸</span>
+            <span>🖱️ 우클릭: 코멘트 작성</span>
           </div>
         </div>
         
-        <div class="flex-1 overflow-hidden relative">
-          <n-spin :show="grid.loading.value" class="h-full">
+        <div class="relative flex-1 overflow-hidden">
+          <n-spin
+            :show="grid.loading.value"
+            class="h-full"
+          >
             <div class="absolute inset-0 overflow-auto">
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
@@ -45,7 +57,10 @@
                 @context-menu="handleContextMenu"
                 @header-click="handleHeaderClick"
               />
-              <div v-else-if="!grid.loading.value" class="flex items-center justify-center h-full text-gray-400">
+              <div
+                v-else-if="!grid.loading.value"
+                class="flex h-full items-center justify-center text-gray-400"
+              >
                 직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }}, Date: {{ grid.dates.value.length }})
               </div>
             </div>
@@ -62,13 +77,19 @@
     </div>
 
     <!-- Bottom Actions -->
-    <div class="flex justify-between items-center mt-4 py-4 border-t bg-white">
-      <n-button size="large" @click="handlePrev">
+    <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
+      <n-button
+        size="large"
+        @click="handlePrev"
+      >
         ← 이전 단계
       </n-button>
       
       <div class="flex gap-3">
-        <n-button size="large" @click="handleSave">
+        <n-button
+          size="large"
+          @click="handleSave"
+        >
           임시 저장
         </n-button>
         <n-button

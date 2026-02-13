@@ -1,6 +1,6 @@
 <template>
   <div 
-    class="constraint-selector relative flex h-8 items-center justify-center rounded border transition-colors cursor-pointer select-none"
+    class="constraint-selector relative flex h-8 cursor-pointer select-none items-center justify-center rounded border transition-colors"
     :class="getCellClass(currentConstraint)"
     @click="handleToggle"
     @contextmenu.prevent="handleContextMenu"
@@ -10,7 +10,7 @@
     <!-- 코멘트 인디케이터 -->
     <div 
       v-if="hasComment" 
-      class="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-red-500"
+      class="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-red-500"
     />
   </div>
 </template>

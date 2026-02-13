@@ -6,23 +6,42 @@
     class="w-[600px]"
     @after-leave="handleClose"
   >
-    <div v-if="summaryList.length === 0" class="text-center py-8 text-gray-500">
+    <div
+      v-if="summaryList.length === 0"
+      class="py-8 text-center text-gray-500"
+    >
       입력된 제약 사항이나 특이사항이 없습니다.
     </div>
 
-    <n-table v-else :bordered="false" :single-line="false">
+    <n-table
+      v-else
+      :bordered="false"
+      :single-line="false"
+    >
       <thead>
         <tr>
-          <th class="w-24">직원</th>
-          <th class="w-20 text-center">신청</th>
+          <th class="w-24">
+            직원
+          </th>
+          <th class="w-20 text-center">
+            신청
+          </th>
           <th>사유 / 코멘트</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in summaryList" :key="item.employeeId">
-          <td class="font-medium">{{ item.name }}</td>
+        <tr
+          v-for="item in summaryList"
+          :key="item.employeeId"
+        >
+          <td class="font-medium">
+            {{ item.name }}
+          </td>
           <td class="text-center">
-            <n-tag :type="getTagType(item.constraint)" size="small">
+            <n-tag
+              :type="getTagType(item.constraint)"
+              size="small"
+            >
               {{ item.constraint || '-' }}
             </n-tag>
           </td>
@@ -35,7 +54,9 @@
 
     <template #footer>
       <div class="flex justify-end">
-        <n-button @click="closeModal">닫기</n-button>
+        <n-button @click="closeModal">
+          닫기
+        </n-button>
       </div>
     </template>
   </n-modal>

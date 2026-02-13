@@ -8,7 +8,7 @@
   >
     <div class="space-y-4">
       <div>
-        <p class="text-gray-600 mb-1">
+        <p class="mb-1 text-gray-600">
           <span class="font-bold">{{ employeeName }}</span> - {{ formattedDate }}
         </p>
         <p class="text-xs text-gray-500">
@@ -27,8 +27,15 @@
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <n-button @click="closeModal">취소</n-button>
-        <n-button type="primary" @click="save">저장</n-button>
+        <n-button @click="closeModal">
+          취소
+        </n-button>
+        <n-button
+          type="primary"
+          @click="save"
+        >
+          저장
+        </n-button>
       </div>
     </template>
   </n-modal>
