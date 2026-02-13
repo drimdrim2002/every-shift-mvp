@@ -66,6 +66,10 @@
           :dates="grid.dates.value"
           :assignments="grid.assignments.value"
           :shift-colors="shiftColors"
+          :off-requests="offRequestsCurrentMonth"
+          :off-request-notes="offRequestNotesCurrentMonth"
+          :preference-display-mode="preferenceDisplayMode"
+          :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
           :readonly="isReadonlyGrid"
           :show-last-month="true"
           result-cell-layout="single-box"
@@ -174,7 +178,7 @@ import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { supabase } from '@/api/supabase';
-import type { AssignmentMap } from '@/types/schedule';
+import type { AssignmentMap, ConstraintMap, CommentMap } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -203,6 +207,8 @@ const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
 const previousMonthAssignments = ref<AssignmentMap>({});
 const currentScheduleAssignments = ref<AssignmentMap>({});
+const offRequestsCurrentMonth = ref<ConstraintMap>({});
+const offRequestNotesCurrentMonth = ref<CommentMap>({});
 
 interface ScheduleStatusRow {
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -244,6 +250,10 @@ const statusType = computed(() => {
 const isReadonlyGrid = computed(() => {
   return !isFinished.value;
 });
+const preferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
+  return isPreRun.value ? 'pre-run' : 'post-run';
+});
+const allowPreRunFallbackWhenEmpty = computed(() => solver.status.value === 'running');
 
 const showIntermediateWaitingHint = computed(() => {
   return (
@@ -345,6 +355,60 @@ function splitAssignmentsByMonth(assignments: AssignmentMap): {
   }
 
   return { currentAssignments, previousAssignments, previousDates };
+}
+
+function createEmptyConstraintMapForEmployees(): ConstraintMap {
+  const map: ConstraintMap = {};
+  for (const employee of grid.employees.value) {
+    map[employee.id] = {};
+  }
+  return map;
+}
+
+function createEmptyCommentMapForEmployees(): CommentMap {
+  const map: CommentMap = {};
+  for (const employee of grid.employees.value) {
+    map[employee.id] = {};
+  }
+  return map;
+}
+
+async function loadPreferencesForDisplay() {
+  const emptyConstraints = createEmptyConstraintMapForEmployees();
+  const emptyNotes = createEmptyCommentMapForEmployees();
+  const currentMonth = scheduleStore.basicInfo?.month || '';
+
+  if (!currentMonth) {
+    offRequestsCurrentMonth.value = emptyConstraints;
+    offRequestNotesCurrentMonth.value = emptyNotes;
+    return;
+  }
+
+  const { constraints, notes } = await getSchedulePreferences(scheduleId.value);
+
+  const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
+  const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
+
+  for (const [employeeId, dateMap] of Object.entries(constraints)) {
+    if (!filteredConstraints[employeeId]) filteredConstraints[employeeId] = {};
+    for (const [date, requestCode] of Object.entries(dateMap || {})) {
+      if (!date.startsWith(currentMonth)) continue;
+      if (requestCode !== 'O') continue;
+      filteredConstraints[employeeId]![date] = 'O';
+    }
+  }
+
+  for (const [employeeId, dateMap] of Object.entries(notes)) {
+    if (!filteredNotes[employeeId]) filteredNotes[employeeId] = {};
+    for (const [date, note] of Object.entries(dateMap || {})) {
+      if (!date.startsWith(currentMonth)) continue;
+      if (!note) continue;
+      filteredNotes[employeeId]![date] = note;
+    }
+  }
+
+  offRequestsCurrentMonth.value = filteredConstraints;
+  offRequestNotesCurrentMonth.value = filteredNotes;
 }
 
 function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
@@ -640,6 +704,7 @@ async function handleStartSolver() {
   isStartingSolver.value = true;
 
   try {
+    await loadPreferencesForDisplay();
     await resetPreferenceResolution(scheduleId.value);
 
     const solverRequest = await buildSolverRequest();
@@ -684,6 +749,7 @@ onMounted(async () => {
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);
+    await loadPreferencesForDisplay();
 
     const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
     applyScheduleStatus(schedule);

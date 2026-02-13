@@ -1,13 +1,26 @@
 <template>
   <template v-if="isSingleBox">
-    <button
-      :class="getSingleBoxClass(currentShift)"
-      :style="getSingleBoxStyle(currentShift)"
-      :disabled="readonly"
-      @click="handleSingleBoxToggle"
-    >
-      <span class="font-bold">{{ currentShift || '' }}</span>
-    </button>
+    <n-tooltip :disabled="!offRequestTooltipText" trigger="hover">
+      <template #trigger>
+        <button
+          :class="getSingleBoxClass()"
+          :style="getSingleBoxStyle(currentShift)"
+          :disabled="readonly"
+          @click="handleSingleBoxToggle"
+        >
+          <span class="font-bold">{{ singleBoxDisplayValue }}</span>
+          <span
+            v-if="shouldShowOffRequestBadge"
+            class="pointer-events-none absolute -right-1 -top-1 rounded-full bg-violet-800 px-1 py-0 text-[9px] font-bold text-white"
+          >
+            O
+          </span>
+        </button>
+      </template>
+      <div class="max-w-56 whitespace-pre-wrap break-words">
+        {{ offRequestTooltipText }}
+      </div>
+    </n-tooltip>
   </template>
   <div v-else class="flex gap-0.5 p-0.5">
     <n-tooltip
@@ -50,6 +63,10 @@ interface Props {
   variant?: 'multi-button' | 'single-box'
   isLastMonth?: boolean
   shiftColors?: Record<string, string>
+  offRequested?: boolean
+  offRequestNote?: string | null
+  preferenceDisplayMode?: 'pre-run' | 'post-run'
+  allowPreRunFallbackWhenEmpty?: boolean
   readonly?: boolean
   offReason?: string | null
 }
@@ -62,6 +79,38 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 const isSingleBox = computed(() => props.variant === 'single-box')
+const isCurrentMonthOffRequested = computed(() => !props.isLastMonth && !!props.offRequested)
+const effectivePreferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
+  if (props.preferenceDisplayMode === 'pre-run') {
+    return 'pre-run'
+  }
+
+  if (props.allowPreRunFallbackWhenEmpty && !props.currentShift) {
+    return 'pre-run'
+  }
+
+  return 'post-run'
+})
+const singleBoxDisplayValue = computed(() => {
+  if (props.isLastMonth) return props.currentShift || ''
+  if (effectivePreferenceDisplayMode.value === 'pre-run') {
+    return props.offRequested ? 'O' : ''
+  }
+  return props.currentShift || ''
+})
+const shouldShowOffRequestBadge = computed(() => {
+  return (
+    isCurrentMonthOffRequested.value
+    && effectivePreferenceDisplayMode.value === 'post-run'
+  )
+})
+const isOffRequestUnfulfilled = computed(() => {
+  return shouldShowOffRequestBadge.value && props.currentShift !== 'O'
+})
+const offRequestTooltipText = computed(() => {
+  if (!isCurrentMonthOffRequested.value) return ''
+  return props.offRequestNote?.trim() || ''
+})
 
 // 색상 맵을 컴포넌트 레벨에서 한 번만 정의 (성능 최적화)
 const colorMap: Record<string, string> = {
@@ -86,7 +135,7 @@ const singleBoxColorMap: Record<string, string> = {
 }
 
 const baseClass = 'w-7 h-7 rounded text-xs font-semibold border-2 transition-opacity'
-const singleBoxBaseClass = 'flex h-8 w-full items-center justify-center rounded border text-xs font-semibold transition-colors'
+const singleBoxBaseClass = 'relative flex h-8 w-full items-center justify-center rounded border text-xs font-semibold transition-colors'
 const toggleCursorClass = 'cursor-pointer'
 
 function getShiftButtonClass(shiftCode: string) {
@@ -98,13 +147,22 @@ function getShiftButtonClass(shiftCode: string) {
   return `${baseClass} ${color} ${opacity} ${hover}`
 }
 
-function getSingleBoxClass(shiftCode: string | null) {
-  if (props.readonly) {
-    return `${singleBoxBaseClass} bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed`
+function getSingleBoxClass() {
+  const isPreRunOnCurrentMonth = !props.isLastMonth && effectivePreferenceDisplayMode.value === 'pre-run'
+  let colorClass = ''
+
+  if (isPreRunOnCurrentMonth) {
+    colorClass = props.offRequested
+      ? 'bg-gray-100 border-gray-300 text-gray-700'
+      : 'bg-white border-gray-200 text-gray-700'
+  } else {
+    colorClass = singleBoxColorMap[props.currentShift || ''] || singleBoxColorMap['']
   }
 
-  const color = singleBoxColorMap[shiftCode || ''] || singleBoxColorMap['']
-  return `${singleBoxBaseClass} ${color} ${toggleCursorClass}`
+  const cursorClass = props.readonly ? 'cursor-not-allowed' : toggleCursorClass
+  const unfulfilledClass = isOffRequestUnfulfilled.value ? 'border-2 border-red-600' : ''
+
+  return `${singleBoxBaseClass} ${colorClass} ${cursorClass} ${unfulfilledClass}`
 }
 
 function normalizeHexColor(color?: string): string | null {

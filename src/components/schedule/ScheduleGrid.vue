@@ -125,6 +125,10 @@
                 :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
                 :current-shift="getAssignment(employee.id, date.date)"
                 :off-reason="getOffReason(employee.id, date.date)"
+                :off-requested="isOffRequested(employee.id, date)"
+                :off-request-note="getOffRequestNote(employee.id, date)"
+                :preference-display-mode="props.preferenceDisplayMode"
+                :allow-pre-run-fallback-when-empty="props.allowPreRunFallbackWhenEmpty"
                 :variant="props.resultCellLayout"
                 :is-last-month="date.isLastMonth"
                 :shift-colors="props.shiftColors"
@@ -241,6 +245,10 @@ interface Props {
   mode?: 'planning' | 'result'; // added
   resultCellLayout?: 'multi-button' | 'single-box';
   shiftColors?: Record<string, string>;
+  offRequests?: ConstraintMap;
+  offRequestNotes?: CommentMap;
+  preferenceDisplayMode?: 'pre-run' | 'post-run';
+  allowPreRunFallbackWhenEmpty?: boolean;
 }
 
 interface Emits {
@@ -261,6 +269,10 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'result',
   resultCellLayout: 'multi-button',
   shiftColors: () => ({}),
+  offRequests: () => ({}),
+  offRequestNotes: () => ({}),
+  preferenceDisplayMode: 'post-run',
+  allowPreRunFallbackWhenEmpty: false,
   assignments: () => ({}),
   constraints: () => ({}),
   offReasons: () => ({}),
@@ -362,6 +374,16 @@ function getOffReason(employeeId: string, date: string): string | null {
 
 function getComment(employeeId: string, date: string): string | null {
   return props.comments?.[employeeId]?.[date] || null;
+}
+
+function isOffRequested(employeeId: string, date: GridColumn): boolean {
+  if (date.isLastMonth) return false;
+  return props.offRequests?.[employeeId]?.[date.date] === 'O';
+}
+
+function getOffRequestNote(employeeId: string, date: GridColumn): string | null {
+  if (date.isLastMonth) return null;
+  return props.offRequestNotes?.[employeeId]?.[date.date] || null;
 }
 
 function handleHeaderClick(date: string) {
