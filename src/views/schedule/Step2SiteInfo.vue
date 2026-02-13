@@ -125,11 +125,13 @@ const loading = ref(false);
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {
   const shifts = scheduleStore.basicInfo?.shifts || orgStore.shifts || [];
-  return shifts.map((s) => ({
-    code: s.code,
-    name: s.name,
-    colorCode: s.colorCode,
-  }));
+  return shifts
+    .filter((s) => s.code.toUpperCase() !== 'O') // 휴무(O)는 제외
+    .map((s) => ({
+      code: s.code,
+      name: s.name,
+      colorCode: s.colorCode,
+    }));
 });
 
 // 가로형 데이터: Record<dayOfWeek, Record<shiftCode, requiredCount>>
