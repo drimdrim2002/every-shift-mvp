@@ -125,6 +125,7 @@
                 :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
                 :current-shift="getAssignment(employee.id, date.date)"
                 :off-reason="getOffReason(employee.id, date.date)"
+                :variant="props.resultCellLayout"
                 :readonly="readonly"
                 @select="handleShiftSelect(employee.id, date.date, $event)"
                 @select-off="handleSelectOff"
@@ -236,6 +237,7 @@ interface Props {
   readonly?: boolean;
   showLastMonth?: boolean;
   mode?: 'planning' | 'result'; // added
+  resultCellLayout?: 'multi-button' | 'single-box';
 }
 
 interface Emits {
@@ -254,6 +256,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   mode: 'result',
+  resultCellLayout: 'multi-button',
   assignments: () => ({}),
   constraints: () => ({}),
   offReasons: () => ({}),

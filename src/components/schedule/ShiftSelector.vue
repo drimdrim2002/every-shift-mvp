@@ -1,5 +1,14 @@
 <template>
-  <div class="flex gap-0.5 p-0.5">
+  <template v-if="isSingleBox">
+    <button
+      :class="getSingleBoxClass(currentShift)"
+      :disabled="readonly"
+      @click="handleSingleBoxToggle"
+    >
+      <span class="font-bold">{{ currentShift || '' }}</span>
+    </button>
+  </template>
+  <div v-else class="flex gap-0.5 p-0.5">
     <n-tooltip
       v-for="shift in availableShifts"
       :key="shift"
@@ -29,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { NTooltip } from 'naive-ui';
 
 interface Props {
@@ -36,6 +46,7 @@ interface Props {
   date: string
   availableShifts: string[]
   currentShift: string | null
+  variant?: 'multi-button' | 'single-box'
   readonly?: boolean
   offReason?: string | null
 }
@@ -47,6 +58,7 @@ interface Emits {
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
+const isSingleBox = computed(() => props.variant === 'single-box')
 
 // 색상 맵을 컴포넌트 레벨에서 한 번만 정의 (성능 최적화)
 const colorMap: Record<string, string> = {
@@ -62,8 +74,17 @@ const selectedColorMap: Record<string, string> = {
   N: 'bg-shift-night text-white',
   O: 'bg-shift-off text-white',
 }
+const singleBoxColorMap: Record<string, string> = {
+  '': 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50',
+  D: 'bg-green-50 border-green-200 text-green-700',
+  E: 'bg-orange-50 border-orange-200 text-orange-700',
+  N: 'bg-blue-50 border-blue-200 text-blue-700',
+  O: 'bg-gray-100 border-gray-300 text-gray-700',
+}
 
 const baseClass = 'w-7 h-7 rounded text-xs font-semibold border-2 transition-opacity'
+const singleBoxBaseClass = 'flex h-8 w-full items-center justify-center rounded border text-xs font-semibold transition-colors'
+const toggleCursorClass = 'cursor-pointer'
 
 function getShiftButtonClass(shiftCode: string) {
   const isSelected = props.currentShift === shiftCode
@@ -72,6 +93,31 @@ function getShiftButtonClass(shiftCode: string) {
   const hover = !props.readonly ? 'hover:opacity-80 cursor-pointer' : 'cursor-not-allowed'
 
   return `${baseClass} ${color} ${opacity} ${hover}`
+}
+
+function getSingleBoxClass(shiftCode: string | null) {
+  if (props.readonly) {
+    return `${singleBoxBaseClass} bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed`
+  }
+
+  const color = singleBoxColorMap[shiftCode || ''] || singleBoxColorMap['']
+  return `${singleBoxBaseClass} ${color} ${toggleCursorClass}`
+}
+
+function handleSingleBoxToggle() {
+  if (props.readonly) return
+
+  const cycleOrder = [...props.availableShifts, '']
+  if (cycleOrder.length === 0) {
+    emit('select', '')
+    return
+  }
+
+  const currentShift = props.currentShift || ''
+  const currentIndex = cycleOrder.indexOf(currentShift)
+  const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % cycleOrder.length : 0
+  const nextShift = cycleOrder[nextIndex] || ''
+  emit('select', nextShift)
 }
 
 function handleSelect(shiftCode: string) {

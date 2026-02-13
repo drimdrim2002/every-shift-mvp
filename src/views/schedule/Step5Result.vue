@@ -61,11 +61,13 @@
       <div class="my-6">
         <ScheduleGrid
           v-if="grid.employees.value.length > 0"
+          mode="result"
           :employees="grid.employees.value"
           :dates="grid.dates.value"
           :assignments="grid.assignments.value"
           :readonly="isReadonlyGrid"
           :show-last-month="true"
+          result-cell-layout="single-box"
           @update:assignment="handleAssignmentUpdate"
         />
         <div
