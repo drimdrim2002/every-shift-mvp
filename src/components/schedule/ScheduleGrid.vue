@@ -126,6 +126,8 @@
                 :current-shift="getAssignment(employee.id, date.date)"
                 :off-reason="getOffReason(employee.id, date.date)"
                 :variant="props.resultCellLayout"
+                :is-last-month="date.isLastMonth"
+                :shift-colors="props.shiftColors"
                 :readonly="readonly"
                 @select="handleShiftSelect(employee.id, date.date, $event)"
                 @select-off="handleSelectOff"
@@ -238,6 +240,7 @@ interface Props {
   showLastMonth?: boolean;
   mode?: 'planning' | 'result'; // added
   resultCellLayout?: 'multi-button' | 'single-box';
+  shiftColors?: Record<string, string>;
 }
 
 interface Emits {
@@ -257,6 +260,7 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   mode: 'result',
   resultCellLayout: 'multi-button',
+  shiftColors: () => ({}),
   assignments: () => ({}),
   constraints: () => ({}),
   offReasons: () => ({}),

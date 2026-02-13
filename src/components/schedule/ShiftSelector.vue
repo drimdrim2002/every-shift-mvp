@@ -2,6 +2,7 @@
   <template v-if="isSingleBox">
     <button
       :class="getSingleBoxClass(currentShift)"
+      :style="getSingleBoxStyle(currentShift)"
       :disabled="readonly"
       @click="handleSingleBoxToggle"
     >
@@ -47,6 +48,8 @@ interface Props {
   availableShifts: string[]
   currentShift: string | null
   variant?: 'multi-button' | 'single-box'
+  isLastMonth?: boolean
+  shiftColors?: Record<string, string>
   readonly?: boolean
   offReason?: string | null
 }
@@ -102,6 +105,38 @@ function getSingleBoxClass(shiftCode: string | null) {
 
   const color = singleBoxColorMap[shiftCode || ''] || singleBoxColorMap['']
   return `${singleBoxBaseClass} ${color} ${toggleCursorClass}`
+}
+
+function normalizeHexColor(color?: string): string | null {
+  if (!color) return null
+  const normalized = color.trim()
+  return /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(normalized) ? normalized : null
+}
+
+function getReadableTextColor(hexColor: string): string {
+  const hex = hexColor.slice(1)
+  const normalized = hex.length === 3
+    ? hex.split('').map((value) => value + value).join('')
+    : hex
+  const red = Number.parseInt(normalized.slice(0, 2), 16)
+  const green = Number.parseInt(normalized.slice(2, 4), 16)
+  const blue = Number.parseInt(normalized.slice(4, 6), 16)
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1000
+  return luminance >= 170 ? '#1f2937' : '#ffffff'
+}
+
+function getSingleBoxStyle(shiftCode: string | null): Record<string, string> {
+  if (!props.isLastMonth || !shiftCode) return {}
+
+  const rawColor = props.shiftColors?.[shiftCode]
+  const color = normalizeHexColor(rawColor)
+  if (!color) return {}
+
+  return {
+    backgroundColor: color,
+    borderColor: color,
+    color: getReadableTextColor(color),
+  }
 }
 
 function handleSingleBoxToggle() {

@@ -65,6 +65,7 @@
           :employees="grid.employees.value"
           :dates="grid.dates.value"
           :assignments="grid.assignments.value"
+          :shift-colors="shiftColors"
           :readonly="isReadonlyGrid"
           :show-last-month="true"
           result-cell-layout="single-box"
@@ -256,6 +257,15 @@ const shiftIdToCodeMap = computed(() => {
   const map = new Map<string, string>();
   for (const shift of organizationStore.shifts) {
     map.set(shift.id, shift.code);
+  }
+  return map;
+});
+
+const shiftColors = computed(() => {
+  const map: Record<string, string> = {};
+  for (const shift of organizationStore.shifts) {
+    if (!shift.code || !shift.colorCode) continue;
+    map[shift.code] = shift.colorCode;
   }
   return map;
 });
