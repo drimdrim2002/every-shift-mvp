@@ -5,7 +5,7 @@
       class="mb-4"
     />
 
-    <div class="flex min-h-0 flex-1 gap-4">
+    <div class="flex min-h-[560px] flex-1">
       <!-- Center Panel: Grid -->
       <div class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
         <!-- Debug Info (Dev Only) -->
@@ -67,13 +67,6 @@
           </n-spin>
         </div>
       </div>
-
-      <!-- Right Panel: Summary -->
-      <ScheduleSummary
-        :stats="grid.statistics.value"
-        :employees="grid.employees.value"
-        class="w-64 flex-none"
-      />
     </div>
 
     <!-- Bottom Actions -->
@@ -143,7 +136,6 @@ import {
   NButton, NSpin
 } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
-import ScheduleSummary from '@/components/schedule/ScheduleSummary.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
