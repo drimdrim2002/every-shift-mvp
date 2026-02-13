@@ -6,10 +6,11 @@
         <colgroup>
           <col style="width: 150px" />
           <col v-for="date in dates" :key="date.date" style="width: var(--day-col-width)" />
-          <col style="width: var(--day-col-width)" />
-          <col style="width: var(--day-col-width)" />
-          <col style="width: var(--day-col-width)" />
-          <col style="width: var(--day-col-width)" />
+          <col
+            v-for="index in statColumnCount"
+            :key="`stat-col-${index}`"
+            style="width: var(--day-col-width)"
+          />
         </colgroup>
 
         <!-- 3-level 헤더 -->
@@ -28,11 +29,12 @@
               {{ group.label }}
             </th>
             <th
-              rowspan="2"
-              colspan="4"
-              class="header-stats sticky-right-group bg-white px-4 py-3 text-center font-semibold"
+              :rowspan="isPlanning ? 3 : 2"
+              :colspan="statColumnCount"
+              :class="isPlanning ? 'header-stats-single' : 'header-stats'"
+              class="sticky-right-group bg-white px-4 py-3 text-center font-semibold"
             >
-              Total
+              {{ isPlanning ? 'Total' : '요약' }}
             </th>
           </tr>
 
@@ -59,26 +61,28 @@
               {{ date.day }}일<br />
               <span class="text-xs text-gray-600">({{ date.dayName }})</span>
             </th>
-            <th
-              class="header-level-3 sticky-right sticky-right-d bg-blue-50 px-2 py-1 text-center text-sm font-semibold"
-            >
-              D
-            </th>
-            <th
-              class="header-level-3 sticky-right sticky-right-e bg-orange-50 px-2 py-1 text-center text-sm font-semibold"
-            >
-              E
-            </th>
-            <th
-              class="header-level-3 sticky-right sticky-right-n bg-purple-50 px-2 py-1 text-center text-sm font-semibold"
-            >
-              N
-            </th>
-            <th
-              class="header-level-3 sticky-right sticky-right-total bg-gray-100 px-2 py-1 text-center text-sm font-semibold"
-            >
-              Total
-            </th>
+            <template v-if="!isPlanning">
+              <th
+                class="header-level-3 sticky-right sticky-right-d bg-blue-50 px-2 py-1 text-center text-sm font-semibold"
+              >
+                D
+              </th>
+              <th
+                class="header-level-3 sticky-right sticky-right-e bg-orange-50 px-2 py-1 text-center text-sm font-semibold"
+              >
+                E
+              </th>
+              <th
+                class="header-level-3 sticky-right sticky-right-n bg-purple-50 px-2 py-1 text-center text-sm font-semibold"
+              >
+                N
+              </th>
+              <th
+                class="header-level-3 sticky-right sticky-right-total bg-gray-100 px-2 py-1 text-center text-sm font-semibold"
+              >
+                Total
+              </th>
+            </template>
           </tr>
         </thead>
 
@@ -128,68 +132,86 @@
             </td>
 
             <!-- 통계 컬럼 (우측) -->
-            <td class="stat-cell sticky-right sticky-right-d bg-blue-50 text-center">
-              {{ statistics?.rowStats[employee.id]?.D || 0 }}
-            </td>
-            <td class="stat-cell sticky-right sticky-right-e bg-orange-50 text-center">
-              {{ statistics?.rowStats[employee.id]?.E || 0 }}
-            </td>
-            <td class="stat-cell sticky-right sticky-right-n bg-purple-50 text-center">
-              {{ statistics?.rowStats[employee.id]?.N || 0 }}
-            </td>
-            <td class="stat-cell sticky-right sticky-right-total bg-gray-100 text-center font-bold">
-              {{ statistics?.rowStats[employee.id]?.total || 0 }}
-            </td>
+            <template v-if="isPlanning">
+              <td class="stat-cell sticky-right sticky-right-total sticky-right-single bg-gray-100 text-center font-bold">
+                {{ statistics?.rowStats[employee.id]?.total || 0 }}
+              </td>
+            </template>
+            <template v-else>
+              <td class="stat-cell sticky-right sticky-right-d bg-blue-50 text-center">
+                {{ statistics?.rowStats[employee.id]?.D || 0 }}
+              </td>
+              <td class="stat-cell sticky-right sticky-right-e bg-orange-50 text-center">
+                {{ statistics?.rowStats[employee.id]?.E || 0 }}
+              </td>
+              <td class="stat-cell sticky-right sticky-right-n bg-purple-50 text-center">
+                {{ statistics?.rowStats[employee.id]?.N || 0 }}
+              </td>
+              <td class="stat-cell sticky-right sticky-right-total bg-gray-100 text-center font-bold">
+                {{ statistics?.rowStats[employee.id]?.total || 0 }}
+              </td>
+            </template>
           </tr>
 
           <!-- 통계 행 (하단 고정) -->
-          <!-- Total 행 -->
-          <tr class="stat-row stat-row-total bg-gray-100">
-            <td class="sticky-column employee-cell text-center font-bold">Total</td>
-            <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
-              {{ statistics?.columnStats[date.date]?.total || 0 }}
-            </td>
-            <td class="sticky-right sticky-right-d bg-gray-200" />
-            <td class="sticky-right sticky-right-e bg-gray-200" />
-            <td class="sticky-right sticky-right-n bg-gray-200" />
-            <td class="sticky-right sticky-right-total bg-gray-200" />
-          </tr>
+          <template v-if="isPlanning">
+            <tr class="stat-row stat-row-total-only bg-gray-100">
+              <td class="sticky-column employee-cell text-center font-bold">Total</td>
+              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+                {{ statistics?.columnStats[date.date]?.total || 0 }}
+              </td>
+              <td class="sticky-right sticky-right-total sticky-right-single bg-gray-200" />
+            </tr>
+          </template>
+          <template v-else>
+            <!-- Total 행 -->
+            <tr class="stat-row stat-row-total bg-gray-100">
+              <td class="sticky-column employee-cell text-center font-bold">Total</td>
+              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+                {{ statistics?.columnStats[date.date]?.total || 0 }}
+              </td>
+              <td class="sticky-right sticky-right-d bg-gray-200" />
+              <td class="sticky-right sticky-right-e bg-gray-200" />
+              <td class="sticky-right sticky-right-n bg-gray-200" />
+              <td class="sticky-right sticky-right-total bg-gray-200" />
+            </tr>
 
-          <!-- D 행 -->
-          <tr class="stat-row stat-row-d bg-blue-50">
-            <td class="sticky-column employee-cell text-center font-bold">D</td>
-            <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
-              {{ statistics?.columnStats[date.date]?.D || 0 }}
-            </td>
-            <td class="sticky-right sticky-right-d bg-blue-100" />
-            <td class="sticky-right sticky-right-e bg-blue-100" />
-            <td class="sticky-right sticky-right-n bg-blue-100" />
-            <td class="sticky-right sticky-right-total bg-blue-100" />
-          </tr>
+            <!-- D 행 -->
+            <tr class="stat-row stat-row-d bg-blue-50">
+              <td class="sticky-column employee-cell text-center font-bold">D</td>
+              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+                {{ statistics?.columnStats[date.date]?.D || 0 }}
+              </td>
+              <td class="sticky-right sticky-right-d bg-blue-100" />
+              <td class="sticky-right sticky-right-e bg-blue-100" />
+              <td class="sticky-right sticky-right-n bg-blue-100" />
+              <td class="sticky-right sticky-right-total bg-blue-100" />
+            </tr>
 
-          <!-- E 행 -->
-          <tr class="stat-row stat-row-e bg-orange-50">
-            <td class="sticky-column employee-cell text-center font-bold">E</td>
-            <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
-              {{ statistics?.columnStats[date.date]?.E || 0 }}
-            </td>
-            <td class="sticky-right sticky-right-d bg-orange-100" />
-            <td class="sticky-right sticky-right-e bg-orange-100" />
-            <td class="sticky-right sticky-right-n bg-orange-100" />
-            <td class="sticky-right sticky-right-total bg-orange-100" />
-          </tr>
+            <!-- E 행 -->
+            <tr class="stat-row stat-row-e bg-orange-50">
+              <td class="sticky-column employee-cell text-center font-bold">E</td>
+              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+                {{ statistics?.columnStats[date.date]?.E || 0 }}
+              </td>
+              <td class="sticky-right sticky-right-d bg-orange-100" />
+              <td class="sticky-right sticky-right-e bg-orange-100" />
+              <td class="sticky-right sticky-right-n bg-orange-100" />
+              <td class="sticky-right sticky-right-total bg-orange-100" />
+            </tr>
 
-          <!-- N 행 -->
-          <tr class="stat-row stat-row-n bg-purple-50">
-            <td class="sticky-column employee-cell text-center font-bold">N</td>
-            <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
-              {{ statistics?.columnStats[date.date]?.N || 0 }}
-            </td>
-            <td class="sticky-right sticky-right-d bg-purple-100" />
-            <td class="sticky-right sticky-right-e bg-purple-100" />
-            <td class="sticky-right sticky-right-n bg-purple-100" />
-            <td class="sticky-right sticky-right-total bg-purple-100" />
-          </tr>
+            <!-- N 행 -->
+            <tr class="stat-row stat-row-n bg-purple-50">
+              <td class="sticky-column employee-cell text-center font-bold">N</td>
+              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+                {{ statistics?.columnStats[date.date]?.N || 0 }}
+              </td>
+              <td class="sticky-right sticky-right-d bg-purple-100" />
+              <td class="sticky-right sticky-right-e bg-purple-100" />
+              <td class="sticky-right sticky-right-n bg-purple-100" />
+              <td class="sticky-right sticky-right-total bg-purple-100" />
+            </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -240,6 +262,8 @@ const props = withDefaults(defineProps<Props>(), {
   showLastMonth: false,
 });
 const emit = defineEmits<Emits>();
+const isPlanning = computed(() => props.mode === 'planning');
+const statColumnCount = computed(() => (isPlanning.value ? 1 : 4));
 
 // 성능 측정
 if (import.meta.env.DEV) {
@@ -250,7 +274,8 @@ if (import.meta.env.DEV) {
 const statistics = useScheduleGridStatistics(
   () => props.employees,
   () => props.dates,
-  () => (props.mode === 'planning' ? props.constraints : props.assignments)
+  () => (props.mode === 'planning' ? (props.constraints as AssignmentMap) : props.assignments),
+  () => props.mode
 );
 
 // 성능 측정: 초기 렌더링
@@ -527,6 +552,10 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
   min-width: calc(var(--day-col-width) * 4);
 }
 
+.header-stats-single {
+  min-width: var(--day-col-width);
+}
+
 /* 우측 통계 컬럼 고정 */
 .sticky-right-group {
   position: sticky;
@@ -555,6 +584,10 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
 
 .sticky-right-total {
   right: 0;
+}
+
+.sticky-right-single {
+  border-left: 2px solid #e5e7eb;
 }
 
 .schedule-grid thead .sticky-right {
@@ -611,6 +644,13 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
   border-top: 3px solid #374151;
 }
 
+.stat-row-total-only td {
+  bottom: 0;
+  z-index: 25;
+  background-color: #f3f4f6; /* gray-100 */
+  border-top: 3px solid #374151;
+}
+
 .stat-row-d td {
   bottom: calc(var(--summary-row-height) * 2);
   z-index: 24;
@@ -637,6 +677,10 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
 }
 
 .stat-row-total .sticky-column {
+  z-index: 26;
+}
+
+.stat-row-total-only .sticky-column {
   z-index: 26;
 }
 

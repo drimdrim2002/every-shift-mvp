@@ -7,15 +7,6 @@
       <div
         class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white shadow-sm"
       >
-        <!-- Debug Info (Dev Only) -->
-        <div v-if="isDev" class="border-b border-yellow-300 bg-yellow-100 p-2 font-mono text-xs">
-          DEBUG: Employees={{ grid.employees.value.length }}, Dates={{ grid.dates.value.length }},
-          Loading={{ grid.loading.value }}
-          <span v-if="grid.employees.value.length > 0"
-            >Sample Emp: {{ grid.employees.value[0]?.name }}</span
-          >
-        </div>
-
         <div class="flex items-center justify-between border-b bg-gray-50 p-4">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-bold text-gray-800">
@@ -245,7 +236,8 @@ function handleSaveComment(comment: string) {
     return;
   }
 
-  constraintNotes.value[selectedCell.value.employeeId]![selectedCell.value.date] = normalizedComment;
+  constraintNotes.value[selectedCell.value.employeeId]![selectedCell.value.date] =
+    normalizedComment;
   constraintNotes.value = { ...constraintNotes.value };
   showSuccess('코멘트가 저장되었습니다.');
 }
@@ -373,7 +365,10 @@ async function handleGenerate() {
     const existingAssignments = await getPlanningAssignments(scheduleId);
 
     // 주간 요구사항 집계
-    const weeklyRequirements: Record<number, { D: number; E: number; N: number; O: number; total: number }> = {};
+    const weeklyRequirements: Record<
+      number,
+      { D: number; E: number; N: number; O: number; total: number }
+    > = {};
     scheduleStore.siteRequirements.forEach((req) => {
       if (!weeklyRequirements[req.dayOfWeek]) {
         weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
@@ -388,7 +383,10 @@ async function handleGenerate() {
     });
 
     // 일자별 요구사항 생성
-    const dateBasedRequirements: Record<string, { D: number; E: number; N: number; O: number; total: number }> = {};
+    const dateBasedRequirements: Record<
+      string,
+      { D: number; E: number; N: number; O: number; total: number }
+    > = {};
     grid.dates.value.forEach((d) => {
       if (d.isLastMonth) return;
 

@@ -11,10 +11,12 @@ import type { Employee } from '@/types/employee';
 export function useScheduleGridStatistics(
   employees: () => Employee[],
   dates: () => GridColumn[],
-  assignments: () => AssignmentMap
+  assignments: () => AssignmentMap,
+  mode: () => 'planning' | 'result' = () => 'result'
 ) {
   // 통계 데이터 (computed로 최적화, 캐싱 적용)
   const statistics = computed<GridStatistics>(() => {
+    const currentMode = mode();
     const rowCache = new Map<string, RowStat>();
     const rowStats: Record<string, RowStat> = {};
     const columnStats: Record<string, ColumnStat> = {};
@@ -22,7 +24,7 @@ export function useScheduleGridStatistics(
     // 행 통계 (직원별) - 캐싱 적용
     employees().forEach((emp) => {
       const empAssignments = assignments()[emp.id] || {};
-      const cacheKey = JSON.stringify(empAssignments);
+      const cacheKey = `${currentMode}:${JSON.stringify(empAssignments)}`;
 
       if (!rowCache.has(cacheKey)) {
         const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
@@ -30,9 +32,15 @@ export function useScheduleGridStatistics(
         // 버그 수정: 그리드에 표시된 날짜만 계산
         dates().forEach((date) => {
           const shiftCode = empAssignments[date.date];
+          if (!shiftCode) return;
+
+          if (currentMode === 'planning') {
+            if (shiftCode === 'O') stat.total++;
+            return;
+          }
 
           // 빈 셀 및 O(휴무) 처리
-          if (!shiftCode || shiftCode === 'O') return;
+          if (shiftCode === 'O') return;
 
           if (shiftCode === 'D') stat.D++;
           else if (shiftCode === 'E') stat.E++;
@@ -52,6 +60,12 @@ export function useScheduleGridStatistics(
 
       employees().forEach((emp) => {
         const shiftCode = assignments()[emp.id]?.[date.date];
+
+        if (currentMode === 'planning') {
+          if (shiftCode === 'O') stat.total++;
+          return;
+        }
+
         if (shiftCode === 'D') stat.D++;
         else if (shiftCode === 'E') stat.E++;
         else if (shiftCode === 'N') stat.N++;
