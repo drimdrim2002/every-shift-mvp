@@ -5,7 +5,7 @@
       class="mb-4"
     />
 
-    <div class="flex min-h-[560px] flex-1">
+    <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
       <div class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
         <!-- Debug Info (Dev Only) -->
