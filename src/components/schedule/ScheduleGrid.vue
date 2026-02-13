@@ -146,8 +146,8 @@
 
           <!-- 통계 행 (하단 고정) -->
           <!-- Total 행 -->
-          <tr class="stat-row bg-gray-100">
-            <td class="sticky-column employee-cell font-bold text-center">
+          <tr class="stat-row stat-row-total bg-gray-100">
+            <td class="sticky-column employee-cell text-center font-bold">
               Total
             </td>
             <td
@@ -164,8 +164,8 @@
           </tr>
 
           <!-- D 행 -->
-          <tr class="stat-row bg-blue-50">
-            <td class="sticky-column employee-cell font-bold text-center">
+          <tr class="stat-row stat-row-d bg-blue-50">
+            <td class="sticky-column employee-cell text-center font-bold">
               D
             </td>
             <td
@@ -182,8 +182,8 @@
           </tr>
 
           <!-- E 행 -->
-          <tr class="stat-row bg-orange-50">
-            <td class="sticky-column employee-cell font-bold text-center">
+          <tr class="stat-row stat-row-e bg-orange-50">
+            <td class="sticky-column employee-cell text-center font-bold">
               E
             </td>
             <td
@@ -200,8 +200,8 @@
           </tr>
 
           <!-- N 행 -->
-          <tr class="stat-row bg-purple-50">
-            <td class="sticky-column employee-cell font-bold text-center">
+          <tr class="stat-row stat-row-n bg-purple-50">
+            <td class="sticky-column employee-cell text-center font-bold">
               N
             </td>
             <td
@@ -418,6 +418,7 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
   display: flex;
   flex-direction: column;
   position: relative;
+  --summary-row-height: 40px;
 }
 
 /* Container: 스크롤 가능한 메인 그리드 */
@@ -556,43 +557,66 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
 
 /* 통계 행 - 하단 고정 */
 .stat-row {
-  position: sticky;
-  z-index: 10;
   font-weight: 500;
-  border-top: 3px solid #374151; /* 두꺼운 경계선 */
-}
-
-/* 각 통계 행의 bottom 위치 (행 높이는 약 40px로 가정) */
-.stat-row:nth-last-child(4) {
-  bottom: 120px; /* Total 행 */
-}
-
-.stat-row:nth-last-child(3) {
-  bottom: 80px; /* D 행 */
-}
-
-.stat-row:nth-last-child(2) {
-  bottom: 40px; /* E 행 */
-}
-
-.stat-row:nth-last-child(1) {
-  bottom: 0; /* N 행 */
-}
-
-/* 통계 행 첫 번째 셀 (sticky left + sticky bottom) */
-.stat-row .sticky-column {
-  position: sticky;
-  left: 0;
-  z-index: 21; /* thead .sticky-column(31)보다 낮고, tbody .sticky-column(20)보다 높음 */
-  background: white;
 }
 
 .stat-row td {
+  position: sticky;
+  min-height: var(--summary-row-height);
+  height: var(--summary-row-height);
   border-right: 1px solid #d1d5db;
   border-bottom: 1px solid #d1d5db;
 }
 
 .stat-row td:first-child {
   border-left: 1px solid #d1d5db;
+}
+
+.stat-row-total td {
+  bottom: calc(var(--summary-row-height) * 3);
+  z-index: 25;
+  background-color: #f3f4f6; /* gray-100 */
+  border-top: 3px solid #374151;
+}
+
+.stat-row-d td {
+  bottom: calc(var(--summary-row-height) * 2);
+  z-index: 24;
+  background-color: #eff6ff; /* blue-50 */
+}
+
+.stat-row-e td {
+  bottom: var(--summary-row-height);
+  z-index: 23;
+  background-color: #fff7ed; /* orange-50 */
+}
+
+.stat-row-n td {
+  bottom: 0;
+  z-index: 22;
+  background-color: #faf5ff; /* purple-50 */
+}
+
+/* 통계 행 첫 번째 셀 (sticky left + sticky bottom) */
+.stat-row .sticky-column {
+  position: sticky;
+  left: 0;
+  background: white;
+}
+
+.stat-row-total .sticky-column {
+  z-index: 26;
+}
+
+.stat-row-d .sticky-column {
+  z-index: 25;
+}
+
+.stat-row-e .sticky-column {
+  z-index: 24;
+}
+
+.stat-row-n .sticky-column {
+  z-index: 23;
 }
 </style>
