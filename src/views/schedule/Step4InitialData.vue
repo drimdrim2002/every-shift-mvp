@@ -67,9 +67,9 @@
           size="large"
           :loading="isSubmitting"
           :disabled="isSubmitting"
-          @click="handleGenerate"
+          @click="handleNext"
         >
-          근무표 생성 (AI) →
+          다음 단계 →
         </n-button>
       </div>
     </div>
@@ -102,14 +102,11 @@ import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
   createSchedule,
+  deleteThisMonthAssignments,
   getSchedulePreferences,
   saveSchedulePreferences,
-  resetPreferenceResolution,
-  getPlanningEmployees,
-  getPlanningAssignments,
 } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
-import { mapToSolverRequest } from '@/utils/solverMapper';
 import { NButton, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
@@ -125,8 +122,6 @@ const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
 
 const isSubmitting = ref(false);
-const existingScheduleId = ref<string | null>(null);
-const isDev = import.meta.env.DEV;
 
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
@@ -299,14 +294,6 @@ async function restoreData() {
       const schedule = existingSchedules[0];
       if (!schedule) return;
 
-      existingScheduleId.value = schedule.id;
-
-      if (schedule.status === 'complete' || schedule.status === 'changed') {
-        scheduleStore.currentStep = 5;
-        router.replace(`/schedule/step5/${schedule.id}`);
-        return;
-      }
-
       const preferenceData = await getSchedulePreferences(schedule.id);
       if (preferenceData.preferences.length > 0) {
         mergeConstraintMap(preferenceData.constraints);
@@ -341,7 +328,6 @@ async function handleSave(): Promise<string | undefined> {
 
     await saveSchedulePreferences(schedule.id, constraints.value, constraintNotes.value);
 
-    existingScheduleId.value = schedule.id;
     showSuccess('임시 저장되었습니다.');
     return schedule.id;
   } catch (e) {
@@ -349,7 +335,7 @@ async function handleSave(): Promise<string | undefined> {
   }
 }
 
-async function handleGenerate() {
+async function handleNext() {
   if (isSubmitting.value) return;
   isSubmitting.value = true;
 
@@ -357,60 +343,7 @@ async function handleGenerate() {
     const scheduleId = await handleSave();
     if (!scheduleId) throw new Error('임시 저장에 실패했습니다.');
 
-    await resetPreferenceResolution(scheduleId);
-
-    const planningEmployees = await getPlanningEmployees(scheduleStore.basicInfo!.organizationId);
-
-    // 기존 배정 데이터 조회
-    const existingAssignments = await getPlanningAssignments(scheduleId);
-
-    // 주간 요구사항 집계
-    const weeklyRequirements: Record<
-      number,
-      { D: number; E: number; N: number; O: number; total: number }
-    > = {};
-    scheduleStore.siteRequirements.forEach((req) => {
-      if (!weeklyRequirements[req.dayOfWeek]) {
-        weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-      }
-      const currentReq = weeklyRequirements[req.dayOfWeek];
-      if (!currentReq) return;
-      const shift = req.shiftCode;
-      if (['D', 'E', 'N', 'O'].includes(shift)) {
-        currentReq[shift as 'D' | 'E' | 'N' | 'O'] = req.requiredCount;
-        currentReq.total += req.requiredCount;
-      }
-    });
-
-    // 일자별 요구사항 생성
-    const dateBasedRequirements: Record<
-      string,
-      { D: number; E: number; N: number; O: number; total: number }
-    > = {};
-    grid.dates.value.forEach((d) => {
-      if (d.isLastMonth) return;
-
-      const dateObj = new Date(d.date);
-      const dayOfWeek = dateObj.getDay();
-      const weeklyReq = weeklyRequirements[dayOfWeek];
-
-      if (weeklyReq) {
-        dateBasedRequirements[d.date] = { ...weeklyReq };
-      } else {
-        dateBasedRequirements[d.date] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-      }
-    });
-
-    const solverRequest = mapToSolverRequest(
-      scheduleStore.basicInfo!,
-      dateBasedRequirements,
-      constraints.value,
-      planningEmployees,
-      scheduleStore.basicInfo!.shifts,
-      existingAssignments
-    );
-
-    scheduleStore.setPendingSolverRequest(scheduleId, solverRequest);
+    await deleteThisMonthAssignments(scheduleId, scheduleStore.basicInfo!.month);
     scheduleStore.currentStep = 5;
     router.push(`/schedule/step5/${scheduleId}`);
   } catch (error) {

@@ -46,33 +46,24 @@ export async function stepProgressGuard(
       next('/schedule/step1');
       return;
     }
-    if (!scheduleStore.employees || scheduleStore.employees.length === 0) {
-      window.$message?.warning('먼저 직원 정보를 입력해주세요.');
-      next('/schedule/step3');
-      return;
-    }
+    const hasStoreEmployees = !!scheduleStore.employees && scheduleStore.employees.length > 0;
+    if (!hasStoreEmployees) {
+      try {
+        const { count, error } = await supabase
+          .from('employees')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', scheduleStore.basicInfo.organizationId);
 
-    // 완료된 스케줄은 Step5로 우회 (취소 후 created는 Step4 허용)
-    try {
-      const { data, error } = await supabase
-        .from('schedules')
-        .select('id, status')
-        .eq('organization_id', scheduleStore.basicInfo.organizationId)
-        .eq('month', scheduleStore.basicInfo.month)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (!error) {
-        const latest = data?.[0];
-        if (latest?.id && (latest.status === 'complete' || latest.status === 'changed')) {
-          next(`/schedule/step5/${latest.id}`);
+        if (error) {
+          console.warn('[stepProgressGuard] Failed to query employees count:', error);
+        } else if (!count || count === 0) {
+          window.$message?.warning('먼저 직원 정보를 입력해주세요.');
+          next('/schedule/step3');
           return;
         }
-      } else {
-        console.warn('[stepProgressGuard] Failed to query latest schedule:', error);
+      } catch (error) {
+        console.warn('[stepProgressGuard] Unexpected error while checking employees:', error);
       }
-    } catch (error) {
-      console.warn('[stepProgressGuard] Unexpected error while checking schedule status:', error);
     }
   }
 

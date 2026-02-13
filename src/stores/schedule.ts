@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap, SolverRequest, CommentMap } from '@/types/schedule';
+import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap, CommentMap } from '@/types/schedule';
 import type { EmployeeInput } from '@/types/employee';
 
 export const useScheduleStore = defineStore('schedule', () => {
@@ -16,10 +16,6 @@ export const useScheduleStore = defineStore('schedule', () => {
   // Step 4: 그리드 데이터
   const assignments = ref<AssignmentMap>({});
   const comments = ref<CommentMap>({});
-
-  // Step4 -> Step5 전달용 생성 요청 컨텍스트
-  const pendingSolverRequest = ref<SolverRequest | null>(null);
-  const pendingSolverScheduleId = ref<string | null>(null);
 
   // 현재 단계
   const currentStep = ref<number>(1);
@@ -58,16 +54,6 @@ export const useScheduleStore = defineStore('schedule', () => {
     comments.value = data;
   }
 
-  function setPendingSolverRequest(scheduleId: string, request: SolverRequest) {
-    pendingSolverScheduleId.value = scheduleId;
-    pendingSolverRequest.value = request;
-  }
-
-  function clearPendingSolverRequest() {
-    pendingSolverScheduleId.value = null;
-    pendingSolverRequest.value = null;
-  }
-
   function nextStep() {
     if (currentStep.value < 5) {
       currentStep.value++;
@@ -86,7 +72,6 @@ export const useScheduleStore = defineStore('schedule', () => {
     employees.value = [];
     assignments.value = {};
     comments.value = {};
-    clearPendingSolverRequest();
     currentStep.value = 1;
     isExcelUpload.value = false;
   }
@@ -97,8 +82,6 @@ export const useScheduleStore = defineStore('schedule', () => {
     employees,
     assignments,
     comments,
-    pendingSolverRequest,
-    pendingSolverScheduleId,
     currentStep,
     isExcelUpload,
     isExcelUploadMode,
@@ -108,8 +91,6 @@ export const useScheduleStore = defineStore('schedule', () => {
     setEmployees,
     setAssignments,
     setComments,
-    setPendingSolverRequest,
-    clearPendingSolverRequest,
     setExcelUploadMode,
     nextStep,
     prevStep,

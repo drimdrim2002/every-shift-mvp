@@ -11,7 +11,7 @@
             :type="statusType"
           />
           <n-progress
-            v-if="solver.status.value === 'running'"
+            v-if="isRunning"
             type="line"
             :percentage="solver.progress.value"
             class="w-48"
@@ -21,6 +21,23 @@
           <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
           <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
         </div>
+      </div>
+
+      <div
+        v-if="isPreRun"
+        class="mb-6"
+      >
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-gray-700">전월 데이터 표시 일수</h3>
+          <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
+        </div>
+        <n-slider
+          v-model:value="lastMonthDays"
+          :min="0"
+          :max="maxVisibleLastMonthDays"
+          :step="1"
+          :disabled="maxVisibleLastMonthDays === 0"
+        />
       </div>
 
       <n-alert
@@ -39,50 +56,6 @@
       >
         <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
       </n-alert>
-
-      <div
-        v-if="preferenceDisplayRows.length > 0"
-        class="mb-6"
-      >
-        <h3 class="mb-2 text-sm font-semibold text-gray-700">근무 불가 요청 반영 현황</h3>
-        <n-table
-          :single-line="false"
-          size="small"
-        >
-          <thead>
-            <tr>
-              <th>직원</th>
-              <th>날짜</th>
-              <th>근무 불가 요청</th>
-              <th>상태</th>
-              <th>최종 배정</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in preferenceDisplayRows"
-              :key="row.id"
-            >
-              <td>{{ row.employeeName }}</td>
-              <td>{{ row.date }}</td>
-              <td>
-                <n-tag size="small">
-                  {{ row.requestCode }}
-                </n-tag>
-              </td>
-              <td>
-                <n-tag
-                  size="small"
-                  :type="getPreferenceStatusType(row.resolutionStatus)"
-                >
-                  {{ getPreferenceStatusText(row.resolutionStatus) }}
-                </n-tag>
-              </td>
-              <td>{{ row.resolvedShiftCode }}</td>
-            </tr>
-          </tbody>
-        </n-table>
-      </div>
 
       <!-- 그리드 -->
       <div class="my-6">
@@ -111,6 +84,7 @@
         >
           ← 이전
         </n-button>
+
         <n-button
           v-if="canCancel"
           size="medium"
@@ -119,27 +93,45 @@
         >
           근무표 취소
         </n-button>
+
         <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
-            v-if="changedCells.size > 0"
+            v-if="isPreRun"
+            type="primary"
+            size="medium"
+            :loading="isStartingSolver"
+            :disabled="isStartingSolver"
+            @click="handleStartSolver"
+          >
+            근무표 생성 (AI)
+          </n-button>
+
+          <n-button
+            v-if="isFinished && changedCells.size > 0"
             size="medium"
             @click="handleReset"
           >
             변경 사항 취소
           </n-button>
+
           <n-button
+            v-if="isFinished"
             size="medium"
             @click="handleRegenerate"
           >
             더 개선하기
           </n-button>
+
           <n-button
+            v-if="isFinished"
             size="medium"
             @click="handleExport"
           >
             엑셀 다운로드
           </n-button>
+
           <n-button
+            v-if="isFinished"
             type="primary"
             size="medium"
             @click="handleSave"
@@ -153,9 +145,10 @@
 </template>
 
 <script setup lang="ts">
+import dayjs from 'dayjs';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NTable, NTag } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NSlider } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -167,13 +160,18 @@ import {
   getScheduleAssignments,
   getSchedulePreferences,
   refreshPreferenceResolution,
+  resetPreferenceResolution,
   updateAssignment,
   deleteThisMonthAssignments,
+  getPlanningEmployees,
+  getPlanningAssignments,
 } from '@/api/schedule';
+import { loadSiteRequirements } from '@/api/employee';
+import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { supabase } from '@/api/supabase';
-import type { AssignmentMap, PreferenceStatus, SchedulePreference } from '@/types/schedule';
+import type { AssignmentMap } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -187,9 +185,8 @@ const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
 const scheduleId = computed(() => route.params.id as string);
-const shouldAutostart = computed(() => route.query.autostart === '1');
-const changedCells = ref<Set<string>>(new Set()); // 변경된 셀 추적
-const originalAssignments = ref<AssignmentMap>({}); // 원본 데이터 백업
+const changedCells = ref<Set<string>>(new Set());
+const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
 const isDbRefreshing = ref(false);
 const lastMemoryAppliedAt = ref(0);
@@ -197,7 +194,12 @@ const lastMemoryHash = ref('');
 const hasIntermediateResult = ref(false);
 const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
-const preferenceRows = ref<SchedulePreference[]>([]);
+const isStartingSolver = ref(false);
+const lastMonthDays = ref(5);
+const maxVisibleLastMonthDays = ref(0);
+const hasInitializedLastMonthDays = ref(false);
+const previousMonthAssignments = ref<AssignmentMap>({});
+const currentScheduleAssignments = ref<AssignmentMap>({});
 
 interface ScheduleStatusRow {
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -206,22 +208,21 @@ interface ScheduleStatusRow {
   solver_execution_id: string | null;
 }
 
-interface PreferenceDisplayRow {
-  id: string;
-  employeeName: string;
-  date: string;
-  requestCode: string;
-  resolutionStatus: PreferenceStatus;
-  resolvedShiftCode: string;
-}
+const isRunning = computed(() => solver.status.value === 'running');
+const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
+const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
+const previousMonthPrefix = computed(() => {
+  if (!scheduleStore.basicInfo?.month) return '';
+  return dayjs(`${scheduleStore.basicInfo.month}-01`).subtract(1, 'month').format('YYYY-MM');
+});
 
 const statusText = computed(() => {
   const map: Record<string, string> = {
     running: '생성 중',
     complete: '완료',
-    error: '오류',
+    error: '오류 (재시도 가능)',
     changed: '수정됨',
-    created: '생성됨',
+    created: '생성 전',
   };
   return map[solver.status.value] || '알 수 없음';
 });
@@ -238,7 +239,7 @@ const statusType = computed(() => {
 });
 
 const isReadonlyGrid = computed(() => {
-  return solver.status.value === 'running' || solver.status.value === 'created';
+  return !isFinished.value;
 });
 
 const showIntermediateWaitingHint = computed(() => {
@@ -261,46 +262,23 @@ const knownShiftCodes = computed(() => {
   return new Set(organizationStore.shifts.map((shift) => shift.code));
 });
 
-const preferenceDisplayRows = computed<PreferenceDisplayRow[]>(() => {
-  const employeeNameMap = new Map<string, string>(
-    grid.employees.value.map((employee) => [employee.id, employee.name])
-  );
-  const shiftCodeMap = new Map<string, string>(
-    organizationStore.shifts.map((shift) => [shift.id, shift.code])
-  );
-
-  return preferenceRows.value
-    .map((row) => ({
-      id: row.id,
-      employeeName: employeeNameMap.get(row.employee_id) || row.employee_id,
-      date: row.date,
-      requestCode: row.request_code,
-      resolutionStatus: row.resolution_status,
-      resolvedShiftCode: row.resolved_shift_id ? (shiftCodeMap.get(row.resolved_shift_id) || '-') : '-',
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date) || a.employeeName.localeCompare(b.employeeName));
-});
-
-// Check if cancellation is possible
 const canCancel = computed(() => {
-  // Check 1: Status is complete or changed
   if (solver.status.value === 'complete' || solver.status.value === 'changed') {
     return true;
   }
-  
-  // Check 2: Has current month data (handles 'created' status bug)
+
   if (!scheduleStore.basicInfo?.month) return false;
-  
-  const currentMonth = scheduleStore.basicInfo.month; // e.g., "2024-12"
-  
-  for (const dateMap of Object.values(grid.assignments.value)) {
-    for (const date of Object.keys(dateMap || {})) {
-      if (date.startsWith(currentMonth)) {
-        return true; // Found at least one current month assignment
+
+  const currentMonth = scheduleStore.basicInfo.month;
+
+  for (const dateMap of Object.values(currentScheduleAssignments.value)) {
+    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+      if (date.startsWith(currentMonth) && shiftCode) {
+        return true;
       }
     }
   }
-  
+
   return false;
 });
 
@@ -323,6 +301,105 @@ function hashAssignmentMap(assignments: AssignmentMap): string {
       return `${employeeId}:${dateTokens.join(',')}`;
     })
     .join('|');
+}
+
+function splitAssignmentsByMonth(assignments: AssignmentMap): {
+  currentAssignments: AssignmentMap;
+  previousAssignments: AssignmentMap;
+  previousDates: Set<string>;
+} {
+  const currentAssignments: AssignmentMap = {};
+  const previousAssignments: AssignmentMap = {};
+  const previousDates = new Set<string>();
+  const currentMonth = scheduleStore.basicInfo?.month || '';
+  const previousMonth = previousMonthPrefix.value;
+
+  for (const [employeeId, dateMap] of Object.entries(assignments)) {
+    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+      if (!shiftCode) continue;
+
+      if (currentMonth && date.startsWith(currentMonth)) {
+        if (!currentAssignments[employeeId]) currentAssignments[employeeId] = {};
+        currentAssignments[employeeId]![date] = shiftCode;
+        continue;
+      }
+
+      if (previousMonth && date.startsWith(previousMonth)) {
+        if (!previousAssignments[employeeId]) previousAssignments[employeeId] = {};
+        previousAssignments[employeeId]![date] = shiftCode;
+        previousDates.add(date);
+      }
+    }
+  }
+
+  return { currentAssignments, previousAssignments, previousDates };
+}
+
+function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
+  if (previousDates.size === 0) return 0;
+
+  const sorted = Array.from(previousDates).sort((a, b) => a.localeCompare(b));
+  const minDate = sorted[0];
+  const maxDate = sorted[sorted.length - 1];
+  if (!minDate || !maxDate) return 0;
+
+  const visibleRangeDays = dayjs(maxDate).diff(dayjs(minDate), 'day') + 1;
+  return Math.min(5, Math.max(1, visibleRangeDays));
+}
+
+function syncLastMonthDayWindow(previousDates: Set<string>) {
+  const maxDays = calculateMaxVisibleLastMonthDays(previousDates);
+  maxVisibleLastMonthDays.value = maxDays;
+
+  if (maxDays === 0) {
+    lastMonthDays.value = 0;
+    hasInitializedLastMonthDays.value = true;
+    return;
+  }
+
+  if (!hasInitializedLastMonthDays.value) {
+    lastMonthDays.value = maxDays;
+    hasInitializedLastMonthDays.value = true;
+    return;
+  }
+
+  if (lastMonthDays.value > maxDays) {
+    lastMonthDays.value = maxDays;
+  } else if (lastMonthDays.value === 0) {
+    lastMonthDays.value = 1;
+  }
+}
+
+function getDisplayedLastMonthDates(): Set<string> {
+  return new Set(
+    grid.dates.value
+      .filter((date) => date.isLastMonth)
+      .map((date) => date.date)
+  );
+}
+
+function rebuildDisplayAssignments(baseCurrentAssignments: AssignmentMap = currentScheduleAssignments.value) {
+  const mergedAssignments: AssignmentMap = JSON.parse(JSON.stringify(baseCurrentAssignments || {}));
+
+  for (const employee of grid.employees.value) {
+    if (!mergedAssignments[employee.id]) {
+      mergedAssignments[employee.id] = {};
+    }
+  }
+
+  const displayedLastMonthDates = getDisplayedLastMonthDates();
+  for (const [employeeId, dateMap] of Object.entries(previousMonthAssignments.value)) {
+    if (!mergedAssignments[employeeId]) {
+      mergedAssignments[employeeId] = {};
+    }
+
+    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+      if (!displayedLastMonthDates.has(date) || !shiftCode) continue;
+      mergedAssignments[employeeId]![date] = shiftCode;
+    }
+  }
+
+  grid.assignments.value = mergedAssignments;
 }
 
 function mapIntermediateShiftIdsToCodes(intermediateAssignments: AssignmentMap): AssignmentMap {
@@ -361,23 +438,27 @@ function mapIntermediateShiftIdsToCodes(intermediateAssignments: AssignmentMap):
 
 function applyIntermediateAssignments(intermediateAssignments: AssignmentMap): number {
   const mappedAssignments = mapIntermediateShiftIdsToCodes(intermediateAssignments);
-  const nextAssignments: AssignmentMap = JSON.parse(JSON.stringify(grid.assignments.value || {}));
+  const nextCurrentAssignments: AssignmentMap = JSON.parse(
+    JSON.stringify(currentScheduleAssignments.value || {})
+  );
   let appliedCount = 0;
 
   for (const [employeeId, dateMap] of Object.entries(mappedAssignments)) {
-    if (!nextAssignments[employeeId]) {
-      nextAssignments[employeeId] = {};
+    if (!nextCurrentAssignments[employeeId]) {
+      nextCurrentAssignments[employeeId] = {};
     }
 
     for (const [date, shiftCode] of Object.entries(dateMap || {})) {
       if (!shiftCode) continue;
-      nextAssignments[employeeId]![date] = shiftCode;
+      if (!isCurrentMonthDate(date)) continue;
+      nextCurrentAssignments[employeeId]![date] = shiftCode;
       appliedCount++;
     }
   }
 
   if (appliedCount > 0) {
-    grid.assignments.value = nextAssignments;
+    currentScheduleAssignments.value = nextCurrentAssignments;
+    rebuildDisplayAssignments(nextCurrentAssignments);
     lastMemoryAppliedAt.value = Date.now();
   }
 
@@ -390,10 +471,19 @@ function applyScheduleStatus(schedule: ScheduleStatusRow) {
   solver.softScore.value = schedule.soft_score || 0;
 }
 
-async function loadAssignments(options: { syncOriginal?: boolean; clearChanges?: boolean; forceAssignmentSync?: boolean } = {}) {
+async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearChanges?: boolean; forceAssignmentSync?: boolean } = {}) {
   const { syncOriginal = false, clearChanges = false, forceAssignmentSync = false } = options;
   const data = await getScheduleAssignments(scheduleId.value);
-  const hasDbAssignments = Object.values(data.assignments).some((dateMap) => {
+  const { currentAssignments, previousAssignments, previousDates } = splitAssignmentsByMonth(
+    data.assignments
+  );
+
+  if (solver.status.value !== 'running') {
+    previousMonthAssignments.value = previousAssignments;
+    syncLastMonthDayWindow(previousDates);
+  }
+
+  const hasDbAssignments = Object.values(currentAssignments).some((dateMap) => {
     return Object.values(dateMap || {}).some((shiftCode) => Boolean(shiftCode));
   });
 
@@ -409,35 +499,21 @@ async function loadAssignments(options: { syncOriginal?: boolean; clearChanges?:
   );
 
   if (!withinGraceWindow) {
-    grid.assignments.value = data.assignments;
+    currentScheduleAssignments.value = currentAssignments;
+    rebuildDisplayAssignments(currentScheduleAssignments.value);
   }
 
   grid.offReasons.value = data.offReasons;
 
   if (syncOriginal) {
-    originalAssignments.value = JSON.parse(JSON.stringify(data.assignments));
+    originalCurrentAssignments.value = JSON.parse(
+      JSON.stringify(currentScheduleAssignments.value)
+    );
   }
 
   if (clearChanges) {
     changedCells.value.clear();
   }
-}
-
-async function loadPreferenceRows() {
-  const data = await getSchedulePreferences(scheduleId.value);
-  preferenceRows.value = data.preferences;
-}
-
-function getPreferenceStatusText(status: PreferenceStatus): string {
-  if (status === 'fulfilled') return '반영됨';
-  if (status === 'unfulfilled') return '미반영';
-  return '대기';
-}
-
-function getPreferenceStatusType(status: PreferenceStatus): 'default' | 'success' | 'warning' {
-  if (status === 'fulfilled') return 'success';
-  if (status === 'unfulfilled') return 'warning';
-  return 'default';
 }
 
 function startAssignmentsRefresh() {
@@ -452,7 +528,7 @@ function startAssignmentsRefresh() {
 
     isDbRefreshing.value = true;
     try {
-      await loadAssignments();
+      await loadCurrentAssignments();
     } catch (error) {
       console.warn('주기적 결과 동기화 중 오류:', error);
     } finally {
@@ -469,32 +545,113 @@ function stopAssignmentsRefresh() {
   isDbRefreshing.value = false;
 }
 
-async function startSolverWithPendingRequest() {
-  const pendingRequest = scheduleStore.pendingSolverRequest;
-  const pendingScheduleId = scheduleStore.pendingSolverScheduleId;
-  scheduleStore.clearPendingSolverRequest();
-  await router.replace({ path: route.path, query: {} });
+function buildDateBasedRequirements(siteRequirements: Array<{ dayOfWeek: number; shiftCode: string; requiredCount: number }>) {
+  const weeklyRequirements: Record<
+    number,
+    { D: number; E: number; N: number; O: number; total: number }
+  > = {};
 
-  if (!pendingRequest || pendingScheduleId !== scheduleId.value) {
-    showError('생성 요청 정보를 찾을 수 없습니다. 초기 데이터 화면으로 이동합니다.');
-    await router.push('/schedule/step4');
+  siteRequirements.forEach((req) => {
+    if (!weeklyRequirements[req.dayOfWeek]) {
+      weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+    }
+
+    const shiftCode = req.shiftCode.toUpperCase();
+    const dayRequirements = weeklyRequirements[req.dayOfWeek];
+    if (!dayRequirements) return;
+
+    if (['D', 'E', 'N', 'O'].includes(shiftCode)) {
+      dayRequirements[shiftCode as 'D' | 'E' | 'N' | 'O'] = req.requiredCount;
+      dayRequirements.total += req.requiredCount;
+    }
+  });
+
+  const dateBasedRequirements: Record<
+    string,
+    { D: number; E: number; N: number; O: number; total: number }
+  > = {};
+
+  grid.dates.value.forEach((date) => {
+    if (date.isLastMonth) return;
+
+    const dayOfWeek = new Date(date.date).getDay();
+    const weeklyRequirement = weeklyRequirements[dayOfWeek];
+    dateBasedRequirements[date.date] = weeklyRequirement
+      ? { ...weeklyRequirement }
+      : { D: 0, E: 0, N: 0, O: 0, total: 0 };
+  });
+
+  return dateBasedRequirements;
+}
+
+async function buildSolverRequest() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo) {
+    throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
+  }
+
+  if (organizationStore.shifts.length === 0) {
+    throw new Error('시프트 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+
+  const { constraints } = await getSchedulePreferences(scheduleId.value);
+  const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
+  const planningAssignments = await getPlanningAssignments(scheduleId.value);
+
+  let siteRequirements = scheduleStore.siteRequirements;
+  if (!siteRequirements || siteRequirements.length === 0) {
+    siteRequirements = await loadSiteRequirements(basicInfo.organizationId);
+    scheduleStore.setSiteRequirements(siteRequirements);
+  }
+
+  if (!siteRequirements || siteRequirements.length === 0) {
+    throw new Error('사이트 요구사항이 비어 있습니다. Step2에서 먼저 설정해주세요.');
+  }
+
+  const dateBasedRequirements = buildDateBasedRequirements(siteRequirements);
+
+  return mapToSolverRequest(
+    basicInfo,
+    dateBasedRequirements,
+    constraints,
+    planningEmployees,
+    organizationStore.shifts,
+    planningAssignments
+  );
+}
+
+async function handleStartSolver() {
+  if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
 
-  const executionId = await solver.startSolver(scheduleId.value, pendingRequest);
-  if (!executionId) {
-    showError('근무표 생성 시작에 실패했습니다.');
-    return;
-  }
+  isStartingSolver.value = true;
 
-  resetRealtimeState();
-  startAssignmentsRefresh();
+  try {
+    await resetPreferenceResolution(scheduleId.value);
+
+    const solverRequest = await buildSolverRequest();
+    const executionId = await solver.startSolver(scheduleId.value, solverRequest);
+    if (!executionId) {
+      showError('근무표 생성 시작에 실패했습니다.');
+      return;
+    }
+
+    resetRealtimeState();
+    startAssignmentsRefresh();
+    showSuccess('근무표 생성을 시작했습니다.');
+  } catch (error) {
+    console.warn('근무표 생성 시작 중 오류:', error);
+    showError(error instanceof Error ? error.message : '근무표 생성 시작 중 오류가 발생했습니다.');
+  } finally {
+    isStartingSolver.value = false;
+  }
 }
 
 async function resumePollingFromSchedule(schedule: ScheduleStatusRow) {
   if (!schedule.solver_execution_id) {
-    showError('진행 중 작업 정보를 찾을 수 없습니다. 초기 데이터 화면으로 이동합니다.');
-    await router.push('/schedule/step4');
+    showError('진행 중 작업 정보를 찾을 수 없습니다. 근무표 생성을 다시 시작해주세요.');
+    solver.status.value = 'error';
     return;
   }
 
@@ -514,7 +671,7 @@ onMounted(async () => {
   try {
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
-    grid.generateDates(scheduleStore.basicInfo.month);
+    grid.generateDates(scheduleStore.basicInfo.month, 0);
 
     const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
     applyScheduleStatus(schedule);
@@ -523,35 +680,22 @@ onMounted(async () => {
       await refreshPreferenceResolution(scheduleId.value);
     }
 
-    if (schedule.status === 'complete' || schedule.status === 'changed' || schedule.status === 'running' || schedule.status === 'created') {
-      await loadAssignments({
-        syncOriginal: schedule.status !== 'running',
-        clearChanges: schedule.status !== 'running',
-      });
-      await loadPreferenceRows();
-    }
-
-    if (shouldAutostart.value) {
-      await startSolverWithPendingRequest();
-      return;
-    }
+    await loadCurrentAssignments({
+      syncOriginal: schedule.status !== 'running',
+      clearChanges: schedule.status !== 'running',
+    });
 
     if (schedule.status === 'running') {
       await resumePollingFromSchedule(schedule);
       return;
     }
 
-    if (schedule.status === 'created') {
-      if (schedule.solver_execution_id) {
-        await resumePollingFromSchedule(schedule);
-      } else {
-        showInfo('아직 근무표 생성이 시작되지 않았습니다. 초기 데이터 화면으로 이동합니다.');
-        await router.push('/schedule/step4');
-      }
+    if (schedule.status === 'created' && schedule.solver_execution_id) {
+      await resumePollingFromSchedule(schedule);
     }
   } catch (error) {
     console.warn('데이터 로드 중 오류:', error);
-    window.$message?.error('데이터 로드 중 오류가 발생했습니다.');
+    showError('데이터 로드 중 오류가 발생했습니다.');
   }
 });
 
@@ -561,7 +705,14 @@ onUnmounted(() => {
   resetRealtimeState();
 });
 
-// status 변경 시 결과 재동기화 및 interval 정리
+watch(lastMonthDays, (newDays) => {
+  if (!scheduleStore.basicInfo) return;
+  if (newDays < 0 || newDays > maxVisibleLastMonthDays.value) return;
+
+  grid.generateDates(scheduleStore.basicInfo.month, newDays);
+  rebuildDisplayAssignments();
+});
+
 watch(() => solver.status.value, async (newStatus) => {
   if (newStatus === 'running') {
     startAssignmentsRefresh();
@@ -571,12 +722,11 @@ watch(() => solver.status.value, async (newStatus) => {
 
   if (newStatus === 'complete' || newStatus === 'changed' || newStatus === 'created' || newStatus === 'error') {
     try {
-      await loadAssignments({
+      await loadCurrentAssignments({
         syncOriginal: true,
         clearChanges: true,
         forceAssignmentSync: true,
       });
-      await loadPreferenceRows();
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }
@@ -607,18 +757,26 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
 });
 
 function handleBack() {
-  router.push('/');
+  router.push('/schedule/step4');
+}
+
+function isCurrentMonthDate(date: string) {
+  return !!scheduleStore.basicInfo?.month && date.startsWith(scheduleStore.basicInfo.month);
 }
 
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
-  if (isReadonlyGrid.value) {
+  if (isReadonlyGrid.value || !isCurrentMonthDate(payload.date)) {
     return;
   }
 
-  // 그리드 업데이트
-  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
+  if (!currentScheduleAssignments.value[payload.employeeId]) {
+    currentScheduleAssignments.value[payload.employeeId] = {};
+  }
 
-  // 변경된 셀 추적
+  currentScheduleAssignments.value[payload.employeeId]![payload.date] = payload.shiftCode;
+  currentScheduleAssignments.value = { ...currentScheduleAssignments.value };
+  rebuildDisplayAssignments(currentScheduleAssignments.value);
+
   const cellKey = `${payload.employeeId}_${payload.date}`;
   changedCells.value.add(cellKey);
 }
@@ -635,21 +793,23 @@ function handleReset() {
     positiveText: '취소하기',
     negativeText: '돌아가기',
     onPositiveClick: () => {
-      // 원본 데이터로 복원 (deep copy)
-      grid.assignments.value = JSON.parse(JSON.stringify(originalAssignments.value));
+      currentScheduleAssignments.value = JSON.parse(
+        JSON.stringify(originalCurrentAssignments.value)
+      );
+      rebuildDisplayAssignments(currentScheduleAssignments.value);
       changedCells.value.clear();
       showSuccess('변경사항이 취소되었습니다');
     },
   });
 }
 
-function handleRegenerate() {
-  // TODO
+async function handleRegenerate() {
+  await handleStartSolver();
 }
 
 function handleExport() {
   if (grid.employees.value.length === 0) {
-    window.$message?.error('데이터가 없습니다');
+    showError('데이터가 없습니다');
     return;
   }
 
@@ -662,9 +822,9 @@ function handleExport() {
       grid.assignments.value,
       filename
     );
-    window.$message?.success('엑셀 파일이 다운로드되었습니다');
+    showSuccess('엑셀 파일이 다운로드되었습니다');
   } catch (error) {
-    window.$message?.error('다운로드 실패');
+    showError('다운로드 실패');
     console.warn('Excel export error:', error);
   }
 }
@@ -672,12 +832,10 @@ function handleExport() {
 function handleSave() {
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
-    // 대시보드로 이동
     router.push('/');
     return;
   }
 
-  // 저장 확인 다이얼로그
   window.$dialog?.info({
     title: '근무표 저장',
     content: `${changedCells.value.size}개의 변경사항을 저장하시겠습니까?`,
@@ -690,39 +848,33 @@ function handleSave() {
           return;
         }
 
-        // 변경된 셀만 Supabase에 업데이트
         for (const cellKey of changedCells.value) {
           const [employeeId, date] = cellKey.split('_');
-          
+
           if (!employeeId || !date) continue;
-          
-          const shiftCode = grid.assignments.value[employeeId]?.[date];
+
+          const shiftCode = currentScheduleAssignments.value[employeeId]?.[date];
 
           if (!shiftCode) continue;
 
-          // shiftCode를 shiftId로 변환
-          const shift = organizationStore.shifts.find(s => s.code === shiftCode);
+          const shift = organizationStore.shifts.find((s) => s.code === shiftCode);
           if (!shift) {
             console.warn(`Invalid shift code: ${shiftCode}`);
             continue;
           }
 
-          // API 호출
           await updateAssignment(scheduleId.value, employeeId, date, shift.id);
         }
 
-        // Schedule status를 'changed'로 업데이트
         await supabase
           .from('schedules')
           .update({ status: 'changed' })
           .eq('id', scheduleId.value);
 
         await refreshPreferenceResolution(scheduleId.value);
-        await loadPreferenceRows();
 
         showSuccess('저장되었습니다');
         changedCells.value.clear();
-        // 대시보드로 이동
         router.push('/');
       } catch (error) {
         console.warn('저장 중 오류:', error);
@@ -745,19 +897,21 @@ async function handleCancelSchedule() {
           showError('현재 월 정보를 찾을 수 없습니다');
           return;
         }
-        
+
         await deleteThisMonthAssignments(scheduleId.value, currentMonth);
 
         solver.stopPolling();
         stopAssignmentsRefresh();
-        
-        // Clear localStorage for this month
+
+        currentScheduleAssignments.value = {};
+        rebuildDisplayAssignments();
+
         const storageKeys = [
           `everyshift_temp_schedule_${currentMonth}`,
           `everyshift_temp_preferences_${currentMonth}`,
         ];
         storageKeys.forEach((key) => localStorage.removeItem(key));
-        
+
         showSuccess('이번달 근무표가 삭제되었습니다. 지난달 데이터는 보존되었습니다.');
         router.push('/schedule/step4');
       } catch (error) {

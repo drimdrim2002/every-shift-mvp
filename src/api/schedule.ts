@@ -56,6 +56,18 @@ interface RawSchedulePreference {
   updated_at?: string;
 }
 
+export interface ScheduleSummary {
+  id: string;
+  organization_id: string;
+  month: string;
+  status: 'created' | 'running' | 'complete' | 'changed' | 'error';
+  hard_score: number | null;
+  soft_score: number | null;
+  solver_execution_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 function normalizePreferenceCode(requestCode: string): ConstraintCode | null {
   if (requestCode === 'O') return 'O';
   if (requestCode === 'H' || requestCode === 'E' || requestCode === 'L') return 'O';
@@ -115,6 +127,24 @@ export async function getScheduleStatus(scheduleId: string) {
 
   if (error) throw error;
   return data;
+}
+
+// 조직 + 월 기준 최신 schedule 조회
+export async function getLatestScheduleByOrganizationMonth(
+  orgId: string,
+  month: string
+): Promise<ScheduleSummary | null> {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('id, organization_id, month, status, hard_score, soft_score, solver_execution_id, created_at, updated_at')
+    .eq('organization_id', orgId)
+    .eq('month', month)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as ScheduleSummary | null;
 }
 
 // Step4 근무 불가 요청 조회
