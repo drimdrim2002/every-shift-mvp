@@ -1,972 +1,390 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="4" />
+  <div class="mx-auto max-w-full px-4 h-full flex flex-col">
+    <StepIndicator :current-step="4" class="mb-4" />
 
-    <n-card title="근무표 생성 - 초기 정보 입력">
-      <!-- 통합 툴바 영역 -->
-      <div class="mb-4 flex flex-col gap-4 rounded-lg bg-gray-50 p-4">
-        <!-- 1열: 주요 컨트롤 (전월 데이터 토글 + 뷰 모드) -->
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <!-- 왼쪽: 전월 데이터 토글 -->
-          <div class="flex items-center gap-3">
-            <n-switch
-              v-model:value="showLastMonth"
-              @update:value="handleLastMonthToggle"
-            />
-            <span class="font-medium text-gray-700">전월 데이터 포함</span>
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <span class="cursor-help text-gray-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="size-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </span>
-              </template>
-              연속 근무(예: N-D 금지) 규칙을 적용하려면 전월 마지막 근무 기록이 필요합니다.
-            </n-tooltip>
-          </div>
+    <div class="flex flex-1 gap-4 min-h-0">
+      <!-- Center Panel: Grid -->
+      <div class="flex-1 flex flex-col min-w-0 bg-white rounded-lg border shadow-sm overflow-hidden">
+        <!-- Debug Info (Dev Only) -->
+        <div v-if="isDev" class="bg-yellow-100 p-2 text-xs font-mono border-b border-yellow-300">
+          DEBUG: Employees={{ grid.employees.value.length }}, Dates={{ grid.dates.value.length }}, Loading={{ grid.loading.value }}
+          <span v-if="grid.employees.value.length > 0">Sample Emp: {{ grid.employees.value[0]?.name }}</span>
+        </div>
 
-          <!-- 오른쪽: 뷰 모드 선택 -->
+        <div class="p-4 border-b bg-gray-50 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-xs text-gray-500">보기 방식:</span>
-            <n-radio-group
-              v-model:value="viewMode"
-              size="small"
-            >
-              <n-radio-button value="month">
-                월간 (전체)
-              </n-radio-button>
-              <n-radio-button value="week">
-                주간 (7일씩)
-              </n-radio-button>
-            </n-radio-group>
-          </div>
-        </div>
-
-        <!-- 2열: 상세 컨트롤 (조건부 렌더링) -->
-        <div 
-          v-if="showLastMonth || viewMode === 'week'" 
-          class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-3"
-        >
-          <!-- 왼쪽: 전월 데이터 설정 (showLastMonth일 때만) -->
-          <div class="flex items-center gap-3">
-            <template v-if="showLastMonth">
-              <div class="flex items-center gap-2 border-r border-gray-300 pr-3">
-                <span class="text-xs text-gray-500">기간:</span>
-                <n-input-number
-                  v-model:value="lastMonthDays"
-                  size="small"
-                  :min="1"
-                  :max="5"
-                  class="w-20"
-                  @update:value="handleLastMonthDaysChange"
-                />
-                <span class="text-xs text-gray-500">일</span>
-              </div>
-
-              <n-button-group size="small">
-                <n-button
-                  secondary
-                  @click="handleDownloadTemplate"
-                >
-                  템플릿
-                </n-button>
-                <n-upload
-                  :show-file-list="false"
-                  accept=".xlsx,.xls"
-                  @change="handleExcelUpload"
-                >
-                  <n-button secondary>
-                    업로드
-                  </n-button>
-                </n-upload>
-                <n-button
-                  secondary
-                  @click="handleLoadSampleData"
-                >
-                  샘플
-                </n-button>
-              </n-button-group>
-            </template>
-          </div>
-
-          <!-- 오른쪽: 주간 이동 컨트롤 (viewMode === 'week'일 때만) -->
-          <div
-            v-if="viewMode === 'week'"
-            class="flex items-center gap-2"
-          >
-            <n-button 
-              size="small" 
-              :disabled="weekIndex === 0" 
-              @click="handlePrevWeek"
-            >
-              &lt; 이전 주
-            </n-button>
-            <span class="min-w-[150px] text-center font-medium text-gray-700">
-              {{ currentWeekLabel }}
+            <h2 class="font-bold text-lg text-gray-800">
+              {{ scheduleStore.basicInfo?.month }}월 제약사항 입력
+            </h2>
+            <span v-if="orgStore.current" class="px-2 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">
+              {{ orgStore.current.name }}
             </span>
-            <n-button 
-              size="small" 
-              :disabled="weekIndex >= weekRanges.length - 1" 
-              @click="handleNextWeek"
-            >
-              다음 주 &gt;
-            </n-button>
+          </div>
+          <!-- Tips -->
+          <div class="text-xs text-gray-400 flex gap-3">
+             <span>👆 셀 클릭: H → E → O → 빈칸</span>
+             <span>🖱️ 우클릭: 코멘트 작성</span>
           </div>
         </div>
-      </div>
-
-      <!-- 안내 텍스트 (간소화) -->
-      <div class="mb-4 flex items-start gap-2 text-xs text-gray-500">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="mt-0.5 size-4 text-blue-500"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        <p>
-          당월 데이터는 비워두면 AI가 자동으로 최적의 근무를 배치합니다.
-          <strong>이미 확정된 근무(휴가, 교육 등)가 있다면 해당 셀에 직접 입력해주세요.</strong>
-        </p>
-      </div>
-
-      <!-- 그리드 -->
-      <n-spin :show="grid.loading.value">
-        <ScheduleGrid
-          v-if="grid.employees.value.length > 0"
-          :employees="grid.employees.value"
-          :dates="visibleDates"
-          :assignments="grid.assignments.value"
-          :off-reasons="grid.offReasons.value"
-          :readonly="false"
-          :show-last-month="lastMonthDays > 0"
-          @update:assignment="handleAssignmentUpdate"
-          @select-off="handleOffSelect"
-        />
-      </n-spin>
-
-      <!-- 버튼 -->
-      <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
-        <n-button
-          size="medium"
-          @click="handlePrev"
-        >
-          ← 이전
-        </n-button>
-        <div class="flex flex-col gap-4 sm:flex-row">
-          <n-button
-            size="medium"
-            @click="handleSave"
-          >
-            임시 저장
-          </n-button>
-          <n-button
-            type="primary"
-            size="medium"
-            :loading="isSubmitting"
-            :disabled="isSubmitting"
-            @click="handleGenerate"
-          >
-            근무표 생성 →
-          </n-button>
+        
+        <div class="flex-1 overflow-hidden relative">
+          <n-spin :show="grid.loading.value" class="h-full">
+            <div class="absolute inset-0 overflow-auto">
+              <ScheduleGrid
+                v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
+                class="min-h-full"
+                mode="planning"
+                :employees="grid.employees.value"
+                :dates="grid.dates.value"
+                :assignments="grid.assignments.value"
+                :off-reasons="grid.offReasons.value"
+                :comments="grid.comments.value"
+                :readonly="false"
+                :show-last-month="false"
+                @update:assignment="handleAssignmentUpdate"
+                @context-menu="handleContextMenu"
+                @header-click="handleHeaderClick"
+              />
+              <div v-else-if="!grid.loading.value" class="flex items-center justify-center h-full text-gray-400">
+                직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }}, Date: {{ grid.dates.value.length }})
+              </div>
+            </div>
+          </n-spin>
         </div>
       </div>
-    </n-card>
 
-    <!-- 기존 스케줄이 있을 때 결과 보기 버튼 -->
-    <n-alert
-      v-if="existingScheduleId"
-      type="info"
-      class="mb-4"
-    >
-      <div class="flex items-center justify-between">
-        <span>이미 생성된 근무표가 있습니다. 결과를 확인하거나 수정할 수 있습니다.</span>
+      <!-- Right Panel: Summary -->
+      <ScheduleSummary
+        :stats="grid.statistics.value"
+        :employees="grid.employees.value"
+        class="w-64 flex-none"
+      />
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="flex justify-between items-center mt-4 py-4 border-t bg-white">
+      <n-button size="large" @click="handlePrev">
+        ← 이전 단계
+      </n-button>
+      
+      <div class="flex gap-3">
+        <n-button size="large" @click="handleSave">
+          임시 저장
+        </n-button>
         <n-button
           type="primary"
-          size="small"
-          @click="handleViewExistingSchedule"
+          size="large"
+          :loading="isSubmitting"
+          :disabled="isSubmitting"
+          @click="handleGenerate"
         >
-          결과 보기 →
+          근무표 생성 (AI) →
         </n-button>
       </div>
-    </n-alert>
+    </div>
 
-    <!-- Off 사유 선택 Modal -->
-    <n-modal
-      v-model:show="showOffReasonModal"
-      preset="dialog"
-      title="Off 사유 선택"
-      positive-text="확인"
-      negative-text="취소"
-      @positive-click="handleOffReasonConfirm"
-      @negative-click="handleOffReasonCancel"
-    >
-      <div class="py-4">
-        <p class="mb-4 text-sm text-gray-600">
-          Off 사유를 선택해주세요. 선택한 셀은 AI가 변경할 수 없도록 잠금 처리됩니다.
-        </p>
-        <n-radio-group v-model:value="selectedOffReason">
-          <n-space vertical>
-            <n-radio
-              v-for="option in offReasonOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </n-radio>
-          </n-space>
-        </n-radio-group>
-      </div>
-    </n-modal>
+    <!-- Modals -->
+    <CommentModal
+      v-model:show="showCommentModal"
+      :employee-name="selectedCell?.employeeName || ''"
+      :date="selectedCell?.date || ''"
+      :initial-value="selectedCellComment"
+      @save="handleSaveComment"
+    />
+
+    <DaySummaryModal
+      v-model:show="showDaySummaryModal"
+      :date="selectedDateSummary || ''"
+      :employees="grid.employees.value"
+      :assignments="grid.assignments.value"
+      :comments="grid.comments.value"
+      @close="showDaySummaryModal = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useScheduleStore } from '@/stores/schedule';
+import { useOrganizationStore } from '@/stores/organization';
+import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
-  createSchedule,
-  getPlanningAssignments,
-  getPlanningEmployees,
   getScheduleAssignments,
   saveTempAssignments,
+  getPlanningEmployees,
+  getPlanningAssignments,
 } from '@/api/schedule';
 import { loadShifts } from '@/api/shift';
 import { supabase } from '@/api/supabase';
 import { mapToSolverRequest } from '@/utils/solverMapper';
-import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
-import StepIndicator from '@/components/schedule/StepIndicator.vue';
-import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import { useScheduleStore } from '@/stores/schedule';
-import type {
-  AssignmentMap,
-  DailyRequirement,
-  GridColumn,
-  OffReasonMap,
-  SiteRequirements,
-} from '@/types/schedule';
-import { OFF_REASONS } from '@/types/schedule';
-import { downloadLastMonthTemplate, parseLastMonthExcel } from '@/utils/excel';
-import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
-import { validateLastMonthData } from '@/utils/validation';
-import { watchDebounced } from '@vueuse/core';
-import type { UploadFileInfo } from 'naive-ui';
 import {
-  NButton,
-  NButtonGroup,
-  NCard,
-  NInputNumber,
-  NModal,
-  NRadio,
-  NRadioButton,
-  NRadioGroup,
-  NSpace,
-  NSpin,
-  NSwitch,
-  NTooltip,
-  NUpload,
-  NAlert,
+  NButton, NSpin
 } from 'naive-ui';
-import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
+import ScheduleSummary from '@/components/schedule/ScheduleSummary.vue';
+import StepIndicator from '@/components/schedule/StepIndicator.vue';
+import CommentModal from '@/components/schedule/CommentModal.vue';
+import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
+import { showError, showInfo, showSuccess } from '@/utils/message';
+import { watchDebounced } from '@vueuse/core';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
+const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
+
 const isSubmitting = ref(false);
-
-// 기존 스케줄 ID 추적
 const existingScheduleId = ref<string | null>(null);
+const isDev = import.meta.env.DEV;
 
-// Off 사유 선택 모달 상태
-const showOffReasonModal = ref(false);
-const selectedOffCell = ref<{ employeeId: string; date: string } | null>(null);
-const selectedOffReason = ref<string>('VACATION');
+// Modals state
+const showCommentModal = ref(false);
+const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
+const showDaySummaryModal = ref(false);
+const selectedDateSummary = ref<string>('');
 
-// Off 사유 옵션
-const offReasonOptions = [
-  { label: OFF_REASONS.VACATION, value: 'VACATION' },
-  { label: OFF_REASONS.TRAINING, value: 'TRAINING' },
-  { label: OFF_REASONS.SICK, value: 'SICK' },
-  { label: OFF_REASONS.OTHER, value: 'OTHER' },
-];
-
-// 전월 데이터 상태
-const showLastMonth = ref(false); // 기본: 숨김
-const lastMonthDays = ref(0); // 전월 일수 (0: 숨김, 1-5: 표시)
-
-// 뷰 모드 상태 (월간/주간)
-const viewMode = ref<'month' | 'week'>('month');
-const weekIndex = ref(0);
-
-// 주차별 데이터 계산 (7일 단위)
-const weekRanges = computed(() => {
-  const allDates = grid.dates.value;
-  const weeks: GridColumn[][] = [];
-  for (let i = 0; i < allDates.length; i += 7) {
-    weeks.push(allDates.slice(i, i + 7));
-  }
-  return weeks;
+const selectedCellComment = computed(() => {
+  if (!selectedCell.value) return '';
+  return grid.getComment(selectedCell.value.employeeId, selectedCell.value.date) || '';
 });
 
-// 현재 주차 라벨
-const currentWeekLabel = computed(() => {
-  if (weekRanges.value.length === 0) return '';
-  const currentWeek = weekRanges.value[weekIndex.value];
-  if (!currentWeek || currentWeek.length === 0) return '';
+
+// Callbacks
+function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
+  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
   
-  const start = currentWeek[0];
-  const end = currentWeek[currentWeek.length - 1];
-  
-  if (!start || !end) return `${weekIndex.value + 1}주차`;
-
-  const format = (d: string) => d.substring(5).replace('-', '.');
-  return `${weekIndex.value + 1}주차 (${format(start.date)} ~ ${format(end.date)})`;
-});
-
-// 그리드에 표시할 날짜 계산
-const visibleDates = computed(() => {
-  if (viewMode.value === 'month') {
-    return grid.dates.value;
+  if (payload.shiftCode === 'O') {
+      if (!grid.getOffReason(payload.employeeId, payload.date)) {
+          grid.setOffReason(payload.employeeId, payload.date, 'VACATION'); 
+      }
+  } else {
+      grid.setOffReason(payload.employeeId, payload.date, '');
   }
-  return weekRanges.value[weekIndex.value] || [];
-});
-
-// 주차 이동 핸들러
-function handlePrevWeek() {
-  if (weekIndex.value > 0) weekIndex.value--;
 }
 
-function handleNextWeek() {
-  if (weekIndex.value < weekRanges.value.length - 1) weekIndex.value++;
+function handleContextMenu(payload: { event: MouseEvent; employeeId: string; date: string }) {
+  const employee = grid.employees.value.find(e => e.id === payload.employeeId);
+  if (!employee) return;
+
+  selectedCell.value = {
+    employeeId: payload.employeeId,
+    employeeName: employee.name,
+    date: payload.date
+  };
+  showCommentModal.value = true;
 }
 
-// 날짜 변경 시 주차 인덱스 범위 체크
-watch([() => grid.dates.value.length, viewMode], () => {
-  if (weekIndex.value >= weekRanges.value.length) {
-    weekIndex.value = 0;
-  }
-});
+function handleSaveComment(comment: string) {
+  if (!selectedCell.value) return;
+  grid.setComment(selectedCell.value.employeeId, selectedCell.value.date, comment);
+  showSuccess('코멘트가 저장되었습니다.');
+}
 
-// LocalStorage 키 (월별로 구분)
+function handleHeaderClick(date: string) {
+  selectedDateSummary.value = date;
+  showDaySummaryModal.value = true;
+}
+
+// Watchers for LocalStorage
 const STORAGE_KEY = computed(() => {
   if (!scheduleStore.basicInfo) return '';
   return `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
 });
 
-// 자동 저장 (2초 debounce) - assignments와 offReasons 함께 저장
 watchDebounced(
-  [() => grid.assignments.value, () => grid.offReasons.value],
-  ([assignments, offReasons]) => {
+  [
+      () => grid.assignments.value, 
+      () => grid.offReasons.value,
+      () => grid.comments.value
+  ],
+  ([assignments, offReasons, comments]) => {
     if (STORAGE_KEY.value) {
-      const dataToSave = {
-        assignments,
-        offReasons,
-      };
+      const dataToSave = { assignments, offReasons, comments };
       localStorage.setItem(STORAGE_KEY.value, JSON.stringify(dataToSave));
     }
   },
   { debounce: 2000, deep: true }
 );
 
-// 전월 데이터 토글
-function handleLastMonthToggle(value: boolean) {
-  if (value) {
-    // 켜질 때 기본값 5일 설정
-    lastMonthDays.value = 5;
-  } else {
-    // 꺼질 때 0일 설정
-    lastMonthDays.value = 0;
-  }
-  
-  if (scheduleStore.basicInfo) {
-    grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
-  }
-}
-
-// 전월 일수 변경 시 날짜 재생성
-function handleLastMonthDaysChange(value: number | null) {
-  if (value === null) return;
-  
-  // 0이 되면 토글도 끔
-  if (value === 0) {
-    showLastMonth.value = false;
-  }
-  
-  if (scheduleStore.basicInfo) {
-    grid.generateDates(scheduleStore.basicInfo.month, value);
-  }
-}
-
-// lastMonthDays 변경 감지하여 grid.lastMonthDays와 동기화
-watch(lastMonthDays, (newValue) => {
-  grid.lastMonthDays.value = newValue;
-});
-
+// Lifecycle
 onMounted(async () => {
+  console.log('[Step4] Mounted');
   if (!scheduleStore.basicInfo) {
+    console.log('[Step4] No basicInfo, redirecting');
     router.push('/schedule/step1');
     return;
   }
 
-  // 직원 로드
+  // Reload Org info to ensure name is available
+  if (!orgStore.current) {
+      await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+  }
+
   await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
-
-  console.log('[Step4 onMounted] Loaded employees:', grid.employees.value.length);
-  console.log('[Step4 onMounted] Employee IDs:', grid.employees.value.map(e => e.id).slice(0, 3));
-
-  // 날짜 생성 (기본값 0일 + 당월)
-  grid.generateDates(scheduleStore.basicInfo.month, lastMonthDays.value);
-
-  // 데이터 복원 우선순위: Supabase > LocalStorage
-  let dataRestored = false;
-  let restoredAssignments: AssignmentMap = {};
-
-  try {
-    // 1. Supabase에서 저장된 schedule 조회
-    const { data: existingSchedules, error: scheduleError } = await supabase
-      .from('schedules')
-      .select('id, status')
-      .eq('organization_id', scheduleStore.basicInfo.organizationId)
-      .eq('month', scheduleStore.basicInfo.month)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (scheduleError) {
-      console.error('[Step4 onMounted] Schedule query error:', scheduleError);
-    } else if (existingSchedules && existingSchedules.length > 0) {
-      const schedule = existingSchedules[0];
-      if (schedule && schedule.id) {
-        console.log('[Step4 onMounted] Found existing schedule:', schedule.id, 'status:', schedule.status);
-        
-        // Store the existing schedule ID
-        existingScheduleId.value = schedule.id;
-
-        // 완료된 스케줄은 결과 화면으로 이동 (created는 Step4 유지)
-        if (schedule.status === 'complete' || schedule.status === 'changed') {
-          scheduleStore.currentStep = 5;
-          await router.replace(`/schedule/step5/${schedule.id}`);
-          return;
-        }
-
-        // 2. Schedule assignments와 offReasons 조회
-        const { assignments, offReasons } = await getScheduleAssignments(schedule.id);
-        const assignmentCount = Object.keys(assignments).reduce((sum, empId) => {
-          const empAssignments = assignments[empId];
-          if (empAssignments) {
-            return sum + Object.keys(empAssignments).length;
-          }
-          return sum;
-        }, 0);
-
-        console.log('[Step4 onMounted] Loaded assignments from Supabase:', assignmentCount, 'cells');
-
-        if (assignmentCount > 0) {
-          // Supabase 데이터로 grid 초기화
-          grid.assignments.value = {
-            ...grid.assignments.value,
-            ...assignments,
-          };
-          grid.offReasons.value = {
-            ...grid.offReasons.value,
-            ...offReasons,
-          };
-          restoredAssignments = assignments;
-          dataRestored = true;
-          showInfo(`저장된 데이터를 불러왔습니다 (${assignmentCount}개 셀)`);
-        }
-      }
-    } else {
-      console.log('[Step4 onMounted] No existing schedule found for', scheduleStore.basicInfo.month);
-    }
-  } catch (error) {
-    console.error('[Step4 onMounted] Failed to load from Supabase:', error);
-  }
-
-  // 3. Supabase에 데이터가 없으면 LocalStorage에서 복원
-  if (!dataRestored && STORAGE_KEY.value) {
-    const saved = localStorage.getItem(STORAGE_KEY.value);
-    if (saved) {
-      try {
-        const savedData = JSON.parse(saved);
-        
-        // 이전 버전 호환성: assignments만 저장된 경우와 새 버전(assignments + offReasons) 구분
-        let savedAssignments: AssignmentMap;
-        let savedOffReasons: OffReasonMap = {};
-        
-        if (savedData.assignments) {
-          // 새 버전
-          savedAssignments = savedData.assignments;
-          savedOffReasons = savedData.offReasons || {};
-        } else {
-          // 이전 버전 (assignments만 저장됨)
-          savedAssignments = savedData;
-        }
-        
-        const savedKeys = Object.keys(savedAssignments);
-        
-        console.log('[Step4 onMounted] LocalStorage has', savedKeys.length, 'employee assignments');
-        
-        // 유효한 employee_id만 필터링 (현재 로드된 직원들만)
-        const validEmployeeIds = new Set(grid.employees.value.map(emp => emp.id));
-        const filteredSavedAssignments: AssignmentMap = {};
-        const filteredSavedOffReasons: OffReasonMap = {};
-        
-        let invalidCount = 0;
-        Object.entries(savedAssignments).forEach(([employeeId, dateMap]) => {
-          if (validEmployeeIds.has(employeeId)) {
-            filteredSavedAssignments[employeeId] = dateMap as Record<string, string>;
-            // offReasons도 복원
-            if (savedOffReasons[employeeId]) {
-              filteredSavedOffReasons[employeeId] = savedOffReasons[employeeId];
-            }
-          } else {
-            invalidCount++;
-            console.warn('[onMounted] Skipping invalid employee_id from localStorage:', employeeId);
-          }
-        });
-        
-        const restoredCount = Object.keys(filteredSavedAssignments).length;
-        
-        // 모든 employee_id가 유효하지 않으면 LocalStorage 초기화
-        if (restoredCount === 0 && savedKeys.length > 0) {
-          console.warn('[onMounted] All employee IDs in localStorage are invalid. Clearing localStorage.');
-          localStorage.removeItem(STORAGE_KEY.value);
-          showWarning('이전 작업 데이터가 현재 직원 정보와 일치하지 않아 초기화되었습니다.');
-        } else if (restoredCount > 0) {
-          // 기존 초기화된 객체와 병합 (모든 직원의 키 보존)
-          grid.assignments.value = {
-            ...grid.assignments.value,
-            ...filteredSavedAssignments,
-          };
-          grid.offReasons.value = {
-            ...grid.offReasons.value,
-            ...filteredSavedOffReasons,
-          };
-          restoredAssignments = filteredSavedAssignments;
-          dataRestored = true;
-          
-          if (invalidCount > 0) {
-            showInfo(`이전 작업이 복원되었습니다 (${restoredCount}/${savedKeys.length}명) - LocalStorage`);
-          } else {
-            showInfo('이전 작업이 복원되었습니다 (LocalStorage)');
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to restore from localStorage:', e);
-        // 파싱 실패 시 LocalStorage 초기화
-        localStorage.removeItem(STORAGE_KEY.value);
-      }
-    }
-  }
-
-  // 4. 복원된 데이터에서 전월 데이터 자동 감지
-  if (dataRestored && scheduleStore.basicInfo) {
-    const detectedLastMonthDays = detectLastMonthDays(
-      restoredAssignments,
-      scheduleStore.basicInfo.month
-    );
-    
-    if (detectedLastMonthDays > 0) {
-      console.log('[Step4 onMounted] Auto-detected lastMonthDays:', detectedLastMonthDays);
-      
-      // 전월 데이터 자동 활성화
-      showLastMonth.value = true;
-      lastMonthDays.value = detectedLastMonthDays;
-      grid.lastMonthDays.value = detectedLastMonthDays;
-      
-      // 날짜 재생성 (전월 포함)
-      grid.generateDates(scheduleStore.basicInfo.month, detectedLastMonthDays);
-      
-      showInfo(`전월 ${detectedLastMonthDays}일 데이터가 자동으로 표시되었습니다`);
-    }
-  }
+  // Default to 0 days from last month for now, as user requested to remove the toggle
+  grid.generateDates(scheduleStore.basicInfo.month, 0); 
+  
+  // Restore logic (Supabase -> LocalStorage)
+  await restoreData();
 });
 
-// 전월 데이터 일수 자동 감지 함수
-function detectLastMonthDays(assignments: AssignmentMap, currentMonth: string): number {
-  if (!currentMonth) return 0;
-  
-  // 현재 월의 첫날
-  const currentMonthDate = new Date(currentMonth + '-01');
-  
-  // 전월 말일 계산
-  const lastMonth = new Date(currentMonthDate);
-  lastMonth.setDate(0); // 전월 마지막 날
-  
-  const lastMonthYear = lastMonth.getFullYear();
-  const lastMonthMonth = String(lastMonth.getMonth() + 1).padStart(2, '0');
-  const lastMonthLastDay = lastMonth.getDate();
-  
-  // 전월 마지막 5일 날짜 생성
-  const lastMonthDates: string[] = [];
-  for (let i = 4; i >= 0; i--) {
-    const day = lastMonthLastDay - i;
-    const dateStr = `${lastMonthYear}-${lastMonthMonth}-${String(day).padStart(2, '0')}`;
-    lastMonthDates.push(dateStr);
-  }
-  
-  console.log('[detectLastMonthDays] Checking dates:', lastMonthDates);
-  
-  // 각 날짜별로 데이터 존재 여부 확인
-  const daysWithData: Set<string> = new Set();
-  
-  Object.values(assignments).forEach(dateMap => {
-    if (dateMap) {
-      Object.keys(dateMap).forEach(date => {
-        if (lastMonthDates.includes(date)) {
-          daysWithData.add(date);
+async function restoreData() {
+    let dataRestored = false;
+    
+    // 1. Supabase
+    try {
+        const { data: existingSchedules } = await supabase
+            .from('schedules')
+            .select('id, status')
+            .eq('organization_id', scheduleStore.basicInfo!.organizationId)
+            .eq('month', scheduleStore.basicInfo!.month)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (existingSchedules && existingSchedules.length > 0) {
+            const schedule = existingSchedules[0];
+            if (!schedule) return;
+
+            existingScheduleId.value = schedule.id;
+            
+            if (schedule.status === 'complete' || schedule.status === 'changed') {
+                scheduleStore.currentStep = 5;
+                router.replace(`/schedule/step5/${schedule.id}`);
+                return;
+            }
+
+            const { assignments, offReasons, comments } = await getScheduleAssignments(schedule.id);
+            if (Object.keys(assignments).length > 0) {
+                grid.assignments.value = { ...grid.assignments.value, ...assignments };
+                grid.offReasons.value = { ...grid.offReasons.value, ...offReasons };
+                grid.comments.value = { ...grid.comments.value, ...comments };
+                dataRestored = true;
+                showInfo('저장된 데이터를 불러왔습니다.');
+            }
         }
-      });
+    } catch (e) {
+        console.error('Failed to load from Supabase', e);
     }
-  });
-  
-  console.log('[detectLastMonthDays] Days with data:', Array.from(daysWithData));
-  
-  // 연속된 전월 일수 계산 (뒤에서부터)
-  let detectedDays = 0;
-  for (let i = lastMonthDates.length - 1; i >= 0; i--) {
-    if (daysWithData.has(lastMonthDates[i] as string)) {
-      detectedDays = lastMonthDates.length - i;
-    } else {
-      // 중간에 빈 날짜가 있으면 중단
-      break;
+
+    // 2. LocalStorage
+    if (!dataRestored && STORAGE_KEY.value) {
+        const saved = localStorage.getItem(STORAGE_KEY.value);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                const savedAssignments = parsed.assignments || parsed; 
+                const savedOffReasons = parsed.offReasons || {};
+                const savedComments = parsed.comments || {};
+                
+                grid.assignments.value = { ...grid.assignments.value, ...savedAssignments };
+                grid.offReasons.value = { ...grid.offReasons.value, ...savedOffReasons };
+                grid.comments.value = { ...grid.comments.value, ...savedComments };
+                
+                showInfo('이전 작업이 복원되었습니다 (LocalStorage)');
+            } catch (e) {
+                localStorage.removeItem(STORAGE_KEY.value);
+            }
+        }
     }
-  }
-  
-  return Math.min(detectedDays, 5); // 최대 5일
 }
 
-function handleAssignmentUpdate(payload: {
-  employeeId: string;
-  date: string;
-  shiftCode: string;
-}) {
-  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
-}
-
-// Off 선택 시 사유 입력 모달 표시
-function handleOffSelect(payload: { employeeId: string; date: string }) {
-  selectedOffCell.value = payload;
-  selectedOffReason.value = 'VACATION'; // 기본값
-  showOffReasonModal.value = true;
-}
-
-// Off 사유 확인
-function handleOffReasonConfirm() {
-  if (!selectedOffCell.value) return;
-  
-  const { employeeId, date } = selectedOffCell.value;
-  const reasonKey = selectedOffReason.value;
-  const reasonLabel = OFF_REASONS[reasonKey as keyof typeof OFF_REASONS];
-  
-  // Off 배정 및 사유 저장
-  grid.setAssignment(employeeId, date, 'O');
-  grid.setOffReason(employeeId, date, reasonLabel);
-  
-  // 모달 닫기
-  showOffReasonModal.value = false;
-  selectedOffCell.value = null;
-  
-  showSuccess(`Off가 설정되었습니다 (${reasonLabel})`);
-}
-
-// Off 사유 모달 취소
-function handleOffReasonCancel() {
-  showOffReasonModal.value = false;
-  selectedOffCell.value = null;
-}
-
+// Actions
 function handlePrev() {
-  // 현재 상태 저장
   scheduleStore.setAssignments(grid.assignments.value);
+  scheduleStore.setComments(grid.comments.value);
   scheduleStore.prevStep();
   router.push('/schedule/step3');
 }
 
-async function handleSave() {
-  if (!scheduleStore.basicInfo) {
-    showError('기본 정보가 없습니다');
-    return;
-  }
-
-  try {
-    // 1. Store에 저장
-    scheduleStore.setAssignments(grid.assignments.value);
-
-    // 2. Shifts 로드하여 code -> id 매핑 생성
-    const shifts = await loadShifts(scheduleStore.basicInfo.organizationId);
-    const shiftsMap: Record<string, string> = {};
-    shifts.forEach((shift) => {
-      shiftsMap[shift.code] = shift.id;
-    });
-
-    // 3. 유효한 employee_id만 필터링 (현재 로드된 직원들만)
-    const validEmployeeIds = new Set(grid.employees.value.map(emp => emp.id));
-    const filteredAssignments: AssignmentMap = {};
+async function handleSave(): Promise<string | undefined> {
+    if (!scheduleStore.basicInfo) return;
     
-    Object.entries(grid.assignments.value).forEach(([employeeId, dateMap]) => {
-      if (validEmployeeIds.has(employeeId)) {
-        filteredAssignments[employeeId] = dateMap;
-      } else {
-        console.warn('[handleSave] Skipping invalid employee_id:', employeeId);
-      }
-    });
+    try {
+        scheduleStore.setAssignments(grid.assignments.value);
+        scheduleStore.setComments(grid.comments.value);
+        
+        const shifts = await loadShifts(scheduleStore.basicInfo.organizationId);
+        const shiftsMap: Record<string, string> = {};
+        shifts.forEach(s => shiftsMap[s.code] = s.id);
 
-    console.log('[handleSave] Valid employees:', validEmployeeIds.size);
-    console.log('[handleSave] Filtered assignments keys:', Object.keys(filteredAssignments).length);
-    console.log('[handleSave] Original assignments keys:', Object.keys(grid.assignments.value).length);
-    
-    // 샘플 데이터 출력 (첫 3명)
-    const sampleEmployeeIds = Array.from(validEmployeeIds).slice(0, 3);
-    console.log('[handleSave] Sample valid employee IDs:', sampleEmployeeIds);
-    
-    const filteredKeys = Object.keys(filteredAssignments).slice(0, 3);
-    console.log('[handleSave] Sample filtered assignment keys:', filteredKeys);
-
-    // 4. Supabase에 저장 (offReasons도 함께 전달)
-    await saveTempAssignments(
-      scheduleStore.basicInfo.organizationId,
-      scheduleStore.basicInfo.month,
-      filteredAssignments,
-      shiftsMap,
-      grid.offReasons.value
-    );
-
-    showSuccess('임시 저장되었습니다');
-  } catch (error) {
-    console.error('[handleSave] Error:', error);
-    showError(error instanceof Error ? error.message : '임시 저장 실패');
-  }
-}
-
-function handleLoadSampleData() {
-  // 전월 데이터만 샘플로 채우기
-  const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
-  
-  if (lastMonthDates.length === 0) {
-    showWarning('전월 일수를 1일 이상으로 설정해주세요');
-    return;
-  }
-  
-  // 전월 데이터에서는 'O' (Off) 제외
-  const shiftCodes = ['D', 'E', 'N'];
-
-  grid.employees.value.forEach((employee, empIndex) => {
-    lastMonthDates.forEach((dateCol, dateIndex) => {
-      // 각 직원마다 다른 패턴으로 배치 (순환)
-      const shiftIndex = (empIndex + dateIndex) % 3;
-      const shiftCode = shiftCodes[shiftIndex] || 'D';
-
-      grid.setAssignment(employee.id, dateCol.date as string, shiftCode);
-    });
-  });
-
-  showSuccess(`전월 ${lastMonthDates.length}일 샘플 데이터가 로드되었습니다`);
-}
-
-// 엑셀 템플릿 다운로드
-function handleDownloadTemplate() {
-  if (!scheduleStore.basicInfo) {
-    showError('기본 정보가 없습니다');
-    return;
-  }
-  
-  const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
-  if (lastMonthDates.length === 0) {
-    showWarning('전월 일수를 1일 이상으로 설정해주세요');
-    return;
-  }
-  
-  try {
-    downloadLastMonthTemplate(
-      grid.employees.value,
-      grid.dates.value,
-      scheduleStore.basicInfo.month
-    );
-    showSuccess('템플릿이 다운로드되었습니다');
-  } catch (error) {
-    showError(error instanceof Error ? error.message : '템플릿 다운로드 실패');
-  }
-}
-
-// 엑셀 업로드 처리
-async function handleExcelUpload({ file }: { file: UploadFileInfo }) {
-  if (!file.file) {
-    showError('파일을 선택해주세요');
-    return;
-  }
-  
-  const lastMonthDates = grid.dates.value.filter(d => d.isLastMonth);
-  if (lastMonthDates.length === 0) {
-    showWarning('전월 일수를 1일 이상으로 설정해주세요');
-    return;
-  }
-  
-  try {
-    const { assignments: parsedAssignments, rejectedOffCount } = await parseLastMonthExcel(
-      file.file,
-      grid.employees.value,
-      grid.dates.value
-    );
-    
-    // 기존 assignments에 전월 데이터 덮어쓰기
-    const lastMonthDateSet = new Set(lastMonthDates.map(d => d.date));
-    
-    grid.employees.value.forEach(emp => {
-      // 안전하게 가져오거나 초기화
-      let empAssignments = grid.assignments.value[emp.id];
-      if (!empAssignments) {
-        empAssignments = {};
-        grid.assignments.value[emp.id] = empAssignments;
-      }
-      
-      // 전월 날짜만 덮어쓰기
-      lastMonthDateSet.forEach(date => {
-        const shift = parsedAssignments[emp.id]?.[date];
-        if (shift) {
-          empAssignments[date] = shift;
-        }
-      });
-    });
-    
-    // 반응성 트리거
-    grid.assignments.value = { ...grid.assignments.value };
-    
-    const importedCount = Object.keys(parsedAssignments).length;
-    
-    // 성공 메시지 (제거된 'O'가 있으면 경고 추가)
-    if (rejectedOffCount > 0) {
-      showWarning(`${importedCount}명의 전월 데이터가 업로드되었습니다. (${rejectedOffCount}개의 'O'는 전월 데이터에서 제외되었습니다)`);
-    } else {
-      showSuccess(`${importedCount}명의 전월 데이터가 업로드되었습니다`);
+        const schedule = await saveTempAssignments(
+            scheduleStore.basicInfo.organizationId,
+            scheduleStore.basicInfo.month,
+            grid.assignments.value,
+            shiftsMap,
+            grid.offReasons.value,
+            grid.comments.value
+        );
+        showSuccess('임시 저장되었습니다.');
+        return schedule.id;
+    } catch (e) {
+        showError('저장 실패: ' + (e instanceof Error ? e.message : String(e)));
     }
-  } catch (error) {
-    showError(error instanceof Error ? error.message : '엑셀 파싱 실패');
-  }
 }
 
 async function handleGenerate() {
-  if (isSubmitting.value) {
-    return;
-  }
-
-  // 1. 전월 데이터 검증 (선택적 - requireLastMonth=false)
-  const validation = validateLastMonthData(
-    grid.employees.value,
-    grid.dates.value,
-    grid.assignments.value as AssignmentMap, // 명시적 형변환 (타입 안전성 보장)
-    false // 전월 데이터 필수 아님
-  );
-
-  // 경고가 있으면 사용자에게 알림 (계속 진행 가능)
-  if (validation.warnings.length > 0 && lastMonthDays.value > 0) {
-    const warningCount = validation.warnings.length;
-    showWarning(`전월 데이터 중 ${warningCount}개 셀이 비어있습니다. 계속 진행합니다.`);
-  }
-
-  // 2. 저장 및 다음 단계
-  scheduleStore.setAssignments(grid.assignments.value);
-
-  if (!scheduleStore.basicInfo) {
-    showError('기본 정보가 없습니다');
-    return;
-  }
-
+  if (isSubmitting.value) return;
   isSubmitting.value = true;
 
   try {
-    const basicInfo = scheduleStore.basicInfo;
+    const scheduleId = await handleSave();
+    if (!scheduleId) throw new Error('임시 저장에 실패했습니다.');
 
-    const schedule = await createSchedule(
-      basicInfo.organizationId,
-      basicInfo.month
-    );
+    const planningEmployees = await getPlanningEmployees(scheduleStore.basicInfo!.organizationId);
+    
+    // 기존 배정 데이터 조회
+    const existingAssignments = await getPlanningAssignments(scheduleId);
 
-    // 3. 당월 requirement 데이터 구성
-    const thisMonthDates = grid.dates.value.filter(d => !d.isLastMonth).map(d => d.date);
-
-    const weeklyRequirements: Record<number, DailyRequirement> = {};
-
+    // 주간 요구사항 집계
+    const weeklyRequirements: Record<number, any> = {};
     scheduleStore.siteRequirements.forEach(req => {
-      if (!weeklyRequirements[req.dayOfWeek]) {
-        weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-      }
-      
-      const shift = req.shiftCode as keyof DailyRequirement;
-      const currentReq = weeklyRequirements[req.dayOfWeek];
-      
-      if (currentReq && ['D', 'E', 'N', 'O'].includes(shift)) {
-        currentReq[shift] = req.requiredCount;
-        currentReq.total += req.requiredCount;
-      }
+       if (!weeklyRequirements[req.dayOfWeek]) {
+         weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+       }
+       const currentReq = weeklyRequirements[req.dayOfWeek];
+       const shift = req.shiftCode;
+       if (['D', 'E', 'N', 'O'].includes(shift)) {
+         currentReq[shift] = req.requiredCount;
+         currentReq.total += req.requiredCount;
+       }
     });
 
-    const dateBasedRequirements: SiteRequirements = {};
-    thisMonthDates.forEach((dateStr) => {
-      const date = new Date(dateStr as string);
-      const dayOfWeek = date.getDay(); // 0-6
-      const weeklyReq = weeklyRequirements[dayOfWeek];
-      
-      if (weeklyReq) {
-        dateBasedRequirements[dateStr as string] = { ...weeklyReq };
-      } else {
-        // 기본값
-        dateBasedRequirements[dateStr as string] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-      }
+    // 일자별 요구사항 생성
+    const dateBasedRequirements: Record<string, any> = {};
+    grid.dates.value.forEach(d => {
+       if (d.isLastMonth) return;
+       
+       const dateObj = new Date(d.date);
+       const dayOfWeek = dateObj.getDay(); 
+       const weeklyReq = weeklyRequirements[dayOfWeek];
+       
+       if (weeklyReq) {
+         dateBasedRequirements[d.date] = { ...weeklyReq };
+       } else {
+         dateBasedRequirements[d.date] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+       }
     });
-
-    // 4. Planning Payload 구성
-    const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
-    const shifts = basicInfo.shifts;
-    const existingAssignments = await getPlanningAssignments(schedule.id);
 
     const solverRequest = mapToSolverRequest(
-      basicInfo,
-      dateBasedRequirements,
+      scheduleStore.basicInfo!,
+      dateBasedRequirements, 
       grid.assignments.value,
       grid.offReasons.value,
-      planningEmployees.map((employee) => ({
-        employee_id: employee.employee_id,
-        name: employee.name,
-        available_shifts: employee.available_shifts,
-        skill_set: ['ALL'],
-      })),
-      shifts,
+      planningEmployees,
+      scheduleStore.basicInfo!.shifts,
       existingAssignments
     );
 
-    scheduleStore.setPendingSolverRequest(schedule.id, solverRequest);
-    scheduleStore.nextStep();
-    showInfo('생성 요청을 준비했습니다. 결과 화면으로 이동합니다.');
-    await router.push(`/schedule/step5/${schedule.id}?autostart=1`);
+    scheduleStore.setPendingSolverRequest(scheduleId, solverRequest);
+    scheduleStore.currentStep = 5;
+    router.push(`/schedule/step5/${scheduleId}`);
+
   } catch (error) {
-    console.error('[handleGenerate] Error:', error);
-    const errorMessage = error instanceof Error ? error.message : '근무표 생성 중 오류가 발생했습니다';
-    showError(errorMessage);
+    console.error(error);
+    showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
   } finally {
     isSubmitting.value = false;
-  }
-}
-
-function handleViewExistingSchedule() {
-  if (existingScheduleId.value) {
-    router.push(`/schedule/step5/${existingScheduleId.value}`);
   }
 }
 </script>

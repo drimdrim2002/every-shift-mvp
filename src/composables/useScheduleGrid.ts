@@ -1,13 +1,15 @@
 import { ref } from 'vue';
 import { supabase } from '@/api/supabase';
 import type { Employee } from '@/types/employee';
-import type { AssignmentMap, GridColumn, OffReasonMap } from '@/types/schedule';
+import type { AssignmentMap, GridColumn, OffReasonMap, CommentMap } from '@/types/schedule';
 import { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date';
+import { useScheduleGridStatistics } from './useScheduleGridStatistics';
 
 export function useScheduleGrid() {
   const employees = ref<Employee[]>([]);
   const assignments = ref<AssignmentMap>({});
   const offReasons = ref<OffReasonMap>({});
+  const comments = ref<CommentMap>({});
   const dates = ref<GridColumn[]>([]);
   const loading = ref(false);
   const lastMonthDays = ref(5); // 전월 일수 (0-5, 기본값 5)
@@ -55,15 +57,19 @@ export function useScheduleGrid() {
       // 초기 assignments 객체 생성
       const initialAssignments: AssignmentMap = {};
       const initialOffReasons: OffReasonMap = {};
+      const initialComments: CommentMap = {};
       employees.value.forEach(emp => {
         initialAssignments[emp.id] = {};
         initialOffReasons[emp.id] = {};
+        initialComments[emp.id] = {};
       });
       assignments.value = initialAssignments;
       offReasons.value = initialOffReasons;
+      comments.value = initialComments;
 
       console.log('[loadEmployees] Initial assignments keys:', Object.keys(initialAssignments).length);
       console.log('[loadEmployees] Initial offReasons keys:', Object.keys(initialOffReasons).length);
+      console.log('[loadEmployees] Initial comments keys:', Object.keys(initialComments).length);
 
       return { success: true };
     } catch (error: unknown) {
@@ -117,18 +123,44 @@ export function useScheduleGrid() {
     return offReasons.value[employeeId]?.[date] || null;
   }
 
+  // 코멘트 설정
+  function setComment(employeeId: string, date: string, comment: string) {
+    if (!comments.value[employeeId]) {
+      comments.value[employeeId] = {};
+    }
+    comments.value[employeeId][date] = comment;
+    // 반응성 트리거
+    comments.value = { ...comments.value };
+  }
+
+  // 코멘트 가져오기
+  function getComment(employeeId: string, date: string): string | null {
+    return comments.value[employeeId]?.[date] || null;
+  }
+
+  // 통계 계산
+  const statistics = useScheduleGridStatistics(
+    () => employees.value,
+    () => dates.value,
+    () => assignments.value
+  );
+
   return {
     employees,
     assignments,
     offReasons,
+    comments,
     dates,
     loading,
     lastMonthDays,
+    statistics,
     loadEmployees,
     generateDates,
     setAssignment,
     getAssignment,
     setOffReason,
     getOffReason,
+    setComment,
+    getComment,
   };
 }

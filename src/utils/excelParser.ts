@@ -310,8 +310,9 @@ function extractPreviousMonthData(
     // 날짜별 시프트 추출 (컬럼 2부터 시작, 5개 날짜)
     for (let j = 0; j < dates.length; j++) {
       const shift = String(row[j + 2] || '').trim().toUpperCase();
-      if (shift) {
-        assignments[employeeId][dates[j]] = shift;
+      const date = dates[j];
+      if (shift && date) {
+        assignments[employeeId][date] = shift;
       }
     }
   }

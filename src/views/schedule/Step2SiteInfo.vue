@@ -194,7 +194,11 @@ function convertVerticalToHorizontal(verticalData: SiteRequirementRow[]) {
     if (!horizontalData[row.dayOfWeek]) {
       horizontalData[row.dayOfWeek] = {};
     }
-    horizontalData[row.dayOfWeek][row.shiftCode.toUpperCase()] = row.requiredCount;
+    // Type assertion or check
+    const dayData = horizontalData[row.dayOfWeek];
+    if (dayData) {
+        dayData[row.shiftCode.toUpperCase()] = row.requiredCount;
+    }
   });
 }
 
@@ -205,7 +209,7 @@ function convertHorizontalToVertical(): SiteRequirementRow[] {
   const result: SiteRequirementRow[] = [];
 
   dayOrder.forEach((dayOfWeek) => {
-    const dayName = dayNames[dayOfWeek];
+    const dayName = dayNames[dayOfWeek] as string; // Assert string
     const dayData = horizontalData[dayOfWeek] || {};
 
     shiftCodes.value.forEach((shift) => {
@@ -228,7 +232,10 @@ function initDefaultValues() {
   for (let day = 0; day < 7; day++) {
     horizontalData[day] = {};
     shiftCodes.value.forEach((shift) => {
-      horizontalData[day][shift.code.toUpperCase()] = shift.code.toUpperCase() === 'O' ? 0 : 5;
+      const dayData = horizontalData[day];
+      if (dayData) {
+          dayData[shift.code.toUpperCase()] = shift.code.toUpperCase() === 'O' ? 0 : 5;
+      }
     });
   }
 }

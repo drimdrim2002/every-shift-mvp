@@ -30,6 +30,9 @@ export type AssignmentMap = Record<string, Record<string, string>>;
 // Off 사유 맵: employeeId -> date -> reason
 export type OffReasonMap = Record<string, Record<string, string>>;
 
+// 코멘트 맵: employeeId -> date -> comment
+export type CommentMap = Record<string, Record<string, string>>;
+
 // Off 사유 상수
 export const OFF_REASONS = {
   VACATION: '휴가',

@@ -60,7 +60,8 @@
             <th
               v-for="date in dates"
               :key="date.date"
-              class="header-level-3 bg-gray-50 px-2 py-1 text-center text-sm"
+              class="header-level-3 bg-gray-50 px-2 py-1 text-center text-sm cursor-pointer hover:bg-gray-100 transition-colors"
+              @click="handleHeaderClick(date.date)"
             >
               {{ date.day }}일<br>
               <span class="text-xs text-gray-600">({{ date.dayName }})</span>
@@ -102,7 +103,21 @@
               :class="getCellClass(date)"
               class="shift-cell"
             >
+              <!-- Planning Mode: Constraint Selector -->
+              <ConstraintSelector
+                v-if="mode === 'planning'"
+                :employee-id="employee.id"
+                :date="date.date"
+                :current-constraint="getAssignment(employee.id, date.date)"
+                :has-comment="!!getComment(employee.id, date.date)"
+                :readonly="readonly"
+                @update:constraint="handleConstraintUpdate"
+                @context-menu="handleContextMenu"
+              />
+
+              <!-- Result Mode: Shift Selector -->
               <ShiftSelector
+                v-else
                 :employee-id="employee.id"
                 :date="date.date"
                 :available-shifts="getFilteredShifts(employee.availableShifts, date.isLastMonth)"
@@ -210,17 +225,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUpdated } from 'vue';
 import type { Employee } from '@/types/employee';
-import type { GridColumn, AssignmentMap, OffReasonMap } from '@/types/schedule';
+import type { GridColumn, AssignmentMap, OffReasonMap, CommentMap } from '@/types/schedule';
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';
 import ShiftSelector from './ShiftSelector.vue';
+import ConstraintSelector from './ConstraintSelector.vue';
 
 interface Props {
   employees: Employee[];
   dates: GridColumn[];
   assignments: AssignmentMap;
   offReasons?: OffReasonMap;
+  comments?: CommentMap; // added
   readonly?: boolean;
   showLastMonth?: boolean;
+  mode?: 'planning' | 'result'; // added
 }
 
 interface Emits {
@@ -230,9 +248,17 @@ interface Emits {
     shiftCode: string;
   }): void;
   (e: 'select-off', payload: { employeeId: string; date: string }): void;
+  (e: 'header-click', date: string): void; // added
+  (e: 'context-menu', payload: { event: MouseEvent; employeeId: string; date: string }): void; // added
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  mode: 'result',
+  offReasons: () => ({}),
+  comments: () => ({}),
+  readonly: false,
+  showLastMonth: false,
+});
 const emit = defineEmits<Emits>();
 
 // 성능 측정
@@ -301,12 +327,32 @@ function handleShiftSelect(employeeId: string, date: string, shiftCode: string) 
   }
 }
 
+function handleConstraintUpdate(payload: { employeeId: string; date: string; constraint: string }) {
+  emit('update:assignment', {
+    employeeId: payload.employeeId,
+    date: payload.date,
+    shiftCode: payload.constraint
+  });
+}
+
 function handleSelectOff(payload: { employeeId: string; date: string }) {
   emit('select-off', payload);
 }
 
 function getOffReason(employeeId: string, date: string): string | null {
   return props.offReasons?.[employeeId]?.[date] || null;
+}
+
+function getComment(employeeId: string, date: string): string | null {
+  return props.comments?.[employeeId]?.[date] || null;
+}
+
+function handleHeaderClick(date: string) {
+  emit('header-click', date);
+}
+
+function handleContextMenu(event: MouseEvent, payload: { employeeId: string; date: string }) {
+  emit('context-menu', { event, ...payload });
 }
 
 // Level 1 헤더: 전월/당월 그룹

@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import type {
   AssignmentMap,
   OffReasonMap,
+  CommentMap,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
@@ -17,6 +18,7 @@ interface AssignmentRow {
   date: string;
   shifts: ShiftReference | null;
   off_reason: string | null;
+  comment: string | null;
 }
 
 // Supabase 조회 결과 타입 (shifts가 배열로 반환될 수 있음)
@@ -24,6 +26,8 @@ interface AssignmentQueryResult {
   employee_id: string;
   date: string;
   shifts: ShiftReference | ShiftReference[] | null;
+  off_reason: string | null;
+  comment: string | null;
 }
 
 // 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
@@ -81,10 +85,11 @@ export async function getScheduleStatus(scheduleId: string) {
   return data;
 }
 
-// 근무표 배정 조회 (assignments와 offReasons 함께 반환)
+// 근무표 배정 조회 (assignments와 offReasons, comments 함께 반환)
 export async function getScheduleAssignments(scheduleId: string): Promise<{
   assignments: AssignmentMap;
   offReasons: OffReasonMap;
+  comments: CommentMap;
 }> {
   // Supabase 기본 limit은 1000개이므로, 여러 번 조회하여 모든 데이터 가져오기
   // 30명 × 36일 = 1080개 필요
@@ -98,7 +103,7 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
   while (hasMore) {
     const { data, error } = await supabase
       .from('schedule_assignments')
-      .select('employee_id, date, shifts(code), off_reason')
+      .select('employee_id, date, shifts(code), off_reason, comment')
       .eq('schedule_id', scheduleId)
       .range(from, from + pageSize - 1);
 
@@ -106,12 +111,13 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
 
     if (data && data.length > 0) {
       // Supabase 조회 결과를 AssignmentRow로 변환
-      const queryResults = data as AssignmentQueryResult[];
+      const queryResults = data as unknown as AssignmentQueryResult[];
       const normalizedRows: AssignmentRow[] = queryResults.map((row) => ({
         employee_id: row.employee_id,
         date: row.date,
         shifts: Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts,
-        off_reason: (row as any).off_reason || null,
+        off_reason: row.off_reason || null,
+        comment: row.comment || null,
       }));
       allData.push(...normalizedRows);
       from += pageSize;
@@ -125,14 +131,16 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
   console.log('[getScheduleAssignments] Total rows:', allData.length);
   console.log('[getScheduleAssignments] Unique employees:', new Set(allData.map((r) => r.employee_id)).size);
 
-  // AssignmentMap과 OffReasonMap 형식으로 변환
+  // AssignmentMap과 OffReasonMap, CommentMap 형식으로 변환
   const assignments: AssignmentMap = {};
   const offReasons: OffReasonMap = {};
+  const comments: CommentMap = {};
 
   allData.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
       offReasons[row.employee_id] = {};
+      comments[row.employee_id] = {};
     }
     assignments[row.employee_id]![row.date] = row.shifts?.code ?? '';
 
@@ -140,12 +148,18 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
     if (row.off_reason) {
       offReasons[row.employee_id]![row.date] = row.off_reason;
     }
+
+    // comment가 있으면 comments에 저장
+    if (row.comment) {
+      comments[row.employee_id]![row.date] = row.comment;
+    }
   });
 
   console.log('[getScheduleAssignments] Assignment keys count:', Object.keys(assignments).length);
   console.log('[getScheduleAssignments] OffReason keys count:', Object.keys(offReasons).length);
+  console.log('[getScheduleAssignments] Comment keys count:', Object.keys(comments).length);
 
-  return { assignments, offReasons };
+  return { assignments, offReasons, comments };
 }
 
 // 배정 수정
@@ -153,22 +167,26 @@ export async function updateAssignment(
   scheduleId: string,
   employeeId: string,
   date: string,
-  shiftId: string
+  shiftId: string,
+  comment?: string
 ) {
+  const updateData: any = {
+    schedule_id: scheduleId,
+    employee_id: employeeId,
+    shift_id: shiftId,
+    date,
+  };
+
+  if (comment !== undefined) {
+    updateData.comment = comment;
+  }
+
   // Upsert
   const { error } = await supabase
     .from('schedule_assignments')
-    .upsert(
-      {
-        schedule_id: scheduleId,
-        employee_id: employeeId,
-        shift_id: shiftId,
-        date,
-      },
-      {
-        onConflict: 'schedule_id,employee_id,date',
-      }
-    );
+    .upsert(updateData, {
+      onConflict: 'schedule_id,employee_id,date',
+    });
 
   if (error) throw error;
 
@@ -238,7 +256,8 @@ export async function saveTempAssignments(
   month: string,
   assignments: AssignmentMap,
   shiftsMap: Record<string, string>, // shiftCode -> shiftId 매핑
-  offReasons?: OffReasonMap // 선택적 파라미터
+  offReasons?: OffReasonMap, // 선택적 파라미터
+  comments?: CommentMap // 선택적 파라미터
 ) {
   console.log('[saveTempAssignments] START - orgId:', orgId, 'month:', month);
   console.log('[saveTempAssignments] shiftsMap:', shiftsMap);
@@ -249,13 +268,14 @@ export async function saveTempAssignments(
   console.log('[saveTempAssignments] Schedule ID:', schedule.id);
   console.log('[saveTempAssignments] Schedule status:', schedule.status);
 
-  // 2. assignments를 배열로 변환 (off_reason, is_locked 포함)
+  // 2. assignments를 배열로 변환 (off_reason, is_locked, comment 포함)
   const rows: Array<{
     schedule_id: string;
     employee_id: string;
     shift_id: string;
     date: string;
     off_reason?: string;
+    comment?: string;
     is_locked: boolean;
   }> = [];
 
@@ -265,6 +285,7 @@ export async function saveTempAssignments(
       if (shiftCode && shiftsMap[shiftCode]) {
         // off_reason이 있는지 확인
         const offReason = offReasons?.[employeeId]?.[date];
+        const comment = comments?.[employeeId]?.[date];
         // off_reason이 있으면 is_locked=true (AI가 변경 불가)
         const isLocked = !!offReason;
 
@@ -274,6 +295,7 @@ export async function saveTempAssignments(
           shift_id: shiftsMap[shiftCode],
           date,
           off_reason: offReason || undefined,
+          comment: comment || undefined,
           is_locked: isLocked,
         });
       } else if (shiftCode) {
@@ -323,18 +345,6 @@ export async function saveTempAssignments(
 
   console.log('[saveTempAssignments] Insert result - rows inserted:', insertData?.length || 0);
   console.log('[saveTempAssignments] Successfully saved', rows.length, 'assignments');
-
-  // 5. 검증: 실제로 저장되었는지 확인
-  const { data: verifyData, error: verifyError } = await supabase
-    .from('schedule_assignments')
-    .select('id')
-    .eq('schedule_id', schedule.id);
-
-  if (verifyError) {
-    console.error('[saveTempAssignments] Verification error:', verifyError);
-  } else {
-    console.log('[saveTempAssignments] VERIFICATION - DB has', verifyData?.length || 0, 'rows for schedule_id:', schedule.id);
-  }
 
   return schedule;
 }
