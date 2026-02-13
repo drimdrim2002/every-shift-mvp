@@ -147,7 +147,7 @@
           <!-- 통계 행 (하단 고정) -->
           <!-- Total 행 -->
           <tr class="stat-row bg-gray-100">
-            <td class="sticky-column employee-cell font-bold">
+            <td class="sticky-column employee-cell font-bold text-center">
               Total
             </td>
             <td
@@ -165,7 +165,7 @@
 
           <!-- D 행 -->
           <tr class="stat-row bg-blue-50">
-            <td class="sticky-column employee-cell font-bold">
+            <td class="sticky-column employee-cell font-bold text-center">
               D
             </td>
             <td
@@ -183,7 +183,7 @@
 
           <!-- E 행 -->
           <tr class="stat-row bg-orange-50">
-            <td class="sticky-column employee-cell font-bold">
+            <td class="sticky-column employee-cell font-bold text-center">
               E
             </td>
             <td
@@ -201,7 +201,7 @@
 
           <!-- N 행 -->
           <tr class="stat-row bg-purple-50">
-            <td class="sticky-column employee-cell font-bold">
+            <td class="sticky-column employee-cell font-bold text-center">
               N
             </td>
             <td
@@ -426,7 +426,8 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
   overflow-y: auto;
   overflow-x: auto;
   position: relative;
-  
+}
+
 /* Custom Scrollbar for Webkit */
 .schedule-grid-container::-webkit-scrollbar {
   width: 8px;
@@ -434,18 +435,17 @@ function getFilteredShifts(availableShifts: string[], isLastMonth: boolean): str
 }
 
 .schedule-grid-container::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #f0fdf4; /* green-50 */
   border-radius: 4px;
 }
 
 .schedule-grid-container::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #86efac; /* green-300 */
   border-radius: 4px;
 }
 
 .schedule-grid-container::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
+  background: #4ade80; /* green-400 */
 }
 
 /* 메인 그리드 테이블 */

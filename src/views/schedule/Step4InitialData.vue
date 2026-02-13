@@ -41,10 +41,10 @@
             :show="grid.loading.value"
             class="h-full"
           >
-            <div class="absolute inset-0 overflow-auto">
+            <div class="absolute inset-0 overflow-hidden">
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
-                class="min-h-full"
+                class="h-full"
                 mode="planning"
                 :employees="grid.employees.value"
                 :dates="grid.dates.value"
