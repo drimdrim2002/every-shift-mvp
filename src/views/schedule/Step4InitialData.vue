@@ -19,7 +19,7 @@
         <div class="flex items-center justify-between border-b bg-gray-50 p-4">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-bold text-gray-800">
-              {{ scheduleStore.basicInfo?.month }}월 근무 불가 일정 입력
+              {{ scheduleStore.basicInfo?.month }}월 근무 조정 일정 입력
             </h2>
             <span
               v-if="orgStore.current"
@@ -30,8 +30,8 @@
           </div>
           <!-- Tips -->
           <div class="flex gap-3 text-xs text-gray-400">
-            <span>👆 셀 클릭: H → E → O → 빈칸</span>
-            <span>🖱️ 우클릭: 코멘트 작성</span>
+            <span>👆 셀 클릭: 빈칸 ↔ O</span>
+            <span>🖱️ 우클릭: O 셀 사유 작성</span>
           </div>
         </div>
 
@@ -44,9 +44,8 @@
                 mode="planning"
                 :employees="grid.employees.value"
                 :dates="grid.dates.value"
-                :assignments="grid.assignments.value"
-                :off-reasons="grid.offReasons.value"
-                :comments="grid.comments.value"
+                :constraints="constraints"
+                :comments="constraintNotes"
                 :readonly="false"
                 :show-last-month="false"
                 @update:assignment="handleAssignmentUpdate"
@@ -97,8 +96,8 @@
       v-model:show="showDaySummaryModal"
       :date="selectedDateSummary || ''"
       :employees="grid.employees.value"
-      :assignments="grid.assignments.value"
-      :comments="grid.comments.value"
+      :assignments="constraints"
+      :comments="constraintNotes"
       @close="showDaySummaryModal = false"
     />
   </div>
@@ -111,12 +110,13 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
-  getScheduleAssignments,
-  saveTempAssignments,
+  createSchedule,
+  getSchedulePreferences,
+  saveSchedulePreferences,
+  resetPreferenceResolution,
   getPlanningEmployees,
   getPlanningAssignments,
 } from '@/api/schedule';
-import { loadShifts } from '@/api/shift';
 import { supabase } from '@/api/supabase';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { NButton, NSpin } from 'naive-ui';
@@ -126,6 +126,7 @@ import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import { watchDebounced } from '@vueuse/core';
+import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
 
 const router = useRouter();
 const scheduleStore = useScheduleStore();
@@ -136,31 +137,82 @@ const isSubmitting = ref(false);
 const existingScheduleId = ref<string | null>(null);
 const isDev = import.meta.env.DEV;
 
+const constraints = ref<ConstraintMap>({});
+const constraintNotes = ref<CommentMap>({});
+
 // Modals state
 const showCommentModal = ref(false);
 const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
 const showDaySummaryModal = ref(false);
 const selectedDateSummary = ref<string>('');
 
+const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
+
 const selectedCellComment = computed(() => {
   if (!selectedCell.value) return '';
-  return grid.getComment(selectedCell.value.employeeId, selectedCell.value.date) || '';
+  return constraintNotes.value[selectedCell.value.employeeId]?.[selectedCell.value.date] || '';
 });
+
+function ensureEmployeeMaps(): void {
+  grid.employees.value.forEach((employee) => {
+    if (!constraints.value[employee.id]) {
+      constraints.value[employee.id] = {};
+    }
+    if (!constraintNotes.value[employee.id]) {
+      constraintNotes.value[employee.id] = {};
+    }
+  });
+}
+
+function mergeConstraintMap(source: ConstraintMap): void {
+  Object.entries(source).forEach(([employeeId, dateMap]) => {
+    if (!constraints.value[employeeId]) constraints.value[employeeId] = {};
+    Object.entries(dateMap || {}).forEach(([date, code]) => {
+      constraints.value[employeeId]![date] = code;
+    });
+  });
+  constraints.value = { ...constraints.value };
+}
+
+function mergeCommentMap(source: CommentMap): void {
+  Object.entries(source).forEach(([employeeId, dateMap]) => {
+    if (!constraintNotes.value[employeeId]) constraintNotes.value[employeeId] = {};
+    Object.entries(dateMap || {}).forEach(([date, comment]) => {
+      constraintNotes.value[employeeId]![date] = comment;
+    });
+  });
+  constraintNotes.value = { ...constraintNotes.value };
+}
+
+function removeConstraintNote(employeeId: string, date: string): void {
+  if (!constraintNotes.value[employeeId]?.[date]) return;
+  delete constraintNotes.value[employeeId]![date];
+  constraintNotes.value = { ...constraintNotes.value };
+}
 
 // Callbacks
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
-  grid.setAssignment(payload.employeeId, payload.date, payload.shiftCode);
-
-  if (payload.shiftCode === 'O') {
-    if (!grid.getOffReason(payload.employeeId, payload.date)) {
-      grid.setOffReason(payload.employeeId, payload.date, 'VACATION');
-    }
-  } else {
-    grid.setOffReason(payload.employeeId, payload.date, '');
+  if (!constraints.value[payload.employeeId]) {
+    constraints.value[payload.employeeId] = {};
   }
+
+  if (VALID_CONSTRAINTS.has(payload.shiftCode as ConstraintCode)) {
+    constraints.value[payload.employeeId]![payload.date] = payload.shiftCode as ConstraintCode;
+  } else {
+    constraints.value[payload.employeeId]![payload.date] = '';
+    removeConstraintNote(payload.employeeId, payload.date);
+  }
+
+  constraints.value = { ...constraints.value };
 }
 
 function handleContextMenu(payload: { event: MouseEvent; employeeId: string; date: string }) {
+  const currentConstraint = constraints.value[payload.employeeId]?.[payload.date];
+  if (currentConstraint !== 'O') {
+    showInfo('근무 불가(O) 셀에서만 사유를 입력할 수 있습니다.');
+    return;
+  }
+
   const employee = grid.employees.value.find((e) => e.id === payload.employeeId);
   if (!employee) return;
 
@@ -174,7 +226,27 @@ function handleContextMenu(payload: { event: MouseEvent; employeeId: string; dat
 
 function handleSaveComment(comment: string) {
   if (!selectedCell.value) return;
-  grid.setComment(selectedCell.value.employeeId, selectedCell.value.date, comment);
+
+  const currentConstraint =
+    constraints.value[selectedCell.value.employeeId]?.[selectedCell.value.date] || '';
+  if (currentConstraint !== 'O') {
+    showInfo('근무 불가(O) 셀에서만 사유를 저장할 수 있습니다.');
+    return;
+  }
+
+  const normalizedComment = comment.trim();
+  if (!constraintNotes.value[selectedCell.value.employeeId]) {
+    constraintNotes.value[selectedCell.value.employeeId] = {};
+  }
+
+  if (!normalizedComment) {
+    removeConstraintNote(selectedCell.value.employeeId, selectedCell.value.date);
+    showSuccess('코멘트가 삭제되었습니다.');
+    return;
+  }
+
+  constraintNotes.value[selectedCell.value.employeeId]![selectedCell.value.date] = normalizedComment;
+  constraintNotes.value = { ...constraintNotes.value };
   showSuccess('코멘트가 저장되었습니다.');
 }
 
@@ -186,14 +258,14 @@ function handleHeaderClick(date: string) {
 // Watchers for LocalStorage
 const STORAGE_KEY = computed(() => {
   if (!scheduleStore.basicInfo) return '';
-  return `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
+  return `everyshift_temp_preferences_${scheduleStore.basicInfo.month}`;
 });
 
 watchDebounced(
-  [() => grid.assignments.value, () => grid.offReasons.value, () => grid.comments.value],
-  ([assignments, offReasons, comments]) => {
+  [() => constraints.value, () => constraintNotes.value],
+  ([latestConstraints, latestNotes]) => {
     if (STORAGE_KEY.value) {
-      const dataToSave = { assignments, offReasons, comments };
+      const dataToSave = { constraints: latestConstraints, constraintNotes: latestNotes };
       localStorage.setItem(STORAGE_KEY.value, JSON.stringify(dataToSave));
     }
   },
@@ -202,9 +274,7 @@ watchDebounced(
 
 // Lifecycle
 onMounted(async () => {
-  console.log('[Step4] Mounted');
   if (!scheduleStore.basicInfo) {
-    console.log('[Step4] No basicInfo, redirecting');
     router.push('/schedule/step1');
     return;
   }
@@ -215,16 +285,14 @@ onMounted(async () => {
   }
 
   await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
-  // Default to 0 days from last month for now, as user requested to remove the toggle
   grid.generateDates(scheduleStore.basicInfo.month, 0);
+  ensureEmployeeMaps();
 
   // Restore logic (Supabase -> LocalStorage)
   await restoreData();
 });
 
 async function restoreData() {
-  let dataRestored = false;
-
   // 1. Supabase
   try {
     const { data: existingSchedules } = await supabase
@@ -247,45 +315,22 @@ async function restoreData() {
         return;
       }
 
-      const { assignments, offReasons, comments } = await getScheduleAssignments(schedule.id);
-      if (Object.keys(assignments).length > 0) {
-        grid.assignments.value = { ...grid.assignments.value, ...assignments };
-        grid.offReasons.value = { ...grid.offReasons.value, ...offReasons };
-        grid.comments.value = { ...grid.comments.value, ...comments };
-        dataRestored = true;
-        showInfo('저장된 데이터를 불러왔습니다.');
+      const preferenceData = await getSchedulePreferences(schedule.id);
+      if (preferenceData.preferences.length > 0) {
+        mergeConstraintMap(preferenceData.constraints);
+        mergeCommentMap(preferenceData.notes);
+        showInfo('저장된 요청 데이터를 불러왔습니다.');
       }
     }
   } catch (e) {
     console.error('Failed to load from Supabase', e);
   }
-
-  // 2. LocalStorage
-  if (!dataRestored && STORAGE_KEY.value) {
-    const saved = localStorage.getItem(STORAGE_KEY.value);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const savedAssignments = parsed.assignments || parsed;
-        const savedOffReasons = parsed.offReasons || {};
-        const savedComments = parsed.comments || {};
-
-        grid.assignments.value = { ...grid.assignments.value, ...savedAssignments };
-        grid.offReasons.value = { ...grid.offReasons.value, ...savedOffReasons };
-        grid.comments.value = { ...grid.comments.value, ...savedComments };
-
-        showInfo('이전 작업이 복원되었습니다 (LocalStorage)');
-      } catch {
-        localStorage.removeItem(STORAGE_KEY.value);
-      }
-    }
-  }
 }
 
 // Actions
 function handlePrev() {
-  scheduleStore.setAssignments(grid.assignments.value);
-  scheduleStore.setComments(grid.comments.value);
+  scheduleStore.setAssignments(constraints.value);
+  scheduleStore.setComments(constraintNotes.value);
   scheduleStore.prevStep();
   router.push('/schedule/step3');
 }
@@ -294,21 +339,17 @@ async function handleSave(): Promise<string | undefined> {
   if (!scheduleStore.basicInfo) return;
 
   try {
-    scheduleStore.setAssignments(grid.assignments.value);
-    scheduleStore.setComments(grid.comments.value);
+    scheduleStore.setAssignments(constraints.value);
+    scheduleStore.setComments(constraintNotes.value);
 
-    const shifts = await loadShifts(scheduleStore.basicInfo.organizationId);
-    const shiftsMap: Record<string, string> = {};
-    shifts.forEach((s) => (shiftsMap[s.code] = s.id));
-
-    const schedule = await saveTempAssignments(
+    const schedule = await createSchedule(
       scheduleStore.basicInfo.organizationId,
-      scheduleStore.basicInfo.month,
-      grid.assignments.value,
-      shiftsMap,
-      grid.offReasons.value,
-      grid.comments.value
+      scheduleStore.basicInfo.month
     );
+
+    await saveSchedulePreferences(schedule.id, constraints.value, constraintNotes.value);
+
+    existingScheduleId.value = schedule.id;
     showSuccess('임시 저장되었습니다.');
     return schedule.id;
   } catch (e) {
@@ -324,27 +365,30 @@ async function handleGenerate() {
     const scheduleId = await handleSave();
     if (!scheduleId) throw new Error('임시 저장에 실패했습니다.');
 
+    await resetPreferenceResolution(scheduleId);
+
     const planningEmployees = await getPlanningEmployees(scheduleStore.basicInfo!.organizationId);
 
     // 기존 배정 데이터 조회
     const existingAssignments = await getPlanningAssignments(scheduleId);
 
     // 주간 요구사항 집계
-    const weeklyRequirements: Record<number, any> = {};
+    const weeklyRequirements: Record<number, { D: number; E: number; N: number; O: number; total: number }> = {};
     scheduleStore.siteRequirements.forEach((req) => {
       if (!weeklyRequirements[req.dayOfWeek]) {
         weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
       }
       const currentReq = weeklyRequirements[req.dayOfWeek];
+      if (!currentReq) return;
       const shift = req.shiftCode;
       if (['D', 'E', 'N', 'O'].includes(shift)) {
-        currentReq[shift] = req.requiredCount;
+        currentReq[shift as 'D' | 'E' | 'N' | 'O'] = req.requiredCount;
         currentReq.total += req.requiredCount;
       }
     });
 
     // 일자별 요구사항 생성
-    const dateBasedRequirements: Record<string, any> = {};
+    const dateBasedRequirements: Record<string, { D: number; E: number; N: number; O: number; total: number }> = {};
     grid.dates.value.forEach((d) => {
       if (d.isLastMonth) return;
 
@@ -362,8 +406,7 @@ async function handleGenerate() {
     const solverRequest = mapToSolverRequest(
       scheduleStore.basicInfo!,
       dateBasedRequirements,
-      grid.assignments.value,
-      grid.offReasons.value,
+      constraints.value,
       planningEmployees,
       scheduleStore.basicInfo!.shifts,
       existingAssignments

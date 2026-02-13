@@ -33,7 +33,7 @@ const steps = [
   { number: 1, label: '기본 정보' },
   { number: 2, label: '사이트 정보' },
   { number: 3, label: '직원 정보' },
-  { number: 4, label: '근무 불가 일정' },
+  { number: 4, label: '근무 조정 일정' },
   { number: 5, label: '결과 확인' },
 ];
 

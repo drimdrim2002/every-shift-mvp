@@ -7,7 +7,7 @@ import type { Employee } from '@/types/employee';
  * @returns 유효 여부
  */
 export function isValidShiftCode(code: string): boolean {
-  const validCodes = ['D', 'E', 'N', 'O', 'H'];
+  const validCodes = ['D', 'E', 'N', 'O', 'H', 'L'];
   return validCodes.includes(code);
 }
 

@@ -4,6 +4,7 @@ import {
   parseSolverResult, 
   mapApiStatusToAppStatus 
 } from '@/api/solver';
+import { refreshPreferenceResolution } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import type { SolverRequest, AssignmentMap } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
@@ -155,6 +156,7 @@ export function useAISolver() {
 
       // Save assignments to DB
       await saveAssignmentsToDb(scheduleId, assignments);
+      await refreshPreferenceResolution(scheduleId);
       console.log('[saveResult] Saved final results.');
   }
 

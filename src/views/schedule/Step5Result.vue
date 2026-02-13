@@ -40,6 +40,50 @@
         <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
       </n-alert>
 
+      <div
+        v-if="preferenceDisplayRows.length > 0"
+        class="mb-6"
+      >
+        <h3 class="mb-2 text-sm font-semibold text-gray-700">근무 불가 요청 반영 현황</h3>
+        <n-table
+          :single-line="false"
+          size="small"
+        >
+          <thead>
+            <tr>
+              <th>직원</th>
+              <th>날짜</th>
+              <th>근무 불가 요청</th>
+              <th>상태</th>
+              <th>최종 배정</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in preferenceDisplayRows"
+              :key="row.id"
+            >
+              <td>{{ row.employeeName }}</td>
+              <td>{{ row.date }}</td>
+              <td>
+                <n-tag size="small">
+                  {{ row.requestCode }}
+                </n-tag>
+              </td>
+              <td>
+                <n-tag
+                  size="small"
+                  :type="getPreferenceStatusType(row.resolutionStatus)"
+                >
+                  {{ getPreferenceStatusText(row.resolutionStatus) }}
+                </n-tag>
+              </td>
+              <td>{{ row.resolvedShiftCode }}</td>
+            </tr>
+          </tbody>
+        </n-table>
+      </div>
+
       <!-- 그리드 -->
       <div class="my-6">
         <ScheduleGrid
@@ -111,18 +155,25 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NTable, NTag } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { getScheduleStatus, getScheduleAssignments, updateAssignment, deleteThisMonthAssignments } from '@/api/schedule';
+import {
+  getScheduleStatus,
+  getScheduleAssignments,
+  getSchedulePreferences,
+  refreshPreferenceResolution,
+  updateAssignment,
+  deleteThisMonthAssignments,
+} from '@/api/schedule';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { supabase } from '@/api/supabase';
-import type { AssignmentMap } from '@/types/schedule';
+import type { AssignmentMap, PreferenceStatus, SchedulePreference } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -146,12 +197,22 @@ const lastMemoryHash = ref('');
 const hasIntermediateResult = ref(false);
 const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
+const preferenceRows = ref<SchedulePreference[]>([]);
 
 interface ScheduleStatusRow {
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
   hard_score: number | null;
   soft_score: number | null;
   solver_execution_id: string | null;
+}
+
+interface PreferenceDisplayRow {
+  id: string;
+  employeeName: string;
+  date: string;
+  requestCode: string;
+  resolutionStatus: PreferenceStatus;
+  resolvedShiftCode: string;
 }
 
 const statusText = computed(() => {
@@ -198,6 +259,26 @@ const shiftIdToCodeMap = computed(() => {
 
 const knownShiftCodes = computed(() => {
   return new Set(organizationStore.shifts.map((shift) => shift.code));
+});
+
+const preferenceDisplayRows = computed<PreferenceDisplayRow[]>(() => {
+  const employeeNameMap = new Map<string, string>(
+    grid.employees.value.map((employee) => [employee.id, employee.name])
+  );
+  const shiftCodeMap = new Map<string, string>(
+    organizationStore.shifts.map((shift) => [shift.id, shift.code])
+  );
+
+  return preferenceRows.value
+    .map((row) => ({
+      id: row.id,
+      employeeName: employeeNameMap.get(row.employee_id) || row.employee_id,
+      date: row.date,
+      requestCode: row.request_code,
+      resolutionStatus: row.resolution_status,
+      resolvedShiftCode: row.resolved_shift_id ? (shiftCodeMap.get(row.resolved_shift_id) || '-') : '-',
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.employeeName.localeCompare(b.employeeName));
 });
 
 // Check if cancellation is possible
@@ -342,6 +423,23 @@ async function loadAssignments(options: { syncOriginal?: boolean; clearChanges?:
   }
 }
 
+async function loadPreferenceRows() {
+  const data = await getSchedulePreferences(scheduleId.value);
+  preferenceRows.value = data.preferences;
+}
+
+function getPreferenceStatusText(status: PreferenceStatus): string {
+  if (status === 'fulfilled') return '반영됨';
+  if (status === 'unfulfilled') return '미반영';
+  return '대기';
+}
+
+function getPreferenceStatusType(status: PreferenceStatus): 'default' | 'success' | 'warning' {
+  if (status === 'fulfilled') return 'success';
+  if (status === 'unfulfilled') return 'warning';
+  return 'default';
+}
+
 function startAssignmentsRefresh() {
   if (assignmentRefreshInterval) return;
   assignmentRefreshInterval = window.setInterval(async () => {
@@ -421,11 +519,16 @@ onMounted(async () => {
     const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
     applyScheduleStatus(schedule);
 
+    if (schedule.status === 'complete' || schedule.status === 'changed') {
+      await refreshPreferenceResolution(scheduleId.value);
+    }
+
     if (schedule.status === 'complete' || schedule.status === 'changed' || schedule.status === 'running' || schedule.status === 'created') {
       await loadAssignments({
         syncOriginal: schedule.status !== 'running',
         clearChanges: schedule.status !== 'running',
       });
+      await loadPreferenceRows();
     }
 
     if (shouldAutostart.value) {
@@ -473,6 +576,7 @@ watch(() => solver.status.value, async (newStatus) => {
         clearChanges: true,
         forceAssignmentSync: true,
       });
+      await loadPreferenceRows();
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }
@@ -613,6 +717,9 @@ function handleSave() {
           .update({ status: 'changed' })
           .eq('id', scheduleId.value);
 
+        await refreshPreferenceResolution(scheduleId.value);
+        await loadPreferenceRows();
+
         showSuccess('저장되었습니다');
         changedCells.value.clear();
         // 대시보드로 이동
@@ -645,8 +752,11 @@ async function handleCancelSchedule() {
         stopAssignmentsRefresh();
         
         // Clear localStorage for this month
-        const storageKey = `everyshift_temp_schedule_${currentMonth}`;
-        localStorage.removeItem(storageKey);
+        const storageKeys = [
+          `everyshift_temp_schedule_${currentMonth}`,
+          `everyshift_temp_preferences_${currentMonth}`,
+        ];
+        storageKeys.forEach((key) => localStorage.removeItem(key));
         
         showSuccess('이번달 근무표가 삭제되었습니다. 지난달 데이터는 보존되었습니다.');
         router.push('/schedule/step4');

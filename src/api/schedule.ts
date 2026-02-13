@@ -1,8 +1,12 @@
 import { supabase } from './supabase';
 import type {
   AssignmentMap,
+  ConstraintCode,
+  ConstraintMap,
   OffReasonMap,
   CommentMap,
+  PreferenceStatus,
+  SchedulePreference,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
@@ -28,6 +32,34 @@ interface AssignmentQueryResult {
   shifts: ShiftReference | ShiftReference[] | null;
   off_reason: string | null;
   comment: string | null;
+}
+
+interface AssignmentWithShiftId {
+  employee_id: string;
+  shift_id: string;
+  date: string;
+  shifts: ShiftReference | ShiftReference[] | null;
+}
+
+interface RawSchedulePreference {
+  id: string;
+  schedule_id: string;
+  employee_id: string;
+  date: string;
+  request_code: string;
+  request_note: string | null;
+  is_soft: boolean;
+  resolution_status: PreferenceStatus;
+  resolved_shift_id: string | null;
+  resolved_at: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function normalizePreferenceCode(requestCode: string): ConstraintCode | null {
+  if (requestCode === 'O') return 'O';
+  if (requestCode === 'H' || requestCode === 'E' || requestCode === 'L') return 'O';
+  return null;
 }
 
 // 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
@@ -83,6 +115,214 @@ export async function getScheduleStatus(scheduleId: string) {
 
   if (error) throw error;
   return data;
+}
+
+// Step4 근무 불가 요청 조회
+export async function getSchedulePreferences(scheduleId: string): Promise<{
+  constraints: ConstraintMap;
+  notes: CommentMap;
+  preferences: SchedulePreference[];
+}> {
+  const rawPreferences: RawSchedulePreference[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('schedule_preferences')
+      .select(
+        'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+      )
+      .eq('schedule_id', scheduleId)
+      .order('date', { ascending: true })
+      .order('employee_id', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw new Error(`요청 데이터 조회 실패: ${error.message}`);
+
+    if (data && data.length > 0) {
+      rawPreferences.push(...(data as RawSchedulePreference[]));
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const preferences: SchedulePreference[] = rawPreferences
+    .map((pref): SchedulePreference | null => {
+      const normalizedCode = normalizePreferenceCode(pref.request_code);
+      if (!normalizedCode) return null;
+      return {
+        ...pref,
+        request_code: normalizedCode,
+      };
+    })
+    .filter((pref): pref is SchedulePreference => pref !== null);
+
+  const constraints: ConstraintMap = {};
+  const notes: CommentMap = {};
+
+  preferences.forEach((pref) => {
+    if (!constraints[pref.employee_id]) {
+      constraints[pref.employee_id] = {};
+      notes[pref.employee_id] = {};
+    }
+    constraints[pref.employee_id]![pref.date] = pref.request_code;
+    if (pref.request_note) {
+      notes[pref.employee_id]![pref.date] = pref.request_note;
+    }
+  });
+
+  return { constraints, notes, preferences };
+}
+
+// Step4 근무 불가 요청 저장 (전체 교체)
+export async function saveSchedulePreferences(
+  scheduleId: string,
+  constraints: ConstraintMap,
+  notes?: CommentMap
+): Promise<void> {
+  const rows: Array<{
+    schedule_id: string;
+    employee_id: string;
+    date: string;
+    request_code: ConstraintCode;
+    request_note?: string;
+    is_soft: boolean;
+    resolution_status: PreferenceStatus;
+    resolved_shift_id: null;
+    resolved_at: null;
+  }> = [];
+
+  Object.entries(constraints).forEach(([employeeId, dateMap]) => {
+    Object.entries(dateMap).forEach(([date, requestCode]) => {
+      if (requestCode !== 'O') {
+        return;
+      }
+
+      const requestNote = notes?.[employeeId]?.[date];
+      rows.push({
+        schedule_id: scheduleId,
+        employee_id: employeeId,
+        date,
+        request_code: requestCode,
+        request_note: requestNote || undefined,
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      });
+    });
+  });
+
+  const { error: deleteError } = await supabase
+    .from('schedule_preferences')
+    .delete()
+    .eq('schedule_id', scheduleId);
+
+  if (deleteError) {
+    throw new Error(`기존 요청 삭제 실패: ${deleteError.message}`);
+  }
+
+  if (rows.length === 0) return;
+
+  const { error: insertError } = await supabase.from('schedule_preferences').insert(rows);
+  if (insertError) {
+    throw new Error(`요청 저장 실패: ${insertError.message}`);
+  }
+}
+
+// 요청 반영 상태 초기화
+export async function resetPreferenceResolution(scheduleId: string): Promise<void> {
+  const { error } = await supabase
+    .from('schedule_preferences')
+    .update({
+      resolution_status: 'pending',
+      resolved_shift_id: null,
+      resolved_at: null,
+    })
+    .eq('schedule_id', scheduleId);
+
+  if (error) {
+    throw new Error(`요청 상태 초기화 실패: ${error.message}`);
+  }
+}
+
+// schedule_assignments 결과 기준으로 요청 반영 상태 갱신
+export async function refreshPreferenceResolution(scheduleId: string): Promise<SchedulePreference[]> {
+  const { preferences } = await getSchedulePreferences(scheduleId);
+  if (preferences.length === 0) return [];
+
+  const assignmentRows: AssignmentWithShiftId[] = [];
+  let from = 0;
+  const pageSize = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from('schedule_assignments')
+      .select('employee_id, shift_id, date, shifts(code)')
+      .eq('schedule_id', scheduleId)
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      throw new Error(`배정 조회 실패: ${error.message}`);
+    }
+
+    if (data && data.length > 0) {
+      const normalized = (data as AssignmentWithShiftId[]).map((row) => ({
+        ...row,
+        shifts: Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts,
+      }));
+      assignmentRows.push(...normalized);
+      from += pageSize;
+      hasMore = data.length === pageSize;
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const assignmentMap = new Map<string, { shiftId: string; shiftCode: string | null }>();
+  assignmentRows.forEach((row) => {
+    const shiftRef = Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts;
+    assignmentMap.set(`${row.employee_id}_${row.date}`, {
+      shiftId: row.shift_id,
+      shiftCode: shiftRef?.code ?? null,
+    });
+  });
+
+  const resolvedAt = new Date().toISOString();
+  const updates = preferences.map((pref) => {
+    const match = assignmentMap.get(`${pref.employee_id}_${pref.date}`);
+    const isFulfilled = match?.shiftCode === 'O';
+    return {
+      id: pref.id,
+      schedule_id: pref.schedule_id,
+      employee_id: pref.employee_id,
+      date: pref.date,
+      request_code: pref.request_code,
+      request_note: pref.request_note,
+      is_soft: pref.is_soft,
+      resolution_status: (isFulfilled ? 'fulfilled' : 'unfulfilled') as PreferenceStatus,
+      resolved_shift_id: match?.shiftId ?? null,
+      resolved_at: resolvedAt,
+    };
+  });
+
+  const { data, error } = await supabase
+    .from('schedule_preferences')
+    .upsert(updates, { onConflict: 'id' })
+    .select(
+      'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+    );
+
+  if (error) {
+    throw new Error(`요청 반영 상태 갱신 실패: ${error.message}`);
+  }
+
+  return (data || []) as SchedulePreference[];
 }
 
 // 근무표 배정 조회 (assignments와 offReasons, comments 함께 반환)
@@ -255,9 +495,7 @@ export async function saveTempAssignments(
   orgId: string,
   month: string,
   assignments: AssignmentMap,
-  shiftsMap: Record<string, string>, // shiftCode -> shiftId 매핑
-  offReasons?: OffReasonMap, // 선택적 파라미터
-  comments?: CommentMap // 선택적 파라미터
+  shiftsMap: Record<string, string> // shiftCode -> shiftId 매핑
 ) {
   console.log('[saveTempAssignments] START - orgId:', orgId, 'month:', month);
   console.log('[saveTempAssignments] shiftsMap:', shiftsMap);
@@ -268,14 +506,12 @@ export async function saveTempAssignments(
   console.log('[saveTempAssignments] Schedule ID:', schedule.id);
   console.log('[saveTempAssignments] Schedule status:', schedule.status);
 
-  // 2. assignments를 배열로 변환 (off_reason, is_locked, comment 포함)
+  // 2. assignments를 배열로 변환
   const rows: Array<{
     schedule_id: string;
     employee_id: string;
     shift_id: string;
     date: string;
-    off_reason?: string;
-    comment?: string;
     is_locked: boolean;
   }> = [];
 
@@ -283,20 +519,12 @@ export async function saveTempAssignments(
   Object.entries(assignments).forEach(([employeeId, dateMap]) => {
     Object.entries(dateMap).forEach(([date, shiftCode]) => {
       if (shiftCode && shiftsMap[shiftCode]) {
-        // off_reason이 있는지 확인
-        const offReason = offReasons?.[employeeId]?.[date];
-        const comment = comments?.[employeeId]?.[date];
-        // off_reason이 있으면 is_locked=true (AI가 변경 불가)
-        const isLocked = !!offReason;
-
         rows.push({
           schedule_id: schedule.id,
           employee_id: employeeId,
           shift_id: shiftsMap[shiftCode],
           date,
-          off_reason: offReason || undefined,
-          comment: comment || undefined,
-          is_locked: isLocked,
+          is_locked: false,
         });
       } else if (shiftCode) {
         skippedCount++;

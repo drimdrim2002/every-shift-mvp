@@ -10,7 +10,7 @@
       v-if="summaryList.length === 0"
       class="py-8 text-center text-gray-500"
     >
-      입력된 제약 사항이나 특이사항이 없습니다.
+      입력된 근무 불가 요청이나 특이사항이 없습니다.
     </div>
 
     <n-table
@@ -24,7 +24,7 @@
             직원
           </th>
           <th class="w-20 text-center">
-            신청
+            근무 불가
           </th>
           <th>사유 / 코멘트</th>
         </tr>
@@ -103,7 +103,7 @@ const summaryList = computed(() => {
     const constraint = props.assignments[emp.id]?.[props.date];
     const comment = props.comments[emp.id]?.[props.date];
 
-    // 제약사항(H, E, O)이 있거나 코멘트가 있는 경우만 표시
+    // 근무 불가(O) 요청이 있거나 코멘트가 있는 경우만 표시
     if (constraint || comment) {
       list.push({
         employeeId: emp.id,
@@ -116,13 +116,9 @@ const summaryList = computed(() => {
   return list;
 });
 
-function getTagType(constraint: string | undefined) {
-  switch (constraint) {
-    case 'H': return 'info';    // Holiday - purpleish/blueish in Naive UI terms usually 'info' or 'primary'
-    case 'E': return 'warning'; // Education - orangeish
-    case 'O': return 'default'; // Off - gray
-    default: return 'default';
-  }
+function getTagType(constraint: string | undefined): 'default' {
+  if (constraint === 'O') return 'default';
+  return 'default';
 }
 
 function closeModal() {

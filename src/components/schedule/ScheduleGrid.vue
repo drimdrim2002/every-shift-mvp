@@ -105,8 +105,9 @@
                 v-if="mode === 'planning'"
                 :employee-id="employee.id"
                 :date="date.date"
-                :current-constraint="getAssignment(employee.id, date.date)"
+                :current-constraint="getConstraint(employee.id, date.date)"
                 :has-comment="!!getComment(employee.id, date.date)"
+                :comment="getComment(employee.id, date.date)"
                 :readonly="readonly"
                 @update:constraint="handleConstraintUpdate"
                 @context-menu="handleContextMenu"
@@ -198,7 +199,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUpdated } from 'vue';
 import type { Employee } from '@/types/employee';
-import type { GridColumn, AssignmentMap, OffReasonMap, CommentMap } from '@/types/schedule';
+import type { GridColumn, AssignmentMap, ConstraintMap, OffReasonMap, CommentMap } from '@/types/schedule';
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';
 import ShiftSelector from './ShiftSelector.vue';
 import ConstraintSelector from './ConstraintSelector.vue';
@@ -206,7 +207,8 @@ import ConstraintSelector from './ConstraintSelector.vue';
 interface Props {
   employees: Employee[];
   dates: GridColumn[];
-  assignments: AssignmentMap;
+  assignments?: AssignmentMap;
+  constraints?: ConstraintMap;
   offReasons?: OffReasonMap;
   comments?: CommentMap; // added
   readonly?: boolean;
@@ -230,6 +232,8 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   mode: 'result',
+  assignments: () => ({}),
+  constraints: () => ({}),
   offReasons: () => ({}),
   comments: () => ({}),
   readonly: false,
@@ -246,7 +250,7 @@ if (import.meta.env.DEV) {
 const statistics = useScheduleGridStatistics(
   () => props.employees,
   () => props.dates,
-  () => props.assignments
+  () => (props.mode === 'planning' ? props.constraints : props.assignments)
 );
 
 // 성능 측정: 초기 렌더링
@@ -284,6 +288,10 @@ onUpdated(() => {
 // Helper 함수
 function getAssignment(employeeId: string, date: string): string | null {
   return props.assignments[employeeId]?.[date] || null;
+}
+
+function getConstraint(employeeId: string, date: string): string | null {
+  return props.constraints?.[employeeId]?.[date] || null;
 }
 
 function handleShiftSelect(employeeId: string, date: string, shiftCode: string) {

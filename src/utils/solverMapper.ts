@@ -2,8 +2,7 @@ import dayjs from 'dayjs';
 import type {
   ScheduleBasicInfo,
   SiteRequirements,
-  AssignmentMap,
-  OffReasonMap,
+  ConstraintMap,
   PlanningEmployee,
   PlanningAssignment,
   SolverRequest,
@@ -20,8 +19,7 @@ import type { Shift } from '@/types/shift';
  * 
  * @param basicInfo Basic schedule information (month, organization, etc.)
  * @param siteRequirements Daily staffing requirements
- * @param assignments Current grid assignments (from Step 3)
- * @param offReasons Off reasons map (from Step 3)
+ * @param constraints Current unavailable requests from Step4 (O)
  * @param employees List of employees
  * @param shifts List of defined shifts
  * @param existingAssignments Previously saved assignments (optional)
@@ -30,8 +28,7 @@ import type { Shift } from '@/types/shift';
 export function mapToSolverRequest(
   basicInfo: ScheduleBasicInfo,
   siteRequirements: SiteRequirements,
-  assignments: AssignmentMap,
-  offReasons: OffReasonMap,
+  constraints: ConstraintMap,
   employees: PlanningEmployee[],
   shifts: Shift[],
   existingAssignments: PlanningAssignment[] = []
@@ -43,16 +40,17 @@ export function mapToSolverRequest(
   const lastHistoricalDate = dayjs(firstDraftDate).subtract(1, 'day').format('YYYY-MM-DD');
   const daysInMonth = dayjs(month).daysInMonth();
   
-  // Filter out invalid shifts (e.g. Off, Holiday without time)
-  const validShifts = shifts.filter(s => s.startTime && s.endTime);
-
-  // Transform shifts to PlanningShift format
-  const planningShifts: PlanningShift[] = validShifts.map(s => ({
+  // Transform shifts to PlanningShift format (include O for undesirable mapping)
+  const planningShifts: PlanningShift[] = shifts.map(s => ({
     id: s.id,
     code: s.code,
     name: s.name,
-    start_time: s.startTime!.length === 5 ? `${s.startTime}:00` : s.startTime!,
-    end_time: s.endTime!.length === 5 ? `${s.endTime}:00` : s.endTime!,
+    start_time: s.startTime
+      ? (s.startTime.length === 5 ? `${s.startTime}:00` : s.startTime)
+      : '00:00:00',
+    end_time: s.endTime
+      ? (s.endTime.length === 5 ? `${s.endTime}:00` : s.endTime)
+      : '00:00:00',
   }));
 
   // Create a map for quick shift lookup by code
@@ -69,48 +67,8 @@ export function mapToSolverRequest(
     skill_set: ['ALL'], // Default skill set
   }));
 
-  // Merge grid assignments and existing assignments
-  const assignmentMap = new Map<string, PlanningAssignment>();
-
-  // 1. Add existing assignments first
-  existingAssignments.forEach(assignment => {
-    let isLocked = assignment.is_locked;
-    if (assignment.date < firstDraftDate) {
-      isLocked = true;
-    }
-    const key = `${assignment.employee_id}_${assignment.date}`;
-    assignmentMap.set(key, { ...assignment, is_locked: isLocked });
-  });
-
-  // 2. Overwrite with grid assignments (user input in Step 3/4)
-  Object.entries(assignments).forEach(([employeeId, dateMap]) => {
-    Object.entries(dateMap).forEach(([date, shiftCode]) => {
-      // Use shiftsMap (which contains all shifts including Off)
-      if (shiftCode && shiftsMap[shiftCode]) {
-        // Check for off reason to determine lock status
-        const offReason = offReasons[employeeId]?.[date];
-        let isLocked = !!offReason;
-        
-        // Historical dates are always locked
-        if (date < firstDraftDate) {
-          isLocked = true;
-        }
-
-        const key = `${employeeId}_${date}`;
-        assignmentMap.set(key, {
-          employee_id: employeeId,
-          shift_id: shiftsMap[shiftCode],
-          date,
-          is_locked: isLocked,
-        });
-      }
-    });
-  });
-  
-  const finalAssignments = Array.from(assignmentMap.values());
-
   // Generate History (Locked Assignments)
-  const history: SolverRequestHistoryItem[] = finalAssignments
+  const history: SolverRequestHistoryItem[] = existingAssignments
     .filter(assignment => assignment.date < firstDraftDate || assignment.is_locked)
     .map(assignment => ({
       employee_id: assignment.employee_id,
@@ -127,11 +85,11 @@ export function mapToSolverRequest(
     const dailyReq = siteRequirements[date];
     if (!dailyReq) return;
 
-    validShifts.forEach(shift => {
+    shifts.forEach(shift => {
       // Cast to keyof DailyRequirement if needed, assuming keys match shift codes 'D', 'E', 'N'
       // 'O' (Off) is usually not a requirement
       const shiftCode = shift.code;
-      if (shiftCode !== 'O' && shiftCode in dailyReq) {
+      if (['D', 'E', 'N'].includes(shiftCode) && shiftCode in dailyReq) {
         const count = dailyReq[shiftCode as keyof typeof dailyReq] as number;
         if (count > 0) {
           requirements.push({
@@ -144,9 +102,23 @@ export function mapToSolverRequest(
     });
   });
 
-  // Generate Undesirable (Future Off Requests - currently empty as per MVP decision)
-  // In the future, non-locked Off requests could go here
+  // Generate Undesirable (Step4 O requests as soft Off preference)
+  const offShiftId = shiftsMap.O;
   const undesirable: SolverRequestUndesirableItem[] = [];
+  if (offShiftId) {
+    Object.entries(constraints).forEach(([employeeId, dateMap]) => {
+      Object.entries(dateMap).forEach(([date, requestCode]) => {
+        if (requestCode !== 'O') return;
+        if (date < firstDraftDate) return;
+        undesirable.push({
+          employee_id: employeeId,
+          shift_id: offShiftId,
+          date,
+          is_locked: false,
+        });
+      });
+    });
+  }
 
   return {
     organization: {

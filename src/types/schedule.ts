@@ -27,11 +27,34 @@ export interface GridColumn {
 // 배정 맵: employeeId -> date -> shiftCode
 export type AssignmentMap = Record<string, Record<string, string>>;
 
+// Step4 근무 불가 코드
+export type ConstraintCode = 'O';
+
+// 근무 불가 맵: employeeId -> date -> requestCode
+export type ConstraintMap = Record<string, Record<string, ConstraintCode | ''>>;
+
 // Off 사유 맵: employeeId -> date -> reason
 export type OffReasonMap = Record<string, Record<string, string>>;
 
 // 코멘트 맵: employeeId -> date -> comment
 export type CommentMap = Record<string, Record<string, string>>;
+
+export type PreferenceStatus = 'pending' | 'fulfilled' | 'unfulfilled';
+
+export interface SchedulePreference {
+  id: string;
+  schedule_id: string;
+  employee_id: string;
+  date: string;
+  request_code: ConstraintCode;
+  request_note: string | null;
+  is_soft: boolean;
+  resolution_status: PreferenceStatus;
+  resolved_shift_id: string | null;
+  resolved_at: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
 // Off 사유 상수
 export const OFF_REASONS = {
@@ -134,6 +157,7 @@ export interface SolverRequestHistoryItem {
 
 export interface SolverRequestUndesirableItem {
   employee_id: string;
+  shift_id: string;
   date: string; // "YYYY-MM-DD"
   is_locked: boolean; // false: 권장 사항 (soft constraint)
 }
