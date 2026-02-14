@@ -45,8 +45,10 @@ export function mapToSolverRequest(
     .format('YYYY-MM-DD');
   const daysInMonth = dayjs(month).daysInMonth();
   
-  // Transform shifts to PlanningShift format (include O for undesirable mapping)
-  const planningShifts: PlanningShift[] = shifts.map(s => ({
+  const planningShiftSource = shifts.filter((shift) => ['D', 'E', 'N'].includes(shift.code));
+
+  // Transform shifts to PlanningShift format (send only planning shifts D/E/N)
+  const planningShifts: PlanningShift[] = planningShiftSource.map(s => ({
     id: s.id,
     code: s.code,
     name: s.name,
@@ -58,10 +60,10 @@ export function mapToSolverRequest(
       : '00:00:00',
   }));
 
-  // Create a map for quick shift lookup by code
-  const shiftsMap: Record<string, string> = {};
+  // Create maps for quick shift lookups
+  const shiftCodeById: Record<string, string> = {};
   shifts.forEach(s => {
-    shiftsMap[s.code] = s.id;
+    shiftCodeById[s.id] = s.code;
   });
 
   // Transform employees to SolverRequestEmployee format
@@ -74,7 +76,10 @@ export function mapToSolverRequest(
 
   // Generate History (Locked Assignments)
   const history: SolverRequestHistoryItem[] = existingAssignments
-    .filter(assignment => assignment.date < firstDraftDate || assignment.is_locked)
+    .filter((assignment) => {
+      if (assignment.date >= firstDraftDate) return false;
+      return shiftCodeById[assignment.shift_id] !== 'O';
+    })
     .map(assignment => ({
       employee_id: assignment.employee_id,
       shift_id: assignment.shift_id,
@@ -107,23 +112,19 @@ export function mapToSolverRequest(
     });
   });
 
-  // Generate Undesirable (Step4 O requests as soft Off preference)
-  const offShiftId = shiftsMap.O;
+  // Generate Undesirable (Step4 O requests as soft constraints)
   const undesirable: SolverRequestUndesirableItem[] = [];
-  if (offShiftId) {
-    Object.entries(constraints).forEach(([employeeId, dateMap]) => {
-      Object.entries(dateMap).forEach(([date, requestCode]) => {
-        if (requestCode !== 'O') return;
-        if (date < firstDraftDate) return;
-        undesirable.push({
-          employee_id: employeeId,
-          shift_id: offShiftId,
-          date,
-          is_locked: false,
-        });
+  Object.entries(constraints).forEach(([employeeId, dateMap]) => {
+    Object.entries(dateMap).forEach(([date, requestCode]) => {
+      if (requestCode !== 'O') return;
+      if (date < firstDraftDate) return;
+      undesirable.push({
+        employee_id: employeeId,
+        date,
+        is_locked: false,
       });
     });
-  }
+  });
 
   return {
     organization: {

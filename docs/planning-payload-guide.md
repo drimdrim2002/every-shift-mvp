@@ -1,166 +1,96 @@
-# Planning Payload 가이드
+# Solver Request Payload 가이드
 
 ## 개요
 
-Step4에서 "근무표 생성" 버튼을 누르면 AI Planning 엔진에 필요한 입력 데이터를 JSON 형태로 구성하여 전달합니다.
+이 문서는 Step5에서 AI Solver로 전송하는 `SolverRequest` 페이로드 구조를 정의합니다.
+단일 기준 샘플은 `data/request.json`이며, 이 문서와 코드(`mapToSolverRequest`)는 해당 포맷을 기준으로 유지합니다.
 
-## 데이터 구조
-
-### PlanningPayload 타입
+## 최종 요청 구조
 
 ```typescript
-interface PlanningPayload {
-  organization: PlanningOrganization;
-  shifts: PlanningShift[];
-  employees: PlanningEmployee[];
-  assignments: PlanningAssignment[];
-  requirements: SiteRequirements;
+interface SolverRequest {
+  organization: {
+    id: string;
+    name: string;
+    type: string;
+    shifts: PlanningShift[]; // D/E/N only
+    lastHistoricalDate: string;
+    firstDraftDate: string;
+    publishLength: number;
+    draftLength: number;
+  };
+  employees: SolverRequestEmployee[];
+  history: SolverRequestHistoryItem[];
+  undesirable: SolverRequestUndesirableItem[];
+  requirements: SolverRequestRequirementItem[];
 }
-```
 
-### 1. 조직 정보 (organization)
-
-**테이블**: `organizations`  
-**필드**: `id`, `name`, `type`
-
-```typescript
-interface PlanningOrganization {
-  id: string;           // 조직 UUID
-  name: string;         // 조직명
-  type: string;         // 조직 유형 (hospital, fire, police)
-}
-```
-
-### 2. 시프트 정보 (shifts)
-
-**테이블**: `shifts`  
-**필터**: `organization_id = {조직ID}`  
-**필드**: `code`, `name`, `start_time`, `end_time`
-
-```typescript
 interface PlanningShift {
-  code: string;         // 시프트 코드 (D, E, N, O)
-  name: string;         // 시프트 이름 (Day, Evening, Night, Off)
-  start_time: string;   // 시작 시간 (HH:MM:SS)
-  end_time: string;     // 종료 시간 (HH:MM:SS)
+  id: string;
+  code: 'D' | 'E' | 'N';
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+interface SolverRequestEmployee {
+  employee_id: string;
+  name: string;
+  available_shifts: string[];
+  skill_set: string[]; // e.g. ["ALL"]
+}
+
+interface SolverRequestHistoryItem {
+  employee_id: string;
+  shift_id: string;
+  date: string;      // YYYY-MM-DD
+  is_locked: true;   // always true
+}
+
+interface SolverRequestUndesirableItem {
+  employee_id: string;
+  date: string;      // YYYY-MM-DD
+  is_locked: false;  // always false
+}
+
+interface SolverRequestRequirementItem {
+  shiftId: string;
+  dayIndex: number;      // 0-based from firstDraftDate
+  employeeCount: number;
 }
 ```
 
-### 3. 직원 정보 (employees)
+## 핵심 규칙
 
-**테이블**: `employees`  
-**필터**: `organization_id = {조직ID}`  
-**필드**: `id`, `name`, `available_shifts`
+1. `organization.shifts`는 `D/E/N`만 전송합니다. (`O` 제외)
+2. `history`는 `date < firstDraftDate` 데이터만 포함합니다.
+3. `history`에서는 `O` 시프트를 제외합니다.
+4. `undesirable`에는 `shift_id`를 포함하지 않습니다.
+5. `undesirable`는 `date >= firstDraftDate`인 `O` 요청만 포함합니다.
 
-```typescript
-interface PlanningEmployee {
-  employee_id: string;      // 직원 UUID
-  name: string;             // 직원 이름
-  available_shifts: string[]; // 가능한 시프트 배열 (예: ["D","E","N","O"])
-}
-```
+## 필드 매핑 출처
 
-### 4. 배정 정보 (assignments)
-
-**테이블**: `schedule_assignments`  
-**필터**: `schedule_id = {스케줄ID}`  
-**필드**: `employee_id`, `shift_id`, `date`, `is_locked`
-
-```typescript
-interface PlanningAssignment {
-  employee_id: string;  // 직원 UUID
-  shift_id: string;     // 시프트 UUID
-  date: string;         // 날짜 (YYYY-MM-DD)
-  is_locked: boolean;   // 잠금 여부 (true면 AI가 변경 불가)
-}
-```
-
-**참고**: 
-- 기존 DB의 배정과 현재 그리드의 배정을 병합합니다.
-- 그리드 데이터가 우선순위를 가집니다.
-- `off_reason`이 있는 셀은 `is_locked=true`로 설정됩니다.
-
-### 5. 요구사항 (requirements)
-
-**출처**: Step2에서 입력한 요일별 요구사항을 날짜별로 변환  
-**형식**: `{ [date: string]: DailyRequirement }`
-
-```typescript
-interface SiteRequirements {
-  [date: string]: DailyRequirement;
-}
-
-interface DailyRequirement {
-  D: number;      // Day 시프트 필요 인원
-  E: number;      // Evening 시프트 필요 인원
-  N: number;      // Night 시프트 필요 인원
-  O: number;      // Off 필요 인원
-  total: number;  // 총 인원
-}
-```
+- `organization` / `employees` / `shifts`: 조직/직원/시프트 조회 데이터
+- `history`: `schedule_assignments` 기반 기존 배정
+- `undesirable`: `schedule_preferences`의 `O` 요청 기반
+- `requirements`: Step2 요일별 요구사항을 날짜 인덱스(`dayIndex`)로 변환
 
 ## 구현 위치
 
-### 타입 정의
-- `src/types/schedule.ts` - Planning Payload 타입 정의
+- `src/views/schedule/Step5Result.vue`
+: `buildSolverRequest()`에서 입력 데이터 수집
+- `src/utils/solverMapper.ts`
+: `mapToSolverRequest()`에서 최종 스키마로 변환
+- `src/api/solver.ts`
+: `createSolverExecution()`에서 POST `/api/solve` 호출
 
-### API 함수
-- `src/api/schedule.ts` - 데이터 조회 함수들
-  - `getPlanningOrganization()` - 조직 정보 조회
-  - `getPlanningShifts()` - 시프트 정보 조회
-  - `getPlanningEmployees()` - 직원 정보 조회
-  - `getPlanningAssignments()` - 배정 정보 조회
+## 검증 체크리스트
 
-### 호출 위치
-- `src/views/schedule/Step4InitialData.vue` - `handleGenerate()` 함수
-- `src/composables/useAISolver.ts` - `startSolver()` 함수에 전달
-
-## 사용 흐름
-
-1. **Step4 진입**: 사용자가 전월/당월 데이터 입력
-2. **"근무표 생성" 버튼 클릭**: `handleGenerate()` 실행
-3. **데이터 수집**: 
-   - 조직 정보 조회
-   - 시프트 정보 조회
-   - 직원 정보 조회
-   - 기존 배정 조회
-   - 그리드 배정 변환
-4. **Payload 구성**: 모든 데이터를 `PlanningPayload` 형식으로 조합
-5. **AI Solver 호출**: `solver.startSolver()`에 Planning Payload 전달
-6. **개발 모드**: JSON 파일 자동 다운로드 (`planning-payload-{월}.json`)
-
-## 디버깅
-
-### 콘솔 로그
-```javascript
-console.log('[Step4] Planning Payload:', JSON.stringify(planningPayload, null, 2));
-```
-
-### JSON 파일 다운로드
-개발 환경(`import.meta.env.DEV`)에서 자동으로 JSON 파일이 다운로드됩니다.
-- 파일명: `planning-payload-{YYYY-MM}.json`
-- 위치: 브라우저 다운로드 폴더
-
-### 검증 포인트
-1. 조직 정보가 올바른지 확인
-2. 시프트 개수가 예상과 일치하는지 확인 (보통 4개: D, E, N, O)
-3. 직원 수가 올바른지 확인 (테스트 환경: 30명)
-4. 배정 개수가 합리적인지 확인 (직원 수 × 날짜 수)
-5. 요구사항의 날짜 범위가 당월만 포함하는지 확인
-
-## 향후 작업
-
-현재는 Planning Payload를 구성하여 로그로 출력하고 있습니다.
-실제 Google Cloud Run API 연동 시:
-
-```typescript
-// src/composables/useAISolver.ts 내부
-const response = await fetch(CLOUD_RUN_URL, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(planningPayload),
-});
-```
+1. `organization.shifts` 코드 집합이 정확히 `D/E/N`인지 확인
+2. `history`의 모든 항목이 `firstDraftDate` 이전인지 확인
+3. `history`에 `O` 시프트가 없는지 확인
+4. `undesirable` 항목에 `shift_id` 키가 없는지 확인
+5. `requirements.dayIndex`가 0부터 연속 증가하는지 확인
 
 ## 예시 JSON
 
@@ -168,59 +98,65 @@ const response = await fetch(CLOUD_RUN_URL, {
 {
   "organization": {
     "id": "00000000-0000-0000-0000-000000000001",
-    "name": "서울대학교병원",
-    "type": "hospital"
+    "name": "세브란스병원",
+    "type": "hospital",
+    "shifts": [
+      {
+        "id": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",
+        "code": "D",
+        "name": "Day",
+        "start_time": "08:00:00",
+        "end_time": "16:00:00"
+      },
+      {
+        "id": "9ba021e7-1c4a-4f38-a577-ffc6dbcda56d",
+        "code": "E",
+        "name": "Evening",
+        "start_time": "16:00:00",
+        "end_time": "00:00:00"
+      },
+      {
+        "id": "493edb73-a7a0-4751-8bc1-92745c8bf729",
+        "code": "N",
+        "name": "Night",
+        "start_time": "00:00:00",
+        "end_time": "08:00:00"
+      }
+    ],
+    "lastHistoricalDate": "2025-11-26",
+    "firstDraftDate": "2025-12-01",
+    "publishLength": 4,
+    "draftLength": 31
   },
-  "shifts": [
-    {
-      "code": "D",
-      "name": "Day",
-      "start_time": "08:00:00",
-      "end_time": "16:00:00"
-    },
-    {
-      "code": "E",
-      "name": "Evening",
-      "start_time": "16:00:00",
-      "end_time": "00:00:00"
-    },
-    {
-      "code": "N",
-      "name": "Night",
-      "start_time": "00:00:00",
-      "end_time": "08:00:00"
-    },
-    {
-      "code": "O",
-      "name": "Off",
-      "start_time": "00:00:00",
-      "end_time": "00:00:00"
-    }
-  ],
   "employees": [
     {
-      "employee_id": "uuid-1",
-      "name": "김철수",
-      "available_shifts": ["D", "E", "N", "O"]
+      "employee_id": "3515886c-6359-4919-9c02-682565bb93c7",
+      "name": "고소영",
+      "available_shifts": ["D", "E", "N"],
+      "skill_set": ["ALL"]
     }
   ],
-  "assignments": [
+  "history": [
     {
-      "employee_id": "uuid-1",
-      "shift_id": "shift-uuid-1",
-      "date": "2025-12-01",
+      "employee_id": "3515886c-6359-4919-9c02-682565bb93c7",
+      "shift_id": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",
+      "date": "2025-11-30",
+      "is_locked": true
+    }
+  ],
+  "undesirable": [
+    {
+      "employee_id": "3515886c-6359-4919-9c02-682565bb93c7",
+      "date": "2025-12-03",
       "is_locked": false
     }
   ],
-  "requirements": {
-    "2025-12-01": {
-      "D": 3,
-      "E": 4,
-      "N": 3,
-      "O": 0,
-      "total": 10
+  "requirements": [
+    {
+      "shiftId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",
+      "dayIndex": 0,
+      "employeeCount": 3
     }
-  }
+  ]
 }
 ```
-

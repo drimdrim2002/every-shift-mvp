@@ -23,8 +23,8 @@ The request body consists of five main sections:
 | :------------- | :----- | :------- | :--------------------------------------------------------------------------- |
 | `organization` | Object | Yes      | Organization details and schedule parameters.                                |
 | `employees`    | Array  | Yes      | List of employees.                                                           |
-| `history`      | Array  | No       | List of past assignments (before `firstDraftDate`).                          |
-| `undesirable`  | Array  | No       | List of employee requests/undesirable shifts (on or after `firstDraftDate`). |
+| `history`      | Array  | No       | List of past assignments before `firstDraftDate` (Off/O assignments excluded). |
+| `undesirable`  | Array  | No       | List of employee off requests on or after `firstDraftDate`.                  |
 | `requirements` | Array  | Yes      | Staffing requirements for each shift per day.                                |
 
 ---
@@ -38,7 +38,7 @@ Defines the context and the time range for the schedule.
 | `id`                 | String  | UUID         | Unique identifier for the organization.                                       |
 | `name`               | String  | -            | Name of the organization (e.g., "Severance Hospital").                        |
 | `type`               | String  | -            | Type of organization (e.g., "hospital").                                      |
-| `shifts`             | Array   | -            | List of shift definitions.                                                    |
+| `shifts`             | Array   | -            | List of planning shift definitions (D/E/N only).                             |
 | `lastHistoricalDate` | String  | `yyyy-MM-dd` | The last date of the historical data period.                                  |
 | `publishLength`      | Integer | -            | Number of days to publish (not directly used in calculation logic currently). |
 | `firstDraftDate`     | String  | `yyyy-MM-dd` | The start date of the planning period (schedule draft).                       |
@@ -69,19 +69,26 @@ List of all employees to be scheduled.
 
 ---
 
-### 3. History (`history`) & 4. Undesirable (`undesirable`)
+### 3. History (`history`)
 
-Both lists use the same structure (`AssignmentInfo`).
-
-- **`history`**: Represents confirmed past schedules. Used for constraint checking (e.g., consecutive shifts).
-- **`undesirable`**: Represents future requests or constraints.
+Represents confirmed past schedules used for constraint checking.
 
 | Field         | Type    | Format       | Description                                                            |
 | :------------ | :------ | :----------- | :--------------------------------------------------------------------- |
 | `employee_id` | String  | UUID         | ID of the employee.                                                    |
-| `shift_id`    | String  | UUID         | ID of the assigned shift.                                              |
-| `date`        | String  | `yyyy-MM-dd` | Date of the assignment.                                                |
-| `is_locked`   | Boolean | -            | If `true`, the solver cannot change this assignment (hard constraint). |
+| `shift_id`    | String  | UUID         | ID of the assigned shift (`D/E/N`, Off/O is excluded).                |
+| `date`        | String  | `yyyy-MM-dd` | Date of the assignment (`date < firstDraftDate`).                     |
+| `is_locked`   | Boolean | -            | Always `true` (hard constraint).                                       |
+
+### 4. Undesirable (`undesirable`)
+
+Represents future off requests/undesirable days.
+
+| Field         | Type    | Format       | Description                                                |
+| :------------ | :------ | :----------- | :--------------------------------------------------------- |
+| `employee_id` | String  | UUID         | ID of the employee.                                        |
+| `date`        | String  | `yyyy-MM-dd` | Requested date (`date >= firstDraftDate`).                 |
+| `is_locked`   | Boolean | -            | Always `false` (soft constraint).                          |
 
 ---
 
@@ -135,7 +142,13 @@ Defines how many employees are needed for each shift on each day of the planning
       "is_locked": true
     }
   ],
-  "undesirable": [],
+  "undesirable": [
+    {
+      "employee_id": "3515886c-6359-4919-9c02-682565bb93c7",
+      "date": "2025-12-03",
+      "is_locked": false
+    }
+  ],
   "requirements": [
     {
       "shiftId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",

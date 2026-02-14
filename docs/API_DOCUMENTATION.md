@@ -123,13 +123,17 @@ Content-Type: application/json
 | 필드 | 타입 | 설명 |
 |------|------|------|
 | `organization` | Object | 병원/기관 정보 |
-| `organization.shifts` | Array | 근무조(Shift) 정의 |
+| `organization.shifts` | Array | 근무조(Shift) 정의 (`D/E/N`만 전송, `O` 제외) |
 | `employees` | Array | 직원 목록 |
 | `employees[].available_shifts` | Array[String] | 근무 가능한 시프트 코드 목록 |
 | `employees[].skill_set` | Array[String] | 보유 기술 (`"ALL"`은 전체 가능) |
-| `history` | Array | 과거 근무 기록 |
+| `history` | Array | 과거 근무 기록 (`firstDraftDate` 이전, `O` 제외) |
+| `history[].shift_id` | String(UUID) | 확정된 과거 시프트 ID (`D/E/N`) |
 | `history[].is_locked` | Boolean | `true`면 확정된 기록 (변경 불가) |
-| `undesirable` | Array | 근무 기피/희망 일자 |
+| `undesirable` | Array | 근무 기피/희망 일자 (`firstDraftDate` 이상) |
+| `undesirable[].employee_id` | String(UUID) | 직원 ID |
+| `undesirable[].date` | String(`YYYY-MM-DD`) | 근무 기피/희망 날짜 |
+| `undesirable[].is_locked` | Boolean | 항상 `false` (soft constraint) |
 | `requirements` | Array | 일자별 필요 인원 수 |
 
 **Response** (성공 - 200 OK)

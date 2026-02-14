@@ -157,7 +157,6 @@ export interface SolverRequestHistoryItem {
 
 export interface SolverRequestUndesirableItem {
   employee_id: string;
-  shift_id: string;
   date: string; // "YYYY-MM-DD"
   is_locked: boolean; // false: 권장 사항 (soft constraint)
 }

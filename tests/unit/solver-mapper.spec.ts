@@ -97,6 +97,12 @@ function createAssignments(): PlanningAssignment[] {
     },
     {
       employee_id: 'emp-1',
+      shift_id: 'shift-o',
+      date: '2025-11-29',
+      is_locked: false,
+    },
+    {
+      employee_id: 'emp-1',
       shift_id: 'shift-e',
       date: '2025-12-03',
       is_locked: true,
@@ -127,6 +133,7 @@ describe('mapToSolverRequest', () => {
     expect(payload.organization.lastHistoricalDate).toBe('2025-11-26');
     expect(payload.organization.publishLength).toBe(4);
     expect(payload.organization.draftLength).toBe(31);
+    expect(payload.organization.shifts.map((shift) => shift.code)).toEqual(['D', 'E', 'N']);
   });
 
   it('supports zero previous-month days', () => {
@@ -174,21 +181,16 @@ describe('mapToSolverRequest', () => {
         date: '2025-11-30',
         is_locked: true,
       },
-      {
-        employee_id: 'emp-1',
-        shift_id: 'shift-e',
-        date: '2025-12-03',
-        is_locked: true,
-      },
     ]);
 
     expect(payload.undesirable).toEqual([
       {
         employee_id: 'emp-1',
-        shift_id: 'shift-o',
         date: '2025-12-02',
         is_locked: false,
       },
     ]);
+
+    expect(payload.history.every((item) => item.date < payload.organization.firstDraftDate)).toBe(true);
   });
 });
