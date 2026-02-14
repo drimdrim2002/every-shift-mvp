@@ -23,6 +23,7 @@ import type { Shift } from '@/types/shift';
  * @param employees List of employees
  * @param shifts List of defined shifts
  * @param existingAssignments Previously saved assignments (optional)
+ * @param lastMonthDays Number of previous-month days to include in payload
  * @returns SolverRequest payload for the API
  */
 export function mapToSolverRequest(
@@ -31,13 +32,17 @@ export function mapToSolverRequest(
   constraints: ConstraintMap,
   employees: PlanningEmployee[],
   shifts: Shift[],
-  existingAssignments: PlanningAssignment[] = []
+  existingAssignments: PlanningAssignment[] = [],
+  lastMonthDays: number
 ): SolverRequest {
   const { month, organizationId, organizationName, organizationType } = basicInfo;
 
   // Calculate dates
   const firstDraftDate = dayjs(month).startOf('month').format('YYYY-MM-DD');
-  const lastHistoricalDate = dayjs(firstDraftDate).subtract(1, 'day').format('YYYY-MM-DD');
+  const publishLength = Math.max(0, Math.floor(lastMonthDays));
+  const lastHistoricalDate = dayjs(firstDraftDate)
+    .subtract(publishLength + 1, 'day')
+    .format('YYYY-MM-DD');
   const daysInMonth = dayjs(month).daysInMonth();
   
   // Transform shifts to PlanningShift format (include O for undesirable mapping)
@@ -128,7 +133,7 @@ export function mapToSolverRequest(
       shifts: planningShifts,
       lastHistoricalDate,
       firstDraftDate,
-      publishLength: daysInMonth,
+      publishLength,
       draftLength: daysInMonth,
     },
     employees: solverEmployees,

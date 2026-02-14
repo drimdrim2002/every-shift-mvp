@@ -692,7 +692,8 @@ async function buildSolverRequest() {
     constraints,
     planningEmployees,
     organizationStore.shifts,
-    planningAssignments
+    planningAssignments,
+    lastMonthDays.value
   );
 }
 
