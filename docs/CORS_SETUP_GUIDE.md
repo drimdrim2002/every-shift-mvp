@@ -2,11 +2,11 @@
 
 ## 문제 상황
 
-프론트엔드(`http://localhost:5173`)에서 백엔드 API(`https://every-shift-api-service-554455861916.a.run.app`)를 호출할 때 다음과 같은 CORS 오류가 발생합니다:
+프론트엔드(`http://localhost:5173`, `http://localhost:5174`)에서 백엔드 API(`https://every-shift-api-service-554455861916.a.run.app`)를 호출할 때 다음과 같은 CORS 오류가 발생합니다:
 
 ```
 Access to fetch at 'https://every-shift-api-service-554455861916.a.run.app/api/solve'
-from origin 'http://localhost:5173' has been blocked by CORS policy:
+from origin 'http://localhost:5174' has been blocked by CORS policy:
 Response to preflight request doesn't pass access control check:
 No 'Access-Control-Allow-Origin' header is present on the requested resource.
 ```
@@ -16,7 +16,7 @@ No 'Access-Control-Allow-Origin' header is present on the requested resource.
 **CORS (Cross-Origin Resource Sharing)**는 브라우저 보안 정책으로, 다른 출처(origin)의 리소스에 접근할 때 서버가 명시적으로 허용해야 합니다.
 
 - **Origin**: 프로토콜 + 도메인 + 포트의 조합
-  - 예: `http://localhost:5173`, `https://every-shift.com`
+  - 예: `http://localhost:5173`, `http://localhost:5174`, `https://every-shift.com`
 - **Same-Origin**: 모든 요소가 동일한 경우
 - **Cross-Origin**: 하나라도 다른 경우 (CORS 정책 적용)
 
@@ -136,8 +136,8 @@ public class CorsFilter implements ContainerResponseFilter {
         // 환경 변수나 설정 파일에서 허용 목록 읽기
         String allowedOrigins = System.getenv("ALLOWED_ORIGINS");
         if (allowedOrigins == null) {
-            // 기본값: 개발 환경
-            allowedOrigins = "http://localhost:5173,http://localhost:5174,http://localhost:3000";
+            // 기본값: 로컬 + 운영 도메인
+            allowedOrigins = "http://localhost:5173,http://localhost:5174,https://every-shift.com,https://www.every-shift.com";
         }
 
         return allowedOrigins.contains(origin);
@@ -156,7 +156,7 @@ Cloud Run에 배포된 경우 환경 변수로 허용 출처를 관리할 수 �
 3. "변수 및 보안 비밀" 탭
 4. 환경 변수 추가:
    ```
-   ALLOWED_ORIGINS=http://localhost:5173,https://every-shift.com
+   ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,https://every-shift.com,https://www.every-shift.com
    ```
 
 #### gcloud CLI로 설정
@@ -164,7 +164,7 @@ Cloud Run에 배포된 경우 환경 변수로 허용 출처를 관리할 수 �
 ```bash
 gcloud run services update every-shift-api-service \
   --region=asia-northeast3 \
-  --set-env-vars="ALLOWED_ORIGINS=http://localhost:5173,https://every-shift.com"
+  --set-env-vars="ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,https://every-shift.com,https://www.every-shift.com"
 ```
 
 ## 현재 프로젝트에 적용하기
@@ -206,8 +206,8 @@ quarkus.http.cors.access-control-allow-credentials=true
 브라우저 개발자 도구(F12)의 Network 탭에서 확인:
 
 1. **Preflight 요청 (OPTIONS)**
-   - Request Headers에 `Origin: http://localhost:5173` 포함
-   - Response Headers에 `Access-Control-Allow-Origin: http://localhost:5173` 포함
+   - Request Headers에 `Origin: http://localhost:5174` 포함
+   - Response Headers에 `Access-Control-Allow-Origin: http://localhost:5174` 포함
 
 2. **실제 요청 (POST /api/solve)**
    - Response Headers에 `Access-Control-Allow-Origin` 포함
@@ -288,7 +288,7 @@ gcloud run deploy every-shift-api-service \
    ```bash
    # OPTIONS 요청 테스트
    curl -X OPTIONS \
-     -H "Origin: http://localhost:5173" \
+     -H "Origin: http://localhost:5174" \
      -H "Access-Control-Request-Method: POST" \
      -H "Access-Control-Request-Headers: content-type" \
      -v \
@@ -317,7 +317,7 @@ quarkus.log.category."io.quarkus.http.runtime.cors".level=DEBUG
 ## 요약 체크리스트
 
 - [ ] `application.properties`에 CORS 설정 추가
-- [ ] 개발 환경: `http://localhost:5173` 허용
+- [ ] 개발 환경: `http://localhost:5173`, `http://localhost:5174` 허용
 - [ ] 프로덕션 환경: 실제 도메인만 허용
 - [ ] 서버 재시작
 - [ ] 브라우저에서 테스트 (Network 탭 확인)

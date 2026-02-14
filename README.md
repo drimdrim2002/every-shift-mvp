@@ -134,7 +134,17 @@ cp .env.example .env.local
 # Supabase 프로젝트 정보 입력
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJxxxxx...
+
+# AI Solver API (개발 모드)
+# 개발에서는 반드시 빈 값 유지 (Vite /api 프록시 사용)
+VITE_API_BASE_URL=
 ```
+
+**중요: AI Solver URL 규칙**
+
+- 개발(`pnpm dev`): `VITE_API_BASE_URL`를 비워서 `/api` 프록시 사용
+- 프로덕션 배포: 배포 환경 변수에만 절대 URL 설정  
+  `VITE_API_BASE_URL=https://every-shift-api-service-554455861916.asia-northeast3.run.app`
 
 **Supabase 정보 확인 방법**:
 
