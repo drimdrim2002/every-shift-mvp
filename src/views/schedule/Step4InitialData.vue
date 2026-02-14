@@ -256,27 +256,38 @@ watchDebounced(
       localStorage.setItem(STORAGE_KEY.value, JSON.stringify(dataToSave));
     }
   },
-  { debounce: 2000, deep: true }
+  { debounce: 2000 }
 );
 
 // Lifecycle
 onMounted(async () => {
+  console.time('[Step4] Total Load Time');
+
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
-  // Reload Org info to ensure name is available
-  if (!orgStore.current) {
-    await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
-  }
+  // Parallel initialization: org loading + data restoration
+  console.time('[Step4] Parallel Init (Org + Data Restore)');
+  await Promise.all([
+    // Load org data if not already loaded
+    (!orgStore.current || orgStore.employees.length === 0)
+      ? orgStore.loadOrganization(scheduleStore.basicInfo.organizationId)
+      : Promise.resolve(),
+    // Restore saved data from Supabase
+    restoreData(),
+  ]);
+  console.timeEnd('[Step4] Parallel Init (Org + Data Restore)');
 
-  await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
+  // Initialize grid from org store (no DB query needed)
+  console.time('[Step4] Grid Init');
+  grid.employees.value = orgStore.employees;
   grid.generateDates(scheduleStore.basicInfo.month, 0);
   ensureEmployeeMaps();
+  console.timeEnd('[Step4] Grid Init');
 
-  // Restore logic (Supabase -> LocalStorage)
-  await restoreData();
+  console.timeEnd('[Step4] Total Load Time');
 });
 
 async function restoreData() {
