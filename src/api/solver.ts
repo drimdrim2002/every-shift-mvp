@@ -87,6 +87,8 @@ export function mapApiStatusToAppStatus(apiStatus: string): 'created' | 'running
   }
 }
 
+import dayjs from 'dayjs';
+
 // Solver 결과를 AssignmentMap으로 변환
 export function parseSolverResult(result: SolverResult): AssignmentMap {
   const assignmentMap: AssignmentMap = {};
@@ -99,13 +101,23 @@ export function parseSolverResult(result: SolverResult): AssignmentMap {
     // Check if shift has employee and start date
     if (shift.employee && shift.start) {
         const employeeId = shift.employee.id;
-        const shiftId = shift.supabaseId; // Use supabaseId as the shift UUID
-        const date = shift.start.split('T')[0]!;
+        const assignedShiftId = shift.shiftId || shift.supabaseId; // Use shiftId if available, fallback to supabaseId
+        
+        const start = dayjs(shift.start);
+        let logicalDate = start.format('YYYY-MM-DD');
+
+        // Night shift starting in the morning (e.g., 00:00) belongs to the previous schedule day
+        if (shift.shiftCode === 'N' && start.hour() < 12) {
+            logicalDate = start.subtract(1, 'day').format('YYYY-MM-DD');
+        } else if (!shift.shiftCode && start.hour() === 0 && start.minute() === 0) {
+            // Fallback: If no shiftCode is provided but it starts exactly at midnight
+            logicalDate = start.subtract(1, 'day').format('YYYY-MM-DD');
+        }
 
         if (!assignmentMap[employeeId]) {
           assignmentMap[employeeId] = {};
         }
-        assignmentMap[employeeId]![date] = shiftId;
+        assignmentMap[employeeId]![logicalDate] = assignedShiftId;
     }
   });
 

@@ -217,6 +217,8 @@ export interface ShiftAssignmentItem {
   employee: SolverResultEmployee;
   pinned: boolean; // boolean
   supabaseId: string; // shift id
+  shiftCode?: string;
+  shiftId?: string;
 }
 
 export interface AvailabilityItem {
