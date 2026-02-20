@@ -56,9 +56,9 @@ export function useAISolver() {
       startPolling(executionId, scheduleId);
       return executionId;
 
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('[useAISolver] Failed to start solver:', e);
-      error.value = e.message || 'Failed to start solver';
+      error.value = e instanceof Error ? e.message : 'Failed to start solver';
       status.value = 'error';
       await supabase
         .from('schedules')
@@ -86,8 +86,6 @@ export function useAISolver() {
       try {
         const response = await getSolverStatus(executionId);
         const appStatus = mapApiStatusToAppStatus(response.status);
-        
-        status.value = appStatus;
 
         if (response.score) {
           hardScore.value = response.score.hard_score;
@@ -95,6 +93,7 @@ export function useAISolver() {
         }
 
         if (appStatus === 'running') {
+            status.value = 'running';
             // Fake progress if needed
             if (progress.value < 90) progress.value += 2;
             
@@ -106,16 +105,31 @@ export function useAISolver() {
             }
         } else if (appStatus === 'complete') {
             stopPolling();
-            progress.value = 100;
-            // Save results
-            if (response.result) {
+            try {
+                if (!response.result) {
+                    throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
+                }
+
                 const assignments = parseSolverResult(response.result);
                 await saveResult(scheduleId, assignments, response.score);
+                progress.value = 100;
+                status.value = 'complete';
+            } catch (e: unknown) {
+                console.error('[useAISolver] Failed to save final solver result:', e);
+                error.value = e instanceof Error ? e.message : '최종 결과 저장 중 오류가 발생했습니다.';
+                status.value = 'error';
+                await supabase
+                  .from('schedules')
+                  .update({ status: 'error', solver_execution_id: null })
+                  .eq('id', scheduleId);
             }
         } else if (appStatus === 'error') {
             stopPolling();
             error.value = response.error_message || 'AI Solver 오류';
+            status.value = 'error';
             await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
+        } else {
+            status.value = appStatus;
         }
 
       } catch (e) {
@@ -147,16 +161,14 @@ export function useAISolver() {
 
   async function saveResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
       console.log('[saveResult] Saving final results to database...');
-      // Update schedule status and score
+      // Save assignments to DB first, then publish complete status as the final commit signal.
+      await saveAssignmentsToDb(scheduleId, assignments);
+      await refreshPreferenceResolution(scheduleId);
       await supabase.from('schedules').update({
           status: 'complete',
           hard_score: score?.hard_score || 0,
           soft_score: score?.soft_score || 0
       }).eq('id', scheduleId);
-
-      // Save assignments to DB
-      await saveAssignmentsToDb(scheduleId, assignments);
-      await refreshPreferenceResolution(scheduleId);
       console.log('[saveResult] Saved final results.');
   }
 
