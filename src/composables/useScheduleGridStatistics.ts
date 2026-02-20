@@ -29,8 +29,10 @@ export function useScheduleGridStatistics(
       if (!rowCache.has(cacheKey)) {
         const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
 
-        // 버그 수정: 그리드에 표시된 날짜만 계산
+        // 버그 수정: 그리드에 표시된 날짜만 계산, 단 전월 데이터는 요약(row)에서 제외
         dates().forEach((date) => {
+          if (date.isLastMonth) return;
+
           const shiftCode = empAssignments[date.date];
           if (!shiftCode) return;
 
