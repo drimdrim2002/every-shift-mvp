@@ -5,7 +5,6 @@ import type {
   ConstraintMap,
   OffReasonMap,
   CommentMap,
-  PreferenceStatus,
   SchedulePreference,
   PlanningOrganization,
   PlanningShift,
@@ -34,13 +33,6 @@ interface AssignmentQueryResult {
   comment: string | null;
 }
 
-interface AssignmentWithShiftId {
-  employee_id: string;
-  shift_id: string;
-  date: string;
-  shifts: ShiftReference | ShiftReference[] | null;
-}
-
 interface RawSchedulePreference {
   id: string;
   schedule_id: string;
@@ -48,10 +40,6 @@ interface RawSchedulePreference {
   date: string;
   request_code: string;
   request_note: string | null;
-  is_soft: boolean;
-  resolution_status: PreferenceStatus;
-  resolved_shift_id: string | null;
-  resolved_at: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -162,7 +150,7 @@ export async function getSchedulePreferences(scheduleId: string): Promise<{
     const { data, error } = await supabase
       .from('schedule_preferences')
       .select(
-        'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+        'id, schedule_id, employee_id, date, request_code, request_note, created_at, updated_at'
       )
       .eq('schedule_id', scheduleId)
       .order('date', { ascending: true })
@@ -220,10 +208,6 @@ export async function saveSchedulePreferences(
     date: string;
     request_code: ConstraintCode;
     request_note?: string;
-    is_soft: boolean;
-    resolution_status: PreferenceStatus;
-    resolved_shift_id: null;
-    resolved_at: null;
   }> = [];
 
   Object.entries(constraints).forEach(([employeeId, dateMap]) => {
@@ -239,10 +223,6 @@ export async function saveSchedulePreferences(
         date,
         request_code: requestCode,
         request_note: requestNote || undefined,
-        is_soft: true,
-        resolution_status: 'pending',
-        resolved_shift_id: null,
-        resolved_at: null,
       });
     });
   });
@@ -266,93 +246,17 @@ export async function saveSchedulePreferences(
 
 // 요청 반영 상태 초기화
 export async function resetPreferenceResolution(scheduleId: string): Promise<void> {
-  const { error } = await supabase
-    .from('schedule_preferences')
-    .update({
-      resolution_status: 'pending',
-      resolved_shift_id: null,
-      resolved_at: null,
-    })
-    .eq('schedule_id', scheduleId);
-
-  if (error) {
-    throw new Error(`요청 상태 초기화 실패: ${error.message}`);
-  }
+  // Compatibility no-op: resolution fields were removed from schedule_preferences.
+  // Keep function signature to avoid touching existing call sites.
+  void scheduleId;
 }
 
 // schedule_assignments 결과 기준으로 요청 반영 상태 갱신
 export async function refreshPreferenceResolution(scheduleId: string): Promise<SchedulePreference[]> {
+  // Compatibility no-op: resolution fields were removed from schedule_preferences.
+  // Return current preferences for callers that await this function.
   const { preferences } = await getSchedulePreferences(scheduleId);
-  if (preferences.length === 0) return [];
-
-  const assignmentRows: AssignmentWithShiftId[] = [];
-  let from = 0;
-  const pageSize = 1000;
-  let hasMore = true;
-
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from('schedule_assignments')
-      .select('employee_id, shift_id, date, shifts(code)')
-      .eq('schedule_id', scheduleId)
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      throw new Error(`배정 조회 실패: ${error.message}`);
-    }
-
-    if (data && data.length > 0) {
-      const normalized = (data as AssignmentWithShiftId[]).map((row) => ({
-        ...row,
-        shifts: Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts,
-      }));
-      assignmentRows.push(...normalized);
-      from += pageSize;
-      hasMore = data.length === pageSize;
-    } else {
-      hasMore = false;
-    }
-  }
-
-  const assignmentMap = new Map<string, { shiftId: string; shiftCode: string | null }>();
-  assignmentRows.forEach((row) => {
-    const shiftRef = Array.isArray(row.shifts) ? row.shifts[0] || null : row.shifts;
-    assignmentMap.set(`${row.employee_id}_${row.date}`, {
-      shiftId: row.shift_id,
-      shiftCode: shiftRef?.code ?? null,
-    });
-  });
-
-  const resolvedAt = new Date().toISOString();
-  const updates = preferences.map((pref) => {
-    const match = assignmentMap.get(`${pref.employee_id}_${pref.date}`);
-    const isFulfilled = match?.shiftCode === 'O';
-    return {
-      id: pref.id,
-      schedule_id: pref.schedule_id,
-      employee_id: pref.employee_id,
-      date: pref.date,
-      request_code: pref.request_code,
-      request_note: pref.request_note,
-      is_soft: pref.is_soft,
-      resolution_status: (isFulfilled ? 'fulfilled' : 'unfulfilled') as PreferenceStatus,
-      resolved_shift_id: match?.shiftId ?? null,
-      resolved_at: resolvedAt,
-    };
-  });
-
-  const { data, error } = await supabase
-    .from('schedule_preferences')
-    .upsert(updates, { onConflict: 'id' })
-    .select(
-      'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
-    );
-
-  if (error) {
-    throw new Error(`요청 반영 상태 갱신 실패: ${error.message}`);
-  }
-
-  return (data || []) as SchedulePreference[];
+  return preferences;
 }
 
 // 근무표 배정 조회 (assignments와 offReasons, comments 함께 반환)

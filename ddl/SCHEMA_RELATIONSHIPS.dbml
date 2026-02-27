@@ -1,0 +1,416 @@
+Project everyshift_schema {
+  database_type: "PostgreSQL"
+  Note: "Source of truth: ddl/*.sql + migrations/007_service_transition_rbac_multitenant.sql (compat cleanup excluded in 007)"
+}
+
+Table auth.users [note: "Supabase managed table (external to this repo)"] {
+  id uuid [pk]
+}
+
+Table public.organizations {
+  id uuid [pk]
+  name varchar(255) [not null]
+  type varchar(50) [not null]
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table public.employees {
+  id uuid [pk]
+  organization_id uuid [not null]
+  user_id uuid
+  employee_id varchar(50) [not null]
+  name varchar(100) [not null]
+  available_shifts jsonb [not null]
+  created_at timestamptz
+  updated_at timestamptz
+
+  Indexes {
+    (organization_id, employee_id) [unique, name: "employees_organization_id_employee_id_key"]
+    (organization_id) [name: "idx_employees_org"]
+    (user_id) [name: "idx_employees_user_id"]
+  }
+}
+
+Table public.shifts {
+  id uuid [pk]
+  organization_id uuid [not null]
+  code varchar(10) [not null]
+  name varchar(50) [not null]
+  color_code varchar(20) [not null]
+  start_time time
+  end_time time
+  created_at timestamptz
+
+  Indexes {
+    (organization_id, code) [unique, name: "shifts_organization_id_code_key"]
+  }
+}
+
+Table public.schedules {
+  id uuid [pk]
+  organization_id uuid [not null]
+  month varchar(7) [not null]
+  status varchar(20) [not null]
+  hard_score int
+  soft_score int
+  solver_execution_id text
+  created_at timestamptz
+  updated_at timestamptz
+
+  Indexes {
+    (organization_id, month) [unique, name: "schedules_organization_id_month_key"]
+    (organization_id, month) [name: "idx_schedules_org_month"]
+  }
+}
+
+Table public.schedule_assignments {
+  id uuid [pk]
+  schedule_id uuid [not null]
+  employee_id uuid [not null]
+  shift_id uuid [not null]
+  site_id uuid
+  date date [not null]
+  is_locked boolean
+  off_reason varchar(50)
+  off_comment varchar(255)
+  comment text
+  created_at timestamptz
+  updated_at timestamptz
+
+  Indexes {
+    (schedule_id, employee_id, date) [unique, name: "schedule_assignments_schedule_id_employee_id_date_key"]
+    (employee_id, date) [name: "idx_assignments_employee_date"]
+    (schedule_id) [name: "idx_assignments_schedule"]
+    (site_id) [name: "idx_schedule_assignments_site_id"]
+  }
+}
+
+Table public.site_requirements [note: "Legacy MVP requirements table; 007 extends scope with site/skill/rank. Unique scope uses expression index uq_site_requirements_scope with COALESCE on nullable dimensions."] {
+  id uuid [pk]
+  organization_id uuid [not null]
+  shift_id uuid [not null]
+  site_id uuid
+  skill_id uuid
+  rank_id uuid
+  day_of_week int [not null]
+  required_count int [not null]
+  created_at timestamptz
+
+  Indexes {
+    (site_id) [name: "idx_site_requirements_site_id"]
+  }
+}
+
+Table public.schedule_preferences {
+  id uuid [pk]
+  schedule_id uuid [not null]
+  employee_id uuid [not null]
+  date date [not null]
+  request_code varchar(1) [not null]
+  request_note text
+  is_soft boolean [not null]
+  resolution_status varchar(20) [not null]
+  resolved_shift_id uuid
+  resolved_at timestamptz
+  created_at timestamptz
+  updated_at timestamptz
+
+  Indexes {
+    (schedule_id, employee_id, date) [unique, name: "schedule_preferences_schedule_id_employee_id_date_key"]
+    (schedule_id, date) [name: "idx_schedule_preferences_schedule_date"]
+    (schedule_id, resolution_status) [name: "idx_schedule_preferences_schedule_status"]
+  }
+}
+
+Table public.profiles {
+  id uuid [pk]
+  global_role varchar(20) [not null]
+  account_status varchar(20) [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (global_role, account_status) [name: "idx_profiles_role_status"]
+  }
+}
+
+Table public.organization_memberships {
+  id uuid [pk]
+  organization_id uuid [not null]
+  user_id uuid [not null]
+  role varchar(20) [not null]
+  status varchar(20) [not null]
+  approved_by uuid
+  approved_at timestamptz
+  rejection_reason text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, user_id) [unique, name: "organization_memberships_organization_id_user_id_key"]
+    (user_id) [name: "idx_memberships_user"]
+    (organization_id, status, role) [name: "idx_memberships_org_status_role"]
+  }
+}
+
+Table public.signup_requests {
+  id uuid [pk]
+  requester_user_id uuid
+  organization_id uuid
+  requested_role varchar(20) [not null]
+  status varchar(20) [not null]
+  work_type varchar(100)
+  shift_type varchar(100)
+  requested_site_name varchar(255)
+  requested_skill_summary text
+  requested_rank_code varchar(50)
+  requested_credit numeric(10,2)
+  reviewed_by uuid
+  reviewed_at timestamptz
+  review_note text
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (status, created_at) [name: "idx_signup_requests_status_created"]
+    (organization_id, status) [name: "idx_signup_requests_org_status"]
+    (requester_user_id) [name: "idx_signup_requests_requester"]
+  }
+}
+
+Table public.approval_logs {
+  id uuid [pk]
+  signup_request_id uuid
+  membership_id uuid
+  organization_id uuid
+  actor_user_id uuid [not null]
+  target_user_id uuid
+  action varchar(20) [not null]
+  reason text
+  metadata jsonb [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, created_at) [name: "idx_approval_logs_org_created"]
+    (target_user_id, created_at) [name: "idx_approval_logs_target_created"]
+  }
+}
+
+Table public.onboarding_progress {
+  id uuid [pk]
+  organization_id uuid [not null]
+  user_id uuid [not null]
+  current_step int [not null]
+  completed_at timestamptz
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, user_id) [unique, name: "onboarding_progress_organization_id_user_id_key"]
+    (user_id, completed_at) [name: "idx_onboarding_user_completed_at"]
+  }
+}
+
+Table public.notifications {
+  id uuid [pk]
+  organization_id uuid
+  recipient_user_id uuid [not null]
+  sender_user_id uuid
+  notification_type varchar(50) [not null]
+  channel varchar(20) [not null]
+  title varchar(200) [not null]
+  body text [not null]
+  payload jsonb [not null]
+  read_at timestamptz
+  sent_at timestamptz
+  created_at timestamptz [not null]
+
+  Indexes {
+    (recipient_user_id, read_at, created_at) [name: "idx_notifications_recipient_read_at"]
+    (organization_id, notification_type, created_at) [name: "idx_notifications_org_type"]
+  }
+}
+
+Table public.notification_preferences {
+  id uuid [pk]
+  user_id uuid [not null, unique]
+  organization_id uuid
+  allow_in_app boolean [not null]
+  allow_email boolean [not null]
+  event_preferences jsonb [not null]
+  quiet_hours jsonb [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (organization_id) [name: "idx_notification_preferences_org"]
+  }
+}
+
+Table public.organization_settings {
+  id uuid [pk]
+  organization_id uuid [not null, unique]
+  max_consecutive_night_shifts int
+  minimum_rest_hours jsonb [not null]
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+}
+
+Table public.skills {
+  id uuid [pk]
+  organization_id uuid [not null]
+  code varchar(50) [not null]
+  name varchar(100) [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, code) [unique, name: "skills_organization_id_code_key"]
+  }
+}
+
+Table public.ranks {
+  id uuid [pk]
+  organization_id uuid [not null]
+  code varchar(50) [not null]
+  name varchar(100) [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, code) [unique, name: "ranks_organization_id_code_key"]
+  }
+}
+
+Table public.sites {
+  id uuid [pk]
+  organization_id uuid [not null]
+  code varchar(50) [not null]
+  name varchar(100) [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, code) [unique, name: "sites_organization_id_code_key"]
+  }
+}
+
+Table public.employee_skills {
+  employee_id uuid [not null]
+  skill_id uuid [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (employee_id, skill_id) [pk, name: "employee_skills_pkey"]
+    (skill_id) [name: "idx_employee_skills_skill"]
+  }
+}
+
+Table public.employee_site_assignments {
+  employee_id uuid [not null]
+  site_id uuid [not null]
+  is_primary boolean [not null]
+  assigned_at timestamptz [not null]
+
+  Indexes {
+    (employee_id, site_id) [pk, name: "employee_site_assignments_pkey"]
+    (site_id) [name: "idx_employee_sites_site"]
+  }
+}
+
+Table public.site_staffing_requirements [note: "Service-native staffing requirement table"] {
+  id uuid [pk]
+  organization_id uuid [not null]
+  site_id uuid [not null]
+  shift_id uuid [not null]
+  day_of_week int [not null]
+  required_count int [not null]
+  skill_id uuid
+  rank_id uuid
+  created_at timestamptz [not null]
+  updated_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, site_id, day_of_week) [name: "idx_site_staffing_req_org_site_day"]
+  }
+}
+
+Table public.analytics_metrics {
+  id uuid [pk]
+  organization_id uuid [not null]
+  metric_month varchar(7)
+  metric_category varchar(50) [not null]
+  metric_key varchar(100) [not null]
+  metric_value numeric(14,4) [not null]
+  created_at timestamptz [not null]
+
+  Indexes {
+    (organization_id, metric_month, metric_category) [name: "idx_analytics_metrics_org_month_category"]
+  }
+}
+
+Ref: public.employees.organization_id > public.organizations.id
+Ref: public.employees.user_id > auth.users.id
+
+Ref: public.shifts.organization_id > public.organizations.id
+
+Ref: public.schedules.organization_id > public.organizations.id
+
+Ref: public.schedule_assignments.schedule_id > public.schedules.id
+Ref: public.schedule_assignments.employee_id > public.employees.id
+Ref: public.schedule_assignments.shift_id > public.shifts.id
+Ref: public.schedule_assignments.site_id > public.sites.id
+
+Ref: public.site_requirements.organization_id > public.organizations.id
+Ref: public.site_requirements.shift_id > public.shifts.id
+Ref: public.site_requirements.site_id > public.sites.id
+Ref: public.site_requirements.skill_id > public.skills.id
+Ref: public.site_requirements.rank_id > public.ranks.id
+
+Ref: public.schedule_preferences.schedule_id > public.schedules.id
+Ref: public.schedule_preferences.employee_id > public.employees.id
+Ref: public.schedule_preferences.resolved_shift_id > public.shifts.id
+
+Ref: public.profiles.id > auth.users.id
+
+Ref: public.organization_memberships.organization_id > public.organizations.id
+Ref: public.organization_memberships.user_id > auth.users.id
+Ref: public.organization_memberships.approved_by > auth.users.id
+
+Ref: public.signup_requests.requester_user_id > auth.users.id
+Ref: public.signup_requests.organization_id > public.organizations.id
+Ref: public.signup_requests.reviewed_by > auth.users.id
+
+Ref: public.approval_logs.signup_request_id > public.signup_requests.id
+Ref: public.approval_logs.membership_id > public.organization_memberships.id
+Ref: public.approval_logs.organization_id > public.organizations.id
+Ref: public.approval_logs.actor_user_id > auth.users.id
+Ref: public.approval_logs.target_user_id > auth.users.id
+
+Ref: public.onboarding_progress.organization_id > public.organizations.id
+Ref: public.onboarding_progress.user_id > auth.users.id
+
+Ref: public.notifications.organization_id > public.organizations.id
+Ref: public.notifications.recipient_user_id > auth.users.id
+Ref: public.notifications.sender_user_id > auth.users.id
+
+Ref: public.notification_preferences.user_id > auth.users.id
+Ref: public.notification_preferences.organization_id > public.organizations.id
+
+Ref: public.organization_settings.organization_id > public.organizations.id
+
+Ref: public.skills.organization_id > public.organizations.id
+Ref: public.ranks.organization_id > public.organizations.id
+Ref: public.sites.organization_id > public.organizations.id
+
+Ref: public.employee_skills.employee_id > public.employees.id
+Ref: public.employee_skills.skill_id > public.skills.id
+
+Ref: public.employee_site_assignments.employee_id > public.employees.id
+Ref: public.employee_site_assignments.site_id > public.sites.id
+
+Ref: public.site_staffing_requirements.organization_id > public.organizations.id
+Ref: public.site_staffing_requirements.site_id > public.sites.id
+Ref: public.site_staffing_requirements.shift_id > public.shifts.id
+Ref: public.site_staffing_requirements.skill_id > public.skills.id
+Ref: public.site_staffing_requirements.rank_id > public.ranks.id
+
+Ref: public.analytics_metrics.organization_id > public.organizations.id

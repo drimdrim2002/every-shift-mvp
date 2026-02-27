@@ -39,8 +39,6 @@ export type OffReasonMap = Record<string, Record<string, string>>;
 // 코멘트 맵: employeeId -> date -> comment
 export type CommentMap = Record<string, Record<string, string>>;
 
-export type PreferenceStatus = 'pending' | 'fulfilled' | 'unfulfilled';
-
 export interface SchedulePreference {
   id: string;
   schedule_id: string;
@@ -48,10 +46,6 @@ export interface SchedulePreference {
   date: string;
   request_code: ConstraintCode;
   request_note: string | null;
-  is_soft: boolean;
-  resolution_status: PreferenceStatus;
-  resolved_shift_id: string | null;
-  resolved_at: string | null;
   created_at?: string;
   updated_at?: string;
 }

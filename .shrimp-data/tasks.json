@@ -101,7 +101,7 @@
       "id": "10000000-0000-4000-8000-000000000004",
       "name": "P1-1 Expand schema for RBAC and multitenancy",
       "description": "Create new tables for profiles, memberships, approvals, onboarding, notifications, skills/ranks/sites, and analytics foundation.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P1",
       "dependencies": [
         {
@@ -120,7 +120,9 @@
       "verificationCriteria": "신규/확장 테이블이 생성되고 기존 데이터가 유지된다.",
       "analysisResult": "Schema-first service transition",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:46:10.128Z",
+      "summary": "`migrations/007_service_transition_rbac_multitenant.sql`를 생성해 RBAC/멀티테넌시 전환용 신규 테이블(프로필, 멤버십, 가입요청, 승인로그, 온보딩, 알림, 스킬/직급/사이트, 사이트 요구인력, 분석지표)을 추가하고, 기존 핵심 테이블(organizations/employees/shifts/schedules/schedule_assignments/site_requirements)에 nullable 서비스 컬럼을 비파괴 방식으로 확장했다. 주요 인덱스, 체크 제약, COMMENT를 포함해 후속 RLS/백필 작업의 기반을 마련했다.",
+      "completedAt": "2026-02-27T07:46:10.124Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000005",
@@ -4106,6 +4108,30 @@
       "verificationCriteria": "Go/No-Go 리뷰 진행에 필요한 아젠다/자료 목록이 확정되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "00726cae-2c8e-4f81-af12-4bb55e494203",
+      "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
+      "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
+      "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "createdAt": "2026-02-27T08:25:09.787Z",
+      "updatedAt": "2026-02-27T08:25:09.787Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "Primary migration file to harden for DDL compatibility and uniqueness-scope transition."
+        }
+      ],
+      "implementationGuide": "1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.",
+      "verificationCriteria": "기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.",
+      "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements."
     }
   ]
 }
