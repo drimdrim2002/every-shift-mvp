@@ -12,7 +12,10 @@
     "shrimp-task-manager": {
       "type": "stdio",
       "command": "bash",
-      "args": ["scripts/mcp/shrimp-task-manager.sh"]
+      "args": ["scripts/mcp/shrimp-task-manager.sh"],
+      "env": {
+        "DATA_DIR": "/home/brown/projects/every-shift-mvp/data"
+      }
     },
     "context7": {
       "type": "stdio",

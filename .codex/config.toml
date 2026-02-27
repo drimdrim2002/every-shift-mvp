@@ -1,0 +1,25 @@
+# ===============================
+# Codex Project-level MCP Config
+# ===============================
+
+[mcp_servers.shrimp_task_manager]
+command = "node"
+args = [
+  "/home/brown/projects/every-shift-mvp/tools/mcp-shrimp-task-manager/dist/index.js"
+]
+
+env = {
+  # Shrimp의 상태/데이터 저장 경로 (프로젝트 내부에 저장되도록 구성)
+  "DATA_DIR" = "/home/brown/projects/every-shift-mvp/.shrimp-data",
+
+  # en / ko 지원 (영어 템플릿 사용)
+  "TEMPLATES_USE" = "en",
+
+  # Codex GUI 연결 필요 없으므로 false
+  "ENABLE_GUI" = "false"
+}
+
+#[mcp_servers.context7]
+#command = "npx"
+#args = ["-y", "@upstash/context7-mcp", "--api-key", "ctx7sk-620520c7-6c54-4eaa-9ea9-805044b156b3"]
+#startup_timeout_sec = 30
