@@ -1,6 +1,9 @@
 <template>
   <div class="mx-auto flex h-full max-w-full flex-col px-4">
-    <StepIndicator :current-step="4" class="mb-4" />
+    <StepIndicator
+      :current-step="4"
+      class="mb-4"
+    />
 
     <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
@@ -27,7 +30,10 @@
         </div>
 
         <div class="relative flex-1 overflow-hidden">
-          <n-spin :show="grid.loading.value" class="h-full">
+          <n-spin
+            :show="grid.loading.value"
+            class="h-full"
+          >
             <div class="absolute inset-0 overflow-hidden">
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
@@ -58,10 +64,20 @@
 
     <!-- Bottom Actions -->
     <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
-      <n-button size="large" @click="handlePrev"> ← 이전 단계 </n-button>
+      <n-button
+        size="large"
+        @click="handlePrev"
+      >
+        ← 이전 단계
+      </n-button>
 
       <div class="flex gap-3">
-        <n-button size="large" @click="handleSave"> 임시 저장 </n-button>
+        <n-button
+          size="large"
+          @click="handleSave"
+        >
+          임시 저장
+        </n-button>
         <n-button
           type="primary"
           size="large"

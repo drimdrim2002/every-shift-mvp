@@ -230,11 +230,11 @@ export interface AvailabilityItem {
 
 export interface SolverResult {
   availabilityList: AvailabilityItem[];
-  employeeList: any[]; 
+  employeeList: unknown[];
   shiftList: ShiftAssignmentItem[];
   score: {
       hard_score: number;
       soft_score: number;
   };
-  scheduleState: any;
+  scheduleState: unknown;
 }

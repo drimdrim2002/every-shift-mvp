@@ -28,7 +28,9 @@
         class="mb-6"
       >
         <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-700">전월 데이터 표시 일수</h3>
+          <h3 class="text-sm font-semibold text-gray-700">
+            전월 데이터 표시 일수
+          </h3>
           <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
         </div>
         <n-slider

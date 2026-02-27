@@ -15,6 +15,7 @@ export default [
       '**/.env.local',
       '**/*.config.js',
       '**/scripts/**',
+      '**/tools/mcp-shrimp-task-manager/**',
     ],
   },
   ...pluginVue.configs['flat/recommended'],

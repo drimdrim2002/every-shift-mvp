@@ -4,20 +4,27 @@
       <table class="schedule-grid w-full">
         <!-- Column width definitions -->
         <colgroup>
-          <col style="width: 150px" />
-          <col v-for="date in dates" :key="date.date" style="width: var(--day-col-width)" />
+          <col style="width: 150px">
+          <col
+            v-for="date in dates"
+            :key="date.date"
+            style="width: var(--day-col-width)"
+          >
           <col
             v-for="index in statColumnCount"
             :key="`stat-col-${index}`"
             style="width: var(--day-col-width)"
-          />
+          >
         </colgroup>
 
         <!-- 3-level 헤더 -->
         <thead>
           <!-- Level 1: Last Month / This Month -->
           <tr>
-            <th rowspan="3" class="sticky-column header-cell bg-white px-4 py-3 font-semibold">
+            <th
+              rowspan="3"
+              class="sticky-column header-cell bg-white px-4 py-3 font-semibold"
+            >
               근무자
             </th>
             <th
@@ -58,7 +65,7 @@
               class="header-level-3 cursor-pointer bg-gray-50 px-2 py-1 text-center text-sm transition-colors hover:bg-gray-100"
               @click="handleHeaderClick(date.date)"
             >
-              {{ date.day }}일<br />
+              {{ date.day }}일<br>
               <span class="text-xs text-gray-600">({{ date.dayName }})</span>
             </th>
             <template v-if="!isPlanning">
@@ -88,7 +95,11 @@
 
         <!-- 데이터 행 -->
         <tbody>
-          <tr v-for="employee in employees" :key="employee.id" class="data-row">
+          <tr
+            v-for="employee in employees"
+            :key="employee.id"
+            class="data-row"
+          >
             <td class="sticky-column employee-cell text-center">
               <div class="font-semibold">
                 {{ employee.name }}
@@ -163,8 +174,14 @@
           <!-- 통계 행 (하단 고정) -->
           <template v-if="isPlanning">
             <tr class="stat-row stat-row-total-only bg-gray-100">
-              <td class="sticky-column employee-cell text-center font-bold">Total</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                Total
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.total || 0 }}
               </td>
               <td class="sticky-right sticky-right-total sticky-right-single bg-gray-200" />
@@ -173,8 +190,14 @@
           <template v-else>
             <!-- Total 행 -->
             <tr class="stat-row stat-row-total bg-gray-100">
-              <td class="sticky-column employee-cell text-center font-bold">Total</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                Total
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.total || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-gray-200" />
@@ -185,8 +208,14 @@
 
             <!-- D 행 -->
             <tr class="stat-row stat-row-d bg-blue-50">
-              <td class="sticky-column employee-cell text-center font-bold">D</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                D
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.D || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-blue-100" />
@@ -197,8 +226,14 @@
 
             <!-- E 행 -->
             <tr class="stat-row stat-row-e bg-orange-50">
-              <td class="sticky-column employee-cell text-center font-bold">E</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                E
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.E || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-orange-100" />
@@ -209,8 +244,14 @@
 
             <!-- N 행 -->
             <tr class="stat-row stat-row-n bg-purple-50">
-              <td class="sticky-column employee-cell text-center font-bold">N</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                N
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.N || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-purple-100" />

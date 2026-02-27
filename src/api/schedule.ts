@@ -440,7 +440,13 @@ export async function updateAssignment(
   shiftId: string,
   comment?: string
 ) {
-  const updateData: any = {
+  const updateData: {
+    schedule_id: string;
+    employee_id: string;
+    shift_id: string;
+    date: string;
+    comment?: string;
+  } = {
     schedule_id: scheduleId,
     employee_id: employeeId,
     shift_id: shiftId,

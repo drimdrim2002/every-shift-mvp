@@ -115,6 +115,25 @@ const employees = ref<EmployeeInput[]>([]);
 const isSaving = ref(false);
 const hasUnsavedChanges = ref(false); // 저장되지 않은 변경사항 추적
 
+interface EmployeeDbRow {
+  employee_id: string;
+  name: string;
+  available_shifts: string[] | null;
+}
+
+function isEmployeeDbRow(value: unknown): value is EmployeeDbRow {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.employee_id === 'string' &&
+    typeof row.name === 'string' &&
+    (row.available_shifts === null || Array.isArray(row.available_shifts))
+  );
+}
+
 // 시프트 목록
 const shifts = computed<Shift[]>(() => {
   return scheduleStore.basicInfo?.shifts || orgStore.shifts || [];
@@ -155,10 +174,10 @@ onMounted(async () => {
 
     if (data && data.length > 0) {
       // DB 데이터를 EmployeeInput 형식으로 변환
-      employees.value = data.map((emp: any) => ({
+      employees.value = (data as unknown[]).filter(isEmployeeDbRow).map((emp) => ({
         employeeId: emp.employee_id,
         name: emp.name,
-        availableShifts: emp.available_shifts,
+        availableShifts: emp.available_shifts ?? [],
       }));
       
       // DB에서 불러온 데이터는 저장된 상태
@@ -380,5 +399,4 @@ async function handleNext() {
   router.push('/schedule/step4');
 }
 </script>
-
 

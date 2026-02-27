@@ -1,6 +1,9 @@
 <template>
   <template v-if="isSingleBox">
-    <n-tooltip :disabled="!offRequestTooltipText" trigger="hover">
+    <n-tooltip
+      :disabled="!offRequestTooltipText"
+      trigger="hover"
+    >
       <template #trigger>
         <button
           :class="getSingleBoxClass()"
@@ -22,7 +25,10 @@
       </div>
     </n-tooltip>
   </template>
-  <div v-else class="flex gap-0.5 p-0.5">
+  <div
+    v-else
+    class="flex gap-0.5 p-0.5"
+  >
     <n-tooltip
       v-for="shift in availableShifts"
       :key="shift"
