@@ -361,7 +361,7 @@ def update_dependencies(tasks):
 
 def main():
     # Read tasks.json
-    with open('/home/brown/projects/every-shift-mvp/data/tasks.json', 'r', encoding='utf-8') as f:
+    with open('/home/brown/projects/every-shift-mvp/.shrimp-data/tasks.json', 'r', encoding='utf-8') as f:
         data = json.load(f)
 
     tasks = data["tasks"]
@@ -392,7 +392,7 @@ def main():
 
     # Write back
     data["tasks"] = tasks
-    with open('/home/brown/projects/every-shift-mvp/data/tasks.json', 'w', encoding='utf-8') as f:
+    with open('/home/brown/projects/every-shift-mvp/.shrimp-data/tasks.json', 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
     print(f"✅ Added RLS policy task (ID: {RLS_POLICY_TASK_ID})")

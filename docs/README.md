@@ -12,7 +12,8 @@ docs/
 ├── prd/                         # 제품 기획서 (Product Requirements Document)
 ├── setup/                       # 설정 및 설치 가이드
 ├── integration/                 # 통합 가이드
-└── verification/                # 테스트 및 검증
+├── verification/                # 테스트 및 검증
+└── migration/                   # REFINED_PRD 전환 운영 문서
 ```
 
 ---
@@ -102,6 +103,26 @@ MVP 프로젝트의 핵심 기획 문서들입니다.
 
 ---
 
+## 🔄 5. Migration (서비스 전환 운영)
+
+**경로**: `migration/`
+
+REFINED_PRD 서비스 전환을 위한 운영 기준 문서입니다.
+
+| 파일 | 용도 |
+|------|------|
+| `MIGRATION_GOVERNANCE.md` | 브랜치/롤아웃/DoD/예외승인 정책의 단일 기준 문서 |
+| `REFINED_PRD_SERVICE_TRANSITION_V2.md` | v2 실행 베이스라인 및 운영 규칙 |
+| `REFINED_PRD_SERVICE_TRANSITION.md` | 초기 전환 베이스라인 기록 |
+
+### 사용 시점
+
+- 전환 작업 시작 전: `MIGRATION_GOVERNANCE.md`
+- 실행 규칙 확인 시: `REFINED_PRD_SERVICE_TRANSITION_V2.md`
+- 기존 이행 내역 확인 시: `REFINED_PRD_SERVICE_TRANSITION.md`
+
+---
+
 ## 🚀 빠른 시작 가이드
 
 ### 신규 개발자를 위한 추천 읽기 순서
@@ -169,6 +190,10 @@ cat docs/verification/test-validation-guide.md
 ### 통합 및 테스트
 - [프론트엔드 연동](integration/frontend-integration-guide.md)
 - [테스트 가이드](verification/test-validation-guide.md)
+
+### 마이그레이션 운영
+- [마이그레이션 거버넌스](migration/MIGRATION_GOVERNANCE.md)
+- [서비스 전환 v2](migration/REFINED_PRD_SERVICE_TRANSITION_V2.md)
 
 ---
 

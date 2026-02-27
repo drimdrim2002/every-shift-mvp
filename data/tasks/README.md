@@ -175,24 +175,24 @@ Example: Working on Phase 3 uses only ~3,000 tokens instead of ~75,000 tokens!
 
 ## 🔧 Usage with shrimp-task-manager
 
-The shrimp-task-manager MCP server reads from `data/tasks.json`. To work on a specific phase:
+The shrimp-task-manager MCP server reads from `.shrimp-data/tasks.json`. To work on a specific phase:
 
 ### Option 1: Copy to tasks.json (Recommended)
 ```bash
 # Work on Phase 3
-cp data/tasks/phase-3-authentication.json data/tasks.json
+cp data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
 
-# Use shrimp-task-manager (reads from data/tasks.json)
+# Use shrimp-task-manager (reads from .shrimp-data/tasks.json)
 # ... work on tasks ...
 
 # Save changes back to phase file
-cp data/tasks.json data/tasks/phase-3-authentication.json
+cp .shrimp-data/tasks.json data/tasks/phase-3-authentication.json
 ```
 
 ### Option 2: Symbolic link
 ```bash
 # Create symlink to current phase
-ln -sf data/tasks/phase-3-authentication.json data/tasks.json
+ln -sf "$PWD/data/tasks/phase-3-authentication.json" "$PWD/.shrimp-data/tasks.json"
 
 # Work normally, changes will be saved to the phase file
 ```
@@ -200,12 +200,12 @@ ln -sf data/tasks/phase-3-authentication.json data/tasks.json
 ### Option 3: Rename temporarily
 ```bash
 # Rename current phase to tasks.json
-mv data/tasks/phase-3-authentication.json data/tasks.json
+mv data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
 
 # Work on tasks...
 
 # Rename back when done
-mv data/tasks.json data/tasks/phase-3-authentication.json
+mv .shrimp-data/tasks.json data/tasks/phase-3-authentication.json
 ```
 
 ## 📊 Statistics

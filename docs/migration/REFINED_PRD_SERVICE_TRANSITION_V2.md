@@ -4,9 +4,10 @@ This document tracks the v2 execution baseline for migrating EveryShift MVP to a
 
 ## Scope
 
-- Canonical backlog source: `data/tasks.json`
-- Program metadata source: `data/tasks.metadata.json`
-- Shrimp data directory: repository-local `data/` (via `DATA_DIR`)
+- Canonical backlog source: `.shrimp-data/tasks.json`
+- Program metadata source: `.shrimp-data/tasks.metadata.json`
+- Canonical governance source: `docs/migration/MIGRATION_GOVERNANCE.md`
+- Shrimp data directory: repository-local `.shrimp-data/` (via `DATA_DIR`)
 - Quality gate single entry: `scripts/quality-gate.sh`
 
 ## Locked operating rules
@@ -25,7 +26,7 @@ This document tracks the v2 execution baseline for migrating EveryShift MVP to a
 4. Login flow now routes pending/rejected accounts to `/access`
 5. API fallback for `signup`, `approval`, `dashboard export` is dev-only
 6. `scripts/quality-gate.sh` rewritten as repo-aligned single entry gate
-7. Backlog metadata split into `data/tasks.metadata.json`
+7. Backlog metadata split into `.shrimp-data/tasks.metadata.json`
 
 ## Verification checkpoints
 

@@ -57,12 +57,13 @@ Essential development workflow scripts for quality assurance and validation.
 
 #### `quality-gate.sh`
 
-**Purpose**: Enforce all quality gates **Gates**:
+**Purpose**: Canonical single-entry quality gate for merge/release readiness **Gates**:
 
-1. ✅ TypeScript Compliance
-2. ✅ ESLint Compliance
-3. ✅ Build Success
-4. ✅ No Debug Code
+1. ✅ Lint (`pnpm lint:check`)
+2. ✅ Unit tests (`pnpm test:unit`)
+3. ✅ Build (`pnpm build`)
+4. ✅ Documentation baseline (`docs/migration/MIGRATION_GOVERNANCE.md` etc.)
+5. ✅ No debug statements in `src/`
 
 **Usage**:
 
@@ -118,3 +119,7 @@ See main `CLAUDE.md` for:
 - Development quality gates requirements
 - ESLint and code style rules
 - TypeScript error prevention
+
+Migration operating policy:
+
+- `docs/migration/MIGRATION_GOVERNANCE.md`

@@ -1,0 +1,6 @@
+{
+  "program": "REFINED_PRD Service Transition",
+  "version": "1.0.0",
+  "createdAt": "2026-02-27T00:00:00Z",
+  "description": "Full migration backlog from MVP to service-grade product based on docs/REFINED_PRD.md"
+}

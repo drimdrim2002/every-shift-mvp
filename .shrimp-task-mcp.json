@@ -5,7 +5,7 @@
       "command": "bash",
       "args": ["scripts/mcp/shrimp-task-manager.sh"],
       "env": {
-        "DATA_DIR": "/home/brown/projects/every-shift-mvp/data"
+        "DATA_DIR": "/home/brown/projects/every-shift-mvp/.shrimp-data"
       }
     }
   }

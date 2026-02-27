@@ -4,8 +4,8 @@ This document tracks the initial implementation baseline for migrating EveryShif
 
 ## Completed in this baseline
 
-1. `data/tasks.json` replaced with REFINED_PRD migration program backlog (P0~P10)
-2. Backup created: `data/tasks.migration-backup-20260227.json`
+1. `.shrimp-data/tasks.json` replaced with REFINED_PRD migration program backlog (P0~P10)
+2. Backup created: `.shrimp-data/tasks.migration-backup-20260227.json`
 3. Database migration created: `migrations/007_service_transition_rbac_multitenant.sql`
 4. RBAC/onboarding/notification/dashboard application scaffolding added
 5. New routes and role-based guards added
@@ -18,6 +18,8 @@ This document tracks the initial implementation baseline for migrating EveryShif
   - quality gate single entry alignment
   - `/access` route baseline
   - production fallback restrictions for function-bound flows
+- Governance source of truth:
+  - `docs/migration/MIGRATION_GOVERNANCE.md`
 
 ## Next execution order (shrimp-task-manager)
 
@@ -31,6 +33,6 @@ This document tracks the initial implementation baseline for migrating EveryShif
 
 ## Rollback notes
 
-- Task backlog rollback: restore `data/tasks.migration-backup-20260227.json` to `data/tasks.json`
+- Task backlog rollback: restore `.shrimp-data/tasks.migration-backup-20260227.json` to `.shrimp-data/tasks.json`
 - Application rollback: revert commit containing migration baseline
 - Database rollback: apply inverse migration script for `007_*` in controlled environment

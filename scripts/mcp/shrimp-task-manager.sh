@@ -10,5 +10,6 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 ENTRY="${MCP_SHRIMP_TASK_MANAGER_ENTRY:-/home/brown/mcp-shrimp-task-manager/dist/index.js}"
+export DATA_DIR="${DATA_DIR:-$ROOT_DIR/.shrimp-data}"
 
 exec node "$ENTRY"

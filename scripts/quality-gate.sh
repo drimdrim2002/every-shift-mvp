@@ -1,74 +1,79 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # scripts/quality-gate.sh
+#
+# Canonical quality gate entrypoint for this repository.
+# Required gates: lint, unit test, build, docs baseline, and debug statement check.
 
-echo "🎯 QUALITY GATE ENFORCEMENT"
-echo "==========================="
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
 GATE_PASSED=0
 GATE_FAILED=0
 
-# Gate 1: TypeScript compliance
-echo "Gate 1: TypeScript Compliance"
-if pnpm check:type > /dev/null 2>&1; then
-    echo "✅ PASSED"
+run_gate() {
+  local gate_name="$1"
+  local command="$2"
+
+  echo "Gate: $gate_name"
+  if eval "$command"; then
+    echo "  ✅ PASSED"
     GATE_PASSED=$((GATE_PASSED + 1))
-else
-    echo "❌ FAILED"
+  else
+    echo "  ❌ FAILED"
     GATE_FAILED=$((GATE_FAILED + 1))
+  fi
+}
+
+echo "QUALITY GATE ENFORCEMENT"
+echo "========================"
+
+run_gate "Lint (pnpm lint:check)" "pnpm lint:check"
+run_gate "Unit Tests (pnpm test:unit)" "pnpm test:unit"
+run_gate "Build (pnpm build)" "pnpm build"
+
+echo "Gate: Documentation Baseline"
+REQUIRED_DOCS=(
+  "docs/migration/MIGRATION_GOVERNANCE.md"
+  "docs/migration/REFINED_PRD_SERVICE_TRANSITION_V2.md"
+)
+
+MISSING_DOCS=0
+for required_doc in "${REQUIRED_DOCS[@]}"; do
+  if [[ ! -f "$required_doc" ]]; then
+    echo "  ❌ Missing required document: $required_doc"
+    MISSING_DOCS=$((MISSING_DOCS + 1))
+  fi
+done
+
+if [[ $MISSING_DOCS -eq 0 ]]; then
+  echo "  ✅ PASSED"
+  GATE_PASSED=$((GATE_PASSED + 1))
+else
+  GATE_FAILED=$((GATE_FAILED + 1))
 fi
 
-# Gate 2: ESLint compliance
-echo "Gate 2: ESLint Compliance"
-if pnpm lint > /dev/null 2>&1; then
-    echo "✅ PASSED"
-    GATE_PASSED=$((GATE_PASSED + 1))
+echo "Gate: No Debug Statements"
+DEBUG_COUNT=$( (rg -n "console\\.(log|table)\\(" src --glob "*.ts" --glob "*.vue" || true) | wc -l | tr -d '[:space:]' )
+if [[ $DEBUG_COUNT -eq 0 ]]; then
+  echo "  ✅ PASSED"
+  GATE_PASSED=$((GATE_PASSED + 1))
 else
-    echo "❌ FAILED"
-    GATE_FAILED=$((GATE_FAILED + 1))
+  echo "  ❌ FAILED ($DEBUG_COUNT debug statements found in src/)"
+  GATE_FAILED=$((GATE_FAILED + 1))
 fi
 
-# Gate 3: Build success
-echo "Gate 3: Build Success"
-if pnpm build > /dev/null 2>&1; then
-    echo "✅ PASSED"
-    GATE_PASSED=$((GATE_PASSED + 1))
-else
-    echo "❌ FAILED"
-    GATE_FAILED=$((GATE_FAILED + 1))
-fi
-
-# Gate 4: No debug code
-echo "Gate 4: No Debug Code"
-DEBUG_COUNT=$(grep -r "console.log\|console.table" --include="*.vue" --include="*.ts" apps/web-naive/src/ | wc -l)
-if [ $DEBUG_COUNT -eq 0 ]; then
-    echo "✅ PASSED"
-    GATE_PASSED=$((GATE_PASSED + 1))
-else
-    echo "❌ FAILED ($DEBUG_COUNT debug statements found)"
-    GATE_FAILED=$((GATE_FAILED + 1))
-fi
-
-# Gate 5: CRUD completeness
-echo "Gate 5: CRUD Completeness"
-if bash scripts/verify-crud-apis.sh > /dev/null 2>&1; then
-    echo "✅ PASSED"
-    GATE_PASSED=$((GATE_PASSED + 1))
-else
-    echo "❌ FAILED"
-    GATE_FAILED=$((GATE_FAILED + 1))
-fi
-
-# Final result
-echo "========================="
-echo "📊 QUALITY GATE RESULTS:"
+echo "========================"
+echo "QUALITY GATE RESULTS"
 echo "Passed: $GATE_PASSED"
 echo "Failed: $GATE_FAILED"
 
-if [ $GATE_FAILED -eq 0 ]; then
-    echo "🎉 ALL QUALITY GATES PASSED!"
-    exit 0
-else
-    echo "⛔ QUALITY GATES FAILED!"
-    echo "Fix the failed gates before proceeding."
-    exit 1
+if [[ $GATE_FAILED -eq 0 ]]; then
+  echo "ALL QUALITY GATES PASSED"
+  exit 0
 fi
+
+echo "QUALITY GATES FAILED"
+echo "Fix failed gates before merge/release."
+exit 1
