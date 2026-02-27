@@ -155,8 +155,8 @@ PHASE_MAPPING = {
 def main():
     # Paths
     project_root = Path("/home/brown/projects/every-shift-mvp")
-    tasks_file = project_root / "data" / "tasks.json"
-    tasks_dir = project_root / "data" / "tasks"
+    tasks_file = project_root / ".shrimp-data" / "tasks.json"
+    tasks_dir = project_root / ".shrimp-data" / "tasks"
 
     # Read original tasks.json
     print(f"Reading {tasks_file}...")

@@ -5,7 +5,7 @@ This directory contains 87 tasks from the EveryShift MVP project, organized into
 ## 📂 File Structure
 
 ```
-data/tasks/
+.shrimp-data/tasks/
 ├── phase-0-infrastructure.json     (10 tasks)  ~8,000 tokens
 ├── phase-1-database.json          (7 tasks)   ~5,500 tokens
 ├── phase-2-foundation.json        (12 tasks)  ~9,500 tokens
@@ -17,7 +17,7 @@ data/tasks/
 └── phase-8-polish.json           (10 tasks)  ~8,000 tokens
 ```
 
-**Original file:** `data/tasks-original-backup.json` (294KB, ~75,000 tokens)
+**Original file:** `.shrimp-data/tasks-original-backup.json` (294KB, ~75,000 tokens)
 
 ## 🎯 Token Efficiency
 
@@ -180,19 +180,19 @@ The shrimp-task-manager MCP server reads from `.shrimp-data/tasks.json`. To work
 ### Option 1: Copy to tasks.json (Recommended)
 ```bash
 # Work on Phase 3
-cp data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
+cp .shrimp-data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
 
 # Use shrimp-task-manager (reads from .shrimp-data/tasks.json)
 # ... work on tasks ...
 
 # Save changes back to phase file
-cp .shrimp-data/tasks.json data/tasks/phase-3-authentication.json
+cp .shrimp-data/tasks.json .shrimp-data/tasks/phase-3-authentication.json
 ```
 
 ### Option 2: Symbolic link
 ```bash
 # Create symlink to current phase
-ln -sf "$PWD/data/tasks/phase-3-authentication.json" "$PWD/.shrimp-data/tasks.json"
+ln -sf "$PWD/.shrimp-data/tasks/phase-3-authentication.json" "$PWD/.shrimp-data/tasks.json"
 
 # Work normally, changes will be saved to the phase file
 ```
@@ -200,12 +200,12 @@ ln -sf "$PWD/data/tasks/phase-3-authentication.json" "$PWD/.shrimp-data/tasks.js
 ### Option 3: Rename temporarily
 ```bash
 # Rename current phase to tasks.json
-mv data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
+mv .shrimp-data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
 
 # Work on tasks...
 
 # Rename back when done
-mv .shrimp-data/tasks.json data/tasks/phase-3-authentication.json
+mv .shrimp-data/tasks.json .shrimp-data/tasks/phase-3-authentication.json
 ```
 
 ## 📊 Statistics
@@ -241,7 +241,7 @@ Some phases can be developed in parallel:
 
 1. **Dependencies:** Some phases depend on previous phases. Check task dependencies before starting.
 2. **Phase 5 is critical:** 18 tasks, ~20 hours of work. The core 30×36 grid component.
-3. **Backup:** Original file is at `data/tasks-original-backup.json`
+3. **Backup:** Original file is at `.shrimp-data/tasks-original-backup.json`
 4. **Task IDs:** Task IDs are preserved across all phase files for dependency tracking.
 5. **JSON Structure:** Each phase file includes metadata (phase name, description, task count).
 
@@ -279,10 +279,10 @@ Each phase file has this structure:
 To find a specific task across all phases:
 ```bash
 # Search all phase files
-grep -r "task-name-pattern" data/tasks/*.json
+grep -r "task-name-pattern" .shrimp-data/tasks/*.json
 
 # Search with context
-grep -C 3 "task-name-pattern" data/tasks/*.json
+grep -C 3 "task-name-pattern" .shrimp-data/tasks/*.json
 ```
 
 ## 🤝 Contributing

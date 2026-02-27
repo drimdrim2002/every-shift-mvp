@@ -236,6 +236,6 @@ Phase 8 (Polish)
 ---
 
 **Generated:** 2025-01-13
-**Source:** `data/tasks-original-backup.json`
+**Source:** `.shrimp-data/tasks-original-backup.json`
 **Total Tasks:** 87
 **Total Phases:** 9
