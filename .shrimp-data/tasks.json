@@ -69,7 +69,7 @@
       "id": "10000000-0000-4000-8000-000000000003",
       "name": "P0-3 Build migration dashboard for task progress",
       "description": "Provide trackable migration state by phase with blockers, risk, and release readiness.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P0",
       "dependencies": [
         {
@@ -93,7 +93,9 @@
       "verificationCriteria": "Phase별 상태/리스크/완료조건이 한 페이지에서 추적된다.",
       "analysisResult": "Visibility and release readiness",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:40:42.816Z",
+      "summary": "`docs/migration/MIGRATION_PROGRESS_DASHBOARD.md`를 추가해 P0~P10 phase별 KPI(C/IP/P/T), 상태, 블로커, 리스크, 완료조건(Exit Criteria), 릴리스 준비도를 한 페이지에 통합했다. 또한 `docs/README.md`의 Migration 섹션에 대시보드 링크와 사용 시점을 추가해 추적 진입점을 명확히 연결했다.",
+      "completedAt": "2026-02-27T07:40:42.813Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000004",

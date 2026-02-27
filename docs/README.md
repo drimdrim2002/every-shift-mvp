@@ -112,12 +112,14 @@ REFINED_PRD 서비스 전환을 위한 운영 기준 문서입니다.
 | 파일 | 용도 |
 |------|------|
 | `MIGRATION_GOVERNANCE.md` | 브랜치/롤아웃/DoD/예외승인 정책의 단일 기준 문서 |
+| `MIGRATION_PROGRESS_DASHBOARD.md` | P0~P10 phase KPI/리스크/블로커/완료조건 추적 대시보드 |
 | `REFINED_PRD_SERVICE_TRANSITION_V2.md` | v2 실행 베이스라인 및 운영 규칙 |
 | `REFINED_PRD_SERVICE_TRANSITION.md` | 초기 전환 베이스라인 기록 |
 
 ### 사용 시점
 
 - 전환 작업 시작 전: `MIGRATION_GOVERNANCE.md`
+- 진행 상태 점검 시: `MIGRATION_PROGRESS_DASHBOARD.md`
 - 실행 규칙 확인 시: `REFINED_PRD_SERVICE_TRANSITION_V2.md`
 - 기존 이행 내역 확인 시: `REFINED_PRD_SERVICE_TRANSITION.md`
 
