@@ -1,0 +1,497 @@
+{
+  "tasks": [
+    {
+      "id": "5874b091-b92e-473f-818c-4b9d73118b65",
+      "name": "타입 정의 수정 (excel.ts)",
+      "description": "엑셀 업로드 타입을 6개 시트에서 3개 시트 구조로 변경. OrganizationData 제거, SiteRequirementRow를 세로형(21행) 구조로 변경, ParsedExcelData에서 organization/shifts/currentMonthData 필드 제거.",
+      "notes": "기존 6개 시트(조직정보, 직원정보, 시프트정의, 요일별인력, 전월데이터, 당월데이터)에서 3개 시트(직원정보, 요일별인력, 전월데이터)로 축소",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/excel.ts",
+          "type": "TO_MODIFY",
+          "description": "엑셀 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/types/excel.ts 파일 열기\n2. OrganizationData 인터페이스 제거\n3. SiteRequirementRow 인터페이스 수정:\n   interface SiteRequirementRow {\n     dayOfWeek: number;  // 0-6\n     dayName: string;    // 월요일, 화요일, ...\n     shiftCode: string;  // D, E, N\n     requiredCount: number;\n   }\n4. SiteRequirements 타입을 SiteRequirementRow[] 배열로 변경\n5. ParsedExcelData 인터페이스 수정:\n   - organization 필드 제거\n   - shifts 필드 제거\n   - currentMonthData 필드 제거\n   - siteRequirements를 SiteRequirementRow[] 타입으로 변경\n6. TypeScript strict mode 컴파일 확인",
+      "verificationCriteria": "1. OrganizationData 타입이 제거됨\n2. SiteRequirementRow가 세로형 구조(dayName, shiftCode, requiredCount)로 정의됨\n3. ParsedExcelData가 3개 필드만 포함(employees, siteRequirements, previousMonthData)\n4. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "94c9b614-04b8-463e-bbff-5b6c7a2f023f",
+      "name": "Excel 파서 수정 (excelParser.ts) - 3개 시트 파싱",
+      "description": "엑셀 파서를 3개 시트 구조로 변경. extractOrganizationInfo, extractShifts, extractCurrentMonthData 함수 제거. extractSiteRequirements를 세로형(21행) 파싱으로 수정.",
+      "notes": "요일별 인력은 세로형 구조: 월요일-D(5명), 월요일-E(3명), 월요일-N(2명), 화요일-D(5명), ... 총 21행 (7일 × 3시프트)",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/excelParser.ts",
+          "type": "TO_MODIFY",
+          "description": "엑셀 파싱 로직"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/utils/excelParser.ts 파일 열기\n2. extractOrganizationInfo() 함수 제거\n3. extractShifts() 함수 제거\n4. extractCurrentMonthData() 함수 제거\n5. extractSiteRequirements() 함수 수정:\n   - 시트 이름: '요일별인력' 또는 '요일별 인력'\n   - 헤더: A1(요일명), B1(시프트유형), C1(필요인력수)\n   - 2행부터 22행까지 읽기 (21개 데이터 행)\n   - dayName을 dayOfWeek로 변환 (월요일→1, 화요일→2, ...)\n   - 각 행을 SiteRequirementRow 객체로 변환\n6. parseExcelFile() 함수 수정:\n   - 3개 시트만 확인: '직원정보', '요일별인력', '전월데이터'\n   - extractOrganizationInfo 호출 제거\n   - extractShifts 호출 제거\n   - extractCurrentMonthData 호출 제거\n   - ParsedExcelData 반환 시 3개 필드만 포함\n7. 에러 처리: 누락된 시트, 잘못된 형식에 대한 명확한 에러 메시지\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. parseExcelFile()이 3개 시트만 파싱\n2. extractSiteRequirements()가 21행 세로형 데이터를 정확히 파싱\n3. dayName을 dayOfWeek(0-6)로 정확히 변환\n4. 에러 발생 시 명확한 메시지 제공\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2",
+      "name": "Excel 검증기 수정 (excelValidator.ts) - 3개 시트 검증",
+      "description": "엑셀 검증기를 3개 시트 구조로 변경. validateOrganizationData, validateShiftData 함수 제거. validateSiteRequirements를 세로형 검증으로 수정. 시프트 코드 교차 검증 추가.",
+      "notes": "시프트 코드는 시스템에 등록된 시프트와 일치해야 함. 향후 Step1에서 설정한 시프트 정보를 매개변수로 받아 검증할 수 있도록 확장 가능하게 설계.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/excelValidator.ts",
+          "type": "TO_MODIFY",
+          "description": "엑셀 검증 로직"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/utils/excelValidator.ts 파일 열기\n2. validateOrganizationData() 함수 제거\n3. validateShiftData() 함수 제거\n4. validateSiteRequirements() 함수 수정:\n   - 21개 행 검증 (7일 × 3시프트)\n   - dayOfWeek 범위 확인 (0-6)\n   - dayName 유효성 확인 (월요일~일요일)\n   - shiftCode 존재 확인 (빈 값 불허)\n   - requiredCount 양수 확인\n5. validateCrossSheetConsistency() 함수 수정:\n   - 전월 데이터의 시프트 코드가 요일별 인력의 시프트 코드와 일치하는지 검증\n   - 직원 정보의 가능 시프트가 요일별 인력의 시프트 코드와 일치하는지 검증\n6. validateExcelData() 함수 수정:\n   - validateOrganizationData 호출 제거\n   - validateShiftData 호출 제거\n   - 3개 시트 검증만 수행\n7. 에러 메시지에 시트명, 행번호, 해결 방법 포함\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. validateSiteRequirements()가 21행 검증 수행\n2. dayOfWeek와 dayName 유효성 검증\n3. 시프트 코드 교차 검증 수행\n4. 에러 메시지가 명확하고 해결 방법 포함\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "0efaa116-88a5-42ba-9aa3-5bda9e429167",
+      "name": "Excel 템플릿 생성기 수정 (excelTemplate.ts) - 3개 시트 템플릿",
+      "description": "엑셀 템플릿 생성기를 3개 시트 구조로 변경. createOrganizationSheet, createShiftsSheet 함수 제거. createSiteRequirementsSheet를 세로형 템플릿으로 수정. 시프트 정보를 매개변수로 받아 템플릿에 반영.",
+      "notes": "템플릿은 Step1에서 설정한 시프트 정보를 반영하여 생성. 사용자가 시프트를 추가/수정하면 템플릿도 동적으로 변경됨.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/utils/excelTemplate.ts",
+          "type": "TO_MODIFY",
+          "description": "템플릿 생성 로직"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/utils/excelTemplate.ts 파일 열기\n2. createOrganizationSheet() 함수 제거\n3. createShiftsSheet() 함수 제거\n4. createSiteRequirementsSheet() 함수 수정:\n   - 시프트 배열을 매개변수로 받음: createSiteRequirementsSheet(shifts: Shift[])\n   - 헤더: A1(요일명), B1(시프트유형), C1(필요인력수)\n   - 21개 데이터 행 생성: 월요일-D, 월요일-E, 월요일-N, ... (7일 × shifts.length)\n   - 요일명 열: 월요일, 화요일, ..., 일요일 (각 요일 3번 반복)\n   - 시프트유형 열: shifts 배열의 코드 반복 (D, E, N, ...)\n   - 필요인력수 열: 빈 셀 또는 샘플 값 (예: 5)\n   - 셀 주석: '시프트유형은 {설정된 시프트 코드} 중 하나'\n5. createEmployeesSheet() 함수 수정:\n   - 시프트 배열을 매개변수로 받음\n   - 가능한시프트 셀 주석: '{설정된 시프트 코드} 형식으로 입력 (예: D,E,N)'\n6. createScheduleDataSheet() 함수 수정:\n   - 당월 날짜 컬럼 제거\n   - 전월 5일만 포함\n7. generateBlankTemplate() 함수 수정:\n   - 시프트 배열을 매개변수로 받음: generateBlankTemplate(shifts: Shift[])\n   - 3개 시트만 생성\n   - 각 시트 생성 함수에 shifts 전달\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. generateBlankTemplate()이 시프트 배열을 매개변수로 받음\n2. 3개 시트만 생성됨\n3. 요일별 인력 시트가 세로형 21행 구조\n4. 시프트 정보가 템플릿에 정확히 반영됨\n5. 셀 주석이 명확하게 표시됨\n6. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "87d015f6-bb51-4c75-8024-8424a42dfb0d",
+      "name": "시프트 API 생성 (shift.ts)",
+      "description": "시프트 CRUD API 함수를 새로 생성. 조직별 시프트 조회, 생성, 수정, 삭제 기능 구현.",
+      "notes": "시프트는 조직별로 관리됨. 동일 조직 내에서 시프트 코드는 유니크해야 함. RLS 정책 확인 필요.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/shift.ts",
+          "type": "CREATE",
+          "description": "시프트 API 함수"
+        },
+        {
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Shift 타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/api/shift.ts 파일 생성\n2. Supabase 클라이언트 import\n3. loadShifts(orgId: string): Promise<Shift[]>\n   - SELECT * FROM shifts WHERE organization_id = orgId ORDER BY code\n4. createShift(orgId: string, shiftData: Omit<Shift, 'id'>): Promise<Shift>\n   - INSERT INTO shifts (organization_id, code, name, color_code, start_time, end_time)\n   - 중복 코드 체크 (organization_id + code 유니크)\n5. updateShift(shiftId: string, shiftData: Partial<Shift>): Promise<void>\n   - UPDATE shifts SET ... WHERE id = shiftId\n6. deleteShift(shiftId: string): Promise<void>\n   - DELETE FROM shifts WHERE id = shiftId\n   - CASCADE 제약으로 관련 데이터 자동 삭제 확인\n7. 에러 처리: Supabase 에러를 사용자 친화적 메시지로 변환\n8. TypeScript 타입 정의\n9. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 4개 API 함수 모두 구현됨\n2. 에러 처리가 명확함\n3. TypeScript 타입이 정확함\n4. ESLint/Prettier 통과\n5. Supabase RLS 정책 준수",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "52250649-3112-4692-bf03-8bb6c313f33b",
+      "name": "조직 API 수정 (organization.ts) - CRUD 추가",
+      "description": "조직 API에 생성 및 수정 기능 추가. 기존 조회 기능 유지.",
+      "notes": "기존에는 seed data 읽기 전용이었으나, 사용자가 조직을 생성/수정할 수 있도록 변경.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "조직 API 함수"
+        },
+        {
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Organization 타입"
+        }
+      ],
+      "implementationGuide": "1. src/api/organization.ts 파일 열기\n2. createOrganization(orgData: Omit<Organization, 'id'>): Promise<Organization>\n   - INSERT INTO organizations (name, type)\n   - 생성된 조직 반환\n3. updateOrganization(orgId: string, orgData: Partial<Organization>): Promise<void>\n   - UPDATE organizations SET name = ?, type = ? WHERE id = orgId\n4. 기존 loadOrganization() 함수 유지\n5. 에러 처리 추가\n6. TypeScript 타입 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. createOrganization() 함수 추가됨\n2. updateOrganization() 함수 추가됨\n3. 기존 loadOrganization() 유지됨\n4. 에러 처리 명확함\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "c09a09bd-5200-48f1-98ac-ad33d877064c",
+      "name": "조직 스토어 수정 (organization.ts) - CRUD 기능 추가",
+      "description": "조직 스토어에 생성, 수정, 시프트 관리 기능 추가. 기존 읽기 전용에서 CRUD 가능한 스토어로 변경.",
+      "notes": "기존 loadOrganization()은 유지하되, 생성/수정 기능 추가. 시프트 관리 기능도 동일 스토어에서 처리.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "87d015f6-bb51-4c75-8024-8424a42dfb0d"
+        },
+        {
+          "taskId": "52250649-3112-4692-bf03-8bb6c313f33b"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/stores/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "조직 스토어"
+        },
+        {
+          "path": "src/api/organization.ts",
+          "type": "DEPENDENCY",
+          "description": "조직 API"
+        },
+        {
+          "path": "src/api/shift.ts",
+          "type": "DEPENDENCY",
+          "description": "시프트 API"
+        }
+      ],
+      "implementationGuide": "1. src/stores/organization.ts 파일 열기\n2. 시프트 API import: import * as shiftApi from '@/api/shift'\n3. 조직 API import: import { createOrganization, updateOrganization } from '@/api/organization'\n4. createOrganization(orgData) 액션 추가\n   - API 호출 후 current.value 업데이트\n5. updateCurrentOrganization(orgData) 액션 추가\n   - API 호출 후 current.value 업데이트\n6. loadShifts(orgId) 액션 추가\n   - shiftApi.loadShifts() 호출 후 shifts.value 업데이트\n7. addShift(orgId, shiftData) 액션 추가\n   - shiftApi.createShift() 호출 후 shifts 배열에 추가\n8. updateShift(shiftId, shiftData) 액션 추가\n   - shiftApi.updateShift() 호출 후 shifts 배열 업데이트\n9. deleteShift(shiftId) 액션 추가\n   - shiftApi.deleteShift() 호출 후 shifts 배열에서 제거\n10. return 문에 새 액션 추가\n11. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. 조직 생성/수정 액션 추가됨\n2. 시프트 CRUD 액션 추가됨\n3. 기존 loadOrganization() 유지됨\n4. 모든 액션이 에러 처리 포함\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "1a5756c0-c7ce-47ab-9455-0d7595974402",
+      "name": "시프트 관리 모달 컴포넌트 생성 (ShiftManager.vue)",
+      "description": "시프트 추가/수정/삭제를 위한 모달 컴포넌트 생성. 시프트 코드, 이름, 색상, 시작시간, 종료시간을 입력받는 폼 구현.",
+      "notes": "시프트 코드는 자동으로 대문자로 변환. 색상 선택기는 HEX 형식만 허용.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "CREATE",
+          "description": "시프트 관리 모달"
+        },
+        {
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Shift 타입"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ShiftManager.vue 파일 생성\n2. Props 정의:\n   - visible: boolean (모달 표시 여부)\n   - editingShift: Shift | null (수정 중인 시프트)\n3. Emits 정의:\n   - confirm: [shiftData] (저장 버튼 클릭)\n   - cancel: [] (취소 버튼 클릭)\n4. 폼 필드:\n   - 코드: n-input (1-2자, 필수, 대문자 변환)\n   - 이름: n-input (필수)\n   - 색상: n-color-picker (기본값: #3B82F6)\n   - 시작시간: n-time-picker (선택적)\n   - 종료시간: n-time-picker (선택적)\n5. 유효성 검증:\n   - 코드: 1-2자, 영문 대문자/숫자\n   - 이름: 1-50자\n   - 색상: #RRGGBB 형식\n6. 저장 버튼 클릭 시 shiftData emit\n7. 취소 버튼 클릭 시 폼 초기화 및 모달 닫기\n8. Naive UI 컴포넌트 사용 (NModal, NForm, NInput, NColorPicker, NTimePicker)\n9. TypeScript 컴파일 확인\n10. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 모달이 visible prop에 따라 표시/숨김\n2. 폼 필드가 정확히 입력됨\n3. 유효성 검증이 작동함\n4. 저장/취소 이벤트가 정확히 emit됨\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "78148d5a-1c17-46cc-9076-5d6e560ba2a4",
+      "name": "Step1BasicInfo.vue 대폭 개편 - 조직/시프트 설정 UI 추가",
+      "description": "Step1을 대폭 개편하여 조직 정보 입력, 시프트 관리, 엑셀 업로드를 하나의 화면에 통합. UploadModeSelector 제거하고 순차적 입력 플로우로 변경.",
+      "notes": "UploadModeSelector 제거로 인해 수동 입력 모드가 사라짐. 모든 사용자는 조직/시프트 설정 후 엑셀 업로드 플로우를 거침.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "94c9b614-04b8-463e-bbff-5b6c7a2f023f"
+        },
+        {
+          "taskId": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2"
+        },
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        },
+        {
+          "taskId": "1a5756c0-c7ce-47ab-9455-0d7595974402"
+        },
+        {
+          "taskId": "c09a09bd-5200-48f1-98ac-ad33d877064c"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Step1 뷰 대폭 개편"
+        },
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "DEPENDENCY",
+          "description": "시프트 관리 모달"
+        },
+        {
+          "path": "src/components/schedule/ExcelUploadArea.vue",
+          "type": "TO_MODIFY",
+          "description": "시프트 정보 전달"
+        },
+        {
+          "path": "src/stores/organization.ts",
+          "type": "DEPENDENCY",
+          "description": "조직 스토어"
+        }
+      ],
+      "implementationGuide": "1. src/views/schedule/Step1BasicInfo.vue 파일 열기\n2. UploadModeSelector 제거\n3. Section 1: 조직 정보 입력 추가\n   - n-form으로 조직명(n-input), 조직유형(n-select), 계획월(n-select) 입력\n   - orgName, orgType, selectedMonth ref 추가\n4. Section 2: 시프트 관리 추가\n   - n-data-table로 시프트 목록 표시 (코드, 이름, 색상, 시간)\n   - 시프트 추가/수정/삭제 버튼\n   - ShiftManager 모달 연동\n   - handleAddShift(), handleEditShift(), handleDeleteShift() 함수\n5. Section 3: 엑셀 업로드\n   - canUpload computed: 조직명, 조직유형, 계획월, 시프트 1개 이상 설정 완료\n   - ExcelUploadArea에 shifts prop 전달\n   - 템플릿 다운로드 버튼에서 generateBlankTemplate(shifts) 호출\n6. handleExcelUpload() 수정\n   - 파싱 전 조직 정보 저장 (createOrganization 또는 updateOrganization)\n   - 시프트 정보 저장 (기존 시프트 삭제 후 새로 생성)\n   - 파싱 시 시프트 정보를 validateExcelData에 전달하여 교차 검증\n7. handlePreviewConfirm() 수정\n   - Step2로 이동 (Step3 아님)\n   - scheduleStore.nextStep()\n   - router.push('/schedule/step2')\n8. TypeScript 컴파일 확인\n9. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 조직 정보 입력 폼이 정상 작동\n2. 시프트 관리 테이블 및 CRUD 기능 작동\n3. canUpload이 정확히 계산됨\n4. 엑셀 업로드 시 조직/시프트 저장 후 파싱\n5. 미리보기 확인 후 Step2로 이동\n6. TypeScript 컴파일 에러 없음\n7. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "28c399dd-ccbf-49ea-99f6-a65d13c35248",
+      "name": "ExcelUploadArea.vue 수정 - 시프트 정보 전달",
+      "description": "ExcelUploadArea 컴포넌트에 시프트 정보를 props로 받아 템플릿 다운로드 시 반영.",
+      "notes": "템플릿은 현재 설정된 시프트 정보를 반영하여 생성됨. 시프트가 없으면 템플릿 다운로드 불가.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ExcelUploadArea.vue",
+          "type": "TO_MODIFY",
+          "description": "엑셀 업로드 영역"
+        },
+        {
+          "path": "src/utils/excelTemplate.ts",
+          "type": "DEPENDENCY",
+          "description": "템플릿 생성기"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ExcelUploadArea.vue 파일 열기\n2. Props 추가:\n   - shifts: Shift[] (필수)\n3. downloadTemplate() 함수 수정:\n   - generateBlankTemplate() 호출 시 shifts 전달\n   - generateBlankTemplate(props.shifts)\n4. 템플릿 다운로드 버튼 활성화 조건:\n   - shifts.length > 0\n5. 안내 메시지 추가:\n   - '시프트를 먼저 설정해주세요' (shifts.length === 0일 때)\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. shifts prop이 정의됨\n2. 템플릿 다운로드 시 시프트 정보가 반영됨\n3. 시프트가 없으면 다운로드 버튼 비활성화\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "ed44ad35-a29c-407b-8334-823e93aecbcb",
+      "name": "ExcelPreview.vue 수정 - 3개 탭으로 변경",
+      "description": "ExcelPreview 컴포넌트를 3개 탭(직원정보, 요일별인력, 전월데이터)으로 변경. 조직정보, 시프트정의 탭 제거.",
+      "notes": "조직 정보와 시프트 정의는 Step1에서 이미 설정했으므로 미리보기에서 제외.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ExcelPreview.vue",
+          "type": "TO_MODIFY",
+          "description": "엑셀 미리보기 모달"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ExcelPreview.vue 파일 열기\n2. n-tabs 수정:\n   - Tab 1: 직원정보 (기존 유지)\n   - Tab 2: 요일별인력 (세로형 21행 표시)\n   - Tab 3: 전월데이터 (기존 유지)\n   - 조직정보 탭 제거\n   - 시프트정의 탭 제거\n3. 요일별인력 탭 수정:\n   - requirementColumns: 요일명, 시프트유형, 필요인력수\n   - 21행 데이터 테이블로 표시\n4. getOrganizationType() 함수 제거 (조직정보 탭 제거로 불필요)\n5. TypeScript 컴파일 확인\n6. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 3개 탭만 표시됨\n2. 요일별인력 탭이 21행 세로형으로 표시됨\n3. 조직정보/시프트정의 탭이 제거됨\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "065c9d6f-a248-49c3-bcef-3e47b475e18b",
+      "name": "Step2SiteInfo.vue 수정 - 엑셀 데이터 표시 및 수정",
+      "description": "Step2를 수정하여 엑셀에서 불러온 요일별 인력 데이터를 표시하고 수정할 수 있도록 변경. 세로형 데이터를 가로형 UI로 변환.",
+      "notes": "엑셀에서 불러온 세로형 데이터를 가로형 테이블로 변환하여 표시. 사용자가 수정 후 저장하면 다시 세로형으로 변환하여 저장.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Step2 뷰"
+        },
+        {
+          "path": "src/stores/schedule.ts",
+          "type": "REFERENCE",
+          "description": "스케줄 스토어"
+        },
+        {
+          "path": "src/api/employee.ts",
+          "type": "REFERENCE",
+          "description": "replaceSiteRequirements API"
+        }
+      ],
+      "implementationGuide": "1. src/views/schedule/Step2SiteInfo.vue 파일 열기\n2. 데이터 변환 로직 추가:\n   - convertToHorizontal(siteRequirements: SiteRequirementRow[]): 가로형 데이터 구조\n   - 세로형 21행 → 가로형 7행 (각 요일별로 시프트 컬럼)\n3. UI 수정:\n   - n-alert 추가: '엑셀에서 불러온 데이터입니다. 수정 후 다음 단계로 진행하세요.'\n   - n-data-table로 가로형 데이터 표시\n   - 각 셀 편집 가능 (n-input-number)\n4. 저장 로직:\n   - convertToVertical(horizontalData): 가로형 → 세로형 21행 변환\n   - scheduleStore.setSiteRequirements() 호출\n   - replaceSiteRequirements() API 호출\n5. 이전/다음 버튼:\n   - 이전: Step1으로 (경고 메시지 표시)\n   - 다음: Step3으로\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 엑셀 데이터가 가로형 테이블로 표시됨\n2. 각 셀이 편집 가능함\n3. 저장 시 세로형으로 변환되어 저장됨\n4. 이전/다음 버튼이 정상 작동\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "f2cbb143-7e1d-4a3e-b6ae-afa326abdfcf",
+      "name": "UploadModeSelector.vue 제거",
+      "description": "UploadModeSelector 컴포넌트를 제거하고 관련 import도 모두 제거. 이제 모든 사용자는 조직/시프트 설정 후 엑셀 업로드 플로우를 거침.",
+      "notes": "수동 입력 모드가 완전히 제거됨. 모든 데이터는 엑셀 업로드를 통해서만 입력 가능.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "78148d5a-1c17-46cc-9076-5d6e560ba2a4"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/UploadModeSelector.vue",
+          "type": "TO_MODIFY",
+          "description": "삭제 대상 파일"
+        },
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "import 제거"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/UploadModeSelector.vue 파일 삭제\n2. Step1BasicInfo.vue에서 UploadModeSelector import 제거\n3. inputMode ref 제거 (더 이상 수동/엑셀 모드 구분 없음)\n4. v-if=\"inputMode === 'manual'\" 조건부 렌더링 제거\n5. 모든 사용자가 동일한 플로우를 거치도록 UI 단순화\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. UploadModeSelector.vue 파일이 삭제됨\n2. Step1BasicInfo.vue에서 관련 import 제거됨\n3. inputMode ref 및 조건부 렌더링 제거됨\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "113832fc-9413-4a75-b8de-3bf810e3abbb",
+      "name": "Employee API 수정 (employee.ts) - replaceSiteRequirements 세로형 대응",
+      "description": "replaceSiteRequirements API를 세로형 데이터 구조에 맞게 수정. 21개 행을 처리하도록 변경.",
+      "notes": "세로형 21행 데이터를 site_requirements 테이블에 저장. 각 행은 (organization_id, day_of_week, shift_id, required_count) 레코드로 변환됨.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/employee.ts",
+          "type": "TO_MODIFY",
+          "description": "직원 API"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/api/employee.ts 파일 열기\n2. replaceSiteRequirements() 함수 수정:\n   - 매개변수: orgId, siteRequirements: SiteRequirementRow[]\n   - 기존 site_requirements 삭제 (organization_id = orgId)\n   - 각 SiteRequirementRow를 순회하며 INSERT\n   - dayOfWeek, shiftCode를 사용하여 shift_id 조회\n   - 정규화된 레코드 생성: { organization_id, day_of_week, shift_id, required_count }\n3. 에러 처리: 시프트 코드가 존재하지 않으면 명확한 에러 메시지\n4. TypeScript 타입 확인\n5. ESLint/Prettier 검사",
+      "verificationCriteria": "1. replaceSiteRequirements()가 세로형 데이터를 처리함\n2. 21개 행이 정확히 저장됨\n3. 시프트 코드가 존재하지 않으면 에러 발생\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "d25e01e9-b592-409c-8af1-4fe590f7a5b8",
+      "name": "통합 테스트 및 검증",
+      "description": "전체 엑셀 업로드 플로우를 E2E 테스트하고 모든 변경사항이 정상 작동하는지 검증.",
+      "notes": "모든 변경사항이 통합되어 정상 작동하는지 최종 검증. 이전 작업들이 모두 완료되어야 함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        },
+        {
+          "taskId": "94c9b614-04b8-463e-bbff-5b6c7a2f023f"
+        },
+        {
+          "taskId": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2"
+        },
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        },
+        {
+          "taskId": "87d015f6-bb51-4c75-8024-8424a42dfb0d"
+        },
+        {
+          "taskId": "52250649-3112-4692-bf03-8bb6c313f33b"
+        },
+        {
+          "taskId": "c09a09bd-5200-48f1-98ac-ad33d877064c"
+        },
+        {
+          "taskId": "1a5756c0-c7ce-47ab-9455-0d7595974402"
+        },
+        {
+          "taskId": "78148d5a-1c17-46cc-9076-5d6e560ba2a4"
+        },
+        {
+          "taskId": "28c399dd-ccbf-49ea-99f6-a65d13c35248"
+        },
+        {
+          "taskId": "ed44ad35-a29c-407b-8334-823e93aecbcb"
+        },
+        {
+          "taskId": "065c9d6f-a248-49c3-bcef-3e47b475e18b"
+        },
+        {
+          "taskId": "f2cbb143-7e1d-4a3e-b6ae-afa326abdfcf"
+        },
+        {
+          "taskId": "113832fc-9413-4a75-b8de-3bf810e3abbb"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "REFERENCE",
+          "description": "Step1 테스트"
+        },
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "REFERENCE",
+          "description": "Step2 테스트"
+        },
+        {
+          "path": "src/views/schedule/Step3InitialData.vue",
+          "type": "REFERENCE",
+          "description": "Step3 테스트"
+        }
+      ],
+      "implementationGuide": "1. 개발 서버 실행: pnpm run dev\n2. Step1 테스트:\n   - 조직 정보 입력 (조직명, 유형, 계획월)\n   - 시프트 추가/수정/삭제 (최소 3개: D, E, N)\n   - 템플릿 다운로드 (시프트 정보 반영 확인)\n3. 엑셀 파일 준비:\n   - 다운로드한 템플릿에 데이터 입력\n   - 직원 정보 (최소 5명)\n   - 요일별 인력 (21행)\n   - 전월 데이터 (5일)\n4. 엑셀 업로드 테스트:\n   - 파일 선택 → 파싱 → 검증 → 미리보기\n   - 3개 탭 모두 데이터 확인\n   - 에러가 있으면 에러 목록 표시 확인\n5. Step2 테스트:\n   - 요일별 인력 데이터 표시 확인\n   - 데이터 수정 후 저장\n6. Step3 테스트:\n   - 전월 5일 데이터가 그리드에 표시되는지 확인\n   - 당월은 비어있는지 확인\n7. 브라우저 콘솔 에러 확인\n8. TypeScript 컴파일 에러 확인: npx vue-tsc --noEmit\n9. ESLint/Prettier 검사: pnpm lint\n10. 엣지 케이스 테스트:\n    - 시프트 없이 템플릿 다운로드 시도\n    - 잘못된 시프트 코드가 포함된 엑셀 업로드\n    - 21행이 아닌 요일별 인력 데이터\n    - 전월 데이터 누락",
+      "verificationCriteria": "1. Step1에서 조직/시프트 설정 정상 작동\n2. 템플릿 다운로드 시 시프트 정보 반영\n3. 엑셀 업로드 → 파싱 → 검증 → 미리보기 정상 작동\n4. Step2에서 요일별 인력 표시/수정 정상 작동\n5. Step3에서 전월 데이터만 표시됨\n6. 브라우저 콘솔 에러 없음\n7. TypeScript 컴파일 에러 없음\n8. ESLint/Prettier 통과\n9. 엣지 케이스 모두 처리됨",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    }
+  ]
+}
