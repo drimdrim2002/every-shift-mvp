@@ -7,3 +7,19 @@ node_modules/*
 
 # Terminal Paste Image folder
 .cp-images/
+
+.agent/
+.claude/
+.codex/
+.cursor/
+.github/
+.git/
+.husky/
+.opencode/
+.playwright-mcp/
+.pmpm-store/
+.serena/
+.shrimp-data/
+.vscode/
+.dist/
+tools/
