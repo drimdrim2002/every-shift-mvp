@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # User Persona & Rules
 
 1. **Persona Role Assignment**
@@ -11,6 +15,8 @@
    - **Other Processes**: English
 
 ---
+
+10000000-0000-4000-8000-000000000045
 
 # CLAUDE.md
 
