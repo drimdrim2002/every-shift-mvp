@@ -7,6 +7,7 @@ This directory contains Claude-oriented skill definitions. `.claude/skills` rema
 - `component-generator`
 - `composable-generator`
 - `pinia-store-generator`
+- `shrimp-task-manager`
 - `supabase-api-generator`
 
 ## Compatibility with Codex
@@ -14,6 +15,7 @@ Codex-compatible mirror skills live in:
 - `tools/skills/codex-mirror/everyshift-component-generator`
 - `tools/skills/codex-mirror/everyshift-composable-generator`
 - `tools/skills/codex-mirror/everyshift-pinia-store-generator`
+- `tools/skills/codex-mirror/everyshift-shrimp-task-manager`
 - `tools/skills/codex-mirror/everyshift-supabase-api-generator`
 
 Use the sync script to install/update into `~/.codex/skills`:
