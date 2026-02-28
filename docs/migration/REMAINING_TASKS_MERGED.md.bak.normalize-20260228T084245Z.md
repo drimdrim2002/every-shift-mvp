@@ -13,7 +13,7 @@
   - 기존: P1-1.3, P1-1.4, P1-2.3, P7-3.4
   - 변경: P1-1.3, P1-1.4
 
-## P0 (예상 시간: 46시간 30분)
+## P0 (예상 시간: 15시간 30분)
 
 ### 요약 (Summary)
 
@@ -24,24 +24,7 @@
 | `10000000-0000-4000-8000-000000000036` | **P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정** | completed | P0-1.2 | 90m |
 | `10000000-0000-4000-8000-000000000037` | **P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리** | completed | P0-1.3 | 60m |
 | `10000000-0000-4000-8000-000000000038` | **P0-2.2 에픽별 하위 태스크 분해(1~3h) + 의존성 그래프 작성** | completed | P0-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000039` | **P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리** | pending | P0-2.2<br>P0-2.3.1<br>P0-2.3.2<br>P0-2.3.3<br>P0-2.3.4 | 90m |
-| `9578fcaa-fff0-431c-9884-ab167cfd6b52` | **P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)** | pending | - | 60m |
-| `90f21096-9495-4ab6-83d3-253ccf24b15c` | **P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화** | pending | P0-2.3.1 | 60m |
-| `24b9304c-ee93-4908-9f78-c0fd145b7b2e` | **P0-2.3.3 네이밍 규칙/검증기준 문구 표준화** | pending | P0-2.3.2 | 120m |
-| `3750ea45-f661-494c-b858-747cf94656f9` | **P0-2.3.4 태스크 정합성 자동검증 명령/스크립트 정리** | pending | P0-2.3.3 | 90m |
-| `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강** | pending | P0-2.1<br>P0-2.4.1<br>P0-2.4.2 | 90m |
-| `21d4bb02-23fe-4055-9fae-4123143f91a9` | **P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성** | completed | P0-2.1 | 120m |
-| `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강** | pending | P0-2.4.1 | 120m |
-| `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결** | pending | P0-2.4 | 90m |
-| `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강** | pending | P0-2.5 | 90m |
-| `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합** | pending | P0-2.2 | 120m |
-| `c227e7ec-7a5e-4d8b-b838-b308af62fd63` | **P0-2.8 P3~P4 하위 태스크 canonical 병합** | pending | P0-2.7 | 120m |
-| `d2cb1c5e-adda-4649-b59f-9985432fb377` | **P0-2.9 P5~P6 하위 태스크 canonical 병합** | pending | P0-2.8 | 120m |
-| `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합** | pending | P0-2.9 | 120m |
-| `db6ead17-422c-4e1b-a994-2171fb5b913a` | **P0-2.11 P9~P10 하위 태스크 canonical 병합** | pending | P0-2.10 | 120m |
-| `4f954f47-cf4b-44ca-81eb-7e3f6c28b34a` | **P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리** | pending | P0-2.11 | 120m |
-| `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | pending | P0-2.12 | 120m |
-| `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정** | pending | P0-2.12<br>P0-2.13 | 180m |
+| `10000000-0000-4000-8000-000000000039` | **P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리** | pending | P0-2.2 | 90m |
 | `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | pending | P0-2.3 | 90m |
 | `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계** | pending | P0-3.1 | 90m |
 | `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의** | pending | P0-3.2 | 120m |
@@ -99,7 +82,7 @@
 - **설명(Description)**: 백로그 태스크의 verificationCriteria, relatedFiles, estimatedMinutes를 표준화하여 실행/검증 가능 상태로 만든다.
 - **구현 가이드(Guide)**: 1) 각 태스크에 체크리스트형 검증기준 추가. 2) 수정/생성 파일을 relatedFiles에 명시. 3) 1~3시간 범위 벗어나는 태스크는 재분해.
 - **검증 기준(Verification)**: 대부분의 태스크가 '실행 방법 + 검증 방법'을 포함하고, 추정치가 일관되다.
-- **선행 조건(Dependencies)**: P0-2.2, P0-2.3.1, P0-2.3.2, P0-2.3.3, P0-2.3.4
+- **선행 조건(Dependencies)**: P0-2.2
 - **예상 소요 시간**: 90분
 - **관련 파일**: `.shrimp-data/tasks.json`
 
@@ -136,7 +119,7 @@
 - **구현 가이드(Guide)**: 1) P7/P8 태스크를 병합한다. 2) solver 완료 이벤트와 알림 소비 의존선을 연결한다. 3) 중복 이벤트 정의를 제거한다.
 - **검증 기준(Verification)**: P7/P8 반영 후 solver 완료 이벤트→알림 소비 의존선이 그래프에서 단절 없이 확인된다.
 - **선행 조건(Dependencies)**: P0-2.9
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/P7.json`, `.shrimp-data/todo/P8.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.11 P9~P10 하위 태스크 canonical 병합
@@ -145,7 +128,7 @@
 - **구현 가이드(Guide)**: 1) P9/P10 태스크를 병합한다. 2) 보안 감사 태스크와 품질게이트 선행조건을 연결한다. 3) 고위험 태스크 검증 기준을 보강한다.
 - **검증 기준(Verification)**: P9/P10 반영 후 보안/대시보드 핵심 경로가 그래프에서 단절 없이 이어진다.
 - **선행 조건(Dependencies)**: P0-2.10
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/P9.json`, `.shrimp-data/todo/P10.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리
@@ -154,7 +137,7 @@
 - **구현 가이드(Guide)**: 1) dependency edge 추출 명령을 정의한다. 2) missing target/cycle/orphan root 검출 로직을 문서화한다. 3) 배치 병합마다 실행 게이트로 고정한다.
 - **검증 기준(Verification)**: 검증 명령이 문서화되고 배치 병합 단위로 cycle=false, missing target=0, orphan root 점검 결과를 재현할 수 있다.
 - **선행 조건(Dependencies)**: P0-2.11
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.json`, `docs/migration/REFINED_PRD_SERVICE_TRANSITION.md`
 
 ### P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)
@@ -163,7 +146,7 @@
 - **구현 가이드(Guide)**: 1) requiredFields 누락 태스크를 식별한다. 2) phase/estimatedMinutes/relatedFiles/type/namePattern을 보정한다. 3) 보정 결과를 리포트한다.
 - **검증 기준(Verification)**: requiredFields 누락=0, 이름 패턴 위반=0, estimatedMinutes 허용값 외 사용=0을 확인한다.
 - **선행 조건(Dependencies)**: P0-2.12
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.metadata.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정
@@ -172,7 +155,7 @@
 - **구현 가이드(Guide)**: 1) phase별 루트/종료 노드를 식별한다. 2) 핵심 경로를 문서화한다. 3) P0-2.2 verificationCriteria 충족 여부를 체크리스트로 판정한다.
 - **검증 기준(Verification)**: P0~P10 모든 에픽의 1~3시간 하위 태스크 존재가 확인되고, 크리티컬 패스 문서와 완료 판정 기록이 남아 있다.
 - **선행 조건(Dependencies)**: P0-2.12, P0-2.13
-- **예상 소요 시간**: 180분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.json`, `docs/migration/REFINED_PRD_SERVICE_TRANSITION.md`
 
 ### P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)
@@ -180,8 +163,8 @@
 - **설명(Description)**: .shrimp-data/tasks.json에서 requiredFields 누락 태스크를 식별하고 estimatedMinutes를 taskTemplate 허용값(60/90/120/180)으로 채워 requiredFields 누락을 0으로 만든다.
 - **구현 가이드(Guide)**: 1) jq로 estimatedMinutes 누락 태스크 ID 목록 추출. 2) 각 태스크 난이도/범위를 기준으로 60/90/120/180 중 하나를 할당. 3) requiredFields 재검증 명령으로 누락 0 확인. 4) 변경 diff를 점검해 의도치 않은 필드 변형이 없는지 확인.
 - **검증 기준(Verification)**: Deliverable: estimatedMinutes 누락 13건이 모두 보정된 tasks.json. Method: jq로 requiredFields 및 estimatedMinutes 누락 카운트를 재측정. Pass: requiredFields 누락=0, estimatedMinutes 누락=0, 허용값 외 사용=0.
-- **선행 조건(Dependencies)**: 없음
-- **예상 소요 시간**: 60분
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.json`, `.shrimp-data/tasks.metadata.json`
 
 ### P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화
@@ -190,7 +173,7 @@
 - **구현 가이드(Guide)**: 1) TO_CREATE 사용 항목을 전수 추출. 2) tasks.json에서 type 값을 CREATE로 치환. 3) relatedFileTypes 허용 집합(TO_MODIFY/REFERENCE/CREATE/DEPENDENCY/OTHER) 기준으로 재검증. 4) 치환 전후 건수 비교 리포트 작성.
 - **검증 기준(Verification)**: Deliverable: relatedFiles.type 정규화가 반영된 tasks.json. Method: jq로 허용 타입 외 항목 수를 집계. Pass: relatedFiles.type 위반=0, 기존 path/description 값 손실=0.
 - **선행 조건(Dependencies)**: P0-2.3.1
-- **예상 소요 시간**: 60분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.json`, `.shrimp-data/tasks.metadata.json`
 
 ### P0-2.3.3 네이밍 규칙/검증기준 문구 표준화
@@ -199,7 +182,7 @@
 - **구현 가이드(Guide)**: 1) namePattern 위반 태스크 2건을 규칙(^P\d+-\d+\.\d+\s+.+$)에 맞게 리네이밍. 2) verificationCriteria가 단문인 태스크를 우선순위별로 Deliverable/Method/Pass 형태로 개편. 3) 규칙 준수율을 수치로 기록.
 - **검증 기준(Verification)**: Deliverable: namePattern 위반 보정 및 3요소형 verificationCriteria 반영본. Method: 정규식 매칭 카운트와 verificationCriteria 패턴(Deliverable/Method/Pass) 포함 여부를 집계. Pass: namePattern 위반=0, verificationCriteria 3요소 포함률이 목표치 이상(예: 90% 이상).
 - **선행 조건(Dependencies)**: P0-2.3.2
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks.json`, `.shrimp-data/tasks.metadata.json`
 
 ### P0-2.3.4 태스크 정합성 자동검증 명령/스크립트 정리
@@ -208,7 +191,7 @@
 - **구현 가이드(Guide)**: 1) requiredFields/estimatedMinutes/namePattern/relatedFiles.type 검증 jq 명령 세트를 정리. 2) 필요 시 scripts/task-quality-check.sh 생성. 3) 실행 순서와 기대 출력 형식을 문서화. 4) 샘플 실행 로그로 재현성 확인.
 - **검증 기준(Verification)**: Deliverable: 재사용 가능한 품질 검증 절차(문서 또는 스크립트). Method: 정의된 명령을 클린 상태에서 재실행. Pass: 동일 입력에서 동일 카운트 결과가 재현되고, 핵심 4개 지표(requiredFields/estimatedMinutes/namePattern/relatedFiles.type)가 모두 보고된다.
 - **선행 조건(Dependencies)**: P0-2.3.3
-- **예상 소요 시간**: 90분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/tasks/README.md`, `.shrimp-data/tasks.json`, `scripts/task-quality-check.sh`
 
 ### P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강
@@ -216,8 +199,8 @@
 - **설명(Description)**: 계정 모듈 외 전체 메뉴/라우트 기준으로 super/admin/user 권한 매트릭스 요구를 백로그에 명시하고 관련 phase 태스크로 연결한다.
 - **구현 가이드(Guide)**: 1) REFINED_PRD의 권한 요구를 메뉴/라우트 단위로 재정리한다. 2) 기존 P1/P2/P3/P4/P9 태스크 중 RBAC 누락 구간을 식별해 연결한다. 3) 누락 항목을 후속 phase 태스크로 등록할 추가 목록을 확정한다.
 - **검증 기준(Verification)**: Deliverable: 전역 RBAC 메뉴/라우트 매트릭스와 누락 태스크 후보 목록이 문서화된다. Method: REFINED_PRD 권한 섹션과 phase 태스크를 대조 검토한다. Pass: 계정 모듈 외 메뉴 권한 누락이 0건으로 표시된다.
-- **선행 조건(Dependencies)**: P0-2.1, P0-2.4.1, P0-2.4.2
-- **예상 소요 시간**: 90분
+- **선행 조건(Dependencies)**: P0-2.1
+- **예상 소요 시간**: -
 - **관련 파일**: `docs/REFINED_PRD.md`, `docs/migration/REMAINING_TASKS_MERGED.md`, `.shrimp-data/tasks.json`
 
 ### P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성
@@ -227,7 +210,7 @@
 - **구현 가이드(Guide)**: 1. `docs/migration/RBAC_MATRIX.md` (또는 기존 관련 문서) 파일을 생성하거나 수정한다.\n2. 각 메뉴별로 3가지 역할(super, admin, user)의 라우트 접근 가능 여부 및 CRUD 권한을 표 형태로 정리한다.\n3. 예: 조직 관리(super: 전체, admin: 소속 조직, user: 불가), 개인 대시보드(user: 접근 가능, admin: 접근 불가 등 명확한 기준 확립).
 - **검증 기준(Verification)**: 문서 내에 계정 모듈 외 모든 메뉴(조직, 직원, 근무표, 알림, 대시보드)에 대한 super/admin/user 접근 권한 표가 누락 없이 작성되었는지 확인한다.
 - **선행 조건(Dependencies)**: P0-2.1
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `docs/REFINED_PRD.md`, `docs/migration/RBAC_MATRIX.md`
 
 ### P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강
@@ -236,7 +219,7 @@
 - **구현 가이드(Guide)**: 1. P3(인증/권한): Vue Router 전역 가드(`beforeEach`)에서 `meta.roles`를 확인하여 403 처리 및 역할별 홈 리다이렉트 로직 구현 요구사항 추가.\n2. P5(조직/직원): 조직 및 직원 관리 페이지에 `[super, admin]` 전용 라우터 가드 요구사항 추가.\n3. P7(근무표 생성): 스케줄 생성/편집 라우트에 admin/super 전용 접근 가드 요구사항 추가.\n4. P9(대시보드): 로그인 후 역할에 따라 관리자 대시보드 또는 개인 대시보드로 자동 라우팅되는 분기 처리 요구사항 추가.\n5. `.shrimp-data/todo/` 또는 `tasks.json`의 해당 태스크 항목을 업데이트한다.
 - **검증 기준(Verification)**: 기존 P3, P5, P7, P9 관련 백로그 태스크의 설명이나 구현 가이드에 RBAC(라우터 가드 및 역할별 분기) 요구사항이 명확히 추가되었는지 확인한다.
 - **선행 조건(Dependencies)**: P0-2.4.1
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/`, `docs/migration/REMAINING_TASKS_MERGED.md`
 
 ### P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결
@@ -245,7 +228,7 @@
 - **구현 가이드(Guide)**: 1) PRD 5.1과 6.2의 연결 플로우를 상태 다이어그램으로 정리한다. 2) P2(가입)와 P5(조직관리) 사이 인터페이스 계약(라우트/API/권한)을 명시한다. 3) 누락된 구현 태스크를 phase별로 추가한다.
 - **검증 기준(Verification)**: Deliverable: 가입→조직생성(6.2 재사용) 연결 플로우와 구현 태스크 목록이 추가된다. Method: P2/P5 태스크와 PRD 5.1/6.2를 교차 검토한다. Pass: 조직생성 재사용 요구가 구현 백로그에 명시되고 책임 phase가 지정된다.
 - **선행 조건(Dependencies)**: P0-2.4
-- **예상 소요 시간**: 90분
+- **예상 소요 시간**: -
 - **관련 파일**: `docs/REFINED_PRD.md`, `.shrimp-data/todo/P2.json`, `.shrimp-data/todo/P5.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.6 Solver 완료 알림 이벤트 경계 보강
@@ -254,7 +237,7 @@
 - **구현 가이드(Guide)**: 1) P7 solver 완료 시점의 이벤트 생성 책임을 정의한다. 2) P8 알림 이벤트 스키마와 연결되는 계약 필드(eventType/payload/idempotencyKey)를 확정한다. 3) 경계 검증 테스트 태스크를 추가한다.
 - **검증 기준(Verification)**: Deliverable: solver 완료 이벤트 생산-소비 경계와 검증 태스크가 정의된다. Method: P7/P8 태스크와 PRD 알림 요구를 대조한다. Pass: AI 완료 알림 요구가 이벤트 생산부터 소비까지 백로그에서 단절 없이 연결된다.
 - **선행 조건(Dependencies)**: P0-2.5
-- **예상 소요 시간**: 90분
+- **예상 소요 시간**: -
 - **관련 파일**: `docs/REFINED_PRD.md`, `.shrimp-data/todo/P7.json`, `.shrimp-data/todo/P8.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.7 P1~P2 하위 태스크 canonical 병합
@@ -263,7 +246,7 @@
 - **구현 가이드(Guide)**: 1) .shrimp-data/todo/P1.json, P2.json에서 태스크를 추출한다. 2) tasks.json에 병합한다. 3) 중복 ID/이름 패턴/누락 dependency target을 즉시 점검한다.
 - **검증 기준(Verification)**: P1/P2 태스크가 canonical에 반영되고, 중복 ID=0/이름 패턴 위반=0/누락 dependency target=0을 확인한다.
 - **선행 조건(Dependencies)**: P0-2.2
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/P1.json`, `.shrimp-data/todo/P2.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.8 P3~P4 하위 태스크 canonical 병합
@@ -272,7 +255,7 @@
 - **구현 가이드(Guide)**: 1) P3/P4 todo를 병합한다. 2) 승인 상태와 온보딩 선행조건 의존선을 연결한다. 3) 병합 직후 그래프 누락 target 점검을 반복한다.
 - **검증 기준(Verification)**: P3/P4 태스크가 canonical에 반영되고, 인증→온보딩→관리 핵심 의존선이 추적 가능하다.
 - **선행 조건(Dependencies)**: P0-2.7
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/P3.json`, `.shrimp-data/todo/P4.json`, `.shrimp-data/tasks.json`
 
 ### P0-2.9 P5~P6 하위 태스크 canonical 병합
@@ -281,7 +264,7 @@
 - **구현 가이드(Guide)**: 1) P5/P6 태스크를 병합한다. 2) relatedFiles.type/estimatedMinutes 허용값을 점검한다. 3) 경계(조직관리 vs 직원관리)를 유지한다.
 - **검증 기준(Verification)**: P5/P6 반영 후 requiredFields 누락=0, estimatedMinutes는 60/90/120/180만 사용된다.
 - **선행 조건(Dependencies)**: P0-2.8
-- **예상 소요 시간**: 120분
+- **예상 소요 시간**: -
 - **관련 파일**: `.shrimp-data/todo/P5.json`, `.shrimp-data/todo/P6.json`, `.shrimp-data/tasks.metadata.json`, `.shrimp-data/tasks.json`
 
 

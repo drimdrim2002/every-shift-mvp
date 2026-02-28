@@ -1,215 +1,6 @@
 {
   "tasks": [
     {
-      "id": "10000000-0000-4000-8000-000000000037",
-      "name": "P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리",
-      "description": "REFINED_PRD의 요구사항을 P0~P10 Phase에 매핑하고, 누락/중복 범위를 체크하여 백로그에 반영한다.",
-      "status": "completed",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000036"
-        }
-      ],
-      "estimatedMinutes": 60,
-      "relatedFiles": [
-        {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "요구사항 원문"
-        },
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "TO_MODIFY",
-          "description": "P0 canonical backlog 상태 확인"
-        },
-        {
-          "path": ".shrimp-data/todo/P1.json",
-          "type": "REFERENCE",
-          "description": "권한/RLS/RBAC 기반 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P2.json",
-          "type": "REFERENCE",
-          "description": "가입/승인/접근제어 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P3.json",
-          "type": "REFERENCE",
-          "description": "온보딩 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P4.json",
-          "type": "REFERENCE",
-          "description": "계정관리/RBAC 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P5.json",
-          "type": "REFERENCE",
-          "description": "조직·사이트·요구인원 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P6.json",
-          "type": "REFERENCE",
-          "description": "직원관리/엑셀 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P7.json",
-          "type": "REFERENCE",
-          "description": "Step1/2 연계·solver 회귀 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P8.json",
-          "type": "REFERENCE",
-          "description": "알림 도메인 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P9.json",
-          "type": "REFERENCE",
-          "description": "대시보드/리포트 매핑 근거"
-        },
-        {
-          "path": ".shrimp-data/todo/P10.json",
-          "type": "REFERENCE",
-          "description": "보안/성능/릴리스 게이트 매핑 근거"
-        },
-        {
-          "path": "docs/migration/REMAINING_TASKS_MERGED.md",
-          "type": "REFERENCE",
-          "description": "P0~P10 병합 백로그 근거"
-        }
-      ],
-      "implementationGuide": "1) PRD 섹션(권한/가입/온보딩/관리/알림/대시보드)을 Phase로 매핑. 2) 누락 요구를 하위 태스크로 추가. 3) 중복/범위 충돌은 notes로 정리.",
-      "verificationCriteria": "PRD 주요 섹션이 모두 Phase에 연결되어 있고, 누락된 공통 기능이 없다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-28T07:17:06.776Z",
-      "notes": "PRD→Phase 매핑 점검 결과를 아래와 같이 확정함. 1) 권한/RBAC: P1(모델·RLS) + P4(계정 모듈 RBAC) + P10(보안 감사). 2) 가입/로그인/승인: P2(가입·승인 워크플로우) + P4(운영 화면). 3) 신규 조직 온보딩: P3(상태/위저드/가드). 4) 관리(계정/조직/직원): P4/P5/P6. 5) 알림: P8(채널·센터·설정·이메일) + P2-3.4(승인 이벤트 생산). 6) 대시보드/리포트: P9. 중복/범위 충돌 후보를 정리함: A) P2 승인 UI 스펙 vs P4 계정관리 UI, B) P5 사이트·요구인원 도메인 vs P7 Step2 적용 플로우, C) P2 이벤트 정의 vs P8 알림 도메인 정의. 누락 공통 기능 후보 3건을 하위 태스크로 추가 완료: P0-2.4(`a59d8e0e-df2b-4f1d-9002-6f0b8825441b`), P0-2.5(`c189da56-e1d2-4f5c-b7ca-8c0928d11fb3`), P0-2.6(`92faa6b4-20db-404d-a5d9-9b24760168fc`).",
-      "summary": "PRD 핵심 섹션(권한/가입/온보딩/관리/알림/대시보드)의 P1~P10 매핑을 점검해 notes에 근거를 남겼고, 누락 공통 기능 3건을 P0-2.4~2.6 하위 태스크로 백로그에 추가해 중복/범위 충돌 관리 기준까지 반영했다.",
-      "completedAt": "2026-02-28T07:17:06.774Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000038",
-      "name": "P0-2.2 에픽별 하위 태스크 분해(1~3h) + 의존성 그래프 작성",
-      "description": "P0~P10 에픽을 실행 가능한 1~3시간 단위 하위 태스크로 쪼개고, 태스크 간 의존성(critical path)을 명확히 연결한다.",
-      "status": "completed",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000037"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "TO_MODIFY",
-          "description": "하위 태스크 추가/정리"
-        }
-      ],
-      "implementationGuide": "1) 각 에픽을 설계/구현/검증 단계로 분해. 2) 선행 조건은 dependencies로 연결. 3) 실행 순서가 모호하면 notes에 결정사항 기록.",
-      "verificationCriteria": "모든 에픽에 1~3시간 단위 하위 태스크가 존재하고, 의존성 그래프가 끊기지 않는다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-28T07:58:40.940Z",
-      "summary": "P0~P10 하위 태스크를 canonical tasks.json에 병합해 전체 에픽 커버리지를 확보했고, 누락 의존성(00726...) 추가 및 P1-2.1의 순환 의존성 제거로 DAG 무결성(missing target=0, cycle=false)을 달성했다. 또한 모든 phase 태스크의 estimatedMinutes가 1~3시간 허용값 범위(60/90/120/180)에 포함됨을 검증했다.",
-      "completedAt": "2026-02-28T07:58:40.936Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000039",
-      "name": "P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리",
-      "description": "백로그 태스크의 verificationCriteria, relatedFiles, estimatedMinutes를 표준화하여 실행/검증 가능 상태로 만든다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000038"
-        }
-      ],
-      "estimatedMinutes": 90,
-      "relatedFiles": [
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "TO_MODIFY",
-          "description": "필드 보강"
-        }
-      ],
-      "implementationGuide": "1) 각 태스크에 체크리스트형 검증기준 추가. 2) 수정/생성 파일을 relatedFiles에 명시. 3) 1~3시간 범위 벗어나는 태스크는 재분해.",
-      "verificationCriteria": "대부분의 태스크가 '실행 방법 + 검증 방법'을 포함하고, 추정치가 일관되다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000040",
-      "name": "P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의",
-      "description": "각 Phase의 완료 정의(산출물/테스트/보안)와 Private Beta 릴리스 준비도 지표를 정의한다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000039"
-        }
-      ],
-      "estimatedMinutes": 90,
-      "relatedFiles": [
-        {
-          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
-          "type": "TO_MODIFY",
-          "description": "Phase KPI/Ready 섹션 추가"
-        }
-      ],
-      "implementationGuide": "1) Phase별 산출물 목록 정의. 2) 필수 테스트/보안 체크 항목 정의. 3) Ready/Not Ready 판정 기준 정의.",
-      "verificationCriteria": "각 Phase에 대해 '완료' 판정이 가능한 지표/체크리스트가 문서화되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000041",
-      "name": "P0-3.2 마이그레이션 대시보드(문서) 구조 설계",
-      "description": "Phase별 진행률/블로커/리스크/릴리스 체크를 한 페이지에서 추적할 수 있는 문서 대시보드 구조를 설계한다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000040"
-        }
-      ],
-      "estimatedMinutes": 90,
-      "relatedFiles": [
-        {
-          "path": "docs/README.md",
-          "type": "TO_MODIFY",
-          "description": "Migration status 링크/요약 추가"
-        }
-      ],
-      "implementationGuide": "1) Phase 테이블(상태/완료조건/담당) 레이아웃 정의. 2) Risk/Blocker 등록 포맷 정의. 3) 릴리스 체크리스트 섹션 정의.",
-      "verificationCriteria": "문서 대시보드 목차/섹션이 정의되어 있고, 팀이 동일 포맷으로 업데이트할 수 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000042",
-      "name": "P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의",
-      "description": "Shrimp list/query를 사용해 진행상태를 추적하는 표준 명령/보고 방식(수동 또는 스크립트)을 정의한다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000041"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "docs/setup/MCP_INSTALLATION.md",
-          "type": "REFERENCE",
-          "description": "MCP 사용 참고"
-        }
-      ],
-      "implementationGuide": "1) Phase별 조회 기준(이름 prefix/phase 필드) 정의. 2) weekly 리포트 템플릿 정의. 3) 필요 시 간단한 export 방식(수동 복사) 정의.",
-      "verificationCriteria": "누구나 동일 명령/포맷으로 현재 상태를 보고할 수 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
       "id": "10000000-0000-4000-8000-000000000034",
       "name": "P0-1.1 운영 규칙/DoD 문서 초안 작성",
       "description": "REFINED_PRD 서비스 전환 운영 원칙을 문서화하되, 기존 MIGRATION_GOVERNANCE를 단일 소스로 유지하고 누락된 태스크 상태 전이 규칙을 보강한다. DoD, 브랜치/PR/리뷰 규칙, 상태 전이 규칙을 팀이 즉시 실행 가능한 체크리스트 형태로 정리한다.",
@@ -330,6 +121,344 @@
       "completedAt": "2026-02-28T07:05:17.499Z"
     },
     {
+      "id": "10000000-0000-4000-8000-000000000037",
+      "name": "P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리",
+      "description": "REFINED_PRD의 요구사항을 P0~P10 Phase에 매핑하고, 누락/중복 범위를 체크하여 백로그에 반영한다.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "estimatedMinutes": 60,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "요구사항 원문"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "P0 canonical backlog 상태 확인"
+        },
+        {
+          "path": ".shrimp-data/todo/P1.json",
+          "type": "REFERENCE",
+          "description": "권한/RLS/RBAC 기반 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P2.json",
+          "type": "REFERENCE",
+          "description": "가입/승인/접근제어 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P3.json",
+          "type": "REFERENCE",
+          "description": "온보딩 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P4.json",
+          "type": "REFERENCE",
+          "description": "계정관리/RBAC 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P5.json",
+          "type": "REFERENCE",
+          "description": "조직·사이트·요구인원 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P6.json",
+          "type": "REFERENCE",
+          "description": "직원관리/엑셀 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P7.json",
+          "type": "REFERENCE",
+          "description": "Step1/2 연계·solver 회귀 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P8.json",
+          "type": "REFERENCE",
+          "description": "알림 도메인 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P9.json",
+          "type": "REFERENCE",
+          "description": "대시보드/리포트 매핑 근거"
+        },
+        {
+          "path": ".shrimp-data/todo/P10.json",
+          "type": "REFERENCE",
+          "description": "보안/성능/릴리스 게이트 매핑 근거"
+        },
+        {
+          "path": "docs/migration/REMAINING_TASKS_MERGED.md",
+          "type": "REFERENCE",
+          "description": "P0~P10 병합 백로그 근거"
+        }
+      ],
+      "implementationGuide": "1) PRD 섹션(권한/가입/온보딩/관리/알림/대시보드)을 Phase로 매핑. 2) 누락 요구를 하위 태스크로 추가. 3) 중복/범위 충돌은 notes로 정리.",
+      "verificationCriteria": "PRD 주요 섹션이 모두 Phase에 연결되어 있고, 누락된 공통 기능이 없다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T07:17:06.776Z",
+      "notes": "PRD→Phase 매핑 점검 결과를 아래와 같이 확정함. 1) 권한/RBAC: P1(모델·RLS) + P4(계정 모듈 RBAC) + P10(보안 감사). 2) 가입/로그인/승인: P2(가입·승인 워크플로우) + P4(운영 화면). 3) 신규 조직 온보딩: P3(상태/위저드/가드). 4) 관리(계정/조직/직원): P4/P5/P6. 5) 알림: P8(채널·센터·설정·이메일) + P2-3.4(승인 이벤트 생산). 6) 대시보드/리포트: P9. 중복/범위 충돌 후보를 정리함: A) P2 승인 UI 스펙 vs P4 계정관리 UI, B) P5 사이트·요구인원 도메인 vs P7 Step2 적용 플로우, C) P2 이벤트 정의 vs P8 알림 도메인 정의. 누락 공통 기능 후보 3건을 하위 태스크로 추가 완료: P0-2.4(`a59d8e0e-df2b-4f1d-9002-6f0b8825441b`), P0-2.5(`c189da56-e1d2-4f5c-b7ca-8c0928d11fb3`), P0-2.6(`92faa6b4-20db-404d-a5d9-9b24760168fc`).",
+      "summary": "PRD 핵심 섹션(권한/가입/온보딩/관리/알림/대시보드)의 P1~P10 매핑을 점검해 notes에 근거를 남겼고, 누락 공통 기능 3건을 P0-2.4~2.6 하위 태스크로 백로그에 추가해 중복/범위 충돌 관리 기준까지 반영했다.",
+      "completedAt": "2026-02-28T07:17:06.774Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000038",
+      "name": "P0-2.2 에픽별 하위 태스크 분해(1~3h) + 의존성 그래프 작성",
+      "description": "P0~P10 에픽을 실행 가능한 1~3시간 단위 하위 태스크로 쪼개고, 태스크 간 의존성(critical path)을 명확히 연결한다.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000037"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "하위 태스크 추가/정리"
+        }
+      ],
+      "implementationGuide": "1) 각 에픽을 설계/구현/검증 단계로 분해. 2) 선행 조건은 dependencies로 연결. 3) 실행 순서가 모호하면 notes에 결정사항 기록.",
+      "verificationCriteria": "모든 에픽에 1~3시간 단위 하위 태스크가 존재하고, 의존성 그래프가 끊기지 않는다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T07:58:40.940Z",
+      "summary": "P0~P10 하위 태스크를 canonical tasks.json에 병합해 전체 에픽 커버리지를 확보했고, 누락 의존성(00726...) 추가 및 P1-2.1의 순환 의존성 제거로 DAG 무결성(missing target=0, cycle=false)을 달성했다. 또한 모든 phase 태스크의 estimatedMinutes가 1~3시간 허용값 범위(60/90/120/180)에 포함됨을 검증했다.",
+      "completedAt": "2026-02-28T07:58:40.936Z"
+    },
+    {
+      "id": "9578fcaa-fff0-431c-9884-ab167cfd6b52",
+      "name": "P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)",
+      "description": ".shrimp-data/tasks.json에서 requiredFields 누락 태스크를 식별하고 estimatedMinutes를 taskTemplate 허용값(60/90/120/180)으로 채워 requiredFields 누락을 0으로 만든다.",
+      "notes": "dependencies/relatedFiles 구조는 변경하지 않는다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T08:12:31.806Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "누락 estimatedMinutes 보정 대상"
+        },
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "허용 estimatedMinutes 규칙 참조"
+        }
+      ],
+      "implementationGuide": "1) jq로 estimatedMinutes 누락 태스크 ID 목록 추출. 2) 각 태스크 난이도/범위를 기준으로 60/90/120/180 중 하나를 할당. 3) requiredFields 재검증 명령으로 누락 0 확인. 4) 변경 diff를 점검해 의도치 않은 필드 변형이 없는지 확인.",
+      "verificationCriteria": "Deliverable: estimatedMinutes 누락 13건이 모두 보정된 tasks.json. Method: jq로 requiredFields 및 estimatedMinutes 누락 카운트를 재측정. Pass: requiredFields 누락=0, estimatedMinutes 누락=0, 허용값 외 사용=0.",
+      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
+      "phase": "P0",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "90f21096-9495-4ab6-83d3-253ccf24b15c",
+      "name": "P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화",
+      "description": "relatedFiles.type에서 비표준 값 TO_CREATE를 표준 CREATE로 일괄 정규화하고 기타 위반값이 없는지 검증한다.",
+      "notes": "path 문자열은 보존하고 type만 교정한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9578fcaa-fff0-431c-9884-ab167cfd6b52"
+        }
+      ],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T08:12:31.806Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "relatedFiles.type 정규화"
+        },
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "relatedFileTypes 표준 참조"
+        }
+      ],
+      "implementationGuide": "1) TO_CREATE 사용 항목을 전수 추출. 2) tasks.json에서 type 값을 CREATE로 치환. 3) relatedFileTypes 허용 집합(TO_MODIFY/REFERENCE/CREATE/DEPENDENCY/OTHER) 기준으로 재검증. 4) 치환 전후 건수 비교 리포트 작성.",
+      "verificationCriteria": "Deliverable: relatedFiles.type 정규화가 반영된 tasks.json. Method: jq로 허용 타입 외 항목 수를 집계. Pass: relatedFiles.type 위반=0, 기존 path/description 값 손실=0.",
+      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
+      "phase": "P0",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "24b9304c-ee93-4908-9f78-c0fd145b7b2e",
+      "name": "P0-2.3.3 네이밍 규칙/검증기준 문구 표준화",
+      "description": "namePattern 위반 태스크를 규칙에 맞게 보정하고 verificationCriteria를 Deliverable/Method/Pass 3요소 형태로 통일한다.",
+      "notes": "기존 태스크 의미와 의존성 해석이 바뀌지 않도록 제목 의미는 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "90f21096-9495-4ab6-83d3-253ccf24b15c"
+        }
+      ],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T08:12:31.806Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "name/verificationCriteria 표준화"
+        },
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "namePattern 및 verificationCriteriaStandard 참조"
+        }
+      ],
+      "implementationGuide": "1) namePattern 위반 태스크 2건을 규칙(^P\\d+-\\d+\\.\\d+\\s+.+$)에 맞게 리네이밍. 2) verificationCriteria가 단문인 태스크를 우선순위별로 Deliverable/Method/Pass 형태로 개편. 3) 규칙 준수율을 수치로 기록.",
+      "verificationCriteria": "Deliverable: namePattern 위반 보정 및 3요소형 verificationCriteria 반영본. Method: 정규식 매칭 카운트와 verificationCriteria 패턴(Deliverable/Method/Pass) 포함 여부를 집계. Pass: namePattern 위반=0, verificationCriteria 3요소 포함률이 목표치 이상(예: 90% 이상).",
+      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
+    },
+    {
+      "id": "3750ea45-f661-494c-b858-747cf94656f9",
+      "name": "P0-2.3.4 태스크 정합성 자동검증 명령/스크립트 정리",
+      "description": "반복 가능한 정합성 검증 루틴을 문서 또는 스크립트로 정리해 이후 병합 시 품질 회귀를 방지한다.",
+      "notes": "P0-2.12(무결성 점검)과 연계하되 범위는 taskTemplate 정합성 검사에 한정한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "24b9304c-ee93-4908-9f78-c0fd145b7b2e"
+        }
+      ],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T08:12:31.806Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks/README.md",
+          "type": "TO_MODIFY",
+          "description": "검증 명령 문서화"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "REFERENCE",
+          "description": "검증 대상 데이터"
+        },
+        {
+          "path": "scripts/task-quality-check.sh",
+          "type": "CREATE",
+          "description": "정합성 자동검증 스크립트(선택)"
+        }
+      ],
+      "implementationGuide": "1) requiredFields/estimatedMinutes/namePattern/relatedFiles.type 검증 jq 명령 세트를 정리. 2) 필요 시 scripts/task-quality-check.sh 생성. 3) 실행 순서와 기대 출력 형식을 문서화. 4) 샘플 실행 로그로 재현성 확인.",
+      "verificationCriteria": "Deliverable: 재사용 가능한 품질 검증 절차(문서 또는 스크립트). Method: 정의된 명령을 클린 상태에서 재실행. Pass: 동일 입력에서 동일 카운트 결과가 재현되고, 핵심 4개 지표(requiredFields/estimatedMinutes/namePattern/relatedFiles.type)가 모두 보고된다.",
+      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
+      "phase": "P0",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000039",
+      "name": "P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리",
+      "description": "백로그 태스크의 verificationCriteria, relatedFiles, estimatedMinutes를 표준화하여 실행/검증 가능 상태로 만든다.",
+      "status": "pending",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000038"
+        },
+        {
+          "taskId": "24b9304c-ee93-4908-9f78-c0fd145b7b2e"
+        },
+        {
+          "taskId": "3750ea45-f661-494c-b858-747cf94656f9"
+        },
+        {
+          "taskId": "90f21096-9495-4ab6-83d3-253ccf24b15c"
+        },
+        {
+          "taskId": "9578fcaa-fff0-431c-9884-ab167cfd6b52"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "필드 보강"
+        }
+      ],
+      "implementationGuide": "1) 각 태스크에 체크리스트형 검증기준 추가. 2) 수정/생성 파일을 relatedFiles에 명시. 3) 1~3시간 범위 벗어나는 태스크는 재분해.",
+      "verificationCriteria": "대부분의 태스크가 '실행 방법 + 검증 방법'을 포함하고, 추정치가 일관되다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "21d4bb02-23fe-4055-9fae-4123143f91a9",
+      "name": "P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성",
+      "description": "REFINED_PRD.md의 요구사항을 분석하여 모든 메뉴(계정, 조직, 직원, 근무표 생성, 알림, 대시보드) 및 라우트에 대한 super/admin/user 역할별 접근 권한(조회/생성/수정/삭제) 매트릭스를 마크다운 문서로 명문화한다.",
+      "notes": "P0-2.4 태스크의 산출물 중 문서화 부분입니다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000037"
+        }
+      ],
+      "createdAt": "2026-02-28T07:57:51.995Z",
+      "updatedAt": "2026-02-28T08:06:19.762Z",
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "권한 요구사항 원문"
+        },
+        {
+          "path": "docs/migration/RBAC_MATRIX.md",
+          "type": "CREATE",
+          "description": "전역 권한 매트릭스 문서"
+        }
+      ],
+      "implementationGuide": "1. `docs/migration/RBAC_MATRIX.md` (또는 기존 관련 문서) 파일을 생성하거나 수정한다.\\n2. 각 메뉴별로 3가지 역할(super, admin, user)의 라우트 접근 가능 여부 및 CRUD 권한을 표 형태로 정리한다.\\n3. 예: 조직 관리(super: 전체, admin: 소속 조직, user: 불가), 개인 대시보드(user: 접근 가능, admin: 접근 불가 등 명확한 기준 확립).",
+      "verificationCriteria": "문서 내에 계정 모듈 외 모든 메뉴(조직, 직원, 근무표, 알림, 대시보드)에 대한 super/admin/user 접근 권한 표가 누락 없이 작성되었는지 확인한다.",
+      "analysisResult": "전체 메뉴 및 라우트에 대한 super, admin, user 권한 매트릭스를 정의하고, 이를 기반으로 향후 진행될 P3~P9 페이즈의 관련 태스크에 프론트엔드 라우터 가드 및 UI 노출 제어(RBAC) 요구사항을 보강하여 보안 및 접근 제어 무결성을 확보합니다.",
+      "summary": "`docs/migration/RBAC_MATRIX.md` 문서를 생성하여 전체 메뉴(인증/온보딩, 조직, 직원, 계정 관리, 근무표 생성, 대시보드, 알림 시스템)에 대한 super, admin, user 권한 매트릭스를 누락 없이 명세 완료함.",
+      "completedAt": "2026-02-28T08:06:19.755Z",
+      "phase": "P0",
+      "estimatedMinutes": 120
+    },
+    {
+      "id": "194b66c3-288f-4b89-bf46-b97496d4e62d",
+      "name": "P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강",
+      "description": "작성된 RBAC 매트릭스 문서를 기준으로 향후 구현할 기존 Phase 태스크(todo/P3~P9)의 description 및 implementationGuide에 Vue Router 가드(meta.roles) 및 UI 제어 요구사항을 구체적으로 보강한다.",
+      "notes": "실제 코드를 구현하는 것이 아니라 백로그 태스크 내용을 보강하는 작업입니다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "21d4bb02-23fe-4055-9fae-4123143f91a9"
+        }
+      ],
+      "createdAt": "2026-02-28T07:57:51.995Z",
+      "updatedAt": "2026-02-28T07:57:51.995Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/",
+          "type": "TO_MODIFY",
+          "description": "업데이트할 Phase 백로그 파일들"
+        },
+        {
+          "path": "docs/migration/REMAINING_TASKS_MERGED.md",
+          "type": "REFERENCE",
+          "description": "Phase별 태스크 연결 기준"
+        }
+      ],
+      "implementationGuide": "1. P3(인증/권한): Vue Router 전역 가드(`beforeEach`)에서 `meta.roles`를 확인하여 403 처리 및 역할별 홈 리다이렉트 로직 구현 요구사항 추가.\\n2. P5(조직/직원): 조직 및 직원 관리 페이지에 `[super, admin]` 전용 라우터 가드 요구사항 추가.\\n3. P7(근무표 생성): 스케줄 생성/편집 라우트에 admin/super 전용 접근 가드 요구사항 추가.\\n4. P9(대시보드): 로그인 후 역할에 따라 관리자 대시보드 또는 개인 대시보드로 자동 라우팅되는 분기 처리 요구사항 추가.\\n5. `.shrimp-data/todo/` 또는 `tasks.json`의 해당 태스크 항목을 업데이트한다.",
+      "verificationCriteria": "기존 P3, P5, P7, P9 관련 백로그 태스크의 설명이나 구현 가이드에 RBAC(라우터 가드 및 역할별 분기) 요구사항이 명확히 추가되었는지 확인한다.",
+      "analysisResult": "전체 메뉴 및 라우트에 대한 super, admin, user 권한 매트릭스를 정의하고, 이를 기반으로 향후 진행될 P3~P9 페이즈의 관련 태스크에 프론트엔드 라우터 가드 및 UI 노출 제어(RBAC) 요구사항을 보강하여 보안 및 접근 제어 무결성을 확보합니다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
+    },
+    {
       "id": "a59d8e0e-df2b-4f1d-9002-6f0b8825441b",
       "name": "P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강",
       "description": "계정 모듈 외 전체 메뉴/라우트 기준으로 super/admin/user 권한 매트릭스 요구를 백로그에 명시하고 관련 phase 태스크로 연결한다.",
@@ -338,6 +467,12 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000037"
+        },
+        {
+          "taskId": "194b66c3-288f-4b89-bf46-b97496d4e62d"
+        },
+        {
+          "taskId": "21d4bb02-23fe-4055-9fae-4123143f91a9"
         }
       ],
       "createdAt": "2026-02-28T07:16:48.104Z",
@@ -361,7 +496,9 @@
       ],
       "implementationGuide": "1) REFINED_PRD의 권한 요구를 메뉴/라우트 단위로 재정리한다. 2) 기존 P1/P2/P3/P4/P9 태스크 중 RBAC 누락 구간을 식별해 연결한다. 3) 누락 항목을 후속 phase 태스크로 등록할 추가 목록을 확정한다.",
       "verificationCriteria": "Deliverable: 전역 RBAC 메뉴/라우트 매트릭스와 누락 태스크 후보 목록이 문서화된다. Method: REFINED_PRD 권한 섹션과 phase 태스크를 대조 검토한다. Pass: 계정 모듈 외 메뉴 권한 누락이 0건으로 표시된다.",
-      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary."
+      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary.",
+      "phase": "P0",
+      "estimatedMinutes": 90
     },
     {
       "id": "c189da56-e1d2-4f5c-b7ca-8c0928d11fb3",
@@ -400,7 +537,9 @@
       ],
       "implementationGuide": "1) PRD 5.1과 6.2의 연결 플로우를 상태 다이어그램으로 정리한다. 2) P2(가입)와 P5(조직관리) 사이 인터페이스 계약(라우트/API/권한)을 명시한다. 3) 누락된 구현 태스크를 phase별로 추가한다.",
       "verificationCriteria": "Deliverable: 가입→조직생성(6.2 재사용) 연결 플로우와 구현 태스크 목록이 추가된다. Method: P2/P5 태스크와 PRD 5.1/6.2를 교차 검토한다. Pass: 조직생성 재사용 요구가 구현 백로그에 명시되고 책임 phase가 지정된다.",
-      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary."
+      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary.",
+      "phase": "P0",
+      "estimatedMinutes": 90
     },
     {
       "id": "92faa6b4-20db-404d-a5d9-9b24760168fc",
@@ -439,7 +578,9 @@
       ],
       "implementationGuide": "1) P7 solver 완료 시점의 이벤트 생성 책임을 정의한다. 2) P8 알림 이벤트 스키마와 연결되는 계약 필드(eventType/payload/idempotencyKey)를 확정한다. 3) 경계 검증 테스트 태스크를 추가한다.",
       "verificationCriteria": "Deliverable: solver 완료 이벤트 생산-소비 경계와 검증 태스크가 정의된다. Method: P7/P8 태스크와 PRD 알림 요구를 대조한다. Pass: AI 완료 알림 요구가 이벤트 생산부터 소비까지 백로그에서 단절 없이 연결된다.",
-      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary."
+      "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary.",
+      "phase": "P0",
+      "estimatedMinutes": 90
     },
     {
       "id": "634b3991-aa06-4b2f-9e39-2e14bf89fba5",
@@ -473,7 +614,9 @@
       ],
       "implementationGuide": "1) .shrimp-data/todo/P1.json, P2.json에서 태스크를 추출한다. 2) tasks.json에 병합한다. 3) 중복 ID/이름 패턴/누락 dependency target을 즉시 점검한다.",
       "verificationCriteria": "P1/P2 태스크가 canonical에 반영되고, 중복 ID=0/이름 패턴 위반=0/누락 dependency target=0을 확인한다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "c227e7ec-7a5e-4d8b-b838-b308af62fd63",
@@ -507,7 +650,9 @@
       ],
       "implementationGuide": "1) P3/P4 todo를 병합한다. 2) 승인 상태와 온보딩 선행조건 의존선을 연결한다. 3) 병합 직후 그래프 누락 target 점검을 반복한다.",
       "verificationCriteria": "P3/P4 태스크가 canonical에 반영되고, 인증→온보딩→관리 핵심 의존선이 추적 가능하다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "d2cb1c5e-adda-4649-b59f-9985432fb377",
@@ -546,7 +691,9 @@
       ],
       "implementationGuide": "1) P5/P6 태스크를 병합한다. 2) relatedFiles.type/estimatedMinutes 허용값을 점검한다. 3) 경계(조직관리 vs 직원관리)를 유지한다.",
       "verificationCriteria": "P5/P6 반영 후 requiredFields 누락=0, estimatedMinutes는 60/90/120/180만 사용된다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "56e8a782-25c0-4aea-be2e-24da11e4918f",
@@ -580,7 +727,9 @@
       ],
       "implementationGuide": "1) P7/P8 태스크를 병합한다. 2) solver 완료 이벤트와 알림 소비 의존선을 연결한다. 3) 중복 이벤트 정의를 제거한다.",
       "verificationCriteria": "P7/P8 반영 후 solver 완료 이벤트→알림 소비 의존선이 그래프에서 단절 없이 확인된다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "db6ead17-422c-4e1b-a994-2171fb5b913a",
@@ -614,7 +763,9 @@
       ],
       "implementationGuide": "1) P9/P10 태스크를 병합한다. 2) 보안 감사 태스크와 품질게이트 선행조건을 연결한다. 3) 고위험 태스크 검증 기준을 보강한다.",
       "verificationCriteria": "P9/P10 반영 후 보안/대시보드 핵심 경로가 그래프에서 단절 없이 이어진다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "4f954f47-cf4b-44ca-81eb-7e3f6c28b34a",
@@ -643,7 +794,9 @@
       ],
       "implementationGuide": "1) dependency edge 추출 명령을 정의한다. 2) missing target/cycle/orphan root 검출 로직을 문서화한다. 3) 배치 병합마다 실행 게이트로 고정한다.",
       "verificationCriteria": "검증 명령이 문서화되고 배치 병합 단위로 cycle=false, missing target=0, orphan root 점검 결과를 재현할 수 있다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "0ea4c78a-4916-43db-885b-126553d59343",
@@ -672,7 +825,9 @@
       ],
       "implementationGuide": "1) requiredFields 누락 태스크를 식별한다. 2) phase/estimatedMinutes/relatedFiles/type/namePattern을 보정한다. 3) 보정 결과를 리포트한다.",
       "verificationCriteria": "requiredFields 누락=0, 이름 패턴 위반=0, estimatedMinutes 허용값 외 사용=0을 확인한다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 120
     },
     {
       "id": "9a83c8aa-8482-4075-80dd-62c420de2a9b",
@@ -704,67 +859,81 @@
       ],
       "implementationGuide": "1) phase별 루트/종료 노드를 식별한다. 2) 핵심 경로를 문서화한다. 3) P0-2.2 verificationCriteria 충족 여부를 체크리스트로 판정한다.",
       "verificationCriteria": "P0~P10 모든 에픽의 1~3시간 하위 태스크 존재가 확인되고, 크리티컬 패스 문서와 완료 판정 기록이 남아 있다.",
-      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다."
+      "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
+      "phase": "P0",
+      "estimatedMinutes": 180
     },
     {
-      "id": "21d4bb02-23fe-4055-9fae-4123143f91a9",
-      "name": "P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성",
-      "description": "REFINED_PRD.md의 요구사항을 분석하여 모든 메뉴(계정, 조직, 직원, 근무표 생성, 알림, 대시보드) 및 라우트에 대한 super/admin/user 역할별 접근 권한(조회/생성/수정/삭제) 매트릭스를 마크다운 문서로 명문화한다.",
-      "notes": "P0-2.4 태스크의 산출물 중 문서화 부분입니다.",
-      "status": "completed",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000037"
-        }
-      ],
-      "createdAt": "2026-02-28T07:57:51.995Z",
-      "updatedAt": "2026-02-28T08:06:19.762Z",
-      "relatedFiles": [
-        {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "권한 요구사항 원문"
-        },
-        {
-          "path": "docs/migration/RBAC_MATRIX.md",
-          "type": "CREATE",
-          "description": "전역 권한 매트릭스 문서"
-        }
-      ],
-      "implementationGuide": "1. `docs/migration/RBAC_MATRIX.md` (또는 기존 관련 문서) 파일을 생성하거나 수정한다.\\n2. 각 메뉴별로 3가지 역할(super, admin, user)의 라우트 접근 가능 여부 및 CRUD 권한을 표 형태로 정리한다.\\n3. 예: 조직 관리(super: 전체, admin: 소속 조직, user: 불가), 개인 대시보드(user: 접근 가능, admin: 접근 불가 등 명확한 기준 확립).",
-      "verificationCriteria": "문서 내에 계정 모듈 외 모든 메뉴(조직, 직원, 근무표, 알림, 대시보드)에 대한 super/admin/user 접근 권한 표가 누락 없이 작성되었는지 확인한다.",
-      "analysisResult": "전체 메뉴 및 라우트에 대한 super, admin, user 권한 매트릭스를 정의하고, 이를 기반으로 향후 진행될 P3~P9 페이즈의 관련 태스크에 프론트엔드 라우터 가드 및 UI 노출 제어(RBAC) 요구사항을 보강하여 보안 및 접근 제어 무결성을 확보합니다.",
-      "summary": "`docs/migration/RBAC_MATRIX.md` 문서를 생성하여 전체 메뉴(인증/온보딩, 조직, 직원, 계정 관리, 근무표 생성, 대시보드, 알림 시스템)에 대한 super, admin, user 권한 매트릭스를 누락 없이 명세 완료함.",
-      "completedAt": "2026-02-28T08:06:19.755Z"
-    },
-    {
-      "id": "194b66c3-288f-4b89-bf46-b97496d4e62d",
-      "name": "P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강",
-      "description": "작성된 RBAC 매트릭스 문서를 기준으로 향후 구현할 기존 Phase 태스크(todo/P3~P9)의 description 및 implementationGuide에 Vue Router 가드(meta.roles) 및 UI 제어 요구사항을 구체적으로 보강한다.",
-      "notes": "실제 코드를 구현하는 것이 아니라 백로그 태스크 내용을 보강하는 작업입니다.",
+      "id": "10000000-0000-4000-8000-000000000040",
+      "name": "P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의",
+      "description": "각 Phase의 완료 정의(산출물/테스트/보안)와 Private Beta 릴리스 준비도 지표를 정의한다.",
       "status": "pending",
+      "phase": "P0",
       "dependencies": [
         {
-          "taskId": "21d4bb02-23fe-4055-9fae-4123143f91a9"
+          "taskId": "10000000-0000-4000-8000-000000000039"
         }
       ],
-      "createdAt": "2026-02-28T07:57:51.995Z",
-      "updatedAt": "2026-02-28T07:57:51.995Z",
+      "estimatedMinutes": 90,
       "relatedFiles": [
         {
-          "path": ".shrimp-data/todo/",
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
           "type": "TO_MODIFY",
-          "description": "업데이트할 Phase 백로그 파일들"
-        },
-        {
-          "path": "docs/migration/REMAINING_TASKS_MERGED.md",
-          "type": "REFERENCE",
-          "description": "Phase별 태스크 연결 기준"
+          "description": "Phase KPI/Ready 섹션 추가"
         }
       ],
-      "implementationGuide": "1. P3(인증/권한): Vue Router 전역 가드(`beforeEach`)에서 `meta.roles`를 확인하여 403 처리 및 역할별 홈 리다이렉트 로직 구현 요구사항 추가.\\n2. P5(조직/직원): 조직 및 직원 관리 페이지에 `[super, admin]` 전용 라우터 가드 요구사항 추가.\\n3. P7(근무표 생성): 스케줄 생성/편집 라우트에 admin/super 전용 접근 가드 요구사항 추가.\\n4. P9(대시보드): 로그인 후 역할에 따라 관리자 대시보드 또는 개인 대시보드로 자동 라우팅되는 분기 처리 요구사항 추가.\\n5. `.shrimp-data/todo/` 또는 `tasks.json`의 해당 태스크 항목을 업데이트한다.",
-      "verificationCriteria": "기존 P3, P5, P7, P9 관련 백로그 태스크의 설명이나 구현 가이드에 RBAC(라우터 가드 및 역할별 분기) 요구사항이 명확히 추가되었는지 확인한다.",
-      "analysisResult": "전체 메뉴 및 라우트에 대한 super, admin, user 권한 매트릭스를 정의하고, 이를 기반으로 향후 진행될 P3~P9 페이즈의 관련 태스크에 프론트엔드 라우터 가드 및 UI 노출 제어(RBAC) 요구사항을 보강하여 보안 및 접근 제어 무결성을 확보합니다."
+      "implementationGuide": "1) Phase별 산출물 목록 정의. 2) 필수 테스트/보안 체크 항목 정의. 3) Ready/Not Ready 판정 기준 정의.",
+      "verificationCriteria": "각 Phase에 대해 '완료' 판정이 가능한 지표/체크리스트가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000041",
+      "name": "P0-3.2 마이그레이션 대시보드(문서) 구조 설계",
+      "description": "Phase별 진행률/블로커/리스크/릴리스 체크를 한 페이지에서 추적할 수 있는 문서 대시보드 구조를 설계한다.",
+      "status": "pending",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000040"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": "docs/README.md",
+          "type": "TO_MODIFY",
+          "description": "Migration status 링크/요약 추가"
+        }
+      ],
+      "implementationGuide": "1) Phase 테이블(상태/완료조건/담당) 레이아웃 정의. 2) Risk/Blocker 등록 포맷 정의. 3) 릴리스 체크리스트 섹션 정의.",
+      "verificationCriteria": "문서 대시보드 목차/섹션이 정의되어 있고, 팀이 동일 포맷으로 업데이트할 수 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000042",
+      "name": "P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의",
+      "description": "Shrimp list/query를 사용해 진행상태를 추적하는 표준 명령/보고 방식(수동 또는 스크립트)을 정의한다.",
+      "status": "pending",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000041"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/setup/MCP_INSTALLATION.md",
+          "type": "REFERENCE",
+          "description": "MCP 사용 참고"
+        }
+      ],
+      "implementationGuide": "1) Phase별 조회 기준(이름 prefix/phase 필드) 정의. 2) weekly 리포트 템플릿 정의. 3) 필요 시 간단한 export 방식(수동 복사) 정의.",
+      "verificationCriteria": "누구나 동일 명령/포맷으로 현재 상태를 보고할 수 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000043",
@@ -810,7 +979,7 @@
       "relatedFiles": [
         {
           "path": "migrations/007_service_transition_rbac_multitenant.sql",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "서비스 전환 DDL"
         }
       ],
@@ -842,6 +1011,28 @@
       "verificationCriteria": "기존 MVP 데이터가 서비스 스키마로 확장되는 경로가 문서화되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "00726cae-2c8e-4f81-af12-4bb55e494203",
+      "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
+      "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
+      "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-27T08:25:09.787Z",
+      "updatedAt": "2026-02-27T08:25:09.787Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "Primary migration file to harden for DDL compatibility and uniqueness-scope transition."
+        }
+      ],
+      "implementationGuide": "1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.",
+      "verificationCriteria": "기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.",
+      "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements.",
+      "phase": "P1",
+      "estimatedMinutes": 120
     },
     {
       "id": "10000000-0000-4000-8000-000000000046",
@@ -961,7 +1152,7 @@
       "relatedFiles": [
         {
           "path": "migrations/008_backfill_service_fields.sql",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "백필 전용 마이그레이션(필요 시)"
         }
       ],
@@ -991,240 +1182,6 @@
       ],
       "implementationGuide": "1) 레코드 수/참조 무결성 체크 항목 작성. 2) 샘플 계정/조직으로 조회/편집 플로우 정의. 3) 이슈 발생 시 복구 절차 연결.",
       "verificationCriteria": "검증 체크리스트가 존재하고, 백필 성공/실패를 객관적으로 판단할 수 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000057",
-      "name": "P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계",
-      "description": "로그인 후 현재 사용자의 승인 상태(approved/pending/rejected)를 식별하고, 앱 접근 정책을 설계한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000056"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "src/stores/auth.ts",
-          "type": "TO_MODIFY",
-          "description": "로그인 후 승인 상태 체크 추가"
-        },
-        {
-          "path": "src/stores/rbac.ts",
-          "type": "TO_CREATE",
-          "description": "RBAC/멤버십 스토어"
-        }
-      ],
-      "implementationGuide": "1) 승인 상태별 허용 라우트 정의. 2) membership 조회 방법(테이블/뷰) 결정. 3) 상태 전이 시 UX(재로그인/새로고침) 정의.",
-      "verificationCriteria": "승인 상태별 접근 정책이 명확하고, 스토어/라우터 변경 범위가 결정되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000058",
-      "name": "P2-2.2 Route guard 설계: 미승인 사용자 차단 + 전용 라우팅",
-      "description": "승인되지 않은 사용자가 서비스 화면에 접근하지 못하도록 라우터 가드 규칙과 전용 페이지 경로를 설계한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000057"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "src/router/index.ts",
-          "type": "TO_MODIFY",
-          "description": "승인 가드 추가"
-        },
-        {
-          "path": "src/router/guards.ts",
-          "type": "TO_MODIFY",
-          "description": "승인 상태 가드 함수 추가"
-        }
-      ],
-      "implementationGuide": "1) 승인 전용 라우트(/access/pending 등) 결정. 2) requiresAuth 이후 승인 체크 순서 결정. 3) 예외 라우트(login/signup) 정의.",
-      "verificationCriteria": "승인되지 않은 계정은 보호된 라우트에 접근 시 전용 화면으로 리다이렉트된다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000059",
-      "name": "P2-2.3 UI: 승인대기/반려 화면 스펙 및 컴포넌트 정의",
-      "description": "승인 대기/반려 상태의 사용자에게 보여줄 화면(메시지, 다음 행동, 문의/재신청)을 정의한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000058"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "src/views/auth/AccessState.vue",
-          "type": "TO_CREATE",
-          "description": "승인 상태 화면"
-        }
-      ],
-      "implementationGuide": "1) pending/rejected 상태별 콘텐츠 결정. 2) 재신청/로그아웃 버튼 등 CTA 정의. 3) 공지/알림 연계 여부 결정(P8 연계).",
-      "verificationCriteria": "상태별 화면 요구사항이 정의되어 있고, 구현할 컴포넌트 경로가 결정되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000060",
-      "name": "P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의",
-      "description": "approved/pending/rejected 사용자 각각에 대해 라우팅/메뉴 접근이 올바른지 테스트 시나리오를 정의한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000059"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "docs/verification/test-validation-guide.md",
-          "type": "TO_MODIFY",
-          "description": "승인 상태 테스트 케이스 추가"
-        }
-      ],
-      "implementationGuide": "1) 상태별 허용 라우트 목록화. 2) 기대 리다이렉트/메시지 정의. 3) 최소 E2E 1개 시나리오 포함 여부 결정.",
-      "verificationCriteria": "승인 상태별 테스트 케이스가 문서화되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000061",
-      "name": "P2-3.1 승인/반려 워크플로우 정책 확정(권한/감사로그)",
-      "description": "super/admin의 승인/반려 권한 범위, 결정 사유 기록, 감사 로그(approval_logs) 기록 정책을 확정한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000056"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "6.1 계정 관리/승인 요구"
-        }
-      ],
-      "implementationGuide": "1) 승인 주체(super vs admin)와 범위(전조직 vs 자기조직) 정의. 2) decision_note 필수 여부 결정. 3) 감사로그 최소 필드 정의.",
-      "verificationCriteria": "승인/반려 정책이 문서화되어 있고, 데이터 모델에 매핑된다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000062",
-      "name": "P2-3.2 승인 결정 API 계약 정의(approve/reject/withdraw)",
-      "description": "승인/반려/철회 결정을 수행하는 서버 API(Edge Function 또는 RPC)의 요청/응답/오류 계약을 정의한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000061"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "supabase/functions/approval-decision/index.ts",
-          "type": "TO_CREATE",
-          "description": "승인 결정 함수(선택)"
-        },
-        {
-          "path": "docs/API_SPEC.md",
-          "type": "TO_MODIFY",
-          "description": "승인 API 계약 추가"
-        }
-      ],
-      "implementationGuide": "1) 입력(requestId, decision, note) 스키마 정의. 2) 멱등 처리(중복 승인/반려) 정책 정의. 3) 성공 시 memberships/로그 업데이트 규칙 정의.",
-      "verificationCriteria": "승인 결정 API 계약이 문서화되어 있고, 멱등/권한 체크가 포함된다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000063",
-      "name": "P2-3.3 UI: 승인 대기 목록/필터/상세 화면 스펙",
-      "description": "관리자(슈퍼/어드민)가 가입 신청을 조회/필터/상세 확인할 수 있는 UI 요구사항을 정의한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000062"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "src/views/management/AccountManagement.vue",
-          "type": "TO_CREATE",
-          "description": "계정/승인 관리 화면"
-        }
-      ],
-      "implementationGuide": "1) 목록 컬럼/필터(status, role, org) 정의. 2) 상세 패널/모달 구성 정의. 3) approve/reject CTA 위치/확인 다이얼로그 정의.",
-      "verificationCriteria": "승인 관리 UI의 화면 구성/필터/액션이 문서화되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000064",
-      "name": "P2-3.4 승인 결과 알림 이벤트 생성 정책 정의",
-      "description": "승인/반려 시 앱내/이메일 알림을 위한 이벤트(notification_events) 생성 시점과 페이로드를 정의한다(발송은 P8).",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000062"
-        }
-      ],
-      "estimatedMinutes": 90,
-      "relatedFiles": [
-        {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "8. 알림 시스템"
-        }
-      ],
-      "implementationGuide": "1) 이벤트 타입(signup_approved/signup_rejected) 정의. 2) 제목/메시지 템플릿 초안 작성. 3) 중복 방지/재발송 정책 초안 작성.",
-      "verificationCriteria": "승인 알림 이벤트 생성 규칙과 페이로드가 정의되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000065",
-      "name": "P2-3.5 End-to-End 승인 플로우 테스트 시나리오 정의",
-      "description": "가입→승인→로그인 허용→권한별 메뉴 노출까지의 E2E 테스트 시나리오를 정의한다.",
-      "status": "pending",
-      "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000063"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000064"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "docs/verification/test-validation-guide.md",
-          "type": "TO_MODIFY",
-          "description": "승인 E2E 시나리오 추가"
-        }
-      ],
-      "implementationGuide": "1) 계정 생성/승인/로그인 단계를 단계별로 기술. 2) 기대 라우팅/메뉴/데이터 접근 정의. 3) 최소 실패 케이스 1개 포함.",
-      "verificationCriteria": "승인 플로우의 E2E 테스트 시나리오가 문서화되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
@@ -1424,6 +1381,240 @@
       "analysisResult": "P2-1은 Signup 제출 경계를 API-first로 고정하고(UI->store->api), production에서는 edge function 호출을 기본으로 하며 dev-only fallback을 허용한다. 메시지 처리와 조직 조회는 기존 유틸/모듈을 재사용하고, auth session과 라우터 가드 충돌을 피하기 위해 가입 성공 후 인증 상태를 보호 라우트 진입 가능 상태로 만들지 않는다."
     },
     {
+      "id": "10000000-0000-4000-8000-000000000057",
+      "name": "P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계",
+      "description": "로그인 후 현재 사용자의 승인 상태(approved/pending/rejected)를 식별하고, 앱 접근 정책을 설계한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000056"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "로그인 후 승인 상태 체크 추가"
+        },
+        {
+          "path": "src/stores/rbac.ts",
+          "type": "CREATE",
+          "description": "RBAC/멤버십 스토어"
+        }
+      ],
+      "implementationGuide": "1) 승인 상태별 허용 라우트 정의. 2) membership 조회 방법(테이블/뷰) 결정. 3) 상태 전이 시 UX(재로그인/새로고침) 정의.",
+      "verificationCriteria": "승인 상태별 접근 정책이 명확하고, 스토어/라우터 변경 범위가 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000058",
+      "name": "P2-2.2 Route guard 설계: 미승인 사용자 차단 + 전용 라우팅",
+      "description": "승인되지 않은 사용자가 서비스 화면에 접근하지 못하도록 라우터 가드 규칙과 전용 페이지 경로를 설계한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000057"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "승인 가드 추가"
+        },
+        {
+          "path": "src/router/guards.ts",
+          "type": "TO_MODIFY",
+          "description": "승인 상태 가드 함수 추가"
+        }
+      ],
+      "implementationGuide": "1) 승인 전용 라우트(/access/pending 등) 결정. 2) requiresAuth 이후 승인 체크 순서 결정. 3) 예외 라우트(login/signup) 정의.",
+      "verificationCriteria": "승인되지 않은 계정은 보호된 라우트에 접근 시 전용 화면으로 리다이렉트된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000059",
+      "name": "P2-2.3 UI: 승인대기/반려 화면 스펙 및 컴포넌트 정의",
+      "description": "승인 대기/반려 상태의 사용자에게 보여줄 화면(메시지, 다음 행동, 문의/재신청)을 정의한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000058"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/views/auth/AccessState.vue",
+          "type": "CREATE",
+          "description": "승인 상태 화면"
+        }
+      ],
+      "implementationGuide": "1) pending/rejected 상태별 콘텐츠 결정. 2) 재신청/로그아웃 버튼 등 CTA 정의. 3) 공지/알림 연계 여부 결정(P8 연계).",
+      "verificationCriteria": "상태별 화면 요구사항이 정의되어 있고, 구현할 컴포넌트 경로가 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000060",
+      "name": "P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의",
+      "description": "approved/pending/rejected 사용자 각각에 대해 라우팅/메뉴 접근이 올바른지 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000059"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "승인 상태 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 상태별 허용 라우트 목록화. 2) 기대 리다이렉트/메시지 정의. 3) 최소 E2E 1개 시나리오 포함 여부 결정.",
+      "verificationCriteria": "승인 상태별 테스트 케이스가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000061",
+      "name": "P2-3.1 승인/반려 워크플로우 정책 확정(권한/감사로그)",
+      "description": "super/admin의 승인/반려 권한 범위, 결정 사유 기록, 감사 로그(approval_logs) 기록 정책을 확정한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000056"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "6.1 계정 관리/승인 요구"
+        }
+      ],
+      "implementationGuide": "1) 승인 주체(super vs admin)와 범위(전조직 vs 자기조직) 정의. 2) decision_note 필수 여부 결정. 3) 감사로그 최소 필드 정의.",
+      "verificationCriteria": "승인/반려 정책이 문서화되어 있고, 데이터 모델에 매핑된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000062",
+      "name": "P2-3.2 승인 결정 API 계약 정의(approve/reject/withdraw)",
+      "description": "승인/반려/철회 결정을 수행하는 서버 API(Edge Function 또는 RPC)의 요청/응답/오류 계약을 정의한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000061"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/approval-decision/index.ts",
+          "type": "CREATE",
+          "description": "승인 결정 함수(선택)"
+        },
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "승인 API 계약 추가"
+        }
+      ],
+      "implementationGuide": "1) 입력(requestId, decision, note) 스키마 정의. 2) 멱등 처리(중복 승인/반려) 정책 정의. 3) 성공 시 memberships/로그 업데이트 규칙 정의.",
+      "verificationCriteria": "승인 결정 API 계약이 문서화되어 있고, 멱등/권한 체크가 포함된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000063",
+      "name": "P2-3.3 UI: 승인 대기 목록/필터/상세 화면 스펙",
+      "description": "관리자(슈퍼/어드민)가 가입 신청을 조회/필터/상세 확인할 수 있는 UI 요구사항을 정의한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000062"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/AccountManagement.vue",
+          "type": "CREATE",
+          "description": "계정/승인 관리 화면"
+        }
+      ],
+      "implementationGuide": "1) 목록 컬럼/필터(status, role, org) 정의. 2) 상세 패널/모달 구성 정의. 3) approve/reject CTA 위치/확인 다이얼로그 정의.",
+      "verificationCriteria": "승인 관리 UI의 화면 구성/필터/액션이 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000064",
+      "name": "P2-3.4 승인 결과 알림 이벤트 생성 정책 정의",
+      "description": "승인/반려 시 앱내/이메일 알림을 위한 이벤트(notification_events) 생성 시점과 페이로드를 정의한다(발송은 P8).",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000062"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "8. 알림 시스템"
+        }
+      ],
+      "implementationGuide": "1) 이벤트 타입(signup_approved/signup_rejected) 정의. 2) 제목/메시지 템플릿 초안 작성. 3) 중복 방지/재발송 정책 초안 작성.",
+      "verificationCriteria": "승인 알림 이벤트 생성 규칙과 페이로드가 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000065",
+      "name": "P2-3.5 End-to-End 승인 플로우 테스트 시나리오 정의",
+      "description": "가입→승인→로그인 허용→권한별 메뉴 노출까지의 E2E 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000063"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000064"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "승인 E2E 시나리오 추가"
+        }
+      ],
+      "implementationGuide": "1) 계정 생성/승인/로그인 단계를 단계별로 기술. 2) 기대 라우팅/메뉴/데이터 접근 정의. 3) 최소 실패 케이스 1개 포함.",
+      "verificationCriteria": "승인 플로우의 E2E 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000066",
       "name": "P3-1.1 온보딩 상태 머신(3단계) + 저장 범위 확정",
       "description": "admin 최초 로그인 온보딩의 단계(조직정보 확인→직원 등록→스케줄 요청)와 저장 범위(조직/사용자)를 확정한다.",
@@ -1465,7 +1656,7 @@
       "relatedFiles": [
         {
           "path": "supabase/functions/onboarding-progress/index.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "온보딩 진행 함수(선택)"
         }
       ],
@@ -1489,7 +1680,7 @@
       "relatedFiles": [
         {
           "path": "src/stores/onboarding.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "온보딩 스토어"
         }
       ],
@@ -1513,7 +1704,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Onboarding.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "온보딩 위저드"
         }
       ],
@@ -1542,7 +1733,7 @@
         },
         {
           "path": "src/views/Onboarding.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "온보딩 UI"
         }
       ],
@@ -1710,7 +1901,7 @@
       "relatedFiles": [
         {
           "path": "src/api/approval.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "승인/계정관리 API 래퍼"
         }
       ],
@@ -1734,7 +1925,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/AccountManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "계정 관리 화면"
         }
       ],
@@ -1977,7 +2168,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/OrganizationManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "조직 관리 화면"
         },
         {
@@ -2198,7 +2389,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/SiteManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "사이트 관리 화면(또는 조직관리 내 탭)"
         }
       ],
@@ -2222,7 +2413,7 @@
       "relatedFiles": [
         {
           "path": "src/components/requirements/SiteStaffRequirementsEditor.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "요구인원 편집 컴포넌트"
         }
       ],
@@ -2324,7 +2515,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/EmployeeManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "직원 관리 화면"
         }
       ],
@@ -2899,7 +3090,7 @@
       "relatedFiles": [
         {
           "path": "src/api/notification.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "알림 API 래퍼"
         }
       ],
@@ -2971,7 +3162,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Notifications.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "알림 센터 페이지"
         }
       ],
@@ -2995,7 +3186,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Profile.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "내 정보/설정 페이지(선택)"
         }
       ],
@@ -3067,7 +3258,7 @@
       "relatedFiles": [
         {
           "path": "supabase/functions/notify-dispatch/index.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "이메일 발송 함수(선택)"
         }
       ],
@@ -3166,12 +3357,12 @@
       "relatedFiles": [
         {
           "path": "src/types/dashboard.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "대시보드 타입"
         },
         {
           "path": "src/stores/dashboard.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "대시보드 스토어"
         }
       ],
@@ -3243,7 +3434,7 @@
       "relatedFiles": [
         {
           "path": "src/views/dashboard/AdminDashboard.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "관리자 대시보드"
         }
       ],
@@ -3267,7 +3458,7 @@
       "relatedFiles": [
         {
           "path": "src/views/dashboard/MyDashboard.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "직원 대시보드"
         }
       ],
@@ -3363,7 +3554,7 @@
       "relatedFiles": [
         {
           "path": "supabase/functions/dashboard-export/index.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "리포트 export 함수(선택)"
         },
         {
@@ -3392,7 +3583,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Reports.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "리포트 페이지"
         }
       ],
@@ -3721,28 +3912,6 @@
       "verificationCriteria": "Go/No-Go 리뷰 진행에 필요한 아젠다/자료 목록이 확정되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "00726cae-2c8e-4f81-af12-4bb55e494203",
-      "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
-      "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
-      "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
-      "status": "pending",
-      "dependencies": [],
-      "createdAt": "2026-02-27T08:25:09.787Z",
-      "updatedAt": "2026-02-27T08:25:09.787Z",
-      "relatedFiles": [
-        {
-          "path": "migrations/007_service_transition_rbac_multitenant.sql",
-          "type": "TO_MODIFY",
-          "description": "Primary migration file to harden for DDL compatibility and uniqueness-scope transition."
-        }
-      ],
-      "implementationGuide": "1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.",
-      "verificationCriteria": "기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.",
-      "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements.",
-      "phase": "P1",
-      "estimatedMinutes": 120
     }
   ]
 }

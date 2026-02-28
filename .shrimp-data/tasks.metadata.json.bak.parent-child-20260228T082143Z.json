@@ -2,7 +2,7 @@
   "program": "REFINED_PRD Service Transition",
   "version": "1.1.0",
   "createdAt": "2026-02-27T00:00:00Z",
-  "updatedAt": "2026-02-28T08:22:04Z",
+  "updatedAt": "2026-02-28T00:00:00Z",
   "description": "Full migration backlog from MVP to service-grade product based on docs/REFINED_PRD.md",
   "taskTemplate": {
     "canonicalSource": ".shrimp-data/tasks.metadata.json",
@@ -21,7 +21,7 @@
       "in_progress",
       "completed"
     ],
-    "namePattern": "^P\\d+-\\d+\\.\\d+(?:\\.\\d+)?\\s+.+$",
+    "namePattern": "^P\\d+-\\d+\\.\\d+\\s+.+$",
     "estimatedMinutesAllowed": [
       60,
       90,
@@ -59,17 +59,6 @@
       "dependencies entries follow { taskId: string }[] and no self-reference",
       "relatedFiles entries include path/type and type is from relatedFileTypes",
       "verificationCriteria includes deliverable, method, and pass condition"
-    ],
-    "parentChildPolicy": {
-      "parentDependsOnChildren": true,
-      "childDependsOnParent": false,
-      "parentPattern": "^P\\d+-\\d+\\.\\d+$",
-      "childPattern": "^P\\d+-\\d+\\.\\d+\\.\\d+$",
-      "notes": [
-        "Parent tasks act as completion gates.",
-        "Child tasks execute according to their own dependency chain.",
-        "Do not add child->parent dependencies to avoid cycles."
-      ]
-    }
+    ]
   }
 }

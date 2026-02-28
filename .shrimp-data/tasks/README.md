@@ -285,6 +285,50 @@ grep -r "task-name-pattern" .shrimp-data/tasks/*.json
 grep -C 3 "task-name-pattern" .shrimp-data/tasks/*.json
 ```
 
+## 🔗 Parent-Child Dependency Policy
+
+For hierarchical task names, parent tasks are completion gates:
+
+- Parent pattern: `^P\d+-\d+\.\d+$` (example: `P0-2.3`)
+- Child pattern: `^P\d+-\d+\.\d+\.\d+$` (example: `P0-2.3.1`)
+- Rule: parent must include all children in `dependencies`
+- Rule: do not add child -> parent dependencies
+
+Quick validation for canonical `.shrimp-data/tasks.json`:
+```bash
+python - <<'PY'
+import json,re,sys
+with open('.shrimp-data/tasks.json', encoding='utf-8') as f:
+    tasks = json.load(f)['tasks']
+by_id = {t['id']: t for t in tasks}
+by_code = {}
+for t in tasks:
+    m = re.match(r'^(P\d+-\d+\.\d+(?:\.\d+)?)\s+', t.get('name', ''))
+    if m:
+        by_code[m.group(1)] = t['id']
+missing = []
+for code, parent_id in by_code.items():
+    if not re.match(r'^P\d+-\d+\.\d+$', code):
+        continue
+    child_ids = [tid for c, tid in by_code.items() if c.startswith(code + '.')]
+    if not child_ids:
+        continue
+    deps = []
+    for d in by_id[parent_id].get('dependencies', []):
+        if isinstance(d, dict) and 'taskId' in d:
+            deps.append(d['taskId'])
+        elif isinstance(d, str):
+            deps.append(d)
+    for child_id in child_ids:
+        if child_id not in deps:
+            missing.append((parent_id, child_id))
+print('missing_parent_child_edges=', len(missing))
+for p, c in missing:
+    print(p, 'missing', c)
+sys.exit(1 if missing else 0)
+PY
+```
+
 ## 🤝 Contributing
 
 When adding new tasks:
