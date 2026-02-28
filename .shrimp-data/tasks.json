@@ -234,33 +234,6 @@
       "completedAt": "2026-02-28T07:58:40.936Z"
     },
     {
-      "id": "9578fcaa-fff0-431c-9884-ab167cfd6b52",
-      "name": "P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)",
-      "description": ".shrimp-data/tasks.json에서 requiredFields 누락 태스크를 식별하고 estimatedMinutes를 taskTemplate 허용값(60/90/120/180)으로 채워 requiredFields 누락을 0으로 만든다.",
-      "notes": "dependencies/relatedFiles 구조는 변경하지 않는다.",
-      "status": "pending",
-      "dependencies": [],
-      "createdAt": "2026-02-28T08:12:31.806Z",
-      "updatedAt": "2026-02-28T08:12:31.806Z",
-      "relatedFiles": [
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "TO_MODIFY",
-          "description": "누락 estimatedMinutes 보정 대상"
-        },
-        {
-          "path": ".shrimp-data/tasks.metadata.json",
-          "type": "REFERENCE",
-          "description": "허용 estimatedMinutes 규칙 참조"
-        }
-      ],
-      "implementationGuide": "1) jq로 estimatedMinutes 누락 태스크 ID 목록 추출. 2) 각 태스크 난이도/범위를 기준으로 60/90/120/180 중 하나를 할당. 3) requiredFields 재검증 명령으로 누락 0 확인. 4) 변경 diff를 점검해 의도치 않은 필드 변형이 없는지 확인.",
-      "verificationCriteria": "Deliverable: estimatedMinutes 누락 13건이 모두 보정된 tasks.json. Method: jq로 requiredFields 및 estimatedMinutes 누락 카운트를 재측정. Pass: requiredFields 누락=0, estimatedMinutes 누락=0, 허용값 외 사용=0.",
-      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
-      "phase": "P0",
-      "estimatedMinutes": 60
-    },
-    {
       "id": "90f21096-9495-4ab6-83d3-253ccf24b15c",
       "name": "P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화",
       "description": "relatedFiles.type에서 비표준 값 TO_CREATE를 표준 CREATE로 일괄 정규화하고 기타 위반값이 없는지 검증한다.",
@@ -3912,6 +3885,35 @@
       "verificationCriteria": "Go/No-Go 리뷰 진행에 필요한 아젠다/자료 목록이 확정되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "9578fcaa-fff0-431c-9884-ab167cfd6b52",
+      "name": "P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)",
+      "description": ".shrimp-data/tasks.json에서 requiredFields 누락 태스크를 식별하고 estimatedMinutes를 taskTemplate 허용값(60/90/120/180)으로 채워 requiredFields 누락을 0으로 만든다.",
+      "notes": "dependencies/relatedFiles 구조는 변경하지 않는다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T08:57:07.427Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "누락 estimatedMinutes 보정 대상"
+        },
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "허용 estimatedMinutes 규칙 참조"
+        }
+      ],
+      "implementationGuide": "1. Node.js 스크립트를 작성하여 .shrimp-data/tasks.json을 로드합니다.\n2. tasks 배열을 순회하며 estimatedMinutes 값이 없거나 허용값(60, 90, 120, 180)이 아닌 태스크를 찾습니다.\n3. 각 태스크의 복잡도를 고려하여 60, 90, 120, 180 중 하나를 할당합니다.\n4. 변경된 객체를 다시 .shrimp-data/tasks.json에 덮어씁니다.\n5. jq 스크립트를 사용해 누락된 필드가 0건인지 검증합니다.",
+      "verificationCriteria": "Deliverable: estimatedMinutes 누락 13건이 모두 보정된 tasks.json.\nMethod: jq로 requiredFields 및 estimatedMinutes 누락 카운트를 재측정.\nPass: requiredFields 누락=0, estimatedMinutes 누락=0, 허용값 외 사용=0.",
+      "analysisResult": "1. **Requirements Alignment Check**: The solution updates tasks.json to populate missing estimatedMinutes values.\n2. **Architectural Consistency Check**: It uses a simple Node.js script to update JSON safely without breaking the existing schema.\n3. **Over-design Review**: The solution is minimal and directly addresses the data correction. No over-design.\n4. **Simplicity and Implementability**: A single script handles the read, modify, and write loop in one pass.\n5. **Feedback and Confirmation**: Completion Confirmation Report. The task is straightforward and feasible.\n6. **Task Splitting**: Since this is a single, atomic operation, no further splitting is necessary. A single task is returned.",
+      "phase": "P0",
+      "estimatedMinutes": 60,
+      "summary": "jq 스크립트를 사용하여 .shrimp-data/tasks.json 내의 모든 태스크를 검증했습니다.\n- estimatedMinutes 누락 태스크: 0건\n- 허용값(60, 90, 120, 180) 외의 값을 사용하는 태스크: 0건\n모든 데이터가 완벽하게 보정되어 있으므로 작업 완료 처리합니다.",
+      "completedAt": "2026-02-28T08:57:07.423Z"
     }
   ]
 }
