@@ -13,6 +13,31 @@
 BEGIN;
 
 -- ============================================================================
+-- 0) Pre-migration sanity check (Harden 007)
+-- ============================================================================
+
+DO $$
+DECLARE
+  _count_sr INTEGER;
+  _count_emp INTEGER;
+  _count_sa INTEGER;
+BEGIN
+  -- 1. Record counts before changes to existing tables
+  SELECT count(*) INTO _count_sr FROM site_requirements;
+  SELECT count(*) INTO _count_emp FROM employees;
+  SELECT count(*) INTO _count_sa FROM schedule_assignments;
+
+  -- 2. Store counts in custom GUC (v007 prefix starts with letter to avoid ERROR 42602)
+  -- Third parameter 'TRUE' means it's local to the transaction.
+  PERFORM set_config('migration.v007.site_requirements_count', _count_sr::TEXT, TRUE);
+  PERFORM set_config('migration.v007.employees_count', _count_emp::TEXT, TRUE);
+  PERFORM set_config('migration.v007.schedule_assignments_count', _count_sa::TEXT, TRUE);
+
+  RAISE NOTICE 'Migration 007 Pre-check: site_requirements=%, employees=%, schedule_assignments=%', 
+    _count_sr, _count_emp, _count_sa;
+END $$;
+
+-- ============================================================================
 -- 1) Identity / Membership / Approval
 -- ============================================================================
 
@@ -319,5 +344,34 @@ COMMENT ON TABLE analytics_metrics IS 'Foundation table for dashboard and export
 
 COMMENT ON COLUMN employees.user_id IS 'Link employee row to authenticated user account';
 COMMENT ON COLUMN site_requirements.site_id IS 'Optional site scope for legacy requirement rows';
+
+-- ============================================================================
+-- 7) Post-migration verification
+-- ============================================================================
+
+DO $$
+DECLARE
+  _before_sr INTEGER; _after_sr INTEGER;
+  _before_emp INTEGER; _after_emp INTEGER;
+  _before_sa INTEGER; _after_sa INTEGER;
+BEGIN
+  -- 1. Retrieve recorded counts (v007 prefix used to match start of transaction)
+  _before_sr := current_setting('migration.v007.site_requirements_count')::INTEGER;
+  _before_emp := current_setting('migration.v007.employees_count')::INTEGER;
+  _before_sa := current_setting('migration.v007.schedule_assignments_count')::INTEGER;
+
+  -- 2. Count current records
+  SELECT count(*) INTO _after_sr FROM site_requirements;
+  SELECT count(*) INTO _after_emp FROM employees;
+  SELECT count(*) INTO _after_sa FROM schedule_assignments;
+
+  RAISE NOTICE 'Migration 007 Post-check: site_requirements=%/%, employees=%/%, schedule_assignments=%/%',
+    _before_sr, _after_sr, _before_emp, _after_emp, _before_sa, _after_sa;
+
+  -- 3. Assert no data loss (Harden 007 Verification)
+  IF _before_sr != _after_sr THEN RAISE EXCEPTION 'Data loss in site_requirements!'; END IF;
+  IF _before_emp != _after_emp THEN RAISE EXCEPTION 'Data loss in employees!'; END IF;
+  IF _before_sa != _after_sa THEN RAISE EXCEPTION 'Data loss in schedule_assignments!'; END IF;
+END $$;
 
 COMMIT;

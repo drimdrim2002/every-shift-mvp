@@ -407,7 +407,7 @@
 | `10000000-0000-4000-8000-000000000043` | **P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)**                          | pending | P0-1.3                    | 180m      |
 | `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성**                                 | pending | P1-1.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)**                              | pending | P1-1.2                    | 120m      |
-| `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | pending | -                         | 120m      |
+| `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | completed | -                         | 120m      |
 | `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)**                            | pending | P1-1.3<br>P1-1.4          | 180m      |
 | `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정**                         | pending | P1-2.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000048` | **P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)**                     | pending | P1-2.2                    | 120m      |
@@ -450,6 +450,8 @@
 ### P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope
 
 - **Task ID**: `00726cae-2c8e-4f81-af12-4bb55e494203`
+- **현재 상태(Status)**: completed (2026-03-01)
+- **완료 요약(Summary)**: 007 마이그레이션 파일에 데이터 무결성 검증 로직(Pre-check/Post-check)을 추가하여 강화했다. 특히 `set_config` 사용 시 발생하던 식별자 명명 규칙 위반(ERROR 42602)을 `migration.v007` 접두사를 사용하여 해결했으며, site_requirements, employees, schedule_assignments 테이블의 레코드 수가 마이그레이션 전후로 동일함을 보장하도록 구현했다.
 - **설명(Description)**: Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.
 - **구현 가이드(Guide)**: 1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.
 - **검증 기준(Verification)**: 기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.

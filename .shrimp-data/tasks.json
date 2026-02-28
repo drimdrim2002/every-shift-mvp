@@ -923,10 +923,10 @@
       "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
       "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
       "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-02-27T08:25:09.787Z",
-      "updatedAt": "2026-02-27T08:25:09.787Z",
+      "updatedAt": "2026-03-01T00:00:00.000Z",
       "relatedFiles": [
         {
           "path": "migrations/007_service_transition_rbac_multitenant.sql",
