@@ -52,8 +52,8 @@
 
 | `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정** | completed | P0-2.12<br>P0-2.13 | 180m |
 | `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | completed | P0-2.3 | 90m |
-| `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계** | pending | P0-3.1 | 90m |
-| `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의** | pending | P0-3.2 | 120m |
+| `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계** | completed | P0-3.1 | 90m |
+| `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의** | completed | P0-3.2 | 120m |
 
 ### 상세 (Details)
 
@@ -133,22 +133,26 @@
 ### P0-3.2 마이그레이션 대시보드(문서) 구조 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000041`
+- **현재 상태(Status)**: completed (2026-02-28)
+- **완료 요약(Summary)**: `MIGRATION_PROGRESS_DASHBOARD.md` v2.0을 완료하여 Phase 테이블(상태/완료조건/담당), Risk/Blocker 등록 포맷, 릴리스 체크리스트를 정의하고, `docs/README.md`에 마이그레이션 진행 상태 Quick View를 추가했다.
 - **설명(Description)**: Phase별 진행률/블로커/리스크/릴리스 체크를 한 페이지에서 추적할 수 있는 문서 대시보드 구조를 설계한다.
 - **구현 가이드(Guide)**: 1) Phase 테이블(상태/완료조건/담당) 레이아웃 정의. 2) Risk/Blocker 등록 포맷 정의. 3) 릴리스 체크리스트 섹션 정의.
 - **검증 기준(Verification)**: 문서 대시보드 목차/섹션이 정의되어 있고, 팀이 동일 포맷으로 업데이트할 수 있다.
 - **선행 조건(Dependencies)**: P0-3.1
 - **예상 소요 시간**: 90분
-- **관련 파일**: `docs/README.md`
+- **관련 파일**: `docs/migration/MIGRATION_PROGRESS_DASHBOARD.md`, `docs/README.md`
 
 ### P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의
 
 - **Task ID**: `10000000-0000-4000-8000-000000000042`
+- **현재 상태(Status)**: completed (2026-02-28)
+- **완료 요약(Summary)**: `SHRIMP_QUERY_STANDARD.md` 문서를 작성하여 Phase별 조회 기준(prefix/phase 필드), jq 기반 쿼리 명령, 주간 리포트 템플릿, 내보내기 방식을 정의하고, `docs/README.md`에 문서 링크를 추가했다.
 - **설명(Description)**: Shrimp list/query를 사용해 진행상태를 추적하는 표준 명령/보고 방식(수동 또는 스크립트)을 정의한다.
 - **구현 가이드(Guide)**: 1) Phase별 조회 기준(이름 prefix/phase 필드) 정의. 2) weekly 리포트 템플릿 정의. 3) 필요 시 간단한 export 방식(수동 복사) 정의.
 - **검증 기준(Verification)**: 누구나 동일 명령/포맷으로 현재 상태를 보고할 수 있다.
 - **선행 조건(Dependencies)**: P0-3.2
 - **예상 소요 시간**: 120분
-- **관련 파일**: `docs/setup/MCP_INSTALLATION.md`
+- **관련 파일**: `docs/migration/SHRIMP_QUERY_STANDARD.md`, `docs/setup/MCP_INSTALLATION.md`
 
 ### P0-2.10 P7~P8 하위 태스크 canonical 병합
 

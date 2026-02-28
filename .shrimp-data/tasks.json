@@ -848,7 +848,7 @@
       "id": "10000000-0000-4000-8000-000000000041",
       "name": "P0-3.2 마이그레이션 대시보드(문서) 구조 설계",
       "description": "Phase별 진행률/블로커/리스크/릴리스 체크를 한 페이지에서 추적할 수 있는 문서 대시보드 구조를 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P0",
       "dependencies": [
         {
@@ -866,13 +866,14 @@
       "implementationGuide": "1) Phase 테이블(상태/완료조건/담당) 레이아웃 정의. 2) Risk/Blocker 등록 포맷 정의. 3) 릴리스 체크리스트 섹션 정의.",
       "verificationCriteria": "Deliverable: 문서 대시보드 목차/섹션이 정의되어 있고, 팀이 동일 포맷으로 업데이트할 수 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:35:57.870Z",
+      "completedAt": "2026-02-28T14:17:14.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000042",
       "name": "P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의",
       "description": "Shrimp list/query를 사용해 진행상태를 추적하는 표준 명령/보고 방식(수동 또는 스크립트)을 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P0",
       "dependencies": [
         {
@@ -890,7 +891,8 @@
       "implementationGuide": "1) Phase별 조회 기준(이름 prefix/phase 필드) 정의. 2) weekly 리포트 템플릿 정의. 3) 필요 시 간단한 export 방식(수동 복사) 정의.",
       "verificationCriteria": "Deliverable: 누구나 동일 명령/포맷으로 현재 상태를 보고할 수 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:35:57.870Z",
+      "completedAt": "2026-02-28T14:20:09.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000043",
