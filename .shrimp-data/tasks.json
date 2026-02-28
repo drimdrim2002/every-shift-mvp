@@ -923,10 +923,10 @@
       "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
       "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
       "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-02-27T08:25:09.787Z",
-      "updatedAt": "2026-02-27T08:25:09.787Z",
+      "updatedAt": "2026-03-01T00:00:00.000Z",
       "relatedFiles": [
         {
           "path": "migrations/007_service_transition_rbac_multitenant.sql",
@@ -938,7 +938,9 @@
       "verificationCriteria": "Deliverable: 기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements.",
       "phase": "P1",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "completedAt": "2026-03-01T00:00:00.000Z",
+      "summary": "007 마이그레이션 파일에 데이터 무결성 검증 로직(Pre-check/Post-check)을 추가하고, site_staffing_requirements 및 employees 테이블에 멀티테넌트 유니크 인덱스를 추가하여 데이터 정합성을 강화함. set_config 식별자 명명 규칙 위반(ERROR 42602) 해결 및 레코드 수 보존 보장 구현 완료."
     },
     {
       "id": "10000000-0000-4000-8000-000000000046",

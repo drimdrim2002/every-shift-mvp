@@ -451,7 +451,7 @@
 
 - **Task ID**: `00726cae-2c8e-4f81-af12-4bb55e494203`
 - **현재 상태(Status)**: completed (2026-03-01)
-- **완료 요약(Summary)**: 007 마이그레이션 파일에 데이터 무결성 검증 로직(Pre-check/Post-check)을 추가하여 강화했다. 특히 `set_config` 사용 시 발생하던 식별자 명명 규칙 위반(ERROR 42602)을 `migration.v007` 접두사를 사용하여 해결했으며, site_requirements, employees, schedule_assignments 테이블의 레코드 수가 마이그레이션 전후로 동일함을 보장하도록 구현했다.
+- **완료 요약(Summary)**: 007 마이그레이션 파일에 데이터 무결성 검증 로직(Pre-check/Post-check)을 추가하고, site_staffing_requirements 및 employees 테이블에 멀티테넌트 유니크 인덱스를 추가하여 데이터 정합성을 강화함. set_config 식별자 명명 규칙 위반(ERROR 42602) 해결 및 레코드 수 보존 보장 구현 완료.
 - **설명(Description)**: Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.
 - **구현 가이드(Guide)**: 1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.
 - **검증 기준(Verification)**: 기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.

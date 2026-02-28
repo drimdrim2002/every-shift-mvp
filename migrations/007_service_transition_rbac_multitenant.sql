@@ -252,6 +252,17 @@ CREATE TABLE IF NOT EXISTS site_staffing_requirements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Ensure uniqueness for service-native staffing requirements
+CREATE UNIQUE INDEX IF NOT EXISTS uq_site_staffing_requirements_scope
+  ON site_staffing_requirements(
+    organization_id,
+    site_id,
+    shift_id,
+    day_of_week,
+    COALESCE(skill_id, '00000000-0000-0000-0000-000000000000'::UUID),
+    COALESCE(rank_id, '00000000-0000-0000-0000-000000000000'::UUID)
+  );
+
 CREATE INDEX IF NOT EXISTS idx_site_staffing_req_org_site_day
   ON site_staffing_requirements(organization_id, site_id, day_of_week);
 
@@ -285,6 +296,11 @@ CREATE INDEX IF NOT EXISTS idx_analytics_metrics_org_month_category
 
 ALTER TABLE employees
   ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+
+-- One user can only be linked to one employee profile per organization
+CREATE UNIQUE INDEX IF NOT EXISTS uq_employees_org_user
+  ON employees(organization_id, user_id)
+  WHERE user_id IS NOT NULL;
 
 -- shifts:
 -- Keep existing MVP columns; service-only columns are deferred until real usage appears.
