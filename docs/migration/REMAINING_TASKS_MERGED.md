@@ -46,7 +46,7 @@
 | `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합** | pending | P0-2.9 | 120m |
 | `db6ead17-422c-4e1b-a994-2171fb5b913a` | **P0-2.11 P9~P10 하위 태스크 canonical 병합** | completed | P0-2.10 | 120m |
 | `4f954f47-cf4b-44ca-81eb-7e3f6c28b34a` | **P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리** | completed | P0-2.11 | 120m |
-| `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | pending | P0-2.12 | 120m |
+| `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | completed | P0-2.12 | 120m |
 
 | `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정** | pending | P0-2.12<br>P0-2.13 | 180m |
 | `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | pending | P0-2.3 | 90m |

@@ -755,7 +755,7 @@
       "name": "P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)",
       "description": "병합된 태스크를 metadata 기준으로 정규화해 requiredFields 누락을 제거한다.",
       "notes": "의미 변경 없이 형식 정합성만 보정",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "4f954f47-cf4b-44ca-81eb-7e3f6c28b34a"
@@ -779,7 +779,9 @@
       "verificationCriteria": "Deliverable: requiredFields 누락=0, 이름 패턴 위반=0, estimatedMinutes 허용값 외 사용=0을 확인한다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
       "phase": "P0",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "summary": "152개 전체 태스크에 대해 tasks.metadata.json의 taskTemplate 기준으로 정합성 검증을 수행했다. requiredFields 누락=0, 이름 패턴 위반=0, estimatedMinutes 허용값 외 사용=0으로 모든 검증 기준을 통과했다. 이는 선행 태스크(P0-2.8~P0-2.12)에서 수행한 정규화 작업이 완료되었음을 확인한다.",
+      "completedAt": "2026-02-28T13:38:00.000Z"
     },
     {
       "id": "9a83c8aa-8482-4075-80dd-62c420de2a9b",
