@@ -517,14 +517,14 @@
       "name": "P0-2.7 P1~P2 하위 태스크 canonical 병합",
       "description": "P1/P2 하위 태스크를 todo 소스에서 canonical tasks.json으로 병합하고, 병합 직후 ID/이름/의존성 target 유효성을 점검한다.",
       "notes": "수동 재작성 금지, todo 소스 재사용 원칙 적용",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000038"
         }
       ],
       "createdAt": "2026-02-28T07:22:32.515Z",
-      "updatedAt": "2026-02-28T07:53:13.519Z",
+      "updatedAt": "2026-02-28T10:42:31.113Z",
       "relatedFiles": [
         {
           "path": ".shrimp-data/todo/P1.json",
@@ -546,21 +546,23 @@
       "verificationCriteria": "Deliverable: P1/P2 태스크가 canonical에 반영되고, 중복 ID=0/이름 패턴 위반=0/누락 dependency target=0을 확인한다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
       "phase": "P0",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "summary": "P1/P2 todo 소스(총 23개)를 canonical tasks.json과 대조한 결과, 누락 병합 대상 0건으로 이미 반영 완료 상태를 확인했다. 또한 병합 직후 기준으로 중복 ID 0건, namePattern 위반 0건, 누락 dependency target 0건을 스크립트로 검증해 요구된 무결성 조건을 모두 충족했다.",
+      "completedAt": "2026-02-28T10:42:31.109Z"
     },
     {
       "id": "c227e7ec-7a5e-4d8b-b838-b308af62fd63",
       "name": "P0-2.8 P3~P4 하위 태스크 canonical 병합",
       "description": "P3/P4 태스크를 병합하고 인증-온보딩-관리 흐름의 선후행 의존선을 명시한다.",
       "notes": "P2 승인 UI와 P4 계정관리 UI 경계 충돌은 notes에 명시",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "634b3991-aa06-4b2f-9e39-2e14bf89fba5"
         }
       ],
       "createdAt": "2026-02-28T07:22:32.515Z",
-      "updatedAt": "2026-02-28T07:53:13.520Z",
+      "updatedAt": "2026-02-28T10:47:51.102Z",
       "relatedFiles": [
         {
           "path": ".shrimp-data/todo/P3.json",
@@ -582,7 +584,9 @@
       "verificationCriteria": "Deliverable: P3/P4 태스크가 canonical에 반영되고, 인증→온보딩→관리 핵심 의존선이 추적 가능하다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
       "phase": "P0",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "summary": "P3/P4 todo와 canonical 매핑을 점검해 누락 병합 0건을 확인했고, 인증→온보딩→관리 의존선(P2-2.4→P3-1.1, P3-3.3→P4-1.1)을 추가했다. 또한 P2 승인 UI와 P4 계정관리 UI의 책임 경계 충돌을 양쪽 notes에 명시했으며 dependency target 누락 0, cycle 0을 검증했다.",
+      "completedAt": "2026-02-28T10:47:51.099Z"
     },
     {
       "id": "d2cb1c5e-adda-4649-b59f-9985432fb377",
@@ -1491,7 +1495,8 @@
       "implementationGuide": "1) 목록 컬럼/필터(status, role, org) 정의. 2) 상세 패널/모달 구성 정의. 3) approve/reject CTA 위치/확인 다이얼로그 정의.",
       "verificationCriteria": "Deliverable: 승인 관리 UI의 화면 구성/필터/액션이 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:35:57.870Z",
+      "notes": "Boundary rule: This P2 screen is limited to approval-queue intake/review for signup requests. Post-approval account lifecycle operations are handled in P4 Account Management tasks."
     },
     {
       "id": "10000000-0000-4000-8000-000000000064",
@@ -1556,6 +1561,9 @@
         },
         {
           "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000060"
         }
       ],
       "estimatedMinutes": 120,
@@ -1801,6 +1809,9 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000065"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000075"
         }
       ],
       "estimatedMinutes": 120,
@@ -1814,7 +1825,8 @@
       "implementationGuide": "1) 목록 컬럼(이메일, 조직, 요청역할, 상태, 생성일) 정의. 2) 필터/정렬 요구 정의. 3) 접근 권한(super/admin) 범위 정의.",
       "verificationCriteria": "Deliverable: 계정 관리 리스트/필터 요구사항이 화면 기준으로 정의되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-27T07:35:57.870Z",
+      "notes": "Boundary rule: P2 approval UI(P2-3.3) handles signup approval queue UX, while P4 account management UI handles post-approval account operations. Reuse decision API from P2-3.2 without duplicating queue responsibilities."
     },
     {
       "id": "10000000-0000-4000-8000-000000000077",
