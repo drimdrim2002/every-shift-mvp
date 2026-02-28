@@ -12,6 +12,9 @@
 - P1-2.1(`10000000-0000-4000-8000-000000000046`) 선행 조건 정정
   - 기존: P1-1.3, P1-1.4, P1-2.3, P7-3.4
   - 변경: P1-1.3, P1-1.4
+- P0-2.4(`a59d8e0e-df2b-4f1d-9002-6f0b8825441b`) 상태 `in_progress` 반영
+- P0-2.4.2(`194b66c3-288f-4b89-bf46-b97496d4e62d`) 상태 `completed` 반영
+- `docs/migration/RBAC_MATRIX.md`에 PRD 메뉴/라우트 ↔ phase 태스크 추적 매트릭스 및 강화 후보 목록 반영
 
 ## P0 (예상 시간: 46시간 30분)
 
@@ -32,9 +35,9 @@
 | `b17e29b8-877d-48bc-8742-e54b82498cb7` | **P0-2.3.5 namePattern 위반 태스크 리네이밍** | completed | - | 60m |
 | `bd363acc-f675-4dd5-8a1b-d536c94f8e96` | **P0-2.3.6 verificationCriteria 3요소 형태로 개편** | completed | P0-2.3.5 | 90m |
 | `014e3ec4-3769-4af4-8815-0512223a3a1c` | **P0-2.3.7 규칙 준수율 측정 및 기록** | completed | P0-2.3.6 | 60m |
-| `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강** | pending | P0-2.1<br>P0-2.4.1<br>P0-2.4.2 | 90m |
+| `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강** | in_progress | P0-2.1<br>P0-2.4.1<br>P0-2.4.2 | 90m |
 | `21d4bb02-23fe-4055-9fae-4123143f91a9` | **P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성** | completed | P0-2.1 | 120m |
-| `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강** | pending | P0-2.4.1 | 120m |
+| `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강** | completed | P0-2.4.1 | 120m |
 | `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결** | pending | P0-2.4 | 90m |
 | `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강** | pending | P0-2.5 | 90m |
 | `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합** | pending | P0-2.2 | 120m |
@@ -259,6 +262,7 @@
 
 ### P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강
 - **Task ID**: `a59d8e0e-df2b-4f1d-9002-6f0b8825441b`
+- **현재 상태(Status)**: in_progress
 - **설명(Description)**: 계정 모듈 외 전체 메뉴/라우트 기준으로 super/admin/user 권한 매트릭스 요구를 백로그에 명시하고 관련 phase 태스크로 연결한다.
 - **구현 가이드(Guide)**: 1) REFINED_PRD의 권한 요구를 메뉴/라우트 단위로 재정리한다. 2) 기존 P1/P2/P3/P4/P9 태스크 중 RBAC 누락 구간을 식별해 연결한다. 3) 누락 항목을 후속 phase 태스크로 등록할 추가 목록을 확정한다.
 - **검증 기준(Verification)**: Deliverable: 전역 RBAC 메뉴/라우트 매트릭스와 누락 태스크 후보 목록이 문서화된다. Method: REFINED_PRD 권한 섹션과 phase 태스크를 대조 검토한다. Pass: 계정 모듈 외 메뉴 권한 누락이 0건으로 표시된다.
@@ -279,6 +283,8 @@
 
 ### P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강
 - **Task ID**: `194b66c3-288f-4b89-bf46-b97496d4e62d`
+- **현재 상태(Status)**: completed (2026-02-28)
+- **완료 요약(Summary)**: RBAC 매트릭스를 기준으로 P3/P5/P7/P9 phase 태스크에 `meta.roles`, `beforeEach`, 역할별 홈 분기 및 UI 노출 제어 요구사항을 연결해 라우트 가드 요구를 보강했다.
 - **설명(Description)**: 작성된 RBAC 매트릭스 문서를 기준으로 향후 구현할 기존 Phase 태스크(todo/P3~P9)의 description 및 implementationGuide에 Vue Router 가드(meta.roles) 및 UI 제어 요구사항을 구체적으로 보강한다.
 - **구현 가이드(Guide)**: 1. P3(인증/권한): Vue Router 전역 가드(`beforeEach`)에서 `meta.roles`를 확인하여 403 처리 및 역할별 홈 리다이렉트 로직 구현 요구사항 추가.\n2. P5(조직/직원): 조직 및 직원 관리 페이지에 `[super, admin]` 전용 라우터 가드 요구사항 추가.\n3. P7(근무표 생성): 스케줄 생성/편집 라우트에 admin/super 전용 접근 가드 요구사항 추가.\n4. P9(대시보드): 로그인 후 역할에 따라 관리자 대시보드 또는 개인 대시보드로 자동 라우팅되는 분기 처리 요구사항 추가.\n5. `.shrimp-data/todo/` 또는 `tasks.json`의 해당 태스크 항목을 업데이트한다.
 - **검증 기준(Verification)**: 기존 P3, P5, P7, P9 관련 백로그 태스크의 설명이나 구현 가이드에 RBAC(라우터 가드 및 역할별 분기) 요구사항이 명확히 추가되었는지 확인한다.
