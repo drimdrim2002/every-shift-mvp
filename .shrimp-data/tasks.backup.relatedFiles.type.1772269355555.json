@@ -3889,14 +3889,14 @@
       "name": "P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화",
       "description": "relatedFiles.type에서 비표준 값 TO_CREATE를 표준 CREATE로 일괄 정규화하고 기타 위반값이 없는지 검증한다.",
       "notes": "path 문자열은 보존하고 type만 교정한다. 백업 파일을 먼저 생성한다.",
-      "status": "completed",
+      "status": "in_progress",
       "dependencies": [
         {
           "taskId": "9578fcaa-fff0-431c-9884-ab167cfd6b52"
         }
       ],
       "createdAt": "2026-02-28T08:12:31.806Z",
-      "updatedAt": "2026-02-28T09:04:21.638Z",
+      "updatedAt": "2026-02-28T09:02:00.597Z",
       "relatedFiles": [
         {
           "path": ".shrimp-data/tasks.json",
@@ -3913,9 +3913,7 @@
       "verificationCriteria": "Deliverable: relatedFiles.type 정규화가 반영된 tasks.json. Method: script validation checks. Pass: relatedFiles.type 위반=0, 기존 path/description 값 손실=0.",
       "analysisResult": "The goal is to normalize the `relatedFiles.type` from `TO_CREATE` to the standard `CREATE` value in the `.shrimp-data/tasks.json` file. The operation should be fully verified using a Node.js script that replaces the invalid values, checks for any other invalid types, ensures no data loss, and securely backs up the original data before making changes.",
       "phase": "P0",
-      "estimatedMinutes": 60,
-      "summary": "Task Completed. Successfully normalized 26 occurrences of 'TO_CREATE' to 'CREATE' in the `relatedFiles.type` arrays across all relevant `.shrimp-data/todo/*.json` files. Verified that no other invalid types exist (all are now within the allowed set: TO_MODIFY, REFERENCE, CREATE, DEPENDENCY, OTHER). The changes were validated and successfully committed to git.",
-      "completedAt": "2026-02-28T09:04:21.634Z"
+      "estimatedMinutes": 60
     }
   ]
 }
