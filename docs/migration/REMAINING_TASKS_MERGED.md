@@ -408,7 +408,7 @@
 | `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성**                                 | pending | P1-1.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)**                              | pending | P1-1.2                    | 120m      |
 | `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | completed | -                         | 120m      |
-| `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)**                            | pending | P1-1.3<br>P1-1.4          | 180m      |
+| `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)**                          | completed | P1-1.3<br>P1-1.4          | 180m      |
 | `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정**                         | pending | P1-2.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000048` | **P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)**                     | pending | P1-2.2                    | 120m      |
 | `10000000-0000-4000-8000-000000000049` | **P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화**                              | pending | P1-1.3<br>P1-1.4          | 120m      |
@@ -462,12 +462,14 @@
 ### P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000046`
+- **현재 상태(Status)**: completed (2026-03-01)
+- **완료 요약(Summary)**: `super/admin/user` 역할 및 계정/멤버십 상태 기반의 RBAC 설계 문서를 작성하고, RLS 정책에서 공통으로 사용할 `is_super_admin`, `has_org_access` DB 헬퍼 함수를 `008_rls_progressive_rollout.sql`에 구현 완료함. 핵심 테이블들에 대해 RLS를 활성화하여 보안 토대를 마련함.
 - **설명(Description)**: super/admin/user 역할과 membership 상태(pending/approved 등)를 기반으로 접근 제어를 판별하는 DB 헬퍼/정책 기준을 설계한다.
 - **구현 가이드(Guide)**: 1) 역할 판별 기준(우선순위/복수 조직 소속 시) 정의. 2) approved membership만 접근 허용 원칙 정의. 3) 헬퍼 함수/뷰 형태(SQL) 초안 작성.
-- **검증 기준(Verification)**: 역할/상태별 접근 허용 규칙이 문서화되어 있고, SQL 구현 형태가 결정되어 있다.
+- **검증 기준(Verification)**: Deliverable: RBAC 설계 문서 및 헬퍼 함수 DDL. Method: 설계 문서의 정책이 DDL에 반영되었는지 확인. Pass: `super` 우회 및 조직별 `approved` 상태 체크 로직이 올바르게 구현됨.
 - **선행 조건(Dependencies)**: P1-1.3, P1-1.4
 - **예상 소요 시간**: 180분
-- **관련 파일**: `migrations/008_rls_progressive_rollout.sql`
+- **관련 파일**: `migrations/008_rls_progressive_rollout.sql`, `docs/migration/P1-2.1_RBAC_DESIGN.md`
 
 ### P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정
 
@@ -477,7 +479,7 @@
 - **검증 기준(Verification)**: RLS 정책 표가 존재하고, 모든 핵심 테이블이 누락 없이 포함된다.
 - **선행 조건(Dependencies)**: P1-2.1
 - **예상 소요 시간**: 180분
-- **관련 파일**: `docs/prd/02-database-migration.md`
+- **관련 파일**: `docs/prd/02-database-migration.md`, `docs/migration/P1-2.1_RBAC_DESIGN.md`
 
 ### P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)
 
