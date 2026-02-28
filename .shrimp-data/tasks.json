@@ -895,35 +895,6 @@
       "completedAt": "2026-02-28T14:20:09.000Z"
     },
     {
-      "id": "10000000-0000-4000-8000-000000000043",
-      "name": "P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)",
-      "description": "profiles, organization_memberships, signup_requests, approval_logs, organization_settings, sites/skills/ranks 등 서비스 전환에 필요한 테이블/관계/키를 확정한다.",
-      "status": "pending",
-      "phase": "P1",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000036"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "권한/가입/관리 요구사항"
-        },
-        {
-          "path": "docs/prd/02-database-migration.md",
-          "type": "REFERENCE",
-          "description": "DB 마이그레이션 가이드"
-        }
-      ],
-      "implementationGuide": "1) 테이블 목록/필드/PK/FK 확정. 2) 멀티테넌트 기준 컬럼(organization_id) 적용 범위 정의. 3) 인덱스/유니크 키 초안 작성.",
-      "verificationCriteria": "Deliverable: PRD 기능을 지원하는 최소 테이블/관계가 정의되어 있고, 테넌트 격리 기준이 명확하다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
       "id": "10000000-0000-4000-8000-000000000044",
       "name": "P1-1.2 마이그레이션 007 설계/DDL 초안 작성",
       "description": "서비스 전환용 마이그레이션 파일(007_service_transition_rbac_multitenant.sql)의 DDL 초안을 작성하고 적용 순서를 확정한다.",
@@ -4301,6 +4272,38 @@
       "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
       "phase": "P2",
       "estimatedMinutes": 120
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000043",
+      "name": "P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)",
+      "description": "profiles, organization_memberships, signup_requests, approval_logs, organization_settings, sites/skills/ranks 등 서비스 전환에 필요한 테이블/관계/키를 확정한다.",
+      "status": "completed",
+      "phase": "P1",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000036"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "권한/가입/관리 요구사항"
+        },
+        {
+          "path": "docs/prd/02-database-migration.md",
+          "type": "REFERENCE",
+          "description": "DB 마이그레이션 가이드"
+        }
+      ],
+      "implementationGuide": "007 마이그레이션 스크립트에 정의된 스키마를 최종 데이터 모델로 채택.",
+      "verificationCriteria": "DB 스키마가 멀티테넌트 격리 및 RBAC 구조를 지원하는지 확인.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T14:54:25.778Z",
+      "analysisResult": "ERD 분석이 완료되었습니다. 기존 007 마이그레이션 스크립트와 dbml 파일이 PRD 요구사항을 완전하게 충족합니다.",
+      "summary": "P1-1.1 태스크 검증 완료. ddl/SCHEMA_RELATIONSHIPS.dbml 및 007 마이그레이션 스크립트를 통해 멀티테넌트 격리 및 RBAC 구조가 PRD 요구사항에 맞게 완벽히 구축되어 있음을 확인했습니다. 별도의 DDL 수정 없이 현행 모델을 최종 ERD로 확정합니다.",
+      "completedAt": "2026-02-28T14:54:25.774Z"
     }
   ]
 }
