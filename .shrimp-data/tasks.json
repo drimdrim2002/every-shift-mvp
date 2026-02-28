@@ -438,6 +438,266 @@
       "implementationGuide": "1) P7 solver 완료 시점의 이벤트 생성 책임을 정의한다. 2) P8 알림 이벤트 스키마와 연결되는 계약 필드(eventType/payload/idempotencyKey)를 확정한다. 3) 경계 검증 테스트 태스크를 추가한다.",
       "verificationCriteria": "Deliverable: solver 완료 이벤트 생산-소비 경계와 검증 태스크가 정의된다. Method: P7/P8 태스크와 PRD 알림 요구를 대조한다. Pass: AI 완료 알림 요구가 이벤트 생산부터 소비까지 백로그에서 단절 없이 연결된다.",
       "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary."
+    },
+    {
+      "id": "634b3991-aa06-4b2f-9e39-2e14bf89fba5",
+      "name": "P0-2.7 P1~P2 하위 태스크 canonical 병합",
+      "description": "todo/P1.json, todo/P2.json의 하위 태스크를 canonical tasks.json으로 병합한다. 중복 ID/이름 여부를 확인하고, 기존 P0 체인과의 선행 의존을 명시한다.",
+      "notes": "기존 P0-2.1 매핑 노트를 source-of-truth로 사용하고, 동일 주제 태스크 중복 생성을 금지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000038"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/P1.json",
+          "type": "REFERENCE",
+          "description": "P1 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/todo/P2.json",
+          "type": "REFERENCE",
+          "description": "P2 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "canonical 병합 대상"
+        }
+      ],
+      "implementationGuide": "1) P1/P2 태스크 목록을 추출한다. 2) tasks.json에 append 시 ID 중복과 이름 패턴을 점검한다. 3) P1 루트 태스크는 P0-1.3 완료 태스크를 의존하도록 맞춘다. 4) 병합 후 phase 분포를 재확인한다.",
+      "verificationCriteria": "P1/P2 태스크가 canonical에 반영되고, phase가 P1/P2로 표기되며, 중복 ID/이름 충돌이 없다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "c227e7ec-7a5e-4d8b-b838-b308af62fd63",
+      "name": "P0-2.8 P3~P4 하위 태스크 canonical 병합",
+      "description": "todo/P3.json, todo/P4.json의 하위 태스크를 canonical tasks.json으로 병합하고, 인증/온보딩/관리 흐름의 의존성을 연결한다.",
+      "notes": "P2 승인 워크플로우와 P4 계정관리 UI 범위 충돌 여부를 병합 시 notes에 기록한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "634b3991-aa06-4b2f-9e39-2e14bf89fba5"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/P3.json",
+          "type": "REFERENCE",
+          "description": "P3 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/todo/P4.json",
+          "type": "REFERENCE",
+          "description": "P4 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "canonical 병합 대상"
+        }
+      ],
+      "implementationGuide": "1) P3/P4 태스크를 병합한다. 2) 승인 상태/온보딩 선행조건과 관리자 화면 의존선을 점검한다. 3) 누락 dependency target이 없는지 확인한다.",
+      "verificationCriteria": "P3/P4 태스크가 반영되고, 인증→온보딩→관리 흐름의 선행 의존성이 그래프에서 추적 가능하다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "d2cb1c5e-adda-4649-b59f-9985432fb377",
+      "name": "P0-2.9 P5~P6 하위 태스크 canonical 병합",
+      "description": "todo/P5.json, todo/P6.json의 조직/직원 관리 하위 태스크를 canonical tasks.json으로 병합한다.",
+      "notes": "P5 사이트/요구인원 도메인과 P7 Step2 플로우 충돌 가능 항목을 표시한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "c227e7ec-7a5e-4d8b-b838-b308af62fd63"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/P5.json",
+          "type": "REFERENCE",
+          "description": "P5 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/todo/P6.json",
+          "type": "REFERENCE",
+          "description": "P6 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "canonical 병합 대상"
+        }
+      ],
+      "implementationGuide": "1) P5/P6 태스크를 병합한다. 2) 조직 관리와 직원 관리의 경계를 유지한다. 3) relatedFiles type이 표준 값인지 검증한다.",
+      "verificationCriteria": "P5/P6 태스크가 반영되고, 각 태스크가 1~3시간 범위 추정치(60/90/120/180)를 가진다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "56e8a782-25c0-4aea-be2e-24da11e4918f",
+      "name": "P0-2.10 P7~P8 하위 태스크 canonical 병합",
+      "description": "todo/P7.json, todo/P8.json의 스케줄링 플로우/알림 도메인 하위 태스크를 병합한다.",
+      "notes": "P2 이벤트 정의와 P8 알림 도메인 정의의 중복 후보를 우선 정리한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "d2cb1c5e-adda-4649-b59f-9985432fb377"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/P7.json",
+          "type": "REFERENCE",
+          "description": "P7 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/todo/P8.json",
+          "type": "REFERENCE",
+          "description": "P8 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "canonical 병합 대상"
+        }
+      ],
+      "implementationGuide": "1) P7/P8 태스크를 병합한다. 2) solver 완료 이벤트와 알림 이벤트 생산 경계를 연결한다. 3) 이벤트 중복 정의를 제거한다.",
+      "verificationCriteria": "P7/P8 태스크가 반영되고, solver 완료 이벤트→알림 소비 의존선이 그래프에서 확인된다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "db6ead17-422c-4e1b-a994-2171fb5b913a",
+      "name": "P0-2.11 P9~P10 하위 태스크 canonical 병합",
+      "description": "todo/P9.json, todo/P10.json의 대시보드/보안 하위 태스크를 병합하고 릴리스 후반부 품질 게이트 연계를 확정한다.",
+      "notes": "P10은 보안·컴플라이언스 관점의 최종 방어선으로, 누락 시 릴리스 차단 조건을 명시한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "56e8a782-25c0-4aea-be2e-24da11e4918f"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/todo/P9.json",
+          "type": "REFERENCE",
+          "description": "P9 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/todo/P10.json",
+          "type": "REFERENCE",
+          "description": "P10 분해 태스크 소스"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "canonical 병합 대상"
+        }
+      ],
+      "implementationGuide": "1) P9/P10 태스크를 병합한다. 2) 보안 감사 태스크가 선행 품질게이트와 연결되는지 점검한다. 3) 위험도 높은 태스크에 검증 기준을 보강한다.",
+      "verificationCriteria": "P9/P10 태스크가 반영되고, 보안/대시보드 관련 핵심 경로가 의존성 그래프에서 단절 없이 이어진다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "4f954f47-cf4b-44ca-81eb-7e3f6c28b34a",
+      "name": "P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리",
+      "description": "canonical tasks.json 전체를 대상으로 missing target, cycle, orphan root를 점검하는 스크립트/명령을 정리한다.",
+      "notes": "도구는 jq/node 기반의 lightweight 검증으로 유지하고, 반복 실행 가능한 명령으로 남긴다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "db6ead17-422c-4e1b-a994-2171fb5b913a"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "그래프 점검 대상"
+        },
+        {
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
+          "type": "TO_MODIFY",
+          "description": "검증 절차 문서화"
+        }
+      ],
+      "implementationGuide": "1) dependency edge를 추출한다. 2) missing target/cycle을 탐지한다. 3) 점검 결과를 notes 또는 보고서에 기록한다.",
+      "verificationCriteria": "그래프 점검 명령이 문서화되고, 실행 시 cycle=false 및 missing target=0 결과를 재현할 수 있다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "0ea4c78a-4916-43db-885b-126553d59343",
+      "name": "P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)",
+      "description": "현재 누락 필드가 있는 태스크(P0-2.4~2.6 등)를 metadata 기준에 맞게 보정한다.",
+      "notes": "보정은 의미 변경이 아닌 형식 정합성 보완에 한정한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "db6ead17-422c-4e1b-a994-2171fb5b913a"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "canonical taskTemplate"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "필드 누락 보정 대상"
+        }
+      ],
+      "implementationGuide": "1) requiredFields 누락 태스크를 식별한다. 2) phase/estimatedMinutes를 규칙값으로 채운다. 3) 이름 패턴/relatedFiles type도 함께 검사한다.",
+      "verificationCriteria": "requiredFields 누락 태스크가 0건이며, estimatedMinutes가 허용값(60/90/120/180)만 사용된다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
+    },
+    {
+      "id": "9a83c8aa-8482-4075-80dd-62c420de2a9b",
+      "name": "P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정",
+      "description": "병합된 하위 태스크 그래프에서 크리티컬 패스를 문서화하고 P0-2.2 완료 기준 충족 여부를 최종 판정한다.",
+      "notes": "완료 판정은 '모든 에픽(P0~P10) 하위 태스크 존재'와 '그래프 단절 없음' 두 조건을 모두 충족해야 한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "4f954f47-cf4b-44ca-81eb-7e3f6c28b34a"
+        },
+        {
+          "taskId": "0ea4c78a-4916-43db-885b-126553d59343"
+        }
+      ],
+      "createdAt": "2026-02-28T07:22:32.515Z",
+      "updatedAt": "2026-02-28T07:22:32.515Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "최종 의존성 그래프 소스"
+        },
+        {
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
+          "type": "TO_MODIFY",
+          "description": "크리티컬 패스/완료 판정 보고"
+        }
+      ],
+      "implementationGuide": "1) 각 phase 루트와 종료 노드를 식별한다. 2) 선행 관계를 따라 핵심 경로를 도식화한다. 3) P0-2.2 verificationCriteria 충족 여부를 체크리스트로 판정한다.",
+      "verificationCriteria": "P0~P10 모든 phase에 1~3시간 단위 하위 태스크가 존재하고, 크리티컬 패스 문서와 완료 판정 기록이 남아 있다.",
+      "analysisResult": "P0-2.2의 핵심 리스크는 canonical tasks.json에 P1~P10 하위 태스크가 반영되지 않아 검증 기준을 충족하지 못한다는 점이다. 기존 todo/P1~P10.json에 이미 1~3시간 단위 태스크가 존재하므로 이를 단계적으로 병합하고, dependencies DAG 무결성 및 taskTemplate(requiredFields/estimatedMinutes/namePattern) 정합성을 함께 검증하는 전략이 가장 안전하다."
     }
   ]
 }
