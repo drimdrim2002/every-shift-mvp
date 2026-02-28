@@ -823,7 +823,7 @@
       "id": "10000000-0000-4000-8000-000000000040",
       "name": "P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의",
       "description": "각 Phase의 완료 정의(산출물/테스트/보안)와 Private Beta 릴리스 준비도 지표를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P0",
       "dependencies": [
         {
@@ -841,7 +841,8 @@
       "implementationGuide": "1) Phase별 산출물 목록 정의. 2) 필수 테스트/보안 체크 항목 정의. 3) Ready/Not Ready 판정 기준 정의.",
       "verificationCriteria": "Deliverable: 각 Phase에 대해 '완료' 판정이 가능한 지표/체크리스트가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-02-28T16:00:00.000Z",
+      "completedAt": "2026-02-28T16:00:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000041",

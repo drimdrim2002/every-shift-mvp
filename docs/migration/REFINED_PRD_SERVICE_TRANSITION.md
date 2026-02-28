@@ -172,3 +172,133 @@ Each phase terminates into specific validation/delivery tasks:
 - Task backlog rollback: restore `.shrimp-data/tasks.migration-backup-20260227.json` to `.shrimp-data/tasks.json`
 - Application rollback: revert commit containing migration baseline
 - Database rollback: apply inverse migration script for `007_*` in controlled environment
+
+## Phase KPI and Release Readiness Criteria (P0-3.1)
+
+This section defines the completion criteria (deliverables, tests, security) and release readiness indicators for each phase.
+
+### Phase Completion Definition Matrix
+
+| Phase | Name | Key Deliverables | Required Tests | Security Checkpoints | Ready Criterion |
+|-------|------|------------------|----------------|---------------------|-----------------|
+| **P0** | Governance & Tooling | • MIGRATION_GOVERNANCE.md<br>• quality-gate.sh<br>• task-quality-check.sh<br>• Shrimp tooling standards | • Lint gate passes<br>• Unit test framework valid<br>• Build succeeds | • Git access control<br>• Branch protection rules | All quality gates operational; team follows governance |
+| **P1** | Multitenancy Foundation | • Migration 007 DDL<br>• ERD for RBAC tables<br>• Seed/backfill spec | • Migration rollback tested<br>• RLS policies verified<br>• Tenant isolation query tests | • RLS covers all new tables<br>• No cross-tenant data leaks | Migration 007 applies/reverts cleanly; RLS blocks 100% of cross-tenant access |
+| **P2** | Registration & Approval | • Signup UX/flow spec<br>• signup_requests table<br>• Approval workflow API | • Signup E2E (admin/user)<br>• Approval state transitions<br>• Rejection flow | • Input validation on all fields<br>• Rate limiting on signup | Complete signup→approval→login flow works end-to-end |
+| **P3** | Authentication & Onboarding | • Onboarding wizard (3-step)<br>• onboarding_required flag<br>• Forced-flow guards | • Onboarding E2E (new admin)<br>• Route guard tests<br>• Skip/complete scenarios | • Onboarding route: `['admin']` only<br>• User role blocked from onboarding | New admin completes onboarding; user cannot access onboarding routes |
+| **P4** | Account Management | • Account list/filter UI<br>• Tenant-scoped queries<br>• Approval/rejection actions | • Account CRUD E2E<br>• Super vs admin scope tests<br>• Status change tests | • Super sees all orgs<br>• Admin sees own org only | Account management works for both super and admin scopes |
+| **P5** | Org/Employee/Site Mgmt | • Org CRUD UI<br>• Employee management<br>• Site requirements per DOW | • Org/Employee/Site CRUD tests<br>• Master data edit E2E<br>• Excel upload validation | • Route guards: `['super', 'admin']`<br>• User role blocked | Master data fully manageable through UI; user role cannot access admin screens |
+| **P6** | Schedule Editing & Excel | • Excel import/export<br>• Schedule edit UI<br>• Validation rules | • Excel upload E2E<br>• Edit validation tests<br>• Format error handling | • File upload validation<br>• Malicious file blocking | Schedule data loads from Excel; edits validate constraints |
+| **P7** | Solver Integration | • Solver API contract<br>• Step1~Step4 data flow<br>• Event consumption | • Solver polling E2E<br>• Status transition tests<br>• Retry/idempotency | • Service role usage<br>• API auth validation | Solver request→poll→complete flow works; events consumed correctly |
+| **P8** | Notifications | • In-app notification UI<br>• Email templates<br>• Notification preferences | • Notification E2E (solver complete)<br>• Preference tests<br>• Delivery tracking | • No PII in logs<br>• Notification access control | Users receive notifications for subscribed events |
+| **P9** | Dashboard & Analytics | • Admin dashboard (metrics)<br>• Employee dashboard<br>• Filter by period/site | • Dashboard data accuracy tests<br>• Filter E2E<br>• Role-based view tests | • Dashboard routes: `['super', 'admin']` vs all roles | Dashboards render correct metrics; filters work; role separation enforced |
+| **P10** | Security & Release | • Security audit checklist<br>• Edge function security<br>• Go/No-Go criteria | • Security audit passed<br>• Penetration test clean<br>• Load test meets SLA | • All RLS verified<br>• Edge functions use service role<br>• Logs masked | All security checks pass; release ready for Private Beta |
+
+### Ready/Not Ready Decision Framework
+
+#### Phase-Level Ready Criteria
+
+A phase is declared **READY** when ALL of the following are satisfied:
+
+1. **Functional Completeness**
+   - [ ] All tasks in phase have `status: "completed"`
+   - [ ] All deliverables listed in matrix above exist and are reviewed
+   - [ ] No blockers remain in phase dependency chain
+
+2. **Quality Gates**
+   - [ ] `pnpm lint:check` passes with zero errors
+   - [ ] `pnpm test:unit` passes for phase-related code
+   - [ ] `pnpm build` succeeds
+   - [ ] E2E scenarios (if required) pass
+
+3. **Security Verification**
+   - [ ] Security checkpoints in matrix passed
+   - [ ] RLS/RBAC impact reviewed (if schema change)
+   - [ ] Edge functions use service role (if applicable)
+   - [ ] No `console.log`/debug statements in committed code
+
+4. **Documentation**
+   - [ ] PR description includes task linkage and evidence summary
+   - [ ] Rollback notes documented (for risky changes)
+   - [ ] Relevant migration docs updated
+
+#### Not Ready Triggers
+
+A phase is **NOT READY** if ANY of the following apply:
+
+- [ ] One or more tasks have `status: "pending"` or `status: "in_progress"`
+- [ ] Any quality gate fails
+- [ ] E2E scenarios fail without documented waiver
+- [ ] Security checkpoint failed
+- [ ] Critical bug discovered in phase scope
+- [ ] Breaking change to dependent phase not addressed
+
+### Private Beta Release Readiness
+
+#### Overall Release Criteria
+
+Private Beta is **READY** when the following phase completion status is achieved:
+
+| Phase Category | Requirement | Rationale |
+|----------------|-------------|-----------|
+| **Foundation** | P0, P1 ✅ COMPLETE | Governance and multitenancy must be solid |
+| **Auth Flow** | P2, P3, P4 ✅ COMPLETE | Signup, onboarding, account management end-to-end |
+| **Core Data** | P5 ✅ COMPLETE | Master data management operational |
+| **Scheduling** | P6, P7 ✅ COMPLETE | Schedule editing and solver integration working |
+| **User Value** | P8, P9 ✅ COMPLETE | Notifications and dashboard delivering value |
+| **Safety** | P10 ✅ COMPLETE | Security audit passed, safe for beta users |
+
+#### Critical Path Check
+
+Before Private Beta release, verify the **34-task critical path** is complete:
+
+```
+P0 → P1 → P5 → P7 → P8
+```
+
+Specifically:
+- [ ] P0-1.1 → P0-1.2 → P0-1.3 (governance foundation)
+- [ ] P1-1.1 → P1-1.2 → P1-1.3 (multitenancy data model)
+- [ ] P5 tasks (org/employee/site management)
+- [ ] P7 tasks (solver integration)
+- [ ] P8 tasks (notifications)
+
+#### Release Checklist
+
+```bash
+# 1. Verify all critical path tasks completed
+jq -r '.tasks[] | select(.id == "10000000-0000-4000-8000-000000000034" or .id == "10000000-0000-4000-8000-000000000035" or ...) | .status' .shrimp-data/tasks.json | grep -v "completed"
+
+# 2. Run quality gates
+./scripts/quality-gate.sh
+
+# 3. Run E2E tests
+pnpm test:e2e
+
+# 4. Check for debug statements
+grep -r "console\." src/ || echo "No debug statements found"
+
+# 5. Verify task graph integrity
+./scripts/task-quality-check.sh
+```
+
+All commands must pass before release.
+
+### Phase Exit Nodes
+
+Each phase terminates into specific validation tasks. These are the final "gatekeeper" tasks:
+
+| Phase | Exit Node Task | Verification Method |
+|-------|----------------|---------------------|
+| P0 | P0-3.3 Shrimp 상태 조회 표준 정의 | Query/report standard documented |
+| P1 | P1-3.3 Migration 007 E2E 검증 | Migration applies/rolls back cleanly |
+| P2 | P2-1.8 가입/승인 E2E 시나리오 정의 | Full signup→approval flow works |
+| P3 | P3-3.3 온보딩 강제 플로우 E2E | Admin forced through onboarding |
+| P4 | P4-3.3 RBAC 스코프(account mgmt) E2E | Super/admin scope separation works |
+| P5 | P5-4.5 마스터 데이터 E2E | Org/employee/site CRUD end-to-end |
+| P6 | P6-3.4 엑셀 업로드 E2E | Excel import/export works |
+| P7 | P7-3.4 Solver 통합 E2E | Full solver flow works |
+| P8 | P8-3.4 알림 E2E | Notifications delivered correctly |
+| P9 | P9-3.4 대시보드 E2E | Dashboards show correct data |
+| P10 | P10-3.4 Go/No-Go 리뷰 | All security checks pass; release approved |
+
+These exit node tasks serve as the **final arbiter** for phase completion.

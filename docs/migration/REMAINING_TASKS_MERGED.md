@@ -14,6 +14,8 @@
   - 변경: P1-1.3, P1-1.4
 - P0-2.4(`a59d8e0e-df2b-4f1d-9002-6f0b8825441b`) 상태 `in_progress` 반영
 - P0-2.4.2(`194b66c3-288f-4b89-bf46-b97496d4e62d`) 상태 `completed` 반영
+- P0-3.1(`10000000-0000-4000-8000-000000000040`) 상태 `completed` 반영
+  - `docs/migration/REFINED_PRD_SERVICE_TRANSITION.md`에 Phase KPI/Release Readiness 섹션 추가
 - `docs/migration/RBAC_MATRIX.md`에 PRD 메뉴/라우트 ↔ phase 태스크 추적 매트릭스 및 강화 후보 목록 반영
 
 ## P0 (예상 시간: 8시간 0분)
@@ -49,7 +51,7 @@
 | `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | completed | P0-2.12                                                | 120m      |
 
 | `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정** | completed | P0-2.12<br>P0-2.13 | 180m |
-| `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | pending | P0-2.3 | 90m |
+| `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | completed | P0-2.3 | 90m |
 | `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계** | pending | P0-3.1 | 90m |
 | `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의** | pending | P0-3.2 | 120m |
 
