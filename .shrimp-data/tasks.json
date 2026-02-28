@@ -593,14 +593,14 @@
       "name": "P0-2.9 P5~P6 하위 태스크 canonical 병합",
       "description": "P5/P6 조직·직원 관리 태스크를 병합하고 taskTemplate 정합성을 동시 점검한다.",
       "notes": "batch merge 후 즉시 schema normalization",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "c227e7ec-7a5e-4d8b-b838-b308af62fd63"
         }
       ],
       "createdAt": "2026-02-28T07:22:32.515Z",
-      "updatedAt": "2026-02-28T07:53:13.520Z",
+      "updatedAt": "2026-02-28T10:54:04.696Z",
       "relatedFiles": [
         {
           "path": ".shrimp-data/todo/P5.json",
@@ -627,7 +627,9 @@
       "verificationCriteria": "Deliverable: P5/P6 반영 후 requiredFields 누락=0, estimatedMinutes는 60/90/120/180만 사용된다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
       "phase": "P0",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "summary": "P5/P6 소스 태스크가 canonical tasks.json에 모두 반영됨을 ID 집합 비교로 확인했고, 누락되었던 브리지 태스크 5건의 phase/estimatedMinutes를 정규화하여 requiredFields 누락 0건, estimatedMinutes 허용값(60/90/120/180) 위반 0건, relatedFiles.type 위반 0건을 달성했습니다. 또한 P5/P6 경계 점검에서 조직관리/직원관리 키워드 교차 혼선이 없음을 확인했습니다.",
+      "completedAt": "2026-02-28T10:54:04.691Z"
     },
     {
       "id": "56e8a782-25c0-4aea-be2e-24da11e4918f",
@@ -4113,7 +4115,9 @@
       ],
       "implementationGuide": "1) /signup에서 mode=signup 브리지 파라미터 정책 정의. 2) /admin/organizations/new 재사용 경로와 일반 admin 콘솔 경로를 가드에서 구분. 3) 완료 후 /signup resume 복귀 규칙과 오류 리다이렉트 규칙 문서화.",
       "verificationCriteria": "Deliverable: signup 브리지 라우트/가드 계약 문서. Method: P2/P5 라우트 태스크와 PRD 5.1/6.2 요구를 대조 검토한다. Pass: 무소속 admin 가입자가 6.2 재사용 경로로 진입하고 일반 admin 콘솔 권한은 부여되지 않음이 명시된다.",
-      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
+      "phase": "P2",
+      "estimatedMinutes": 90
     },
     {
       "id": "97cfb736-1ec7-425e-948d-b9a9d5b247f0",
@@ -4153,7 +4157,9 @@
       ],
       "implementationGuide": "1) 요청 스키마에 organizationSelectionMode(existing|create_new) 추가. 2) create_new일 때 organizationDraftId 필수 검증 규칙 정의. 3) signup_requests 저장 필드 및 상태 전이 영향 정리.",
       "verificationCriteria": "Deliverable: create_new 조직 선택 모드를 포함한 가입 API 계약. Method: 요청/응답/검증 표를 리뷰하고 기존 P2-1.3 계약과 diff 확인. Pass: existing/create_new 분기와 organizationDraftId 필수 조건이 누락 없이 정의된다.",
-      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
+      "phase": "P2",
+      "estimatedMinutes": 90
     },
     {
       "id": "79d3fd2b-ecec-45bc-9578-a88f19599d20",
@@ -4190,7 +4196,9 @@
       ],
       "implementationGuide": "1) mode=signup일 때 노출할 최소 필드/탭 범위 정의. 2) 저장 완료 이벤트 계약(organizationDraftId 반환) 정의. 3) 일반 admin 콘솔 모드와 UI/권한 차이를 명시.",
       "verificationCriteria": "Deliverable: 6.2 signup 브리지 모드 UI/저장 경계 스펙. Method: 기존 P5-1.x 범위와 비교해 중복 화면 생성 여부를 점검한다. Pass: 별도 signup 전용 조직생성 화면 없이 6.2 재사용 경계가 명시된다.",
-      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
+      "phase": "P5",
+      "estimatedMinutes": 120
     },
     {
       "id": "c5743d61-4d08-4793-9c3b-216b39c59e8b",
@@ -4227,7 +4235,9 @@
       ],
       "implementationGuide": "1) organizationDraftId와 signupRequestToken 매핑 규칙 정의. 2) 중복 저장/중복 바인딩 멱등 정책 정의. 3) 실패 시 재시도/복구 절차 정의.",
       "verificationCriteria": "Deliverable: 조직생성 결과와 가입요청 연결 계약서(필드/상태/오류). Method: P2-1.7 계약과 상호 참조 검토를 수행한다. Pass: create_new 플로우에서 바인딩 성공/실패/재시도 규칙이 명확히 문서화된다.",
-      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
+      "phase": "P5",
+      "estimatedMinutes": 90
     },
     {
       "id": "f3ea69c1-2e67-45c1-8d28-f7cf37f768f8",
@@ -4259,7 +4269,9 @@
       ],
       "implementationGuide": "1) happy path: signup->bridge->org save->signup submit->pending. 2) fail path: 브리지 토큰 만료/중복 바인딩/조직 저장 실패. 3) 기대 결과(UI 메시지, DB 상태, 라우트 이동) 정의.",
       "verificationCriteria": "Deliverable: signup->organization reuse 연결 E2E 테스트 시나리오 세트. Method: 시나리오별 선행조건/절차/기대결과 3요소 포함 여부를 리뷰한다. Pass: happy/fail 경로 모두에서 승인대기 전환과 권한 경계 검증 항목이 존재한다.",
-      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI.",
+      "phase": "P2",
+      "estimatedMinutes": 120
     }
   ]
 }
