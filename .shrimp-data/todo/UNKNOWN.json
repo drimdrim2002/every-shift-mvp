@@ -1,0 +1,24 @@
+{
+  "tasks": [
+    {
+      "id": "00726cae-2c8e-4f81-af12-4bb55e494203",
+      "name": "P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope",
+      "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
+      "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-02-27T08:25:09.787Z",
+      "updatedAt": "2026-02-27T08:25:09.787Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "Primary migration file to harden for DDL compatibility and uniqueness-scope transition."
+        }
+      ],
+      "implementationGuide": "1) Keep existing ADD COLUMN IF NOT EXISTS strategy for core tables. 2) In site_requirements block: add service columns first, then drop old unique constraint site_requirements_organization_id_shift_id_day_of_week_key using IF EXISTS, then create new UNIQUE index scoped by organization/site/shift/day/skill/rank with COALESCE for nullable columns. 3) Clarify table roles by documenting site_staffing_requirements as service-native and site_requirements as legacy compatibility table.",
+      "verificationCriteria": "기존 데이터 row count가 유지되고, site_requirements_organization_id_shift_id_day_of_week_key 제약이 제거되며, organization/site/shift/day/skill/rank 스코프의 UNIQUE 인덱스가 생성되고, 마이그레이션 재실행 시 중복 객체 오류가 발생하지 않는다.",
+      "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements."
+    }
+  ]
+}

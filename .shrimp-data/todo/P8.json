@@ -1,0 +1,295 @@
+{
+  "tasks": [
+    {
+      "id": "10000000-0000-4000-8000-000000000123",
+      "name": "P8-1.1 알림 이벤트/채널/설정 요구사항 정리",
+      "description": "알림 채널(앱내/이메일), 이벤트 종류(승인/solver완료/공지), 사용자 설정 요구를 PRD 기준으로 정리한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000045"
+        },
+        {
+          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "8. 알림 시스템"
+        }
+      ],
+      "implementationGuide": "1) 이벤트 타입 목록화. 2) 채널별 기본값(앱내 on, 이메일 off 등) 결정. 3) 설정 UI 위치(내 정보) 결정.",
+      "verificationCriteria": "알림 요구사항이 이벤트/채널/설정 관점으로 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000124",
+      "name": "P8-1.2 알림 DB 스키마/마이그레이션 설계(notification_* 테이블)",
+      "description": "notification_events, notification_preferences, notification_deliveries 등 알림 도메인 테이블의 스키마를 설계하고 마이그레이션 반영 계획을 수립한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000123"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "알림 테이블 포함"
+        }
+      ],
+      "implementationGuide": "1) events/preference/delivery 필드 정의. 2) 멱등키/재시도 고려 필드 포함. 3) 인덱스/조회 패턴 정의.",
+      "verificationCriteria": "알림 도메인 스키마가 확정되어 있고, 마이그레이션 반영 방안이 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000125",
+      "name": "P8-1.3 알림 API 계약 정의(조회/읽음/설정)",
+      "description": "알림 조회, 읽음 처리, 설정 변경을 위한 API 계약과 보안(RLS/테넌트)을 정의한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000124"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/api/notification.ts",
+          "type": "TO_CREATE",
+          "description": "알림 API 래퍼"
+        }
+      ],
+      "implementationGuide": "1) 목록 조회 필터/페이지네이션 정의. 2) 읽음 처리(단건/일괄) 계약 정의. 3) 설정 저장(이벤트별) 계약 정의.",
+      "verificationCriteria": "알림 API 계약이 문서화되어 있고, 테넌트/권한 기준이 포함된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000126",
+      "name": "P8-1.4 알림 도메인 테스트 시나리오 정의(권한/격리/읽음)",
+      "description": "알림 도메인의 권한/테넌트 격리/읽음 처리 검증을 위한 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000125"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "알림 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 본인 알림만 조회되는지 케이스 정의. 2) 타조직 알림 접근 차단 케이스 정의. 3) 읽음 처리 후 UI 반영 케이스 정의.",
+      "verificationCriteria": "알림 도메인 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000127",
+      "name": "P8-2.1 헤더 🔔 알림 UX 설계(뱃지/드롭다운/링크)",
+      "description": "상단 헤더에 알림 아이콘(뱃지)과 드롭다운/전체 페이지 링크 UX를 설계한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000126"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/components/layout/Header.vue",
+          "type": "TO_MODIFY",
+          "description": "알림 아이콘 추가"
+        }
+      ],
+      "implementationGuide": "1) 미읽음 카운트 표시 규칙 정의. 2) 드롭다운에 표시할 항목 수/요약 정의. 3) 전체 알림 페이지 라우트 결정.",
+      "verificationCriteria": "알림 아이콘/뱃지 UX가 설계되어 있고, 구현 범위가 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000128",
+      "name": "P8-2.2 알림 센터 페이지 IA/필터/읽음 UX 설계",
+      "description": "알림 센터 페이지의 정보 구조, 필터(이벤트 타입), 읽음 처리 UX를 설계한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000127"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/Notifications.vue",
+          "type": "TO_CREATE",
+          "description": "알림 센터 페이지"
+        }
+      ],
+      "implementationGuide": "1) 리스트/상세 표시 방식 결정. 2) 필터/정렬/페이지네이션 UX 정의. 3) 읽음 처리(단건/일괄) UX 정의.",
+      "verificationCriteria": "알림 센터 화면 구성이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000129",
+      "name": "P8-2.3 알림 설정 UI 설계(이벤트별 앱내/이메일)",
+      "description": "사용자 알림 설정(이벤트별 앱내/이메일 수신)을 어디에, 어떤 UI로 제공할지 설계한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000128"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/views/Profile.vue",
+          "type": "TO_CREATE",
+          "description": "내 정보/설정 페이지(선택)"
+        }
+      ],
+      "implementationGuide": "1) 설정 위치(내 정보 vs 알림센터) 결정. 2) 이벤트 타입별 토글 UI 정의. 3) 기본값/마이그레이션 정책 정의.",
+      "verificationCriteria": "알림 설정 UI가 정의되어 있고, 저장 모델과 연결된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000130",
+      "name": "P8-2.4 알림센터 E2E 시나리오 정의(승인 알림)",
+      "description": "가입 승인 알림이 생성되고 알림센터/헤더에서 확인되는 E2E 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000129"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "알림센터 E2E 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 승인 이벤트 생성 조건 정의. 2) 헤더 뱃지/목록 노출 기대 결과 정의. 3) 읽음 처리 후 뱃지 감소 기대 결과 정의.",
+      "verificationCriteria": "알림센터 E2E 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000131",
+      "name": "P8-3.1 Resend 이메일 발송 정책/템플릿 요구사항 확정",
+      "description": "이메일 알림(승인/반려/공지/solver 완료)의 발송 정책과 템플릿 요구사항을 확정한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000126"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "8.1 이메일 알림"
+        }
+      ],
+      "implementationGuide": "1) 이벤트별 이메일 제목/본문 요구 정의. 2) 발송 조건(즉시/예약) 정의. 3) 사용자가 이메일 수신을 껐을 때 처리 정의.",
+      "verificationCriteria": "이메일 발송 정책과 템플릿 요구사항이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000132",
+      "name": "P8-3.2 notify-dispatch 설계(큐/재시도/멱등)",
+      "description": "Resend 발송을 수행하는 notify-dispatch 서버 구성(Edge Function), 큐잉/재시도/멱등성 설계를 확정한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000131"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/notify-dispatch/index.ts",
+          "type": "TO_CREATE",
+          "description": "이메일 발송 함수(선택)"
+        }
+      ],
+      "implementationGuide": "1) deliveries 테이블 기반 큐 처리 방식 정의. 2) 멱등키/중복 방지 규칙 정의. 3) 실패 재시도/백오프 규칙 정의.",
+      "verificationCriteria": "notify-dispatch 아키텍처와 멱등/재시도 정책이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000133",
+      "name": "P8-3.3 이메일 환경변수/시크릿/로컬 개발 전략 확정",
+      "description": "Resend API 키/발신자 주소 등 환경변수 관리와 로컬 개발(스텁/드라이런) 전략을 확정한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000132"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": ".env.example",
+          "type": "TO_MODIFY",
+          "description": "RESEND_* env 추가(후속 구현)"
+        }
+      ],
+      "implementationGuide": "1) 필요한 env 목록 정의. 2) prod/staging/locaI 값 관리 정책 정의. 3) 로컬에서 실제 발송 방지 가드 정의.",
+      "verificationCriteria": "이메일 시크릿/환경 설정 정책이 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000134",
+      "name": "P8-3.4 이메일 발송 테스트 시나리오 정의(실패/중복/설정)",
+      "description": "이메일 발송의 실패 재시도, 중복 방지, 사용자 설정(off) 반영을 포함한 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000133"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "이메일 발송 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 성공 발송 케이스 정의. 2) 실패/재시도/최종 실패 케이스 정의. 3) 중복 이벤트 시 1회만 발송 케이스 정의.",
+      "verificationCriteria": "이메일 발송 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    }
+  ]
+}

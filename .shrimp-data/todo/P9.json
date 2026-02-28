@@ -1,0 +1,305 @@
+{
+  "tasks": [
+    {
+      "id": "10000000-0000-4000-8000-000000000135",
+      "name": "P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정",
+      "description": "관리자/직원 대시보드에서 제공할 지표(야간/주말 등)와 필터(기간/사이트/직급) 스펙을 확정한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000045"
+        },
+        {
+          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "9. 모니터링 및 대시보드"
+        }
+      ],
+      "implementationGuide": "1) 공정성 지표 목록/정의 확정. 2) 필터 항목/기본값 결정. 3) 권한별(관리자 vs 직원) 표시 차이 결정.",
+      "verificationCriteria": "대시보드 지표/필터 요구사항이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000136",
+      "name": "P9-1.2 대시보드 데이터 모델/타입/스토어 설계",
+      "description": "대시보드 조회 결과를 표현할 타입과 상태 관리(스토어) 구조를 설계한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000135"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/types/dashboard.ts",
+          "type": "TO_CREATE",
+          "description": "대시보드 타입"
+        },
+        {
+          "path": "src/stores/dashboard.ts",
+          "type": "TO_CREATE",
+          "description": "대시보드 스토어"
+        }
+      ],
+      "implementationGuide": "1) 지표별 응답 타입 정의. 2) 필터 상태/캐시 전략 정의. 3) 로딩/에러 상태 표준 정의.",
+      "verificationCriteria": "대시보드 타입/스토어 설계가 완료되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000137",
+      "name": "P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)",
+      "description": "대시보드 집계를 어디에서 계산할지(DB RPC/Edge Function/클라이언트) 경계를 결정하고 API 계약을 정의한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000136"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "대시보드 API 계약 추가"
+        }
+      ],
+      "implementationGuide": "1) 집계 성능/보안 고려로 경계 결정. 2) API 파라미터(기간/필터) 정의. 3) RLS와 충돌 없는 구현 방식 선택.",
+      "verificationCriteria": "대시보드 집계 경계와 API 계약이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000138",
+      "name": "P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)",
+      "description": "샘플 스케줄 데이터를 기반으로 지표가 올바르게 계산되는지 검증하는 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000137"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "대시보드 지표 테스트 추가"
+        }
+      ],
+      "implementationGuide": "1) 야간/주말 정의 기준 확정. 2) 샘플 입력/기대 결과 작성. 3) 테스트 자동화 범위(유닛/통합) 결정.",
+      "verificationCriteria": "대시보드 지표 검증 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000139",
+      "name": "P9-2.1 관리자 대시보드 페이지 IA/차트 구성 확정",
+      "description": "관리자 대시보드(공정성 지표)를 어떤 차트/표로 구성할지 IA를 확정한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000138"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/views/dashboard/AdminDashboard.vue",
+          "type": "TO_CREATE",
+          "description": "관리자 대시보드"
+        }
+      ],
+      "implementationGuide": "1) 지표별 시각화 방식(막대그래프 등) 결정. 2) 필터 UI 배치 결정. 3) 빈 상태/로딩 상태 UX 정의.",
+      "verificationCriteria": "관리자 대시보드 화면 구성이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000140",
+      "name": "P9-2.2 직원(개인) 대시보드 페이지 IA/캘린더 요구 확정",
+      "description": "직원 대시보드(개인 일정 캘린더 + 통계) 화면 구성과 요구사항을 확정한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000139"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/dashboard/MyDashboard.vue",
+          "type": "TO_CREATE",
+          "description": "직원 대시보드"
+        }
+      ],
+      "implementationGuide": "1) 캘린더 표시 단위(월/주) 결정. 2) 통계 항목(야간/주말 등) 확정. 3) 권한/데이터 범위(본인만) 확인.",
+      "verificationCriteria": "직원 대시보드 요구사항이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000141",
+      "name": "P9-2.3 대시보드 필터 UI/상태 저장 정책 정의",
+      "description": "필터 변경 시 스토어 상태 저장, URL 쿼리 동기화 여부, 기본값/복원 정책을 정의한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000140"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/stores/dashboard.ts",
+          "type": "TO_MODIFY",
+          "description": "필터 상태 저장(후속 구현)"
+        }
+      ],
+      "implementationGuide": "1) 필터 기본값 결정. 2) URL sync 여부 결정. 3) 새로고침/재방문 시 복원 규칙 정의.",
+      "verificationCriteria": "필터 상태 저장/복원 정책이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000142",
+      "name": "P9-2.4 대시보드 필터 E2E 시나리오 정의",
+      "description": "필터 변경에 따라 차트/표가 업데이트되는지 검증하는 E2E 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000141"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "대시보드 필터 E2E 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 기간/사이트 필터 케이스 정의. 2) 기대 결과(지표 변화) 정의. 3) 권한별 접근 차단 케이스 포함 여부 결정.",
+      "verificationCriteria": "대시보드 필터 E2E 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000143",
+      "name": "P9-3.1 리포트/Export 요구사항 확정(Excel/CSV, 컬럼)",
+      "description": "필터링된 대시보드 데이터를 기반으로 Excel/CSV로 내보낼 리포트 요구사항(포맷/컬럼)을 확정한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000142"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "9.3 데이터 내보내기 및 리포트"
+        }
+      ],
+      "implementationGuide": "1) Export 대상 데이터/컬럼 확정. 2) 파일명/시트명 규칙 정의. 3) 개인정보/권한 필터링 규칙 정의.",
+      "verificationCriteria": "리포트 Export 요구사항이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000144",
+      "name": "P9-3.2 Export API 설계(dashboard-export) + 권한/테넌트 검증",
+      "description": "리포트 내보내기 API(Edge Function 또는 서버 경계)를 설계하고 권한/테넌트 격리 검증 규칙을 포함한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000143"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/dashboard-export/index.ts",
+          "type": "TO_CREATE",
+          "description": "리포트 export 함수(선택)"
+        },
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "Export API 계약"
+        }
+      ],
+      "implementationGuide": "1) 필터 파라미터 스키마 정의. 2) 권한/테넌트 검증 방안 포함. 3) 파일 생성 방식(서버 생성 vs 클라이언트) 결정.",
+      "verificationCriteria": "Export API 계약과 보안 기준이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000145",
+      "name": "P9-3.3 프론트 Export UI(다운로드/진행/에러) 설계",
+      "description": "사용자가 리포트를 다운로드할 수 있는 UI(진행 표시, 오류 처리)를 설계한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000144"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/views/Reports.vue",
+          "type": "TO_CREATE",
+          "description": "리포트 페이지"
+        }
+      ],
+      "implementationGuide": "1) Export 버튼/필터 UI 정의. 2) 다운로드 진행/완료 메시지 정의. 3) 실패 시 재시도/오류 안내 정의.",
+      "verificationCriteria": "Export UI 요구사항이 정의되어 있고, API와 연결된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000146",
+      "name": "P9-3.4 Export 테스트 시나리오 정의(CSV/Excel, 대용량)",
+      "description": "Export 결과 파일의 내용/형식과 대용량(레코드 수) 처리에 대한 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000145"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "Export 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) CSV/Excel 각각의 검증 포인트 정의. 2) 필터 적용 결과 검증. 3) 대용량 처리 시 타임아웃/분할 정책 케이스 정의.",
+      "verificationCriteria": "Export 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    }
+  ]
+}

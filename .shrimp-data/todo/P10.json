@@ -1,0 +1,301 @@
+{
+  "tasks": [
+    {
+      "id": "10000000-0000-4000-8000-000000000147",
+      "name": "P10-1.1 보안 감사 체크리스트 작성(RLS/권한/로그)",
+      "description": "서비스 전환 범위에 대한 보안 감사 체크리스트(RLS, RBAC, 입력 검증, 로그 마스킹)를 작성한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000048"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000146"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
+          "type": "TO_MODIFY",
+          "description": "Security checklist 추가"
+        }
+      ],
+      "implementationGuide": "1) RLS/권한 상승/IDOR 체크 항목 작성. 2) Edge Function 입력 검증/시크릿 관리 항목 작성. 3) 감사로그/알림 이벤트 검증 항목 포함.",
+      "verificationCriteria": "보안 체크리스트가 문서화되어 있고, 릴리스 게이트에 포함될 수 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000148",
+      "name": "P10-1.2 Edge Function 보안 정책 정리(service role/검증/로그)",
+      "description": "Edge Function(가입/승인/알림/Export)의 보안 정책(서비스키 사용, 입력 검증, 로그 마스킹)을 정리한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000147"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/API_DOCUMENTATION.md",
+          "type": "REFERENCE",
+          "description": "API 운영 문서 참고"
+        }
+      ],
+      "implementationGuide": "1) service role이 필요한 작업 목록화. 2) 입력 검증(Zod 등) 기준 정의. 3) 로그에 민감정보 기록 금지 규칙 정의.",
+      "verificationCriteria": "Edge Function 보안 정책이 문서화되어 있고, 구현 시 준수할 기준이 명확하다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000149",
+      "name": "P10-1.3 침투/오용 시나리오 테스트 계획(테넌트 침범/권한 상승)",
+      "description": "타조직 데이터 접근, 권한 상승, 잘못된 ID 접근(IDOR) 등 침투/오용 시나리오 테스트 계획을 수립한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000148"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "보안 테스트 시나리오 추가"
+        }
+      ],
+      "implementationGuide": "1) 시나리오별 공격 벡터 정의. 2) 기대 결과(403/empty) 정의. 3) 자동화 여부/도구 결정.",
+      "verificationCriteria": "보안 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000150",
+      "name": "P10-1.4 보안 이슈 트리아지/리메디에이션 태스크 생성 규칙 정의",
+      "description": "발견된 보안 이슈를 어떻게 태스크로 분류/우선순위화/릴리스 차단으로 연결할지 규칙을 정의한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000149"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "REFERENCE",
+          "description": "태스크 생성 규칙 반영"
+        }
+      ],
+      "implementationGuide": "1) severity 기준 정의. 2) 릴리스 차단 조건 정의. 3) remediation 템플릿(재현/영향/해결/검증) 정의.",
+      "verificationCriteria": "보안 이슈가 일관된 방식으로 태스크화될 수 있는 규칙이 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000151",
+      "name": "P10-2.1 성능 측정/기준선 수립 계획(목록/대시보드/리포트)",
+      "description": "핵심 화면(목록/그리드/대시보드/리포트)의 성능을 어떻게 측정하고 기준선을 잡을지 계획을 수립한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000142"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
+          "type": "TO_MODIFY",
+          "description": "Performance 기준 추가"
+        }
+      ],
+      "implementationGuide": "1) 측정 지표(TTFB, 렌더, 다운로드) 정의. 2) 목표 기준(예: p95) 초안 작성. 3) 측정 방법(수동/스크립트) 결정.",
+      "verificationCriteria": "성능 측정 계획과 기준선 정의가 존재한다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000152",
+      "name": "P10-2.2 DB/쿼리 최적화 후보 목록화(인덱스/집계)",
+      "description": "대시보드/리포트/리스트 쿼리의 인덱스/집계 최적화 후보를 목록화하고 우선순위를 정한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000151"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/prd/02-database-migration.md",
+          "type": "REFERENCE",
+          "description": "인덱스/쿼리 참고"
+        }
+      ],
+      "implementationGuide": "1) 느린 쿼리 후보 식별 방법 정의. 2) 인덱스 후보/추가 비용 정리. 3) 집계 테이블/캐시 필요성 판단.",
+      "verificationCriteria": "DB 최적화 후보와 우선순위가 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000153",
+      "name": "P10-2.3 프론트 성능 최적화 후보 목록화(렌더/상태/차트)",
+      "description": "프론트에서 성능 저하가 예상되는 부분(대시보드 차트, 리스트 렌더, 상태 업데이트)을 목록화하고 개선 방향을 정한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000151"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/Dashboard.vue",
+          "type": "REFERENCE",
+          "description": "대시보드 진입 화면"
+        }
+      ],
+      "implementationGuide": "1) 리렌더 원인 후보 목록화. 2) 메모이제이션/페이지네이션/가상스크롤 적용 기준 정의. 3) 차트 라이브러리 도입 여부 결정(필요 시).",
+      "verificationCriteria": "프론트 최적화 후보와 개선 전략이 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000154",
+      "name": "P10-2.4 성능 회귀 체크(스모크) 시나리오 정의",
+      "description": "성능 최적화 후 회귀가 발생하지 않도록 최소 스모크 측정 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000152"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000153"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "성능 스모크 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) 측정 대상 화면 선택. 2) 반복 실행/기록 방식 정의. 3) 실패 기준/롤백 기준 정의.",
+      "verificationCriteria": "성능 회귀를 감지할 최소 스모크 시나리오가 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000155",
+      "name": "P10-3.1 릴리스 체크리스트 초안(배포 순서/게이트/스모크)",
+      "description": "Private Beta 배포 순서(DB→함수→프론트), 품질 게이트, 스모크 테스트를 포함한 릴리스 체크리스트를 작성한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000150"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000154"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/final-verification-report.md",
+          "type": "TO_MODIFY",
+          "description": "릴리스 체크리스트 포함"
+        }
+      ],
+      "implementationGuide": "1) 배포 순서 체크리스트 작성. 2) 게이트 실행 항목 포함. 3) 스모크 테스트(가입→승인→온보딩→스케줄) 포함.",
+      "verificationCriteria": "릴리스 체크리스트가 문서화되어 있고, 실행 순서가 명확하다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000156",
+      "name": "P10-3.2 운영 런북 작성(장애 대응/알림/데이터 복구)",
+      "description": "운영 중 장애 대응, 알림 발송 문제, 데이터 복구/백업을 포함한 런북을 작성한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000155"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "README.md",
+          "type": "TO_MODIFY",
+          "description": "운영/배포 섹션 추가"
+        }
+      ],
+      "implementationGuide": "1) 장애 유형별 대응 플로우 작성. 2) 알림/이메일 장애시 확인 절차 작성. 3) 백업/복구 절차 및 권한 설정 포함.",
+      "verificationCriteria": "운영 런북이 작성되어 있고, 팀이 따라할 수 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000157",
+      "name": "P10-3.3 롤백 플랜 정의(DB/함수/프론트) + 리허설 시나리오",
+      "description": "DB 마이그레이션, Edge Function, 프론트 배포 각각의 롤백 플랜과 리허설 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000156"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
+          "type": "TO_MODIFY",
+          "description": "Rollback 절차 추가"
+        }
+      ],
+      "implementationGuide": "1) DB 롤백 전략(역마이그레이션/스냅샷) 정의. 2) 함수/프론트 롤백(이전 버전) 정의. 3) 리허설 체크리스트 작성.",
+      "verificationCriteria": "롤백 절차가 문서화되어 있고, 리허설 시나리오가 존재한다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000158",
+      "name": "P10-3.4 Private Beta Go/No-Go 리뷰 아젠다/자료 정의",
+      "description": "릴리스 직전 Go/No-Go 리뷰를 위한 아젠다와 준비 자료(게이트 결과, 보안/성능 요약)를 정의한다.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000157"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/final-verification-report.md",
+          "type": "TO_MODIFY",
+          "description": "Go/No-Go 섹션 추가"
+        }
+      ],
+      "implementationGuide": "1) 필수 보고 항목(기능/보안/성능/운영) 정의. 2) 참석자/결정권자 정의. 3) 결정 결과 기록 템플릿 정의.",
+      "verificationCriteria": "Go/No-Go 리뷰 진행에 필요한 아젠다/자료 목록이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    }
+  ]
+}

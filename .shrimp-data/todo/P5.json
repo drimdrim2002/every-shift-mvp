@@ -1,0 +1,348 @@
+{
+  "tasks": [
+    {
+      "id": "10000000-0000-4000-8000-000000000087",
+      "name": "P5-1.1 조직 관리 범위/권한/필드 스펙 확정",
+      "description": "조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000045"
+        },
+        {
+          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "6.2 Organization management"
+        }
+      ],
+      "implementationGuide": "1) 조직 필드 목록 확정(code/timezone/work_pattern 등). 2) super 조직 선택 UX 결정. 3) admin 수정 가능 범위 결정.",
+      "verificationCriteria": "조직 관리 스펙(필드/권한/UX)이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000088",
+      "name": "P5-1.2 조직 관리 화면 IA/라우트 설계",
+      "description": "조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000087"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/OrganizationManagement.vue",
+          "type": "TO_CREATE",
+          "description": "조직 관리 화면"
+        },
+        {
+          "path": "src/components/layout/Sidebar.vue",
+          "type": "TO_MODIFY",
+          "description": "메뉴 추가"
+        }
+      ],
+      "implementationGuide": "1) 라우트 경로(/management/org 등) 결정. 2) super 조직 선택 드롭다운 위치 결정. 3) settings(제약/패턴) 탭 구조 결정.",
+      "verificationCriteria": "조직 관리 화면 구조/라우트/메뉴가 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000089",
+      "name": "P5-1.3 조직/설정 데이터 저장 API 경계 설계",
+      "description": "organizations 및 organization_settings 저장/조회 방식을 설계한다(직접 테이블 접근 vs RPC/함수).",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000088"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/api/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "조직 관리 API 확장"
+        }
+      ],
+      "implementationGuide": "1) 조회/저장 API 시그니처 정의. 2) RLS에 의해 가능한 접근 방식 결정. 3) 에러 처리/권한 오류 UX 정의.",
+      "verificationCriteria": "조직 관리 저장 경계가 결정되어 있고, API 인터페이스가 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000090",
+      "name": "P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)",
+      "description": "조직 관리의 권한/테넌트 격리/필드 검증 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000089"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "조직 관리 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) super: 조직 전환 조회 케이스. 2) admin: 자기조직만 수정 케이스. 3) user: 접근 차단 케이스.",
+      "verificationCriteria": "조직 관리 기능 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000091",
+      "name": "P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계",
+      "description": "조직 단위 마스터 데이터(시프트, 제약, 스킬, 직급/크레딧) 관리 UX를 설계한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000090"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/OrganizationManagement.vue",
+          "type": "TO_MODIFY",
+          "description": "마스터 데이터 탭 추가"
+        }
+      ],
+      "implementationGuide": "1) 탭/섹션 구분(shift/constraint/skill/rank) 결정. 2) 활성/비활성 정책 결정. 3) 기본값(3교대, LV1~4) 제공 방식 결정.",
+      "verificationCriteria": "마스터 데이터 관리 UX가 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000092",
+      "name": "P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)",
+      "description": "시프트를 자유롭게 등록(예: 3교대)하는 요구사항과 검증 규칙(중복 코드, 시간 범위)을 확정한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000091"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "TO_MODIFY",
+          "description": "조직 마스터 기반으로 확장"
+        }
+      ],
+      "implementationGuide": "1) shift_code/시작-종료/색상 등 필드 정의. 2) 중복/겹침 검증 규칙 정의. 3) 기존 D/E/N/O 고정 로직 제거 범위 정의.",
+      "verificationCriteria": "시프트 마스터의 필드/검증 규칙이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000093",
+      "name": "P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)",
+      "description": "근무 제약(최대 연속 N, 주 목표/최대, 휴무일, 시프트 변경 최소 휴식)을 저장/표시하는 요구사항을 확정한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000092"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "6.2 근무 제약"
+        }
+      ],
+      "implementationGuide": "1) 제약 필드 목록과 단위(분/시간) 결정. 2) shift_change_rest_rules JSON 스키마 결정. 3) UI 입력 폼/검증 규칙 정의.",
+      "verificationCriteria": "근무 제약 설정의 저장 모델과 UI 요구가 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000094",
+      "name": "P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)",
+      "description": "조직 스킬/직급 마스터(코드/이름/크레딧) 저장 규칙과 UI 요구사항을 확정한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000093"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "organization_skills/organization_ranks 포함"
+        }
+      ],
+      "implementationGuide": "1) code 유니크 정책 정의. 2) rank credit 기본값 정책 정의. 3) 비활성 처리 및 참조 무결성 정책 정의.",
+      "verificationCriteria": "스킬/직급 마스터의 저장 규칙과 UI 요구사항이 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000095",
+      "name": "P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의",
+      "description": "시프트/제약/스킬/직급 CRUD의 기본 동작과 스케줄 화면 반영에 대한 스모크 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000094"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "마스터 CRUD 테스트 케이스 추가"
+        }
+      ],
+      "implementationGuide": "1) CRUD happy-path 정의. 2) 중복 code/참조중 삭제 실패 케이스 정의. 3) 스케줄 step에서 반영 확인 항목 정의.",
+      "verificationCriteria": "마스터 데이터 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000096",
+      "name": "P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정",
+      "description": "사이트 목록, 요일별 필요 인력, skill/rank 옵션 필터를 포함한 요구인원 도메인 스펙을 확정한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000095"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "6.2 근무 사이트/요일별 필요 인력"
+        }
+      ],
+      "implementationGuide": "1) site_code/site_name 필드 확정. 2) 요일(0~6) 기준과 shift 연결 규칙 확정. 3) skill/rank 선택적 요구의 저장 모델 확정.",
+      "verificationCriteria": "사이트/요구인원 스펙이 확정되어 있고, DB/UI 구현 범위가 결정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000097",
+      "name": "P5-3.2 사이트 CRUD 화면/UX 설계",
+      "description": "사이트 등록/수정/비활성/삭제 UI 흐름과 검증 규칙을 설계한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000096"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/SiteManagement.vue",
+          "type": "TO_CREATE",
+          "description": "사이트 관리 화면(또는 조직관리 내 탭)"
+        }
+      ],
+      "implementationGuide": "1) CRUD 액션과 모달/폼 구조 정의. 2) site_code 유니크/검증 규칙 정의. 3) 삭제 대신 비활성 정책 결정.",
+      "verificationCriteria": "사이트 CRUD UX와 검증 규칙이 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000098",
+      "name": "P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계",
+      "description": "사이트별로 요일별 요구인원을 편집하는 UI(테이블/그리드) 요구사항을 설계한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000097"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/components/requirements/SiteStaffRequirementsEditor.vue",
+          "type": "TO_CREATE",
+          "description": "요구인원 편집 컴포넌트"
+        }
+      ],
+      "implementationGuide": "1) 표시 단위(사이트/시프트/요일) 결정. 2) skill/rank 옵션 필터 UX 결정. 3) 저장 단위(일괄 저장/자동 저장) 결정.",
+      "verificationCriteria": "요구인원 편집 UI가 사용자가 이해할 수 있는 형태로 설계되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000099",
+      "name": "P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획",
+      "description": "site_staff_requirements 저장 모델(유니크 키, 인덱스)을 확정하고 마이그레이션 반영 계획을 수립한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000098"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "sites/site_staff_requirements 테이블 포함"
+        }
+      ],
+      "implementationGuide": "1) unique key 정의(site+shift+dow+skill?+rank?). 2) 쿼리 패턴 기반 인덱스 정의. 3) 기존 site_requirements와의 관계(대체/호환) 정의.",
+      "verificationCriteria": "요구인원 저장 모델과 인덱스가 확정되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000100",
+      "name": "P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)",
+      "description": "요일별 요구인원을 계획 월에 적용하여 월별 요구인원 테이블을 생성/수정하는(7.2) 테스트 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000099"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/composables/useSiteRequirements.ts",
+          "type": "TO_MODIFY",
+          "description": "요일→월 계산 로직(후속 구현)"
+        }
+      ],
+      "implementationGuide": "1) 계획 월/요일 계산 규칙 정의. 2) 편집/저장 플로우 정의. 3) 엣지케이스(윤년/월 시작 요일) 포함.",
+      "verificationCriteria": "요일 요구인원→월 적용 기능의 테스트 시나리오가 문서화되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    }
+  ]
+}
