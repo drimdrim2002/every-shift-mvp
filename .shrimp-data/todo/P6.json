@@ -45,7 +45,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/EmployeeManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "직원 관리 화면"
         }
       ],

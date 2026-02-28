@@ -39,7 +39,7 @@
       "relatedFiles": [
         {
           "path": "src/api/approval.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "승인/계정관리 API 래퍼"
         }
       ],
@@ -63,7 +63,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/AccountManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "계정 관리 화면"
         }
       ],

@@ -42,12 +42,12 @@
       "relatedFiles": [
         {
           "path": "src/types/dashboard.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "대시보드 타입"
         },
         {
           "path": "src/stores/dashboard.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "대시보드 스토어"
         }
       ],
@@ -119,7 +119,7 @@
       "relatedFiles": [
         {
           "path": "src/views/dashboard/AdminDashboard.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "관리자 대시보드"
         }
       ],
@@ -143,7 +143,7 @@
       "relatedFiles": [
         {
           "path": "src/views/dashboard/MyDashboard.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "직원 대시보드"
         }
       ],
@@ -239,7 +239,7 @@
       "relatedFiles": [
         {
           "path": "supabase/functions/dashboard-export/index.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "리포트 export 함수(선택)"
         },
         {
@@ -268,7 +268,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Reports.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "리포트 페이지"
         }
       ],

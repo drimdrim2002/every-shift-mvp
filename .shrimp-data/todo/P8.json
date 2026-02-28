@@ -66,7 +66,7 @@
       "relatedFiles": [
         {
           "path": "src/api/notification.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "알림 API 래퍼"
         }
       ],
@@ -138,7 +138,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Notifications.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "알림 센터 페이지"
         }
       ],
@@ -162,7 +162,7 @@
       "relatedFiles": [
         {
           "path": "src/views/Profile.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "내 정보/설정 페이지(선택)"
         }
       ],
@@ -234,7 +234,7 @@
       "relatedFiles": [
         {
           "path": "supabase/functions/notify-dispatch/index.ts",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "이메일 발송 함수(선택)"
         }
       ],

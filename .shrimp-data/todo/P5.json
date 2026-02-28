@@ -42,7 +42,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/OrganizationManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "조직 관리 화면"
         },
         {
@@ -263,7 +263,7 @@
       "relatedFiles": [
         {
           "path": "src/views/management/SiteManagement.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "사이트 관리 화면(또는 조직관리 내 탭)"
         }
       ],
@@ -287,7 +287,7 @@
       "relatedFiles": [
         {
           "path": "src/components/requirements/SiteStaffRequirementsEditor.vue",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "요구인원 편집 컴포넌트"
         }
       ],

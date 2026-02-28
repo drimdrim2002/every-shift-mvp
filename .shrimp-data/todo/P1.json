@@ -44,7 +44,7 @@
       "relatedFiles": [
         {
           "path": "migrations/007_service_transition_rbac_multitenant.sql",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "서비스 전환 DDL"
         }
       ],
@@ -200,7 +200,7 @@
       "relatedFiles": [
         {
           "path": "migrations/008_backfill_service_fields.sql",
-          "type": "TO_CREATE",
+          "type": "CREATE",
           "description": "백필 전용 마이그레이션(필요 시)"
         }
       ],

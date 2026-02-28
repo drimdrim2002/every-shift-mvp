@@ -234,37 +234,6 @@
       "completedAt": "2026-02-28T07:58:40.936Z"
     },
     {
-      "id": "90f21096-9495-4ab6-83d3-253ccf24b15c",
-      "name": "P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화",
-      "description": "relatedFiles.type에서 비표준 값 TO_CREATE를 표준 CREATE로 일괄 정규화하고 기타 위반값이 없는지 검증한다.",
-      "notes": "path 문자열은 보존하고 type만 교정한다.",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "9578fcaa-fff0-431c-9884-ab167cfd6b52"
-        }
-      ],
-      "createdAt": "2026-02-28T08:12:31.806Z",
-      "updatedAt": "2026-02-28T08:12:31.806Z",
-      "relatedFiles": [
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "TO_MODIFY",
-          "description": "relatedFiles.type 정규화"
-        },
-        {
-          "path": ".shrimp-data/tasks.metadata.json",
-          "type": "REFERENCE",
-          "description": "relatedFileTypes 표준 참조"
-        }
-      ],
-      "implementationGuide": "1) TO_CREATE 사용 항목을 전수 추출. 2) tasks.json에서 type 값을 CREATE로 치환. 3) relatedFileTypes 허용 집합(TO_MODIFY/REFERENCE/CREATE/DEPENDENCY/OTHER) 기준으로 재검증. 4) 치환 전후 건수 비교 리포트 작성.",
-      "verificationCriteria": "Deliverable: relatedFiles.type 정규화가 반영된 tasks.json. Method: jq로 허용 타입 외 항목 수를 집계. Pass: relatedFiles.type 위반=0, 기존 path/description 값 손실=0.",
-      "analysisResult": "P0-2.3 범위에서 확인된 주요 이슈는 estimatedMinutes 누락 13건, relatedFiles.type 표준 위반 26건(TO_CREATE), namePattern 위반 2건, verificationCriteria 표준(Deliverable/Method/Pass) 미흡이다. canonical source는 `.shrimp-data/tasks.json`과 `.shrimp-data/tasks.metadata.json`이며 dependencies는 `{taskId:string}` 포맷을 유지해야 한다.",
-      "phase": "P0",
-      "estimatedMinutes": 60
-    },
-    {
       "id": "24b9304c-ee93-4908-9f78-c0fd145b7b2e",
       "name": "P0-2.3.3 네이밍 규칙/검증기준 문구 표준화",
       "description": "namePattern 위반 태스크를 규칙에 맞게 보정하고 verificationCriteria를 Deliverable/Method/Pass 3요소 형태로 통일한다.",
@@ -3914,6 +3883,37 @@
       "estimatedMinutes": 60,
       "summary": "jq 스크립트를 사용하여 .shrimp-data/tasks.json 내의 모든 태스크를 검증했습니다.\n- estimatedMinutes 누락 태스크: 0건\n- 허용값(60, 90, 120, 180) 외의 값을 사용하는 태스크: 0건\n모든 데이터가 완벽하게 보정되어 있으므로 작업 완료 처리합니다.",
       "completedAt": "2026-02-28T08:57:07.423Z"
+    },
+    {
+      "id": "90f21096-9495-4ab6-83d3-253ccf24b15c",
+      "name": "P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화",
+      "description": "relatedFiles.type에서 비표준 값 TO_CREATE를 표준 CREATE로 일괄 정규화하고 기타 위반값이 없는지 검증한다.",
+      "notes": "path 문자열은 보존하고 type만 교정한다. 백업 파일을 먼저 생성한다.",
+      "status": "in_progress",
+      "dependencies": [
+        {
+          "taskId": "9578fcaa-fff0-431c-9884-ab167cfd6b52"
+        }
+      ],
+      "createdAt": "2026-02-28T08:12:31.806Z",
+      "updatedAt": "2026-02-28T09:02:00.597Z",
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "relatedFiles.type 정규화"
+        },
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "REFERENCE",
+          "description": "relatedFileTypes 표준 참조"
+        }
+      ],
+      "implementationGuide": "1) Create a Node.js script to read .shrimp-data/tasks.json.\n2) Backup the file to .shrimp-data/.\n3) Iterate over tasks and their relatedFiles.\n4) Replace type: 'TO_CREATE' with 'CREATE'.\n5) Validate against allowed types (TO_MODIFY, REFERENCE, CREATE, DEPENDENCY, OTHER).\n6) Save the updated tasks.json if no invalid types are found.",
+      "verificationCriteria": "Deliverable: relatedFiles.type 정규화가 반영된 tasks.json. Method: script validation checks. Pass: relatedFiles.type 위반=0, 기존 path/description 값 손실=0.",
+      "analysisResult": "The goal is to normalize the `relatedFiles.type` from `TO_CREATE` to the standard `CREATE` value in the `.shrimp-data/tasks.json` file. The operation should be fully verified using a Node.js script that replaces the invalid values, checks for any other invalid types, ensures no data loss, and securely backs up the original data before making changes.",
+      "phase": "P0",
+      "estimatedMinutes": 60
     }
   ]
 }
