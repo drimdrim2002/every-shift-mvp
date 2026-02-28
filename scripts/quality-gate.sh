@@ -28,6 +28,8 @@ run_gate() {
 
 echo "QUALITY GATE ENFORCEMENT"
 echo "========================"
+echo "Canonical gate entrypoint: scripts/quality-gate.sh"
+echo "E2E trigger policy: docs/migration/MIGRATION_GOVERNANCE.md (Section 8.2)"
 
 run_gate "Lint (pnpm lint:check)" "pnpm lint:check"
 run_gate "Unit Tests (pnpm test:unit)" "pnpm test:unit"
@@ -76,4 +78,5 @@ fi
 
 echo "QUALITY GATES FAILED"
 echo "Fix failed gates before merge/release."
+echo "Triage procedure: docs/migration/MIGRATION_GOVERNANCE.md (Section 8.3)"
 exit 1

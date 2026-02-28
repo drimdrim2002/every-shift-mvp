@@ -1,35 +1,6 @@
 {
   "tasks": [
     {
-      "id": "10000000-0000-4000-8000-000000000035",
-      "name": "P0-1.2 품질 게이트(릴리스 전 체크) 기준 확정",
-      "description": "Private Beta 릴리스를 위한 품질 게이트(필수 실행 명령/통과 기준/실패 시 대응)를 확정한다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000034"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "package.json",
-          "type": "REFERENCE",
-          "description": "검증 스크립트 목록"
-        },
-        {
-          "path": "scripts/quality-gate.sh",
-          "type": "TO_MODIFY",
-          "description": "게이트 스크립트 정리(필요 시)"
-        }
-      ],
-      "implementationGuide": "1) 필수 명령(pnpm lint/test:unit/build)과 실행 순서 정의. 2) E2E 포함 조건(권한/가입/온보딩 변경 시 등) 정의. 3) 실패 시 triage/rollback 규칙 정의.",
-      "verificationCriteria": "게이트 체크리스트가 문서화되어 있고, 각 항목의 실행 명령과 통과 기준이 명확하다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
       "id": "10000000-0000-4000-8000-000000000036",
       "name": "P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정",
       "description": "Shrimp Task Manager에서 사용할 태스크 템플릿(필수 필드, relatedFiles 표준, 의존성 표기, 예상 시간 기준)을 확정한다.",
@@ -211,7 +182,7 @@
       "id": "10000000-0000-4000-8000-000000000034",
       "name": "P0-1.1 운영 규칙/DoD 문서 초안 작성",
       "description": "REFINED_PRD 서비스 전환 운영 원칙을 문서화하되, 기존 MIGRATION_GOVERNANCE를 단일 소스로 유지하고 누락된 태스크 상태 전이 규칙을 보강한다. DoD, 브랜치/PR/리뷰 규칙, 상태 전이 규칙을 팀이 즉시 실행 가능한 체크리스트 형태로 정리한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P0",
       "dependencies": [],
       "estimatedMinutes": 90,
@@ -235,9 +206,59 @@
       "implementationGuide": "1) docs/migration/MIGRATION_GOVERNANCE.md에 Task State Transition Policy를 추가한다(pending/in_progress/completed 정의, 허용/금지 전이, 완료 증빙 조건). 2) 브랜치/PR/리뷰 최소 체크리스트를 명시한다. 3) docs/migration/REFINED_PRD_SERVICE_TRANSITION.md에는 운영 규칙의 canonical source가 MIGRATION_GOVERNANCE임을 명시하고 실행 요약 체크리스트만 둔다. 4) 중복 서술은 제거하고 링크 기반 참조를 사용한다.",
       "verificationCriteria": "문서에 DoD, 브랜치/PR/리뷰 규칙, pending/in_progress/completed 상태 전이 규칙이 명시되어 있고, 운영 규칙의 canonical source가 명확하며 팀이 그대로 실행할 수 있는 체크리스트가 존재한다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-28T06:46:09.644Z",
+      "updatedAt": "2026-02-28T06:48:24.343Z",
       "notes": "중복 규칙 본문을 여러 문서에 복제하지 않는다. 명령/용어 표기는 기존 문서와 동일하게 유지한다.",
-      "analysisResult": "P0-1.1은 기존 거버넌스 문서와 중복을 피하고 단일 소스 원칙을 유지해야 하며, 누락된 태스크 상태 전이 규칙을 명시적으로 보강하는 방향으로 수행한다."
+      "analysisResult": "P0-1.1은 기존 거버넌스 문서와 중복을 피하고 단일 소스 원칙을 유지해야 하며, 누락된 태스크 상태 전이 규칙을 명시적으로 보강하는 방향으로 수행한다.",
+      "summary": "MIGRATION_GOVERNANCE를 단일 소스로 유지하면서 DoD, 브랜치/PR/리뷰 규칙, pending/in_progress/completed 상태 전이 정책과 실행 체크리스트를 문서에 반영해 팀이 즉시 따라할 수 있도록 정리했다.",
+      "completedAt": "2026-02-28T06:48:24.340Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000035",
+      "name": "P0-1.2 품질 게이트(릴리스 전 체크) 기준 확정",
+      "description": "Private Beta 릴리스 품질 게이트 기준을 확정한다. 필수 실행 명령과 순서, E2E 포함 조건, 실패 시 triage/rollback 대응을 팀이 즉시 적용 가능한 체크리스트로 문서화한다.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000034"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/migration/MIGRATION_GOVERNANCE.md",
+          "type": "TO_MODIFY",
+          "description": "품질 게이트 기준/트리거/실패 대응 정책 명문화"
+        },
+        {
+          "path": "scripts/quality-gate.sh",
+          "type": "TO_MODIFY",
+          "description": "canonical 단일 엔트리, 실패 시 안내 메시지 보강(필요 시)"
+        },
+        {
+          "path": "scripts/README.md",
+          "type": "REFERENCE",
+          "description": "스크립트 사용 가이드 및 canonical 설명 정합성 확인"
+        },
+        {
+          "path": "scripts/quality-gates.sh",
+          "type": "REFERENCE",
+          "description": "기존 스크립트와 역할 충돌 여부 점검"
+        },
+        {
+          "path": "package.json",
+          "type": "REFERENCE",
+          "description": "게이트 실행 명령 정의 원본"
+        }
+      ],
+      "implementationGuide": "1) `docs/migration/MIGRATION_GOVERNANCE.md`에 Quality Gate Criteria Matrix를 추가한다(각 게이트별 명령, pass 기준, 실패 시 조치). 2) E2E Trigger Conditions를 명시한다(권한/RBAC, 가입·승인, 온보딩, 라우트 가드, 핵심 스케줄 플로우 변경 시 필수). 3) Failure Triage & Rollback 절차를 단계화한다(분류→담당자→재실행→롤백 판단). 4) `scripts/quality-gate.sh`는 canonical single entry로 유지하고 필요 시 실패 메시지에 triage 문서 경로를 추가한다. 5) `scripts/quality-gates.sh`와의 혼동이 없도록 canonical 엔트리를 문서에서 명확히 선언한다.",
+      "verificationCriteria": "게이트 체크리스트 문서에 필수 명령(pnpm lint:check, pnpm test:unit, pnpm build), 실행 순서, 통과 기준, E2E 포함 조건, 실패 시 triage/rollback 절차가 명시되어 있으며 canonical 실행 엔트리가 `scripts/quality-gate.sh`로 명확히 규정된다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T06:54:55.105Z",
+      "notes": "정책 기준은 문서(MIGRATION_GOVERNANCE), 실행은 스크립트(quality-gate.sh)로 분리한다. 과도한 스크립트 로직 확장은 피하고 문서 기반 운영 절차를 우선한다.",
+      "analysisResult": "P0-1.2는 기존 단일 소스 원칙을 유지하면서 품질 게이트의 실행 기준·판정 기준·실패 대응 절차를 문서에 명시하고, 실행 엔트리는 `scripts/quality-gate.sh`로 고정하는 방향이 가장 일관적이다.",
+      "summary": "품질 게이트 기준을 문서와 스크립트에 정합화했다. MIGRATION_GOVERNANCE에 게이트 실행 순서/명령/통과 기준 매트릭스, E2E 필수 트리거 조건, 실패 triage·rollback 절차를 추가했고, canonical 엔트리를 scripts/quality-gate.sh로 명확히 고정했다. 스크립트/README에도 canonical 및 triage 참조를 반영했다.",
+      "completedAt": "2026-02-28T06:54:55.103Z"
     }
   ]
 }

@@ -34,7 +34,46 @@ Any waiver requires explicit approval by Technical Owner and Release Owner.
 
 No direct pushes to `main`.
 
-## 4. Rollout Policy
+## 4. Pull Request and Review Rules
+
+Every migration change must be submitted through a PR and satisfy the checklist below:
+
+- PR links the relevant task IDs (for example `P0-1.1`) and describes scope boundaries.
+- Branch naming follows the strategy in Section 3.
+- PR includes quality gate evidence summary (`lint`, `unit`, `build`) and any known risk.
+- PR includes rollback notes for impacted areas (database, edge functions, frontend).
+- At least one qualified reviewer approval is required before merge.
+
+Self-merge is disallowed except emergency hotfixes with mandatory retrospective follow-up.
+
+## 5. Task State Transition Policy
+
+Canonical task states are `pending`, `in_progress`, and `completed`.
+
+- `pending`:
+  - Scope and verification criteria are defined.
+  - No active owner is currently executing the task.
+- `in_progress`:
+  - Exactly one active owner is responsible for execution.
+  - Implementation, validation, or investigation is actively ongoing.
+- `completed`:
+  - Verification criteria are satisfied.
+  - DoD evidence is attached (PR link, gate outputs, and related doc updates).
+
+Allowed transitions:
+
+1. `pending` → `in_progress`
+2. `in_progress` → `pending` (only with blocking/defer reason recorded)
+3. `in_progress` → `completed`
+
+Forbidden transitions:
+
+- `pending` → `completed`
+- `completed` → `in_progress` (create a follow-up task instead)
+
+If any required verification fails, state must return to `in_progress` until remediation is complete.
+
+## 6. Rollout Policy
 
 - Stage order:
   1. Development validation
@@ -45,7 +84,7 @@ No direct pushes to `main`.
   - Regression impact review
   - Rollback readiness confirmation
 
-## 5. Definition of Done (DoD)
+## 7. Definition of Done (DoD)
 
 Every migration task is considered done only if all items below are satisfied:
 
@@ -64,10 +103,12 @@ Every migration task is considered done only if all items below are satisfied:
 6. Evidence:
    - PR includes gate run output summary and test evidence.
 
-## 6. Quality Gate Execution
+## 8. Quality Gate Execution
 
 - Canonical entrypoint:
   - `scripts/quality-gate.sh`
+- Non-canonical scripts:
+  - `scripts/quality-gates.sh` must not be used as merge/release gate evidence.
 - Required gates:
   1. Lint
   2. Unit tests
@@ -77,7 +118,54 @@ Every migration task is considered done only if all items below are satisfied:
 
 If any gate fails, merge/release is blocked.
 
-## 7. Exception (Waiver) Policy
+### 8.1 Quality Gate Criteria Matrix
+
+Run gates in the fixed order below:
+
+| Order | Gate | Command / Check | Pass Criteria | Fail Response |
+| --- | --- | --- | --- | --- |
+| 1 | Lint | `pnpm lint:check` | Exit code `0` and no ESLint error | Fix lint errors, rerun Gate 1 |
+| 2 | Unit Tests | `pnpm test:unit` | Exit code `0` and all selected unit tests pass | Fix failing tests, rerun Gate 2 |
+| 3 | Build | `pnpm build` | Exit code `0` and production build artifacts generated | Fix compile/build errors, rerun Gate 3 |
+| 4 | Documentation Baseline | `scripts/quality-gate.sh` required-doc check | Required migration docs exist and are readable | Restore/update missing docs, rerun Gate 4 |
+| 5 | Debug Statement Guard | `scripts/quality-gate.sh` debug scan | No `console.log`/`console.table` in `src/**/*.ts` and `src/**/*.vue` | Remove debug statements, rerun Gate 5 |
+
+A PR can be merged only after all five gates pass in sequence.
+
+### 8.2 E2E Trigger Conditions
+
+`pnpm test:e2e` (or a documented targeted Playwright subset) is mandatory when changes touch one or more of the following:
+
+1. Auth, membership status, RBAC rules, or route guards
+2. Signup/approval/access status flows
+3. Onboarding forced-flow behavior
+4. Core schedule workflow contracts (Step1~Step4 data flow, solver request/response/polling)
+5. Navigation/menu access control by role
+
+E2E pass criteria:
+
+- All selected scenarios pass with exit code `0`
+- No unresolved flaky test remains in release evidence
+
+If E2E is required and not passed, merge/release is blocked.
+
+### 8.3 Failure Triage and Rollback Procedure
+
+When any quality gate fails, use the following sequence:
+
+1. Classify failure:
+   - `lint`, `unit`, `build`, `docs`, `debug`, `e2e`, or `environment`
+2. Assign owner and response time:
+   - Record owner and ETA in PR or task update
+3. Apply remediation:
+   - Fix root cause and rerun the failed gate first
+   - Then rerun full `scripts/quality-gate.sh`
+4. Decide rollback readiness:
+   - If release window risk remains, Release Owner decides No-Go or rollback using Section 10 policy
+5. Attach evidence:
+   - Update PR with failure cause, fix summary, rerun logs, and final gate status
+
+## 9. Exception (Waiver) Policy
 
 Waivers are allowed only when all fields are documented in the PR:
 
@@ -89,7 +177,7 @@ Waivers are allowed only when all fields are documented in the PR:
 
 Expired waivers must not be reused.
 
-## 8. Rollback Policy
+## 10. Rollback Policy
 
 Rollback must be defined before rollout for:
 
@@ -99,7 +187,7 @@ Rollback must be defined before rollout for:
 
 Detailed rollback actions should be tracked in migration execution docs.
 
-## 9. Change Control
+## 11. Change Control
 
 - This governance document can be changed only through PR review.
 - Every change must include:

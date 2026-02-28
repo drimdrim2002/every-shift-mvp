@@ -21,6 +21,22 @@ This document tracks the initial implementation baseline for migrating EveryShif
 - Governance source of truth:
   - `docs/migration/MIGRATION_GOVERNANCE.md`
 
+## Operational rules reference
+
+- Canonical governance source:
+  - `docs/migration/MIGRATION_GOVERNANCE.md`
+- Policy duplication rule:
+  - Do not duplicate full governance text in transition docs.
+  - Keep this document as execution index and checklist only.
+
+Execution checklist (P0~P10):
+
+1. Create a branch using the governance naming rule.
+2. Move task state `pending` → `in_progress` with active owner.
+3. Open PR with task linkage and quality gate evidence summary.
+4. Complete DoD requirements, then transition `in_progress` → `completed`.
+5. If validation fails, keep or return task state to `in_progress` with remediation notes.
+
 ## Next execution order (shrimp-task-manager)
 
 1. `init_project_rules`

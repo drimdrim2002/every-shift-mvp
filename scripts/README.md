@@ -71,6 +71,11 @@ Essential development workflow scripts for quality assurance and validation.
 ./scripts/quality-gate.sh
 ```
 
+**Canonical Policy**:
+
+- Use `quality-gate.sh` as the only merge/release gate evidence entrypoint.
+- `quality-gates.sh` is not a canonical release gate script.
+
 ## 🛠️ Setup Instructions
 
 ### Make Scripts Executable
