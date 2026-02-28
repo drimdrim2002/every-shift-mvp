@@ -1,6 +1,64 @@
 {
   "program": "REFINED_PRD Service Transition",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "createdAt": "2026-02-27T00:00:00Z",
-  "description": "Full migration backlog from MVP to service-grade product based on docs/REFINED_PRD.md"
+  "updatedAt": "2026-02-28T00:00:00Z",
+  "description": "Full migration backlog from MVP to service-grade product based on docs/REFINED_PRD.md",
+  "taskTemplate": {
+    "canonicalSource": ".shrimp-data/tasks.metadata.json",
+    "requiredFields": [
+      "name",
+      "description",
+      "implementationGuide",
+      "verificationCriteria",
+      "phase",
+      "estimatedMinutes",
+      "dependencies",
+      "relatedFiles"
+    ],
+    "allowedStates": [
+      "pending",
+      "in_progress",
+      "completed"
+    ],
+    "namePattern": "^P\\d+-\\d+\\.\\d+\\s+.+$",
+    "estimatedMinutesAllowed": [
+      60,
+      90,
+      120,
+      180
+    ],
+    "relatedFileTypes": [
+      "TO_MODIFY",
+      "REFERENCE",
+      "CREATE",
+      "DEPENDENCY",
+      "OTHER"
+    ],
+    "dependenciesFormat": {
+      "type": "array",
+      "itemShape": {
+        "taskId": "string"
+      },
+      "rules": [
+        "No self dependency",
+        "No cyclic dependency"
+      ]
+    },
+    "verificationCriteriaStandard": {
+      "requiredElements": [
+        "Deliverable exists",
+        "Verification method is explicit",
+        "Pass condition is explicit"
+      ]
+    },
+    "sampleReviewChecklist": [
+      "Task name matches namePattern",
+      "All requiredFields are present",
+      "estimatedMinutes is in estimatedMinutesAllowed",
+      "dependencies entries follow { taskId: string }[] and no self-reference",
+      "relatedFiles entries include path/type and type is from relatedFileTypes",
+      "verificationCriteria includes deliverable, method, and pass condition"
+    ]
+  }
 }

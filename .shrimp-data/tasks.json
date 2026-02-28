@@ -1,35 +1,6 @@
 {
   "tasks": [
     {
-      "id": "10000000-0000-4000-8000-000000000036",
-      "name": "P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정",
-      "description": "Shrimp Task Manager에서 사용할 태스크 템플릿(필수 필드, relatedFiles 표준, 의존성 표기, 예상 시간 기준)을 확정한다.",
-      "status": "pending",
-      "phase": "P0",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000035"
-        }
-      ],
-      "estimatedMinutes": 90,
-      "relatedFiles": [
-        {
-          "path": ".shrimp-data/tasks.json",
-          "type": "REFERENCE",
-          "description": "Shrimp 백로그"
-        },
-        {
-          "path": ".shrimp-data/tasks.metadata.json",
-          "type": "TO_MODIFY",
-          "description": "백로그 메타 업데이트(버전/설명)"
-        }
-      ],
-      "implementationGuide": "1) 태스크 필수 항목(description/implementationGuide/verificationCriteria) 템플릿 정의. 2) 1~3시간 단위 기준(estimatedMinutes) 정의. 3) 이름 규칙(Px-y.z + 태그) 정의.",
-      "verificationCriteria": "템플릿이 합의되어 있고, 새 태스크를 추가할 때 일관된 형태로 작성할 수 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
       "id": "10000000-0000-4000-8000-000000000037",
       "name": "P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리",
       "description": "REFINED_PRD의 요구사항을 P0~P10 Phase에 매핑하고, 누락/중복 범위를 체크하여 백로그에 반영한다.",
@@ -259,6 +230,44 @@
       "analysisResult": "P0-1.2는 기존 단일 소스 원칙을 유지하면서 품질 게이트의 실행 기준·판정 기준·실패 대응 절차를 문서에 명시하고, 실행 엔트리는 `scripts/quality-gate.sh`로 고정하는 방향이 가장 일관적이다.",
       "summary": "품질 게이트 기준을 문서와 스크립트에 정합화했다. MIGRATION_GOVERNANCE에 게이트 실행 순서/명령/통과 기준 매트릭스, E2E 필수 트리거 조건, 실패 triage·rollback 절차를 추가했고, canonical 엔트리를 scripts/quality-gate.sh로 명확히 고정했다. 스크립트/README에도 canonical 및 triage 참조를 반영했다.",
       "completedAt": "2026-02-28T06:54:55.103Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000036",
+      "name": "P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정",
+      "description": "Shrimp Task Manager에서 사용할 태스크 템플릿 표준을 canonical 규칙으로 확정한다. 필수 필드, relatedFiles type 표준, dependencies 표기, estimatedMinutes 허용 단위, 이름 규칙을 단일 소스에 명문화하고 신규 태스크 작성 시 일관성을 확보한다.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000035"
+        }
+      ],
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.metadata.json",
+          "type": "TO_MODIFY",
+          "description": "태스크 템플릿 canonical 규칙 정의"
+        },
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "REFERENCE",
+          "description": "현재 태스크들이 템플릿을 준수하는지 확인"
+        },
+        {
+          "path": "docs/migration/MIGRATION_GOVERNANCE.md",
+          "type": "REFERENCE",
+          "description": "상태 전이/운영 규칙 정합성 확인"
+        }
+      ],
+      "implementationGuide": "1) `.shrimp-data/tasks.metadata.json`에 `taskTemplate` 규칙 블록을 추가한다: requiredFields, allowedStates, relatedFileTypes, namePattern, estimatedMinutesAllowed. 2) dependencies 구조를 `{ taskId: string }[]`로 고정하고 금지 규칙(자기참조/순환)을 명시한다. 3) verificationCriteria 작성 규칙을 '산출물/검증방법/합격조건' 3요소로 표준화한다. 4) `.shrimp-data/tasks.json`의 신규/후속 태스크(P0-2.x부터)가 규칙을 준수하도록 샘플 검토 기준을 남긴다.",
+      "verificationCriteria": "템플릿 규칙이 metadata에 명문화되어 있고, requiredFields/allowedStates/namePattern/relatedFileTypes/estimatedMinutesAllowed가 확인 가능하며, 신규 태스크 작성 시 동일 규칙으로 일관되게 작성할 수 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T07:05:17.501Z",
+      "notes": "기존 거버넌스(`docs/migration/MIGRATION_GOVERNANCE.md`)의 상태 전이 규칙과 충돌하지 않도록 유지한다. 규칙의 canonical source는 metadata, 운영 절차 참조는 migration docs로 분리한다.",
+      "analysisResult": "P0-1.3는 태스크 필드 사용 관례는 이미 존재하지만 canonical 템플릿 정의와 검증 자동화가 부족하다. `.shrimp-data/tasks.metadata.json`에 taskTemplate 규칙을 단일 소스로 명시하고, naming/dependencies/relatedFiles/estimatedMinutes 허용 규칙을 명문화해 이후 P0-2.x 작업의 일관성을 보장해야 한다.",
+      "summary": "`.shrimp-data/tasks.metadata.json`에 taskTemplate canonical 규칙을 추가해 필수 필드, 상태, 이름 패턴, estimatedMinutes 허용값, relatedFiles 타입, dependencies 형식/금지 규칙, verificationCriteria 3요소 기준을 명문화했다. 또한 P0-2.x 샘플 태스크 정합성 점검으로 신규 태스크 일관 작성 가능성을 확인했다.",
+      "completedAt": "2026-02-28T07:05:17.499Z"
     }
   ]
 }
