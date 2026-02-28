@@ -125,6 +125,31 @@
       "completedAt": "2026-02-27T07:46:10.124Z"
     },
     {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "name": "P1-2 Apply strict RLS policies for tenant isolation",
+      "description": "Add helper functions and RLS policies for super/admin/user role-based data access across organizations.",
+      "status": "in_progress",
+      "phase": "P1",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "RLS section"
+        }
+      ],
+      "implementationGuide": "1) Add helper SQL functions for role checks. 2) Enable RLS and define per-table policies. 3) Remove permissive legacy policies.",
+      "verificationCriteria": "타조직 데이터 접근이 차단되고 super/admin/user 권한이 분기된다.",
+      "analysisResult": "Security baseline",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T03:56:14.630Z"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000006",
       "name": "P1-3 Backfill existing MVP data to new schema",
       "description": "Backfill organization_settings and service fields without destructive reset.",
@@ -198,6 +223,9 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000007"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000005"
         }
       ],
       "estimatedMinutes": 180,
@@ -512,10 +540,7 @@
       "phase": "P6",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000009"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000018"
+          "taskId": "10000000-0000-4000-8000-000000000005"
         }
       ],
       "estimatedMinutes": 270,
@@ -883,6 +908,39 @@
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
     {
+      "id": "10000000-0000-4000-8000-000000000031",
+      "name": "P10-1 Security hardening and policy audit",
+      "description": "Audit all RLS policies and edge-function authorization checks.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000005"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000030"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_MODIFY",
+          "description": "Policy corrections"
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "Security checklist"
+        }
+      ],
+      "implementationGuide": "1) Run policy penetration checks. 2) Fix leaks and privilege escalation paths.",
+      "verificationCriteria": "RLS 우회/타조직 조회 시도가 모두 실패한다.",
+      "analysisResult": "Pre-release security baseline",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000032",
       "name": "P10-2 Performance tuning for list/grid/dashboard",
       "description": "Profile and optimize critical screens and queries.",
@@ -909,6 +967,39 @@
       "implementationGuide": "1) Add query indexes if needed. 2) Add memoization and pagination where relevant.",
       "verificationCriteria": "핵심 목록/그리드/대시보드 응답시간 기준을 만족한다.",
       "analysisResult": "Production readiness",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000033",
+      "name": "P10-3 Final release checklist and runbook",
+      "description": "Prepare staging soak test checklist, rollback/runbook, and go-live decision artifacts.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000031"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000032"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/final-verification-report.md",
+          "type": "TO_MODIFY",
+          "description": "Release report"
+        },
+        {
+          "path": "README.md",
+          "type": "TO_MODIFY",
+          "description": "Service mode docs"
+        }
+      ],
+      "implementationGuide": "1) Build go-live checklist. 2) Add rollback steps using backup files and feature flags. 3) Define hypercare window.",
+      "verificationCriteria": "릴리즈 체크리스트와 롤백 시나리오가 문서화되어 있다.",
+      "analysisResult": "Controlled production transition",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
@@ -1235,7 +1326,7 @@
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "migrations/008_rls_progressive_rollout.sql",
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
           "type": "TO_MODIFY",
           "description": "RLS/헬퍼 함수 추가 예정"
         }
@@ -1509,6 +1600,9 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000056"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000048"
         }
       ],
       "estimatedMinutes": 120,
@@ -2592,7 +2686,7 @@
       "phase": "P6",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000061"
+          "taskId": "10000000-0000-4000-8000-000000000048"
         }
       ],
       "estimatedMinutes": 90,
@@ -3129,103 +3223,6 @@
       ],
       "implementationGuide": "1) 권한/RLS/가입/온보딩/스케줄 변경 시 회귀 필수 규칙 정의. 2) 실행 시간/빈도 균형 결정. 3) 문서에 기준 반영.",
       "verificationCriteria": "회귀 테스트 실행 기준이 문서화되어 있다.",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000005",
-      "name": "P1-2 Apply strict RLS policies for tenant isolation",
-      "description": "Add helper functions and RLS policies for super/admin/user role-based data access across organizations.",
-      "status": "pending",
-      "phase": "P1",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000004"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000048"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000122"
-        }
-      ],
-      "estimatedMinutes": 300,
-      "relatedFiles": [
-        {
-          "path": "migrations/008_rls_progressive_rollout.sql",
-          "type": "TO_CREATE",
-          "description": "RLS section"
-        }
-      ],
-      "implementationGuide": "1) Add helper SQL functions and apply SELECT-first RLS policies. 2) Roll out INSERT/UPDATE/DELETE policies domain by domain. 3) Remove permissive legacy policies in staged order. 4) Run regression checks after each stage.",
-      "verificationCriteria": "단계별 적용 중 기존 기능이 유지되고, 최종적으로 타조직 데이터 접근이 차단되며 super/admin/user 권한이 분기된다.",
-      "analysisResult": "Security baseline",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-28T03:56:14.630Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000031",
-      "name": "P10-1 Security hardening and policy audit",
-      "description": "Audit all RLS policies and edge-function authorization checks.",
-      "status": "pending",
-      "phase": "P10",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000005"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000030"
-        }
-      ],
-      "estimatedMinutes": 240,
-      "relatedFiles": [
-        {
-          "path": "migrations/008_rls_progressive_rollout.sql",
-          "type": "TO_MODIFY",
-          "description": "Policy corrections"
-        },
-        {
-          "path": "docs/verification/test-validation-guide.md",
-          "type": "TO_MODIFY",
-          "description": "Security checklist"
-        }
-      ],
-      "implementationGuide": "1) Run policy penetration checks. 2) Fix leaks and privilege escalation paths.",
-      "verificationCriteria": "RLS 우회/타조직 조회 시도가 모두 실패한다.",
-      "analysisResult": "Pre-release security baseline",
-      "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000033",
-      "name": "P10-3 Final release checklist and runbook",
-      "description": "Prepare staging soak test checklist, rollback/runbook, and go-live decision artifacts.",
-      "status": "pending",
-      "phase": "P10",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000031"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000032"
-        }
-      ],
-      "estimatedMinutes": 180,
-      "relatedFiles": [
-        {
-          "path": "docs/verification/final-verification-report.md",
-          "type": "TO_MODIFY",
-          "description": "Release report"
-        },
-        {
-          "path": "README.md",
-          "type": "TO_MODIFY",
-          "description": "Service mode docs"
-        }
-      ],
-      "implementationGuide": "1) Build go-live checklist. 2) Add rollback steps using backup files and feature flags. 3) Define hypercare window.",
-      "verificationCriteria": "릴리즈 체크리스트와 롤백 시나리오가 문서화되어 있다.",
-      "analysisResult": "Controlled production transition",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
@@ -3823,7 +3820,7 @@
       "phase": "P10",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000005"
+          "taskId": "10000000-0000-4000-8000-000000000048"
         },
         {
           "taskId": "10000000-0000-4000-8000-000000000146"
