@@ -425,15 +425,15 @@
       "id": "c189da56-e1d2-4f5c-b7ca-8c0928d11fb3",
       "name": "P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결",
       "description": "회원가입에서 조직 정보가 없을 때 6.2 Organization Management 화면을 재사용하는 요구를 구현 가능한 태스크 경계로 명시한다.",
-      "notes": "가입 UX와 조직관리 재사용 경계를 분리해 중복 구현을 방지한다.",
-      "status": "pending",
+      "notes": "PRD 5.1(admin 가입 시 조직 미보유 분기)과 PRD 6.2(Organization Management 재사용) 연결 경계를 `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`로 문서화했다. 산출물에는 상태 다이어그램(가입->조직생성 브리지->승인대기), 인터페이스 계약(라우트 `/signup` <-> `/admin/organizations/new`, API `organizationSelectionMode`/`organizationDraftId`, 권한 `signup-bridge` 스코프)이 포함된다. 누락 구현 태스크를 phase별로 추가 완료: P2-1.6(`63463b1e-64b2-4677-86ea-ebfcde2316d5`), P2-1.7(`97cfb736-1ec7-425e-948d-b9a9d5b247f0`), P2-1.8(`f3ea69c1-2e67-45c1-8d28-f7cf37f768f8`), P5-1.5(`79d3fd2b-ecec-45bc-9578-a88f19599d20`), P5-1.6(`c5743d61-4d08-4793-9c3b-216b39c59e8b`). 중복 구현 방지 원칙(신규 가입 전용 조직생성 화면 금지, 6.2 컴포넌트 재사용)을 명시했다.",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "a59d8e0e-df2b-4f1d-9002-6f0b8825441b"
         }
       ],
       "createdAt": "2026-02-28T07:16:48.104Z",
-      "updatedAt": "2026-02-28T07:16:48.104Z",
+      "updatedAt": "2026-02-28T10:33:32.853Z",
       "relatedFiles": [
         {
           "path": "docs/REFINED_PRD.md",
@@ -451,16 +451,23 @@
           "description": "조직관리 관련 기존 태스크"
         },
         {
+          "path": "docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md",
+          "type": "TO_MODIFY",
+          "description": "가입->조직생성 재사용 상태 다이어그램/계약 문서"
+        },
+        {
           "path": ".shrimp-data/tasks.json",
           "type": "TO_MODIFY",
-          "description": "연결 태스크 반영"
+          "description": "연결 태스크 및 phase별 누락 태스크 반영"
         }
       ],
       "implementationGuide": "1) PRD 5.1과 6.2의 연결 플로우를 상태 다이어그램으로 정리한다. 2) P2(가입)와 P5(조직관리) 사이 인터페이스 계약(라우트/API/권한)을 명시한다. 3) 누락된 구현 태스크를 phase별로 추가한다.",
       "verificationCriteria": "Deliverable: 가입→조직생성(6.2 재사용) 연결 플로우와 구현 태스크 목록이 추가된다. Method: P2/P5 태스크와 PRD 5.1/6.2를 교차 검토한다. Pass: 조직생성 재사용 요구가 구현 백로그에 명시되고 책임 phase가 지정된다.",
       "analysisResult": "P0-2.1 mapping identified three common requirement gaps that need explicit backlog items: global RBAC menu/route matrix, signup-to-organization-management reuse path, and solver-completion notification producer boundary.",
       "phase": "P0",
-      "estimatedMinutes": 90
+      "estimatedMinutes": 90,
+      "summary": "PRD 5.1/6.2 연결 플로우를 `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`에 상태 다이어그램과 라우트/API/권한 계약으로 문서화했고, 누락 구현 항목을 P2/P5 phase 태스크 5건으로 백로그에 추가하여 재사용 요구의 구현 경계와 책임 phase를 명확히 확정했다.",
+      "completedAt": "2026-02-28T10:33:32.848Z"
     },
     {
       "id": "92faa6b4-20db-404d-a5d9-9b24760168fc",
@@ -4016,6 +4023,189 @@
       "estimatedMinutes": 120,
       "summary": "namePattern 위반 0건, verificationCriteria 3요소(Deliverable/Method/Pass) 포함률 100% 확인. 전체 146개 태스크 검증 완료.",
       "completedAt": "2026-02-28T08:35:00.000Z"
+    },
+    {
+      "id": "63463b1e-64b2-4677-86ea-ebfcde2316d5",
+      "name": "P2-1.6 admin 가입 무소속 분기 라우트/가드 계약 정의",
+      "description": "admin 가입 시 조직 미선택/미존재인 경우 6.2 조직 생성 화면 재사용으로 분기하는 라우트 및 가드 계약을 정의한다.",
+      "notes": "일반 관리자 권한을 부여하지 않고 signup 브리지 스코프만 허용해야 한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000056"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000088"
+        }
+      ],
+      "createdAt": "2026-02-28T10:32:39.915Z",
+      "updatedAt": "2026-02-28T10:32:39.915Z",
+      "relatedFiles": [
+        {
+          "path": "src/router/guards.ts",
+          "type": "TO_MODIFY",
+          "description": "signup bridge mode 가드 분기"
+        },
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "브리지 라우트 메타 연결"
+        },
+        {
+          "path": "docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md",
+          "type": "REFERENCE",
+          "description": "연결 플로우/계약"
+        }
+      ],
+      "implementationGuide": "1) /signup에서 mode=signup 브리지 파라미터 정책 정의. 2) /admin/organizations/new 재사용 경로와 일반 admin 콘솔 경로를 가드에서 구분. 3) 완료 후 /signup resume 복귀 규칙과 오류 리다이렉트 규칙 문서화.",
+      "verificationCriteria": "Deliverable: signup 브리지 라우트/가드 계약 문서. Method: P2/P5 라우트 태스크와 PRD 5.1/6.2 요구를 대조 검토한다. Pass: 무소속 admin 가입자가 6.2 재사용 경로로 진입하고 일반 admin 콘솔 권한은 부여되지 않음이 명시된다.",
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+    },
+    {
+      "id": "97cfb736-1ec7-425e-948d-b9a9d5b247f0",
+      "name": "P2-1.7 가입 제출 API 확장(organizationSelectionMode/create_new)",
+      "description": "가입 제출 API 계약에 organizationSelectionMode와 organizationDraftId 바인딩 규칙을 추가해 create_new 플로우를 명시한다.",
+      "notes": "P2는 가입 요청 계약과 검증을 담당하고, 조직 생성 상세 구현은 P5가 담당한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "63463b1e-64b2-4677-86ea-ebfcde2316d5"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000054"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000089"
+        }
+      ],
+      "createdAt": "2026-02-28T10:32:39.915Z",
+      "updatedAt": "2026-02-28T10:32:39.915Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "가입 요청 payload 확장"
+        },
+        {
+          "path": "supabase/functions/signup-submit/index.ts",
+          "type": "TO_MODIFY",
+          "description": "create_new 모드 입력 검증"
+        },
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "가입 API 계약 보강"
+        }
+      ],
+      "implementationGuide": "1) 요청 스키마에 organizationSelectionMode(existing|create_new) 추가. 2) create_new일 때 organizationDraftId 필수 검증 규칙 정의. 3) signup_requests 저장 필드 및 상태 전이 영향 정리.",
+      "verificationCriteria": "Deliverable: create_new 조직 선택 모드를 포함한 가입 API 계약. Method: 요청/응답/검증 표를 리뷰하고 기존 P2-1.3 계약과 diff 확인. Pass: existing/create_new 분기와 organizationDraftId 필수 조건이 누락 없이 정의된다.",
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+    },
+    {
+      "id": "79d3fd2b-ecec-45bc-9578-a88f19599d20",
+      "name": "P5-1.5 6.2 조직생성 signup 브리지 모드 진입 설계",
+      "description": "Organization Management(6.2) 화면을 signup 브리지 모드로 재사용하기 위한 화면 상태/입력 제한/저장 액션 경계를 설계한다.",
+      "notes": "새로운 별도 화면을 만들지 않고 6.2 컴포넌트 재사용을 원칙으로 한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000090"
+        },
+        {
+          "taskId": "63463b1e-64b2-4677-86ea-ebfcde2316d5"
+        }
+      ],
+      "createdAt": "2026-02-28T10:32:39.915Z",
+      "updatedAt": "2026-02-28T10:32:39.915Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/management/OrganizationManagement.vue",
+          "type": "TO_MODIFY",
+          "description": "signup bridge 모드 분기"
+        },
+        {
+          "path": "src/composables/useOrganizationForm.ts",
+          "type": "TO_MODIFY",
+          "description": "브리지 저장 결과 모델"
+        },
+        {
+          "path": "docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md",
+          "type": "REFERENCE",
+          "description": "재사용 경계 문서"
+        }
+      ],
+      "implementationGuide": "1) mode=signup일 때 노출할 최소 필드/탭 범위 정의. 2) 저장 완료 이벤트 계약(organizationDraftId 반환) 정의. 3) 일반 admin 콘솔 모드와 UI/권한 차이를 명시.",
+      "verificationCriteria": "Deliverable: 6.2 signup 브리지 모드 UI/저장 경계 스펙. Method: 기존 P5-1.x 범위와 비교해 중복 화면 생성 여부를 점검한다. Pass: 별도 signup 전용 조직생성 화면 없이 6.2 재사용 경계가 명시된다.",
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+    },
+    {
+      "id": "c5743d61-4d08-4793-9c3b-216b39c59e8b",
+      "name": "P5-1.6 조직생성 결과-가입요청 바인딩 계약 정의",
+      "description": "6.2 조직생성 결과를 가입요청(signup_requests)과 연결하기 위한 데이터 바인딩 계약과 오류 처리 규칙을 정의한다.",
+      "notes": "가입 승인 전 단계에서만 바인딩 가능하도록 상태 제약을 둔다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "79d3fd2b-ecec-45bc-9578-a88f19599d20"
+        },
+        {
+          "taskId": "97cfb736-1ec7-425e-948d-b9a9d5b247f0"
+        }
+      ],
+      "createdAt": "2026-02-28T10:32:39.915Z",
+      "updatedAt": "2026-02-28T10:32:39.915Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "조직생성-가입요청 바인딩 계약"
+        },
+        {
+          "path": "supabase/functions/organization-save/index.ts",
+          "type": "TO_MODIFY",
+          "description": "브리지 바인딩 처리"
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "바인딩 오류/복구 검증 항목"
+        }
+      ],
+      "implementationGuide": "1) organizationDraftId와 signupRequestToken 매핑 규칙 정의. 2) 중복 저장/중복 바인딩 멱등 정책 정의. 3) 실패 시 재시도/복구 절차 정의.",
+      "verificationCriteria": "Deliverable: 조직생성 결과와 가입요청 연결 계약서(필드/상태/오류). Method: P2-1.7 계약과 상호 참조 검토를 수행한다. Pass: create_new 플로우에서 바인딩 성공/실패/재시도 규칙이 명확히 문서화된다.",
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
+    },
+    {
+      "id": "f3ea69c1-2e67-45c1-8d28-f7cf37f768f8",
+      "name": "P2-1.8 가입→6.2재사용→승인대기 E2E 시나리오 정의",
+      "description": "admin 가입자가 조직 미보유 상태에서 6.2 재사용 조직생성을 거쳐 승인대기로 전환되는 E2E 시나리오를 정의한다.",
+      "notes": "회귀 포인트는 라우트 가드 우회, 권한 누수, 바인딩 누락이다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "c5743d61-4d08-4793-9c3b-216b39c59e8b"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000060"
+        }
+      ],
+      "createdAt": "2026-02-28T10:32:39.915Z",
+      "updatedAt": "2026-02-28T10:32:39.915Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "signup-organization bridge E2E 시나리오"
+        },
+        {
+          "path": "docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md",
+          "type": "REFERENCE",
+          "description": "플로우 기준 문서"
+        }
+      ],
+      "implementationGuide": "1) happy path: signup->bridge->org save->signup submit->pending. 2) fail path: 브리지 토큰 만료/중복 바인딩/조직 저장 실패. 3) 기대 결과(UI 메시지, DB 상태, 라우트 이동) 정의.",
+      "verificationCriteria": "Deliverable: signup->organization reuse 연결 E2E 테스트 시나리오 세트. Method: 시나리오별 선행조건/절차/기대결과 3요소 포함 여부를 리뷰한다. Pass: happy/fail 경로 모두에서 승인대기 전환과 권한 경계 검증 항목이 존재한다.",
+      "analysisResult": "PRD 5.1 requires admin signup users without organization to create one by reusing PRD 6.2 Organization Management. Existing P2-1.x and P5-1.x define generic signup and organization management, but the bridge boundary (route, auth scope, payload binding, and E2E) is not explicit. We add focused tasks to connect P2 and P5 without creating duplicate UI."
     }
   ]
 }
