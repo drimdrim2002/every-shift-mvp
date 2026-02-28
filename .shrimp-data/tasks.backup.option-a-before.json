@@ -1,6 +1,888 @@
 {
   "tasks": [
     {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "name": "P0-1 Program bootstrap and quality gates",
+      "description": "Define migration rules, branch strategy, quality gates, and release policy for REFINED_PRD transition.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "REFERENCE",
+          "description": "Target requirements"
+        },
+        {
+          "path": "AGENTS.md",
+          "type": "REFERENCE",
+          "description": "Repository execution rules"
+        },
+        {
+          "path": "scripts/quality-gate.sh",
+          "type": "REFERENCE",
+          "description": "Quality gate baseline"
+        }
+      ],
+      "implementationGuide": "1) Create migration governance document. 2) Define branch and rollout policy. 3) Define DoD with lint/tests/docs required.",
+      "verificationCriteria": "Governance 문서가 존재하고, lint/test/doc gate가 명확히 정의되어 있다.",
+      "analysisResult": "Program foundation for concurrent cross-domain migration",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:36:02.079Z",
+      "summary": "거버넌스 단일 문서가 생성되었고 브랜치 전략, 롤아웃 정책, DoD, lint/test/doc 품질 게이트가 문서와 스크립트에 명시되어 검증 기준을 충족한다.",
+      "completedAt": "2026-02-27T07:36:02.075Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "name": "P0-2 Replace tasks.json with phased migration backlog",
+      "description": "Replace shrimp task backlog with REFINED_PRD transition phases and dependency graph.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": ".shrimp-data/tasks.json",
+          "type": "TO_MODIFY",
+          "description": "Primary shrimp backlog"
+        },
+        {
+          "path": ".shrimp-data/tasks.migration-backup-20260227.json",
+          "type": "TO_CREATE",
+          "description": "Rollback backup"
+        }
+      ],
+      "implementationGuide": "1) Backup current tasks.json. 2) Replace with migration backlog. 3) Ensure dependency links are valid.",
+      "verificationCriteria": "tasks.json에서 P0~P10 phase와 의존성 조회가 가능하다.",
+      "analysisResult": "Shrimp-first execution model",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:37:55.900Z",
+      "summary": "`.shrimp-data/tasks.json`이 REFINED_PRD 기반 phase 백로그(P0~P10)로 구성되어 있음을 확인했고, dependency 참조가 모두 유효함을 jq 검증으로 확인하여 완료 기준을 충족했습니다.",
+      "completedAt": "2026-02-27T07:37:55.897Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "name": "P0-3 Build migration dashboard for task progress",
+      "description": "Provide trackable migration state by phase with blockers, risk, and release readiness.",
+      "status": "completed",
+      "phase": "P0",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000002"
+        }
+      ],
+      "estimatedMinutes": 210,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/final-verification-report.md",
+          "type": "REFERENCE",
+          "description": "Verification baseline"
+        },
+        {
+          "path": "docs/README.md",
+          "type": "TO_MODIFY",
+          "description": "Migration status section"
+        }
+      ],
+      "implementationGuide": "1) Define per-phase KPI. 2) Add risk/blocker tracking. 3) Add acceptance dashboard in docs.",
+      "verificationCriteria": "Phase별 상태/리스크/완료조건이 한 페이지에서 추적된다.",
+      "analysisResult": "Visibility and release readiness",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:40:42.816Z",
+      "summary": "`docs/migration/MIGRATION_PROGRESS_DASHBOARD.md`를 추가해 P0~P10 phase별 KPI(C/IP/P/T), 상태, 블로커, 리스크, 완료조건(Exit Criteria), 릴리스 준비도를 한 페이지에 통합했다. 또한 `docs/README.md`의 Migration 섹션에 대시보드 링크와 사용 시점을 추가해 추적 진입점을 명확히 연결했다.",
+      "completedAt": "2026-02-27T07:40:42.813Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "name": "P1-1 Expand schema for RBAC and multitenancy",
+      "description": "Create new tables for profiles, memberships, approvals, onboarding, notifications, skills/ranks/sites, and analytics foundation.",
+      "status": "completed",
+      "phase": "P1",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "TO_CREATE",
+          "description": "Main schema expansion migration"
+        }
+      ],
+      "implementationGuide": "1) Add new tables and indexes. 2) Extend existing core tables with nullable service fields. 3) Add migration comments.",
+      "verificationCriteria": "신규/확장 테이블이 생성되고 기존 데이터가 유지된다.",
+      "analysisResult": "Schema-first service transition",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:46:10.128Z",
+      "summary": "`migrations/007_service_transition_rbac_multitenant.sql`를 생성해 RBAC/멀티테넌시 전환용 신규 테이블(프로필, 멤버십, 가입요청, 승인로그, 온보딩, 알림, 스킬/직급/사이트, 사이트 요구인력, 분석지표)을 추가하고, 기존 핵심 테이블(organizations/employees/shifts/schedules/schedule_assignments/site_requirements)에 nullable 서비스 컬럼을 비파괴 방식으로 확장했다. 주요 인덱스, 체크 제약, COMMENT를 포함해 후속 RLS/백필 작업의 기반을 마련했다.",
+      "completedAt": "2026-02-27T07:46:10.124Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000007",
+      "name": "P2-1 Implement signup submission API and UI",
+      "description": "Create signup page for admin/user and submit signup requests through edge function/API layer.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "TO_CREATE",
+          "description": "Signup page"
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "TO_CREATE",
+          "description": "Signup API wrapper"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "Signup action"
+        }
+      ],
+      "implementationGuide": "1) Build signup form and validation. 2) Add signup submit API. 3) Store pending status after submit.",
+      "verificationCriteria": "가입 요청 시 signup_requests 레코드가 생성되고 승인대기 메시지가 표시된다.",
+      "analysisResult": "Entry point for service onboarding",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000008",
+      "name": "P2-2 Block login for non-approved users",
+      "description": "Enforce approval status during login and session restore.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000007"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "Approval gate"
+        }
+      ],
+      "implementationGuide": "1) Query membership approval on login/checkSession. 2) Reject pending/rejected users. 3) Return user-facing reasons.",
+      "verificationCriteria": "승인되지 않은 계정은 로그인 차단되고 에러 메시지가 명확하다.",
+      "analysisResult": "Approval-gated access",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000009",
+      "name": "P2-3 Implement approval decision workflow",
+      "description": "Implement super/admin approval and rejection actions via API and store.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000007"
+        }
+      ],
+      "estimatedMinutes": 270,
+      "relatedFiles": [
+        {
+          "path": "src/api/approval.ts",
+          "type": "TO_CREATE",
+          "description": "Approval API"
+        },
+        {
+          "path": "src/stores/approval.ts",
+          "type": "TO_CREATE",
+          "description": "Approval store"
+        },
+        {
+          "path": "src/views/management/AccountManagement.vue",
+          "type": "TO_CREATE",
+          "description": "Approval UI"
+        }
+      ],
+      "implementationGuide": "1) Pending list query. 2) Decision action (approve/reject). 3) Persist approval_logs.",
+      "verificationCriteria": "승인/반려가 membership/signup 상태에 반영된다.",
+      "analysisResult": "Core account governance",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000010",
+      "name": "P3-1 Onboarding progress data model and API",
+      "description": "Implement onboarding progress persistence API with 3-step wizard state.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/types/onboarding.ts",
+          "type": "TO_CREATE",
+          "description": "Onboarding types"
+        },
+        {
+          "path": "src/stores/onboarding.ts",
+          "type": "TO_CREATE",
+          "description": "Onboarding store"
+        }
+      ],
+      "implementationGuide": "1) Add onboarding types. 2) Implement progress load/update API bindings. 3) Add completion checkpoint.",
+      "verificationCriteria": "온보딩 단계가 재로그인 후에도 복원된다.",
+      "analysisResult": "First-run admin enablement",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000011",
+      "name": "P3-2 Build onboarding wizard page",
+      "description": "Create admin-first-login onboarding UI with 3 mandatory steps.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000010"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "src/views/Onboarding.vue",
+          "type": "TO_CREATE",
+          "description": "Wizard screen"
+        }
+      ],
+      "implementationGuide": "1) Implement 3-step wizard UI. 2) Save each step completion. 3) Redirect to dashboard on completion.",
+      "verificationCriteria": "admin 최초 로그인 시 온보딩이 강제되고 완료 후 해제된다.",
+      "analysisResult": "Operational readiness at first login",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000012",
+      "name": "P3-3 Enforce onboarding route guard",
+      "description": "Add global route guard for onboarding-required admins.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000011"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "Route guard"
+        },
+        {
+          "path": "src/stores/rbac.ts",
+          "type": "TO_CREATE",
+          "description": "Role context store"
+        }
+      ],
+      "implementationGuide": "1) Add requiresOnboarding route meta. 2) Redirect admins to onboarding until complete.",
+      "verificationCriteria": "미완료 admin이 운영 메뉴로 직접 접근할 수 없다.",
+      "analysisResult": "Guarded onboarding flow",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000013",
+      "name": "P4-1 Account management list and filters",
+      "description": "Implement account list with role/status filters for super/admin scopes.",
+      "status": "pending",
+      "phase": "P4",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000009"
+        }
+      ],
+      "estimatedMinutes": 210,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/AccountManagement.vue",
+          "type": "TO_MODIFY",
+          "description": "Account table"
+        }
+      ],
+      "implementationGuide": "1) Build account list. 2) Apply role and status filters. 3) Scope by current role.",
+      "verificationCriteria": "super는 전체, admin은 자조직 계정만 조회된다.",
+      "analysisResult": "Operational account control",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000014",
+      "name": "P4-2 Account actions (approve/reject/withdraw)",
+      "description": "Add approval, rejection, and withdrawal actions in account management.",
+      "status": "pending",
+      "phase": "P4",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000013"
+        }
+      ],
+      "estimatedMinutes": 210,
+      "relatedFiles": [
+        {
+          "path": "src/api/approval.ts",
+          "type": "TO_MODIFY",
+          "description": "Action endpoints"
+        },
+        {
+          "path": "src/stores/approval.ts",
+          "type": "TO_MODIFY",
+          "description": "Action handlers"
+        }
+      ],
+      "implementationGuide": "1) Add action handlers with confirmation. 2) Persist audit log. 3) Refresh affected lists.",
+      "verificationCriteria": "승인/반려/탈퇴 상태가 즉시 UI와 DB에 반영된다.",
+      "analysisResult": "Decision lifecycle complete",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000015",
+      "name": "P4-3 RBAC matrix tests for account module",
+      "description": "Implement automated tests for account-management access and action restrictions.",
+      "status": "pending",
+      "phase": "P4",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000014"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "tests/e2e/schedule-workflow.spec.ts",
+          "type": "TO_MODIFY",
+          "description": "Add account RBAC flows"
+        }
+      ],
+      "implementationGuide": "1) Add super/admin/user scenarios. 2) Assert menu visibility and action permissions.",
+      "verificationCriteria": "권한 행렬 테스트가 녹색으로 통과한다.",
+      "analysisResult": "Regression-safe RBAC",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000016",
+      "name": "P5-1 Organization management base CRUD",
+      "description": "Implement organization CRUD with service fields and tenant scoping.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/OrganizationManagement.vue",
+          "type": "TO_CREATE",
+          "description": "Organization management UI"
+        },
+        {
+          "path": "src/api/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "CRUD expansion"
+        }
+      ],
+      "implementationGuide": "1) Extend organization APIs. 2) Build management page with create/update actions.",
+      "verificationCriteria": "조직 정보 CRUD가 권한 범위 내에서 동작한다.",
+      "analysisResult": "Master data centralization",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000017",
+      "name": "P5-2 Shift/constraint/skill/rank management",
+      "description": "Add management UI and APIs for shifts, labor constraints, skills, and ranks.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000016"
+        }
+      ],
+      "estimatedMinutes": 330,
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "TO_MODIFY",
+          "description": "Shift management"
+        },
+        {
+          "path": "src/stores/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "Master store extensions"
+        }
+      ],
+      "implementationGuide": "1) Extend API for skills/ranks. 2) Add constraints form. 3) Persist organization settings.",
+      "verificationCriteria": "근무제약/기술/직급 데이터 저장과 조회가 가능하다.",
+      "analysisResult": "Configurable organization rules",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000018",
+      "name": "P5-3 Site and site staffing requirement management",
+      "description": "Implement site CRUD and weekday staffing requirements by site/skill/rank.",
+      "status": "pending",
+      "phase": "P5",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000017"
+        }
+      ],
+      "estimatedMinutes": 330,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/OrganizationManagement.vue",
+          "type": "TO_MODIFY",
+          "description": "Site management tabs"
+        },
+        {
+          "path": "src/api/employee.ts",
+          "type": "TO_MODIFY",
+          "description": "Site requirement APIs"
+        }
+      ],
+      "implementationGuide": "1) Add site APIs. 2) Add per-site requirement editor. 3) Add optional skill/rank level requirement fields.",
+      "verificationCriteria": "사이트별 요일/시프트 요구 인력이 저장되고 월 계산에 반영된다.",
+      "analysisResult": "Multi-site staffing model",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000019",
+      "name": "P6-1 Employee management page and role scopes",
+      "description": "Build employee management module with super/admin/user scoped views.",
+      "status": "pending",
+      "phase": "P6",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000009"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000018"
+        }
+      ],
+      "estimatedMinutes": 270,
+      "relatedFiles": [
+        {
+          "path": "src/views/management/EmployeeManagement.vue",
+          "type": "TO_CREATE",
+          "description": "Employee management page"
+        },
+        {
+          "path": "src/api/employee.ts",
+          "type": "TO_MODIFY",
+          "description": "Scoped APIs"
+        }
+      ],
+      "implementationGuide": "1) Build scoped table view. 2) Restrict edit scope by role. 3) Provide self-view for user role.",
+      "verificationCriteria": "role별 조회/수정 범위가 정확히 제한된다.",
+      "analysisResult": "Role-aligned employee operations",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000020",
+      "name": "P6-2 Employee CRUD with skill/rank/site mapping",
+      "description": "Extend employee model and forms with skill, rank, site, and credit fields.",
+      "status": "pending",
+      "phase": "P6",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000019"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/types/employee.ts",
+          "type": "TO_MODIFY",
+          "description": "Extended employee type"
+        },
+        {
+          "path": "src/components/schedule/EmployeeTable.vue",
+          "type": "TO_MODIFY",
+          "description": "Additional columns"
+        }
+      ],
+      "implementationGuide": "1) Add new fields in type and forms. 2) Persist to DB. 3) Validate required fields.",
+      "verificationCriteria": "직원 CRUD가 확장 필드를 포함해 동작한다.",
+      "analysisResult": "Service-grade employee model",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000021",
+      "name": "P6-3 Excel employee import with new schema",
+      "description": "Update Excel upload parser/validator to support skill/rank/site mapping.",
+      "status": "pending",
+      "phase": "P6",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000020"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/EmployeeExcelUpload.vue",
+          "type": "TO_MODIFY",
+          "description": "Import UX"
+        },
+        {
+          "path": "src/utils/excelParser.ts",
+          "type": "TO_MODIFY",
+          "description": "Schema parsing"
+        },
+        {
+          "path": "src/utils/excelValidator.ts",
+          "type": "TO_MODIFY",
+          "description": "Schema validation"
+        }
+      ],
+      "implementationGuide": "1) Extend template and parser. 2) Add cross-reference validation for skills/ranks/sites.",
+      "verificationCriteria": "엑셀 업로드로 확장 직원 스키마가 정상 저장된다.",
+      "analysisResult": "Bulk onboarding capability",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000022",
+      "name": "P7-1 Integrate Step1/Step2 with organization master data",
+      "description": "Wire schedule Step1/Step2 to new organization settings, shifts, sites, and site staffing rules.",
+      "status": "pending",
+      "phase": "P7",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000018"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Read from master settings"
+        },
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Site-based requirements"
+        }
+      ],
+      "implementationGuide": "1) Replace static assumptions with master settings. 2) Keep UX continuity.",
+      "verificationCriteria": "Step1/Step2가 조직관리 데이터와 일관되게 동작한다.",
+      "analysisResult": "Unified planning input",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000023",
+      "name": "P7-2 Keep solver integration contract stable",
+      "description": "Maintain existing solver API contract while mapping additional metadata and event hooks.",
+      "status": "pending",
+      "phase": "P7",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000022"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/api/solver.ts",
+          "type": "TO_MODIFY",
+          "description": "Contract stability"
+        },
+        {
+          "path": "src/utils/solverMapper.ts",
+          "type": "TO_MODIFY",
+          "description": "Extended mapping"
+        }
+      ],
+      "implementationGuide": "1) Preserve request/response compatibility. 2) Add metadata hooks for notifications and dashboards.",
+      "verificationCriteria": "기존 solver 플로우 회귀 없이 확장 필드 연동이 가능하다.",
+      "analysisResult": "Low-risk core integration",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000024",
+      "name": "P7-3 Schedule workflow regression suite",
+      "description": "Extend E2E and unit tests to guarantee no regression in schedule creation and editing flow.",
+      "status": "pending",
+      "phase": "P7",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000023"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "tests/e2e/schedule-workflow.spec.ts",
+          "type": "TO_MODIFY",
+          "description": "Core regression scenarios"
+        },
+        {
+          "path": "tests/unit/solver.spec.ts",
+          "type": "TO_MODIFY",
+          "description": "Mapping regression"
+        }
+      ],
+      "implementationGuide": "1) Add regression tests for step transitions and solver status updates. 2) Include manual edit save flow.",
+      "verificationCriteria": "기존 스케줄 핵심 플로우 회귀가 0건이다.",
+      "analysisResult": "Regression protection",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000025",
+      "name": "P8-1 Notification domain models and APIs",
+      "description": "Implement notification event, preference, and delivery APIs.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/types/notification.ts",
+          "type": "TO_CREATE",
+          "description": "Notification types"
+        },
+        {
+          "path": "src/api/notification.ts",
+          "type": "TO_CREATE",
+          "description": "Notification APIs"
+        },
+        {
+          "path": "src/stores/notification.ts",
+          "type": "TO_CREATE",
+          "description": "Notification store"
+        }
+      ],
+      "implementationGuide": "1) Add APIs for inbox/preferences/read-status. 2) Add store actions and state.",
+      "verificationCriteria": "알림 이벤트/환경설정/전달 상태를 조회 및 갱신할 수 있다.",
+      "analysisResult": "Notification infrastructure",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000026",
+      "name": "P8-2 Notification center UI",
+      "description": "Build in-app notification center and preference controls.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000025"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/views/Notifications.vue",
+          "type": "TO_CREATE",
+          "description": "Notification center"
+        },
+        {
+          "path": "src/components/layout/Header.vue",
+          "type": "TO_MODIFY",
+          "description": "Bell and unread badge"
+        }
+      ],
+      "implementationGuide": "1) Build notification list and mark-read interactions. 2) Add preference toggles per event.",
+      "verificationCriteria": "앱 내 알림 확인/읽음 처리/설정 변경이 가능하다.",
+      "analysisResult": "End-user notification UX",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000027",
+      "name": "P8-3 Resend email dispatch integration",
+      "description": "Implement email dispatch worker endpoint using Supabase Edge Function + Resend.",
+      "status": "pending",
+      "phase": "P8",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000025"
+        }
+      ],
+      "estimatedMinutes": 270,
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/notify-dispatch/index.ts",
+          "type": "TO_CREATE",
+          "description": "Dispatch function"
+        },
+        {
+          "path": "scripts/mcp.env.example",
+          "type": "TO_MODIFY",
+          "description": "Resend key env docs"
+        }
+      ],
+      "implementationGuide": "1) Add function contract for queued deliveries. 2) Send via Resend API. 3) Update delivery status and error message.",
+      "verificationCriteria": "승인/엔진완료/공지 이메일 이벤트 발송이 성공한다.",
+      "analysisResult": "External email channel",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000028",
+      "name": "P9-1 Dashboard domain types and store",
+      "description": "Add fairness metric and report filter models with dashboard store.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/types/dashboard.ts",
+          "type": "TO_CREATE",
+          "description": "Dashboard types"
+        },
+        {
+          "path": "src/stores/dashboard.ts",
+          "type": "TO_CREATE",
+          "description": "Dashboard store"
+        }
+      ],
+      "implementationGuide": "1) Define FairnessMetric and ReportFilter types. 2) Build data store actions.",
+      "verificationCriteria": "대시보드 타입/스토어가 공정성 지표와 필터를 지원한다.",
+      "analysisResult": "Analytics foundation",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000029",
+      "name": "P9-2 Admin and personal dashboard pages",
+      "description": "Implement admin fairness chart view and user personal schedule/statistics view.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000028"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "src/views/dashboard/AdminDashboard.vue",
+          "type": "TO_CREATE",
+          "description": "Admin dashboard"
+        },
+        {
+          "path": "src/views/dashboard/MyDashboard.vue",
+          "type": "TO_CREATE",
+          "description": "User dashboard"
+        }
+      ],
+      "implementationGuide": "1) Add KPI cards and fairness charts. 2) Add personal calendar/statistics panel.",
+      "verificationCriteria": "관리자/직원 대시보드가 권한별로 분리되어 렌더링된다.",
+      "analysisResult": "Operational monitoring",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000030",
+      "name": "P9-3 Report filters and Excel/CSV export",
+      "description": "Implement report page with date/site/rank filters and export capability.",
+      "status": "pending",
+      "phase": "P9",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000029"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/views/Reports.vue",
+          "type": "TO_CREATE",
+          "description": "Report page"
+        },
+        {
+          "path": "src/api/dashboard.ts",
+          "type": "TO_CREATE",
+          "description": "Export endpoint wrapper"
+        },
+        {
+          "path": "src/utils/excel.ts",
+          "type": "TO_MODIFY",
+          "description": "Export helper"
+        }
+      ],
+      "implementationGuide": "1) Add filter UI. 2) Fetch filtered report dataset. 3) Export to CSV/XLSX.",
+      "verificationCriteria": "필터 조합과 내보내기 파일이 요구사항대로 동작한다.",
+      "analysisResult": "Self-service reporting",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000032",
+      "name": "P10-2 Performance tuning for list/grid/dashboard",
+      "description": "Profile and optimize critical screens and queries.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000029"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ScheduleGrid.vue",
+          "type": "TO_MODIFY",
+          "description": "Grid performance"
+        },
+        {
+          "path": "src/views/dashboard/AdminDashboard.vue",
+          "type": "TO_MODIFY",
+          "description": "Dashboard performance"
+        }
+      ],
+      "implementationGuide": "1) Add query indexes if needed. 2) Add memoization and pagination where relevant.",
+      "verificationCriteria": "핵심 목록/그리드/대시보드 응답시간 기준을 만족한다.",
+      "analysisResult": "Production readiness",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000034",
       "name": "P0-1.1 운영 규칙/DoD 문서 초안 작성",
       "description": "REFINED_PRD 서비스 전환을 위한 운영 원칙(Definition of Done, 브랜치 전략, 태스크 상태 규칙, 리뷰/테스트 기준)을 문서화한다.",
@@ -318,15 +1200,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000048"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000122"
         }
       ],
       "estimatedMinutes": 180,
@@ -399,9 +1272,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
         }
       ],
       "estimatedMinutes": 120,
@@ -708,9 +1578,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
         }
       ],
       "estimatedMinutes": 120,
@@ -1220,9 +2087,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
         }
       ],
       "estimatedMinutes": 120,
@@ -1564,12 +2428,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000061"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000065"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000100"
         }
       ],
       "estimatedMinutes": 90,
@@ -2110,6 +2968,103 @@
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
     {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "name": "P1-2 Apply strict RLS policies for tenant isolation",
+      "description": "Add helper functions and RLS policies for super/admin/user role-based data access across organizations.",
+      "status": "pending",
+      "phase": "P1",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000048"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000122"
+        }
+      ],
+      "estimatedMinutes": 300,
+      "relatedFiles": [
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "TO_CREATE",
+          "description": "RLS section"
+        }
+      ],
+      "implementationGuide": "1) Add helper SQL functions and apply SELECT-first RLS policies. 2) Roll out INSERT/UPDATE/DELETE policies domain by domain. 3) Remove permissive legacy policies in staged order. 4) Run regression checks after each stage.",
+      "verificationCriteria": "단계별 적용 중 기존 기능이 유지되고, 최종적으로 타조직 데이터 접근이 차단되며 super/admin/user 권한이 분기된다.",
+      "analysisResult": "Security baseline",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T03:56:14.630Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000031",
+      "name": "P10-1 Security hardening and policy audit",
+      "description": "Audit all RLS policies and edge-function authorization checks.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000005"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000030"
+        }
+      ],
+      "estimatedMinutes": 240,
+      "relatedFiles": [
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "TO_MODIFY",
+          "description": "Policy corrections"
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "Security checklist"
+        }
+      ],
+      "implementationGuide": "1) Run policy penetration checks. 2) Fix leaks and privilege escalation paths.",
+      "verificationCriteria": "RLS 우회/타조직 조회 시도가 모두 실패한다.",
+      "analysisResult": "Pre-release security baseline",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000033",
+      "name": "P10-3 Final release checklist and runbook",
+      "description": "Prepare staging soak test checklist, rollback/runbook, and go-live decision artifacts.",
+      "status": "pending",
+      "phase": "P10",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000031"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000032"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/final-verification-report.md",
+          "type": "TO_MODIFY",
+          "description": "Release report"
+        },
+        {
+          "path": "README.md",
+          "type": "TO_MODIFY",
+          "description": "Service mode docs"
+        }
+      ],
+      "implementationGuide": "1) Build go-live checklist. 2) Add rollback steps using backup files and feature flags. 3) Define hypercare window.",
+      "verificationCriteria": "릴리즈 체크리스트와 롤백 시나리오가 문서화되어 있다.",
+      "analysisResult": "Controlled production transition",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-27T07:35:57.870Z"
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000123",
       "name": "P8-1.1 알림 이벤트/채널/설정 요구사항 정리",
       "description": "알림 채널(앱내/이메일), 이벤트 종류(승인/solver완료/공지), 사용자 설정 요구를 PRD 기준으로 정리한다.",
@@ -2118,9 +3073,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
         }
       ],
       "estimatedMinutes": 120,
@@ -2409,9 +3361,6 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000045"
-        },
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
         }
       ],
       "estimatedMinutes": 120,
@@ -2709,7 +3658,7 @@
       "phase": "P10",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000048"
+          "taskId": "10000000-0000-4000-8000-000000000005"
         },
         {
           "taskId": "10000000-0000-4000-8000-000000000146"
@@ -3004,7 +3953,11 @@
       "description": "Refine migrations/007_service_transition_rbac_multitenant.sql so it remains idempotent, preserves existing data, and resolves uniqueness-scope conflicts between legacy site_requirements and multitenant expansion fields.",
       "notes": "Do not modify completed task 10000000-0000-4000-8000-000000000004 metadata. Track this correction as follow-up work item.",
       "status": "pending",
-      "dependencies": [],
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
       "createdAt": "2026-02-27T08:25:09.787Z",
       "updatedAt": "2026-02-27T08:25:09.787Z",
       "relatedFiles": [
@@ -3019,16 +3972,48 @@
       "analysisResult": "007 migration needs compatibility correction against current MVP DDL and live Supabase schema. Keep non-destructive behavior and enforce multitenant scope on legacy site_requirements."
     },
     {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "name": "P1-3 Backfill existing MVP data to new schema",
+      "description": "Create an additive migration to backfill organization_settings and service-related default status values for existing MVP rows without resetting or deleting data.",
+      "status": "pending",
+      "phase": "P1",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000004"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "migrations/008_backfill_service_transition_defaults.sql",
+          "type": "CREATE",
+          "description": "New idempotent backfill migration for organization_settings and status defaults"
+        },
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "REFERENCE",
+          "description": "Schema baseline to backfill against"
+        },
+        {
+          "path": "supabase/seed.sql",
+          "type": "REFERENCE",
+          "description": "Existing MVP seed dataset used to validate compatibility"
+        }
+      ],
+      "implementationGuide": "1) Add new migration file `migrations/008_backfill_service_transition_defaults.sql`. 2) Insert missing organization_settings rows for all organizations using INSERT...SELECT and ON CONFLICT(organization_id) DO NOTHING. 3) For employees and schedules, run NULL-only default updates guarded by information_schema column checks inside DO blocks to avoid failures if columns differ by environment. 4) Do not overwrite non-NULL business values and do not alter legacy MVP status semantics used by current frontend/API flows. 5) Keep site_requirements compatibility fields nullable and avoid destructive normalization. 6) Add verification SQL comments/queries for row-count parity and existing read-path compatibility.",
+      "verificationCriteria": "organization_settings row exists for every existing organization; employees/schedules default status/service fields are backfilled only where NULL; no non-NULL value is overwritten; 기존 MVP 조직/직원/스케줄 조회 결과가 회귀 없이 기존처럼 동작한다.",
+      "analysisResult": "P1-3 should be executed as an idempotent non-destructive SQL backfill migration (008+) that preserves MVP read behavior while filling new service-transition defaults.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-02-28T04:19:21.944Z",
+      "notes": "Follow migration governance: keep 007 immutable and perform backfill in 008+. Ensure SQL is idempotent and safe for repeated runs."
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000052",
       "name": "P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정",
       "description": "admin/user 가입 UX를 확정하고 필수/선택 필드, 성공/실패/승인대기 상태 UI를 정의한다. 기존 로그인 화면과 라우팅 구조를 기준으로 /signup 진입 및 제출 후 상태 안내 흐름을 확정한다.",
       "status": "pending",
       "phase": "P2",
-      "dependencies": [
-        {
-          "taskId": "00726cae-2c8e-4f81-af12-4bb55e494203"
-        }
-      ],
+      "dependencies": [],
       "estimatedMinutes": 120,
       "relatedFiles": [
         {

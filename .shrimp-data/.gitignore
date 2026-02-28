@@ -1,6 +1,8 @@
 # Temporary files
 *.tmp
 *.log
+tasks.json.bak.*
+phases/.current
 
 # OS files
 .DS_Store
