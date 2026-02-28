@@ -329,6 +329,80 @@ sys.exit(1 if missing else 0)
 PY
 ```
 
+## 🔍 Task Quality Validation
+
+### Automated Quality Check
+
+Run the quality check script to validate tasks against taskTemplate standards:
+
+```bash
+./scripts/task-quality-check.sh
+```
+
+This script validates 4 core metrics:
+
+| Metric | Description | Pass Condition |
+|--------|-------------|----------------|
+| **Required Fields** | All 8 required fields present | 0 missing |
+| **Estimated Minutes** | Values in [60, 90, 120, 180] | All valid |
+| **Name Pattern** | Matches `^P\d+-\d+\.\d+(?:\.\d+)?\s+.+$` | 0 violations |
+| **RelatedFiles Types** | Types in [TO_MODIFY, REFERENCE, CREATE, DEPENDENCY, OTHER] | All valid |
+
+### Sample Output (All Checks Passed)
+
+```
+======================================
+Task Quality Check for EveryShift MVP
+======================================
+
+Total tasks: 146
+
+1️⃣  Required Fields Validation
+   Checking: name, description, implementationGuide, verificationCriteria, phase, estimatedMinutes, dependencies, relatedFiles
+   ✓ All required fields present
+
+2️⃣  Estimated Minutes Validation
+   Allowed values: [60, 90, 120, 180]
+   ✓ All estimatedMinutes valid
+
+3️⃣  Name Pattern Validation
+   Pattern: ^P\d+-\d+\.\d+(?:\.\d+)?\s+.+$
+   ✓ All task names match pattern
+
+4️⃣  RelatedFiles Type Validation
+   Allowed types: [TO_MODIFY, REFERENCE, CREATE, DEPENDENCY, OTHER]
+   ✓ All relatedFiles.types valid
+
+======================================
+Summary
+======================================
+Total tasks: 146
+1. Required fields: 0 issues
+2. Estimated minutes: 0 issues
+3. Name pattern: 0 violations
+4. RelatedFiles types: 0 issues
+
+✅ All checks passed! (0 issues)
+```
+
+### Quick jq Commands
+
+For individual validation, use these jq commands:
+
+```bash
+# Check required fields
+jq '[.tasks[] | select(.name == null or .name == "") | .id] | length' .shrimp-data/tasks.json
+
+# Check estimatedMinutes
+jq '[.tasks[] | select(.estimatedMinutes != 60 and .estimatedMinutes != 90 and .estimatedMinutes != 120 and .estimatedMinutes != 180) | .id] | length' .shrimp-data/tasks.json
+
+# Check namePattern
+jq '[.tasks[] | select(.name | test("^P[0-9]+-[0-9]+\\.[0-9]+(\\.[0-9]+)?\\s+.+") | not) | .id] | length' .shrimp-data/tasks.json
+
+# Check relatedFiles.types
+jq '[.tasks[] | .relatedFiles[]? | select(.type != "TO_MODIFY" and .type != "REFERENCE" and .type != "CREATE" and .type != "DEPENDENCY" and .type != "OTHER")] | length' .shrimp-data/tasks.json
+```
+
 ## 🤝 Contributing
 
 When adding new tasks:
@@ -336,10 +410,12 @@ When adding new tasks:
 2. Add to the corresponding phase-X-*.json file
 3. Update taskCount in metadata
 4. Ensure task ID is unique
-5. Update this README if needed
+5. Run `./scripts/task-quality-check.sh` to validate
+6. Update this README if needed
 
 ---
 
-**Last Updated:** 2025-01-13
-**Total Tasks:** 87
+**Last Updated:** 2026-02-28
+**Total Tasks:** 146
 **Total Phases:** 9
+**Quality Check:** ✅ All 4 metrics passing
