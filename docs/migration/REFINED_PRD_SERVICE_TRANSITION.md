@@ -11,6 +11,36 @@ This document tracks the initial implementation baseline for migrating EveryShif
 5. New routes and role-based guards added
 6. Supabase edge function scaffolds created under `supabase/functions/`
 
+## Task Graph Integrity Check (P0-2.12)
+
+To maintain the integrity of the dependency graph in `tasks.json`, run the following command before each batch merge:
+
+```bash
+./scripts/task-quality-check.sh
+```
+
+This command validates:
+1. **Missing Targets**: Dependencies pointing to non-existent task IDs.
+2. **Cycles**: Circular dependencies that prevent topological sorting.
+3. **Orphan Roots**: Isolated tasks that are neither dependent on anything nor have dependents.
+
+### Manual Verification Commands
+
+If you need to run specific checks manually:
+
+- **Missing Targets**:
+  ```bash
+  jq -r '(.tasks | map(.id)) as $ids | .tasks[] | .id as $pid | .dependencies[]? | .taskId as $tid | select([$ids[] == $tid] | any | not) | "Missing target: \($pid) -> \($tid)"' .shrimp-data/tasks.json
+  ```
+- **Cycles**:
+  ```bash
+  jq -r '.tasks[] | .id as $id | .dependencies[]? | "\(.taskId) \($id)"' .shrimp-data/tasks.json | tsort
+  ```
+- **Orphan Roots**:
+  ```bash
+  jq -r '(.tasks | map(.id)) as $ids | ([.tasks[].dependencies[]?.taskId] | unique) as $targets | .tasks[] | select((.dependencies | length == 0) and ([$targets[] == .id] | any | not)) | "Orphan root: \(.id) (\(.name))"' .shrimp-data/tasks.json
+  ```
+
 ## v2 baseline reference
 
 - See `docs/migration/REFINED_PRD_SERVICE_TRANSITION_V2.md` for the upgraded execution protocol:

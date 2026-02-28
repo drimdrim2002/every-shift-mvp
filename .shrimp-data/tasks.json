@@ -712,14 +712,14 @@
       "name": "P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리",
       "description": "canonical tasks.json에서 missing target/cycle/orphan root를 반복 검증할 자동 점검 절차를 정리한다.",
       "notes": "최종 1회 검증이 아닌 batch-level 반복 검증으로 전환",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "db6ead17-422c-4e1b-a994-2171fb5b913a"
         }
       ],
       "createdAt": "2026-02-28T07:22:32.515Z",
-      "updatedAt": "2026-02-28T07:53:13.520Z",
+      "updatedAt": "2026-02-28T14:15:00.000Z",
       "relatedFiles": [
         {
           "path": ".shrimp-data/tasks.json",
@@ -730,13 +730,25 @@
           "path": "docs/migration/REFINED_PRD_SERVICE_TRANSITION.md",
           "type": "TO_MODIFY",
           "description": "validation workflow documentation"
+        },
+        {
+          "path": "scripts/shrimp/validate-graph.sh",
+          "type": "CREATE",
+          "description": "DAG 무결성 검증 전용 스크립트"
+        },
+        {
+          "path": "scripts/task-quality-check.sh",
+          "type": "TO_MODIFY",
+          "description": "그래프 검증 로직 통합"
         }
       ],
       "implementationGuide": "1) dependency edge 추출 명령을 정의한다. 2) missing target/cycle/orphan root 검출 로직을 문서화한다. 3) 배치 병합마다 실행 게이트로 고정한다.",
       "verificationCriteria": "Deliverable: 검증 명령이 문서화되고 배치 병합 단위로 cycle=false, missing target=0, orphan root 점검 결과를 재현할 수 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "analysisResult": "P0-2.2는 신규 분해 재작성보다 기존 .shrimp-data/todo/P1~P10.json 자산을 canonical tasks.json으로 단계 병합하고, 배치마다 DAG 무결성/템플릿 정합성 게이트를 적용하는 방식이 가장 안전하다.",
       "phase": "P0",
-      "estimatedMinutes": 120
+      "estimatedMinutes": 120,
+      "summary": "scripts/shrimp/validate-graph.sh를 생성하여 missing targets, cycles, orphan roots 검증 로직을 구현하고, 이를 scripts/task-quality-check.sh에 통합하여 자동 점검 게이트로 설정했다. 또한 docs/migration/REFINED_PRD_SERVICE_TRANSITION.md에 해당 절차와 수동 검증 명령을 문서화했다.",
+      "completedAt": "2026-02-28T14:15:00.000Z"
     },
     {
       "id": "0ea4c78a-4916-43db-885b-126553d59343",

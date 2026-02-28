@@ -127,6 +127,18 @@ fi
 echo ""
 
 # ============================================
+# Metric 5: Graph Integrity validation
+# ============================================
+echo "5️⃣  Graph Integrity Validation"
+echo "   Checking: Missing targets, Cycles, Orphan roots"
+
+if [[ -f "./scripts/shrimp/validate-graph.sh" ]]; then
+    ./scripts/shrimp/validate-graph.sh "$TASKS_JSON" || GRAPH_FAILED=1
+fi
+GRAPH_FAILED=${GRAPH_FAILED:-0}
+echo ""
+
+# ============================================
 # Summary
 # ============================================
 echo "======================================"
@@ -137,9 +149,10 @@ echo "1. Required fields: $MISSING_FIELDS_COUNT issues"
 echo "2. Estimated minutes: $((INVALID_MINUTES + MISSING_EST)) issues"
 echo "3. Name pattern: $NAME_PATTERN_VIOLATIONS violations"
 echo "4. RelatedFiles types: $INVALID_TYPE_COUNT issues"
+echo "5. Graph integrity: $((GRAPH_FAILED)) issues"
 echo ""
 
-TOTAL_ISSUES=$((MISSING_FIELDS_COUNT + INVALID_MINUTES + MISSING_EST + NAME_PATTERN_VIOLATIONS + INVALID_TYPE_COUNT))
+TOTAL_ISSUES=$((MISSING_FIELDS_COUNT + INVALID_MINUTES + MISSING_EST + NAME_PATTERN_VIOLATIONS + INVALID_TYPE_COUNT + GRAPH_FAILED))
 
 if [[ "$TOTAL_ISSUES" -eq 0 ]]; then
     echo -e "${GREEN}✅ All checks passed! (0 issues)${NC}"
