@@ -981,7 +981,7 @@
       "id": "10000000-0000-4000-8000-000000000047",
       "name": "P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정",
       "description": "핵심 테이블(organizations, employees, schedules 등)에 대해 테넌트 격리 RLS 정책 매트릭스를 작성하고 적용 순서를 결정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P1",
       "dependencies": [
         {
@@ -999,12 +999,19 @@
           "path": "docs/migration/P1-2.1_RBAC_DESIGN.md",
           "type": "REFERENCE",
           "description": "RBAC 설계 원칙 및 헬퍼 함수 정의"
+        },
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "CREATE",
+          "description": "핵심 12개 테이블 CRUD RLS 매트릭스, rollout order, schedule_preferences 부록 보강안"
         }
       ],
       "implementationGuide": "1) 테이블별 SELECT/INSERT/UPDATE/DELETE 허용자 정의. 2) super/admin/user 차이를 표로 정리. 3) 적용 순서(테이블 생성→RLS enable→정책) 결정.",
       "verificationCriteria": "Deliverable: RLS 정책 표가 존재하고, 모든 핵심 테이블이 누락 없이 포함된다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-02T03:34:14.219Z",
+      "summary": "Supabase MCP 실측 상태를 반영한 P1-2.2 산출물 문서를 생성했다. 핵심 12개 테이블에 대해 super/admin/user 기준 CRUD 매트릭스를 누락 없이 정의했고, helper 선행-identity-조직루트-마스터-운영-간접참조-기존정책교체 순서의 적용 단계와 P1-2.3 인계용 검증 시나리오 8개를 포함했다. 또한 schedule_preferences permissive 정책 보강안을 부록으로 명시해 실제 보안 리스크를 함께 정리했다.",
+      "completedAt": "2026-03-02T03:34:14.215Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000048",

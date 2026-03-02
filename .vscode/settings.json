@@ -7,5 +7,6 @@
     "javascript",
     "typescript",
     "vue"
-  ]
+  ],
+  "chatgpt.commentCodeLensEnabled": true
 }

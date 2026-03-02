@@ -2,21 +2,14 @@
 
 이 문서는 `REMAINING_TASKS.md`의 요약 테이블과 `REMAINING_TASKS_DETAILED.md`의 상세 설명을 통합하고, 시스템의 Task ID를 매핑한 결과입니다.
 
-## 최근 반영 내역 (2026-02-28 기준)
+## 최근 반영 내역 (2026-03-02 기준)
 
 - 기준 소스: `.shrimp-data/tasks.json` (canonical)
-- P0-2.2(`10000000-0000-4000-8000-000000000038`) 완료 상태 반영
-- P1~P10 하위 태스크 canonical 병합 결과 반영
-- DAG 정합성 반영: missing dependency 0건, cycle false
-- P1-1.4(`00726cae-2c8e-4f81-af12-4bb55e494203`) 예상 소요 시간 120분 반영
-- P1-2.1(`10000000-0000-4000-8000-000000000046`) 선행 조건 정정
-  - 기존: P1-1.3, P1-1.4, P1-2.3, P7-3.4
-  - 변경: P1-1.3, P1-1.4
-- P0-2.4(`a59d8e0e-df2b-4f1d-9002-6f0b8825441b`) 상태 `in_progress` 반영
-- P0-2.4.2(`194b66c3-288f-4b89-bf46-b97496d4e62d`) 상태 `completed` 반영
-- P0-3.1(`10000000-0000-4000-8000-000000000040`) 상태 `completed` 반영
-  - `docs/migration/REFINED_PRD_SERVICE_TRANSITION.md`에 Phase KPI/Release Readiness 섹션 추가
-- `docs/migration/RBAC_MATRIX.md`에 PRD 메뉴/라우트 ↔ phase 태스크 추적 매트릭스 및 강화 후보 목록 반영
+- P0-2.5, P0-2.6, P0-2.7, P0-2.8, P0-2.9, P0-2.10 완료 상태 반영
+- P1-1.1, P1-1.2, P1-1.3 완료 상태 반영
+- P2-1.6, P2-1.7, P2-1.8 신규 태스크 추가 (admin 가입 무소속 분기/6.2 재사용 플로우)
+- P5-1.5, P5-1.6 신규 태스크 추가 (6.2 조직생성 signup 브리지 모드)
+- DAG 정합성 확인: 새 태스크 간 의존성(P2-1.6→P5-1.2, P2-1.7→P2-1.3/P5-1.3, P2-1.8→P5-1.6/P2-2.4, P5-1.5→P5-1.4/P2-1.6, P5-1.6→P5-1.5/P2-1.7) 정상 연결
 
 ## P0 (예상 시간: 8시간 0분)
 
@@ -40,12 +33,12 @@
 | `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강**                    | completed | P0-2.1<br>P0-2.4.1<br>P0-2.4.2                         | 90m       |
 | `21d4bb02-23fe-4055-9fae-4123143f91a9` | **P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성**             | completed | P0-2.1                                                 | 120m      |
 | `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강**        | completed | P0-2.4.1                                               | 120m      |
-| `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결**                  | pending   | P0-2.4                                                 | 90m       |
-| `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강**                           | pending   | P0-2.5                                                 | 90m       |
-| `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합**                            | pending   | P0-2.2                                                 | 120m      |
-| `c227e7ec-7a5e-4d8b-b838-b308af62fd63` | **P0-2.8 P3~P4 하위 태스크 canonical 병합**                            | pending   | P0-2.7                                                 | 120m      |
-| `d2cb1c5e-adda-4649-b59f-9985432fb377` | **P0-2.9 P5~P6 하위 태스크 canonical 병합**                            | pending   | P0-2.8                                                 | 120m      |
-| `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합**                           | pending   | P0-2.9                                                 | 120m      |
+| `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결**                  | completed | P0-2.4                                                 | 90m       |
+| `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강**                           | completed | P0-2.5                                                 | 90m       |
+| `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합**                            | completed | P0-2.2                                                 | 120m      |
+| `c227e7ec-7a5e-4d8b-b838-b308af62fd63` | **P0-2.8 P3~P4 하위 태스크 canonical 병합**                            | completed | P0-2.7                                                 | 120m      |
+| `d2cb1c5e-adda-4649-b59f-9985432fb377` | **P0-2.9 P5~P6 하위 태스크 canonical 병합**                            | completed | P0-2.8                                                 | 120m      |
+| `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합**                           | completed | P0-2.9                                                 | 120m      |
 | `db6ead17-422c-4e1b-a994-2171fb5b913a` | **P0-2.11 P9~P10 하위 태스크 canonical 병합**                          | completed | P0-2.10                                                | 120m      |
 | `4f954f47-cf4b-44ca-81eb-7e3f6c28b34a` | **P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리**               | completed | P0-2.11                                                | 120m      |
 | `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | completed | P0-2.12                                                | 120m      |
@@ -404,9 +397,9 @@
 
 | Task ID                                | 태스크 명                                                                      | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
 | -------------------------------------- | ------------------------------------------------------------------------------ | ------- | ------------------------- | --------- |
-| `10000000-0000-4000-8000-000000000043` | **P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)**                          | pending | P0-1.3                    | 180m      |
-| `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성**                                 | pending | P1-1.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)**                              | pending | P1-1.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000043` | **P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)**                          | completed | P0-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성**                                 | completed | P1-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)**                              | completed | P1-1.2                    | 120m      |
 | `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | completed | -                         | 120m      |
 | `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)**                          | completed | P1-1.3<br>P1-1.4          | 180m      |
 | `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정**                         | pending | P1-2.1                    | 180m      |
@@ -536,6 +529,9 @@
 | `10000000-0000-4000-8000-000000000054` | **P2-1.3 가입 제출 API 설계(Edge Function/RPC) + 입력 검증**            | pending | P2-1.2                    | 180m      |
 | `10000000-0000-4000-8000-000000000055` | **P2-1.4 UI: 회원가입 페이지 구현(제출/검증/결과)**                     | pending | P2-1.3                    | 180m      |
 | `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의**                        | pending | P2-1.4                    | 120m      |
+| `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 admin 가입 무소속 분기 라우트/가드 계약 정의**                 | pending | P2-1.5<br>P5-1.2          | 90m       |
+| `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.7 가입 제출 API 확장(organizationSelectionMode/create_new)**    | pending | P2-1.6<br>P2-1.3<br>P5-1.3| 90m       |
+| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.8 가입→6.2재사용→승인대기 E2E 시나리오 정의**                     | pending | P5-1.6<br>P2-2.4          | 120m      |
 | `10000000-0000-4000-8000-000000000057` | **P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계**      | pending | P2-1.5                    | 120m      |
 | `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 미승인 사용자 차단 + 전용 라우팅**           | pending | P2-2.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: 승인대기/반려 화면 스펙 및 컴포넌트 정의**                 | pending | P2-2.2                    | 120m      |
@@ -597,6 +593,36 @@
 - **선행 조건(Dependencies)**: P2-1.4
 - **예상 소요 시간**: 120분
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Signup.vue`, `src/api/signup.ts`
+
+### P2-1.6 admin 가입 무소속 분기 라우트/가드 계약 정의
+
+- **Task ID**: `63463b1e-64b2-4677-86ea-ebfcde2316d5`
+- **설명(Description)**: admin 가입 시 조직 미선택/미존재인 경우 6.2 조직 생성 화면 재사용으로 분기하는 라우트 및 가드 계약을 정의한다.
+- **구현 가이드(Guide)**: 1) signup 플로우에서 organizationSelectionMode 필드 추가(existing/create_new). 2) create_new 선택 시 6.2 조직 관리 화면으로 라우팅. 3) 브리지 모드 진입 조건/초기값 전달 규칙 정의. 4) 완료 후 signup_requests 생성으로 복귀하는 계약 정의.
+- **검증 기준(Verification)**: admin 가입 시 조직 미보유 상태에서 6.2 재사용 조직생성 플로우로 분기하는 라우트/가드 계약이 문서화되어 있다.
+- **선행 조건(Dependencies)**: P2-1.5, P5-1.2
+- **예상 소요 시간**: 90분
+- **관련 파일**: `src/router/index.ts`, `src/views/auth/Signup.vue`, `src/views/management/OrganizationManagement.vue`
+
+### P2-1.7 가입 제출 API 확장(organizationSelectionMode/create_new)
+
+- **Task ID**: `97cfb736-1ec7-425e-948d-b9a9d5b247f0`
+- **설명(Description)**: 가입 제출 API 계약에 organizationSelectionMode와 organizationDraftId 바인딩 규칙을 추가해 create_new 플로우를 명시한다.
+- **구현 가이드(Guide)**: 1) signup_requests 테이블에 organizationSelectionMode 필드 추가. 2) create_new 선택 시 조직생성 결과 organizationDraftId를 바인딩. 3) approved 시 organization_memberships 생성과 연결. 4) API 요청/응답 DTO 확장.
+- **검증 기준(Verification)**: 가입 제출 API에 create_new 플로우가 명시되고 organizationDraftId 바인딩 규칙이 정의되어 있다.
+- **선행 조건(Dependencies)**: P2-1.6, P2-1.3, P5-1.3
+- **예상 소요 시간**: 90분
+- **관련 파일**: `supabase/functions/signup-submit/index.ts`, `src/api/signup.ts`, `docs/API_SPEC.md`
+
+### P2-1.8 가입→6.2재사용→승인대기 E2E 시나리오 정의
+
+- **Task ID**: `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8`
+- **설명(Description)**: admin 가입자가 조직 미보유 상태에서 6.2 재사용 조직생성을 거쳐 승인대기로 전환되는 E2E 시나리오를 정의한다.
+- **구현 가이드(Guide)**: 1) Happy path: admin 가입→create_new 선택→6.2 조직생성→가입 요청 생성→승인대기. 2) Edge case: 조직생성 실패/중복/검증 오류. 3) 기대 결과(상태 코드, 메시지, DB 상태) 명시.
+- **검증 기준(Verification)**: admin 가입에서 조직생성 브리지를 거쳐 승인대기로 이어지는 E2E 시나리오가 문서화되어 있다.
+- **선행 조건(Dependencies)**: P5-1.6, P2-2.4
+- **예상 소요 시간**: 120분
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Signup.vue`, `src/views/management/OrganizationManagement.vue`
 
 ### P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계
 
@@ -1022,6 +1048,8 @@
 | `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계**                           | pending | P5-1.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계**                     | pending | P5-1.2                    | 180m      |
 | `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)**        | pending | P5-1.3                    | 180m      |
+| `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P5-1.5 6.2 조직생성 signup 브리지 모드 진입 설계**               | pending | P5-1.4<br>P2-1.6          | 120m      |
+| `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P5-1.6 조직생성 결과-가입요청 바인딩 계약 정의**                 | pending | P5-1.5<br>P2-1.7          | 90m       |
 | `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계**                    | pending | P5-1.4                    | 120m      |
 | `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)**               | pending | P5-2.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | pending | P5-2.2                    | 180m      |
@@ -1098,6 +1126,26 @@
 - **선행 조건(Dependencies)**: P5-1.3
 - **예상 소요 시간**: 180분
 - **관련 파일**: `docs/verification/test-validation-guide.md`
+
+### P5-1.5 6.2 조직생성 signup 브리지 모드 진입 설계
+
+- **Task ID**: `79d3fd2b-ecec-45bc-9578-a88f19599d20`
+- **설명(Description)**: Organization Management(6.2) 화면을 signup 브리지 모드로 재사용하기 위한 화면 상태/입력 제한/저장 액션 경계를 설계한다.
+- **구현 가이드(Guide)**: 1) 브리지 모드 진입 조건/상태 플래그 정의(bridgeMode=true). 2) 입력 제어(필수 필드/초기값/편집 범위) 설계. 3) 저장 액션 경계 정의(임시 저장/확정). 4) 완료 후 signup 요청 바인딩 계약.
+- **검증 기준(Verification)**: 6.2 조직생성 화면의 브리지 모드 진입 조건/입력 제한/저장 액션 경계가 설계되어 있다.
+- **선행 조건(Dependencies)**: P5-1.4, P2-1.6
+- **예상 소요 시간**: 120분
+- **관련 파일**: `src/views/management/OrganizationManagement.vue`, `src/composables/useOrganizationBridgeMode.ts`
+
+### P5-1.6 조직생성 결과-가입요청 바인딩 계약 정의
+
+- **Task ID**: `c5743d61-4d08-4793-9c3b-216b39c59e8b`
+- **설명(Description)**: 6.2 조직생성 결과를 가입요청(signup_requests)과 연결하기 위한 데이터 바인딩 계약과 오류 처리 규칙을 정의한다.
+- **구현 가이드(Guide)**: 1) 조직생성 완료 후 organizationDraftId 전달 규칙. 2) signup_requests.organizationDraftId 바인딩. 3) 조직생성 실패 시 에러 처리/롤백 규칙. 4) approved 시 organization_memberships 생성 연결.
+- **검증 기준(Verification)**: 조직생성 결과-가입요청 바인딩 계약과 오류 처리 규칙이 정의되어 있다.
+- **선행 조건(Dependencies)**: P5-1.5, P2-1.7
+- **예상 소요 시간**: 90분
+- **관련 파일**: `src/api/signup.ts`, `src/api/organization.ts`, `docs/API_SPEC.md`
 
 ### P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계
 
