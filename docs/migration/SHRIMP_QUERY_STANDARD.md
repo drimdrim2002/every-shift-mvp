@@ -261,6 +261,25 @@ echo "Exported to $OUTPUT_DIR:"
 ls -lh "$OUTPUT_DIR" | tail -3
 ```
 
+### 4.4 REMAINING_TASKS_MERGED 동기화
+
+`docs/migration/REMAINING_TASKS_MERGED.md`는 `.shrimp-data/tasks.json` 기반 자동 생성 문서입니다.
+
+```bash
+# 1) 문서 재생성
+pnpm shrimp:remaining:generate
+
+# 2) 동기화 검사(불일치 시 실패)
+pnpm shrimp:remaining:check
+
+# 3) 전체 태스크 품질 + 문서 동기화 게이트
+./scripts/task-quality-check.sh
+```
+
+운영 규칙:
+- `tasks.json` 변경 후에는 반드시 `pnpm shrimp:remaining:generate`를 실행한다.
+- PR 전에는 `./scripts/task-quality-check.sh` 통과를 필수로 한다.
+
 ---
 
 ## 5. 자주 사용하는 쿼리 (Quick Reference)
@@ -306,4 +325,5 @@ claude mcp add shrimp-task-manager -- npx -y mcp-shrimp-task-manager
 
 | 날짜 | 버전 | 변경 내용 |
 |------|------|-----------|
+| 2026-03-02 | 1.1 | `REMAINING_TASKS_MERGED.md` 자동 생성/동기화 명령 및 운영 규칙 추가 |
 | 2026-02-28 | 1.0 | 초기 버전 - 기본 조회 명령, Phase별 조회, 주간 리포트 템플릿 정의 |

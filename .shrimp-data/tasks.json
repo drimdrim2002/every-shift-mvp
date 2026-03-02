@@ -1017,7 +1017,7 @@
       "id": "10000000-0000-4000-8000-000000000048",
       "name": "P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)",
       "description": "타조직 데이터 접근 차단, role escalation, IDOR 등을 포함한 RLS 검증 시나리오와 테스트 전략을 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P1",
       "dependencies": [
         {
@@ -1035,13 +1035,15 @@
       "implementationGuide": "1) 공격/오용 시나리오 목록화. 2) 최소 e2e 또는 통합테스트 접근 결정. 3) 각 시나리오의 기대 결과(403/빈 결과) 정의.",
       "verificationCriteria": "Deliverable: 테넌트 격리/권한 상승 방지에 대한 테스트 케이스 목록이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-02T03:46:23.840Z",
+      "summary": "Supabase 실DB 측정값을 반영해 docs/verification/test-validation-guide.md를 P1-2.3 전용 문서로 전면 개편했다. 목표 RLS 상태 기준의 위협 클래스, 10개 검증 시나리오, 실행 SQL, 예상 결과(ALLOW/DENY/EMPTY_SET/ERROR), P1-2.2 매트릭스 추적표, 리뷰 체크리스트를 포함해 테넌트 격리/권한 상승 방지/IDOR 차단 검증 목록을 확정했다.",
+      "completedAt": "2026-03-02T03:46:23.836Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000049",
       "name": "P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화",
       "description": "새 스키마 도입 후 기존 MVP 데이터(조직/직원/스케줄)를 백필할 대상과 매핑 규칙을 정의하고 검증 쿼리를 준비한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P1",
       "dependencies": [
         {
@@ -1062,7 +1064,9 @@
       "implementationGuide": "1) 백필 필요 컬럼/테이블 목록화. 2) org/code/timezone 등 기본값 정책 정의. 3) 백필 후 검증 쿼리(카운트/무결성) 목록 작성.",
       "verificationCriteria": "Deliverable: 백필 매핑과 검증 쿼리가 문서로 정리되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-02T04:00:21.067Z",
+      "summary": "Supabase MCP 실측값을 기준으로 백필 대상/매핑 정책/사전·사후 검증 쿼리를 문서와 SQL 카탈로그로 정리했고, 운영데이터 조직 스코프 및 드리프트 리스크와 P1-3.2 인계 규격까지 명시해 실행 가능한 산출물을 완성함.",
+      "completedAt": "2026-03-02T04:00:21.063Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000050",
@@ -4329,6 +4333,116 @@
       "analysisResult": "기존 MVP 데이터가 마이그레이션 007의 신규 서비스 스키마(멀티테넌트, RBAC)로 도입될 때 하위 호환성을 완벽히 유지하도록 seed/backfill 원칙을 확립했습니다. 기존 데이터는 신규 참조 컬럼(user_id, site_id 등)이 NULL을 허용하는 덕분에 자연스럽게 호환되며, 초기 온보딩을 위한 admin 계정의 프로필/멤버십 의존성과 추후 필수적으로 채워야 할 설정/마스터 데이터 백필 대상을 구체적으로 정의했습니다.",
       "summary": "기존 MVP 데이터 운영의 하위 호환성을 보장하면서 멀티테넌트, RBAC 스키마 확장을 지원하는 시드/백필 로직을 정의하고, 이를 docs/migration/SEED_BACKFILL_PRINCIPLES.md로 문서화하여 검증 기준(Deliverable)을 완벽히 충족했습니다.",
       "completedAt": "2026-02-28T15:02:52.060Z"
+    },
+    {
+      "id": "9096b180-6645-45fc-8176-e02fb8a118fc",
+      "name": "P1-2.3-1 Supabase 실DB 보안 베이스라인 확정",
+      "description": "Supabase MCP를 사용해 public 스키마의 RLS 활성 여부, 정책, anon/authenticated 권한을 스냅샷으로 확정하고 테스트 설계의 입력값으로 정리한다.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "목표 RLS 권한 매트릭스 기준",
+          "lineStart": 1,
+          "lineEnd": 260
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "베이스라인 섹션 추가 대상",
+          "lineStart": 1,
+          "lineEnd": 260
+        }
+      ],
+      "implementationGuide": "1) list_tables로 rls_enabled 확인. 2) execute_sql로 pg_policies, relacl, has_table_privilege 확인. 3) 핵심 리스크(무RLS, true policy, 과도한 ACL)를 표준 포맷으로 정리.",
+      "verificationCriteria": "프로젝트 ID, 측정일, 테이블별 RLS 상태, 정책/ACL 핵심 위험이 누락 없이 정리되어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다."
+    },
+    {
+      "id": "644a8e6c-e5fa-48d7-a566-fb3af2ad5f28",
+      "name": "P1-2.3-2 위협 기반 RLS 검증 시나리오 설계",
+      "description": "테넌트 침범 방지 목적의 공격/오용 시나리오를 threat class별로 정의하고 actor, precondition, expected를 명확히 설계한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9096b180-6645-45fc-8176-e02fb8a118fc"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "P1-2.2 인계 시나리오와 1:1 매핑",
+          "lineStart": 120,
+          "lineEnd": 240
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "RLS 시나리오 섹션 신설/재구성",
+          "lineStart": 1,
+          "lineEnd": 260
+        }
+      ],
+      "implementationGuide": "1) threat class 정의(tenant breach/role escalation/IDOR/account status bypass/permissive regression). 2) 시나리오 ID 부여. 3) 각 시나리오에 actor, 대상 테이블, 사전조건, 기대결과를 작성.",
+      "verificationCriteria": "각 위협 클래스가 최소 1개 이상 시나리오로 커버되고, 모든 시나리오에 기대 결과(허용/차단/빈 결과/오류)가 명시되어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다."
+    },
+    {
+      "id": "e2c5c03d-b0e8-4fbc-8d57-d115075a31d9",
+      "name": "P1-2.3-3 SQL 검증 절차 및 합격 기준 정의",
+      "description": "문서+SQL 산출물 요구에 맞게 각 시나리오별 실행 SQL과 판정 기준을 정의한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "644a8e6c-e5fa-48d7-a566-fb3af2ad5f28"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "실행 SQL 및 기대 결과 표 추가",
+          "lineStart": 1,
+          "lineEnd": 260
+        }
+      ],
+      "implementationGuide": "1) role 전환/가정 기반 SQL 템플릿 정의. 2) SELECT/INSERT/UPDATE/DELETE별 pass/fail 조건 정의. 3) 목표 RLS 상태 기준으로 negative test를 포함.",
+      "verificationCriteria": "각 핵심 시나리오에 재현 가능한 SQL과 명확한 pass/fail 기준이 존재해야 하며, 타조직 접근 차단 및 권한 상승 차단이 반드시 포함되어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다."
+    },
+    {
+      "id": "8ac31a0f-b346-4374-ba36-201d779e664f",
+      "name": "P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성",
+      "description": "기존 검증 가이드 파일에 RLS 검증 섹션을 통합하고 리뷰 가능한 체크리스트 형태로 마무리한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e2c5c03d-b0e8-4fbc-8d57-d115075a31d9"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "최종 산출물 반영 파일",
+          "lineStart": 1,
+          "lineEnd": 320
+        }
+      ],
+      "implementationGuide": "1) 기존 파일 구조를 유지하며 RLS 전용 챕터 구성. 2) P1-2.2 매트릭스 행과 traceability 링크 구성. 3) 리뷰 체크리스트와 후속 자동화 전환 포인트를 추가.",
+      "verificationCriteria": "문서가 단독으로 리뷰 가능해야 하며, 테넌트 격리/권한 상승 방지/IDOR 차단 테스트 케이스 목록이 확정되어 있어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다."
     }
   ]
 }

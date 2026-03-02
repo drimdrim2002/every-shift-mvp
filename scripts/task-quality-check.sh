@@ -16,6 +16,8 @@ NC='\033[0m' # No Color
 # Paths
 TASKS_JSON=".shrimp-data/tasks.json"
 TASKS_METADATA_JSON=".shrimp-data/tasks.metadata.json"
+REMAINING_TASKS_DOC="docs/migration/REMAINING_TASKS_MERGED.md"
+REMAINING_GENERATOR="scripts/shrimp/generate-remaining-tasks-merged.mjs"
 
 echo "======================================"
 echo "Task Quality Check for EveryShift MVP"
@@ -139,6 +141,29 @@ GRAPH_FAILED=${GRAPH_FAILED:-0}
 echo ""
 
 # ============================================
+# Metric 6: Remaining tasks doc sync validation
+# ============================================
+echo "6️⃣  Remaining Tasks Doc Sync Validation"
+echo "   Checking: tasks.json -> REMAINING_TASKS_MERGED.md sync"
+
+DOC_SYNC_FAILED=0
+
+if [[ -f "$REMAINING_GENERATOR" ]]; then
+    if node "$REMAINING_GENERATOR" --mode check > /dev/null 2>&1; then
+        echo -e "   ${GREEN}✓ REMAINING_TASKS_MERGED.md is in sync${NC}"
+    else
+        echo -e "   ${YELLOW}! Drift detected. Auto-regenerating document...${NC}"
+        node "$REMAINING_GENERATOR" --mode write > /dev/null
+        echo -e "   ${RED}✗ Documentation drift detected and regenerated. Review and rerun checks.${NC}"
+        DOC_SYNC_FAILED=1
+    fi
+else
+    echo -e "   ${RED}✗ Generator not found: $REMAINING_GENERATOR${NC}"
+    DOC_SYNC_FAILED=1
+fi
+echo ""
+
+# ============================================
 # Summary
 # ============================================
 echo "======================================"
@@ -150,9 +175,10 @@ echo "2. Estimated minutes: $((INVALID_MINUTES + MISSING_EST)) issues"
 echo "3. Name pattern: $NAME_PATTERN_VIOLATIONS violations"
 echo "4. RelatedFiles types: $INVALID_TYPE_COUNT issues"
 echo "5. Graph integrity: $((GRAPH_FAILED)) issues"
+echo "6. Remaining tasks doc sync: $DOC_SYNC_FAILED issues"
 echo ""
 
-TOTAL_ISSUES=$((MISSING_FIELDS_COUNT + INVALID_MINUTES + MISSING_EST + NAME_PATTERN_VIOLATIONS + INVALID_TYPE_COUNT + GRAPH_FAILED))
+TOTAL_ISSUES=$((MISSING_FIELDS_COUNT + INVALID_MINUTES + MISSING_EST + NAME_PATTERN_VIOLATIONS + INVALID_TYPE_COUNT + GRAPH_FAILED + DOC_SYNC_FAILED))
 
 if [[ "$TOTAL_ISSUES" -eq 0 ]]; then
     echo -e "${GREEN}✅ All checks passed! (0 issues)${NC}"

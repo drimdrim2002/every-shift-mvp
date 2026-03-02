@@ -97,6 +97,7 @@ Every migration task is considered done only if all items below are satisfied:
    - `pnpm build` passes.
 4. Documentation:
    - Relevant docs are updated when behavior/API/schema changes.
+   - If `.shrimp-data/tasks.json` changes, regenerate `docs/migration/REMAINING_TASKS_MERGED.md` using `pnpm shrimp:remaining:generate`.
    - Migration decisions are reflected in `docs/migration/`.
 5. Security and Access:
    - RLS/RBAC impact reviewed for data access changes.
@@ -115,6 +116,7 @@ Every migration task is considered done only if all items below are satisfied:
   3. Build
   4. Documentation baseline
   5. Debug statement guard
+  6. Remaining tasks merged document sync (`tasks.json` ↔ `REMAINING_TASKS_MERGED.md`)
 
 If any gate fails, merge/release is blocked.
 
@@ -129,8 +131,9 @@ Run gates in the fixed order below:
 | 3 | Build | `pnpm build` | Exit code `0` and production build artifacts generated | Fix compile/build errors, rerun Gate 3 |
 | 4 | Documentation Baseline | `scripts/quality-gate.sh` required-doc check | Required migration docs exist and are readable | Restore/update missing docs, rerun Gate 4 |
 | 5 | Debug Statement Guard | `scripts/quality-gate.sh` debug scan | No `console.log`/`console.table` in `src/**/*.ts` and `src/**/*.vue` | Remove debug statements, rerun Gate 5 |
+| 6 | Remaining Tasks Sync | `./scripts/task-quality-check.sh` (Metric 6) | No drift between `.shrimp-data/tasks.json` and `docs/migration/REMAINING_TASKS_MERGED.md` | Run `pnpm shrimp:remaining:generate`, review diff, rerun Gate 6 |
 
-A PR can be merged only after all five gates pass in sequence.
+A PR can be merged only after all six gates pass in sequence.
 
 ### 8.2 E2E Trigger Conditions
 

@@ -8,6 +8,8 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "check-env": "node scripts/check-env.js",
+    "shrimp:remaining:generate": "node scripts/shrimp/generate-remaining-tasks-merged.mjs --mode write",
+    "shrimp:remaining:check": "node scripts/shrimp/generate-remaining-tasks-merged.mjs --mode check",
     "lint": "pnpm lint:check",
     "lint:check": "eslint . --ext .vue,.js,.ts,.tsx --max-warnings=9999",
     "lint:fix": "eslint . --ext .vue,.js,.ts,.tsx --fix",
