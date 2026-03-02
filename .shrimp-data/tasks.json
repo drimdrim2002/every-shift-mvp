@@ -1072,7 +1072,7 @@
       "id": "10000000-0000-4000-8000-000000000050",
       "name": "P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)",
       "description": "백필을 위한 SQL/절차를 작성하고, 재실행 시 안전(멱등성)하게 동작하도록 전략을 확정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P1",
       "dependencies": [
         {
@@ -1082,15 +1082,23 @@
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "migrations/008_backfill_service_fields.sql",
+          "path": "migrations/009_backfill_service_fields.sql",
           "type": "CREATE",
-          "description": "백필 전용 마이그레이션(필요 시)"
+          "description": "P1-3.2 idempotent/re-runnable backfill migration SQL (B001~B009)"
+        },
+        {
+          "path": "docs/migration/P1-3.2_BACKFILL_RUNBOOK.md",
+          "type": "CREATE",
+          "description": "Execution runbook, failure/retry protocol, and PRE/POST evidence including post-apply comparison"
         }
       ],
       "implementationGuide": "1) upsert/insert-ignore 전략 결정. 2) membership/profiles 기본 생성 규칙 적용. 3) 실패 시 롤백/재시도 절차 문서화.",
       "verificationCriteria": "Deliverable: 백필 절차가 단계별로 정의되어 있고, 재실행 시 중복/오염 위험이 낮다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-02T04:45:02.318Z",
+      "notes": "Applied strategy fixed to admin-only profile/membership bootstrap for admin@everyshift.com. Supabase MCP session was read-only, so actual DML was executed by user via Supabase Console and then validated via POST-01~POST-07.",
+      "summary": "P1-3.2 산출물로 009 멱등 백필 SQL(B001~B009)과 실행 런북을 완성했고, 사용자 콘솔 실행 후 POST-01~POST-07 재검증에서 마스터/이관/site_id 채움/무결성/중복/원본보존/정책유지 조건이 모두 충족됨을 확인했습니다.",
+      "completedAt": "2026-03-02T04:45:02.314Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000051",
