@@ -23,6 +23,18 @@ Generate typed Supabase API modules with safe query semantics.
 - User-facing errors: Korean
 - Internal logs: English context prefix
 
+## MCP Access Constraints
+
+**CRITICAL**: Supabase MCP is **READ-ONLY**. This skill generates API layer code.
+
+**When generating API functions**:
+- Always use `supabase` client from `src/api/supabase.ts`
+- Follow patterns in `src/api/schedule.ts`
+- Write operations (INSERT/UPDATE/DELETE) via API layer
+- DO NOT generate code using `mcp__supabase__execute_sql` for writes
+
+**Reference**: `docs/MCP_ACCESS.md`
+
 ## Reference Materials
 - `reference/basic-api.ts.template`
 - `reference/paginated-api.ts.template`

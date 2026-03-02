@@ -34,6 +34,17 @@ description: Supabase DB와 프론트엔드 간의 데이터 동기화를 담당
 3. **불필요한 호출 최소화:** 캐싱 로직이 필요한 경우 Pinia 스토어와 연동하여 불필요한 네트워크 호출을 줄이십시오.
 4. **보안:** RLS(Row Level Security) 정책을 고려하여 사용자의 조직 ID(`organization_id`)를 항상 필터링 조건에 포함하십시오.
 
+## MCP Access Constraints
+
+**중요**: Supabase MCP는 **읽기 전용(READ-ONLY)**으로 설정되어 있습니다.
+
+**API 함수 구현 시**:
+- 모든 쓰기 작업(INSERT/UPDATE/DELETE)은 `src/api/` 내의 Supabase 클라이언트 사용
+- MCP 도구(`mcp__supabase__execute_sql`)는 SELECT 쿼리용으로만 사용 가능
+- 기존 API 패턴(`src/api/schedule.ts` 등)을 따르십시오
+
+**참고**: `docs/MCP_ACCESS.md`에서 전체 규칙 확인
+
 ## Resources
 
 - **references/api_implementation_patterns.md:** 자주 사용되는 Supabase 쿼리 패턴 및 페이지네이션 예제.
