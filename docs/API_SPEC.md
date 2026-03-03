@@ -158,3 +158,172 @@ Defines how many employees are needed for each shift on each day of the planning
   ]
 }
 ```
+
+---
+
+## Signup and Approval Contract (P2 Canonical)
+
+This section defines state semantics for signup and approval workflows.
+It is intentionally separated from `PlanningRequest` payload rules above.
+
+Canonical state source:
+- `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
+
+### Contract Scope
+
+- This section defines:
+  - Request/response contract for signup path operations
+  - State transition expectations (`signup_requests`, `organization_memberships`)
+  - Error code semantics for frontend/server consistency
+- This section does not define:
+  - UI interaction details
+  - Internal SQL implementation details
+
+### Shared Enums
+
+| Name | Values |
+| :--- | :--- |
+| `requestedRole` | `admin`, `user` |
+| `organizationSelectionMode` | `existing`, `create_new` |
+| `signupRequestStatus` | `pending`, `approved`, `rejected`, `expired`, `withdrawn` |
+| `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn`, `none` |
+
+`membershipStatus='none'` means no membership row was created/updated in that operation.
+
+### Operation A: Admin Signup Submit
+
+Logical operation:
+- Create pending signup request for admin review flow.
+
+#### Request Body
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `requestedRole` | String | Yes | Must be `admin` for this operation |
+| `name` | String | Yes | Non-empty |
+| `email` | String | Yes | Valid email format |
+| `password` | String | Yes | Policy-validated secret |
+| `organizationSelectionMode` | String | Yes | `existing` or `create_new` |
+| `organizationId` | UUID | Conditional | Required when `organizationSelectionMode='existing'` |
+| `organizationDraftId` | UUID | Conditional | Required when `organizationSelectionMode='create_new'` |
+| `workType` | String | No | Optional profile metadata |
+| `shiftType` | String | No | Optional profile metadata |
+| `requestedSiteName` | String | No | Optional profile metadata |
+| `requestedSkillSummary` | String | No | Optional profile metadata |
+| `requestedRankCode` | String | No | Optional profile metadata |
+| `requestedCredit` | Number | No | Optional profile metadata |
+
+#### State Write Expectation
+
+- `signup_requests`: `pending` row created (`requested_role='admin'`)
+- `organization_memberships`: no approved row created at submit time
+
+#### Success Response Example
+
+```json
+{
+  "success": true,
+  "path": "admin_submit",
+  "signupRequestId": "uuid",
+  "signupRequestStatus": "pending",
+  "membershipStatus": "none"
+}
+```
+
+### Operation B: User Signup by Invite Redemption
+
+Logical operation:
+- Validate and consume invite code.
+- Immediately grant approved user membership.
+- Persist approved signup request for audit.
+
+#### Request Body
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `requestedRole` | String | Yes | Must be `user` for this operation |
+| `name` | String | Yes | Non-empty |
+| `email` | String | Yes | Valid email format |
+| `password` | String | Yes | Policy-validated secret |
+| `inviteCode` | String | Yes | Raw code (server stores/compares hash only) |
+| `organizationSelectionMode` | String | No | If provided, must be `existing`; invite determines final org |
+
+#### State Write Expectation
+
+Single transaction:
+1. Consume invite (`used_at`, `used_by`)
+2. Upsert `organization_memberships(role='user', status='approved')`
+3. Insert `signup_requests(status='approved', requested_role='user')`
+
+#### Success Response Example
+
+```json
+{
+  "success": true,
+  "path": "user_invite_redeem",
+  "signupRequestId": "uuid",
+  "signupRequestStatus": "approved",
+  "membershipStatus": "approved",
+  "organizationId": "uuid"
+}
+```
+
+### Operation C: Approval Decision (Admin Queue)
+
+Logical operation:
+- Decision on pending admin signup request.
+
+#### Request Body
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `signupRequestId` | UUID | Yes | Pending admin request ID |
+| `decision` | String | Yes | `approve` or `reject` |
+| `reviewNote` | String | No | Optional reason/context |
+
+#### State Write Expectation
+
+- `decision='approve'`:
+  - `signup_requests.pending -> approved`
+  - `organization_memberships` upsert to `approved` with `role='admin'`
+- `decision='reject'`:
+  - `signup_requests.pending -> rejected`
+  - no approved membership creation
+
+### Error Code Contract
+
+| Code | Meaning | Typical Operation |
+| :--- | :--- | :--- |
+| `VALIDATION_ERROR` | Request payload fails schema/rule checks | all |
+| `DUPLICATE_PENDING_REQUEST` | Same requester/role/org-scope already has pending request | admin submit |
+| `ORGANIZATION_REQUIRED` | `organizationSelectionMode='existing'` but `organizationId` missing | admin submit |
+| `ORGANIZATION_DRAFT_REQUIRED` | `organizationSelectionMode='create_new'` but `organizationDraftId` missing | admin submit |
+| `INVITE_NOT_FOUND` | Invite does not exist | user invite redeem |
+| `INVITE_EXPIRED` | Invite exists but already expired | user invite redeem |
+| `INVITE_ALREADY_USED` | Invite already consumed | user invite redeem |
+| `INVITE_REVOKED` | Invite revoked and unusable | user invite redeem |
+| `INVITE_ROLE_MISMATCH` | Invite scope incompatible with requested role | user invite redeem |
+| `INVALID_TRANSITION` | Request state transition is forbidden (already terminal or incompatible) | approval decision |
+| `REQUEST_NOT_FOUND` | Target signup request does not exist | approval decision |
+| `PERMISSION_DENIED` | Caller lacks required approval/tenant scope | approval decision |
+| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+
+### Compatibility Rule with P2-1.7 (`create_new`)
+
+- `organizationSelectionMode='create_new'` is allowed only for admin signup submit.
+- `organizationDraftId` is mandatory in `create_new` mode and must refer to signup-bridge created draft.
+- User invite redemption flow does not create organization draft and must not require `organizationDraftId`.
+
+### Response Envelope (Recommended)
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "DUPLICATE_PENDING_REQUEST",
+    "message": "Human-readable message"
+  }
+}
+```
+
+Clients should branch logic by `error.code`, not by free-form message text.
