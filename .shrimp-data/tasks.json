@@ -1176,7 +1176,7 @@
       "id": "10000000-0000-4000-8000-000000000054",
       "name": "P2-1.3 가입 제출 API 기본 계약 설계(역할 분기/입력 검증)",
       "description": "signup-submit Edge Function의 기본 요청/응답 계약을 역할 분기형으로 정의하고 입력 검증·오류 코드를 표준화한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P2",
       "dependencies": [
         {
@@ -1209,9 +1209,11 @@
       "implementationGuide": "1) 공통 필드(email/password/name/role)와 역할별 필드(admin:user inviteCode, admin:hospital selection)를 DTO로 분리한다. 2) 서버 검증 실패 코드를 표준화한다(INVALID_ROLE, INVALID_INVITE_CODE, HOSPITAL_REQUIRED, DUPLICATE_REQUEST 등). 3) 클라이언트는 supabase.functions.invoke('signup-submit')만 사용하도록 경계를 고정한다. 4) 성공/실패 응답 스키마를 docs/API_SPEC.md에 표로 정리한다.",
       "verificationCriteria": "Deliverable: signup-submit 기본 계약(요청/응답/에러 코드)이 문서와 코드 엔트리포인트 기준으로 합의되어 있다.\nMethod: API 스키마 표와 함수 입력 검증 체크리스트를 리뷰한다.\nPass: 역할 분기 입력 규칙과 에러 코드 매핑이 누락 없이 정의된다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-03T14:24:10.927Z",
+      "updatedAt": "2026-03-03T15:14:38.784Z",
       "notes": "production direct table fallback 금지. 가입 제출은 Edge Function 경계만 사용한다.",
-      "analysisResult": "역할 분기형 DTO를 먼저 고정하면 이후 병원 검색/초대코드 확장 시 프론트 폼과 라우팅의 결합도를 낮출 수 있다."
+      "analysisResult": "역할 분기형 DTO를 먼저 고정하면 이후 병원 검색/초대코드 확장 시 프론트 폼과 라우팅의 결합도를 낮출 수 있다.",
+      "summary": "signup-submit 역할 분기형 기본 계약을 문서/API/코드 경계로 확정했다. API_SPEC에 요청 DTO·성공/실패 envelope·canonical 에러 코드와 매핑표를 추가했고, Edge Function 엔트리포인트에서 공통/역할별 입력 검증 및 표준 오류 응답을 구현했다. 클라이언트는 src/api/signup.ts 단일 래퍼를 통해 invoke('signup-submit')만 사용하도록 고정했다.",
+      "completedAt": "2026-03-03T15:14:38.780Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000055",
@@ -4810,10 +4812,10 @@
       "name": "P2-1.3-1 signup-submit API 계약 표준화 문서 확정",
       "description": "docs/API_SPEC.md에 signup-submit 호출 경계, 역할 분기 요청 DTO, 성공/실패 응답 envelope, canonical 에러 코드 집합을 명시해 문서 기준 단일 계약을 확정한다.",
       "notes": "P2-1.2 canonical 문서(P2_SIGNUP_ROLE_FLOW.md)와 충돌이 없어야 하며, task guide의 예시 코드와 기존 API_SPEC 코드 중 하나로 정합성 결정을 내려야 한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-03T15:06:53.695Z",
-      "updatedAt": "2026-03-03T15:06:53.695Z",
+      "updatedAt": "2026-03-03T15:13:43.043Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -4828,21 +4830,23 @@
       ],
       "implementationGuide": "1) signup-submit transport boundary를 명시한다. 2) requestedRole 기반 분기 스키마(admin/user)를 표로 정의한다. 3) 성공/실패 응답 구조를 공통 envelope로 통일한다. 4) 에러 코드를 단일 목록으로 고정하고 의미/발생 조건/HTTP status를 매핑한다. Pseudocode: define RequestUnion(adminSchema,userSchema) -> define ResponseEnvelope(success,error) -> define ErrorCodeTable -> publish in API_SPEC.",
       "verificationCriteria": "API_SPEC에 signup-submit 경계/요청/응답/에러 코드가 누락 없이 정의되고 P2_SIGNUP_ROLE_FLOW와 상태 의미가 일치한다.",
-      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다."
+      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다.",
+      "summary": "API_SPEC에 signup-submit 경계, 공통/역할별 요청 DTO, 성공/실패 응답 envelope, canonical 에러 코드 및 legacy detail 매핑을 추가해 문서 기준 단일 계약을 확정했다. P2_SIGNUP_ROLE_FLOW 상태 의미와 충돌하지 않도록 상태 전이 기대값을 역할별로 정렬했다.",
+      "completedAt": "2026-03-03T15:13:43.039Z"
     },
     {
       "id": "cb4bde42-6236-4c60-a1cb-2825cd43a84f",
       "name": "P2-1.3-2 signup-submit Edge Function 엔트리포인트 골격 구현",
       "description": "supabase/functions/signup-submit/index.ts를 생성하여 입력 검증, 역할 분기, 표준 에러 응답 반환 구조를 구현 가능한 형태로 고정한다.",
       "notes": "이 단계는 계약 구현 가능성 확보가 목적이며 direct table fallback 로직은 production에서 금지 정책을 준수해야 한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "c5538cee-788a-469f-b3a0-6af3c73d5b3a"
         }
       ],
       "createdAt": "2026-03-03T15:06:53.695Z",
-      "updatedAt": "2026-03-03T15:06:53.695Z",
+      "updatedAt": "2026-03-03T15:13:53.918Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/signup-submit/index.ts",
@@ -4857,21 +4861,23 @@
       ],
       "implementationGuide": "1) Deno Edge Function entrypoint를 생성한다. 2) request parsing + 공통 필드 검증 + role별 필수 필드 검증을 분리한다. 3) 검증 실패 시 canonical error code를 response envelope로 반환한다. 4) business write 단계는 명시적 TODO/adapter 경계로 분리한다. Pseudocode: parseBody -> validateCommon -> switch(role){admin:user} -> onError return {success:false,error:{code,message}} -> onPass return typed success envelope.",
       "verificationCriteria": "함수 엔트리포인트가 존재하고, 최소 입력 검증 및 역할 분기 오류 응답이 API_SPEC 계약과 동일한 코드/스키마로 반환된다.",
-      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다."
+      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다.",
+      "summary": "supabase/functions/signup-submit/index.ts를 생성해 Deno 엔트리포인트, JSON 파싱, 공통 필드 검증, 역할 분기(admin/user) 검증, canonical 에러 envelope 반환 구조를 구현했다. direct table fallback은 두지 않고 계약 스캐폴드 단계임을 명시적으로 분리했다.",
+      "completedAt": "2026-03-03T15:13:53.914Z"
     },
     {
       "id": "91a05915-7f12-4c36-8047-b760993cc9a8",
       "name": "P2-1.3-3 클라이언트 signup API 래퍼 경계 고정",
       "description": "src/api/signup.ts를 생성해 클라이언트 가입 제출 진입점을 단일화하고 supabase.functions.invoke('signup-submit') 경계를 강제한다.",
       "notes": "src/api/supabase.ts의 기존 client를 재사용하고, 후속 auth store/signup UI에서 직접 재사용 가능한 안정 인터페이스를 제공한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "c5538cee-788a-469f-b3a0-6af3c73d5b3a"
         }
       ],
       "createdAt": "2026-03-03T15:06:53.695Z",
-      "updatedAt": "2026-03-03T15:06:53.695Z",
+      "updatedAt": "2026-03-03T15:14:02.511Z",
       "relatedFiles": [
         {
           "path": "src/api/signup.ts",
@@ -4891,14 +4897,16 @@
       ],
       "implementationGuide": "1) submitSignup(request) API를 정의한다. 2) 내부에서 invoke('signup-submit')만 사용한다. 3) 응답 envelope를 파싱해 성공/실패 타입을 반환한다. 4) fallback 정책이 필요하면 DEV 환경 분기만 허용하고 production에서는 차단한다. Pseudocode: callInvoke -> if invokeError mapToCanonical -> if !success throw/return typed error -> return success payload.",
       "verificationCriteria": "클라이언트 코드에서 signup 제출 시 단일 래퍼를 통해 invoke 경계가 보장되고, 반환 타입이 역할 분기 계약과 일치한다.",
-      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다."
+      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다.",
+      "summary": "src/api/signup.ts와 src/types/signup.ts를 추가해 submitSignup 단일 진입점을 구현했고 내부 호출 경계를 supabase.functions.invoke('signup-submit')로 고정했다. 성공/실패 envelope 파싱, canonical/legacy 에러 코드 정규화, 타입 안전 반환 구조를 함께 정리해 후속 auth/signup UI 연동 기반을 마련했다.",
+      "completedAt": "2026-03-03T15:14:02.507Z"
     },
     {
       "id": "4c02b69e-0834-42c9-9834-e9e80f9380bf",
       "name": "P2-1.3-4 에러 코드 매핑/검증 체크리스트 정리",
       "description": "서버 에러 코드와 UI 메시지 매핑 기준 및 입력 검증 체크리스트를 문서화해 후속 UI/테스트 태스크의 해석 차이를 제거한다.",
       "notes": "문서와 코드의 에러 코드 키가 단일 집합을 사용해야 하며 alias가 필요한 경우 deprecated 표기를 명확히 한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "cb4bde42-6236-4c60-a1cb-2825cd43a84f"
@@ -4908,7 +4916,7 @@
         }
       ],
       "createdAt": "2026-03-03T15:06:53.695Z",
-      "updatedAt": "2026-03-03T15:06:53.695Z",
+      "updatedAt": "2026-03-03T15:14:19.337Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -4928,7 +4936,9 @@
       ],
       "implementationGuide": "1) canonical error code -> 사용자 메시지 키 매핑표를 정의한다. 2) role별 필수/금지 필드 체크리스트를 작성한다. 3) API_SPEC와 클라이언트 래퍼 에러 처리 규칙을 교차 검증한다. Pseudocode: for each ErrorCode define uiMessageKey + retryPolicy + operationScope; for each Role define requiredFields/forbiddenFields.",
       "verificationCriteria": "에러 코드 매핑표와 role별 입력 검증 체크리스트가 문서에 존재하고 API wrapper 처리 규칙과 충돌이 없다.",
-      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다."
+      "analysisResult": "P2-1.3은 P2-1.2의 canonical 상태 모델을 transport/API 경계로 고정하는 태스크이며, 현재 저장소 기준으로 문서 일부는 존재하지만 signup-submit 함수 엔트리포인트와 클라이언트 래퍼가 부재하다. 또한 task guide 예시 에러 코드와 API_SPEC 현재 코드셋 간 불일치가 있어 먼저 canonical 에러 코드 집합을 확정해야 후속 UI/테스트 구현 리스크를 줄일 수 있다.",
+      "summary": "API_SPEC에 canonical 에러 코드와 legacy detail 매핑표를 추가하고, test-validation-guide에 role별 입력 검증 체크리스트 및 canonical-detail 매핑 검증 항목을 신설했다. 동시에 src/types/signup.ts와 src/api/signup.ts에서 동일 코드 집합을 사용해 문서-클라이언트 처리 규칙 충돌을 제거했다.",
+      "completedAt": "2026-03-03T15:14:19.333Z"
     }
   ]
 }

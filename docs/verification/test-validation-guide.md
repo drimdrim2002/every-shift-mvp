@@ -625,3 +625,40 @@ commit;
 4. terminal 상태 재전이 금지 규칙이 검증되는가
 5. approved membership 접근 게이트 검증이 포함되는가
 6. 각 시나리오가 `Precondition + Validation SQL + Expected Result`를 갖는가
+
+## 14) P2-1.3 signup-submit 입력 검증/에러 코드 체크리스트
+
+본 섹션은 `docs/API_SPEC.md`의 `signup-submit` 기본 계약 검증용이다.
+
+### 14.1 입력 검증 체크리스트
+
+| Role | Required | Optional / Alias | Fail Code |
+| :--- | :--- | :--- | :--- |
+| `admin` | `email`, `password`, `name`, `role=admin`, `hospitalId`(or legacy `organizationId`) | `organizationSelectionMode`, `organizationDraftId` | `VALIDATION_ERROR`, `HOSPITAL_REQUIRED`, `INVALID_ROLE` |
+| `user` | `email`, `password`, `name`, `role=user`, `inviteCode` | `organizationSelectionMode=existing` | `VALIDATION_ERROR`, `INVALID_INVITE_CODE`, `INVALID_ROLE` |
+
+검증 포인트:
+
+1. `role` 누락/오타는 `INVALID_ROLE`로 반환되는가
+2. 공통 필드 누락/형식 오류는 `VALIDATION_ERROR`로 반환되는가
+3. admin에서 병원 미선택 시 `HOSPITAL_REQUIRED`를 반환하는가
+4. user에서 invite 누락/무효/만료/재사용/폐기/역할불일치 시 `INVALID_INVITE_CODE`를 반환하는가
+5. 동일 requester/role/scope의 pending 중복 요청은 `DUPLICATE_REQUEST`를 반환하는가
+
+### 14.2 Canonical-Detail 매핑 체크리스트
+
+| Detail/Legacy Code (`error.details.reason`) | Canonical Code (`error.code`) |
+| :--- | :--- |
+| `DUPLICATE_PENDING_REQUEST` | `DUPLICATE_REQUEST` |
+| `ORGANIZATION_REQUIRED` | `HOSPITAL_REQUIRED` |
+| `INVITE_NOT_FOUND` | `INVALID_INVITE_CODE` |
+| `INVITE_EXPIRED` | `INVALID_INVITE_CODE` |
+| `INVITE_ALREADY_USED` | `INVALID_INVITE_CODE` |
+| `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
+| `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
+
+검증 포인트:
+
+1. 클라이언트 분기 로직이 `error.code`만 사용하고 자유 텍스트에 의존하지 않는가
+2. detail reason은 로깅/디버깅 용도로만 사용되는가
+3. UI 메시지 매핑이 canonical code 기준 단일화되어 있는가

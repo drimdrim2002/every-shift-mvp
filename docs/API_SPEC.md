@@ -172,7 +172,7 @@ Canonical state source:
 ### Contract Scope
 
 - This section defines:
-  - Request/response contract for signup path operations
+  - Request/response contract for `signup-submit` and approval operations
   - State transition expectations (`signup_requests`, `organization_memberships`)
   - Error code semantics for frontend/server consistency
 - This section does not define:
@@ -190,22 +190,34 @@ Canonical state source:
 
 `membershipStatus='none'` means no membership row was created/updated in that operation.
 
-### Operation A: Admin Signup Submit
+### Edge Function Boundary (`signup-submit`)
 
-Logical operation:
-- Create pending signup request for admin review flow.
+- Client boundary is fixed to `supabase.functions.invoke('signup-submit')`.
+- Production direct-table fallback is forbidden.
+- Server must normalize role input and enforce role-specific required fields.
+- Server responses must follow the unified envelope in this section.
 
-#### Request Body
+### Request DTO (Basic Contract)
+
+#### Common fields
 
 | Field | Type | Required | Rules |
 | :--- | :--- | :--- | :--- |
-| `requestedRole` | String | Yes | Must be `admin` for this operation |
-| `name` | String | Yes | Non-empty |
 | `email` | String | Yes | Valid email format |
 | `password` | String | Yes | Policy-validated secret |
-| `organizationSelectionMode` | String | Yes | `existing` or `create_new` |
-| `organizationId` | UUID | Conditional | Required when `organizationSelectionMode='existing'` |
-| `organizationDraftId` | UUID | Conditional | Required when `organizationSelectionMode='create_new'` |
+| `name` | String | Yes | Non-empty |
+| `role` | String | Yes | `admin` or `user` |
+| `requestedRole` | String | No | Legacy alias for `role` (deprecated, accepted for compatibility) |
+
+#### Role-specific fields
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `hospitalId` | UUID | Conditional | Required when `role='admin'` |
+| `organizationId` | UUID | No | Legacy alias for `hospitalId` (deprecated, accepted for compatibility) |
+| `inviteCode` | String | Conditional | Required when `role='user'` |
+| `organizationSelectionMode` | String | No | Forward-compat (`existing`/`create_new`) for P2-1.7 |
+| `organizationDraftId` | UUID | No | Forward-compat for P2-1.7 create_new mode |
 | `workType` | String | No | Optional profile metadata |
 | `shiftType` | String | No | Optional profile metadata |
 | `requestedSiteName` | String | No | Optional profile metadata |
@@ -213,62 +225,102 @@ Logical operation:
 | `requestedRankCode` | String | No | Optional profile metadata |
 | `requestedCredit` | Number | No | Optional profile metadata |
 
-#### State Write Expectation
+### Input Validation Checklist
 
-- `signup_requests`: `pending` row created (`requested_role='admin'`)
-- `organization_memberships`: no approved row created at submit time
+- Common:
+  - `email`, `password`, `name` are required and non-empty.
+  - `role` (or legacy alias `requestedRole`) must be one of `admin`, `user`.
+- `role='admin'`:
+  - `hospitalId` or `organizationId` must be provided.
+  - Missing hospital selection returns `HOSPITAL_REQUIRED`.
+- `role='user'`:
+  - `inviteCode` must be provided and valid.
+  - Invalid or unusable invite returns `INVALID_INVITE_CODE`.
+- Duplicate pending request in same requester/role/scope returns `DUPLICATE_REQUEST`.
 
-#### Success Response Example
-
-```json
-{
-  "success": true,
-  "path": "admin_submit",
-  "signupRequestId": "uuid",
-  "signupRequestStatus": "pending",
-  "membershipStatus": "none"
-}
-```
-
-### Operation B: User Signup by Invite Redemption
-
-Logical operation:
-- Validate and consume invite code.
-- Immediately grant approved user membership.
-- Persist approved signup request for audit.
-
-#### Request Body
-
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `requestedRole` | String | Yes | Must be `user` for this operation |
-| `name` | String | Yes | Non-empty |
-| `email` | String | Yes | Valid email format |
-| `password` | String | Yes | Policy-validated secret |
-| `inviteCode` | String | Yes | Raw code (server stores/compares hash only) |
-| `organizationSelectionMode` | String | No | If provided, must be `existing`; invite determines final org |
-
-#### State Write Expectation
-
-Single transaction:
-1. Consume invite (`used_at`, `used_by`)
-2. Upsert `organization_memberships(role='user', status='approved')`
-3. Insert `signup_requests(status='approved', requested_role='user')`
-
-#### Success Response Example
+### Success Response Envelope
 
 ```json
 {
   "success": true,
-  "path": "user_invite_redeem",
-  "signupRequestId": "uuid",
-  "signupRequestStatus": "approved",
-  "membershipStatus": "approved",
-  "organizationId": "uuid"
+  "data": {
+    "path": "admin_submit",
+    "signupRequestId": "uuid",
+    "signupRequestStatus": "pending",
+    "membershipStatus": "none"
+  }
 }
 ```
 
-### Operation C: Approval Decision (Admin Queue)
+### Success Example: User Invite Redeem
+
+```json
+{
+  "success": true,
+  "data": {
+    "path": "user_invite_redeem",
+    "signupRequestId": "uuid",
+    "signupRequestStatus": "approved",
+    "membershipStatus": "approved",
+    "organizationId": "uuid"
+  }
+}
+```
+
+### Error Response Envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "DUPLICATE_REQUEST",
+    "message": "Human-readable message",
+    "details": {
+      "reason": "DUPLICATE_PENDING_REQUEST"
+    }
+  }
+}
+```
+
+Clients must branch by `error.code` (canonical), not by free-form message text.
+
+### Canonical Error Code Contract (`signup-submit`)
+
+| Code | Meaning | Typical Operation |
+| :--- | :--- | :--- |
+| `INVALID_ROLE` | Role is missing or not one of `admin` / `user` | signup-submit |
+| `INVALID_INVITE_CODE` | Invite is missing/invalid/expired/used/revoked/role-mismatched | signup-submit (`role='user'`) |
+| `HOSPITAL_REQUIRED` | Admin hospital selection is missing | signup-submit (`role='admin'`) |
+| `DUPLICATE_REQUEST` | Duplicate pending signup request exists in same scope | signup-submit |
+| `VALIDATION_ERROR` | Generic request schema validation failure | signup-submit |
+| `PERMISSION_DENIED` | Caller lacks required scope/permission | signup-submit/approval |
+| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+
+#### Legacy/Error Detail Mapping
+
+The server may include legacy detail reasons under `error.details.reason` for migration compatibility.
+
+| Legacy/Detail Code | Canonical Code |
+| :--- | :--- |
+| `DUPLICATE_PENDING_REQUEST` | `DUPLICATE_REQUEST` |
+| `ORGANIZATION_REQUIRED` | `HOSPITAL_REQUIRED` |
+| `INVITE_NOT_FOUND` | `INVALID_INVITE_CODE` |
+| `INVITE_EXPIRED` | `INVALID_INVITE_CODE` |
+| `INVITE_ALREADY_USED` | `INVALID_INVITE_CODE` |
+| `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
+| `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
+
+### State Write Expectation by Role
+
+- `role='admin'`:
+  - Create `signup_requests(status='pending', requested_role='admin')`.
+  - Do not create approved membership at submit time.
+- `role='user'`:
+  - Validate/consume invite.
+  - Upsert `organization_memberships(role='user', status='approved')`.
+  - Insert `signup_requests(status='approved', requested_role='user')` for audit in same transaction.
+
+### Operation C: Approval Decision (Admin Queue, Reference)
 
 Logical operation:
 - Decision on pending admin signup request.
@@ -290,40 +342,17 @@ Logical operation:
   - `signup_requests.pending -> rejected`
   - no approved membership creation
 
-### Error Code Contract
+#### Approval-Specific Error Codes
 
-| Code | Meaning | Typical Operation |
-| :--- | :--- | :--- |
-| `VALIDATION_ERROR` | Request payload fails schema/rule checks | all |
-| `DUPLICATE_PENDING_REQUEST` | Same requester/role/org-scope already has pending request | admin submit |
-| `ORGANIZATION_REQUIRED` | `organizationSelectionMode='existing'` but `organizationId` missing | admin submit |
-| `ORGANIZATION_DRAFT_REQUIRED` | `organizationSelectionMode='create_new'` but `organizationDraftId` missing | admin submit |
-| `INVITE_NOT_FOUND` | Invite does not exist | user invite redeem |
-| `INVITE_EXPIRED` | Invite exists but already expired | user invite redeem |
-| `INVITE_ALREADY_USED` | Invite already consumed | user invite redeem |
-| `INVITE_REVOKED` | Invite revoked and unusable | user invite redeem |
-| `INVITE_ROLE_MISMATCH` | Invite scope incompatible with requested role | user invite redeem |
-| `INVALID_TRANSITION` | Request state transition is forbidden (already terminal or incompatible) | approval decision |
-| `REQUEST_NOT_FOUND` | Target signup request does not exist | approval decision |
-| `PERMISSION_DENIED` | Caller lacks required approval/tenant scope | approval decision |
-| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+| Code | Meaning |
+| :--- | :--- |
+| `INVALID_TRANSITION` | Request state transition is forbidden (already terminal or incompatible) |
+| `REQUEST_NOT_FOUND` | Target signup request does not exist |
+| `PERMISSION_DENIED` | Caller lacks required approval/tenant scope |
+| `INTERNAL_ERROR` | Unexpected server-side failure |
 
 ### Compatibility Rule with P2-1.7 (`create_new`)
 
 - `organizationSelectionMode='create_new'` is allowed only for admin signup submit.
 - `organizationDraftId` is mandatory in `create_new` mode and must refer to signup-bridge created draft.
 - User invite redemption flow does not create organization draft and must not require `organizationDraftId`.
-
-### Response Envelope (Recommended)
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "DUPLICATE_PENDING_REQUEST",
-    "message": "Human-readable message"
-  }
-}
-```
-
-Clients should branch logic by `error.code`, not by free-form message text.
