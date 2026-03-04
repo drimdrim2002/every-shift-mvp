@@ -1,10 +1,13 @@
 export type SignupRole = 'admin' | 'user';
+export type HospitalSource = 'data.go.kr';
 
 export type SignupPath = 'admin_submit' | 'user_invite_redeem';
 
 export type SignupRequestStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn';
 
 export type MembershipStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'none';
+
+export type SignupNextState = 'pending_approval' | 'active';
 
 export type SignupErrorCode =
   | 'INVALID_ROLE'
@@ -26,9 +29,10 @@ export interface SignupSubmitCommonRequest {
 export interface SignupSubmitAdminRequest extends SignupSubmitCommonRequest {
   role: 'admin';
   hospitalId?: string;
+  hospitalName?: string;
+  hospitalSource?: HospitalSource;
   organizationId?: string;
-  organizationSelectionMode?: 'existing' | 'create_new';
-  organizationDraftId?: string;
+  organizationSelectionMode?: 'existing';
   workType?: string;
   shiftType?: string;
   requestedSiteName?: string;
@@ -47,6 +51,7 @@ export type SignupSubmitRequest = SignupSubmitAdminRequest | SignupSubmitUserReq
 
 export interface SignupSubmitSuccessData {
   path: SignupPath;
+  nextState: SignupNextState;
   signupRequestStatus: SignupRequestStatus;
   membershipStatus: MembershipStatus;
   signupRequestId?: string;

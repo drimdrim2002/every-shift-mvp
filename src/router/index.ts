@@ -11,6 +11,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: '로그인' },
   },
   {
+    path: '/signup',
+    name: 'Signup',
+    component: () => import('@/views/auth/Signup.vue'),
+    meta: { requiresAuth: false, title: '회원가입' },
+  },
+  {
     path: '/test',
     name: 'TestOrganization',
     component: () => import('@/views/TestOrganization.vue'),

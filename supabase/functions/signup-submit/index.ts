@@ -1,3 +1,5 @@
+import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -6,9 +8,11 @@ const CORS_HEADERS = {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
+const HOSPITAL_SOURCE = 'data.go.kr';
 
 type SignupRole = 'admin' | 'user';
 type SignupPath = 'admin_submit' | 'user_invite_redeem';
+type SignupNextState = 'pending_approval' | 'active';
 type SignupRequestStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn';
 type MembershipStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'none';
 
@@ -21,6 +25,13 @@ type SignupErrorCode =
   | 'PERMISSION_DENIED'
   | 'INTERNAL_ERROR';
 
+type InviteInvalidReason =
+  | 'INVITE_NOT_FOUND'
+  | 'INVITE_EXPIRED'
+  | 'INVITE_ALREADY_USED'
+  | 'INVITE_REVOKED'
+  | 'INVITE_ROLE_MISMATCH';
+
 interface SignupSubmitRequest {
   email?: unknown;
   password?: unknown;
@@ -28,12 +39,15 @@ interface SignupSubmitRequest {
   role?: unknown;
   requestedRole?: unknown;
   hospitalId?: unknown;
+  hospitalName?: unknown;
+  hospitalSource?: unknown;
   organizationId?: unknown;
   inviteCode?: unknown;
 }
 
 interface SignupSuccessData {
   path: SignupPath;
+  nextState: SignupNextState;
   signupRequestStatus: SignupRequestStatus;
   membershipStatus: MembershipStatus;
   signupRequestId?: string;
@@ -57,6 +71,19 @@ interface SignupErrorResponse {
 }
 
 type SignupSubmitResponse = SignupSuccessResponse | SignupErrorResponse;
+
+interface InviteCodeRow {
+  organization_id: string;
+  role_scope: string;
+  expires_at: string;
+  used_at: string | null;
+  revoked_at: string | null;
+}
+
+type InviteValidationResult =
+  | { type: 'valid'; organizationId?: string }
+  | { type: 'invalid'; reason: InviteInvalidReason }
+  | { type: 'internal_error'; message: string };
 
 function jsonResponse(status: number, body: SignupSubmitResponse): Response {
   return new Response(JSON.stringify(body), {
@@ -102,6 +129,20 @@ function resolveHospitalId(payload: SignupSubmitRequest): string | null {
   return null;
 }
 
+function resolveHospitalName(payload: SignupSubmitRequest): string | null {
+  if (!isNonEmptyString(payload.hospitalName)) {
+    return null;
+  }
+  return payload.hospitalName.trim();
+}
+
+function resolveHospitalSource(payload: SignupSubmitRequest): string | null {
+  if (!isNonEmptyString(payload.hospitalSource)) {
+    return null;
+  }
+  return payload.hospitalSource.trim();
+}
+
 function validateCommonFields(payload: SignupSubmitRequest): SignupErrorResponse | null {
   if (!isNonEmptyString(payload.email) || !EMAIL_PATTERN.test(payload.email.trim())) {
     return {
@@ -139,12 +180,33 @@ function validateCommonFields(payload: SignupSubmitRequest): SignupErrorResponse
   return null;
 }
 
-function createMockSuccess(role: SignupRole, payload: SignupSubmitRequest): SignupSuccessResponse {
+function getInviteInvalidMessage(reason: InviteInvalidReason): string {
+  switch (reason) {
+    case 'INVITE_EXPIRED':
+      return 'Invite code has expired.';
+    case 'INVITE_ALREADY_USED':
+      return 'Invite code was already used.';
+    case 'INVITE_REVOKED':
+      return 'Invite code has been revoked.';
+    case 'INVITE_ROLE_MISMATCH':
+      return 'Invite role scope does not match user signup path.';
+    case 'INVITE_NOT_FOUND':
+    default:
+      return 'Invite code is invalid.';
+  }
+}
+
+function createMockSuccess(
+  role: SignupRole,
+  payload: SignupSubmitRequest,
+  inviteOrganizationId?: string
+): SignupSuccessResponse {
   if (role === 'admin') {
     return {
       success: true,
       data: {
         path: 'admin_submit',
+        nextState: 'pending_approval',
         signupRequestStatus: 'pending',
         membershipStatus: 'none',
         organizationId: resolveHospitalId(payload) ?? undefined,
@@ -156,9 +218,104 @@ function createMockSuccess(role: SignupRole, payload: SignupSubmitRequest): Sign
     success: true,
     data: {
       path: 'user_invite_redeem',
+      nextState: 'active',
       signupRequestStatus: 'approved',
       membershipStatus: 'approved',
+      organizationId: inviteOrganizationId,
     },
+  };
+}
+
+function resolveInviteReasonFromContractToken(inviteCode: string): InviteInvalidReason | null {
+  const normalized = inviteCode.trim().toLowerCase();
+
+  if (normalized.startsWith('expired-')) return 'INVITE_EXPIRED';
+  if (normalized.startsWith('used-')) return 'INVITE_ALREADY_USED';
+  if (normalized.startsWith('revoked-')) return 'INVITE_REVOKED';
+  if (normalized.startsWith('mismatch-')) return 'INVITE_ROLE_MISMATCH';
+  if (normalized.startsWith('invalid-')) return 'INVITE_NOT_FOUND';
+
+  return null;
+}
+
+function createServiceRoleClient(): SupabaseClient | null {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return null;
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+async function toSha256Hex(rawValue: string): Promise<string> {
+  const data = new TextEncoder().encode(rawValue);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(hashBuffer)]
+    .map((value) => value.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function validateInviteCode(inviteCode: string): Promise<InviteValidationResult> {
+  const normalized = inviteCode.trim().toLowerCase();
+  if (normalized.startsWith('valid-')) {
+    return { type: 'valid' };
+  }
+
+  const tokenReason = resolveInviteReasonFromContractToken(inviteCode);
+  if (tokenReason) {
+    return { type: 'invalid', reason: tokenReason };
+  }
+
+  const serviceClient = createServiceRoleClient();
+  if (!serviceClient) {
+    return { type: 'valid' };
+  }
+
+  const codeHash = await toSha256Hex(inviteCode.trim());
+  const { data, error } = await serviceClient
+    .from('invite_codes')
+    .select('organization_id, role_scope, expires_at, used_at, revoked_at')
+    .eq('code_hash', codeHash)
+    .maybeSingle<InviteCodeRow>();
+
+  if (error && error.code !== 'PGRST116') {
+    return {
+      type: 'internal_error',
+      message: `Invite code lookup failed: ${error.message}`,
+    };
+  }
+
+  if (!data) {
+    return { type: 'invalid', reason: 'INVITE_NOT_FOUND' };
+  }
+
+  if (data.role_scope !== 'user') {
+    return { type: 'invalid', reason: 'INVITE_ROLE_MISMATCH' };
+  }
+
+  if (data.revoked_at) {
+    return { type: 'invalid', reason: 'INVITE_REVOKED' };
+  }
+
+  if (data.used_at) {
+    return { type: 'invalid', reason: 'INVITE_ALREADY_USED' };
+  }
+
+  const expiresAtTime = new Date(data.expires_at).getTime();
+  if (!Number.isFinite(expiresAtTime) || expiresAtTime <= Date.now()) {
+    return { type: 'invalid', reason: 'INVITE_EXPIRED' };
+  }
+
+  return {
+    type: 'valid',
+    organizationId: data.organization_id,
   };
 }
 
@@ -195,17 +352,54 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(400, commonValidationError);
   }
 
+  let inviteOrganizationId: string | undefined;
+
   if (role === 'admin') {
     const hospitalId = resolveHospitalId(payload);
     if (!hospitalId) {
       return errorResponse(400, 'HOSPITAL_REQUIRED', 'hospitalId is required for admin role.');
     }
+
+    const hospitalName = resolveHospitalName(payload);
+    if (!hospitalName) {
+      return errorResponse(400, 'VALIDATION_ERROR', 'hospitalName is required for admin role.', {
+        field: 'hospitalName',
+        reason: 'HOSPITAL_NAME_REQUIRED',
+      });
+    }
+
+    const hospitalSource = resolveHospitalSource(payload);
+    if (!hospitalSource || hospitalSource !== HOSPITAL_SOURCE) {
+      return errorResponse(400, 'VALIDATION_ERROR', 'hospitalSource must be data.go.kr for admin role.', {
+        field: 'hospitalSource',
+        reason: 'HOSPITAL_SOURCE_INVALID',
+        expected: HOSPITAL_SOURCE,
+      });
+    }
   }
 
   if (role === 'user') {
     if (!isNonEmptyString(payload.inviteCode)) {
-      return errorResponse(400, 'INVALID_INVITE_CODE', 'inviteCode is required for user role.');
+      return errorResponse(400, 'INVALID_INVITE_CODE', 'inviteCode is required for user role.', {
+        reason: 'INVITE_NOT_FOUND',
+      });
     }
+
+    const inviteValidation = await validateInviteCode(payload.inviteCode.trim());
+
+    if (inviteValidation.type === 'internal_error') {
+      return errorResponse(500, 'INTERNAL_ERROR', inviteValidation.message, {
+        stage: 'invite_validation',
+      });
+    }
+
+    if (inviteValidation.type === 'invalid') {
+      return errorResponse(400, 'INVALID_INVITE_CODE', getInviteInvalidMessage(inviteValidation.reason), {
+        reason: inviteValidation.reason,
+      });
+    }
+
+    inviteOrganizationId = inviteValidation.organizationId;
   }
 
   // Contract-only scaffold:
@@ -217,5 +411,5 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  return jsonResponse(200, createMockSuccess(role, payload));
+  return jsonResponse(200, createMockSuccess(role, payload, inviteOrganizationId));
 });

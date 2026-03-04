@@ -18,10 +18,22 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { NButton } from 'naive-ui'
+import { useGlobalMessage } from '@/composables/useGlobalMessage'
+import { useAuthStore } from '@/stores/auth'
 
-function handleLogout() {
-  // TODO: 로그아웃 로직은 Auth Store 생성 후 구현
-  console.log('로그아웃')
+const router = useRouter()
+const authStore = useAuthStore()
+const { success, error: showError } = useGlobalMessage()
+
+async function handleLogout() {
+  const result = await authStore.logout()
+  if (result.success) {
+    success('로그아웃되었습니다.')
+    router.push('/login')
+  } else {
+    showError(result.error || '로그아웃 실패')
+  }
 }
 </script>

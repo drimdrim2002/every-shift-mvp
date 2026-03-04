@@ -14,7 +14,10 @@ function normalizeSignupErrorCode(code: unknown): SignupErrorCode {
       return code as SignupErrorCode;
     }
     if (code in LEGACY_SIGNUP_ERROR_CODE_MAP) {
-      return LEGACY_SIGNUP_ERROR_CODE_MAP[code];
+      const mappedCode = LEGACY_SIGNUP_ERROR_CODE_MAP[code];
+      if (mappedCode) {
+        return mappedCode;
+      }
     }
   }
   return 'INTERNAL_ERROR';
@@ -35,6 +38,41 @@ function normalizeSignupRequest(request: SignupSubmitRequest): SignupSubmitReque
     ...request,
     requestedRole: request.role,
   };
+}
+
+function createDevMockSuccessData(request: SignupSubmitRequest): SignupSubmitSuccessData {
+  if (request.role === 'admin') {
+    const organizationId = request.hospitalId ?? request.organizationId;
+    return {
+      path: 'admin_submit',
+      nextState: 'pending_approval',
+      signupRequestStatus: 'pending',
+      membershipStatus: 'none',
+      organizationId,
+    };
+  }
+
+  return {
+    path: 'user_invite_redeem',
+    nextState: 'active',
+    signupRequestStatus: 'approved',
+    membershipStatus: 'approved',
+  };
+}
+
+function shouldUseDevMockFallback(): boolean {
+  const env = import.meta.env as ImportMetaEnv & { VITE_ENABLE_MOCK_SIGNUP?: string };
+  return env.DEV || env.VITE_ENABLE_MOCK_SIGNUP === 'true';
+}
+
+function shouldBypassRemoteSignupInvoke(): boolean {
+  const env = import.meta.env as ImportMetaEnv & { VITE_SIGNUP_FORCE_REMOTE?: string };
+
+  if (!shouldUseDevMockFallback()) {
+    return false;
+  }
+
+  return env.VITE_SIGNUP_FORCE_REMOTE !== 'true';
 }
 
 export class SignupSubmitApiError extends Error {
@@ -62,19 +100,40 @@ function toApiError(error: SignupSubmitError | null | undefined): SignupSubmitAp
 export async function submitSignup(request: SignupSubmitRequest): Promise<SignupSubmitSuccessData> {
   const normalizedRequest = normalizeSignupRequest(request);
 
+  if (shouldBypassRemoteSignupInvoke()) {
+    console.info('[submitSignup] Using dev mock signup response (remote invoke bypassed).');
+    return createDevMockSuccessData(normalizedRequest);
+  }
+
   const { data, error } = await supabase.functions.invoke<SignupSubmitResponse>('signup-submit', {
     body: normalizedRequest,
   });
 
   if (error) {
+    if (shouldUseDevMockFallback()) {
+      console.warn('[submitSignup] Falling back to dev mock due invoke error:', error.message);
+      return createDevMockSuccessData(normalizedRequest);
+    }
     throw new SignupSubmitApiError('INTERNAL_ERROR', error.message || SIGNUP_ERROR_MESSAGES.INTERNAL_ERROR);
   }
 
   if (!data) {
+    if (shouldUseDevMockFallback()) {
+      console.warn('[submitSignup] Falling back to dev mock due empty response.');
+      return createDevMockSuccessData(normalizedRequest);
+    }
     throw new SignupSubmitApiError('INTERNAL_ERROR', 'signup-submit returned an empty response.');
   }
 
   if (!data.success) {
+    const isContractOnlyScaffoldError =
+      data.error.code === 'INTERNAL_ERROR' && data.error.details?.stage === 'contract_only_scaffold';
+
+    if (isContractOnlyScaffoldError && shouldUseDevMockFallback()) {
+      console.warn('[submitSignup] Falling back to dev mock due contract-only scaffold response.');
+      return createDevMockSuccessData(normalizedRequest);
+    }
+
     throw toApiError(data.error);
   }
 

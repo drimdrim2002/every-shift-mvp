@@ -184,7 +184,8 @@ Canonical state source:
 | Name | Values |
 | :--- | :--- |
 | `requestedRole` | `admin`, `user` |
-| `organizationSelectionMode` | `existing`, `create_new` |
+| `organizationSelectionMode` | `existing` |
+| `nextState` | `pending_approval`, `active` |
 | `signupRequestStatus` | `pending`, `approved`, `rejected`, `expired`, `withdrawn` |
 | `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn`, `none` |
 
@@ -214,10 +215,11 @@ Canonical state source:
 | Field | Type | Required | Rules |
 | :--- | :--- | :--- | :--- |
 | `hospitalId` | UUID | Conditional | Required when `role='admin'` |
+| `hospitalName` | String | Conditional | Required when `role='admin'`, selected hospital display name |
+| `hospitalSource` | String | Conditional | Required when `role='admin'`, must be `data.go.kr` |
 | `organizationId` | UUID | No | Legacy alias for `hospitalId` (deprecated, accepted for compatibility) |
 | `inviteCode` | String | Conditional | Required when `role='user'` |
-| `organizationSelectionMode` | String | No | Forward-compat (`existing`/`create_new`) for P2-1.7 |
-| `organizationDraftId` | UUID | No | Forward-compat for P2-1.7 create_new mode |
+| `organizationSelectionMode` | String | No | Canonical value is `existing` |
 | `workType` | String | No | Optional profile metadata |
 | `shiftType` | String | No | Optional profile metadata |
 | `requestedSiteName` | String | No | Optional profile metadata |
@@ -232,6 +234,8 @@ Canonical state source:
   - `role` (or legacy alias `requestedRole`) must be one of `admin`, `user`.
 - `role='admin'`:
   - `hospitalId` or `organizationId` must be provided.
+  - `hospitalName` must be provided.
+  - `hospitalSource` must be `data.go.kr`.
   - Missing hospital selection returns `HOSPITAL_REQUIRED`.
 - `role='user'`:
   - `inviteCode` must be provided and valid.
@@ -245,6 +249,7 @@ Canonical state source:
   "success": true,
   "data": {
     "path": "admin_submit",
+    "nextState": "pending_approval",
     "signupRequestId": "uuid",
     "signupRequestStatus": "pending",
     "membershipStatus": "none"
@@ -259,6 +264,7 @@ Canonical state source:
   "success": true,
   "data": {
     "path": "user_invite_redeem",
+    "nextState": "active",
     "signupRequestId": "uuid",
     "signupRequestStatus": "approved",
     "membershipStatus": "approved",
@@ -310,6 +316,98 @@ The server may include legacy detail reasons under `error.details.reason` for mi
 | `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
 | `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
 
+## Hospital Search Contract (P2 Canonical)
+
+This section defines the contract for hospital lookup used by admin signup.
+
+### Edge Function Boundary (`hospital-search`)
+
+- Client boundary is fixed to `supabase.functions.invoke('hospital-search')`.
+- Client must not call `data.go.kr` directly.
+- `HOSPITAL_API_BASE_URL` and `HOSPITAL_API_KEY` must be used only in server environment variables.
+
+### Request DTO
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `keyword` | String | Yes | Trimmed length must be `2..50` |
+| `pageNo` | Number | No | Positive integer, default `1` |
+| `numOfRows` | Number | No | Positive integer, default `20`, max `50` |
+
+### Input Validation Checklist
+
+- `keyword` is required and must be `2..50` chars after trim.
+- `pageNo` must be a positive integer if provided.
+- `numOfRows` must be a positive integer in range `1..50` if provided.
+
+### Success Response Envelope
+
+```json
+{
+  "success": true,
+  "data": {
+    "source": "data.go.kr",
+    "keyword": "세브란스",
+    "items": [
+      {
+        "id": "A1234567",
+        "name": "세브란스병원",
+        "source": "data.go.kr"
+      }
+    ],
+    "paging": {
+      "pageNo": 1,
+      "numOfRows": 20,
+      "totalCount": 154
+    }
+  }
+}
+```
+
+### Error Response Envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "UPSTREAM_TIMEOUT",
+    "message": "Upstream request timed out.",
+    "details": {
+      "timeoutMs": 5000
+    }
+  }
+}
+```
+
+Clients must branch by `error.code` (canonical), not by free-form message text.
+
+### Canonical Error Code Contract (`hospital-search`)
+
+| Code | Meaning |
+| :--- | :--- |
+| `VALIDATION_ERROR` | Request payload validation failed |
+| `UPSTREAM_TIMEOUT` | data.go.kr request timed out |
+| `UPSTREAM_RATE_LIMIT` | data.go.kr or edge-level rate limit was hit |
+| `UPSTREAM_ERROR` | data.go.kr returned non-success or invalid payload |
+| `INTERNAL_ERROR` | Unexpected server-side failure |
+
+### Rate Limit / Timeout / Error Mapping Policy
+
+- Timeout: upstream fetch timeout is fixed to `5000ms` and maps to `UPSTREAM_TIMEOUT`.
+- Rate limit:
+  - HTTP `429` from upstream maps to `UPSTREAM_RATE_LIMIT`.
+  - Edge-level request throttling maps to `UPSTREAM_RATE_LIMIT`.
+- Upstream errors:
+  - Non-2xx response maps to `UPSTREAM_ERROR`.
+  - Invalid payload shape or upstream result code mismatch maps to `UPSTREAM_ERROR`.
+- Local validation failures map to `VALIDATION_ERROR`.
+
+### Security Boundary Checklist
+
+- Browser network does not call `data.go.kr` directly.
+- `HOSPITAL_API_KEY` is not referenced in browser code.
+- Every hospital item includes `source='data.go.kr'`.
+
 ### State Write Expectation by Role
 
 - `role='admin'`:
@@ -351,8 +449,7 @@ Logical operation:
 | `PERMISSION_DENIED` | Caller lacks required approval/tenant scope |
 | `INTERNAL_ERROR` | Unexpected server-side failure |
 
-### Compatibility Rule with P2-1.7 (`create_new`)
+### Compatibility Rule
 
-- `organizationSelectionMode='create_new'` is allowed only for admin signup submit.
-- `organizationDraftId` is mandatory in `create_new` mode and must refer to signup-bridge created draft.
-- User invite redemption flow does not create organization draft and must not require `organizationDraftId`.
+- Canonical v2 signup contract uses role-branch submit with `organizationSelectionMode='existing'`.
+- Legacy `organizationId` alias for `hospitalId` remains accepted for compatibility.
