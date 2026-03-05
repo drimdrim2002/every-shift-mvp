@@ -131,6 +131,7 @@
           type="primary"
           block
           :loading="authStore.loading"
+          :disabled="isRoleSpecificFieldMissing"
           class="mt-4"
           @click="handleSignup"
         >
@@ -259,6 +260,13 @@ const rules: FormRules = {
 
 const submitLabel = computed(() => (formValue.value.role === 'admin' ? '가입 신청' : '가입하기'))
 const canSearchHospital = computed(() => formValue.value.hospitalKeyword.trim().length >= 2)
+const isRoleSpecificFieldMissing = computed(() => {
+  if (formValue.value.role === 'admin') {
+    return !formValue.value.hospitalId
+  }
+
+  return !formValue.value.inviteCode.trim()
+})
 
 function getSelectedHospitalName(): string {
   const selectedHospitalId = formValue.value.hospitalId
