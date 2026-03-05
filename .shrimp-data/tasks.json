@@ -5054,14 +5054,14 @@
       "name": "P2-1.4-4 Validation Matrix and Manual QA for Role Branching",
       "description": "Define and execute manual verification scenarios for role switch, submit, error mapping, and success-state messages.",
       "notes": "Ensure behavior remains stable while backend function may still return contract-only scaffold errors in local environments.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "1b94e697-94d4-4919-8a0a-0a437d951cdd"
         }
       ],
       "createdAt": "2026-03-04T12:43:33.243Z",
-      "updatedAt": "2026-03-04T12:43:33.243Z",
+      "updatedAt": "2026-03-05T16:10:17.504Z",
       "relatedFiles": [
         {
           "path": "src/views/auth/Signup.vue",
@@ -5081,7 +5081,9 @@
       ],
       "implementationGuide": "1) Prepare scenario matrix: role toggle, missing admin hospital, missing/invalid invite code, duplicate request error, success pending_approval, success active. 2) Validate UI field visibility, disabled submit states, and Korean error/success copy. 3) Confirm lint gate and basic build/test checks run after changes.",
       "verificationCriteria": "Manual test evidence confirms pass criteria for both roles; lint check reports zero errors; no regression in login routing behavior.",
-      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract."
+      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract.",
+      "summary": "역할 분기 수동 QA 매트릭스(RB-001~RB-006)를 기존 playbook에 통합했고, 시나리오별 실행 증거(Pass/Fail, 실행시각, 환경 플래그, 근거)를 기록했다. lint:check 0 error 및 signup 관련 단위테스트 5파일 24케이스 전부 통과로 로그인 라우팅 포함 회귀 없음이 확인되었다.",
+      "completedAt": "2026-03-05T16:10:17.496Z"
     },
     {
       "id": "9df3e61b-bc11-4e92-963d-ccd70d4efadb",
