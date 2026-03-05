@@ -80,6 +80,7 @@ describe('auth store signup contract', () => {
     const result = await authStore.signup(adminRequest)
 
     expect(submitSignup).toHaveBeenCalledWith(adminRequest)
+    expect(submitSignup).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: true,
       nextState: 'pending_approval',
@@ -109,6 +110,7 @@ describe('auth store signup contract', () => {
     const authStore = useAuthStore()
     const result = await authStore.signup(userRequest)
 
+    expect(submitSignup).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: true,
       nextState: 'active',
@@ -135,6 +137,7 @@ describe('auth store signup contract', () => {
     const authStore = useAuthStore()
     const result = await authStore.signup(userRequest)
 
+    expect(submitSignup).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: false,
       nextState: null,
@@ -161,6 +164,7 @@ describe('auth store signup contract', () => {
     const authStore = useAuthStore()
     const result = await authStore.signup(userRequest)
 
+    expect(submitSignup).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       success: false,
       nextState: null,
@@ -177,6 +181,7 @@ describe('auth store signup contract', () => {
     const authStore = useAuthStore()
     const result = await authStore.signup(userRequest)
 
+    expect(submitSignup).toHaveBeenCalledTimes(1)
     expect(getSignupErrorMessage).toHaveBeenCalledWith('INTERNAL_ERROR')
     expect(result).toEqual({
       success: false,
