@@ -2,24 +2,28 @@
 
 이 문서는 `.shrimp-data/tasks.json`을 단일 기준(source of truth)으로 하여 자동 생성됩니다.
 
-## 최근 반영 내역 (2026-03-02 기준)
+## 최근 반영 내역 (2026-03-05 기준)
 
 - 기준 소스: `.shrimp-data/tasks.json` (canonical)
-- 기준 데이터 수정 시각(UTC): 2026-03-02T04:00:21Z
-- 전체 태스크: 156 (completed=37, in_progress=0, pending=119, other=0)
-- DAG 정합성 확인: missing target=0, cycle=false, orphan root=5
+- 기준 데이터 수정 시각(UTC): 2026-03-05T14:52:13Z
+- 전체 태스크: 186 (completed=55, in_progress=0, pending=131, other=0)
+- DAG 정합성 확인: missing target=0, cycle=false, orphan root=0
 - Phase 상태 요약:
 - P0: C/IP/P/T = 29/0/0/29
-- P1: C/IP/P/T = 8/0/6/14
-- P2: C/IP/P/T = 0/0/17/17
+- P1: C/IP/P/T = 11/0/0/11
+- P2: C/IP/P/T = 6/0/13/19
 - P3: C/IP/P/T = 0/0/10/10
 - P4: C/IP/P/T = 0/0/11/11
-- P5: C/IP/P/T = 0/0/16/16
+- P5: C/IP/P/T = 0/0/14/14
 - P6: C/IP/P/T = 0/0/11/11
 - P7: C/IP/P/T = 0/0/11/11
 - P8: C/IP/P/T = 0/0/13/13
 - P9: C/IP/P/T = 0/0/12/12
 - P10: C/IP/P/T = 0/0/12/12
+- 최근 완료 하이라이트:
+- P2-1.8(`79d3fd2b-ecec-45bc-9578-a88f19599d20`): invite_codes DDL/RLS 강화(1회용/만료/해시 저장) 완료
+- P2-1.9(`97cfb736-1ec7-425e-948d-b9a9d5b247f0`): signup-submit v2 계약 및 duplicate probe/organizationSelectionMode 검증 경계 확정
+- P2-1.4-1(`3d552bc3-2866-437c-a3e5-8e208b1d5c51`): types/api/store 경계 정렬 + invoke HTTP error.context 파싱 보강
 
 ## P0 (예상 시간: 50시간 0분)
 

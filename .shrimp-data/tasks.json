@@ -4209,8 +4209,8 @@
       "id": "97cfb736-1ec7-425e-948d-b9a9d5b247f0",
       "name": "P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)",
       "description": "signup-submit API를 v2로 확장해 admin은 병원 검색 선택 기반, user는 초대코드 기반으로 가입 처리하도록 계약을 확정한다.",
-      "notes": "기존 organizationSelectionMode=create_new 브리지 계약은 폐기하고 v2 역할 분기 계약을 canonical로 사용한다.",
-      "status": "pending",
+      "notes": "기존 organizationSelectionMode=create_new 브리지 계약은 폐기하고 v2 역할 분기 계약을 canonical로 사용한다. 2026-03-05 후속 검증: 원격 Supabase Edge Function `signup-submit`를 v5로 재배포해 duplicate probe 및 organizationSelectionMode 검증 분기를 활성화했고, SC-UI-004에서 `409 DUPLICATE_REQUEST`(details.reason=`DUPLICATE_PENDING_REQUEST`) 응답을 확인했다.",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000054"
@@ -4223,7 +4223,7 @@
         }
       ],
       "createdAt": "2026-02-28T10:32:39.915Z",
-      "updatedAt": "2026-03-03T14:24:10.927Z",
+      "updatedAt": "2026-03-05T14:52:13Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/signup-submit/index.ts",
@@ -4245,21 +4245,23 @@
       "verificationCriteria": "Deliverable: signup-submit v2 계약이 admin/user 경로별 필수 입력과 상태 전이를 포함해 문서/함수에서 일치한다.\nMethod: API 예시 payload와 검증 매트릭스를 리뷰한다.\nPass: admin 병원선택 누락, user 초대코드 오류, 중복 요청 케이스가 모두 계약에 포함된다.",
       "analysisResult": "v2 계약에서 nextState를 명시하면 로그인 후 라우터 가드와 승인 상태 화면을 단순 조건으로 일관 처리할 수 있다.",
       "phase": "P2",
-      "estimatedMinutes": 180
+      "estimatedMinutes": 180,
+      "summary": "signup-submit v2 계약을 admin/user 경로 기준으로 정렬했다. 함수에서 organizationSelectionMode='existing' 검증, admin 병원 선택 필수 검증, user inviteCode 상태 검증(만료/사용완료/폐기/역할불일치)을 유지하고 duplicate contract probe를 통해 DUPLICATE_REQUEST 응답 케이스를 명시했다. API_SPEC에 invite domain 규칙과 scaffold 동작을 문서화했으며, 클라이언트 API 래퍼는 canonical/legacy 매핑(코드 및 details.reason)과 organizationSelectionMode 기본값 정규화를 강화했다. 관련 단위 테스트와 lint가 모두 통과했다. 추가로 원격 함수 v5 배포 기준으로 UI 수동 검증을 수행해 SC-UI-004 duplicate probe(`409 DUPLICATE_REQUEST`)와 SC-UI-005 invalid organizationSelectionMode(`400 VALIDATION_ERROR`, details.expected=`existing`) 응답 계약을 확인했다.",
+      "completedAt": "2026-03-05T13:48:33.072Z"
     },
     {
       "id": "79d3fd2b-ecec-45bc-9578-a88f19599d20",
       "name": "P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)",
       "description": "user 가입용 조직 초대코드 스키마를 정의하고 1회 사용/만료일 필수 정책을 DDL로 확정한다.",
       "notes": "초대코드는 user 가입 경로 전용이다. admin 가입 승인 플로우와 혼합하지 않는다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000053"
         }
       ],
       "createdAt": "2026-02-28T10:32:39.915Z",
-      "updatedAt": "2026-03-03T14:24:10.927Z",
+      "updatedAt": "2026-03-05T13:47:15.992Z",
       "relatedFiles": [
         {
           "path": "migrations/010_signup_role_flow.sql",
@@ -4281,7 +4283,9 @@
       "verificationCriteria": "Deliverable: 초대코드 테이블 및 제약(1회용/만료 필수/해시 저장) 정의가 DDL 수준에서 완결되어 있다.\nMethod: 스키마 정의서와 인덱스/체크 제약을 리뷰한다.\nPass: 초대코드 재사용, 무기한 코드, 평문 저장이 모두 차단되는 구조가 확인된다.",
       "analysisResult": "초대코드 도메인을 별도 스키마로 분리하면 user 가입 즉시승인 로직을 단순화하고 보안/감사 추적 품질을 동시에 확보할 수 있다.",
       "phase": "P2",
-      "estimatedMinutes": 150
+      "estimatedMinutes": 150,
+      "summary": "invite_codes 단일 테이블 전략으로 1회용/만료 필수/해시 저장 제약을 DDL에 강화했다. max_uses=1, used_count(0/1), 사용 시각/사용자 상호 일관성 체크를 추가하고 기존 행 보정 UPDATE를 포함해 멱등성을 보완했다. can_manage_invite_codes 헬퍼와 invite_codes RLS 정책(select/insert/update)을 추가해 super/admin 관리 범위를 명시했으며 API_SPEC에 상태 판별 규칙과 scaffold 계약 노트를 문서화했다.",
+      "completedAt": "2026-03-05T13:47:15.988Z"
     },
     {
       "id": "c5743d61-4d08-4793-9c3b-216b39c59e8b",
@@ -4946,15 +4950,15 @@
       "id": "3d552bc3-2866-437c-a3e5-8e208b1d5c51",
       "name": "P2-1.4-1 Signup Contract Alignment (types/api/store boundary)",
       "description": "Align frontend signup contracts for role-based submit and success state branching without duplicating API boundaries.",
-      "notes": "Reuse existing submitSignup and error normalization. Do not add parallel invoke path in view.",
-      "status": "pending",
+      "notes": "Reuse existing submitSignup and error normalization. Do not add parallel invoke path in view. 2026-03-05 후속 보강: Supabase invoke non-2xx 응답이 `error.context(Response)`로 전달되는 런타임 경로를 파싱하도록 API 경계를 강화하고, store에서 `instanceof` 실패 시에도 `error.code` 기반으로 canonical 매핑을 유지하도록 보완했다.",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "97cfb736-1ec7-425e-948d-b9a9d5b247f0"
         }
       ],
       "createdAt": "2026-03-04T12:43:33.243Z",
-      "updatedAt": "2026-03-04T12:43:33.243Z",
+      "updatedAt": "2026-03-05T14:52:13Z",
       "relatedFiles": [
         {
           "path": "src/types/signup.ts",
@@ -4974,7 +4978,9 @@
       ],
       "implementationGuide": "1) Extend signup response typing to include nextState when available, while preserving fallback derivation from signupRequestStatus/membershipStatus. 2) Keep src/api/signup.ts as the single invoke boundary and normalize admin organization aliases. 3) Add auth store signup action returning deterministic UI-consumable result: success, nextState, message, errorCode. 4) Ensure canonical error code mapping remains centralized.",
       "verificationCriteria": "Given admin/user payloads, store.signup returns deterministic success/error structure and preserves canonical error mapping without duplicate API invocation logic.",
-      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract."
+      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract.",
+      "summary": "Signup contract alignment was finalized across types/api/store boundaries. Signup success DTO now supports optional nextState from backend while store derives deterministic nextState fallback from signupRequestStatus/membershipStatus. submitSignup remains the single invoke boundary and now normalizes admin alias fields plus canonical organizationSelectionMode, while canonical error mapping is centralized and extended to legacy details.reason fallbacks. authStore.signup returns deterministic UI-consumable structure (success, nextState, message, errorCode, data) without any parallel invoke path. Unit tests cover admin/user success branching and canonical error mapping, and lint/tests pass. 또한 HTTP 400 invoke 경로에서 응답 본문 에러 코드를 읽지 못해 `INTERNAL_ERROR`로 치환되던 문제를 수정해, `INVALID_INVITE_CODE`가 UI에서 canonical 메시지(초대코드가 유효하지 않습니다.)로 일관되게 노출됨을 단위 테스트로 검증했다.",
+      "completedAt": "2026-03-05T13:48:43.363Z"
     },
     {
       "id": "d3f05381-f3aa-48d6-976f-84962d45bfd5",
@@ -5326,6 +5332,218 @@
       "implementationGuide": "1) 정적 검증: rg로 data.go.kr direct fetch 및 VITE_HOSPITAL_API_KEY 참조 잔존 검색. 2) 타입/린트 게이트 실행(pnpm lint:check) 및 오류 해소. 3) 샘플 요청/응답 예시를 문서/코드와 대조해 계약 일치 검증. 4) 보안 체크리스트(키 비노출, 서버 env 전용 경계) 확인. 5) 확인 결과를 태스크 코멘트/요약으로 기록.",
       "verificationCriteria": "Deliverable: 계약/보안/코드 품질 체크 결과가 확인된다. Method: lint 결과와 코드 검색 결과를 검토한다. Pass: lint error=0, direct data.go 호출=0, source 메타 포함 경로가 확인된다.",
       "analysisResult": "P2-1.6의 목표는 병원 검색 경계를 프론트 직접 외부 호출에서 Edge Function 프록시 단일 경계로 전환하고, 요청/응답/에러 계약을 API_SPEC에 명문화하는 것이다. 기존 signup-submit의 envelope 패턴과 invoke 패턴을 재사용해 일관성을 유지하며, 과도한 추상화 없이 hospital-search 함수 단위로 구현한다. 핵심 리스크는 docs/migration/REMAINING_TASKS_MERGED.md의 동일 taskId 의미 드리프트이므로 canonical source를 .shrimp-data/tasks.json으로 고정한다."
+    },
+    {
+      "id": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8",
+      "name": "P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장",
+      "description": "migrations/010_signup_role_flow.sql에서 기존 invite_codes 스키마를 확장해 max_uses=1, used_count 제약, expires_at 필수 불변식, code_hash 저장 정책을 DDL 수준에서 완결한다.",
+      "notes": "organization_invite_codes 신설 대신 canonical invite_codes 확장으로 고정. 기존 used_at/used_by 호환성 유지 필수.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/010_signup_role_flow.sql",
+          "type": "TO_MODIFY",
+          "description": "invite_codes 테이블 컬럼/체크/인덱스/주석 확장",
+          "lineStart": 80,
+          "lineEnd": 170
+        },
+        {
+          "path": "docs/migration/P2_SIGNUP_ROLE_FLOW.md",
+          "type": "REFERENCE",
+          "description": "invite consume 트랜잭션 및 불변식 기준",
+          "lineStart": 100,
+          "lineEnd": 140
+        }
+      ],
+      "implementationGuide": "1) invite_codes에 max_uses INTEGER NOT NULL DEFAULT 1, used_count INTEGER NOT NULL DEFAULT 0 추가. 2) CHECK 제약 추가: max_uses = 1, used_count BETWEEN 0 AND max_uses. 3) used_at/used_by와 used_count 정합성 CHECK 추가(0이면 used_at/used_by NULL, 1이면 둘 다 NOT NULL). 4) expires_at > created_at 제약 유지/보강. 5) code_hash unique 인덱스 유지 및 해시 포맷 제약(정책 합의 형식) 문서 주석 반영.",
+      "verificationCriteria": "DDL 리뷰 시 재사용 차단(max_uses=1+used_count), 무기한 코드 차단(expires_at 필수+체크), 평문 저장 금지(code_hash only) 구조가 명확히 확인되어야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints."
+    },
+    {
+      "id": "605ced42-6835-429c-8c6a-fe2509dc1ed0",
+      "name": "P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의",
+      "description": "migrations/008_rls_progressive_rollout.sql에 invite_codes RLS 방향을 반영해 admin/super만 발급/폐기 가능하고 일반 user 직접 조회는 차단되도록 정책을 설계한다.",
+      "notes": "기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "TO_MODIFY",
+          "description": "RLS enable 및 invite_codes 정책 추가",
+          "lineStart": 76,
+          "lineEnd": 140
+        },
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "권한 매트릭스 및 helper 함수 원칙",
+          "lineStart": 35,
+          "lineEnd": 95
+        }
+      ],
+      "implementationGuide": "1) invite_codes RLS ENABLE 포함. 2) super admin 전역 허용과 has_org_access(organization_id, 'admin') 기반 조직 admin 허용 정책 추가(SELECT/INSERT/UPDATE 범위 명시). 3) 사용자 직접 invite_codes 접근 차단 원칙을 정책으로 명시. 4) signup-submit은 service role 경계를 통해 invite 검증 수행하도록 문서화.",
+      "verificationCriteria": "정책 검토 시 admin/super 발급/폐기 허용, 일반 user 직접 접근 차단, service-role 기반 검증 경계가 충돌 없이 성립해야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints."
+    },
+    {
+      "id": "6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6",
+      "name": "P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강",
+      "description": "docs/API_SPEC.md에 invite active/expired/revoked/consumed 판별 SQL 규칙과 INVALID_INVITE_CODE 매핑을 명시해 서버/클라이언트 해석 여지를 제거한다.",
+      "notes": "기존 canonical error code 계약 표 구조를 그대로 재사용해 문서 포맷 일관성을 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "signup-submit invite 검증 계약 보강",
+          "lineStart": 210,
+          "lineEnd": 330
+        },
+        {
+          "path": "docs/migration/P2_SIGNUP_ROLE_FLOW.md",
+          "type": "REFERENCE",
+          "description": "state model canonical 용어 정합 확인",
+          "lineStart": 58,
+          "lineEnd": 130
+        }
+      ],
+      "implementationGuide": "1) invite 유효성 판별 규칙을 상태식으로 추가(active/revoked/expired/consumed). 2) INVALID_INVITE_CODE 하위 reason 매핑 유지 및 consumed 기준을 used_count/max_uses와 연결. 3) code_hash 원문 미저장 정책과 해시 생성 책임(서버측) 명시. 4) role=user 경로 요구사항 표를 최신 제약과 일치시킴.",
+      "verificationCriteria": "문서 리뷰 시 invite unusable 사유(만료/소진/폐기/역할불일치/미존재)와 상태 판별 규칙이 상호모순 없이 연결되어야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints."
+    },
+    {
+      "id": "3181bcb1-37ae-49a9-afb7-29e409976a23",
+      "name": "P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가",
+      "description": "docs/verification/test-validation-guide.md의 invite 관련 시나리오(SGN-004~SGN-009)를 새로운 제약(used_count/max_uses + used_at/used_by 정합)과 맞추어 갱신한다.",
+      "notes": "테스트 문서는 구현 선행이 아니라 검증 기준 문서이므로 SQL 예시는 실행 가능성과 설명 명확성 중심으로 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        },
+        {
+          "taskId": "6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "SGN-004~009 invite 시나리오 정합화",
+          "lineStart": 330,
+          "lineEnd": 620
+        }
+      ],
+      "implementationGuide": "1) consume SQL 예시에 used_count 갱신 및 가드 조건(used_count < max_uses) 반영. 2) 만료/재사용/동시성 시나리오 기대결과를 row update=0/1 기준으로 명확화. 3) 기존 used_at 기반 검증은 호환성 체크로 유지하되 count 기반 불변식 검증 절 추가. 4) SGN 추적표와 리뷰 체크리스트에 신규 제약 확인 항목 추가.",
+      "verificationCriteria": "시나리오 리뷰 시 단일 소비 보장, 만료 차단, 재사용 차단, 동시성 단일 성공이 used_count/used_at 기준으로 모두 검증 가능해야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints."
+    },
+    {
+      "id": "5dc645e9-e740-4955-9dcb-8c432774ca0a",
+      "name": "P2-1.4-1A Define deterministic signup contracts for UI boundary",
+      "description": "Refine signup type contracts so API success payload remains backward-compatible when nextState is omitted, and define explicit auth-store return union used by Signup view without introducing duplicate invocation paths.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-05T13:24:14.010Z",
+      "updatedAt": "2026-03-05T13:24:14.010Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/signup.ts",
+          "type": "TO_MODIFY",
+          "description": "Signup DTO and store-facing result contracts"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "Use explicit return types for signup action"
+        }
+      ],
+      "implementationGuide": "1. Update signup success DTO typing to allow optional server nextState while preserving existing enum domain. 2. Add explicit store-facing return types (success/error union) with stable fields: success, nextState, message, errorCode, and optional data. 3. Keep canonical error code type references centralized in signup types.",
+      "verificationCriteria": "TypeScript ensures signup action return shape is explicit and UI-consumable; nextState optionality at API payload level does not break downstream compile-time checks.",
+      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
+    },
+    {
+      "id": "600f17c8-9fe9-431e-88e2-b0b5391610f8",
+      "name": "P2-1.4-1B Preserve single signup API boundary with alias normalization",
+      "description": "Keep submitSignup as the only invocation boundary and ensure admin organization aliases are normalized consistently without adding alternate code paths in view/store.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5dc645e9-e740-4955-9dcb-8c432774ca0a"
+        }
+      ],
+      "createdAt": "2026-03-05T13:24:14.010Z",
+      "updatedAt": "2026-03-05T13:24:14.010Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/signup.ts",
+          "type": "TO_MODIFY",
+          "description": "Boundary invocation and normalization"
+        },
+        {
+          "path": "src/types/signup.ts",
+          "type": "REFERENCE",
+          "description": "Canonical error code and message mappings"
+        }
+      ],
+      "implementationGuide": "1. Confirm normalizeSignupRequest continues to map admin hospitalId/organizationId aliases to canonical payload. 2. Keep invoke boundary at supabase.functions.invoke('signup-submit') and avoid any direct-table or view-level invocation logic. 3. Preserve centralized canonical error normalization and reuse getSignupErrorMessage.",
+      "verificationCriteria": "Both admin and user requests pass through submitSignup only; admin alias normalization remains centralized; canonical error mapping behavior is unchanged.",
+      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
+    },
+    {
+      "id": "d8f5ac61-1bd8-46e0-9d14-16f3248a3138",
+      "name": "P2-1.4-1C Implement and validate auth store deterministic signup result",
+      "description": "Implement signup store action to always return deterministic UI model and add unit tests for success/error branching including fallback derivation from status fields.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5dc645e9-e740-4955-9dcb-8c432774ca0a"
+        },
+        {
+          "taskId": "600f17c8-9fe9-431e-88e2-b0b5391610f8"
+        }
+      ],
+      "createdAt": "2026-03-05T13:24:14.010Z",
+      "updatedAt": "2026-03-05T13:24:14.010Z",
+      "relatedFiles": [
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "Signup action deterministic return model"
+        },
+        {
+          "path": "tests/unit/auth-signup.spec.ts",
+          "type": "CREATE",
+          "description": "Store signup contract tests"
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "Api error/message normalization"
+        }
+      ],
+      "implementationGuide": "1. In auth store, derive nextState from explicit payload when present, otherwise fallback from signupRequestStatus/membershipStatus. 2. Return deterministic success/error result structure for Signup view with canonical message/errorCode handling. 3. Add Vitest unit tests covering admin success->pending_approval, user success->active, missing-nextState fallback, canonical error mapping, and unknown error fallback to INTERNAL_ERROR.",
+      "verificationCriteria": "Given admin/user payloads, store.signup returns deterministic success/error structure with stable fields and preserves canonical error mapping without duplicate API invocation logic.",
+      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
     }
   ]
 }
