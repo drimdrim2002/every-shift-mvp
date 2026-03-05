@@ -5509,10 +5509,10 @@
       "id": "5dc645e9-e740-4955-9dcb-8c432774ca0a",
       "name": "P2-1.4-1A Define deterministic signup contracts for UI boundary",
       "description": "Refine signup type contracts so API success payload remains backward-compatible when nextState is omitted, and define explicit auth-store return union used by Signup view without introducing duplicate invocation paths.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-05T13:24:14.010Z",
-      "updatedAt": "2026-03-05T13:24:14.010Z",
+      "updatedAt": "2026-03-05T15:31:07.099Z",
       "relatedFiles": [
         {
           "path": "src/types/signup.ts",
@@ -5527,7 +5527,9 @@
       ],
       "implementationGuide": "1. Update signup success DTO typing to allow optional server nextState while preserving existing enum domain. 2. Add explicit store-facing return types (success/error union) with stable fields: success, nextState, message, errorCode, and optional data. 3. Keep canonical error code type references centralized in signup types.",
       "verificationCriteria": "TypeScript ensures signup action return shape is explicit and UI-consumable; nextState optionality at API payload level does not break downstream compile-time checks.",
-      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
+      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation.",
+      "summary": "signup 계약을 API optional nextState 호환성과 스토어 결정적 반환 유니온으로 정리했고, 타입/테스트/호출경로 검증을 통해 UI 경계 안정성과 단일 호출 경계를 확인했습니다.",
+      "completedAt": "2026-03-05T15:31:07.093Z"
     },
     {
       "id": "600f17c8-9fe9-431e-88e2-b0b5391610f8",
@@ -5598,10 +5600,10 @@
       "name": "Align signup contracts for optional API nextState and deterministic store boundary",
       "description": "Refine signup type contracts so API success payload keeps `nextState` optional while store success result remains deterministic and UI-consumable. Maintain centralized canonical error code typing and stable result fields consumed by Signup view.",
       "notes": "Do not add a new API call path or duplicate signup submission logic in view layer. Preserve existing backward compatibility semantics.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-05T15:22:27.964Z",
-      "updatedAt": "2026-03-05T15:22:27.964Z",
+      "updatedAt": "2026-03-05T15:30:32.621Z",
       "relatedFiles": [
         {
           "path": "src/types/signup.ts",
@@ -5616,21 +5618,23 @@
       ],
       "implementationGuide": "1) In signup type definitions, preserve API payload `SignupSubmitSuccessData.nextState?`. 2) Keep/define explicit store return union with stable keys: success, nextState, message, errorCode, error, data. 3) Ensure success branch resolves nextState deterministically and retains resolved data typing; failure branch returns null nextState and canonical errorCode. 4) Keep error code domain sourced only from shared signup types exports.",
       "verificationCriteria": "TypeScript enforces explicit `Promise<SignupStoreSignupResult>` for authStore.signup; API-level success DTO allows omitted nextState; union fields stay stable and narrow correctly in success/error branches.",
-      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths."
+      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths.",
+      "summary": "signup 타입 계약을 정리해 API nextState optional 호환성을 유지했고, auth store 반환 유니온을 명시적으로 고정해 UI 경계 타입 안정성을 확보했습니다.",
+      "completedAt": "2026-03-05T15:30:32.616Z"
     },
     {
       "id": "5a783267-88a1-46b7-a71b-e03fdb4e0b99",
       "name": "Validate UI integration and single signup invocation path",
       "description": "Verify Signup view compiles against the explicit store union contract without additional type assertions and ensure no duplicate direct API invocation exists outside the auth store boundary.",
       "notes": "This is a validation-focused integration task and should avoid broad refactors.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "1731504b-272e-4000-9c46-4c62e3b06d97"
         }
       ],
       "createdAt": "2026-03-05T15:22:27.965Z",
-      "updatedAt": "2026-03-05T15:22:27.965Z",
+      "updatedAt": "2026-03-05T15:30:50.359Z",
       "relatedFiles": [
         {
           "path": "src/views/auth/Signup.vue",
@@ -5645,7 +5649,9 @@
       ],
       "implementationGuide": "1) Confirm Signup view consumes `authStore.signup` union via success narrowing. 2) Search codebase for signup submission entrypoints and ensure path remains Signup view -> authStore.signup -> submitSignup. 3) Add/update lightweight type-level or usage checks if needed to lock the boundary behavior.",
       "verificationCriteria": "Signup view compiles with current boundary contract and no duplicate signup API invocation path is introduced; search evidence confirms one canonical submission flow.",
-      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths."
+      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths.",
+      "summary": "Signup.vue가 authStore.signup 반환 유니온을 분기 기반으로 안전하게 소비함을 확인했고, 코드 검색으로 submitSignup 직접 중복 호출 없이 단일 호출 경계를 유지함을 검증했습니다.",
+      "completedAt": "2026-03-05T15:30:50.353Z"
     }
   ]
 }
