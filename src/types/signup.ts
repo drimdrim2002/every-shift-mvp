@@ -80,19 +80,23 @@ export interface SignupSubmitErrorResponse {
 
 export type SignupSubmitResponse = SignupSubmitSuccessResponse | SignupSubmitErrorResponse;
 
-export interface SignupStoreSignupSuccessResult {
+export interface SignupStoreSignupResultBase {
+  message: string;
+  error: string | null;
+  errorCode: SignupErrorCode | null;
+}
+
+export interface SignupStoreSignupSuccessResult extends SignupStoreSignupResultBase {
   success: true;
   nextState: SignupNextState;
-  message: string;
   error: null;
   errorCode: null;
   data: SignupSubmitResolvedSuccessData;
 }
 
-export interface SignupStoreSignupErrorResult {
+export interface SignupStoreSignupErrorResult extends SignupStoreSignupResultBase {
   success: false;
   nextState: null;
-  message: string;
   error: string;
   errorCode: SignupErrorCode;
   data: null;

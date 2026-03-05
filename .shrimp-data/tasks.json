@@ -4223,7 +4223,7 @@
         }
       ],
       "createdAt": "2026-02-28T10:32:39.915Z",
-      "updatedAt": "2026-03-05T14:52:13Z",
+      "updatedAt": "2026-03-05T14:52:13.000Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/signup-submit/index.ts",
@@ -4958,7 +4958,7 @@
         }
       ],
       "createdAt": "2026-03-04T12:43:33.243Z",
-      "updatedAt": "2026-03-05T14:52:13Z",
+      "updatedAt": "2026-03-05T14:52:13.000Z",
       "relatedFiles": [
         {
           "path": "src/types/signup.ts",
@@ -4987,14 +4987,14 @@
       "name": "P2-1.4-2 Signup View Role-Branch UI (/signup single route)",
       "description": "Implement one Signup.vue with role-based conditional fields for admin hospital selection and user invite code entry.",
       "notes": "Single /signup route only; no separate user signup route. Keep Korean UX strings.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "3d552bc3-2866-437c-a3e5-8e208b1d5c51"
         }
       ],
       "createdAt": "2026-03-04T12:43:33.243Z",
-      "updatedAt": "2026-03-04T12:43:33.243Z",
+      "updatedAt": "2026-03-05T15:11:00.930Z",
       "relatedFiles": [
         {
           "path": "src/views/auth/Signup.vue",
@@ -5014,7 +5014,9 @@
       ],
       "implementationGuide": "1) Create Signup.vue using Naive UI form with common fields(name,email,password,role). 2) Render admin-only section with hospital search/select control and mandatory source label text: 병원 목록 출처: 공공데이터포털(data.go.kr). 3) Render user-only section with inviteCode input and validation messaging. 4) Disable submit when role-specific required field is missing. 5) On success, display pending-approval or active-login guidance based on normalized nextState.",
       "verificationCriteria": "Role switching changes required fields correctly; admin cannot submit without hospital selection; user cannot submit without valid invite input; source label is visible in admin flow.",
-      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract."
+      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract.",
+      "summary": "Signup.vue 단일 라우트에서 admin/user 분기 필드와 역할별 필수값 제약을 충족하도록 제출 버튼 비활성화 로직을 보강했고, 병원 출처 문구 노출을 유지했다. signup-view 단위 테스트를 추가해 admin 병원 미선택 차단, user 초대코드 필수 전환, 출처 문구 노출을 자동 검증했다. 기존 signup-api/auth-signup 계약 테스트도 함께 통과해 경계 일관성을 확인했다.",
+      "completedAt": "2026-03-05T15:11:00.925Z"
     },
     {
       "id": "1b94e697-94d4-4919-8a0a-0a437d951cdd",
@@ -5078,6 +5080,52 @@
       "implementationGuide": "1) Prepare scenario matrix: role toggle, missing admin hospital, missing/invalid invite code, duplicate request error, success pending_approval, success active. 2) Validate UI field visibility, disabled submit states, and Korean error/success copy. 3) Confirm lint gate and basic build/test checks run after changes.",
       "verificationCriteria": "Manual test evidence confirms pass criteria for both roles; lint check reports zero errors; no regression in login routing behavior.",
       "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract."
+    },
+    {
+      "id": "9df3e61b-bc11-4e92-963d-ccd70d4efadb",
+      "name": "P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)",
+      "description": "/signup 단일 라우트에 대해 역할 전환, 역할별 제출 차단, 성공 상태 라우팅을 Playwright E2E로 검증하는 시나리오를 추가한다.",
+      "notes": "대상 범위는 /signup 단일 화면이며 user 전용 별도 라우트는 만들지 않는다. 성공 라우팅은 /login?signupState=... 핸드오프를 기준으로 검증한다.",
+      "status": "pending",
+      "phase": "P2",
+      "dependencies": [
+        {
+          "taskId": "d3f05381-f3aa-48d6-976f-84962d45bfd5"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "createdAt": "2026-03-05T15:15:41.000Z",
+      "updatedAt": "2026-03-05T15:15:41.000Z",
+      "relatedFiles": [
+        {
+          "path": "tests/e2e/signup-flow.spec.ts",
+          "type": "CREATE",
+          "description": "/signup 역할 전환/제출 차단/성공 라우팅 E2E 시나리오"
+        },
+        {
+          "path": "tests/e2e/helpers.ts",
+          "type": "REFERENCE",
+          "description": "Playwright 공통 헬퍼 재사용"
+        },
+        {
+          "path": "playwright.config.ts",
+          "type": "REFERENCE",
+          "description": "E2E 실행 환경 및 타임아웃 설정"
+        },
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "REFERENCE",
+          "description": "역할 분기/제출 차단/성공 상태 UI 기준 구현"
+        },
+        {
+          "path": "src/views/auth/Login.vue",
+          "type": "REFERENCE",
+          "description": "signupState 쿼리 기반 성공 안내 메시지 렌더링"
+        }
+      ],
+      "implementationGuide": "1) tests/e2e/signup-flow.spec.ts를 생성해 /signup 단일 라우트 E2E를 추가한다. 2) 역할 전환 시 admin 섹션(병원 검색/선택, 출처 문구)과 user 섹션(초대코드)의 표시/required 분기 동작을 검증한다. 3) 제출 버튼 비활성화 상태를 검증한다: admin은 hospitalId 미선택 시 비활성화, user는 inviteCode 공란 시 비활성화. 4) 성공 경로를 검증한다: 가입 성공 후 로그인 이동 시 /login?signupState=pending_approval 또는 active가 전달되고 Login.vue 안내 메시지가 표시된다. 5) 테스트 안정화를 위해 필요 시 API 응답을 Playwright route mock 또는 dev mock fallback 전제로 고정한다.",
+      "verificationCriteria": "Deliverable: /signup E2E 시나리오가 역할 전환, 제출 차단, 성공 라우팅을 포함해 자동 실행 가능하다.\nMethod: `pnpm playwright test tests/e2e/signup-flow.spec.ts` 실행 결과와 시나리오별 assertion을 확인한다.\nPass: 세 가지 시나리오(역할 전환, 역할별 제출 차단, signupState 성공 라우팅)가 모두 통과한다.",
+      "analysisResult": "Signup view role-branch UI는 단일 라우트에서 동작이 구현되어 있으나 회귀 방지를 위한 UI-실행 레벨 검증이 부족하다. 단위 테스트를 보완하는 Playwright 시나리오를 추가하면 실제 브라우저 환경에서 분기/차단/라우팅 계약을 지속적으로 검증할 수 있다."
     },
     {
       "id": "6ba9a255-ecd3-4474-a921-8749d93f7949",
@@ -5544,6 +5592,60 @@
       "implementationGuide": "1. In auth store, derive nextState from explicit payload when present, otherwise fallback from signupRequestStatus/membershipStatus. 2. Return deterministic success/error result structure for Signup view with canonical message/errorCode handling. 3. Add Vitest unit tests covering admin success->pending_approval, user success->active, missing-nextState fallback, canonical error mapping, and unknown error fallback to INTERNAL_ERROR.",
       "verificationCriteria": "Given admin/user payloads, store.signup returns deterministic success/error structure with stable fields and preserves canonical error mapping without duplicate API invocation logic.",
       "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
+    },
+    {
+      "id": "1731504b-272e-4000-9c46-4c62e3b06d97",
+      "name": "Align signup contracts for optional API nextState and deterministic store boundary",
+      "description": "Refine signup type contracts so API success payload keeps `nextState` optional while store success result remains deterministic and UI-consumable. Maintain centralized canonical error code typing and stable result fields consumed by Signup view.",
+      "notes": "Do not add a new API call path or duplicate signup submission logic in view layer. Preserve existing backward compatibility semantics.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-05T15:22:27.964Z",
+      "updatedAt": "2026-03-05T15:22:27.964Z",
+      "relatedFiles": [
+        {
+          "path": "src/types/signup.ts",
+          "type": "TO_MODIFY",
+          "description": "Signup DTO and auth-store boundary result contracts"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "TO_MODIFY",
+          "description": "Signup action return typing and nextState resolution"
+        }
+      ],
+      "implementationGuide": "1) In signup type definitions, preserve API payload `SignupSubmitSuccessData.nextState?`. 2) Keep/define explicit store return union with stable keys: success, nextState, message, errorCode, error, data. 3) Ensure success branch resolves nextState deterministically and retains resolved data typing; failure branch returns null nextState and canonical errorCode. 4) Keep error code domain sourced only from shared signup types exports.",
+      "verificationCriteria": "TypeScript enforces explicit `Promise<SignupStoreSignupResult>` for authStore.signup; API-level success DTO allows omitted nextState; union fields stay stable and narrow correctly in success/error branches.",
+      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths."
+    },
+    {
+      "id": "5a783267-88a1-46b7-a71b-e03fdb4e0b99",
+      "name": "Validate UI integration and single signup invocation path",
+      "description": "Verify Signup view compiles against the explicit store union contract without additional type assertions and ensure no duplicate direct API invocation exists outside the auth store boundary.",
+      "notes": "This is a validation-focused integration task and should avoid broad refactors.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "1731504b-272e-4000-9c46-4c62e3b06d97"
+        }
+      ],
+      "createdAt": "2026-03-05T15:22:27.965Z",
+      "updatedAt": "2026-03-05T15:22:27.965Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "REFERENCE",
+          "description": "Consumer of authStore.signup result union"
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "Single API boundary for signup submission"
+        }
+      ],
+      "implementationGuide": "1) Confirm Signup view consumes `authStore.signup` union via success narrowing. 2) Search codebase for signup submission entrypoints and ensure path remains Signup view -> authStore.signup -> submitSignup. 3) Add/update lightweight type-level or usage checks if needed to lock the boundary behavior.",
+      "verificationCriteria": "Signup view compiles with current boundary contract and no duplicate signup API invocation path is introduced; search evidence confirms one canonical submission flow.",
+      "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths."
     }
   ]
 }

@@ -7,7 +7,9 @@ import {
   SIGNUP_ERROR_MESSAGES,
   type SignupErrorCode,
   type SignupNextState,
+  type SignupStoreSignupErrorResult,
   type SignupStoreSignupResult,
+  type SignupStoreSignupSuccessResult,
   type SignupSubmitRequest,
   type SignupSubmitResolvedSuccessData,
   type SignupSubmitSuccessData,
@@ -50,6 +52,36 @@ function getSignupSuccessMessage(nextState: SignupNextState): string {
     : '가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.'
 }
 
+function createSignupSuccessResult(data: SignupSubmitSuccessData): SignupStoreSignupSuccessResult {
+  const nextState = deriveSignupNextState(data)
+  const resolvedData: SignupSubmitResolvedSuccessData = {
+    ...data,
+    nextState,
+  }
+
+  return {
+    success: true,
+    nextState,
+    message: getSignupSuccessMessage(nextState),
+    error: null,
+    errorCode: null,
+    data: resolvedData,
+  }
+}
+
+function createSignupErrorResult(errorCode: SignupErrorCode): SignupStoreSignupErrorResult {
+  const message = getSignupErrorMessage(errorCode)
+
+  return {
+    success: false,
+    nextState: null,
+    message,
+    error: message,
+    errorCode,
+    data: null,
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
@@ -84,45 +116,15 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     try {
       const data = await submitSignup(request)
-      const nextState = deriveSignupNextState(data)
-      const resolvedData: SignupSubmitResolvedSuccessData = {
-        ...data,
-        nextState,
-      }
-
-      return {
-        success: true,
-        nextState,
-        message: getSignupSuccessMessage(nextState),
-        error: null,
-        errorCode: null,
-        data: resolvedData,
-      }
+      return createSignupSuccessResult(data)
     } catch (error: unknown) {
       const resolvedCode = resolveSignupErrorCode(error)
       if (resolvedCode) {
-        const message = getSignupErrorMessage(resolvedCode)
-        return {
-          success: false,
-          nextState: null,
-          message,
-          error: message,
-          errorCode: resolvedCode,
-          data: null,
-        }
+        return createSignupErrorResult(resolvedCode)
       }
 
       const fallbackCode: SignupErrorCode = 'INTERNAL_ERROR'
-      const fallbackMessage = getSignupErrorMessage(fallbackCode)
-
-      return {
-        success: false,
-        nextState: null,
-        message: fallbackMessage,
-        error: fallbackMessage,
-        errorCode: fallbackCode,
-        data: null,
-      }
+      return createSignupErrorResult(fallbackCode)
     } finally {
       loading.value = false
     }

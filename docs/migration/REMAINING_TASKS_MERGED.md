@@ -5,13 +5,13 @@
 ## 최근 반영 내역 (2026-03-05 기준)
 
 - 기준 소스: `.shrimp-data/tasks.json` (canonical)
-- 기준 데이터 수정 시각(UTC): 2026-03-05T14:52:13Z
-- 전체 태스크: 186 (completed=55, in_progress=0, pending=131, other=0)
-- DAG 정합성 확인: missing target=0, cycle=false, orphan root=0
+- 기준 데이터 수정 시각(UTC): 2026-03-05T15:16:14Z
+- 전체 태스크: 187 (completed=56, in_progress=0, pending=131, other=0)
+- DAG 정합성 확인: missing target=0, cycle=false, orphan root=11
 - Phase 상태 요약:
 - P0: C/IP/P/T = 29/0/0/29
-- P1: C/IP/P/T = 11/0/0/11
-- P2: C/IP/P/T = 6/0/13/19
+- P1: C/IP/P/T = 11/0/6/17
+- P2: C/IP/P/T = 16/0/31/47
 - P3: C/IP/P/T = 0/0/10/10
 - P4: C/IP/P/T = 0/0/11/11
 - P5: C/IP/P/T = 0/0/14/14
@@ -20,10 +20,6 @@
 - P8: C/IP/P/T = 0/0/13/13
 - P9: C/IP/P/T = 0/0/12/12
 - P10: C/IP/P/T = 0/0/12/12
-- 최근 완료 하이라이트:
-- P2-1.8(`79d3fd2b-ecec-45bc-9578-a88f19599d20`): invite_codes DDL/RLS 강화(1회용/만료/해시 저장) 완료
-- P2-1.9(`97cfb736-1ec7-425e-948d-b9a9d5b247f0`): signup-submit v2 계약 및 duplicate probe/organizationSelectionMode 검증 경계 확정
-- P2-1.4-1(`3d552bc3-2866-437c-a3e5-8e208b1d5c51`): types/api/store 경계 정렬 + invoke HTTP error.context 파싱 보강
 
 ## P0 (예상 시간: 50시간 0분)
 
@@ -431,7 +427,7 @@
 - **관련 파일**: `docs/setup/MCP_INSTALLATION.md`
 
 
-## P1 (예상 시간: 25시간 0분)
+## P1 (예상 시간: 27시간 0분)
 
 ### 요약 (Summary)
 
@@ -449,8 +445,11 @@
 | `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9` | **P1-2.3-3 SQL 검증 절차 및 합격 기준 정의** | pending | P1-2.3-2 | - |
 | `8ac31a0f-b346-4374-ba36-201d779e664f` | **P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성** | pending | P1-2.3-3 | - |
 | `10000000-0000-4000-8000-000000000049` | **P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화** | completed | P1-1.3<br>P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000050` | **P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)** | pending | P1-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000051` | **P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트** | pending | P1-3.2 | 120m |
+| `10000000-0000-4000-8000-000000000050` | **P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)** | completed | P1-3.1 | 180m |
+| `10000000-0000-4000-8000-000000000051` | **P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트** | completed | P1-3.2 | 120m |
+| `eed4ff2d-ff87-42d8-8b8d-885ef320b42f` | **P1-3.4 Supabase Console superuser 생성 SQL 함수/Runbook 정의** | completed | P1-1.2<br>P1-3.3 | 120m |
+| `4e50eff2-86f4-475e-b634-fd3b1a22d245` | **P1-3.4-A SQL 함수 구현: grant_superuser** | pending | - | - |
+| `69509a33-e960-49ce-9c00-a817035ec815` | **P1-3.4-B 운영 Runbook 문서화** | pending | P1-3.4-A | - |
 
 ### 상세 (Details)
 
@@ -599,18 +598,21 @@
 ### P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000050`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-02)
+- **완료 요약(Summary)**: P1-3.2 산출물로 009 멱등 백필 SQL(B001~B009)과 실행 런북을 완성했고, 사용자 콘솔 실행 후 POST-01~POST-07 재검증에서 마스터/이관/site_id 채움/무결성/중복/원본보존/정책유지 조건이 모두 충족됨을 확인했습니다.
 - **설명(Description)**: 백필을 위한 SQL/절차를 작성하고, 재실행 시 안전(멱등성)하게 동작하도록 전략을 확정한다.
 - **구현 가이드(Guide)**: 1) upsert/insert-ignore 전략 결정. 2) membership/profiles 기본 생성 규칙 적용. 3) 실패 시 롤백/재시도 절차 문서화.
 - **검증 기준(Verification)**: Deliverable: 백필 절차가 단계별로 정의되어 있고, 재실행 시 중복/오염 위험이 낮다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P1-3.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `migrations/008_backfill_service_fields.sql`
+- **관련 파일**: `migrations/009_backfill_service_fields.sql`, `docs/migration/P1-3.2_BACKFILL_RUNBOOK.md`
+- **노트(Notes)**: Applied strategy fixed to admin-only profile/membership bootstrap for admin@everyshift.com. Supabase MCP session was read-only, so actual DML was executed by user via Supabase Console and then validated via POST-01~POST-07.
 
 ### P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트
 
 - **Task ID**: `10000000-0000-4000-8000-000000000051`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-02)
+- **완료 요약(Summary)**: P1-3.3 전용 검증 체크리스트 문서를 신규 작성해 POST-01~07 무결성 판정, 샘플 플로우(DB-only 실측+앱 스모크 정의), 실패 시 복구 절차(R-01~R-05), Deliverable/Method/Pass 완료 기준을 모두 포함했고 백필 성공/실패를 객관 판정 가능하게 확정함.
 - **설명(Description)**: 백필 적용 후 데이터 무결성(참조, 카운트)과 핵심 샘플 플로우(로그인/조직 조회 등) 검증 체크리스트를 확정한다.
 - **구현 가이드(Guide)**: 1) 레코드 수/참조 무결성 체크 항목 작성. 2) 샘플 계정/조직으로 조회/편집 플로우 정의. 3) 이슈 발생 시 복구 절차 연결.
 - **검증 기준(Verification)**: Deliverable: 검증 체크리스트가 존재하고, 백필 성공/실패를 객관적으로 판단할 수 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
@@ -618,228 +620,674 @@
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/verification/final-verification-report.md`
 
+### P1-3.4 Supabase Console superuser 생성 SQL 함수/Runbook 정의
 
-## P2 (예상 시간: 38시간 30분)
+- **Task ID**: `eed4ff2d-ff87-42d8-8b8d-885ef320b42f`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: migrations/011_superuser_grant_function.sql에 grant_superuser 함수를 구현해 auth.users 이메일 기반 super profile upsert와 선택 조직 admin membership upsert를 멱등적으로 처리하도록 했고, docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 실행 절차·검증 쿼리·실패 복구 규칙을 표준화했다.
+- **설명(Description)**: Supabase Console에서 생성한 auth 사용자에게 super 권한을 부여하기 위한 재사용 SQL 함수와 실행 Runbook을 정의한다.
+- **구현 가이드(Guide)**: 1) grant_superuser(target_email text, target_organization_ids uuid[] default null) SQL 함수를 정의한다. 2) 함수는 auth.users 이메일 조회 후 profiles(global_role=super, account_status=active) upsert를 수행하고, 필요 시 지정 조직 membership(role=admin,status=approved) upsert를 처리한다. 3) 운영 Runbook에 실행 순서(auth 사용자 생성 -> 함수 실행 -> 검증 쿼리)를 기록한다. 4) 재실행 멱등성 규칙을 명시한다.
+- **검증 기준(Verification)**: Deliverable: superuser 부여 SQL 함수와 콘솔 실행 Runbook이 준비되어 신규 superuser 온보딩 절차가 표준화된다. Method: 함수 시그니처/멱등성/검증 쿼리 포함 여부를 리뷰한다. Pass: 동일 이메일 재실행 시 오류 없이 동일 최종 상태를 보장하고 검증 절차가 문서화된다.
+- **선행 조건(Dependencies)**: P1-1.2<br>P1-3.3
+- **예상 소요 시간**: 120m
+- **관련 파일**: `migrations/011_superuser_grant_function.sql`, `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/009_backfill_service_fields.sql`
+- **노트(Notes)**: 이 태스크는 P2 가입/승인 정책 태스크의 선행 조건이다.
+
+### P1-3.4-A SQL 함수 구현: grant_superuser
+
+- **Task ID**: `4e50eff2-86f4-475e-b634-fd3b1a22d245`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: migrations/011_superuser_grant_function.sql에 grant_superuser 함수를 정의해 auth.users 기반 super 권한 부여 및 선택 조직 membership admin 승인 upsert를 멱등적으로 처리한다.
+- **구현 가이드(Guide)**: 1) 함수 시그니처: grant_superuser(target_email text, target_organization_ids uuid[] default null). 2) 이메일 정규화/유효성 검증. 3) auth.users 조회 및 미존재 오류 처리. 4) profiles upsert(global_role=super, account_status=active). 5) target_organization_ids 제공 시 organization_memberships upsert(role=admin,status=approved). 6) 재실행 멱등성 보장과 결과 반환 필드 제공.
+- **검증 기준(Verification)**: 함수 시그니처/검증/멱등성이 SQL로 구현되고 동일 이메일 재실행 시 최종 상태가 동일해야 한다.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `migrations/011_superuser_grant_function.sql`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/009_backfill_service_fields.sql`
+
+### P1-3.4-B 운영 Runbook 문서화
+
+- **Task ID**: `69509a33-e960-49ce-9c00-a817035ec815`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 auth 사용자 생성부터 함수 실행/검증/오류대응 절차를 표준화한다.
+- **구현 가이드(Guide)**: 1) 사전조건(콘솔 auth 사용자 존재) 정의. 2) 함수 호출 예시(조직 미지정/다중 조직 지정) 제시. 3) 검증 쿼리(profiles/memberships) 제공. 4) 재실행 멱등성 및 장애 대응(사용자 없음/조직ID 오류) 절차 명시.
+- **검증 기준(Verification)**: Runbook만으로 신규 superuser 온보딩과 재실행 검증이 재현 가능해야 한다.
+- **선행 조건(Dependencies)**: P1-3.4-A
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/011_superuser_grant_function.sql`
+
+
+## P2 (예상 시간: 47시간 0분)
 
 ### 요약 (Summary)
 
 | Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
 | --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000052` | **P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정** | pending | P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000053` | **P2-1.2 DB 규칙: signup_requests 생성 및 membership 생성 타이밍 정의** | pending | P2-1.1 | 120m |
-| `10000000-0000-4000-8000-000000000054` | **P2-1.3 가입 제출 API 설계(Edge Function/RPC) + 입력 검증** | pending | P2-1.2 | 180m |
-| `10000000-0000-4000-8000-000000000055` | **P2-1.4 UI: 회원가입 페이지 구현(제출/검증/결과)** | pending | P2-1.3 | 180m |
-| `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의** | pending | P2-1.4 | 120m |
-| `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 admin 가입 무소속 분기 라우트/가드 계약 정의** | pending | P2-1.5<br>P5-1.2 | 90m |
-| `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.7 가입 제출 API 확장(organizationSelectionMode/create_new)** | pending | P2-1.6<br>P2-1.3<br>P5-1.3 | 90m |
-| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.8 가입→6.2재사용→승인대기 E2E 시나리오 정의** | pending | P5-1.6<br>P2-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000057` | **P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계** | pending | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 미승인 사용자 차단 + 전용 라우팅** | pending | P2-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: 승인대기/반려 화면 스펙 및 컴포넌트 정의** | pending | P2-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의** | pending | P2-2.3 | 120m |
-| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인/반려 워크플로우 정책 확정(권한/감사로그)** | pending | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject/withdraw)** | pending | P2-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: 승인 대기 목록/필터/상세 화면 스펙** | pending | P2-3.2 | 180m |
-| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의** | pending | P2-3.2 | 90m |
-| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 승인 플로우 테스트 시나리오 정의** | pending | P2-3.3<br>P2-3.4 | 180m |
+| `10000000-0000-4000-8000-000000000052` | **P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정** | completed | P1-1.4 | 120m |
+| `10000000-0000-4000-8000-000000000053` | **P2-1.2 DB 규칙: admin 승인형 / user 초대코드형 가입 상태 모델 정의** | completed | P2-1.1<br>P1-3.4 | 180m |
+| `218a6547-34d4-40c2-b7bd-c925abf49cac` | **P2-1.2-A 가입 상태 전이 canonical 문서 확정** | completed | - | - |
+| `9e4ebebd-fcd1-4cd6-9ba2-7d50e2e46b5e` | **P2-1.2-B migration 010 DDL: 상태/초대코드/무결성 제약 구현** | completed | P2-1.2-A | - |
+| `08fb4c54-bdfe-487e-a72b-aab7258c2312` | **P2-1.2-C API 계약 정렬: 가입 상태/에러 코드 명세** | completed | P2-1.2-A | - |
+| `b1c76de8-80bd-4202-ba49-ecd6b9fbb727` | **P2-1.2-D 검증 체크리스트: 상태 전이/제약 회귀 시나리오** | completed | P2-1.2-B<br>P2-1.2-C | - |
+| `10000000-0000-4000-8000-000000000054` | **P2-1.3 가입 제출 API 기본 계약 설계(역할 분기/입력 검증)** | completed | P2-1.2 | 180m |
+| `c5538cee-788a-469f-b3a0-6af3c73d5b3a` | **P2-1.3-1 signup-submit API 계약 표준화 문서 확정** | completed | - | - |
+| `cb4bde42-6236-4c60-a1cb-2825cd43a84f` | **P2-1.3-2 signup-submit Edge Function 엔트리포인트 골격 구현** | completed | P2-1.3-1 | - |
+| `91a05915-7f12-4c36-8047-b760993cc9a8` | **P2-1.3-3 클라이언트 signup API 래퍼 경계 고정** | completed | P2-1.3-1 | - |
+| `4c02b69e-0834-42c9-9834-e9e80f9380bf` | **P2-1.3-4 에러 코드 매핑/검증 체크리스트 정리** | completed | P2-1.3-2<br>P2-1.3-3 | - |
+| `10000000-0000-4000-8000-000000000055` | **P2-1.4 UI: 단일 /signup 분기형 구현(admin 병원선택 / user 초대코드)** | pending | P2-1.9 | 210m |
+| `3d552bc3-2866-437c-a3e5-8e208b1d5c51` | **P2-1.4-1 Signup Contract Alignment (types/api/store boundary)** | completed | P2-1.9 | - |
+| `5dc645e9-e740-4955-9dcb-8c432774ca0a` | **P2-1.4-1A Define deterministic signup contracts for UI boundary** | pending | - | - |
+| `600f17c8-9fe9-431e-88e2-b0b5391610f8` | **P2-1.4-1B Preserve single signup API boundary with alias normalization** | pending | P2-1.4-1A | - |
+| `d8f5ac61-1bd8-46e0-9d14-16f3248a3138` | **P2-1.4-1C Implement and validate auth store deterministic signup result** | pending | P2-1.4-1A<br>P2-1.4-1B | - |
+| `d3f05381-f3aa-48d6-976f-84962d45bfd5` | **P2-1.4-2 Signup View Role-Branch UI (/signup single route)** | completed | P2-1.4-1 | - |
+| `1b94e697-94d4-4919-8a0a-0a437d951cdd` | **P2-1.4-3 Auth Routing and Login Entry Integration** | pending | P2-1.4-2 | - |
+| `c7596ca4-9628-4f2c-a7ec-75eb0891c253` | **P2-1.4-4 Validation Matrix and Manual QA for Role Branching** | pending | P2-1.4-3 | - |
+| `9df3e61b-bc11-4e92-963d-ccd70d4efadb` | **P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)** | pending | P2-1.4-2 | 120m |
+| `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)** | pending | P2-1.4 | 120m |
+| `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 병원 검색 Edge Function 계약 정의(data.go.kr 프록시)** | completed | P2-1.2 | 150m |
+| `8f8612a3-5e8c-456c-962d-4fdd91566dcb` | **P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)** | pending | - | - |
+| `79e67b38-73fe-46ea-8d18-afe32c884598` | **P2-1.6.2 Edge Function 구현: data.go.kr 프록시 및 정규화** | pending | P2-1.6.1 | - |
+| `b5d67e99-f96d-4f0f-a70f-22476a633d04` | **P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거** | pending | P2-1.6.2 | - |
+| `7f9a378a-9f68-48ee-93a7-089efd4d31ff` | **P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)** | pending | P2-1.6.3 | - |
+| `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)** | completed | P2-1.2 | 150m |
+| `8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8` | **P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장** | pending | - | - |
+| `605ced42-6835-429c-8c6a-fe2509dc1ed0` | **P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의** | pending | P2-1.8-1 | - |
+| `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6` | **P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강** | pending | P2-1.8-1 | - |
+| `3181bcb1-37ae-49a9-afb7-29e409976a23` | **P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가** | pending | P2-1.8-1<br>P2-1.8-3 | - |
+| `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)** | completed | P2-1.3<br>P2-1.6<br>P2-1.8 | 180m |
+| `6ba9a255-ecd3-4474-a921-8749d93f7949` | **P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)** | pending | P2-1.3 | - |
+| `db53ffa2-8cda-432e-9207-ad3e0b3f1883` | **P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영** | pending | P2-1.9-1<br>P2-1.8 | - |
+| `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환** | pending | P2-1.6 | - |
+| `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스** | pending | P2-1.9-2<br>P2-1.9-3 | - |
+| `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)** | pending | P2-1.8 | 150m |
+| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)** | pending | P2-1.10 | 120m |
+| `10000000-0000-4000-8000-000000000057` | **P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별** | pending | P2-1.5 | 120m |
+| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정** | pending | P2-2.1 | 120m |
+| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의** | pending | P2-2.2 | 90m |
+| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)** | pending | P2-2.3 | 90m |
+| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)** | pending | P2-1.5 | 120m |
+| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)** | pending | P2-3.1 | 180m |
+| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙** | pending | P2-3.2 | 150m |
+| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)** | pending | P2-3.2 | 90m |
+| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)** | pending | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m |
 
 ### 상세 (Details)
 
 ### P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000052`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-02)
+- **완료 요약(Summary)**: Implemented the Signup UX completely according to the specifications in the REFINED_PRD.md and the implementation guide. The signup route was added to the router, the UI was created with proper roles and fields, it correctly returns to login and provides the requisite status notification logic.
 - **설명(Description)**: admin/user 가입 UX를 확정하고 필수/선택 필드, 성공/실패/승인대기 상태 UI를 정의한다. 기존 로그인 화면과 라우팅 구조를 기준으로 /signup 진입 및 제출 후 상태 안내 흐름을 확정한다.
-- **구현 가이드(Guide)**: 1) 공통 필드(name,email,password,requestedRole,organizationId)와 role별 선택 필드(workType,shiftType,requestedSiteName,requestedSkillSummary,requestedRankCode,requestedCredit)를 정의한다. 2) 성공 시 pending 안내 메시지/상태 카드 UX를 정의한다. 3) Login 페이지에서 signup 진입 CTA를 정의한다.
-- **검증 기준(Verification)**: Deliverable: 회원가입 화면의 입력 필드/상태별 UX(성공/실패/승인대기)가 명확히 문서화되고, 구현 대상 경로와 라우팅 흐름이 확정된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **구현 가이드(Guide)**: 1) src/router/index.ts: /signup 라우트 추가 (requiresAuth: false). 2) src/views/auth/Login.vue: 회원가입 링크 추가 및 로그인 시 Pending/Rejected 상태일 경우 errorMessage 핸들링. 3) src/views/auth/Signup.vue: 이름, 이메일, 패스워드 공통 필드 정의, Role(admin/user) 선택용 NRadioGroup 추가. user 선택 시 업무유형, 근무시간, 사이트명, 보유기술, 직급 NSelect/NInput 조건부 표시 구성. 성공 시 승인대기 완료 문구를 <n-result status="success"> 로 제공.
+- **검증 기준(Verification)**: 1. Signup.vue에 공통 및 역할별 컴포넌트가 조건에 따라 노출되는지 확인 2. 폼 성공 제출 시 승인 대기 화면이 표시되는지 확인 3. Login 페이지의 진입 링크가 올바르게 작동하는지 확인
 - **선행 조건(Dependencies)**: P1-1.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`, `src/views/auth/Login.vue`, `src/views/auth/Signup.vue`, `src/router/index.ts`
-- **노트(Notes)**: 기존 Naive UI createDiscreteApi 패턴을 유지하고, 사용자 메시지는 한국어로 통일한다.
+- **관련 파일**: `src/router/index.ts`, `src/views/auth/Login.vue`, `src/views/auth/Signup.vue`
+- **노트(Notes)**: 기존 Naive UI 레이아웃, NCard, window.$message 메시징 재사용을 통해 UI 일관성을 보장한다.
 
-### P2-1.2 DB 규칙: signup_requests 생성 및 membership 생성 타이밍 정의
+### P2-1.2 DB 규칙: admin 승인형 / user 초대코드형 가입 상태 모델 정의
 
 - **Task ID**: `10000000-0000-4000-8000-000000000053`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: 가입 제출 시 signup_requests 생성 규칙과 승인 시 membership 반영 타이밍을 상태 전이 관점으로 확정한다.
-- **구현 가이드(Guide)**: 1) signup_requests.status 전이(pending->approved/rejected/withdrawn)와 중복 신청 정책을 정의한다. 2) approved 시 organization_memberships 생성/갱신 규칙(role,status,approved_by,approved_at)을 정의한다. 3) requester_user_id 및 organization_id 참조 무결성 조건을 명시한다.
-- **검증 기준(Verification)**: Deliverable: 가입 제출 전후 DB 기대 상태와 승인 이후 membership 반영 타이밍이 문서화되어 상태 전이가 모호하지 않다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P2-1.1
-- **예상 소요 시간**: 120m
-- **관련 파일**: `migrations/007_service_transition_rbac_multitenant.sql`, `docs/API_SPEC.md`
-- **노트(Notes)**: P2-1 단계에서는 submit 시점에 signup_requests 생성까지만 보장하고, 승인 시 membership 반영은 P2-3과 인터페이스 계약으로 연결한다.
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: admin 승인형과 user 초대코드형 가입 경로의 canonical 상태 모델을 문서와 DDL로 확정했고, 상태 전이(요청/승인/반려/만료/철회), invite 소진 규칙, 중복 신청 방지 제약, 역할별 API 상태/에러 계약까지 일관되게 반영해 구현 해석 여지를 제거했다.
+- **설명(Description)**: admin 가입 신청(승인 필요)과 user 초대코드 가입(즉시 승인) 경로를 signup_requests/organization_memberships 상태 전이로 확정한다.
+- **구현 가이드(Guide)**: 1) admin 가입: signup_requests(status=pending, requested_role=admin) 생성 후 superuser 승인 시 membership approved 반영 규칙을 정의한다. 2) user 가입: invite code 검증 성공 시 membership(role=user, status=approved)을 즉시 생성하고 invite code 소진(used_at/used_by) 규칙을 정의한다. 3) signup_requests 감사 추적 유지 여부(모든 가입 공통 기록 or admin 전용 기록)를 단일 정책으로 고정하고 unique/integrity 제약을 명시한다. 4) 상태 전이 표(요청, 승인, 반려, 만료, 철회)를 작성한다.
+- **검증 기준(Verification)**: Deliverable: admin/user 가입 경로별 DB 상태 전이 표와 제약 조건이 문서화되어 구현 시 해석 여지가 없다. Method: 상태 전이 다이어그램과 테이블 컬럼/인덱스/제약 정의를 대조 검토한다. Pass: admin 승인형과 user 즉시승인형 경로가 누락 없이 구분되고 invite code 소진 규칙이 명확하다.
+- **선행 조건(Dependencies)**: P2-1.1<br>P1-3.4
+- **예상 소요 시간**: 180m
+- **관련 파일**: `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/010_signup_role_flow.sql`, `docs/API_SPEC.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
+- **노트(Notes)**: 본 태스크는 가입 데이터 모델 canonical 정의다. 이후 API/UI 태스크는 이 정책을 변경하지 않고 참조해야 한다.
 
-### P2-1.3 가입 제출 API 설계(Edge Function/RPC) + 입력 검증
+### P2-1.2-A 가입 상태 전이 canonical 문서 확정
+
+- **Task ID**: `218a6547-34d4-40c2-b7bd-c925abf49cac`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: admin 승인형과 user 초대코드 즉시승인형의 상태 전이, 금지 전이, 트랜잭션 경계, 공통 감사 정책을 단일 canonical 문서로 확정해 후속 API/UI 태스크의 해석 여지를 제거했다.
+- **설명(Description)**: admin 승인형과 user 초대코드 즉시승인형의 상태 전이를 단일 문서로 고정한다. signup_requests와 organization_memberships의 상태 변화, 이벤트별 선행조건/후행조건, 금지 전이, 감사 기록 정책(공통 기록)을 명확히 정의한다.
+- **구현 가이드(Guide)**: 1) docs/migration/P2_SIGNUP_ROLE_FLOW.md 생성. 2) 전이 표를 요청 상태(signup_requests)와 멤버십 상태(organization_memberships)로 분리 작성. 3) admin 경로: submit->pending, approve->membership approved 반영, reject/withdraw/expire 처리 정의. 4) user 경로: invite 검증/소진과 membership approved 즉시 생성을 동일 트랜잭션 불변식으로 정의. 5) 공통 감사 정책: 두 경로 모두 signup_requests 기록 유지 규칙 명시.
+- **검증 기준(Verification)**: Deliverable: 역할별 상태 전이 표와 불변식, 금지 전이가 문서화됨. Method: 이벤트별 precondition/write/postcondition 대조 리뷰. Pass: 구현자 해석 여지 없이 전이/감사 정책이 단일 문서로 확정됨.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/migration/P2_SIGNUP_ROLE_FLOW.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`
+- **노트(Notes)**: P2-1.3/P2-1.7/P2-3.x가 재사용할 canonical source로 선언하고 중복 정의를 링크 참조로 정리한다.
+
+### P2-1.2-B migration 010 DDL: 상태/초대코드/무결성 제약 구현
+
+- **Task ID**: `9e4ebebd-fcd1-4cd6-9ba2-7d50e2e46b5e`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: 010 마이그레이션을 추가해 signup_requests에 expired 상태를 확장하고 review 일관성 CHECK, pending 중복 방지 partial unique index, invite_codes 단일사용/소진 제약 및 인덱스를 구현하여 정책 위반 입력을 DB 레벨에서 차단하도록 반영했다.
+- **설명(Description)**: canonical 정책을 DB에서 강제하기 위한 DDL을 추가한다. signup_requests의 expired 상태 지원, 초대코드 단일 사용 소진 모델, 중복 신청/경쟁 조건 방지 인덱스와 제약을 정의한다.
+- **구현 가이드(Guide)**: 1) migrations/010_signup_role_flow.sql 생성. 2) signup_requests.status CHECK를 expired 포함으로 확장. 3) invite code 저장 테이블(예: invite_codes) 생성: organization_id, role_scope, code_hash/token, expires_at, used_at, used_by, created_by, created_at/updated_at. 4) invite 단일 사용 보장을 위한 unique/index 및 consumed 상태 제약 정의. 5) pending 중복 신청 방지를 위한 partial unique index(요청자/역할/조직 스코프) 설계. 6) review 컬럼 일관성 CHECK(terminal 상태에서 reviewed_at/by 규칙) 검토 후 반영.
+- **검증 기준(Verification)**: Deliverable: 상태/초대코드/중복방지 제약이 SQL로 강제됨. Method: DDL 리뷰 + 제약 시나리오 점검(중복 pending, 재사용 invite, expired 전이). Pass: DB 레벨에서 정책 위반 입력이 차단되고 정상 경로는 유지됨.
+- **선행 조건(Dependencies)**: P2-1.2-A
+- **예상 소요 시간**: -
+- **관련 파일**: `migrations/010_signup_role_flow.sql`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/009_backfill_service_fields.sql`
+- **노트(Notes)**: 기존 데이터와 하위 호환을 위해 ALTER CHECK 변경 순서와 데이터 정합성 점검 쿼리를 함께 포함한다.
+
+### P2-1.2-C API 계약 정렬: 가입 상태/에러 코드 명세
+
+- **Task ID**: `08fb4c54-bdfe-487e-a72b-aab7258c2312`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: API_SPEC에 PlanningRequest와 분리된 Signup/Approval 계약 섹션을 추가해 admin submit, user invite redeem, approval decision의 상태 변화와 응답 모델, 에러 코드, create_new 호환 규칙을 canonical 문서와 일치하도록 고정했다.
+- **설명(Description)**: DB canonical 정책을 API 계약 문서에 반영해 구현 경계와 에러 의미를 고정한다. 이후 Edge Function과 프론트가 동일 상태 의미를 사용하도록 한다.
+- **구현 가이드(Guide)**: 1) docs/API_SPEC.md에 Signup/Approval Contract 섹션 추가(기존 PlanningRequest와 구분). 2) 요청 경로별(admin submit, user invite redeem) 상태 변화와 응답 상태를 표로 정의. 3) 에러 코드 표 정의: DUPLICATE_PENDING_REQUEST, INVITE_EXPIRED, INVITE_ALREADY_USED, INVALID_TRANSITION 등. 4) P2-1.7의 organizationSelectionMode/create_new 확장과 충돌 없도록 연결 규칙 명시.
+- **검증 기준(Verification)**: Deliverable: API 문서에서 DB 상태 전이와 에러 의미가 일관되게 정의됨. Method: canonical 문서와 API 표 diff 리뷰. Pass: 구현자가 문서만으로 경로별 상태/에러를 일관되게 구현 가능.
+- **선행 조건(Dependencies)**: P2-1.2-A
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`, `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`
+- **노트(Notes)**: 문서 확장은 API transport 구현이 아니라 상태 의미 계약에 한정한다.
+
+### P2-1.2-D 검증 체크리스트: 상태 전이/제약 회귀 시나리오
+
+- **Task ID**: `b1c76de8-80bd-4202-ba49-ecd6b9fbb727`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: 검증 가이드에 P2 전용 시나리오 섹션을 추가해 SGN-001~009로 admin/user 경로별 상태 전이, invite 만료·재사용·동시성, pending dedupe, terminal 재전이 금지, approved membership 접근 게이트를 SQL 템플릿과 기대 결과로 구조화했다.
+- **설명(Description)**: 문서/DDL 반영 후 정책이 실제로 모호하지 않은지 검증하기 위한 시나리오 체크리스트를 정의한다.
+- **구현 가이드(Guide)**: 1) admin/user 경로별 happy/fail 전이 테스트 케이스 작성. 2) 초대코드 소진 원자성(동시성)과 중복 신청 차단 케이스 포함. 3) RLS 영향 확인: approved membership만 접근 허용되는지 연계 검증 항목 추가. 4) 검증 쿼리 템플릿 및 기대 결과를 표로 정리.
+- **검증 기준(Verification)**: Deliverable: 상태 전이/제약/권한 경계를 포함한 검증 시나리오 세트. Method: 시나리오별 precondition/action/expected 결과 검토. Pass: admin/user 양 경로와 핵심 실패 케이스가 누락 없이 포함됨.
+- **선행 조건(Dependencies)**: P2-1.2-B<br>P2-1.2-C
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`, `migrations/010_signup_role_flow.sql`
+- **노트(Notes)**: P2-1.5/P2-3.5 테스트 설계에 재사용할 수 있도록 ID 체계와 용어를 정렬한다.
+
+### P2-1.3 가입 제출 API 기본 계약 설계(역할 분기/입력 검증)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000054`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Signup 제출 서버 경계를 명확히 하고 production edge-function 우선 정책 및 dev-only fallback 정책을 포함한 API 계약을 정의한다.
-- **구현 가이드(Guide)**: 1) 요청/응답 DTO를 정의한다. 2) 클라이언트 API 래퍼 `src/api/signup.ts`에서 `supabase.functions.invoke('signup-submit')`를 기본 경로로 설계한다. 3) function 미구현 시 dev 환경에서만 제한적 fallback 경로를 허용한다. 4) 에러 코드를 UI 친화 메시지로 매핑한다.
-- **검증 기준(Verification)**: Deliverable: 가입 제출 API의 요청/응답/에러 계약이 확정되고, production/dev 경계 정책이 명시된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: signup-submit 역할 분기형 기본 계약을 문서/API/코드 경계로 확정했다. API_SPEC에 요청 DTO·성공/실패 envelope·canonical 에러 코드와 매핑표를 추가했고, Edge Function 엔트리포인트에서 공통/역할별 입력 검증 및 표준 오류 응답을 구현했다. 클라이언트는 src/api/signup.ts 단일 래퍼를 통해 invoke('signup-submit')만 사용하도록 고정했다.
+- **설명(Description)**: signup-submit Edge Function의 기본 요청/응답 계약을 역할 분기형으로 정의하고 입력 검증·오류 코드를 표준화한다.
+- **구현 가이드(Guide)**: 1) 공통 필드(email/password/name/role)와 역할별 필드(admin:user inviteCode, admin:hospital selection)를 DTO로 분리한다. 2) 서버 검증 실패 코드를 표준화한다(INVALID_ROLE, INVALID_INVITE_CODE, HOSPITAL_REQUIRED, DUPLICATE_REQUEST 등). 3) 클라이언트는 supabase.functions.invoke('signup-submit')만 사용하도록 경계를 고정한다. 4) 성공/실패 응답 스키마를 docs/API_SPEC.md에 표로 정리한다.
+- **검증 기준(Verification)**: Deliverable: signup-submit 기본 계약(요청/응답/에러 코드)이 문서와 코드 엔트리포인트 기준으로 합의되어 있다. Method: API 스키마 표와 함수 입력 검증 체크리스트를 리뷰한다. Pass: 역할 분기 입력 규칙과 에러 코드 매핑이 누락 없이 정의된다.
 - **선행 조건(Dependencies)**: P2-1.2
 - **예상 소요 시간**: 180m
 - **관련 파일**: `supabase/functions/signup-submit/index.ts`, `src/api/signup.ts`, `src/api/supabase.ts`, `docs/API_SPEC.md`
-- **노트(Notes)**: 보안상 production direct-table fallback 금지(문서 정책 준수).
+- **노트(Notes)**: production direct table fallback 금지. 가입 제출은 Edge Function 경계만 사용한다.
 
-### P2-1.4 UI: 회원가입 페이지 구현(제출/검증/결과)
+### P2-1.3-1 signup-submit API 계약 표준화 문서 확정
+
+- **Task ID**: `c5538cee-788a-469f-b3a0-6af3c73d5b3a`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: API_SPEC에 signup-submit 경계, 공통/역할별 요청 DTO, 성공/실패 응답 envelope, canonical 에러 코드 및 legacy detail 매핑을 추가해 문서 기준 단일 계약을 확정했다. P2_SIGNUP_ROLE_FLOW 상태 의미와 충돌하지 않도록 상태 전이 기대값을 역할별로 정렬했다.
+- **설명(Description)**: docs/API_SPEC.md에 signup-submit 호출 경계, 역할 분기 요청 DTO, 성공/실패 응답 envelope, canonical 에러 코드 집합을 명시해 문서 기준 단일 계약을 확정한다.
+- **구현 가이드(Guide)**: 1) signup-submit transport boundary를 명시한다. 2) requestedRole 기반 분기 스키마(admin/user)를 표로 정의한다. 3) 성공/실패 응답 구조를 공통 envelope로 통일한다. 4) 에러 코드를 단일 목록으로 고정하고 의미/발생 조건/HTTP status를 매핑한다. Pseudocode: define RequestUnion(adminSchema,userSchema) -> define ResponseEnvelope(success,error) -> define ErrorCodeTable -> publish in API_SPEC.
+- **검증 기준(Verification)**: API_SPEC에 signup-submit 경계/요청/응답/에러 코드가 누락 없이 정의되고 P2_SIGNUP_ROLE_FLOW와 상태 의미가 일치한다.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
+- **노트(Notes)**: P2-1.2 canonical 문서(P2_SIGNUP_ROLE_FLOW.md)와 충돌이 없어야 하며, task guide의 예시 코드와 기존 API_SPEC 코드 중 하나로 정합성 결정을 내려야 한다.
+
+### P2-1.3-2 signup-submit Edge Function 엔트리포인트 골격 구현
+
+- **Task ID**: `cb4bde42-6236-4c60-a1cb-2825cd43a84f`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: supabase/functions/signup-submit/index.ts를 생성해 Deno 엔트리포인트, JSON 파싱, 공통 필드 검증, 역할 분기(admin/user) 검증, canonical 에러 envelope 반환 구조를 구현했다. direct table fallback은 두지 않고 계약 스캐폴드 단계임을 명시적으로 분리했다.
+- **설명(Description)**: supabase/functions/signup-submit/index.ts를 생성하여 입력 검증, 역할 분기, 표준 에러 응답 반환 구조를 구현 가능한 형태로 고정한다.
+- **구현 가이드(Guide)**: 1) Deno Edge Function entrypoint를 생성한다. 2) request parsing + 공통 필드 검증 + role별 필수 필드 검증을 분리한다. 3) 검증 실패 시 canonical error code를 response envelope로 반환한다. 4) business write 단계는 명시적 TODO/adapter 경계로 분리한다. Pseudocode: parseBody -> validateCommon -> switch(role){admin:user} -> onError return {success:false,error:{code,message}} -> onPass return typed success envelope.
+- **검증 기준(Verification)**: 함수 엔트리포인트가 존재하고, 최소 입력 검증 및 역할 분기 오류 응답이 API_SPEC 계약과 동일한 코드/스키마로 반환된다.
+- **선행 조건(Dependencies)**: P2-1.3-1
+- **예상 소요 시간**: -
+- **관련 파일**: `supabase/functions/signup-submit/index.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: 이 단계는 계약 구현 가능성 확보가 목적이며 direct table fallback 로직은 production에서 금지 정책을 준수해야 한다.
+
+### P2-1.3-3 클라이언트 signup API 래퍼 경계 고정
+
+- **Task ID**: `91a05915-7f12-4c36-8047-b760993cc9a8`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: src/api/signup.ts와 src/types/signup.ts를 추가해 submitSignup 단일 진입점을 구현했고 내부 호출 경계를 supabase.functions.invoke('signup-submit')로 고정했다. 성공/실패 envelope 파싱, canonical/legacy 에러 코드 정규화, 타입 안전 반환 구조를 함께 정리해 후속 auth/signup UI 연동 기반을 마련했다.
+- **설명(Description)**: src/api/signup.ts를 생성해 클라이언트 가입 제출 진입점을 단일화하고 supabase.functions.invoke('signup-submit') 경계를 강제한다.
+- **구현 가이드(Guide)**: 1) submitSignup(request) API를 정의한다. 2) 내부에서 invoke('signup-submit')만 사용한다. 3) 응답 envelope를 파싱해 성공/실패 타입을 반환한다. 4) fallback 정책이 필요하면 DEV 환경 분기만 허용하고 production에서는 차단한다. Pseudocode: callInvoke -> if invokeError mapToCanonical -> if !success throw/return typed error -> return success payload.
+- **검증 기준(Verification)**: 클라이언트 코드에서 signup 제출 시 단일 래퍼를 통해 invoke 경계가 보장되고, 반환 타입이 역할 분기 계약과 일치한다.
+- **선행 조건(Dependencies)**: P2-1.3-1
+- **예상 소요 시간**: -
+- **관련 파일**: `src/api/signup.ts`, `src/api/supabase.ts`, `src/types/signup.ts`
+- **노트(Notes)**: src/api/supabase.ts의 기존 client를 재사용하고, 후속 auth store/signup UI에서 직접 재사용 가능한 안정 인터페이스를 제공한다.
+
+### P2-1.3-4 에러 코드 매핑/검증 체크리스트 정리
+
+- **Task ID**: `4c02b69e-0834-42c9-9834-e9e80f9380bf`
+- **현재 상태(Status)**: completed (2026-03-03)
+- **완료 요약(Summary)**: API_SPEC에 canonical 에러 코드와 legacy detail 매핑표를 추가하고, test-validation-guide에 role별 입력 검증 체크리스트 및 canonical-detail 매핑 검증 항목을 신설했다. 동시에 src/types/signup.ts와 src/api/signup.ts에서 동일 코드 집합을 사용해 문서-클라이언트 처리 규칙 충돌을 제거했다.
+- **설명(Description)**: 서버 에러 코드와 UI 메시지 매핑 기준 및 입력 검증 체크리스트를 문서화해 후속 UI/테스트 태스크의 해석 차이를 제거한다.
+- **구현 가이드(Guide)**: 1) canonical error code -> 사용자 메시지 키 매핑표를 정의한다. 2) role별 필수/금지 필드 체크리스트를 작성한다. 3) API_SPEC와 클라이언트 래퍼 에러 처리 규칙을 교차 검증한다. Pseudocode: for each ErrorCode define uiMessageKey + retryPolicy + operationScope; for each Role define requiredFields/forbiddenFields.
+- **검증 기준(Verification)**: 에러 코드 매핑표와 role별 입력 검증 체크리스트가 문서에 존재하고 API wrapper 처리 규칙과 충돌이 없다.
+- **선행 조건(Dependencies)**: P2-1.3-2<br>P2-1.3-3
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `src/api/signup.ts`, `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 문서와 코드의 에러 코드 키가 단일 집합을 사용해야 하며 alias가 필요한 경우 deprecated 표기를 명확히 한다.
+
+### P2-1.4 UI: 단일 /signup 분기형 구현(admin 병원선택 / user 초대코드)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000055`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 회원가입 페이지를 구현하고, store/API를 통해 가입 요청을 전송한 뒤 승인대기 안내까지 연결한다.
-- **구현 가이드(Guide)**: 1) `src/views/auth/Signup.vue`에 Naive UI 기반 폼과 검증 규칙을 구현한다. 2) `src/stores/auth.ts`에 `signup` action을 추가해 `src/api/signup.ts`를 호출한다. 3) `src/router/index.ts`에 `/signup` 공개 라우트를 추가하고 Login에서 이동 링크를 제공한다. 4) 성공/실패/로딩 상태를 UI에 반영한다.
-- **검증 기준(Verification)**: Deliverable: 가입 제출 시 요청이 전송되고, 성공/실패/로딩 상태가 화면에 올바르게 표시되며 성공 시 승인대기 안내가 노출된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P2-1.3
-- **예상 소요 시간**: 180m
-- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`, `src/router/index.ts`, `src/views/auth/Login.vue`, `src/utils/message.ts`
-- **노트(Notes)**: 가입 성공 시 보호 라우트 접근 가능한 인증 상태로 전환하지 않도록 주의한다(후속 승인 가드와 충돌 방지).
+- **설명(Description)**: 단일 회원가입 화면에서 role 분기형 폼을 구현하고 admin 병원 검색 선택 및 user 초대코드 입력 흐름을 연결한다.
+- **구현 가이드(Guide)**: 1) /signup 단일 화면에서 role(admin/user) 선택에 따라 필드 섹션을 조건부 렌더링한다. 2) admin 섹션은 병원 검색/선택 UI를 제공하고 출처 문구('병원 목록 출처: 공공데이터포털(data.go.kr)')를 명시한다. 3) user 섹션은 inviteCode 입력과 검증 메시지를 제공한다. 4) 제출 성공 시 nextState에 따라 승인대기 안내 또는 로그인 가능 안내를 노출한다.
+- **검증 기준(Verification)**: Deliverable: /signup 화면에서 role에 따라 필수 필드가 정확히 분기되고 병원 출처 문구가 표시된다. Method: role 전환/제출 시나리오를 수동 검증한다. Pass: admin은 병원 선택 없이는 제출 불가, user는 유효 초대코드 없이는 제출 불가, 성공 시 상태별 안내가 표시된다.
+- **선행 조건(Dependencies)**: P2-1.9
+- **예상 소요 시간**: 210m
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`, `src/router/index.ts`, `src/views/auth/Login.vue`, `src/api/signup.ts`, `src/api/hospital.ts`
+- **노트(Notes)**: 회원가입 화면은 단일 라우트(/signup) 유지. user 전용 별도 라우트는 만들지 않는다.
 
-### P2-1.5 가입 제출 스모크 테스트 시나리오 정의
+### P2-1.4-1 Signup Contract Alignment (types/api/store boundary)
+
+- **Task ID**: `3d552bc3-2866-437c-a3e5-8e208b1d5c51`
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: Signup contract alignment was finalized across types/api/store boundaries. Signup success DTO now supports optional nextState from backend while store derives deterministic nextState fallback from signupRequestStatus/membershipStatus. submitSignup remains the single invoke boundary and now normalizes admin alias fields plus canonical organizationSelectionMode, while canonical error mapping is centralized and extended to legacy details.reason fallbacks. authStore.signup returns deterministic UI-consumable structure (success, nextState, message, errorCode, data) without any parallel invoke path. Unit tests cover admin/user success branching and canonical error mapping, and lint/tests pass. 또한 HTTP 400 invoke 경로에서 응답 본문 에러 코드를 읽지 못해 `INTERNAL_ERROR`로 치환되던 문제를 수정해, `INVALID_INVITE_CODE`가 UI에서 canonical 메시지(초대코드가 유효하지 않습니다.)로 일관되게 노출됨을 단위 테스트로 검증했다.
+- **설명(Description)**: Align frontend signup contracts for role-based submit and success state branching without duplicating API boundaries.
+- **구현 가이드(Guide)**: 1) Extend signup response typing to include nextState when available, while preserving fallback derivation from signupRequestStatus/membershipStatus. 2) Keep src/api/signup.ts as the single invoke boundary and normalize admin organization aliases. 3) Add auth store signup action returning deterministic UI-consumable result: success, nextState, message, errorCode. 4) Ensure canonical error code mapping remains centralized.
+- **검증 기준(Verification)**: Given admin/user payloads, store.signup returns deterministic success/error structure and preserves canonical error mapping without duplicate API invocation logic.
+- **선행 조건(Dependencies)**: P2-1.9
+- **예상 소요 시간**: -
+- **관련 파일**: `src/types/signup.ts`, `src/api/signup.ts`, `src/stores/auth.ts`
+- **노트(Notes)**: Reuse existing submitSignup and error normalization. Do not add parallel invoke path in view. 2026-03-05 후속 보강: Supabase invoke non-2xx 응답이 `error.context(Response)`로 전달되는 런타임 경로를 파싱하도록 API 경계를 강화하고, store에서 `instanceof` 실패 시에도 `error.code` 기반으로 canonical 매핑을 유지하도록 보완했다.
+
+### P2-1.4-1A Define deterministic signup contracts for UI boundary
+
+- **Task ID**: `5dc645e9-e740-4955-9dcb-8c432774ca0a`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Refine signup type contracts so API success payload remains backward-compatible when nextState is omitted, and define explicit auth-store return union used by Signup view without introducing duplicate invocation paths.
+- **구현 가이드(Guide)**: 1. Update signup success DTO typing to allow optional server nextState while preserving existing enum domain. 2. Add explicit store-facing return types (success/error union) with stable fields: success, nextState, message, errorCode, and optional data. 3. Keep canonical error code type references centralized in signup types.
+- **검증 기준(Verification)**: TypeScript ensures signup action return shape is explicit and UI-consumable; nextState optionality at API payload level does not break downstream compile-time checks.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `src/types/signup.ts`, `src/stores/auth.ts`
+
+### P2-1.4-1B Preserve single signup API boundary with alias normalization
+
+- **Task ID**: `600f17c8-9fe9-431e-88e2-b0b5391610f8`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Keep submitSignup as the only invocation boundary and ensure admin organization aliases are normalized consistently without adding alternate code paths in view/store.
+- **구현 가이드(Guide)**: 1. Confirm normalizeSignupRequest continues to map admin hospitalId/organizationId aliases to canonical payload. 2. Keep invoke boundary at supabase.functions.invoke('signup-submit') and avoid any direct-table or view-level invocation logic. 3. Preserve centralized canonical error normalization and reuse getSignupErrorMessage.
+- **검증 기준(Verification)**: Both admin and user requests pass through submitSignup only; admin alias normalization remains centralized; canonical error mapping behavior is unchanged.
+- **선행 조건(Dependencies)**: P2-1.4-1A
+- **예상 소요 시간**: -
+- **관련 파일**: `src/api/signup.ts`, `src/types/signup.ts`
+
+### P2-1.4-1C Implement and validate auth store deterministic signup result
+
+- **Task ID**: `d8f5ac61-1bd8-46e0-9d14-16f3248a3138`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Implement signup store action to always return deterministic UI model and add unit tests for success/error branching including fallback derivation from status fields.
+- **구현 가이드(Guide)**: 1. In auth store, derive nextState from explicit payload when present, otherwise fallback from signupRequestStatus/membershipStatus. 2. Return deterministic success/error result structure for Signup view with canonical message/errorCode handling. 3. Add Vitest unit tests covering admin success->pending_approval, user success->active, missing-nextState fallback, canonical error mapping, and unknown error fallback to INTERNAL_ERROR.
+- **검증 기준(Verification)**: Given admin/user payloads, store.signup returns deterministic success/error structure with stable fields and preserves canonical error mapping without duplicate API invocation logic.
+- **선행 조건(Dependencies)**: P2-1.4-1A<br>P2-1.4-1B
+- **예상 소요 시간**: -
+- **관련 파일**: `src/stores/auth.ts`, `tests/unit/auth-signup.spec.ts`, `src/api/signup.ts`
+
+### P2-1.4-2 Signup View Role-Branch UI (/signup single route)
+
+- **Task ID**: `d3f05381-f3aa-48d6-976f-84962d45bfd5`
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: Signup.vue 단일 라우트에서 admin/user 분기 필드와 역할별 필수값 제약을 충족하도록 제출 버튼 비활성화 로직을 보강했고, 병원 출처 문구 노출을 유지했다. signup-view 단위 테스트를 추가해 admin 병원 미선택 차단, user 초대코드 필수 전환, 출처 문구 노출을 자동 검증했다. 기존 signup-api/auth-signup 계약 테스트도 함께 통과해 경계 일관성을 확인했다.
+- **설명(Description)**: Implement one Signup.vue with role-based conditional fields for admin hospital selection and user invite code entry.
+- **구현 가이드(Guide)**: 1) Create Signup.vue using Naive UI form with common fields(name,email,password,role). 2) Render admin-only section with hospital search/select control and mandatory source label text: 병원 목록 출처: 공공데이터포털(data.go.kr). 3) Render user-only section with inviteCode input and validation messaging. 4) Disable submit when role-specific required field is missing. 5) On success, display pending-approval or active-login guidance based on normalized nextState.
+- **검증 기준(Verification)**: Role switching changes required fields correctly; admin cannot submit without hospital selection; user cannot submit without valid invite input; source label is visible in admin flow.
+- **선행 조건(Dependencies)**: P2-1.4-1
+- **예상 소요 시간**: -
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/api/hospital.ts`, `src/api/organization.ts`
+- **노트(Notes)**: Single /signup route only; no separate user signup route. Keep Korean UX strings.
+
+### P2-1.4-3 Auth Routing and Login Entry Integration
+
+- **Task ID**: `1b94e697-94d4-4919-8a0a-0a437d951cdd`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Integrate /signup route into router and login entry CTA/status handoff while preserving auth guards.
+- **구현 가이드(Guide)**: 1) Add public /signup route in router with title metadata. 2) Keep auth guard behavior consistent: unauthenticated users can access /login and /signup; authenticated users are redirected away from auth pages. 3) Add signup entry CTA in Login.vue and optional post-signup state message rendering.
+- **검증 기준(Verification)**: From login page user can navigate to /signup; route guards allow unauthenticated signup access; authenticated access to /signup redirects per policy.
+- **선행 조건(Dependencies)**: P2-1.4-2
+- **예상 소요 시간**: -
+- **관련 파일**: `src/router/index.ts`, `src/views/auth/Login.vue`
+- **노트(Notes)**: Do not alter protected schedule route semantics.
+
+### P2-1.4-4 Validation Matrix and Manual QA for Role Branching
+
+- **Task ID**: `c7596ca4-9628-4f2c-a7ec-75eb0891c253`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Define and execute manual verification scenarios for role switch, submit, error mapping, and success-state messages.
+- **구현 가이드(Guide)**: 1) Prepare scenario matrix: role toggle, missing admin hospital, missing/invalid invite code, duplicate request error, success pending_approval, success active. 2) Validate UI field visibility, disabled submit states, and Korean error/success copy. 3) Confirm lint gate and basic build/test checks run after changes.
+- **검증 기준(Verification)**: Manual test evidence confirms pass criteria for both roles; lint check reports zero errors; no regression in login routing behavior.
+- **선행 조건(Dependencies)**: P2-1.4-3
+- **예상 소요 시간**: -
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`, `src/api/signup.ts`
+- **노트(Notes)**: Ensure behavior remains stable while backend function may still return contract-only scaffold errors in local environments.
+
+### P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)
+
+- **Task ID**: `9df3e61b-bc11-4e92-963d-ccd70d4efadb`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: /signup 단일 라우트에 대해 역할 전환, 역할별 제출 차단, 성공 상태 라우팅을 Playwright E2E로 검증하는 시나리오를 추가한다.
+- **구현 가이드(Guide)**: 1) tests/e2e/signup-flow.spec.ts를 생성해 /signup 단일 라우트 E2E를 추가한다. 2) 역할 전환 시 admin 섹션(병원 검색/선택, 출처 문구)과 user 섹션(초대코드)의 표시/required 분기 동작을 검증한다. 3) 제출 버튼 비활성화 상태를 검증한다: admin은 hospitalId 미선택 시 비활성화, user는 inviteCode 공란 시 비활성화. 4) 성공 경로를 검증한다: 가입 성공 후 로그인 이동 시 /login?signupState=pending_approval 또는 active가 전달되고 Login.vue 안내 메시지가 표시된다. 5) 테스트 안정화를 위해 필요 시 API 응답을 Playwright route mock 또는 dev mock fallback 전제로 고정한다.
+- **검증 기준(Verification)**: Deliverable: /signup E2E 시나리오가 역할 전환, 제출 차단, 성공 라우팅을 포함해 자동 실행 가능하다. Method: `pnpm playwright test tests/e2e/signup-flow.spec.ts` 실행 결과와 시나리오별 assertion을 확인한다. Pass: 세 가지 시나리오(역할 전환, 역할별 제출 차단, signupState 성공 라우팅)가 모두 통과한다.
+- **선행 조건(Dependencies)**: P2-1.4-2
+- **예상 소요 시간**: 120m
+- **관련 파일**: `tests/e2e/signup-flow.spec.ts`, `tests/e2e/helpers.ts`, `playwright.config.ts`, `src/views/auth/Signup.vue`, `src/views/auth/Login.vue`
+- **노트(Notes)**: 대상 범위는 /signup 단일 화면이며 user 전용 별도 라우트는 만들지 않는다. 성공 라우팅은 /login?signupState=... 핸드오프를 기준으로 검증한다.
+
+### P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000056`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 가입 제출 플로우의 최소 검증 시나리오를 문서화해 기능 회귀를 방지한다.
-- **구현 가이드(Guide)**: 1) Happy path: 폼 입력->제출->signup_requests 생성->승인대기 메시지 표시 시나리오 정의. 2) Fail path: 필수값 누락/이메일 형식 오류/중복 신청/함수 실패 케이스 정의. 3) 기대 결과(상태 코드, 메시지, DB 상태)를 명시한다.
-- **검증 기준(Verification)**: Deliverable: 가입 기능의 happy/fail 최소 시나리오가 문서화되고, 각 시나리오별 기대 결과(UI/DB/에러)가 명확히 정의된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: admin 승인대기형과 user 즉시승인형 가입 흐름의 최소 스모크 테스트 세트를 정의한다.
+- **구현 가이드(Guide)**: 1) admin happy path: 병원 검색/선택 -> 제출 -> pending 상태 안내 시나리오를 정의한다. 2) user happy path: 유효 invite code 제출 -> active 상태/로그인 가능 시나리오를 정의한다. 3) fail path: 병원 미선택, invite code 만료/재사용, 중복 신청, 함수 오류를 포함한다.
+- **검증 기준(Verification)**: Deliverable: 가입 스모크 시나리오 문서에 admin/user 경로별 happy/fail 케이스가 존재한다. Method: 시나리오별 선행조건/절차/기대결과 3요소 포함 여부를 점검한다. Pass: 경로별 상태 전이와 오류 메시지 기대값이 누락 없이 기재된다.
 - **선행 조건(Dependencies)**: P2-1.4
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Signup.vue`, `src/api/signup.ts`
-- **노트(Notes)**: 실행 자동화는 후속 태스크로 미루되, 수동 점검 절차는 즉시 재현 가능해야 한다.
+- **노트(Notes)**: P2-1.5는 자동화 도입 전 수동 회귀 체크리스트로 사용한다.
 
-### P2-1.6 admin 가입 무소속 분기 라우트/가드 계약 정의
+### P2-1.6 병원 검색 Edge Function 계약 정의(data.go.kr 프록시)
 
 - **Task ID**: `63463b1e-64b2-4677-86ea-ebfcde2316d5`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: admin 가입 시 조직 미선택/미존재인 경우 6.2 조직 생성 화면 재사용으로 분기하는 라우트 및 가드 계약을 정의한다.
-- **구현 가이드(Guide)**: 1) /signup에서 mode=signup 브리지 파라미터 정책 정의. 2) /admin/organizations/new 재사용 경로와 일반 admin 콘솔 경로를 가드에서 구분. 3) 완료 후 /signup resume 복귀 규칙과 오류 리다이렉트 규칙 문서화.
-- **검증 기준(Verification)**: Deliverable: signup 브리지 라우트/가드 계약 문서. Method: P2/P5 라우트 태스크와 PRD 5.1/6.2 요구를 대조 검토한다. Pass: 무소속 admin 가입자가 6.2 재사용 경로로 진입하고 일반 admin 콘솔 권한은 부여되지 않음이 명시된다.
-- **선행 조건(Dependencies)**: P2-1.5<br>P5-1.2
-- **예상 소요 시간**: 90m
-- **관련 파일**: `src/router/guards.ts`, `src/router/index.ts`, `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`
-- **노트(Notes)**: 일반 관리자 권한을 부여하지 않고 signup 브리지 스코프만 허용해야 한다.
+- **현재 상태(Status)**: completed (2026-03-04)
+- **완료 요약(Summary)**: hospital-search Edge Function 계약/구현/배포를 완료했고, 프론트 병원 검색 경계를 supabase.functions.invoke('hospital-search') 단일 경계로 전환했습니다. CORS preflight 204, 정상 조회 200, 입력검증 400, numOfRows clamp(최대 50)까지 실 호출로 확인했으며 source='data.go.kr' 메타 포함을 검증했습니다.
+- **설명(Description)**: 회원가입 화면의 병원 검색을 위해 공공데이터포털 API를 서버 프록시로 호출하는 hospital-search 함수 계약을 정의한다.
+- **구현 가이드(Guide)**: 1) 입력 파라미터(keyword, pageNo, numOfRows) 검증 규칙을 정의한다. 2) 함수 내부에서 HOSPITAL_API_BASE_URL/HOSPITAL_API_KEY를 사용해 data.go.kr API를 호출하고, 응답을 UI 친화 구조로 정규화한다. 3) 응답 메타에 source='data.go.kr'을 포함한다. 4) rate limit/timeout/error mapping 정책을 명시한다.
+- **검증 기준(Verification)**: Deliverable: hospital-search 함수 계약서와 표준 에러 코드가 준비되어 회원가입 UI가 직접 외부 키를 노출하지 않고 병원 목록을 조회할 수 있다. Method: 요청/응답 예시와 보안 경계(키 비노출) 체크리스트를 검토한다. Pass: 병원 검색 경로가 Edge Function 프록시 단일 경계로 정의되고 source 메타가 포함된다.
+- **선행 조건(Dependencies)**: P2-1.2
+- **예상 소요 시간**: 150m
+- **관련 파일**: `supabase/functions/hospital-search/index.ts`, `src/api/hospital.ts`, `.env.local`, `docs/API_SPEC.md`
+- **노트(Notes)**: 프론트 직접 data.go.kr 호출 금지. 키는 서버 환경 변수에서만 사용.
 
-### P2-1.7 가입 제출 API 확장(organizationSelectionMode/create_new)
+### P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)
+
+- **Task ID**: `8f8612a3-5e8c-456c-962d-4fdd91566dcb`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: docs/API_SPEC.md에 hospital-search 요청/응답/에러 계약을 신규 섹션으로 추가한다. keyword/pageNo/numOfRows 입력 규칙, 성공/실패 envelope, source='data.go.kr' 메타, timeout/rate-limit/error mapping 정책을 명문화한다.
+- **구현 가이드(Guide)**: 1) API_SPEC에 'Edge Function Boundary (hospital-search)' 섹션 추가. 2) Request DTO(필수/선택/범위) 표 작성. 3) Success/Error envelope JSON 예시 작성. 4) Canonical error code 표(VALIDATION_ERROR, UPSTREAM_TIMEOUT, UPSTREAM_RATE_LIMIT, UPSTREAM_ERROR, INTERNAL_ERROR) 작성. 5) 보안 경계(클라이언트 직접 data.go 호출 금지, 키 서버 환경변수 전용) 체크리스트 추가.
+- **검증 기준(Verification)**: Deliverable: hospital-search 계약 섹션이 API_SPEC에 추가되고 요청/응답/에러/보안경계가 모두 명시된다. Method: 문서 리뷰로 필수 항목(keyword/pageNo/numOfRows 검증, source 메타, error mapping, 키 비노출 경계) 확인. Pass: 누락 없이 항목이 확인된다.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 기존 signup-submit 섹션 스타일과 동일한 문서 구조를 유지한다.
+
+### P2-1.6.2 Edge Function 구현: data.go.kr 프록시 및 정규화
+
+- **Task ID**: `79e67b38-73fe-46ea-8d18-afe32c884598`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: supabase/functions/hospital-search/index.ts를 생성해 서버 환경변수(HOSPITAL_API_BASE_URL/HOSPITAL_API_KEY)로 공공 API를 호출하고, UI 친화 응답으로 정규화한다. timeout/rate-limit/upstream 에러를 표준 코드로 매핑한다.
+- **구현 가이드(Guide)**: 1) index.ts 생성 및 CORS/메서드 허용(POST, OPTIONS) 처리. 2) body 파싱 후 keyword/pageNo/numOfRows 검증 및 범위 제한. 3) AbortController 기반 timeout 적용한 upstream fetch 구현. 4) data.go 응답에서 item 배열/단건을 정규화해 {id,name,source:'data.go.kr'}로 변환. 5) success/error envelope 반환 유틸(jsonResponse/errorResponse) 구성. 6) 429/timeout/기타 upstream 실패를 계약 코드로 매핑.
+- **검증 기준(Verification)**: Deliverable: hospital-search Edge Function이 요청 검증, upstream 호출, 정규화 응답, 에러 매핑을 수행한다. Method: 함수 코드 리뷰 및 샘플 요청/응답 시나리오 점검(정상, validation 실패, timeout, 429). Pass: 모든 시나리오가 계약 코드와 envelope 형태를 만족한다.
+- **선행 조건(Dependencies)**: P2-1.6.1
+- **예상 소요 시간**: -
+- **관련 파일**: `supabase/functions/hospital-search/index.ts`, `supabase/functions/signup-submit/index.ts`
+- **노트(Notes)**: signup-submit의 response envelope 패턴을 재사용하되 병원 검색 도메인 코드로 한정한다.
+
+### P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거
+
+- **Task ID**: `b5d67e99-f96d-4f0f-a70f-22476a633d04`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: src/api/hospital.ts를 supabase.functions.invoke('hospital-search') 단일 경계 래퍼로 전환하고, 브라우저에서 data.go.kr 직접 호출 및 VITE_HOSPITAL_API_KEY 사용 경로를 제거한다.
+- **구현 가이드(Guide)**: 1) HospitalSearch 응답 타입을 edge function envelope에 맞춰 정리. 2) searchHospitals(keyword, limit)에서 invoke('hospital-search') 호출로 변경(pageNo=1, numOfRows=limit 변환). 3) 기존 브라우저 direct fetch 로직과 VITE_HOSPITAL_API_* 참조 제거. 4) 에러 코드 기반 사용자 친화 메시지 매핑을 최소 추가. 5) 기존 Signup.vue 호출 시그니처 호환 유지.
+- **검증 기준(Verification)**: Deliverable: 클라이언트 병원 검색 경로가 invoke('hospital-search') 단일 경계로 통일된다. Method: 코드 검색으로 data.go.kr 직접 fetch/VITE_HOSPITAL_API_KEY 참조 여부 확인. Pass: 클라이언트 코드에서 직접 외부 API 호출이 제거된다.
+- **선행 조건(Dependencies)**: P2-1.6.2
+- **예상 소요 시간**: -
+- **관련 파일**: `src/api/hospital.ts`, `src/views/auth/Signup.vue`, `src/api/signup.ts`
+- **노트(Notes)**: 클라이언트는 외부 API 상세를 몰라야 하며 edge function만 의존해야 한다.
+
+### P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)
+
+- **Task ID**: `7f9a378a-9f68-48ee-93a7-089efd4d31ff`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: 구현 결과가 계약/보안/품질 기준을 만족하는지 점검한다. 브라우저 직접 호출 제거, source 메타 포함, lint 통과를 검증한다.
+- **구현 가이드(Guide)**: 1) 정적 검증: rg로 data.go.kr direct fetch 및 VITE_HOSPITAL_API_KEY 참조 잔존 검색. 2) 타입/린트 게이트 실행(pnpm lint:check) 및 오류 해소. 3) 샘플 요청/응답 예시를 문서/코드와 대조해 계약 일치 검증. 4) 보안 체크리스트(키 비노출, 서버 env 전용 경계) 확인. 5) 확인 결과를 태스크 코멘트/요약으로 기록.
+- **검증 기준(Verification)**: Deliverable: 계약/보안/코드 품질 체크 결과가 확인된다. Method: lint 결과와 코드 검색 결과를 검토한다. Pass: lint error=0, direct data.go 호출=0, source 메타 포함 경로가 확인된다.
+- **선행 조건(Dependencies)**: P2-1.6.3
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `src/api/hospital.ts`, `supabase/functions/hospital-search/index.ts`
+- **노트(Notes)**: 이 단계에서 repository 변경은 없고 검증 중심으로 수행한다.
+
+### P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)
+
+- **Task ID**: `79d3fd2b-ecec-45bc-9578-a88f19599d20`
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: invite_codes 단일 테이블 전략으로 1회용/만료 필수/해시 저장 제약을 DDL에 강화했다. max_uses=1, used_count(0/1), 사용 시각/사용자 상호 일관성 체크를 추가하고 기존 행 보정 UPDATE를 포함해 멱등성을 보완했다. can_manage_invite_codes 헬퍼와 invite_codes RLS 정책(select/insert/update)을 추가해 super/admin 관리 범위를 명시했으며 API_SPEC에 상태 판별 규칙과 scaffold 계약 노트를 문서화했다.
+- **설명(Description)**: user 가입용 조직 초대코드 스키마를 정의하고 1회 사용/만료일 필수 정책을 DDL로 확정한다.
+- **구현 가이드(Guide)**: 1) organization_invite_codes 테이블(organization_id, code_hash, expires_at, max_uses=1, used_count, revoked_at, created_by)을 정의한다. 2) code 원문 저장 금지(hash 저장) 정책과 unique 인덱스를 정의한다. 3) 만료/폐기/사용완료 상태 판별 규칙을 SQL 조건으로 문서화한다. 4) admin만 발급/폐기 가능하도록 RLS 방향을 명시한다.
+- **검증 기준(Verification)**: Deliverable: 초대코드 테이블 및 제약(1회용/만료 필수/해시 저장) 정의가 DDL 수준에서 완결되어 있다. Method: 스키마 정의서와 인덱스/체크 제약을 리뷰한다. Pass: 초대코드 재사용, 무기한 코드, 평문 저장이 모두 차단되는 구조가 확인된다.
+- **선행 조건(Dependencies)**: P2-1.2
+- **예상 소요 시간**: 150m
+- **관련 파일**: `migrations/010_signup_role_flow.sql`, `migrations/008_rls_progressive_rollout.sql`, `docs/API_SPEC.md`
+- **노트(Notes)**: 초대코드는 user 가입 경로 전용이다. admin 가입 승인 플로우와 혼합하지 않는다.
+
+### P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장
+
+- **Task ID**: `8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: migrations/010_signup_role_flow.sql에서 기존 invite_codes 스키마를 확장해 max_uses=1, used_count 제약, expires_at 필수 불변식, code_hash 저장 정책을 DDL 수준에서 완결한다.
+- **구현 가이드(Guide)**: 1) invite_codes에 max_uses INTEGER NOT NULL DEFAULT 1, used_count INTEGER NOT NULL DEFAULT 0 추가. 2) CHECK 제약 추가: max_uses = 1, used_count BETWEEN 0 AND max_uses. 3) used_at/used_by와 used_count 정합성 CHECK 추가(0이면 used_at/used_by NULL, 1이면 둘 다 NOT NULL). 4) expires_at > created_at 제약 유지/보강. 5) code_hash unique 인덱스 유지 및 해시 포맷 제약(정책 합의 형식) 문서 주석 반영.
+- **검증 기준(Verification)**: DDL 리뷰 시 재사용 차단(max_uses=1+used_count), 무기한 코드 차단(expires_at 필수+체크), 평문 저장 금지(code_hash only) 구조가 명확히 확인되어야 한다.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `migrations/010_signup_role_flow.sql`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
+- **노트(Notes)**: organization_invite_codes 신설 대신 canonical invite_codes 확장으로 고정. 기존 used_at/used_by 호환성 유지 필수.
+
+### P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의
+
+- **Task ID**: `605ced42-6835-429c-8c6a-fe2509dc1ed0`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: migrations/008_rls_progressive_rollout.sql에 invite_codes RLS 방향을 반영해 admin/super만 발급/폐기 가능하고 일반 user 직접 조회는 차단되도록 정책을 설계한다.
+- **구현 가이드(Guide)**: 1) invite_codes RLS ENABLE 포함. 2) super admin 전역 허용과 has_org_access(organization_id, 'admin') 기반 조직 admin 허용 정책 추가(SELECT/INSERT/UPDATE 범위 명시). 3) 사용자 직접 invite_codes 접근 차단 원칙을 정책으로 명시. 4) signup-submit은 service role 경계를 통해 invite 검증 수행하도록 문서화.
+- **검증 기준(Verification)**: 정책 검토 시 admin/super 발급/폐기 허용, 일반 user 직접 접근 차단, service-role 기반 검증 경계가 충돌 없이 성립해야 한다.
+- **선행 조건(Dependencies)**: P2-1.8-1
+- **예상 소요 시간**: -
+- **관련 파일**: `migrations/008_rls_progressive_rollout.sql`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`
+- **노트(Notes)**: 기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다.
+
+### P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강
+
+- **Task ID**: `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: docs/API_SPEC.md에 invite active/expired/revoked/consumed 판별 SQL 규칙과 INVALID_INVITE_CODE 매핑을 명시해 서버/클라이언트 해석 여지를 제거한다.
+- **구현 가이드(Guide)**: 1) invite 유효성 판별 규칙을 상태식으로 추가(active/revoked/expired/consumed). 2) INVALID_INVITE_CODE 하위 reason 매핑 유지 및 consumed 기준을 used_count/max_uses와 연결. 3) code_hash 원문 미저장 정책과 해시 생성 책임(서버측) 명시. 4) role=user 경로 요구사항 표를 최신 제약과 일치시킴.
+- **검증 기준(Verification)**: 문서 리뷰 시 invite unusable 사유(만료/소진/폐기/역할불일치/미존재)와 상태 판별 규칙이 상호모순 없이 연결되어야 한다.
+- **선행 조건(Dependencies)**: P2-1.8-1
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
+- **노트(Notes)**: 기존 canonical error code 계약 표 구조를 그대로 재사용해 문서 포맷 일관성을 유지한다.
+
+### P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가
+
+- **Task ID**: `3181bcb1-37ae-49a9-afb7-29e409976a23`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: docs/verification/test-validation-guide.md의 invite 관련 시나리오(SGN-004~SGN-009)를 새로운 제약(used_count/max_uses + used_at/used_by 정합)과 맞추어 갱신한다.
+- **구현 가이드(Guide)**: 1) consume SQL 예시에 used_count 갱신 및 가드 조건(used_count < max_uses) 반영. 2) 만료/재사용/동시성 시나리오 기대결과를 row update=0/1 기준으로 명확화. 3) 기존 used_at 기반 검증은 호환성 체크로 유지하되 count 기반 불변식 검증 절 추가. 4) SGN 추적표와 리뷰 체크리스트에 신규 제약 확인 항목 추가.
+- **검증 기준(Verification)**: 시나리오 리뷰 시 단일 소비 보장, 만료 차단, 재사용 차단, 동시성 단일 성공이 used_count/used_at 기준으로 모두 검증 가능해야 한다.
+- **선행 조건(Dependencies)**: P2-1.8-1<br>P2-1.8-3
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 테스트 문서는 구현 선행이 아니라 검증 기준 문서이므로 SQL 예시는 실행 가능성과 설명 명확성 중심으로 유지한다.
+
+### P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)
 
 - **Task ID**: `97cfb736-1ec7-425e-948d-b9a9d5b247f0`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: 가입 제출 API 계약에 organizationSelectionMode와 organizationDraftId 바인딩 규칙을 추가해 create_new 플로우를 명시한다.
-- **구현 가이드(Guide)**: 1) 요청 스키마에 organizationSelectionMode(existing|create_new) 추가. 2) create_new일 때 organizationDraftId 필수 검증 규칙 정의. 3) signup_requests 저장 필드 및 상태 전이 영향 정리.
-- **검증 기준(Verification)**: Deliverable: create_new 조직 선택 모드를 포함한 가입 API 계약. Method: 요청/응답/검증 표를 리뷰하고 기존 P2-1.3 계약과 diff 확인. Pass: existing/create_new 분기와 organizationDraftId 필수 조건이 누락 없이 정의된다.
-- **선행 조건(Dependencies)**: P2-1.6<br>P2-1.3<br>P5-1.3
-- **예상 소요 시간**: 90m
-- **관련 파일**: `src/api/auth.ts`, `supabase/functions/signup-submit/index.ts`, `docs/API_SPEC.md`
-- **노트(Notes)**: P2는 가입 요청 계약과 검증을 담당하고, 조직 생성 상세 구현은 P5가 담당한다.
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: signup-submit v2 계약을 admin/user 경로 기준으로 정렬했다. 함수에서 organizationSelectionMode='existing' 검증, admin 병원 선택 필수 검증, user inviteCode 상태 검증(만료/사용완료/폐기/역할불일치)을 유지하고 duplicate contract probe를 통해 DUPLICATE_REQUEST 응답 케이스를 명시했다. API_SPEC에 invite domain 규칙과 scaffold 동작을 문서화했으며, 클라이언트 API 래퍼는 canonical/legacy 매핑(코드 및 details.reason)과 organizationSelectionMode 기본값 정규화를 강화했다. 관련 단위 테스트와 lint가 모두 통과했다. 추가로 원격 함수 v5 배포 기준으로 UI 수동 검증을 수행해 SC-UI-004 duplicate probe(`409 DUPLICATE_REQUEST`)와 SC-UI-005 invalid organizationSelectionMode(`400 VALIDATION_ERROR`, details.expected=`existing`) 응답 계약을 확인했다.
+- **설명(Description)**: signup-submit API를 v2로 확장해 admin은 병원 검색 선택 기반, user는 초대코드 기반으로 가입 처리하도록 계약을 확정한다.
+- **구현 가이드(Guide)**: 1) admin 경로: hospital-search 결과에서 선택한 병원 식별자/병원명/출처(source=data.go.kr) 필수 검증을 추가한다. 2) user 경로: inviteCode 필수 검증, 코드 만료/사용완료/폐기 상태 처리 규칙을 반영한다. 3) 응답에 nextState('pending_approval' | 'active')를 명시해 로그인/가드가 상태 기반 분기하도록 한다. 4) 에러 코드와 한국어 메시지 매핑 테이블을 정리한다.
+- **검증 기준(Verification)**: Deliverable: signup-submit v2 계약이 admin/user 경로별 필수 입력과 상태 전이를 포함해 문서/함수에서 일치한다. Method: API 예시 payload와 검증 매트릭스를 리뷰한다. Pass: admin 병원선택 누락, user 초대코드 오류, 중복 요청 케이스가 모두 계약에 포함된다.
+- **선행 조건(Dependencies)**: P2-1.3<br>P2-1.6<br>P2-1.8
+- **예상 소요 시간**: 180m
+- **관련 파일**: `supabase/functions/signup-submit/index.ts`, `src/api/signup.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: 기존 organizationSelectionMode=create_new 브리지 계약은 폐기하고 v2 역할 분기 계약을 canonical로 사용한다. 2026-03-05 후속 검증: 원격 Supabase Edge Function `signup-submit`를 v5로 재배포해 duplicate probe 및 organizationSelectionMode 검증 분기를 활성화했고, SC-UI-004에서 `409 DUPLICATE_REQUEST`(details.reason=`DUPLICATE_PENDING_REQUEST`) 응답을 확인했다.
 
-### P2-1.8 가입→6.2재사용→승인대기 E2E 시나리오 정의
+### P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)
+
+- **Task ID**: `6ba9a255-ecd3-4474-a921-8749d93f7949`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: signup-submit v2 canonical 계약을 문서와 클라이언트 DTO에서 일치시킨다.
+- **구현 가이드(Guide)**: 1) docs/API_SPEC.md의 signup-submit 성공 응답에 nextState(pending_approval|active)를 명시한다. 2) admin/user 경로별 필수 입력(병원 식별자/초대코드)과 에러 코드 매핑 표를 v2 기준으로 정리한다. 3) src/types/signup.ts에서 문서와 동일한 타입/에러코드를 확인·보정한다.
+- **검증 기준(Verification)**: API_SPEC와 src/types/signup.ts에서 nextState, role별 필수값, 에러코드 매핑이 동일하게 표현된다.
+- **선행 조건(Dependencies)**: P2-1.3
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `src/types/signup.ts`
+- **노트(Notes)**: 문서가 canonical source이며 구현은 문서를 따라야 한다.
+
+### P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영
+
+- **Task ID**: `db53ffa2-8cda-432e-9207-ad3e0b3f1883`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: supabase/functions/signup-submit/index.ts를 v2 계약에 맞게 확장한다.
+- **구현 가이드(Guide)**: 1) 성공 응답에 nextState를 포함한다(admin->pending_approval, user->active). 2) admin 요청에서 병원 선택 검증을 강화하고 user 요청에서 invite 상태 검증 분기(만료/사용/폐기/역할불일치)를 canonical error로 normalize한다. 3) error.details.reason을 legacy mapping 표와 맞춘다. 4) contract-only scaffold 여부를 명확히 구분해 반환한다.
+- **검증 기준(Verification)**: signup-submit 응답이 nextState를 포함하고, admin 병원 누락/user invite 오류/중복 요청 케이스가 계약된 에러코드로 반환된다.
+- **선행 조건(Dependencies)**: P2-1.9-1<br>P2-1.8
+- **예상 소요 시간**: -
+- **관련 파일**: `supabase/functions/signup-submit/index.ts`, `migrations/010_signup_role_flow.sql`
+- **노트(Notes)**: 실제 DB 영속화는 단계적으로 구현하되 계약 필드는 먼저 완결한다.
+
+### P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환
+
+- **Task ID**: `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: 병원 검색을 프론트 직접 data.go 호출에서 Edge Function 프록시 단일 경계로 전환한다.
+- **구현 가이드(Guide)**: 1) supabase/functions/hospital-search/index.ts를 생성해 HOSPITAL_API_BASE_URL/HOSPITAL_API_KEY(서버 env)로 data.go를 호출하고 UI 친화 응답으로 정규화한다. 2) timeout/rate-limit/error mapping을 정의한다. 3) src/api/hospital.ts는 edge function invoke만 사용하도록 변경하고 브라우저 키 사용 코드를 제거한다.
+- **검증 기준(Verification)**: 브라우저 네트워크에서 data.go 직접 호출이 사라지고 hospital-search edge function 단일 경계로 조회되며 source=data.go.kr 메타가 포함된다.
+- **선행 조건(Dependencies)**: P2-1.6
+- **예상 소요 시간**: -
+- **관련 파일**: `supabase/functions/hospital-search/index.ts`, `src/api/hospital.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: P2-1.6 노트(프론트 직접 호출 금지, 키 비노출)를 강제한다.
+
+### P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스
+
+- **Task ID**: `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: src/api/signup.ts와 인증 흐름을 v2 계약에 맞춰 정합화하고 검증 시나리오를 정리한다.
+- **구현 가이드(Guide)**: 1) src/api/signup.ts에서 nextState를 우선 소비하고 dev fallback 정책을 문서화된 개발 모드 규칙으로 제한한다. 2) canonical error code -> 한국어 메시지 매핑 유지 여부를 점검한다. 3) 검증 매트릭스(admin 병원 누락, user invite invalid/expired/used/revoked, duplicate request, success nextState 분기)를 문서화한다.
+- **검증 기준(Verification)**: 클라이언트가 nextState 기반으로 일관 분기하고, v2 에러 케이스가 검증 매트릭스에서 누락 없이 확인된다.
+- **선행 조건(Dependencies)**: P2-1.9-2<br>P2-1.9-3
+- **예상 소요 시간**: -
+- **관련 파일**: `src/api/signup.ts`, `src/stores/auth.ts`, `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 운영 경계에서는 direct table fallback 금지 원칙 유지.
+
+### P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)
+
+- **Task ID**: `c5743d61-4d08-4793-9c3b-216b39c59e8b`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: admin이 조직 초대코드를 발급/폐기/조회하는 invite-code-manage API 계약과 권한 경계를 정의한다.
+- **구현 가이드(Guide)**: 1) create/revoke/list 액션별 요청/응답 스키마를 정의한다. 2) admin 조직 스코프 검증과 superuser override 정책을 명시한다. 3) 발급 시 기본 maxUses=1, expiresAt 필수 검증 규칙을 고정한다. 4) 응답에서 code 원문은 create 시 1회만 반환하고 저장은 hash만 유지한다.
+- **검증 기준(Verification)**: Deliverable: invite-code-manage API 계약과 권한 규칙이 문서화되어 구현 경계가 명확하다. Method: 액션별 요청/응답/오류 코드 표를 리뷰한다. Pass: create/revoke/list 3개 액션과 조직 스코프 제약이 누락 없이 포함된다.
+- **선행 조건(Dependencies)**: P2-1.8
+- **예상 소요 시간**: 150m
+- **관련 파일**: `supabase/functions/invite-code-manage/index.ts`, `src/api/invite-code.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: 초대코드 관리 권한은 admin(자기 조직) + superuser(전체 조직)로 제한한다.
+
+### P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)
 
 - **Task ID**: `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: admin 가입자가 조직 미보유 상태에서 6.2 재사용 조직생성을 거쳐 승인대기로 전환되는 E2E 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 1) happy path: signup->bridge->org save->signup submit->pending. 2) fail path: 브리지 토큰 만료/중복 바인딩/조직 저장 실패. 3) 기대 결과(UI 메시지, DB 상태, 라우트 이동) 정의.
-- **검증 기준(Verification)**: Deliverable: signup->organization reuse 연결 E2E 테스트 시나리오 세트. Method: 시나리오별 선행조건/절차/기대결과 3요소 포함 여부를 리뷰한다. Pass: happy/fail 경로 모두에서 승인대기 전환과 권한 경계 검증 항목이 존재한다.
-- **선행 조건(Dependencies)**: P5-1.6<br>P2-2.4
+- **설명(Description)**: 초대코드 기반 user 가입의 정상/실패 흐름을 E2E 시나리오로 정의한다.
+- **구현 가이드(Guide)**: 1) happy path: 유효 코드 입력 -> 가입 성공 -> 즉시 로그인 가능 상태 확인 시나리오를 정의한다. 2) fail path: 만료 코드/이미 사용된 코드/폐기 코드 입력 시 기대 오류를 정의한다. 3) 보안 케이스: 코드 노출/재사용 방지 검증 항목을 포함한다.
+- **검증 기준(Verification)**: Deliverable: user 초대코드 가입 E2E 시나리오 세트가 작성되어 있다. Method: happy/fail/security 3축 시나리오 포함 여부를 리뷰한다. Pass: 1회용/만료/재사용 방지 규칙 검증 케이스가 모두 존재한다.
+- **선행 조건(Dependencies)**: P2-1.10
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`
-- **노트(Notes)**: 회귀 포인트는 라우트 가드 우회, 권한 누수, 바인딩 누락이다.
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/API_SPEC.md`, `src/views/auth/Signup.vue`
+- **노트(Notes)**: 초대코드 시나리오는 admin 승인 큐 시나리오와 분리해 유지한다.
 
-### P2-2.1 승인 상태 모델링: membership/status 기반 접근 제어 설계
+### P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별
 
 - **Task ID**: `10000000-0000-4000-8000-000000000057`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 로그인 후 현재 사용자의 승인 상태(approved/pending/rejected)를 식별하고, 앱 접근 정책을 설계한다.
-- **구현 가이드(Guide)**: 1) 승인 상태별 허용 라우트 정의. 2) membership 조회 방법(테이블/뷰) 결정. 3) 상태 전이 시 UX(재로그인/새로고침) 정의.
-- **검증 기준(Verification)**: Deliverable: 승인 상태별 접근 정책이 명확하고, 스토어/라우터 변경 범위가 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 로그인 성공 후 사용자 접근 상태를 role과 account/membership 상태 조합으로 판별하는 모델을 설계한다.
+- **구현 가이드(Guide)**: 1) 상태 조합표를 정의한다(global_role, account_status, membership.status). 2) admin pending/rejected는 접근 제한 상태로, user invite 가입 후 approved는 활성 상태로 처리한다. 3) 다중 membership 존재 시 우선순위(현재 조직 컨텍스트) 규칙을 정의한다.
+- **검증 기준(Verification)**: Deliverable: 로그인 접근 모델 표와 스토어 인터페이스가 정의되어 가드 구현 결정이 남지 않는다. Method: 상태 조합별 expected route/access를 리뷰한다. Pass: admin/user 분기와 승인 상태 예외가 누락 없이 정의된다.
 - **선행 조건(Dependencies)**: P2-1.5
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/stores/auth.ts`, `src/stores/rbac.ts`
+- **관련 파일**: `src/stores/auth.ts`, `src/stores/rbac.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: router guard 구현 전에 auth 상태 모델을 고정해야 한다.
 
-### P2-2.2 Route guard 설계: 미승인 사용자 차단 + 전용 라우팅
+### P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000058`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 승인되지 않은 사용자가 서비스 화면에 접근하지 못하도록 라우터 가드 규칙과 전용 페이지 경로를 설계한다.
-- **구현 가이드(Guide)**: 1) 승인 전용 라우트(/access/pending 등) 결정. 2) requiresAuth 이후 승인 체크 순서 결정. 3) 예외 라우트(login/signup) 정의.
-- **검증 기준(Verification)**: Deliverable: 승인되지 않은 계정은 보호된 라우트에 접근 시 전용 화면으로 리다이렉트된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 로그인 이후 접근 상태에 따라 라우팅을 제어하는 가드 순서와 예외 경로를 정의한다.
+- **구현 가이드(Guide)**: 1) 가드 순서를 인증 -> 상태 판별 -> role 기반 접근 -> step 진행 검증으로 고정한다. 2) admin pending/rejected는 전용 안내 라우트로 이동 규칙을 정의한다. 3) user active는 기본 진입 허용 규칙을 정의한다. 4) 공개 라우트 예외(/login, /signup, 상태 안내 페이지)를 명시한다.
+- **검증 기준(Verification)**: Deliverable: 전역 가드 실행 순서도와 예외 라우트 목록이 문서화되어 있다. Method: 라우트 케이스 테이블을 리뷰한다. Pass: 미승인 admin 차단, 승인 user 허용, 공개 라우트 예외가 모두 반영된다.
 - **선행 조건(Dependencies)**: P2-2.1
-- **예상 소요 시간**: 180m
-- **관련 파일**: `src/router/index.ts`, `src/router/guards.ts`
+- **예상 소요 시간**: 120m
+- **관련 파일**: `src/router/index.ts`, `src/router/guards.ts`, `src/views/auth/Login.vue`
+- **노트(Notes)**: stepProgressGuard와 충돌하지 않도록 인증/상태 가드를 선행시킨다.
 
-### P2-2.3 UI: 승인대기/반려 화면 스펙 및 컴포넌트 정의
+### P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의
 
 - **Task ID**: `10000000-0000-4000-8000-000000000059`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 승인 대기/반려 상태의 사용자에게 보여줄 화면(메시지, 다음 행동, 문의/재신청)을 정의한다.
-- **구현 가이드(Guide)**: 1) pending/rejected 상태별 콘텐츠 결정. 2) 재신청/로그아웃 버튼 등 CTA 정의. 3) 공지/알림 연계 여부 결정(P8 연계).
-- **검증 기준(Verification)**: Deliverable: 상태별 화면 요구사항이 정의되어 있고, 구현할 컴포넌트 경로가 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 승인 전 admin 계정에 노출할 pending/rejected 안내 화면의 콘텐츠와 CTA를 정의한다.
+- **구현 가이드(Guide)**: 1) pending/rejected 상태별 문구와 CTA(로그아웃, 문의 안내)를 정의한다. 2) 상태 재조회 트리거(새로고침/재로그인) 규칙을 정의한다. 3) user 초대코드 실패 안내는 signup 화면 inline 오류로 처리하고 AccessState 대상에서 제외한다.
+- **검증 기준(Verification)**: Deliverable: pending/rejected 안내 화면 스펙과 라우트 연결 규칙이 정의되어 있다. Method: 상태별 콘텐츠와 CTA 체크리스트를 검토한다. Pass: admin 비승인 상태에서 서비스 핵심 화면 진입이 차단되고 안내 화면으로 유도되는 기준이 명확하다.
 - **선행 조건(Dependencies)**: P2-2.2
-- **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/auth/AccessState.vue`
+- **예상 소요 시간**: 90m
+- **관련 파일**: `src/views/auth/AccessState.vue`, `src/router/index.ts`, `src/stores/auth.ts`
+- **노트(Notes)**: 이 화면은 admin 미승인 상태 전용이다.
 
-### P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의
+### P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000060`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: approved/pending/rejected 사용자 각각에 대해 라우팅/메뉴 접근이 올바른지 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 1) 상태별 허용 라우트 목록화. 2) 기대 리다이렉트/메시지 정의. 3) 최소 E2E 1개 시나리오 포함 여부 결정.
-- **검증 기준(Verification)**: Deliverable: 승인 상태별 테스트 케이스가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: role과 승인 상태 조합별 라우팅 결과를 검증하는 테스트 시나리오를 정의한다.
+- **구현 가이드(Guide)**: 1) admin pending/rejected/approved, user approved, super active 케이스별 허용 라우트/리다이렉트 기대값을 정의한다. 2) 직접 URL 접근/새로고침/세션 복구 케이스를 포함한다. 3) 최소 1개 자동화 후보(E2E)를 식별한다.
+- **검증 기준(Verification)**: Deliverable: 상태 조합 기반 라우팅 테스트 표가 문서화되어 있다. Method: 케이스별 입력 상태와 기대 URL/메시지 매핑을 점검한다. Pass: 핵심 role/status 조합이 누락 없이 포함된다.
 - **선행 조건(Dependencies)**: P2-2.3
-- **예상 소요 시간**: 120m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **예상 소요 시간**: 90m
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `src/router/index.ts`
+- **노트(Notes)**: 테스트 케이스는 P3/P4 라우터 변경 회귀 체크의 입력 세트로 재사용한다.
 
-### P2-3.1 승인/반려 워크플로우 정책 확정(권한/감사로그)
+### P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000061`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: super/admin의 승인/반려 권한 범위, 결정 사유 기록, 감사 로그(approval_logs) 기록 정책을 확정한다.
-- **구현 가이드(Guide)**: 1) 승인 주체(super vs admin)와 범위(전조직 vs 자기조직) 정의. 2) decision_note 필수 여부 결정. 3) 감사로그 최소 필드 정의.
-- **검증 기준(Verification)**: Deliverable: 승인/반려 정책이 문서화되어 있고, 데이터 모델에 매핑된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: admin 가입요청 승인/반려 정책을 superuser 단일 승인 주체 기준으로 확정하고 감사로그 요구를 정의한다.
+- **구현 가이드(Guide)**: 1) admin 가입요청의 승인 주체를 superuser로 고정한다. 2) 승인/반려 시 필수 감사 필드(actor, target, action, reason)를 정의한다. 3) user 초대코드 가입은 승인 큐 대상에서 제외됨을 명시한다.
+- **검증 기준(Verification)**: Deliverable: 승인 정책 문서에 승인 주체/범위/예외(user 초대코드)가 명확히 정의되어 있다. Method: 정책 문서와 API 계약의 일관성을 검토한다. Pass: 승인 큐 대상과 비대상이 명확히 분리된다.
 - **선행 조건(Dependencies)**: P2-1.5
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`
+- **관련 파일**: `docs/REFINED_PRD.md`, `docs/API_SPEC.md`, `migrations/007_service_transition_rbac_multitenant.sql`
+- **노트(Notes)**: 승인 정책은 admin 가입요청 도메인 전용으로 관리한다.
 
-### P2-3.2 승인 결정 API 계약 정의(approve/reject/withdraw)
+### P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000062`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 승인/반려/철회 결정을 수행하는 서버 API(Edge Function 또는 RPC)의 요청/응답/오류 계약을 정의한다.
-- **구현 가이드(Guide)**: 1) 입력(requestId, decision, note) 스키마 정의. 2) 멱등 처리(중복 승인/반려) 정책 정의. 3) 성공 시 memberships/로그 업데이트 규칙 정의.
-- **검증 기준(Verification)**: Deliverable: 승인 결정 API 계약이 문서화되어 있고, 멱등/권한 체크가 포함된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: admin 가입요청 승인/반려를 처리하는 approval-decision API 계약을 정의하고 멱등/감사로그 규칙을 확정한다.
+- **구현 가이드(Guide)**: 1) 입력 스키마(requestId, decision, note)를 정의한다. 2) 승인 시 membership approved 반영 및 signup_requests 상태 업데이트 규칙을 정의한다. 3) 중복 승인/이미 처리된 요청에 대한 멱등 응답 규칙을 명시한다. 4) approval_logs 기록 필수 조건을 정의한다.
+- **검증 기준(Verification)**: Deliverable: approval-decision API 계약과 상태 변경 규칙이 문서/함수 기준으로 정리되어 있다. Method: API 계약표와 상태 전이표를 대조한다. Pass: approve/reject 경로와 멱등 처리 규칙이 누락 없이 정의된다.
 - **선행 조건(Dependencies)**: P2-3.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `supabase/functions/approval-decision/index.ts`, `docs/API_SPEC.md`
+- **관련 파일**: `supabase/functions/approval-decision/index.ts`, `docs/API_SPEC.md`, `migrations/007_service_transition_rbac_multitenant.sql`
+- **노트(Notes)**: withdraw/revoke는 계정관리(P4)에서 별도 정책으로 확장 가능하나 본 태스크 범위는 approve/reject다.
 
-### P2-3.3 UI: 승인 대기 목록/필터/상세 화면 스펙
+### P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙
 
 - **Task ID**: `10000000-0000-4000-8000-000000000063`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 관리자(슈퍼/어드민)가 가입 신청을 조회/필터/상세 확인할 수 있는 UI 요구사항을 정의한다.
-- **구현 가이드(Guide)**: 1) 목록 컬럼/필터(status, role, org) 정의. 2) 상세 패널/모달 구성 정의. 3) approve/reject CTA 위치/확인 다이얼로그 정의.
-- **검증 기준(Verification)**: Deliverable: 승인 관리 UI의 화면 구성/필터/액션이 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: superuser가 admin 가입요청을 검토할 수 있는 승인 큐 화면의 목록/필터/상세/액션 스펙을 정의한다.
+- **구현 가이드(Guide)**: 1) 목록 컬럼(email, 요청조직, 요청역할, 상태, 생성일)과 필터(status, org, keyword)를 정의한다. 2) 상세 패널에서 가입정보와 note 입력 UI를 정의한다. 3) approve/reject 확인 다이얼로그와 후속 상태 갱신 UX를 정의한다.
+- **검증 기준(Verification)**: Deliverable: 승인 큐 UI 스펙 문서(목록/필터/상세/액션)가 작성되어 구현자가 추가 결정 없이 개발 가능하다. Method: UI 스펙과 API 필드 매핑을 리뷰한다. Pass: 컬럼/필터/액션/오류 처리 기준이 모두 명시된다.
 - **선행 조건(Dependencies)**: P2-3.2
-- **예상 소요 시간**: 180m
-- **관련 파일**: `src/views/management/AccountManagement.vue`
-- **노트(Notes)**: Boundary rule: This P2 screen is limited to approval-queue intake/review for signup requests. Post-approval account lifecycle operations are handled in P4 Account Management tasks.
+- **예상 소요 시간**: 150m
+- **관련 파일**: `src/views/management/AccountManagement.vue`, `src/api/approval.ts`, `docs/API_SPEC.md`
+- **노트(Notes)**: 본 화면 범위는 admin 가입요청 승인 큐다. user 초대코드 가입은 포함하지 않는다.
 
-### P2-3.4 승인 결과 알림 이벤트 생성 정책 정의
+### P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000064`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 승인/반려 시 알림 이벤트 생산 트리거와 producer 책임을 정의하고, 이벤트 계약(eventType/payload/idempotencyKey)은 P8-1.1 canonical을 참조한다(발송은 P8).
-- **구현 가이드(Guide)**: 1) 승인/반려 시점의 이벤트 생산 트리거(누가, 언제, 어떤 상태 전이에서 생성하는지)만 정의한다. 2) 이벤트 계약 필드(eventType/payload/idempotencyKey)는 P8-1.1 canonical 규격을 참조하도록 명시한다. 3) 제목/메시지 템플릿 및 발송 채널 정책은 P8 도메인 산출물을 참조한다.
-- **검증 기준(Verification)**: Deliverable: 승인 알림 이벤트의 생산 트리거 정책이 정의되고, 계약 필드 정의의 canonical source가 P8-1.1로 명시되어 있다. Method: 산출물을 리뷰하고 P8-1.1 요구사항과 중복 정의가 제거되었는지 대조한다. Pass: P2-3.4에 계약 필드 중복 정의가 없고 producer 책임만 남아 있음이 확인된다.
+- **설명(Description)**: admin 가입요청 승인/반려 결과를 알리는 이벤트 생성 트리거와 payload 최소 필드를 정의한다.
+- **구현 가이드(Guide)**: 1) 승인/반려 상태 전이 시 이벤트 생성 시점을 정의한다. 2) payload 최소 필드(requestId, decision, actorUserId, targetUserId, organizationId, decidedAt)를 명시한다. 3) idempotencyKey 규칙을 정의한다.
+- **검증 기준(Verification)**: Deliverable: 승인 이벤트 생성 정책서와 최소 payload 계약이 문서화되어 있다. Method: 정책 문서와 P8 이벤트 소비 요구사항의 필드 정합성을 점검한다. Pass: 생성 트리거/필드/idempotency 규칙이 누락 없이 명시된다.
 - **선행 조건(Dependencies)**: P2-3.2
 - **예상 소요 시간**: 90m
-- **관련 파일**: `docs/REFINED_PRD.md`
+- **관련 파일**: `docs/REFINED_PRD.md`, `docs/API_SPEC.md`, `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 알림 채널 정책은 P8에서 확정하고 본 태스크는 producer 책임만 다룬다.
 
-### P2-3.5 End-to-End 승인 플로우 테스트 시나리오 정의
+### P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000065`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 가입→승인→로그인 허용→권한별 메뉴 노출까지의 E2E 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 1) 계정 생성/승인/로그인 단계를 단계별로 기술. 2) 기대 라우팅/메뉴/데이터 접근 정의. 3) 최소 실패 케이스 1개 포함.
-- **검증 기준(Verification)**: Deliverable: 승인 플로우의 E2E 테스트 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P2-3.3<br>P2-3.4
+- **설명(Description)**: admin 신청-승인 플로우와 user 초대코드 즉시가입 플로우를 통합한 E2E 검증 시나리오를 정의한다.
+- **구현 가이드(Guide)**: 1) admin 플로우: signup(pending) -> superuser approve -> login allow 시나리오를 정의한다. 2) user 플로우: invite code signup(active) -> login allow 시나리오를 정의한다. 3) 실패 케이스: admin 미승인 접근 차단, user 만료코드 거부를 포함한다.
+- **검증 기준(Verification)**: Deliverable: admin/user 가입 플로우를 포괄하는 통합 E2E 시나리오 문서가 존재한다. Method: 경로별 선행조건/절차/기대결과를 리뷰한다. Pass: 승인형과 즉시승인형 두 플로우가 모두 검증 항목으로 정의된다.
+- **선행 조건(Dependencies)**: P2-3.3<br>P2-3.4<br>P2-1.11
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Login.vue`, `src/router/index.ts`
+- **노트(Notes)**: 본 시나리오는 P3 이후 라우터/온보딩 변경의 회귀 기준선으로 재사용한다.
 
 
 ## P3 (예상 시간: 21시간 30분)
@@ -1115,7 +1563,7 @@
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
 
-## P5 (예상 시간: 42시간 30분)
+## P5 (예상 시간: 39시간 0분)
 
 ### 요약 (Summary)
 
@@ -1125,8 +1573,6 @@
 | `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계** | pending | P5-1.1 | 180m |
 | `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계** | pending | P5-1.2 | 180m |
 | `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)** | pending | P5-1.3 | 180m |
-| `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P5-1.5 6.2 조직생성 signup 브리지 모드 진입 설계** | pending | P5-1.4<br>P2-1.6 | 120m |
-| `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P5-1.6 조직생성 결과-가입요청 바인딩 계약 정의** | pending | P5-1.5<br>P2-1.7 | 90m |
 | `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계** | pending | P5-1.4 | 120m |
 | `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)** | pending | P5-2.1 | 180m |
 | `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | pending | P5-2.2 | 180m |
@@ -1183,30 +1629,6 @@
 - **선행 조건(Dependencies)**: P5-1.3
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
-
-### P5-1.5 6.2 조직생성 signup 브리지 모드 진입 설계
-
-- **Task ID**: `79d3fd2b-ecec-45bc-9578-a88f19599d20`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Organization Management(6.2) 화면을 signup 브리지 모드로 재사용하기 위한 화면 상태/입력 제한/저장 액션 경계를 설계한다.
-- **구현 가이드(Guide)**: 1) mode=signup일 때 노출할 최소 필드/탭 범위 정의. 2) 저장 완료 이벤트 계약(organizationDraftId 반환) 정의. 3) 일반 admin 콘솔 모드와 UI/권한 차이를 명시.
-- **검증 기준(Verification)**: Deliverable: 6.2 signup 브리지 모드 UI/저장 경계 스펙. Method: 기존 P5-1.x 범위와 비교해 중복 화면 생성 여부를 점검한다. Pass: 별도 signup 전용 조직생성 화면 없이 6.2 재사용 경계가 명시된다.
-- **선행 조건(Dependencies)**: P5-1.4<br>P2-1.6
-- **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/management/OrganizationManagement.vue`, `src/composables/useOrganizationForm.ts`, `docs/migration/SIGNUP_ORG_REUSE_BRIDGE.md`
-- **노트(Notes)**: 새로운 별도 화면을 만들지 않고 6.2 컴포넌트 재사용을 원칙으로 한다.
-
-### P5-1.6 조직생성 결과-가입요청 바인딩 계약 정의
-
-- **Task ID**: `c5743d61-4d08-4793-9c3b-216b39c59e8b`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: 6.2 조직생성 결과를 가입요청(signup_requests)과 연결하기 위한 데이터 바인딩 계약과 오류 처리 규칙을 정의한다.
-- **구현 가이드(Guide)**: 1) organizationDraftId와 signupRequestToken 매핑 규칙 정의. 2) 중복 저장/중복 바인딩 멱등 정책 정의. 3) 실패 시 재시도/복구 절차 정의.
-- **검증 기준(Verification)**: Deliverable: 조직생성 결과와 가입요청 연결 계약서(필드/상태/오류). Method: P2-1.7 계약과 상호 참조 검토를 수행한다. Pass: create_new 플로우에서 바인딩 성공/실패/재시도 규칙이 명확히 문서화된다.
-- **선행 조건(Dependencies)**: P5-1.5<br>P2-1.7
-- **예상 소요 시간**: 90m
-- **관련 파일**: `docs/API_SPEC.md`, `supabase/functions/organization-save/index.ts`, `docs/verification/test-validation-guide.md`
-- **노트(Notes)**: 가입 승인 전 단계에서만 바인딩 가능하도록 상태 제약을 둔다.
 
 ### P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계
 
@@ -2079,4 +2501,4 @@
 
 ---
 
-**총 예상 소요 시간:** 약 345시간 30분
+**총 예상 소요 시간:** 약 352시간 30분
