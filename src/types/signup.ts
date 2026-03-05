@@ -51,11 +51,15 @@ export type SignupSubmitRequest = SignupSubmitAdminRequest | SignupSubmitUserReq
 
 export interface SignupSubmitSuccessData {
   path: SignupPath;
-  nextState: SignupNextState;
+  nextState?: SignupNextState;
   signupRequestStatus: SignupRequestStatus;
   membershipStatus: MembershipStatus;
   signupRequestId?: string;
   organizationId?: string;
+}
+
+export interface SignupSubmitResolvedSuccessData extends SignupSubmitSuccessData {
+  nextState: SignupNextState;
 }
 
 export interface SignupSubmitError {
@@ -75,6 +79,26 @@ export interface SignupSubmitErrorResponse {
 }
 
 export type SignupSubmitResponse = SignupSubmitSuccessResponse | SignupSubmitErrorResponse;
+
+export interface SignupStoreSignupSuccessResult {
+  success: true;
+  nextState: SignupNextState;
+  message: string;
+  error: null;
+  errorCode: null;
+  data: SignupSubmitResolvedSuccessData;
+}
+
+export interface SignupStoreSignupErrorResult {
+  success: false;
+  nextState: null;
+  message: string;
+  error: string;
+  errorCode: SignupErrorCode;
+  data: null;
+}
+
+export type SignupStoreSignupResult = SignupStoreSignupSuccessResult | SignupStoreSignupErrorResult;
 
 export const SIGNUP_ERROR_MESSAGES: Record<SignupErrorCode, string> = {
   INVALID_ROLE: '가입 역할이 올바르지 않습니다.',

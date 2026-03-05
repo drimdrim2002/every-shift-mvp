@@ -19,6 +19,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
+    "test:signup:contracts": "./scripts/test-signup-contract-regression.sh",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
   },

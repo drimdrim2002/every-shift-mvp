@@ -8,27 +8,52 @@ import type {
 } from '@/types/signup';
 import { LEGACY_SIGNUP_ERROR_CODE_MAP, SIGNUP_ERROR_MESSAGES } from '@/types/signup';
 
-function normalizeSignupErrorCode(code: unknown): SignupErrorCode {
-  if (typeof code === 'string') {
-    if (code in SIGNUP_ERROR_MESSAGES) {
-      return code as SignupErrorCode;
-    }
-    if (code in LEGACY_SIGNUP_ERROR_CODE_MAP) {
-      const mappedCode = LEGACY_SIGNUP_ERROR_CODE_MAP[code];
-      if (mappedCode) {
-        return mappedCode;
-      }
+function resolveLegacySignupErrorCode(code: unknown): SignupErrorCode | null {
+  if (typeof code !== 'string') {
+    return null;
+  }
+
+  if (code in LEGACY_SIGNUP_ERROR_CODE_MAP) {
+    const mappedCode = LEGACY_SIGNUP_ERROR_CODE_MAP[code];
+    if (mappedCode) {
+      return mappedCode;
     }
   }
+
+  return null;
+}
+
+function normalizeSignupErrorCode(code: unknown, details?: Record<string, unknown>): SignupErrorCode {
+  if (typeof code === 'string' && code in SIGNUP_ERROR_MESSAGES && code !== 'INTERNAL_ERROR') {
+    return code as SignupErrorCode;
+  }
+
+  const reasonCode = resolveLegacySignupErrorCode(details?.reason);
+  if (reasonCode) {
+    return reasonCode;
+  }
+
+  if (typeof code === 'string' && code in SIGNUP_ERROR_MESSAGES) {
+    return code as SignupErrorCode;
+  }
+
+  const legacyCode = resolveLegacySignupErrorCode(code);
+  if (legacyCode) {
+    return legacyCode;
+  }
+
   return 'INTERNAL_ERROR';
 }
 
 function normalizeSignupRequest(request: SignupSubmitRequest): SignupSubmitRequest {
+  const organizationSelectionMode = request.organizationSelectionMode ?? 'existing';
+
   if (request.role === 'admin') {
     const hospitalId = request.hospitalId ?? request.organizationId;
     return {
       ...request,
       requestedRole: request.role,
+      organizationSelectionMode,
       hospitalId,
       organizationId: hospitalId,
     };
@@ -37,6 +62,26 @@ function normalizeSignupRequest(request: SignupSubmitRequest): SignupSubmitReque
   return {
     ...request,
     requestedRole: request.role,
+    organizationSelectionMode,
+  };
+}
+
+function normalizeSignupSuccessData(
+  data: SignupSubmitSuccessData,
+  request: SignupSubmitRequest,
+): SignupSubmitSuccessData {
+  if (request.role !== 'admin') {
+    return data;
+  }
+
+  const requestOrganizationId = request.hospitalId ?? request.organizationId;
+  if (!requestOrganizationId || data.organizationId) {
+    return data;
+  }
+
+  return {
+    ...data,
+    organizationId: requestOrganizationId,
   };
 }
 
@@ -65,14 +110,21 @@ function shouldUseDevMockFallback(): boolean {
   return env.DEV || env.VITE_ENABLE_MOCK_SIGNUP === 'true';
 }
 
-function shouldBypassRemoteSignupInvoke(): boolean {
+function isSignupForceRemoteEnabled(): boolean {
   const env = import.meta.env as ImportMetaEnv & { VITE_SIGNUP_FORCE_REMOTE?: string };
+  return env.VITE_SIGNUP_FORCE_REMOTE === 'true';
+}
+
+function shouldBypassRemoteSignupInvoke(): boolean {
+  if (isSignupForceRemoteEnabled()) {
+    return false;
+  }
 
   if (!shouldUseDevMockFallback()) {
     return false;
   }
 
-  return env.VITE_SIGNUP_FORCE_REMOTE !== 'true';
+  return true;
 }
 
 export class SignupSubmitApiError extends Error {
@@ -88,8 +140,62 @@ export class SignupSubmitApiError extends Error {
 }
 
 function toApiError(error: SignupSubmitError | null | undefined): SignupSubmitApiError {
-  const code = normalizeSignupErrorCode(error?.code);
+  const code = normalizeSignupErrorCode(error?.code, error?.details);
   return new SignupSubmitApiError(code, error?.message || SIGNUP_ERROR_MESSAGES[code], error?.details);
+}
+
+function isSignupSubmitErrorPayload(value: unknown): value is SignupSubmitError {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const code = Reflect.get(value, 'code');
+  const message = Reflect.get(value, 'message');
+  const details = Reflect.get(value, 'details');
+
+  if (typeof code !== 'string' || typeof message !== 'string') {
+    return false;
+  }
+
+  if (details === undefined) {
+    return true;
+  }
+
+  return Boolean(details) && typeof details === 'object';
+}
+
+function isSignupSubmitErrorResponse(value: unknown): value is { success: false; error: SignupSubmitError } {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  return Reflect.get(value, 'success') === false && isSignupSubmitErrorPayload(Reflect.get(value, 'error'));
+}
+
+function isContractOnlyScaffoldApiError(error: SignupSubmitApiError): boolean {
+  return error.code === 'INTERNAL_ERROR' && error.details?.stage === 'contract_only_scaffold';
+}
+
+async function parseInvokeContextError(error: unknown): Promise<SignupSubmitApiError | null> {
+  if (!error || typeof error !== 'object') {
+    return null;
+  }
+
+  const context = Reflect.get(error, 'context');
+  if (!(context instanceof Response)) {
+    return null;
+  }
+
+  try {
+    const payload = await context.clone().json();
+    if (!isSignupSubmitErrorResponse(payload)) {
+      return null;
+    }
+
+    return toApiError(payload.error);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -99,6 +205,7 @@ function toApiError(error: SignupSubmitError | null | undefined): SignupSubmitAp
  */
 export async function submitSignup(request: SignupSubmitRequest): Promise<SignupSubmitSuccessData> {
   const normalizedRequest = normalizeSignupRequest(request);
+  const forceRemoteInvoke = isSignupForceRemoteEnabled();
 
   if (shouldBypassRemoteSignupInvoke()) {
     console.info('[submitSignup] Using dev mock signup response (remote invoke bypassed).');
@@ -110,7 +217,16 @@ export async function submitSignup(request: SignupSubmitRequest): Promise<Signup
   });
 
   if (error) {
-    if (shouldUseDevMockFallback()) {
+    const contextError = await parseInvokeContextError(error);
+    if (contextError) {
+      if (isContractOnlyScaffoldApiError(contextError) && !forceRemoteInvoke && shouldUseDevMockFallback()) {
+        console.warn('[submitSignup] Falling back to dev mock due contract-only scaffold response.');
+        return createDevMockSuccessData(normalizedRequest);
+      }
+      throw contextError;
+    }
+
+    if (!forceRemoteInvoke && shouldUseDevMockFallback()) {
       console.warn('[submitSignup] Falling back to dev mock due invoke error:', error.message);
       return createDevMockSuccessData(normalizedRequest);
     }
@@ -118,7 +234,7 @@ export async function submitSignup(request: SignupSubmitRequest): Promise<Signup
   }
 
   if (!data) {
-    if (shouldUseDevMockFallback()) {
+    if (!forceRemoteInvoke && shouldUseDevMockFallback()) {
       console.warn('[submitSignup] Falling back to dev mock due empty response.');
       return createDevMockSuccessData(normalizedRequest);
     }
@@ -129,7 +245,7 @@ export async function submitSignup(request: SignupSubmitRequest): Promise<Signup
     const isContractOnlyScaffoldError =
       data.error.code === 'INTERNAL_ERROR' && data.error.details?.stage === 'contract_only_scaffold';
 
-    if (isContractOnlyScaffoldError && shouldUseDevMockFallback()) {
+    if (isContractOnlyScaffoldError && !forceRemoteInvoke && shouldUseDevMockFallback()) {
       console.warn('[submitSignup] Falling back to dev mock due contract-only scaffold response.');
       return createDevMockSuccessData(normalizedRequest);
     }
@@ -137,7 +253,7 @@ export async function submitSignup(request: SignupSubmitRequest): Promise<Signup
     throw toApiError(data.error);
   }
 
-  return data.data;
+  return normalizeSignupSuccessData(data.data, normalizedRequest);
 }
 
 export function getSignupErrorMessage(code: unknown): string {

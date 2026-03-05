@@ -38,6 +38,7 @@ interface SignupSubmitRequest {
   name?: unknown;
   role?: unknown;
   requestedRole?: unknown;
+  organizationSelectionMode?: unknown;
   hospitalId?: unknown;
   hospitalName?: unknown;
   hospitalSource?: unknown;
@@ -180,6 +181,29 @@ function validateCommonFields(payload: SignupSubmitRequest): SignupErrorResponse
   return null;
 }
 
+function validateOrganizationSelectionMode(payload: SignupSubmitRequest): SignupErrorResponse | null {
+  if (!isNonEmptyString(payload.organizationSelectionMode)) {
+    return null;
+  }
+
+  const normalizedMode = payload.organizationSelectionMode.trim();
+  if (normalizedMode === 'existing') {
+    return null;
+  }
+
+  return {
+    success: false,
+    error: {
+      code: 'VALIDATION_ERROR',
+      message: 'organizationSelectionMode must be existing.',
+      details: {
+        field: 'organizationSelectionMode',
+        expected: 'existing',
+      },
+    },
+  };
+}
+
 function getInviteInvalidMessage(reason: InviteInvalidReason): string {
   switch (reason) {
     case 'INVITE_EXPIRED':
@@ -236,6 +260,18 @@ function resolveInviteReasonFromContractToken(inviteCode: string): InviteInvalid
   if (normalized.startsWith('invalid-')) return 'INVITE_NOT_FOUND';
 
   return null;
+}
+
+function hasDuplicateContractToken(payload: SignupSubmitRequest): boolean {
+  if (isNonEmptyString(payload.email) && payload.email.trim().toLowerCase().startsWith('duplicate-')) {
+    return true;
+  }
+
+  if (isNonEmptyString(payload.inviteCode) && payload.inviteCode.trim().toLowerCase().startsWith('duplicate-')) {
+    return true;
+  }
+
+  return false;
 }
 
 function createServiceRoleClient(): SupabaseClient | null {
@@ -352,6 +388,11 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(400, commonValidationError);
   }
 
+  const selectionModeValidationError = validateOrganizationSelectionMode(payload);
+  if (selectionModeValidationError) {
+    return jsonResponse(400, selectionModeValidationError);
+  }
+
   let inviteOrganizationId: string | undefined;
 
   if (role === 'admin') {
@@ -400,6 +441,13 @@ Deno.serve(async (req: Request) => {
     }
 
     inviteOrganizationId = inviteValidation.organizationId;
+  }
+
+  if (hasDuplicateContractToken(payload)) {
+    return errorResponse(409, 'DUPLICATE_REQUEST', 'Duplicate pending signup request exists.', {
+      reason: 'DUPLICATE_PENDING_REQUEST',
+      stage: 'contract_duplicate_probe',
+    });
   }
 
   // Contract-only scaffold:

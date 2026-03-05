@@ -242,6 +242,30 @@ Canonical state source:
   - Invalid or unusable invite returns `INVALID_INVITE_CODE`.
 - Duplicate pending request in same requester/role/scope returns `DUPLICATE_REQUEST`.
 
+### Invite Code Domain Rules (`invite_codes`)
+
+- Persistence table: `public.invite_codes` (user signup path only).
+- Raw invite token must never be stored. Only hashed value is stored in `code_hash` (SHA-256 compatible).
+- `expires_at` is mandatory and must be later than `created_at`.
+- Canonical single-use model:
+  - `max_uses` is fixed to `1`
+  - `used_count` is constrained to `0` or `1`
+  - `used_count=0` requires `used_at IS NULL` and `used_by IS NULL`
+  - `used_count=1` requires `used_at IS NOT NULL` and `used_by IS NOT NULL`
+- State classification for validation:
+  - Active: `revoked_at IS NULL` AND `used_count=0` AND `expires_at > NOW()`
+  - Expired: `expires_at <= NOW()`
+  - Used: `used_count=1`
+  - Revoked: `revoked_at IS NOT NULL`
+- Invite issuance/revocation is restricted to super/admin organization scope via RLS policy (`can_manage_invite_codes`).
+
+### Contract-Only Scaffold Note
+
+- During contract-only rollout, `signup-submit` may return:
+  - `501 INTERNAL_ERROR` with `error.details.stage='contract_only_scaffold'` when persistence is disabled
+  - `DUPLICATE_REQUEST` envelope for duplicate-request contract verification
+- Frontend must branch by canonical `error.code` and treat detail values as supplementary metadata.
+
 ### Success Response Envelope
 
 ```json

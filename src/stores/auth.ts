@@ -3,7 +3,34 @@ import { ref } from 'vue'
 import { getSignupErrorMessage, submitSignup, SignupSubmitApiError } from '@/api/signup'
 import { supabase } from '@/api/supabase'
 import type { User } from '@supabase/supabase-js'
-import type { SignupErrorCode, SignupNextState, SignupSubmitRequest, SignupSubmitSuccessData } from '@/types/signup'
+import {
+  SIGNUP_ERROR_MESSAGES,
+  type SignupErrorCode,
+  type SignupNextState,
+  type SignupStoreSignupResult,
+  type SignupSubmitRequest,
+  type SignupSubmitResolvedSuccessData,
+  type SignupSubmitSuccessData,
+} from '@/types/signup'
+
+function isSignupErrorCode(value: unknown): value is SignupErrorCode {
+  return typeof value === 'string' && value in SIGNUP_ERROR_MESSAGES
+}
+
+function resolveSignupErrorCode(error: unknown): SignupErrorCode | null {
+  if (error instanceof SignupSubmitApiError && isSignupErrorCode(error.code)) {
+    return error.code
+  }
+
+  if (error && typeof error === 'object') {
+    const maybeCode = Reflect.get(error, 'code')
+    if (isSignupErrorCode(maybeCode)) {
+      return maybeCode
+    }
+  }
+
+  return null
+}
 
 function deriveSignupNextState(data: SignupSubmitSuccessData): SignupNextState {
   if (data.nextState === 'pending_approval' || data.nextState === 'active') {
@@ -15,6 +42,12 @@ function deriveSignupNextState(data: SignupSubmitSuccessData): SignupNextState {
   }
 
   return 'pending_approval'
+}
+
+function getSignupSuccessMessage(nextState: SignupNextState): string {
+  return nextState === 'active'
+    ? '가입이 완료되었습니다. 로그인할 수 있습니다.'
+    : '가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.'
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -47,33 +80,48 @@ export const useAuthStore = defineStore('auth', () => {
   /**
    * 역할 기반 회원가입 요청
    */
-  async function signup(request: SignupSubmitRequest) {
+  async function signup(request: SignupSubmitRequest): Promise<SignupStoreSignupResult> {
     loading.value = true
     try {
       const data = await submitSignup(request)
       const nextState = deriveSignupNextState(data)
-
-      return {
-        success: true as const,
-        data: {
-          ...data,
-          nextState,
-        },
+      const resolvedData: SignupSubmitResolvedSuccessData = {
+        ...data,
         nextState,
       }
+
+      return {
+        success: true,
+        nextState,
+        message: getSignupSuccessMessage(nextState),
+        error: null,
+        errorCode: null,
+        data: resolvedData,
+      }
     } catch (error: unknown) {
-      if (error instanceof SignupSubmitApiError) {
+      const resolvedCode = resolveSignupErrorCode(error)
+      if (resolvedCode) {
+        const message = getSignupErrorMessage(resolvedCode)
         return {
-          success: false as const,
-          error: getSignupErrorMessage(error.code),
-          errorCode: error.code,
+          success: false,
+          nextState: null,
+          message,
+          error: message,
+          errorCode: resolvedCode,
+          data: null,
         }
       }
 
+      const fallbackCode: SignupErrorCode = 'INTERNAL_ERROR'
+      const fallbackMessage = getSignupErrorMessage(fallbackCode)
+
       return {
-        success: false as const,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorCode: 'INTERNAL_ERROR' as SignupErrorCode,
+        success: false,
+        nextState: null,
+        message: fallbackMessage,
+        error: fallbackMessage,
+        errorCode: fallbackCode,
+        data: null,
       }
     } finally {
       loading.value = false

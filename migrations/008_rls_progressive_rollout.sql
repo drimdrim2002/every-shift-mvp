@@ -72,6 +72,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 COMMENT ON FUNCTION public.has_org_access(UUID, TEXT) IS 'Validates if the user has approved access to an organization with a minimum role requirement.';
 
+-- Invite code management is restricted to super/admin organization scope.
+-- Actual table policies are applied in migration 010 where invite_codes is created.
+CREATE OR REPLACE FUNCTION public.can_manage_invite_codes(target_org_id UUID)
+RETURNS BOOLEAN AS $$
+  SELECT public.is_super_admin() OR public.has_org_access(target_org_id, 'admin');
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
+COMMENT ON FUNCTION public.can_manage_invite_codes(UUID) IS 'Returns true when current user can issue/revoke invite codes for target organization.';
+
 -- ============================================================================
 -- 2) Enable RLS on core tables
 -- ============================================================================

@@ -90,6 +90,8 @@ CREATE TABLE IF NOT EXISTS public.invite_codes (
     CHECK (role_scope IN ('user')),
   code_hash TEXT NOT NULL,
   expires_at TIMESTAMPTZ NOT NULL,
+  max_uses SMALLINT NOT NULL DEFAULT 1,
+  used_count SMALLINT NOT NULL DEFAULT 0,
   used_at TIMESTAMPTZ,
   used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT,
@@ -98,11 +100,57 @@ CREATE TABLE IF NOT EXISTS public.invite_codes (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (expires_at > created_at),
   CHECK (
-    (used_at IS NULL AND used_by IS NULL)
+    max_uses = 1
+    AND used_count BETWEEN 0 AND max_uses
+  ),
+  CHECK (
+    (used_count = 0 AND used_at IS NULL AND used_by IS NULL)
     OR
-    (used_at IS NOT NULL AND used_by IS NOT NULL)
+    (used_count = max_uses AND used_at IS NOT NULL AND used_by IS NOT NULL)
   )
 );
+
+ALTER TABLE public.invite_codes
+  ADD COLUMN IF NOT EXISTS max_uses SMALLINT;
+
+ALTER TABLE public.invite_codes
+  ADD COLUMN IF NOT EXISTS used_count SMALLINT;
+
+UPDATE public.invite_codes
+SET
+  max_uses = COALESCE(max_uses, 1),
+  used_count = CASE
+    WHEN used_at IS NULL THEN 0
+    ELSE 1
+  END
+WHERE max_uses IS NULL OR used_count IS NULL;
+
+ALTER TABLE public.invite_codes
+  ALTER COLUMN max_uses SET DEFAULT 1,
+  ALTER COLUMN max_uses SET NOT NULL,
+  ALTER COLUMN used_count SET DEFAULT 0,
+  ALTER COLUMN used_count SET NOT NULL;
+
+ALTER TABLE public.invite_codes
+  DROP CONSTRAINT IF EXISTS chk_invite_codes_single_use;
+
+ALTER TABLE public.invite_codes
+  ADD CONSTRAINT chk_invite_codes_single_use
+  CHECK (
+    max_uses = 1
+    AND used_count BETWEEN 0 AND max_uses
+  );
+
+ALTER TABLE public.invite_codes
+  DROP CONSTRAINT IF EXISTS chk_invite_codes_usage_pair;
+
+ALTER TABLE public.invite_codes
+  ADD CONSTRAINT chk_invite_codes_usage_pair
+  CHECK (
+    (used_count = 0 AND used_at IS NULL AND used_by IS NULL)
+    OR
+    (used_count = max_uses AND used_at IS NOT NULL AND used_by IS NOT NULL)
+  );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_invite_codes_code_hash
   ON public.invite_codes(code_hash);
@@ -115,9 +163,32 @@ CREATE INDEX IF NOT EXISTS idx_invite_codes_used_by
   ON public.invite_codes(used_by, used_at DESC)
   WHERE used_at IS NOT NULL;
 
+ALTER TABLE public.invite_codes ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS invite_codes_select_admin_scope ON public.invite_codes;
+CREATE POLICY invite_codes_select_admin_scope
+  ON public.invite_codes
+  FOR SELECT
+  USING (public.can_manage_invite_codes(organization_id));
+
+DROP POLICY IF EXISTS invite_codes_insert_admin_scope ON public.invite_codes;
+CREATE POLICY invite_codes_insert_admin_scope
+  ON public.invite_codes
+  FOR INSERT
+  WITH CHECK (public.can_manage_invite_codes(organization_id));
+
+DROP POLICY IF EXISTS invite_codes_update_admin_scope ON public.invite_codes;
+CREATE POLICY invite_codes_update_admin_scope
+  ON public.invite_codes
+  FOR UPDATE
+  USING (public.can_manage_invite_codes(organization_id))
+  WITH CHECK (public.can_manage_invite_codes(organization_id));
+
 COMMENT ON TABLE public.invite_codes IS 'Single-use invite code store for user instant-approval signup flow.';
 COMMENT ON COLUMN public.invite_codes.code_hash IS 'Hashed invite token. Raw invite code must never be stored.';
 COMMENT ON COLUMN public.invite_codes.role_scope IS 'Invite role scope. P2 canonical model restricts this to user.';
+COMMENT ON COLUMN public.invite_codes.max_uses IS 'Fixed to 1 in P2 canonical contract.';
+COMMENT ON COLUMN public.invite_codes.used_count IS '0=unused, 1=consumed. Values above 1 are forbidden.';
 
 -- ----------------------------------------------------------------------------
 -- 3) Documentation-oriented integrity probes (manual runbook queries)
@@ -138,12 +209,12 @@ COMMENT ON COLUMN public.invite_codes.role_scope IS 'Invite role scope. P2 canon
 -- );
 --
 -- Query C: invalid invite consume pair rows (must return 0 rows)
--- SELECT id, used_at, used_by
+-- SELECT id, max_uses, used_count, used_at, used_by
 -- FROM public.invite_codes
 -- WHERE NOT (
---   (used_at IS NULL AND used_by IS NULL)
---   OR (used_at IS NOT NULL AND used_by IS NOT NULL)
+--   (max_uses = 1 AND used_count = 0 AND used_at IS NULL AND used_by IS NULL)
+--   OR
+--   (max_uses = 1 AND used_count = 1 AND used_at IS NOT NULL AND used_by IS NOT NULL)
 -- );
 
 COMMIT;
-
