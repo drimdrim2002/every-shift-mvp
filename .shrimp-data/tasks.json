@@ -5090,7 +5090,7 @@
       "name": "P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)",
       "description": "/signup 단일 라우트에 대해 역할 전환, 역할별 제출 차단, 성공 상태 라우팅을 Playwright E2E로 검증하는 시나리오를 추가한다.",
       "notes": "대상 범위는 /signup 단일 화면이며 user 전용 별도 라우트는 만들지 않는다. 성공 라우팅은 /login?signupState=... 핸드오프를 기준으로 검증한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P2",
       "dependencies": [
         {
@@ -5099,7 +5099,7 @@
       ],
       "estimatedMinutes": 120,
       "createdAt": "2026-03-05T15:15:41.000Z",
-      "updatedAt": "2026-03-05T15:15:41.000Z",
+      "updatedAt": "2026-03-05T16:24:17.765Z",
       "relatedFiles": [
         {
           "path": "tests/e2e/signup-flow.spec.ts",
@@ -5129,7 +5129,9 @@
       ],
       "implementationGuide": "1) tests/e2e/signup-flow.spec.ts를 생성해 /signup 단일 라우트 E2E를 추가한다. 2) 역할 전환 시 admin 섹션(병원 검색/선택, 출처 문구)과 user 섹션(초대코드)의 표시/required 분기 동작을 검증한다. 3) 제출 버튼 비활성화 상태를 검증한다: admin은 hospitalId 미선택 시 비활성화, user는 inviteCode 공란 시 비활성화. 4) 성공 경로를 검증한다: 가입 성공 후 로그인 이동 시 /login?signupState=pending_approval 또는 active가 전달되고 Login.vue 안내 메시지가 표시된다. 5) 테스트 안정화를 위해 필요 시 API 응답을 Playwright route mock 또는 dev mock fallback 전제로 고정한다.",
       "verificationCriteria": "Deliverable: /signup E2E 시나리오가 역할 전환, 제출 차단, 성공 라우팅을 포함해 자동 실행 가능하다.\nMethod: `pnpm playwright test tests/e2e/signup-flow.spec.ts` 실행 결과와 시나리오별 assertion을 확인한다.\nPass: 세 가지 시나리오(역할 전환, 역할별 제출 차단, signupState 성공 라우팅)가 모두 통과한다.",
-      "analysisResult": "Signup view role-branch UI는 단일 라우트에서 동작이 구현되어 있으나 회귀 방지를 위한 UI-실행 레벨 검증이 부족하다. 단위 테스트를 보완하는 Playwright 시나리오를 추가하면 실제 브라우저 환경에서 분기/차단/라우팅 계약을 지속적으로 검증할 수 있다."
+      "analysisResult": "Signup view role-branch UI는 단일 라우트에서 동작이 구현되어 있으나 회귀 방지를 위한 UI-실행 레벨 검증이 부족하다. 단위 테스트를 보완하는 Playwright 시나리오를 추가하면 실제 브라우저 환경에서 분기/차단/라우팅 계약을 지속적으로 검증할 수 있다.",
+      "summary": "tests/e2e/signup-flow.spec.ts를 추가해 /signup 단일 라우트에서 역할 전환, 역할별 제출 차단, 성공 라우팅(pending_approval/active handoff)을 Playwright로 검증했다. hospital-search/signup-submit route mock으로 시나리오를 안정화했고 `pnpm playwright test tests/e2e/signup-flow.spec.ts` 4개 케이스 전부 통과, `pnpm lint:check` 0 error를 확인했다.",
+      "completedAt": "2026-03-05T16:24:17.751Z"
     },
     {
       "id": "6ba9a255-ecd3-4474-a921-8749d93f7949",
