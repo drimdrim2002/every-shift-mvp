@@ -1,17 +1,23 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import {
+  LOGIN_ROUTE_PATH,
+  POST_AUTH_REDIRECT_PATH,
+  SIGNUP_ROUTE_PATH,
+  isAuthPagePath,
+} from '@/constants/routes';
 import { stepProgressGuard } from './guards';
 
 const routes: RouteRecordRaw[] = [
   {
-    path: '/login',
+    path: LOGIN_ROUTE_PATH,
     name: 'Login',
     component: () => import('@/views/auth/Login.vue'),
     meta: { requiresAuth: false, title: '로그인' },
   },
   {
-    path: '/signup',
+    path: SIGNUP_ROUTE_PATH,
     name: 'Signup',
     component: () => import('@/views/auth/Signup.vue'),
     meta: { requiresAuth: false, title: '회원가입' },
@@ -103,12 +109,12 @@ router.beforeEach(async (to, from, next) => {
 
   // 1. 인증 체크
   if (requiresAuth && !authStore.user) {
-    next('/login');
+    next(LOGIN_ROUTE_PATH);
     return;
   }
 
-  if ((to.path === '/login' || to.path === '/signup') && authStore.user) {
-    next('/');
+  if (isAuthPagePath(to.path) && authStore.user) {
+    next(POST_AUTH_REDIRECT_PATH);
     return;
   }
 

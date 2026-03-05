@@ -68,11 +68,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormItemRule } from 'naive-ui'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import { useGlobalMessage } from '@/composables/useGlobalMessage'
+import { POST_AUTH_REDIRECT_PATH, SIGNUP_ROUTE_PATH } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
 import type { SignupNextState } from '@/types/signup'
 
@@ -87,10 +88,26 @@ const formValue = ref({
   password: '',
 })
 
-const signupState = computed<SignupNextState | null>(() => {
-  const state = route.query.signupState
-  return state === 'pending_approval' || state === 'active' ? state : null
-})
+const signupState = ref<SignupNextState | null>(null)
+
+watch(
+  () => route.query.signupState,
+  (state) => {
+    if (state !== 'pending_approval' && state !== 'active') {
+      return
+    }
+
+    signupState.value = state
+
+    const nextQuery = { ...route.query }
+    delete nextQuery.signupState
+    void router.replace({
+      path: route.path,
+      query: nextQuery,
+    })
+  },
+  { immediate: true },
+)
 
 const rules: Record<string, FormItemRule | FormItemRule[]> = {
   email: {
@@ -116,13 +133,13 @@ async function handleLogin() {
 
   if (result.success) {
     success('로그인 성공')
-    router.push('/schedule/step1')
+    router.push(POST_AUTH_REDIRECT_PATH)
   } else {
     error(result.error || '로그인 실패')
   }
 }
 
 function moveToSignup() {
-  router.push('/signup')
+  router.push(SIGNUP_ROUTE_PATH)
 }
 </script>

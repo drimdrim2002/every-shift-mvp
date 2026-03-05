@@ -5023,14 +5023,14 @@
       "name": "P2-1.4-3 Auth Routing and Login Entry Integration",
       "description": "Integrate /signup route into router and login entry CTA/status handoff while preserving auth guards.",
       "notes": "Do not alter protected schedule route semantics.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "d3f05381-f3aa-48d6-976f-84962d45bfd5"
         }
       ],
       "createdAt": "2026-03-04T12:43:33.243Z",
-      "updatedAt": "2026-03-04T12:43:33.243Z",
+      "updatedAt": "2026-03-05T15:46:06.432Z",
       "relatedFiles": [
         {
           "path": "src/router/index.ts",
@@ -5045,7 +5045,9 @@
       ],
       "implementationGuide": "1) Add public /signup route in router with title metadata. 2) Keep auth guard behavior consistent: unauthenticated users can access /login and /signup; authenticated users are redirected away from auth pages. 3) Add signup entry CTA in Login.vue and optional post-signup state message rendering.",
       "verificationCriteria": "From login page user can navigate to /signup; route guards allow unauthenticated signup access; authenticated access to /signup redirects per policy.",
-      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract."
+      "analysisResult": "Single-route signup UI is feasible with existing architecture. Reuse signup API boundary and organization data patterns, add role-conditional UI and deterministic success-state mapping, and align with pending signup-submit v2 nextState contract.",
+      "summary": "라우터에 /signup 공개 경로와 인증 사용자 auth-page 차단 리다이렉트를 통합했고, Login 화면에서 회원가입 CTA 및 signupState 상태 메시지 핸드오프를 구현했다. 보호된 schedule 라우트의 인증 가드 의미는 유지되며 회귀 테스트를 추가해 접근 정책을 검증했다.",
+      "completedAt": "2026-03-05T15:46:06.427Z"
     },
     {
       "id": "c7596ca4-9628-4f2c-a7ec-75eb0891c253",
@@ -5660,6 +5662,68 @@
       "notes": "No architectural refactor required based on current state. Focus on preventing regressions.",
       "summary": "signup 제출 경계가 src/api/signup.ts의 submitSignup 단일 경로로 유지됨을 코드 검색으로 확인했고, admin hospitalId/organizationId alias 정규화와 canonical 에러 매핑(getSignupErrorMessage)도 기존 중앙화 구조가 유지됨을 단위 테스트 13건 통과로 검증했습니다.",
       "completedAt": "2026-03-05T15:35:41.704Z"
+    },
+    {
+      "id": "d06c74d0-4dc0-49ac-9ed9-02fb0b3a0937",
+      "name": "P2-1.4-3a Auth Route Guard Regression Verification",
+      "description": "Add and run focused router guard verification for /login and /signup public access plus authenticated redirect-away behavior while ensuring protected schedule routes remain unchanged.",
+      "notes": "Prefer existing test framework and router mocking utilities; do not alter production route semantics.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "1b94e697-94d4-4919-8a0a-0a437d951cdd"
+        }
+      ],
+      "createdAt": "2026-03-05T15:40:45.198Z",
+      "updatedAt": "2026-03-05T15:52:48.813Z",
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "REFERENCE",
+          "description": "Current guard behavior and auth-page redirect conditions"
+        },
+        {
+          "path": "src/views/auth/Login.vue",
+          "type": "REFERENCE",
+          "description": "Signup entry CTA and signupState message rendering"
+        }
+      ],
+      "implementationGuide": "1) Create router guard test scenarios for unauthenticated and authenticated users. 2) Verify unauthenticated access to /signup and /login is allowed. 3) Verify authenticated visits to /login and /signup redirect per policy. 4) Verify unauthenticated access to schedule steps still redirects to /login.",
+      "verificationCriteria": "Automated or reproducible checks demonstrate all four guard behaviors and no regression in schedule route protection.",
+      "analysisResult": "Signup route/login integration is already implemented and aligned with guard semantics. Remaining risk is lack of explicit regression verification and minor redirect consistency drift.",
+      "summary": "router-auth-guards 유닛 테스트를 추가하고 안정화했다. 비인증 /signup,/login 접근 허용, 인증 사용자의 auth-page 접근 차단 리다이렉트, 비인증 사용자의 보호 라우트 접근 시 /login 전환을 재현 가능한 테스트로 검증했다. 테스트는 vitest 기준 통과했다.",
+      "completedAt": "2026-03-05T15:52:48.808Z"
+    },
+    {
+      "id": "c6f241be-cfae-44b8-bde5-13cfdb2156aa",
+      "name": "P2-1.4-3b Redirect Policy Consistency Hardening",
+      "description": "Standardize post-auth and auth-page-redirect target handling to reduce future drift, and optionally clear consumed signupState query after display.",
+      "notes": "Keep changes small and backward-compatible; this is a maintainability hardening task.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "d06c74d0-4dc0-49ac-9ed9-02fb0b3a0937"
+        }
+      ],
+      "createdAt": "2026-03-05T15:40:45.198Z",
+      "updatedAt": "2026-03-05T15:55:08.968Z",
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "Auth-page redirect target policy"
+        },
+        {
+          "path": "src/views/auth/Login.vue",
+          "type": "TO_MODIFY",
+          "description": "Post-login redirect consistency and optional query cleanup"
+        }
+      ],
+      "implementationGuide": "1) Define a single redirect target constant/policy used by login success and authenticated auth-page redirection. 2) Ensure behavior remains compatible with current dashboard/step flow. 3) If implemented, consume and clear signupState query safely after first render.",
+      "verificationCriteria": "Redirect behavior is consistent across auth flows and signupState alert does not persist unexpectedly after consumption.",
+      "analysisResult": "Signup route/login integration is already implemented and aligned with guard semantics. Remaining risk is lack of explicit regression verification and minor redirect consistency drift.",
+      "summary": "리다이렉트 정책을 routes 상수로 통일해 인증페이지 차단 리다이렉트와 로그인 성공 후 이동 경로를 일치시켰다. Login에서 signupState 쿼리를 1회 소비 후 router.replace로 정리해 메시지 상태가 URL에 잔존하지 않도록 했고, login-view/router-auth-guards 테스트와 lint를 통과했다.",
+      "completedAt": "2026-03-05T15:55:08.963Z"
     }
   ]
 }
