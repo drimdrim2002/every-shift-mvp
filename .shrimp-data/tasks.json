@@ -5532,34 +5532,6 @@
       "completedAt": "2026-03-05T15:31:07.093Z"
     },
     {
-      "id": "600f17c8-9fe9-431e-88e2-b0b5391610f8",
-      "name": "P2-1.4-1B Preserve single signup API boundary with alias normalization",
-      "description": "Keep submitSignup as the only invocation boundary and ensure admin organization aliases are normalized consistently without adding alternate code paths in view/store.",
-      "status": "pending",
-      "dependencies": [
-        {
-          "taskId": "5dc645e9-e740-4955-9dcb-8c432774ca0a"
-        }
-      ],
-      "createdAt": "2026-03-05T13:24:14.010Z",
-      "updatedAt": "2026-03-05T13:24:14.010Z",
-      "relatedFiles": [
-        {
-          "path": "src/api/signup.ts",
-          "type": "TO_MODIFY",
-          "description": "Boundary invocation and normalization"
-        },
-        {
-          "path": "src/types/signup.ts",
-          "type": "REFERENCE",
-          "description": "Canonical error code and message mappings"
-        }
-      ],
-      "implementationGuide": "1. Confirm normalizeSignupRequest continues to map admin hospitalId/organizationId aliases to canonical payload. 2. Keep invoke boundary at supabase.functions.invoke('signup-submit') and avoid any direct-table or view-level invocation logic. 3. Preserve centralized canonical error normalization and reuse getSignupErrorMessage.",
-      "verificationCriteria": "Both admin and user requests pass through submitSignup only; admin alias normalization remains centralized; canonical error mapping behavior is unchanged.",
-      "analysisResult": "Align signup contracts across type/api/store boundaries while preserving single API invoke path, centralized canonical error normalization, and backward compatibility for optional nextState derivation."
-    },
-    {
       "id": "d8f5ac61-1bd8-46e0-9d14-16f3248a3138",
       "name": "P2-1.4-1C Implement and validate auth store deterministic signup result",
       "description": "Implement signup store action to always return deterministic UI model and add unit tests for success/error branching including fallback derivation from status fields.",
@@ -5652,6 +5624,42 @@
       "analysisResult": "Task 5dc645e9-e740-4955-9dcb-8c432774ca0a should preserve backward-compatible API success payload optionality for nextState while exposing deterministic, explicit auth-store return unions for Signup UI consumption without duplicate invocation paths.",
       "summary": "Signup.vue가 authStore.signup 반환 유니온을 분기 기반으로 안전하게 소비함을 확인했고, 코드 검색으로 submitSignup 직접 중복 호출 없이 단일 호출 경계를 유지함을 검증했습니다.",
       "completedAt": "2026-03-05T15:30:50.353Z"
+    },
+    {
+      "id": "600f17c8-9fe9-431e-88e2-b0b5391610f8",
+      "name": "P2-1.4-1B Preserve single signup API boundary with alias normalization",
+      "description": "Confirm and preserve the existing signup submission architecture: all admin/user requests must go through submitSignup only, admin hospitalId/organizationId alias normalization remains centralized in API layer, and canonical error mapping remains centralized via getSignupErrorMessage without adding alternate invocation paths.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "5dc645e9-e740-4955-9dcb-8c432774ca0a"
+        }
+      ],
+      "createdAt": "2026-03-05T13:24:14.010Z",
+      "updatedAt": "2026-03-05T15:35:41.710Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "Single API boundary, alias normalization, error normalization"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "REFERENCE",
+          "description": "Store-level consumption of submitSignup/getSignupErrorMessage"
+        },
+        {
+          "path": "tests/unit/signup-api.spec.ts",
+          "type": "REFERENCE",
+          "description": "Regression coverage for alias normalization and canonical error mapping"
+        }
+      ],
+      "implementationGuide": "Pseudocode:\n1) Search src for direct invoke('signup-submit') usage outside src/api/signup.ts\n2) Validate normalizeSignupRequest keeps admin alias mapping (hospitalId <-> organizationId canonicalization)\n3) Validate auth store consumes submitSignup and getSignupErrorMessage only\n4) Ensure regression tests cover alias normalization + legacy error code canonical mapping\n5) Do not introduce direct-table or view-level invocation path",
+      "verificationCriteria": "Deliverable: signup flow keeps one invocation boundary and centralized normalization. Method: code search + unit test review for boundary and mapping behavior. Pass: no direct signup-submit invoke outside API wrapper, admin alias normalization remains centralized, canonical error message mapping behavior unchanged.",
+      "analysisResult": "Current code already satisfies core requirements: submitSignup is the single invoke boundary, admin alias normalization is centralized, and canonical error mapping is preserved. Prioritize regression safeguards over new abstraction.",
+      "notes": "No architectural refactor required based on current state. Focus on preventing regressions.",
+      "summary": "signup 제출 경계가 src/api/signup.ts의 submitSignup 단일 경로로 유지됨을 코드 검색으로 확인했고, admin hospitalId/organizationId alias 정규화와 canonical 에러 매핑(getSignupErrorMessage)도 기존 중앙화 구조가 유지됨을 단위 테스트 13건 통과로 검증했습니다.",
+      "completedAt": "2026-03-05T15:35:41.704Z"
     }
   ]
 }

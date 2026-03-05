@@ -107,7 +107,7 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
-  if (to.path === '/login' && authStore.user) {
+  if ((to.path === '/login' || to.path === '/signup') && authStore.user) {
     next('/');
     return;
   }
