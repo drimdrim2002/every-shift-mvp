@@ -51,6 +51,17 @@ describe('Login view signup state handoff', () => {
     })
   })
 
+  it('shows active signup handoff message and clears URL state', () => {
+    routeMock.query = { signupState: 'active' }
+    const wrapper = mount(Login)
+
+    expect(wrapper.text()).toContain('가입이 완료되었습니다. 로그인할 수 있습니다.')
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/login',
+      query: {},
+    })
+  })
+
   it('does not show alert for invalid signupState query', () => {
     routeMock.query = { signupState: 'unknown-state' }
     const wrapper = mount(Login)

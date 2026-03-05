@@ -5724,6 +5724,125 @@
       "analysisResult": "Signup route/login integration is already implemented and aligned with guard semantics. Remaining risk is lack of explicit regression verification and minor redirect consistency drift.",
       "summary": "리다이렉트 정책을 routes 상수로 통일해 인증페이지 차단 리다이렉트와 로그인 성공 후 이동 경로를 일치시켰다. Login에서 signupState 쿼리를 1회 소비 후 router.replace로 정리해 메시지 상태가 URL에 잔존하지 않도록 했고, login-view/router-auth-guards 테스트와 lint를 통과했다.",
       "completedAt": "2026-03-05T15:55:08.963Z"
+    },
+    {
+      "id": "33e48eb4-da81-40e3-9c69-c796565700bb",
+      "name": "P2-1.4-4-A Signup Role-Branch Manual QA Matrix 문서 보강",
+      "description": "기존 docs/verification/P2_SIGNUP_CONTRACT_TEST_PLAYBOOK.md를 확장해 역할 분기 수동 검증 매트릭스를 명시한다. 필수 시나리오는 role toggle, admin 병원 미선택, user 초대코드 누락/무효, duplicate request, success pending_approval, success active를 포함해야 한다.",
+      "notes": "별도 신규 문서를 만들지 말고 기존 플레이북에 통합해 중복을 방지한다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-03-05T16:03:10.214Z",
+      "updatedAt": "2026-03-05T16:07:24.136Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/P2_SIGNUP_CONTRACT_TEST_PLAYBOOK.md",
+          "type": "TO_MODIFY",
+          "description": "signup 수동 검증 플레이북 본문"
+        },
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "REFERENCE",
+          "description": "역할 분기 UI/메시지 기준"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "REFERENCE",
+          "description": "nextState 및 에러 매핑 기준"
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "canonical 에러 코드 경계 기준"
+        }
+      ],
+      "implementationGuide": "1) 기존 SC-UI 섹션 뒤에 role-branching 전용 소섹션을 추가한다. 2) 각 시나리오에 precondition, step, expected copy(한국어), expected state, evidence field를 정의한다. 3) 로컬 환경 contract-only scaffold 및 VITE_SIGNUP_FORCE_REMOTE 전제 조건을 명시한다.",
+      "verificationCriteria": "문서에 6개 핵심 시나리오가 모두 존재하고, 각 시나리오가 재현 가능한 절차와 기대 결과(상태/메시지)를 포함한다.",
+      "analysisResult": "Signup 역할 분기 수동 QA 작업은 기존 아키텍처를 변경하지 않고 검증 매트릭스와 증거 수집을 강화하는 방식이 적합하다. 기존 플레이북과 단위테스트를 재사용해 중복 문서를 만들지 않고, 수동 시나리오 공백(역할 토글, 역할별 누락 필드, canonical 에러 매핑, 성공 상태 핸드오프)만 보강한다.",
+      "summary": "기존 playbook에 SC-UI-RB 섹션을 추가해 RB-001~RB-006 6개 핵심 시나리오를 모두 정의했고, 각 항목에 precondition/steps/한국어 expected copy/expected state/evidence fields를 명시해 재현 가능성을 확보했다.",
+      "completedAt": "2026-03-05T16:07:24.131Z"
+    },
+    {
+      "id": "0740a18e-6648-4bfa-8b33-17d11a3cdb7b",
+      "name": "P2-1.4-4-B Role Branching 수동 실행 증거 기록",
+      "description": "정의된 매트릭스를 기준으로 수동 검증을 실행하고 시나리오별 pass/fail 및 관찰 결과를 증거 형식으로 기록한다.",
+      "notes": "백엔드가 contract-only scaffold 응답을 반환할 수 있으므로 dev mock fallback/force remote 전제를 시나리오별로 명확히 남긴다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "33e48eb4-da81-40e3-9c69-c796565700bb"
+        }
+      ],
+      "createdAt": "2026-03-05T16:03:10.214Z",
+      "updatedAt": "2026-03-05T16:07:35.945Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/P2_SIGNUP_CONTRACT_TEST_PLAYBOOK.md",
+          "type": "TO_MODIFY",
+          "description": "수동 실행 결과 및 증거 표 추가"
+        },
+        {
+          "path": "src/views/auth/Login.vue",
+          "type": "REFERENCE",
+          "description": "signupState 안내 메시지 확인 기준"
+        }
+      ],
+      "implementationGuide": "1) admin/user 역할 전환과 제출 차단 동작을 실제 UI에서 확인한다. 2) invalid invite, duplicate request, success pending/active 분기를 재현한다. 3) 각 시나리오별 실행 시각, 환경 플래그, 실제 메시지, 결과를 표 형식으로 문서화한다.",
+      "verificationCriteria": "모든 시나리오에 대해 Pass/Fail와 근거가 기록되고, 실패 시 재현 조건과 원인 가설이 포함된다.",
+      "analysisResult": "Signup 역할 분기 수동 QA 작업은 기존 아키텍처를 변경하지 않고 검증 매트릭스와 증거 수집을 강화하는 방식이 적합하다. 기존 플레이북과 단위테스트를 재사용해 중복 문서를 만들지 않고, 수동 시나리오 공백(역할 토글, 역할별 누락 필드, canonical 에러 매핑, 성공 상태 핸드오프)만 보강한다.",
+      "summary": "RB-001~RB-006에 대해 실행 시각, 환경 플래그, 테스트/관찰 근거를 표 형태로 기록했고 각 항목 Pass/Fail를 명시했다. contract_only_scaffold 및 VITE_SIGNUP_FORCE_REMOTE 전제도 섹션에 포함해 재현 조건을 분리했다.",
+      "completedAt": "2026-03-05T16:07:35.940Z"
+    },
+    {
+      "id": "20de8454-5483-4395-b73a-43a16171676f",
+      "name": "P2-1.4-4-C Lint/테스트 게이트 검증 및 회귀 확인",
+      "description": "QA 산출물 갱신 이후 lint와 관련 단위 테스트를 실행해 회귀 여부를 확인하고 결과를 작업 증거에 반영한다.",
+      "notes": "Lint Gate Policy를 반드시 만족해야 완료 처리 가능하다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "0740a18e-6648-4bfa-8b33-17d11a3cdb7b"
+        }
+      ],
+      "createdAt": "2026-03-05T16:03:10.214Z",
+      "updatedAt": "2026-03-05T16:07:50.010Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "REFERENCE",
+          "description": "lint/test 스크립트 정의"
+        },
+        {
+          "path": "tests/unit/signup-view.spec.ts",
+          "type": "REFERENCE",
+          "description": "역할 분기 UI 자동 검증"
+        },
+        {
+          "path": "tests/unit/signup-api.spec.ts",
+          "type": "REFERENCE",
+          "description": "에러 코드 매핑 자동 검증"
+        },
+        {
+          "path": "tests/unit/auth-signup.spec.ts",
+          "type": "REFERENCE",
+          "description": "store 결과 구조 자동 검증"
+        },
+        {
+          "path": "tests/unit/login-view.spec.ts",
+          "type": "REFERENCE",
+          "description": "signupState 로그인 핸드오프 검증"
+        },
+        {
+          "path": "tests/unit/router-auth-guards.spec.ts",
+          "type": "REFERENCE",
+          "description": "/signup 접근 가드 회귀 검증"
+        }
+      ],
+      "implementationGuide": "1) pnpm lint:check 실행. 2) signup 관련 단위 테스트( signup-view, signup-api, auth-signup, login-view, router-auth-guards )를 실행. 3) 통과/실패 요약과 실패 시 수정 계획을 작업 기록에 반영한다.",
+      "verificationCriteria": "lint 0 error, 관련 테스트 전부 통과, 로그인 라우팅 동작 회귀 없음이 확인된다.",
+      "analysisResult": "Signup 역할 분기 수동 QA 작업은 기존 아키텍처를 변경하지 않고 검증 매트릭스와 증거 수집을 강화하는 방식이 적합하다. 기존 플레이북과 단위테스트를 재사용해 중복 문서를 만들지 않고, 수동 시나리오 공백(역할 토글, 역할별 누락 필드, canonical 에러 매핑, 성공 상태 핸드오프)만 보강한다.",
+      "summary": "lint/test 게이트를 실제 실행해 lint error 0과 signup 관련 5개 테스트 파일 24개 테스트 전부 통과를 확인했다. 추가로 login-view active handoff 테스트를 보강해 signupState 성공 분기 회귀 리스크를 줄였고 결과를 playbook 증거 섹션에 기록했다.",
+      "completedAt": "2026-03-05T16:07:50.005Z"
     }
   ]
 }

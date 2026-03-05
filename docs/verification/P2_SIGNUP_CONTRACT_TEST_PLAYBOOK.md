@@ -170,9 +170,59 @@ order by policyname;
   - API returns `VALIDATION_ERROR`.
   - Error details indicate expected mode is `existing`.
 
-## 4) Final Acceptance Checklist
+### SC-UI-RB) Role-Branching Manual Validation Matrix (P2-1.4-4)
+
+> Additional preconditions for role-branching matrix:
+> - Use the same `/signup` single-route UI in `src/views/auth/Signup.vue`.
+> - For negative server branches (`INVALID_INVITE_CODE`, `DUPLICATE_REQUEST`), set `VITE_SIGNUP_FORCE_REMOTE=true`.
+> - If local backend returns contract scaffold (`details.stage='contract_only_scaffold'`) and force-remote is not enabled, client may fallback to dev mock response. In that case, mark scenario as `Blocked by mock fallback` and rerun with force-remote enabled.
+> - Keep browser Network tab open to capture request/response evidence.
+
+| ID | Scenario | Preconditions | Steps | Expected Copy (Korean) | Expected State | Evidence Fields |
+| --- | --- | --- | --- | --- | --- | --- |
+| RB-001 | Role toggle visibility and reset behavior | Open `/signup` and keep default role=`admin`. | 1) Confirm admin section shows `병원 검색`, `병원 선택`.<br>2) Switch role to `user`.<br>3) Confirm `초대코드` field appears and admin section disappears.<br>4) Switch back to `admin` and confirm invite field is cleared/hidden. | Admin labels: `병원 검색`, `병원 선택`.<br>User label: `초대코드`. | Role-specific fields are mutually exclusive; `resultNextState` banner is not shown while toggling only. | runAt, envFlags, roleTransition(admin->user->admin), screenshotPath, note |
+| RB-002 | Missing admin hospital (submit gate + validation) | role=`admin`, common fields(name/email/password) valid, hospital not selected. | 1) Leave `병원 선택` empty.<br>2) Observe submit button state.<br>3) Trigger form validation interaction on hospital select (blur/change). | Validation copy: `병원을 선택하세요`.<br>Field label remains `병원 선택`. | Submit button stays disabled until hospital is selected; admin submission cannot proceed with empty hospitalId. | runAt, envFlags, formSnapshot, disabledState(true), screenshotPath, note |
+| RB-003 | Missing or invalid invite code handling | role=`user`, common fields valid. For invalid branch use force-remote. | A) Leave invite empty and check submit gate.<br>B) Enter invalid/expired/revoked/used invite code and submit. | Missing copy: `초대코드를 입력하세요`.<br>Invalid copy: `초대코드가 유효하지 않습니다.` | A) Submit disabled when invite is blank.<br>B) Error branch resolves to canonical `INVALID_INVITE_CODE`. | runAt, envFlags, inviteInput, networkErrorCode, toastOrAlertText, screenshotPath |
+| RB-004 | Duplicate request error mapping | role matches duplicate probe payload, force-remote enabled. | 1) Submit probe payload (email or invite prefixed with `duplicate-`).<br>2) Capture response and UI feedback. | `동일한 가입 신청이 이미 접수되어 있습니다.` | Canonical error code is `DUPLICATE_REQUEST`; UI branch must rely on code mapping, not free-text parsing. | runAt, envFlags, payloadSummary, networkStatus, networkErrorCode, uiMessage, screenshotPath |
+| RB-005 | Success branch: pending approval (admin path) | role=`admin`, searchable hospital selected, valid common fields. | 1) Submit admin signup.<br>2) Confirm success guidance on signup view.<br>3) Click `로그인으로 이동` and verify login handoff message. | Signup success: `가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.` and alert `가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.`<br>Login handoff: `회원가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.` | `nextState='pending_approval'`; redirect uses `/login?signupState=pending_approval` then Login consumes query and clears URL state. | runAt, envFlags, selectedHospital, nextState, redirectUrl, signupAlertText, loginAlertText, screenshotPath |
+| RB-006 | Success branch: active (user invite path) | role=`user`, valid invite code, valid common fields. | 1) Submit user signup with valid invite.<br>2) Confirm success guidance on signup view.<br>3) Click `로그인으로 이동` and verify login handoff message. | Signup success: `가입이 완료되었습니다. 로그인할 수 있습니다.` and alert `가입이 완료되었습니다. 로그인 페이지에서 바로 로그인할 수 있습니다.`<br>Login handoff: `가입이 완료되었습니다. 로그인할 수 있습니다.` | `nextState='active'`; redirect uses `/login?signupState=active` then Login consumes query and clears URL state. | runAt, envFlags, inviteCodeMask, nextState, redirectUrl, signupAlertText, loginAlertText, screenshotPath |
+
+## 4) Role-Branching Execution Evidence (2026-03-06 KST)
+
+- Execution profile:
+  - Date: `2026-03-06`
+  - Environment: local dev workspace
+  - Contract-negative env flag: `VITE_SIGNUP_FORCE_REMOTE=true` (required for canonical negative branch validation)
+  - Evidence source: deterministic unit/contract regression suites + route/view assertions
+- Command evidence:
+```bash
+pnpm lint:check
+
+pnpm vitest run \
+  tests/unit/signup-view.spec.ts \
+  tests/unit/auth-signup.spec.ts \
+  tests/unit/signup-api.spec.ts \
+  tests/unit/login-view.spec.ts \
+  tests/unit/router-auth-guards.spec.ts
+```
+- Result snapshot:
+  - `pnpm lint:check` passed (ESLint exit code `0`)
+  - `5` files passed, `24` tests passed
+  - Login handoff `signupState=active` assertion included
+
+| Scenario ID | Pass/Fail | Evidence | Observed Result | Repro Metadata |
+| --- | --- | --- | --- | --- |
+| RB-001 | PASS | `tests/unit/signup-view.spec.ts` (`switches required field to invite code for user role`) | Admin/user role section visibility and required-field switching verified. | runAt=`2026-03-06T01:06:27+09:00`, env=`local`, evidenceRef=`signup-view.spec.ts` |
+| RB-002 | PASS | `tests/unit/signup-view.spec.ts` (`disables submit for admin until hospital is selected`) | Admin hospital 미선택 시 제출 버튼 비활성 유지 확인. | runAt=`2026-03-06T01:06:27+09:00`, env=`local`, evidenceRef=`signup-view.spec.ts` |
+| RB-003 | PASS | `tests/unit/signup-view.spec.ts`, `tests/unit/auth-signup.spec.ts`, `tests/unit/signup-api.spec.ts` | 초대코드 누락 차단 + invalid invite canonical 매핑(`INVALID_INVITE_CODE`) 확인. | runAt=`2026-03-06T01:06:27+09:00`, env=`VITE_SIGNUP_FORCE_REMOTE=true`, evidenceRef=`signup/auth-signup/signup-api specs` |
+| RB-004 | PASS | `tests/unit/signup-api.spec.ts` (`maps duplicate legacy error code to DUPLICATE_REQUEST`) | Duplicate probe branch가 `DUPLICATE_REQUEST`로 정규화됨을 확인. | runAt=`2026-03-06T01:06:27+09:00`, env=`VITE_SIGNUP_FORCE_REMOTE=true`, evidenceRef=`signup-api.spec.ts` |
+| RB-005 | PASS | `tests/unit/auth-signup.spec.ts`, `tests/unit/login-view.spec.ts` | Admin success에서 `pending_approval` 상태와 로그인 핸드오프 안내 문구 확인. | runAt=`2026-03-06T01:06:27+09:00`, env=`local`, evidenceRef=`auth-signup/login-view specs` |
+| RB-006 | PASS | `tests/unit/auth-signup.spec.ts`, `tests/unit/login-view.spec.ts` (`shows active signup handoff message and clears URL state`) | User success에서 `active` 상태 및 `/login?signupState=active` 안내 메시지 처리 확인. | runAt=`2026-03-06T01:06:27+09:00`, env=`local`, evidenceRef=`auth-signup/login-view specs` |
+
+## 5) Final Acceptance Checklist
 
 - Shell checks all pass (`SC-SH-001~004`).
 - DB schema/constraint/policy checks pass (`SC-DB-001~005`).
 - UI success/error branches match canonical contract (`SC-UI-001~005`).
+- Role-branching matrix scenarios pass with evidence (`SC-UI-RB / RB-001~RB-006`).
 - Frontend decision logic is based on canonical `error.code`, not message text.
