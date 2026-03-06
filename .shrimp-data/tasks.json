@@ -4296,14 +4296,14 @@
       "name": "P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)",
       "description": "admin이 조직 초대코드를 발급/폐기/조회하는 invite-code-manage API 계약과 권한 경계를 정의한다.",
       "notes": "초대코드 관리 권한은 admin(자기 조직) + superuser(전체 조직)로 제한한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "79d3fd2b-ecec-45bc-9578-a88f19599d20"
         }
       ],
       "createdAt": "2026-02-28T10:32:39.915Z",
-      "updatedAt": "2026-03-03T14:24:10.927Z",
+      "updatedAt": "2026-03-06T15:07:13.844Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/invite-code-manage/index.ts",
@@ -4325,7 +4325,9 @@
       "verificationCriteria": "Deliverable: invite-code-manage API 계약과 권한 규칙이 문서화되어 구현 경계가 명확하다.\nMethod: 액션별 요청/응답/오류 코드 표를 리뷰한다.\nPass: create/revoke/list 3개 액션과 조직 스코프 제약이 누락 없이 포함된다.",
       "analysisResult": "초대코드 생성/폐기 경계를 분리하면 signup-submit은 검증 책임에 집중할 수 있어 함수 간 응집도가 높아진다.",
       "phase": "P2",
-      "estimatedMinutes": 150
+      "estimatedMinutes": 150,
+      "summary": "invite-code-manage의 create/revoke/list 계약을 문서와 코드 경계에 일관되게 반영했다. API_SPEC에 액션별 요청/응답/오류 코드 표와 권한 스코프(admin 자기 조직, superuser 전체), maxUses=1/만료 필수/rawCode 1회 반환 규칙을 명시했고, 서버 엔트리포인트와 클라이언트 invoke 래퍼를 생성해 구현 경계를 고정했다.",
+      "completedAt": "2026-03-06T15:07:13.840Z"
     },
     {
       "id": "f3ea69c1-2e67-45c1-8d28-f7cf37f768f8",
@@ -4422,34 +4424,6 @@
       "analysisResult": "기존 MVP 데이터가 마이그레이션 007의 신규 서비스 스키마(멀티테넌트, RBAC)로 도입될 때 하위 호환성을 완벽히 유지하도록 seed/backfill 원칙을 확립했습니다. 기존 데이터는 신규 참조 컬럼(user_id, site_id 등)이 NULL을 허용하는 덕분에 자연스럽게 호환되며, 초기 온보딩을 위한 admin 계정의 프로필/멤버십 의존성과 추후 필수적으로 채워야 할 설정/마스터 데이터 백필 대상을 구체적으로 정의했습니다.",
       "summary": "기존 MVP 데이터 운영의 하위 호환성을 보장하면서 멀티테넌트, RBAC 스키마 확장을 지원하는 시드/백필 로직을 정의하고, 이를 docs/migration/SEED_BACKFILL_PRINCIPLES.md로 문서화하여 검증 기준(Deliverable)을 완벽히 충족했습니다.",
       "completedAt": "2026-02-28T15:02:52.060Z"
-    },
-    {
-      "id": "9096b180-6645-45fc-8176-e02fb8a118fc",
-      "name": "P1-2.3-1 Supabase 실DB 보안 베이스라인 확정",
-      "description": "Supabase MCP를 사용해 public 스키마의 RLS 활성 여부, 정책, anon/authenticated 권한을 스냅샷으로 확정하고 테스트 설계의 입력값으로 정리한다.",
-      "status": "pending",
-      "dependencies": [],
-      "createdAt": "2026-03-02T03:41:10.815Z",
-      "updatedAt": "2026-03-02T03:41:10.815Z",
-      "relatedFiles": [
-        {
-          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
-          "type": "REFERENCE",
-          "description": "목표 RLS 권한 매트릭스 기준",
-          "lineStart": 1,
-          "lineEnd": 260
-        },
-        {
-          "path": "docs/verification/test-validation-guide.md",
-          "type": "TO_MODIFY",
-          "description": "베이스라인 섹션 추가 대상",
-          "lineStart": 1,
-          "lineEnd": 260
-        }
-      ],
-      "implementationGuide": "1) list_tables로 rls_enabled 확인. 2) execute_sql로 pg_policies, relacl, has_table_privilege 확인. 3) 핵심 리스크(무RLS, true policy, 과도한 ACL)를 표준 포맷으로 정리.",
-      "verificationCriteria": "프로젝트 ID, 측정일, 테이블별 RLS 상태, 정책/ACL 핵심 위험이 누락 없이 정리되어야 한다.",
-      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다."
     },
     {
       "id": "644a8e6c-e5fa-48d7-a566-fb3af2ad5f28",
@@ -5972,6 +5946,119 @@
       "analysisResult": "P2-1.5 is a documentation-only task that should extend docs/verification/test-validation-guide.md with manual signup smoke scenarios for the existing single /signup branch UI. The implementation must reuse existing signup verification content (SGN-001~009 and section 14) instead of duplicating SQL/contract logic, and must align expected results with current behavior in Signup.vue, auth store normalization, and signup error code definitions.",
       "summary": "가입 스모크 문서와 현재 signup 구현을 대조한 결과 admin/user happy·fail 경로, pending_approval·active 상태 전이, INVALID_INVITE_CODE·DUPLICATE_REQUEST·INTERNAL_ERROR 메시지 기대값이 모두 일치함을 확인했습니다. 기존 SGN/입력검증 섹션과도 역할이 분리되어 있어 문서 정합성이 충족됩니다.",
       "completedAt": "2026-03-06T15:14:08.452Z"
+    },
+    {
+      "id": "f035e92a-3557-470b-b74c-ea969c7a95c1",
+      "name": "P2-1.10-1 invite-code-manage API_SPEC contract 문서화",
+      "description": "docs/API_SPEC.md에 invite-code-manage Edge Function의 create/revoke/list 요청/응답/오류 계약을 추가한다. 기존 signup-submit 섹션과 동일한 문서 스타일을 유지하고 invite_codes DDL/RLS 제약과 충돌하지 않도록 정리한다.",
+      "notes": "Reuse existing docs/API_SPEC.md envelope and table patterns from signup-submit; do not create a separate contract document.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "79d3fd2b-ecec-45bc-9578-a88f19599d20"
+        }
+      ],
+      "createdAt": "2026-03-06T14:57:44.915Z",
+      "updatedAt": "2026-03-06T15:06:52.177Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "Canonical API contract document for invite-code-manage."
+        },
+        {
+          "path": "migrations/010_signup_role_flow.sql",
+          "type": "REFERENCE",
+          "description": "Invite code schema invariants that the contract must respect.",
+          "lineStart": 86,
+          "lineEnd": 215
+        },
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "REFERENCE",
+          "description": "Permission helper can_manage_invite_codes for scope rules.",
+          "lineStart": 76,
+          "lineEnd": 82
+        },
+        {
+          "path": "supabase/functions/signup-submit/index.ts",
+          "type": "REFERENCE",
+          "description": "Existing Edge Function envelope/error pattern to mirror."
+        }
+      ],
+      "implementationGuide": "1) Add a new API_SPEC section with boundary: supabase.functions.invoke('invite-code-manage'). 2) Define request union by action=create|revoke|list. 3) For create require organizationId and expiresAt, document that maxUses is fixed server-side to 1 and raw code is returned only once. 4) For revoke define idempotency and inviteCodeId-based targeting within caller scope. 5) For list define metadata-only item schema with derivedStatus(active|expired|used|revoked) and explicit non-return of raw code/code_hash. 6) Add canonical error table aligned with existing envelope style and document admin own-org plus superuser override scope.",
+      "verificationCriteria": "API_SPEC includes create/revoke/list request and success schemas, canonical error codes, one-time raw code exposure rule, and organization scope rules without contradicting invite_codes DDL/RLS constraints.",
+      "analysisResult": "P2-1.10 should remain contract-first and reuse the existing architecture: invite_codes schema and RLS are already fixed in migrations/010_signup_role_flow.sql and migrations/008_rls_progressive_rollout.sql, docs/API_SPEC.md is the canonical contract source, supabase.functions.invoke('invite-code-manage') should be the single transport boundary, and the response envelope/error style should mirror signup-submit. Raw invite codes must be returned only once on create and never persisted or re-exposed. Admin scope is limited to the caller's organization while superuser may operate across organizations via public.can_manage_invite_codes(target_org_id).",
+      "summary": "API_SPEC에 invite-code-manage canonical contract 섹션을 추가해 create/revoke/list 액션별 요청·응답·오류 코드를 표준화했고, 조직 스코프 권한 규칙과 rawCode 1회 반환 규칙을 명확히 고정했다. 기존 signup-submit 문서 스타일과 일관성을 유지해 구현 경계를 문서 기준으로 확정했다.",
+      "completedAt": "2026-03-06T15:06:52.172Z"
+    },
+    {
+      "id": "17d170a7-e65a-451b-a71f-129c6ba70ae5",
+      "name": "P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬",
+      "description": "문서화된 contract를 기준으로 supabase/functions/invite-code-manage/index.ts와 src/api/invite-code.ts의 최소 골격을 생성해 구현 경계를 고정한다.",
+      "notes": "This task is a boundary scaffold, not full business logic completion. Favor minimal implementation that locks the contract shape for later work.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "f035e92a-3557-470b-b74c-ea969c7a95c1"
+        }
+      ],
+      "createdAt": "2026-03-06T14:57:44.915Z",
+      "updatedAt": "2026-03-06T15:07:06.396Z",
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/invite-code-manage/index.ts",
+          "type": "CREATE",
+          "description": "New Edge Function entrypoint for invite code management."
+        },
+        {
+          "path": "src/api/invite-code.ts",
+          "type": "CREATE",
+          "description": "Client wrapper for invite-code-manage invoke boundary."
+        },
+        {
+          "path": "supabase/functions/signup-submit/index.ts",
+          "type": "REFERENCE",
+          "description": "Reference for envelope/error helper structure."
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "Reference for invoke-only client wrapper pattern."
+        }
+      ],
+      "implementationGuide": "1) Create Edge Function scaffold with CORS handling and action discriminator parsing. 2) Reuse signup-submit style success/error envelope and canonical error response helpers. 3) Stub create/revoke/list branches with validation only; do not redesign persistence. 4) Create client wrapper methods createInviteCode, revokeInviteCode, listInviteCodes that call only supabase.functions.invoke('invite-code-manage'). 5) Ensure client/server DTO names and error codes match API_SPEC exactly.",
+      "verificationCriteria": "Edge Function and client wrapper files exist, expose create/revoke/list contract-aligned boundaries, and preserve invoke-only architecture plus documented error/success envelope shapes.",
+      "analysisResult": "P2-1.10 should remain contract-first and reuse the existing architecture: invite_codes schema and RLS are already fixed in migrations/010_signup_role_flow.sql and migrations/008_rls_progressive_rollout.sql, docs/API_SPEC.md is the canonical contract source, supabase.functions.invoke('invite-code-manage') should be the single transport boundary, and the response envelope/error style should mirror signup-submit. Raw invite codes must be returned only once on create and never persisted or re-exposed. Admin scope is limited to the caller's organization while superuser may operate across organizations via public.can_manage_invite_codes(target_org_id).",
+      "summary": "문서 계약과 일치하는 invite-code-manage 서버/클라이언트 골격을 생성했다. Edge Function은 action discriminator(create/revoke/list), CORS, canonical success/error envelope, contract_only_scaffold 응답을 제공하며, 클라이언트는 invoke 단일 경계와 createInviteCode/revokeInviteCode/listInviteCodes 래퍼 및 에러 정규화를 구현했다.",
+      "completedAt": "2026-03-06T15:07:06.391Z"
+    },
+    {
+      "id": "9096b180-6645-45fc-8176-e02fb8a118fc",
+      "name": "P1-2.3-1 Supabase 실DB 보안 베이스라인 확정",
+      "description": "Supabase 연결을 통해 public 스키마의 RLS 활성 여부, 정책, anon/authenticated 권한을 스냅샷으로 확정하고 테스트 설계의 입력값으로 정리한다.",
+      "status": "completed",
+      "dependencies": [],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-06T15:14:53.180Z",
+      "relatedFiles": [
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "목표 RLS 권한 매트릭스 기준"
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "베이스라인 섹션 추가 대상"
+        }
+      ],
+      "implementationGuide": "1. `list_tables` 도구(verbose=true)를 사용하여 public 스키마 테이블 목록과 RLS 상태를 가져옵니다.\n2. `run_shell_command`를 통해 `.env.local`의 Supabase 연결 정보를 활용하는 임시 Node.js 스크립트를 작성하여 `pg_policies` 및 `pg_class` (ACL) 정보를 추출합니다.\n3. 추출된 데이터를 바탕으로 RLS 미적용 테이블, 과도한 권한(`USING true`) 정책 등을 식별합니다.\n4. `docs/verification/test-validation-guide.md` 파일의 '2) 실DB 베이스라인 스냅샷' 섹션을 상세한 표(프로젝트 ID, 측정일, 테이블별 RLS 상태, 핵심 위험) 형태로 업데이트합니다.",
+      "verificationCriteria": "1. test-validation-guide.md 파일에 프로젝트 ID, 측정일, 테이블별 RLS 상태, 정책/ACL 핵심 위험이 표 형태로 누락 없이 정리되어야 한다.",
+      "analysisResult": "Supabase 실DB의 public 스키마를 대상으로 RLS 활성 여부, 정책, 권한(ACL) 스냅샷을 추출하고 핵심 리스크를 식별하여, 그 결과를 `test-validation-guide.md`에 베이스라인으로 문서화하는 작업입니다.",
+      "notes": "직접적인 execute_sql 도구가 없을 경우 Node.js(pg 라이브러리 또는 @supabase/supabase-js) 임시 스크립트를 활용하여 DB에 쿼리를 실행합니다.",
+      "summary": "Supabase DB의 관리 API를 활용하여 테이블별 RLS 활성화 여부, 적용된 정책, 그리고 ACL을 성공적으로 추출하고, 이를 분석하여 'docs/verification/test-validation-guide.md' 문서의 2.1) 테이블별 RLS 활성화 상태 및 핵심 위험, 2.2) 주요 위험 요약 섹션을 상세한 표와 함께 성공적으로 업데이트했습니다.",
+      "completedAt": "2026-03-06T15:14:53.174Z"
     }
   ]
 }

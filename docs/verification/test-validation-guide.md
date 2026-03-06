@@ -12,14 +12,43 @@
 
 ## 2) 실DB 베이스라인 스냅샷 (Supabase MCP 측정)
 
-- 측정일: `2026-03-02` (KST)
-- 프로젝트: `every-shift-mvp` (`vjmerqaxguovnojinxfq`)
-- 핵심 관찰:
-  - `public` 스키마 대부분 테이블 RLS 비활성
-  - RLS 활성 테이블은 `schedules`, `schedule_preferences` 중심
-  - 일부 정책이 `USING true / WITH CHECK true`로 과도 permissive
-  - `anon`/`authenticated`에 광범위 CRUD ACL(`arwdDxtm`) 존재
-  - Security Advisor: `rls_disabled_in_public` 다수 + permissive RLS 경고
+- 측정일: `2026-03-06` (KST)
+- 프로젝트 ID: `vjmerqaxguovnojinxfq`
+- 프로젝트 명: `every-shift-mvp`
+
+### 2.1) 테이블별 RLS 활성화 상태 및 핵심 위험
+
+| 테이블명 | RLS 활성 | 정책(Policies) 위험 요소 | 권한(ACL) 위험 요소 |
+| :--- | :--- | :--- | :--- |
+| `analytics_metrics` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `approval_logs` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `employee_site_assignments` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `employee_skills` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `employees` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `invite_codes` | ✅ 활성 | 정상 (함수 기반 검증) | `anon`/`authenticated` CRUD 전면 허용 |
+| `notification_preferences` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `notifications` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `onboarding_progress` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `organization_memberships` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `organization_settings` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `organizations` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `profiles` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `ranks` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedule_assignments` | ❌ 미활성 | (RLS 미적용) - 핵심 데이터 노출 위험 | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedule_preferences` | ✅ 활성 | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedules` | ✅ 활성 | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `shifts` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `signup_requests` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `site_requirements` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `site_staffing_requirements` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `sites` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| `skills` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+
+### 2.2) 주요 위험(Risk) 요약
+
+1. **RLS 미적용 (RLS Disabled):** `schedule_assignments`, `site_requirements` 등 11개 주요/운영 테이블이 RLS 미적용 상태.
+2. **과도한 권한 정책 (Permissive Policy):** `schedule_preferences`, `schedules` 테이블은 RLS가 활성화되어 있으나, `USING (true)`, `WITH CHECK (true)` 형태의 정책으로 테넌트 격리나 권한 제어가 되지 않는 심각한 보안 취약점 존재.
+3. **과도한 기본 ACL (Broad default ACLs):** `anon` 및 `authenticated` 역할에 대해 모든 테이블에 폭넓은 권한(`SELECT`, `INSERT`, `UPDATE`, `DELETE` 등)이 부여되어 있음. RLS가 없는 테이블에서는 즉시 데이터 유출/변조로 이어질 수 있음.
 
 주의: 위 상태는 테스트 설계의 입력값(현상)이며, 본 검증의 합격 기준은 목표 RLS 상태(개선 후)다.
 
