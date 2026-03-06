@@ -340,6 +340,165 @@ The server may include legacy detail reasons under `error.details.reason` for mi
 | `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
 | `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
 
+## Invite Code Manage Contract (P2 Canonical)
+
+This section defines the admin/super invite-code management contract for issuance, revoke, and list operations.
+
+### Edge Function Boundary (`invite-code-manage`)
+
+- Client boundary is fixed to `supabase.functions.invoke('invite-code-manage')`.
+- Request body uses a single action discriminator: `create`, `revoke`, `list`.
+- Server must enforce organization scope using `public.can_manage_invite_codes(target_org_id)`.
+  - `admin`: only own organization scope.
+  - `superuser`: cross-organization scope allowed.
+- `maxUses` is fixed server-side to `1` regardless of client input.
+- Raw invite code is returned only once on `create` success and must never be persisted or re-readable.
+
+### Request DTO (Action Union)
+
+#### Common field
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | `create` \| `revoke` \| `list` |
+
+#### Action: `create`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `create` |
+| `organizationId` | UUID | Yes | Target organization for issuance |
+| `expiresAt` | String | Yes | ISO-8601 timestamp, must be later than server `NOW()` |
+| `maxUses` | Number | No | Optional compatibility input, server always normalizes to `1` |
+
+#### Action: `revoke`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `revoke` |
+| `inviteCodeId` | UUID | Yes | Target invite row id in `public.invite_codes` |
+
+#### Action: `list`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `list` |
+| `organizationId` | UUID | Yes | Query scope target organization |
+| `includeInactive` | Boolean | No | Default `true`; when `false`, only `active` items are returned |
+
+### Response Rules
+
+- Success and error envelopes follow the same canonical shape used by `signup-submit`.
+- `create` success includes `rawCode` exactly once.
+- `revoke` and `list` responses never include `rawCode` or `codeHash`.
+- `list` items expose only management metadata plus derived status.
+
+### Invite Status Derivation (`derivedStatus`)
+
+- `revoked`: `revoked_at IS NOT NULL`
+- `used`: `used_count = 1`
+- `expired`: `expires_at <= NOW()`
+- `active`: `revoked_at IS NULL AND used_count = 0 AND expires_at > NOW()`
+
+Evaluation order is deterministic: `revoked` -> `used` -> `expired` -> `active`.
+
+### Success Response Envelope
+
+#### Success Example: `create`
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "create",
+    "inviteCodeId": "uuid",
+    "organizationId": "uuid",
+    "roleScope": "user",
+    "rawCode": "ABCD-1234-EFGH",
+    "maxUses": 1,
+    "usedCount": 0,
+    "expiresAt": "2026-03-31T14:59:59.000Z",
+    "createdAt": "2026-03-06T01:00:00.000Z",
+    "createdBy": "uuid",
+    "derivedStatus": "active"
+  }
+}
+```
+
+#### Success Example: `revoke`
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "revoke",
+    "inviteCodeId": "uuid",
+    "organizationId": "uuid",
+    "revokedAt": "2026-03-06T01:03:00.000Z",
+    "derivedStatus": "revoked"
+  }
+}
+```
+
+#### Success Example: `list`
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "list",
+    "organizationId": "uuid",
+    "items": [
+      {
+        "inviteCodeId": "uuid",
+        "roleScope": "user",
+        "maxUses": 1,
+        "usedCount": 0,
+        "expiresAt": "2026-03-31T14:59:59.000Z",
+        "revokedAt": null,
+        "usedAt": null,
+        "createdAt": "2026-03-06T01:00:00.000Z",
+        "createdBy": "uuid",
+        "derivedStatus": "active"
+      }
+    ]
+  }
+}
+```
+
+### Error Response Envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVITE_CODE_NOT_FOUND",
+    "message": "Invite code not found.",
+    "details": {
+      "inviteCodeId": "uuid"
+    }
+  }
+}
+```
+
+Clients must branch by `error.code` (canonical), not by free-form message text.
+
+### Canonical Error Code Contract (`invite-code-manage`)
+
+| Code | Meaning | Typical Operation |
+| :--- | :--- | :--- |
+| `VALIDATION_ERROR` | Request payload schema/field validation failed | create/revoke/list |
+| `PERMISSION_DENIED` | Caller lacks organization scope permission | create/revoke/list |
+| `INVITE_CODE_NOT_FOUND` | Target invite row does not exist in allowed scope | revoke |
+| `INVITE_CODE_ALREADY_REVOKED` | Invite row is already revoked | revoke |
+| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+
+### Contract-Only Scaffold Note
+
+- During contract-only rollout, `invite-code-manage` may return:
+  - `501 INTERNAL_ERROR` with `error.details.stage='contract_only_scaffold'` when persistence is disabled.
+- Frontend should treat this as a non-production scaffold response and keep canonical error handling.
+
 ## Hospital Search Contract (P2 Canonical)
 
 This section defines the contract for hospital lookup used by admin signup.
