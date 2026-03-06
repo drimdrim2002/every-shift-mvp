@@ -325,6 +325,7 @@ organizations
 6. **Tailwind Only**: Use Tailwind CSS utilities; avoid custom CSS unless absolutely necessary
 7. **Naive UI Components**: Leverage Naive UI for forms, modals, buttons (not grid/table)
 8. **External Library Usage**: When a task can be significantly simplified by installing external tools or libraries (e.g., ImageMagick for image processing, Pillow for Python image manipulation, sharp for Node.js image processing), ALWAYS prefer installing and using the appropriate tool rather than implementing complex manual solutions. Check for tool availability first with `which <tool>` or try importing the library, then install if needed using the appropriate package manager (apt-get, pip, npm, etc.)
+9. **No Docker-Based Function Execution**: Do NOT use Docker-dependent commands (e.g., `supabase functions serve`, `supabase start`) in this project environment. Validate Edge Function behavior with non-Docker approaches first (unit/integration tests, direct runtime harness, or remote function invocation via configured Supabase project). Only consider Docker if the user explicitly requests it.
 
 ## Lint Gate Policy
 
