@@ -5272,10 +5272,10 @@
       "name": "P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)",
       "description": "docs/API_SPEC.md에 hospital-search 요청/응답/에러 계약을 신규 섹션으로 추가한다. keyword/pageNo/numOfRows 입력 규칙, 성공/실패 envelope, source='data.go.kr' 메타, timeout/rate-limit/error mapping 정책을 명문화한다.",
       "notes": "기존 signup-submit 섹션 스타일과 동일한 문서 구조를 유지한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-04T13:59:43.528Z",
-      "updatedAt": "2026-03-04T13:59:43.528Z",
+      "updatedAt": "2026-03-06T14:43:21.431Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -5290,7 +5290,9 @@
       ],
       "implementationGuide": "1) API_SPEC에 'Edge Function Boundary (hospital-search)' 섹션 추가. 2) Request DTO(필수/선택/범위) 표 작성. 3) Success/Error envelope JSON 예시 작성. 4) Canonical error code 표(VALIDATION_ERROR, UPSTREAM_TIMEOUT, UPSTREAM_RATE_LIMIT, UPSTREAM_ERROR, INTERNAL_ERROR) 작성. 5) 보안 경계(클라이언트 직접 data.go 호출 금지, 키 서버 환경변수 전용) 체크리스트 추가.",
       "verificationCriteria": "Deliverable: hospital-search 계약 섹션이 API_SPEC에 추가되고 요청/응답/에러/보안경계가 모두 명시된다. Method: 문서 리뷰로 필수 항목(keyword/pageNo/numOfRows 검증, source 메타, error mapping, 키 비노출 경계) 확인. Pass: 누락 없이 항목이 확인된다.",
-      "analysisResult": "P2-1.6의 목표는 병원 검색 경계를 프론트 직접 외부 호출에서 Edge Function 프록시 단일 경계로 전환하고, 요청/응답/에러 계약을 API_SPEC에 명문화하는 것이다. 기존 signup-submit의 envelope 패턴과 invoke 패턴을 재사용해 일관성을 유지하며, 과도한 추상화 없이 hospital-search 함수 단위로 구현한다. 핵심 리스크는 docs/migration/REMAINING_TASKS_MERGED.md의 동일 taskId 의미 드리프트이므로 canonical source를 .shrimp-data/tasks.json으로 고정한다."
+      "analysisResult": "P2-1.6의 목표는 병원 검색 경계를 프론트 직접 외부 호출에서 Edge Function 프록시 단일 경계로 전환하고, 요청/응답/에러 계약을 API_SPEC에 명문화하는 것이다. 기존 signup-submit의 envelope 패턴과 invoke 패턴을 재사용해 일관성을 유지하며, 과도한 추상화 없이 hospital-search 함수 단위로 구현한다. 핵심 리스크는 docs/migration/REMAINING_TASKS_MERGED.md의 동일 taskId 의미 드리프트이므로 canonical source를 .shrimp-data/tasks.json으로 고정한다.",
+      "summary": "API_SPEC.md 파일 내에 hospital-search 요청/응답/에러 계약 섹션이 이미 완벽히 추가되어 있습니다. keyword, pageNo, numOfRows 입력 규칙, 성공 및 실패 응답 envelope, source 메타데이터, 타임아웃, 속도 제한, 에러 매핑 정책 및 보안 경계 체크리스트(클라이언트 직접 data.go 호출 금지, 키 서버 환경변수 전용)가 모두 명확하게 문서화되어 있어 검증 기준을 충족합니다.",
+      "completedAt": "2026-03-06T14:43:21.426Z"
     },
     {
       "id": "79e67b38-73fe-46ea-8d18-afe32c884598",
@@ -5894,6 +5896,76 @@
       "implementationGuide": "1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.",
       "verificationCriteria": "Signup success flow still shows correct pending/active messages and existing tests remain green.",
       "analysisResult": "P2-1.4-1C deterministic signup result contract is already satisfied; only optional hardening remains."
+    },
+    {
+      "id": "ff1599e4-585f-4e63-9565-a84284e4674c",
+      "name": "P2-1.5A 가입 스모크 시나리오 섹션 초안 작성",
+      "description": "docs/verification/test-validation-guide.md에 admin/user 분기 수동 회귀용 signup smoke scenarios 섹션을 추가한다. 문서는 선행조건, 절차, 기대결과 3요소를 고정 포맷으로 사용하고 admin happy path, user happy path, admin 병원 미선택 fail path, user invalid/expired/reused invite fail path, duplicate request, internal error를 최소 세트로 포함해야 한다.",
+      "notes": "기존 deep validation 문서를 대체하지 말고, UI/manual regression 레이어를 덧붙이는 형태로 작성한다. Korean prose를 유지하고 기존 문서의 번호 체계와 표 스타일을 따른다.",
+      "status": "completed",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000055"
+        }
+      ],
+      "createdAt": "2026-03-06T14:42:53.805Z",
+      "updatedAt": "2026-03-06T14:45:14.493Z",
+      "relatedFiles": [
+        {
+          "path": "/home/brown/projects/every-shift-mvp/docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "가입 분기 스모크 시나리오 문서 추가"
+        },
+        {
+          "path": "/home/brown/projects/every-shift-mvp/src/views/auth/Signup.vue",
+          "type": "REFERENCE",
+          "description": "실제 UI 분기, 성공 안내, 검증 메시지 참조"
+        },
+        {
+          "path": "/home/brown/projects/every-shift-mvp/src/types/signup.ts",
+          "type": "REFERENCE",
+          "description": "canonical error code와 사용자 메시지 참조"
+        }
+      ],
+      "implementationGuide": "1) 기존 signup 검증 섹션 위치를 확인하고 그 인접 영역에 새 subsection을 배치한다. 2) 시나리오 요약 표를 먼저 추가해 branch와 happy/fail coverage를 한눈에 보이게 한다. 3) 각 시나리오를 Precondition / Steps / Expected Result 구조로 작성한다. 4) DB/계약 상세는 SGN-001~009, error-code mapping은 section 14를 참조하도록 연결하고 중복 SQL 서술은 피한다. 5) 기대 결과에는 실제 UI 텍스트와 상태 전이(pending_approval, active, INVALID_INVITE_CODE, DUPLICATE_REQUEST, INTERNAL_ERROR)를 명시한다.",
+      "verificationCriteria": "문서에 admin/user 경로별 happy/fail 케이스가 모두 존재해야 한다. 각 시나리오는 선행조건, 절차, 기대결과를 포함해야 하며 pending_approval/active 상태와 INVALID_INVITE_CODE, DUPLICATE_REQUEST, INTERNAL_ERROR 기대값이 누락 없이 기재되어야 한다.",
+      "analysisResult": "P2-1.5 is a documentation-only task that should extend docs/verification/test-validation-guide.md with manual signup smoke scenarios for the existing single /signup branch UI. The implementation must reuse existing signup verification content (SGN-001~009 and section 14) instead of duplicating SQL/contract logic, and must align expected results with current behavior in Signup.vue, auth store normalization, and signup error code definitions.",
+      "summary": "docs/verification/test-validation-guide.md에 signup smoke subsection을 추가해 admin/user happy·fail 경로와 상태 전이, canonical 오류 기대값을 선행조건·절차·기대결과 형식으로 문서화했습니다.",
+      "completedAt": "2026-03-06T14:45:14.485Z"
+    },
+    {
+      "id": "62d44239-440d-4c38-81cb-f25a5d6bddd7",
+      "name": "P2-1.5B 가입 스모크 시나리오 문서 정합성 검토",
+      "description": "추가한 smoke scenario 문서가 현재 signup 구현 및 기존 검증 문서와 충돌하지 않는지 검토하고 누락을 보완한다.",
+      "notes": "새 코드 구현은 비범위다. 문서 리뷰 단계에서 발견된 구현-문서 불일치는 사실 기반으로 기록하되 추정으로 보정하지 않는다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "ff1599e4-585f-4e63-9565-a84284e4674c"
+        }
+      ],
+      "createdAt": "2026-03-06T14:42:53.805Z",
+      "updatedAt": "2026-03-06T14:42:53.805Z",
+      "relatedFiles": [
+        {
+          "path": "/home/brown/projects/every-shift-mvp/docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "최종 정합성 반영"
+        },
+        {
+          "path": "/home/brown/projects/every-shift-mvp/src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "API fallback 및 error normalization 참조"
+        },
+        {
+          "path": "/home/brown/projects/every-shift-mvp/src/stores/auth.ts",
+          "type": "REFERENCE",
+          "description": "success/error 결과 메시지와 nextState 도출 참조"
+        }
+      ],
+      "implementationGuide": "1) Signup.vue, src/api/signup.ts, src/stores/auth.ts, src/types/signup.ts를 대조해 문서의 기대결과가 실제 구현과 일치하는지 확인한다. 2) 병원 미선택 시 제출 불가/검증 메시지, user 성공 시 active 안내, admin 성공 시 pending 안내, duplicate/internal error 메시지 흐름을 확인한다. 3) SGN-001~009 및 section 14와 중복/불일치가 없는지 확인하고 표현을 정리한다. 4) 리뷰 체크리스트를 통해 경로별 상태 전이와 오류 메시지 누락 여부를 최종 점검한다.",
+      "verificationCriteria": "최종 문서가 현재 구현과 상충하지 않아야 하며, 기존 signup verification 섹션과 역할이 분리되어 있어야 한다. 리뷰 결과 admin/user happy/fail coverage, 상태 전이, 오류 메시지 기대값이 모두 확인되면 완료로 본다.",
+      "analysisResult": "P2-1.5 is a documentation-only task that should extend docs/verification/test-validation-guide.md with manual signup smoke scenarios for the existing single /signup branch UI. The implementation must reuse existing signup verification content (SGN-001~009 and section 14) instead of duplicating SQL/contract logic, and must align expected results with current behavior in Signup.vue, auth store normalization, and signup error code definitions."
     }
   ]
 }

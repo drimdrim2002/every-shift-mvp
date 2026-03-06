@@ -662,3 +662,148 @@ commit;
 1. 클라이언트 분기 로직이 `error.code`만 사용하고 자유 텍스트에 의존하지 않는가
 2. detail reason은 로깅/디버깅 용도로만 사용되는가
 3. UI 메시지 매핑이 canonical code 기준 단일화되어 있는가
+
+## 15) P2-1.5 가입 제출 스모크 테스트 시나리오 (admin/user 분기)
+
+본 섹션은 자동화 도입 전 `/signup` 수동 회귀 체크리스트다.  
+하위 DB/계약 검증은 `SGN-001`~`SGN-009`, 입력/에러 코드 검증은 14장을 기준으로 하고, 여기서는 실제 화면 기준 최소 happy/fail 흐름만 점검한다.
+
+### 15.1 스모크 시나리오 요약표
+
+| Scenario ID | Path | 목적 | 관련 기준 |
+| :--- | :--- | :--- | :--- |
+| `SMK-001` | `admin` happy | 병원 검색/선택 후 pending 안내 노출 확인 | `SGN-001`, 14.1 |
+| `SMK-002` | `user` happy | 유효 invite 제출 후 active 안내 노출 확인 | `SGN-004`, 14.1 |
+| `SMK-003` | `admin` fail | 병원 미선택 시 제출 차단 확인 | 14.1 |
+| `SMK-004` | `user` fail | 무효/만료/재사용 invite 오류 처리 확인 | `SGN-005`, 14.1, 14.2 |
+| `SMK-005` | `admin`/`user` fail | 중복 신청 시 canonical 오류 메시지 확인 | `SGN-006`, 14.1, 14.2 |
+| `SMK-006` | `admin`/`user` fail | 함수/백엔드 오류 시 일반 오류 처리 확인 | 14.2 |
+
+### 15.2 공통 실행 규칙
+
+1. 대상 화면은 단일 `/signup` 라우트다.
+2. 역할 전환은 `관리자` / `사용자` 라디오 버튼으로 수행한다.
+3. 기대 오류값은 자유 텍스트가 아니라 canonical code 기준으로 판정한다.
+4. 메시지 문구는 [`src/views/auth/Signup.vue`](/home/brown/projects/every-shift-mvp/src/views/auth/Signup.vue), [`src/views/auth/Login.vue`](/home/brown/projects/every-shift-mvp/src/views/auth/Login.vue), [`src/types/signup.ts`](/home/brown/projects/every-shift-mvp/src/types/signup.ts) 구현과 일치해야 한다.
+
+### SMK-001
+
+- `Scenario ID`: `SMK-001`
+- `Path`: `admin` happy path
+- `Precondition`:
+  - 병원 검색 API가 정상 응답한다.
+  - 선택 가능한 병원 1건 이상이 검색된다.
+  - 신규 admin 가입 이메일로 중복 pending 요청이 없다.
+- `Steps`:
+  1. `/signup` 진입 후 `관리자` 역할을 선택한다.
+  2. 이름, 이메일, 비밀번호를 유효값으로 입력한다.
+  3. 병원명을 2글자 이상 입력하고 `검색` 버튼을 클릭한다.
+  4. 검색 결과에서 병원 1건을 선택한다.
+  5. `가입 신청` 버튼을 클릭한다.
+  6. 성공 후 `로그인으로 이동` 버튼을 클릭한다.
+- `Expected Result`:
+  - 병원 출처 문구 `병원 목록 출처: 공공데이터포털(data.go.kr)`가 표시된다.
+  - 제출 성공 시 상단 info alert에 `가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.`가 표시된다.
+  - 성공 메시지는 `가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.`로 표시된다.
+  - 결과 상태는 `pending_approval`로 해석된다.
+  - 로그인 화면 이동 후 info alert에 `회원가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.`가 표시된다.
+
+### SMK-002
+
+- `Scenario ID`: `SMK-002`
+- `Path`: `user` happy path
+- `Precondition`:
+  - 유효한 미사용 invite code 1건이 존재한다.
+  - invite code는 만료되지 않았고 역할이 `user`와 일치한다.
+  - 가입 이메일 기준 중복 pending 요청이 없다.
+- `Steps`:
+  1. `/signup` 진입 후 `사용자` 역할을 선택한다.
+  2. 이름, 이메일, 비밀번호를 유효값으로 입력한다.
+  3. 초대코드를 입력한다.
+  4. `가입하기` 버튼을 클릭한다.
+  5. 성공 후 `로그인으로 이동` 버튼을 클릭한다.
+- `Expected Result`:
+  - 제출 성공 시 상단 success alert에 `가입이 완료되었습니다. 로그인 페이지에서 바로 로그인할 수 있습니다.`가 표시된다.
+  - 성공 메시지는 `가입이 완료되었습니다. 로그인할 수 있습니다.`로 표시된다.
+  - 결과 상태는 `active`로 해석된다.
+  - 로그인 화면 이동 후 success alert에 `가입이 완료되었습니다. 로그인할 수 있습니다.`가 표시된다.
+
+### SMK-003
+
+- `Scenario ID`: `SMK-003`
+- `Path`: `admin` fail path
+- `Precondition`:
+  - `/signup` 화면이 정상 렌더링된다.
+- `Steps`:
+  1. `/signup` 진입 후 `관리자` 역할을 선택한다.
+  2. 이름, 이메일, 비밀번호를 유효값으로 입력한다.
+  3. 병원을 선택하지 않은 상태를 유지한다.
+  4. 제출 버튼 상태와 병원 필드 검증을 확인한다.
+- `Expected Result`:
+  - `가입 신청` 버튼은 disabled 상태다.
+  - 병원 필수 조건 위반 시 제출이 진행되지 않는다.
+  - 폼 검증 기준 메시지는 `병원을 선택하세요`다.
+  - 병원 ID는 있으나 선택 label 해석에 실패한 비정상 케이스에서는 `선택한 병원 정보를 다시 확인해주세요` 오류가 표시된다.
+
+### SMK-004
+
+- `Scenario ID`: `SMK-004`
+- `Path`: `user` fail path
+- `Precondition`:
+  - 아래 케이스별 테스트 데이터가 준비되어 있다.
+  - 무효 invite code 1건
+  - 만료 invite code 1건
+  - 이미 사용된 invite code 1건
+- `Steps`:
+  1. `/signup` 진입 후 `사용자` 역할을 선택한다.
+  2. 이름, 이메일, 비밀번호를 유효값으로 입력한다.
+  3. 케이스별 invite code를 입력한다.
+  4. `가입하기` 버튼을 클릭한다.
+- `Expected Result`:
+  - 초대코드가 비어 있으면 버튼은 disabled 상태이며 폼 검증 메시지는 `초대코드를 입력하세요`다.
+  - 무효/만료/재사용 invite 제출 시 요청은 실패한다.
+  - UI 오류 메시지는 모두 `초대코드가 유효하지 않습니다.`로 단일화된다.
+  - canonical 오류값은 `INVALID_INVITE_CODE`로 판정한다.
+  - 성공 alert(`active`)는 노출되지 않는다.
+
+### SMK-005
+
+- `Scenario ID`: `SMK-005`
+- `Path`: `admin` / `user` fail path
+- `Precondition`:
+  - 동일 requester/role/scope 기준 pending signup request가 이미 1건 존재한다.
+- `Steps`:
+  1. admin 경로 또는 user 경로로 `/signup`에 진입한다.
+  2. 기존 pending 요청과 동일 scope가 되도록 유효 데이터를 입력한다.
+  3. 제출 버튼을 클릭한다.
+- `Expected Result`:
+  - 요청은 실패한다.
+  - UI 오류 메시지는 `동일한 가입 신청이 이미 접수되어 있습니다.`다.
+  - canonical 오류값은 `DUPLICATE_REQUEST`로 판정한다.
+  - success/info alert는 신규로 노출되지 않는다.
+
+### SMK-006
+
+- `Scenario ID`: `SMK-006`
+- `Path`: `admin` / `user` fail path
+- `Precondition`:
+  - `signup-submit` 함수가 일반 실패를 반환하거나 invoke 단계 오류를 발생시키도록 환경을 구성한다.
+  - dev mock fallback을 우회해야 하는 경우 `VITE_SIGNUP_FORCE_REMOTE=true` 상태에서 수행한다.
+- `Steps`:
+  1. admin 또는 user 경로로 `/signup`에 진입한다.
+  2. 역할별 필수 입력값을 모두 채운다.
+  3. 제출 시 함수 오류 또는 백엔드 내부 오류를 유도한다.
+- `Expected Result`:
+  - 요청은 실패한다.
+  - UI 오류 메시지는 `가입 처리 중 오류가 발생했습니다.`다.
+  - canonical 오류값은 `INTERNAL_ERROR`로 판정한다.
+  - `pending_approval` 또는 `active` 성공 상태로 전이되지 않는다.
+
+### 15.3 리뷰 체크리스트
+
+1. `admin`/`user` 각각 happy path 1건 이상이 존재하는가
+2. `admin` 병원 미선택, `user` invite invalid 계열 fail path가 포함되는가
+3. `pending_approval`와 `active` 상태 전이가 모두 검증되는가
+4. `INVALID_INVITE_CODE`, `DUPLICATE_REQUEST`, `INTERNAL_ERROR` 기대값이 명시되는가
+5. 로그인 화면의 `signupState` 안내 문구까지 확인 대상으로 포함되는가
+6. 본 섹션이 `SGN-001`~`SGN-009`를 대체하지 않고 UI 스모크 레이어로 유지되는가
