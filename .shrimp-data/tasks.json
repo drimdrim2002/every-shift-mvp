@@ -1272,7 +1272,7 @@
       "id": "10000000-0000-4000-8000-000000000056",
       "name": "P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)",
       "description": "admin 승인대기형과 user 즉시승인형 가입 흐름의 최소 스모크 테스트 세트를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P2",
       "dependencies": [
         {
@@ -1300,9 +1300,11 @@
       "implementationGuide": "1) admin happy path: 병원 검색/선택 -> 제출 -> pending 상태 안내 시나리오를 정의한다. 2) user happy path: 유효 invite code 제출 -> active 상태/로그인 가능 시나리오를 정의한다. 3) fail path: 병원 미선택, invite code 만료/재사용, 중복 신청, 함수 오류를 포함한다.",
       "verificationCriteria": "Deliverable: 가입 스모크 시나리오 문서에 admin/user 경로별 happy/fail 케이스가 존재한다.\nMethod: 시나리오별 선행조건/절차/기대결과 3요소 포함 여부를 점검한다.\nPass: 경로별 상태 전이와 오류 메시지 기대값이 누락 없이 기재된다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-03T14:24:10.927Z",
+      "updatedAt": "2026-03-06T15:15:12.551Z",
       "notes": "P2-1.5는 자동화 도입 전 수동 회귀 체크리스트로 사용한다.",
-      "analysisResult": "가입 분기 회귀는 UI보다 상태 전이에 취약하므로 status 기반 기대 결과를 먼저 고정해야 한다."
+      "analysisResult": "가입 분기 회귀는 UI보다 상태 전이에 취약하므로 status 기반 기대 결과를 먼저 고정해야 한다.",
+      "summary": "가입 스모크 시나리오 문서에 admin/user 경로별 happy·fail 케이스가 모두 정의되어 있으며 각 시나리오가 선행조건, 절차, 기대결과를 포함합니다. pending_approval·active 상태 전이와 INVALID_INVITE_CODE·DUPLICATE_REQUEST·INTERNAL_ERROR 기대값도 누락 없이 명시되어 검증 기준을 충족합니다.",
+      "completedAt": "2026-03-06T15:15:12.546Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000057",
@@ -5940,14 +5942,14 @@
       "name": "P2-1.5B 가입 스모크 시나리오 문서 정합성 검토",
       "description": "추가한 smoke scenario 문서가 현재 signup 구현 및 기존 검증 문서와 충돌하지 않는지 검토하고 누락을 보완한다.",
       "notes": "새 코드 구현은 비범위다. 문서 리뷰 단계에서 발견된 구현-문서 불일치는 사실 기반으로 기록하되 추정으로 보정하지 않는다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "ff1599e4-585f-4e63-9565-a84284e4674c"
         }
       ],
       "createdAt": "2026-03-06T14:42:53.805Z",
-      "updatedAt": "2026-03-06T14:42:53.805Z",
+      "updatedAt": "2026-03-06T15:14:08.457Z",
       "relatedFiles": [
         {
           "path": "/home/brown/projects/every-shift-mvp/docs/verification/test-validation-guide.md",
@@ -5967,7 +5969,9 @@
       ],
       "implementationGuide": "1) Signup.vue, src/api/signup.ts, src/stores/auth.ts, src/types/signup.ts를 대조해 문서의 기대결과가 실제 구현과 일치하는지 확인한다. 2) 병원 미선택 시 제출 불가/검증 메시지, user 성공 시 active 안내, admin 성공 시 pending 안내, duplicate/internal error 메시지 흐름을 확인한다. 3) SGN-001~009 및 section 14와 중복/불일치가 없는지 확인하고 표현을 정리한다. 4) 리뷰 체크리스트를 통해 경로별 상태 전이와 오류 메시지 누락 여부를 최종 점검한다.",
       "verificationCriteria": "최종 문서가 현재 구현과 상충하지 않아야 하며, 기존 signup verification 섹션과 역할이 분리되어 있어야 한다. 리뷰 결과 admin/user happy/fail coverage, 상태 전이, 오류 메시지 기대값이 모두 확인되면 완료로 본다.",
-      "analysisResult": "P2-1.5 is a documentation-only task that should extend docs/verification/test-validation-guide.md with manual signup smoke scenarios for the existing single /signup branch UI. The implementation must reuse existing signup verification content (SGN-001~009 and section 14) instead of duplicating SQL/contract logic, and must align expected results with current behavior in Signup.vue, auth store normalization, and signup error code definitions."
+      "analysisResult": "P2-1.5 is a documentation-only task that should extend docs/verification/test-validation-guide.md with manual signup smoke scenarios for the existing single /signup branch UI. The implementation must reuse existing signup verification content (SGN-001~009 and section 14) instead of duplicating SQL/contract logic, and must align expected results with current behavior in Signup.vue, auth store normalization, and signup error code definitions.",
+      "summary": "가입 스모크 문서와 현재 signup 구현을 대조한 결과 admin/user happy·fail 경로, pending_approval·active 상태 전이, INVALID_INVITE_CODE·DUPLICATE_REQUEST·INTERNAL_ERROR 메시지 기대값이 모두 일치함을 확인했습니다. 기존 SGN/입력검증 섹션과도 역할이 분리되어 있어 문서 정합성이 충족됩니다.",
+      "completedAt": "2026-03-06T15:14:08.452Z"
     }
   ]
 }
