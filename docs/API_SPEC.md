@@ -340,6 +340,100 @@ The server may include legacy detail reasons under `error.details.reason` for mi
 | `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
 | `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
 
+## Auth Context Contract (P2 Canonical)
+
+This section defines the authenticated context payload used after login or session restore.
+Client-side access control must derive post-login access from this payload, not from `signup-submit.nextState`.
+
+### Contract Scope
+
+- This section defines:
+  - canonical profile and membership fields for post-login access decisions
+  - multi-membership precedence inputs
+  - shared enum values used by frontend access-state resolution
+- This section does not define:
+  - route guard sequencing
+  - pending/rejected UI copy
+  - organization switcher UX
+
+### Shared Enums
+
+| Name | Values |
+| :--- | :--- |
+| `globalRole` | `super`, `admin`, `user` |
+| `accountStatus` | `active`, `pending`, `rejected`, `suspended`, `withdrawn` |
+| `membershipRole` | `admin`, `user` |
+| `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn` |
+| `accessState` | `unauthenticated`, `super_active`, `admin_active`, `admin_pending`, `admin_rejected`, `user_active`, `no_membership_or_inactive` |
+
+### Response Envelope
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "userId": "uuid",
+      "globalRole": "admin",
+      "accountStatus": "active"
+    },
+    "currentOrganizationId": "uuid",
+    "memberships": [
+      {
+        "membershipId": "uuid",
+        "organizationId": "uuid",
+        "role": "admin",
+        "status": "pending",
+        "approvedAt": null,
+        "createdAt": "2026-03-07T01:00:00.000Z",
+        "rejectionReason": null
+      }
+    ]
+  }
+}
+```
+
+### Field Rules
+
+#### `profile`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `userId` | UUID | Yes | Authenticated user id |
+| `globalRole` | String | Yes | `super` \\| `admin` \\| `user` |
+| `accountStatus` | String | Yes | `active` \\| `pending` \\| `rejected` \\| `suspended` \\| `withdrawn` |
+
+#### `memberships[]`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `membershipId` | UUID | No | Membership row id |
+| `organizationId` | UUID | Yes | Organization scope id |
+| `role` | String | Yes | `admin` \\| `user` |
+| `status` | String | Yes | `pending` \\| `approved` \\| `rejected` \\| `withdrawn` |
+| `approvedAt` | String | No | ISO-8601 timestamp or `null` |
+| `createdAt` | String | No | ISO-8601 timestamp or `null` |
+| `rejectionReason` | String | No | Optional rejection metadata |
+
+#### Optional context field
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `currentOrganizationId` | UUID | No | When present, the matching membership is evaluated first for access resolution |
+
+### Access-State Derivation Rules
+
+- `globalRole='super'` and `accountStatus='active'` resolves to `super_active` without membership checks.
+- Any non-`active` `accountStatus` resolves to `no_membership_or_inactive`.
+- For non-super users, only `membershipStatus='approved'` grants active tenant access.
+- When `currentOrganizationId` is present, the matching membership row is evaluated first.
+- Without current organization context, clients should select memberships in this order:
+  - approved `admin`
+  - approved `user`
+  - pending `admin`
+  - rejected `admin`
+- Pending or rejected `user` memberships are not a normal happy-path access state and should resolve to `no_membership_or_inactive`.
+
 ## Invite Code Manage Contract (P2 Canonical)
 
 This section defines the admin/super invite-code management contract for issuance, revoke, and list operations.

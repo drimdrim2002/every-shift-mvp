@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getSignupErrorMessage, submitSignup, SignupSubmitApiError } from '@/api/signup'
 import { supabase } from '@/api/supabase'
+import { useRbacStore } from '@/stores/rbac'
 import type { User } from '@supabase/supabase-js'
 import {
   SIGNUP_ERROR_MESSAGES,
@@ -86,6 +87,11 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
 
+  function syncRbacSession(nextUser: User | null) {
+    const rbacStore = useRbacStore()
+    rbacStore.setSessionUserId(nextUser?.id ?? null)
+  }
+
   /**
    * 이메일/비밀번호 로그인
    */
@@ -100,6 +106,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (error) throw error
 
       user.value = data.user
+      syncRbacSession(data.user)
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -138,6 +145,7 @@ export const useAuthStore = defineStore('auth', () => {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       user.value = null
+      useRbacStore().clearContext()
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '로그아웃 실패'
@@ -151,6 +159,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function checkSession() {
     const { data } = await supabase.auth.getSession()
     user.value = data.session?.user ?? null
+    syncRbacSession(user.value)
   }
 
   return {
