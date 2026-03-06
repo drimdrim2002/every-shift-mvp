@@ -245,7 +245,7 @@ Canonical state source:
 ### Invite Code Domain Rules (`invite_codes`)
 
 - Persistence table: `public.invite_codes` (user signup path only).
-- Raw invite token must never be stored. Only hashed value is stored in `code_hash` (SHA-256 compatible).
+- Raw invite token must never be stored. Only a 64-character SHA-256 hex digest is stored in `code_hash`.
 - `expires_at` is mandatory and must be later than `created_at`.
 - Canonical single-use model:
   - `max_uses` is fixed to `1`

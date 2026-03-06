@@ -5396,10 +5396,10 @@
       "name": "P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장",
       "description": "migrations/010_signup_role_flow.sql에서 기존 invite_codes 스키마를 확장해 max_uses=1, used_count 제약, expires_at 필수 불변식, code_hash 저장 정책을 DDL 수준에서 완결한다.",
       "notes": "organization_invite_codes 신설 대신 canonical invite_codes 확장으로 고정. 기존 used_at/used_by 호환성 유지 필수.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-04T14:28:14.815Z",
-      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-06T14:50:01.468Z",
       "relatedFiles": [
         {
           "path": "migrations/010_signup_role_flow.sql",
@@ -5418,7 +5418,9 @@
       ],
       "implementationGuide": "1) invite_codes에 max_uses INTEGER NOT NULL DEFAULT 1, used_count INTEGER NOT NULL DEFAULT 0 추가. 2) CHECK 제약 추가: max_uses = 1, used_count BETWEEN 0 AND max_uses. 3) used_at/used_by와 used_count 정합성 CHECK 추가(0이면 used_at/used_by NULL, 1이면 둘 다 NOT NULL). 4) expires_at > created_at 제약 유지/보강. 5) code_hash unique 인덱스 유지 및 해시 포맷 제약(정책 합의 형식) 문서 주석 반영.",
       "verificationCriteria": "DDL 리뷰 시 재사용 차단(max_uses=1+used_count), 무기한 코드 차단(expires_at 필수+체크), 평문 저장 금지(code_hash only) 구조가 명확히 확인되어야 한다.",
-      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints."
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints.",
+      "summary": "010 마이그레이션의 invite_codes를 INTEGER 기반 단일사용 계약으로 보강하고, expires_at/64자리 SHA-256 hex code_hash/used_count-used_at-used_by 정합성 CHECK를 명시했다. API_SPEC와 계약 플레이북도 동일 제약에 맞게 갱신했으며 pnpm lint:check 통과를 확인했다.",
+      "completedAt": "2026-03-06T14:50:01.462Z"
     },
     {
       "id": "605ced42-6835-429c-8c6a-fe2509dc1ed0",

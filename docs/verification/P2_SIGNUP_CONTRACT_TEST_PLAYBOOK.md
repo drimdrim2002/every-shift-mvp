@@ -76,6 +76,8 @@ order by conname;
 ```
 - Expected:
   - Constraints include:
+    - `code_hash` matches a 64-character SHA-256 hex digest
+    - `expires_at > created_at`
     - `max_uses = 1`
     - `used_count` bounded in `0..1`
     - `(used_count=0 => used_at/used_by null)`
@@ -87,7 +89,7 @@ order by conname;
 insert into public.invite_codes (
   organization_id, role_scope, code_hash, expires_at, max_uses, used_count, used_at, created_by
 ) values (
-  '<ORG_UUID>', 'user', 'hash-invalid-usage-pair', now() + interval '1 day', 1, 0, now(), '<USER_UUID>'
+  '<ORG_UUID>', 'user', '1111111111111111111111111111111111111111111111111111111111111111', now() + interval '1 day', 1, 0, now(), '<USER_UUID>'
 );
 ```
 - Expected:
@@ -99,7 +101,7 @@ insert into public.invite_codes (
 insert into public.invite_codes (
   organization_id, role_scope, code_hash, expires_at, max_uses, used_count, created_by
 ) values (
-  '<ORG_UUID>', 'user', 'hash-invalid-used-count', now() + interval '1 day', 1, 2, '<USER_UUID>'
+  '<ORG_UUID>', 'user', '2222222222222222222222222222222222222222222222222222222222222222', now() + interval '1 day', 1, 2, '<USER_UUID>'
 );
 ```
 - Expected:
