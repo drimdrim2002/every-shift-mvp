@@ -1014,3 +1014,78 @@ commit;
 5. 재사용 차단과 race condition 방어가 각각 별도 security 시나리오로 존재하는가
 6. invite 원문 재노출 금지와 admin 승인 큐 비대상 규칙이 보안 항목으로 명시되는가
 7. 각 시나리오가 추후 Playwright 자동화로 옮길 수 있는 단계형 구조를 갖는가
+
+## 17) P2-2.x/P2-3.x 접근/승인 라우팅 시나리오 (Canonical)
+
+### 17.1 상태 기반 라우팅 매트릭스
+
+| Scenario | Input AccessState | Entry URL | Expected URL | Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| `P2-RT-001` | `unauthenticated` | `/schedule/step1` | `/login` | 보호 라우트 접근 차단 |
+| `P2-RT-002` | `admin_pending` | `/schedule/step1` | `/access/pending` | 미승인 admin 강제 우회 |
+| `P2-RT-003` | `admin_rejected` | `/schedule/step1` | `/access/rejected` | 반려 admin 강제 우회 |
+| `P2-RT-004` | `admin_pending` | `/login` | `/access/pending` | 인증페이지 재진입 시 상태 우선 |
+| `P2-RT-005` | `admin_rejected` | `/signup` | `/access/rejected` | 인증페이지 재진입 시 상태 우선 |
+| `P2-RT-006` | `user_active` | `/access/pending` | `/schedule/step1` | 상태 페이지 우회 금지 |
+| `P2-RT-007` | `admin_active` | `/access/rejected` | `/schedule/step1` | 상태 페이지 우회 금지 |
+| `P2-RT-008` | `no_membership_or_inactive` | `/schedule/step1` | `/login` | 비활성 계정 보호 라우트 차단 |
+
+### 17.2 복구/직접 접근 시나리오
+
+#### P2-RT-009: 직접 URL 접근 (pending)
+
+- `Precondition`: 세션 존재 + resolved `accessState='admin_pending'`
+- `Steps`:
+  1. 브라우저 주소창에 `/schedule/step3` 직접 입력
+  2. 페이지 로드 완료 대기
+- `Expected`:
+  - 최종 URL은 `/access/pending`
+  - schedule step guard보다 상태 가드가 먼저 적용됨
+
+#### P2-RT-010: 세션 복구 후 상태 재평가 (rejected)
+
+- `Precondition`: 이전 세션 존재 + `accessState='admin_rejected'`
+- `Steps`:
+  1. `/schedule/step1`에서 새로고침
+  2. 세션 복구 및 auth-context 재해석 완료 대기
+- `Expected`:
+  - 최종 URL은 `/access/rejected`
+  - 캐시된 이전 라우트 상태로 접근 허용되지 않음
+
+### 17.3 P2-3.5 통합 플로우 시나리오
+
+#### P2-E2E-001: Admin signup pending -> approve -> login allow
+
+- `Flow`:
+  1. admin signup 제출
+  2. 로그인 시 `/access/pending` 유도
+  3. superuser가 approve
+  4. 동일 계정 재로그인
+- `Expected`:
+  - 승인 전 보호 라우트 접근 불가
+  - 승인 후 보호 라우트 접근 가능
+
+#### P2-E2E-002: Admin signup pending -> reject -> rejected screen
+
+- `Flow`:
+  1. admin signup 제출
+  2. superuser가 reject
+  3. 대상 계정 로그인
+- `Expected`:
+  - `/access/rejected` 유도
+  - rejection reason 존재 시 화면 노출
+
+#### P2-E2E-003: User invite signup active path
+
+- `Flow`:
+  1. user invite signup 성공
+  2. 로그인
+- `Expected`:
+  - `active` 상태로 보호 라우트 진입 허용
+  - approval queue 비대상 유지
+
+### 17.4 자동화 후보
+
+1. unit: `router beforeEach` 매트릭스 (`P2-RT-001` ~ `P2-RT-008`)
+2. unit/component: `AccessState` pending/rejected copy + logout CTA
+3. integration/e2e: `P2-E2E-001` ~ `P2-E2E-003`

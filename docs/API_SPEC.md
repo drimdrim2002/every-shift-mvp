@@ -698,7 +698,10 @@ Clients must branch by `error.code` (canonical), not by free-form message text.
 ### Operation C: Approval Decision (Admin Queue, Reference)
 
 Logical operation:
-- Decision on pending admin signup request.
+- Superuser decision on pending admin signup request.
+
+Canonical policy source:
+- `docs/migration/P2_ACCESS_APPROVAL_POLICY.md`
 
 #### Request Body
 
@@ -707,6 +710,19 @@ Logical operation:
 | `signupRequestId` | UUID | Yes | Pending admin request ID |
 | `decision` | String | Yes | `approve` or `reject` |
 | `reviewNote` | String | No | Optional reason/context |
+
+### Success Response DTO (Canonical)
+
+| Field | Type | Required | Notes |
+| :--- | :--- | :--- | :--- |
+| `signupRequestId` | UUID | Yes | Target request id |
+| `decision` | String | Yes | `approve` \| `reject` |
+| `requestStatus` | String | Yes | `approved` \| `rejected` |
+| `membershipStatus` | String | Yes | `approved` \| `none` |
+| `organizationId` | UUID | No | Tenant scope id |
+| `membershipId` | UUID | No | Created/updated membership id for approve path |
+| `decidedAt` | String | Yes | ISO-8601 decision timestamp |
+| `alreadyProcessed` | Boolean | Yes | Idempotent replay indicator |
 
 #### State Write Expectation
 
@@ -725,6 +741,12 @@ Logical operation:
 | `REQUEST_NOT_FOUND` | Target signup request does not exist |
 | `PERMISSION_DENIED` | Caller lacks required approval/tenant scope |
 | `INTERNAL_ERROR` | Unexpected server-side failure |
+
+### Approval Idempotency Rules
+
+- Same decision replay on an already terminal request must return success with `alreadyProcessed=true`.
+- Conflicting decision replay on an already terminal request must return `INVALID_TRANSITION`.
+- Approval log and downstream event production should happen only for the first terminal transition.
 
 ### Compatibility Rule
 

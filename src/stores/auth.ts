@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { fetchAuthContext } from '@/api/auth-context'
 import { getSignupErrorMessage, submitSignup, SignupSubmitApiError } from '@/api/signup'
 import { supabase } from '@/api/supabase'
 import { useRbacStore } from '@/stores/rbac'
@@ -92,6 +93,32 @@ export const useAuthStore = defineStore('auth', () => {
     rbacStore.setSessionUserId(nextUser?.id ?? null)
   }
 
+  async function ensureAccessContext(forceRefresh = false) {
+    const rbacStore = useRbacStore()
+
+    if (!user.value) {
+      rbacStore.clearContext()
+      return null
+    }
+
+    if (!forceRefresh && rbacStore.initialized && rbacStore.context) {
+      return rbacStore.context
+    }
+
+    rbacStore.setLoading(true)
+
+    try {
+      const context = await fetchAuthContext(user.value)
+      rbacStore.setAuthContext(context)
+      return context
+    } catch (error) {
+      console.warn('[auth] Failed to hydrate auth context:', error)
+      rbacStore.clearContext()
+      syncRbacSession(user.value)
+      return null
+    }
+  }
+
   /**
    * 이메일/비밀번호 로그인
    */
@@ -107,6 +134,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       user.value = data.user
       syncRbacSession(data.user)
+      await ensureAccessContext(true)
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -160,6 +188,7 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await supabase.auth.getSession()
     user.value = data.session?.user ?? null
     syncRbacSession(user.value)
+    await ensureAccessContext()
   }
 
   return {
@@ -169,5 +198,6 @@ export const useAuthStore = defineStore('auth', () => {
     signup,
     logout,
     checkSession,
+    ensureAccessContext,
   }
 })

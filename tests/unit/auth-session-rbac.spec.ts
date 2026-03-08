@@ -27,6 +27,12 @@ vi.mock('@/api/supabase', () => ({
   },
 }))
 
+const fetchAuthContextMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/api/auth-context', () => ({
+  fetchAuthContext: fetchAuthContextMock,
+}))
+
 import { useAuthStore } from '@/stores/auth'
 import { useRbacStore } from '@/stores/rbac'
 
@@ -40,9 +46,25 @@ describe('auth store RBAC handoff', () => {
         session: null,
       },
     })
+    fetchAuthContextMock.mockResolvedValue({
+      profile: {
+        userId: 'user-1',
+        globalRole: 'user',
+        accountStatus: 'active',
+      },
+      memberships: [
+        {
+          organizationId: 'org-1',
+          role: 'user',
+          status: 'approved',
+          approvedAt: '2026-03-07T01:00:00.000Z',
+        },
+      ],
+      currentOrganizationId: 'org-1',
+    })
   })
 
-  it('tracks session user id in RBAC store after login', async () => {
+  it('hydrates RBAC context after login', async () => {
     supabaseAuthMock.signInWithPassword.mockResolvedValue({
       data: {
         user: {
@@ -59,8 +81,9 @@ describe('auth store RBAC handoff', () => {
 
     expect(result).toEqual({ success: true })
     expect(rbacStore.sessionUserId).toBe('user-1')
-    expect(rbacStore.accessState).toBeNull()
-    expect(rbacStore.initialized).toBe(false)
+    expect(fetchAuthContextMock).toHaveBeenCalledTimes(1)
+    expect(rbacStore.initialized).toBe(true)
+    expect(rbacStore.accessState).toBe('user_active')
   })
 
   it('clears RBAC context on logout', async () => {
