@@ -836,3 +836,181 @@ commit;
 4. `INVALID_INVITE_CODE`, `DUPLICATE_REQUEST`, `INTERNAL_ERROR` 기대값이 명시되는가
 5. 로그인 화면의 `signupState` 안내 문구까지 확인 대상으로 포함되는가
 6. 본 섹션이 `SGN-001`~`SGN-009`를 대체하지 않고 UI 스모크 레이어로 유지되는가
+
+## 16) P2-1.11 user 초대코드 가입 E2E 시나리오 (Playwright)
+
+본 섹션은 `user` 초대코드 가입 플로우만을 위한 전용 E2E 시나리오 세트다.  
+`admin` 승인 큐, 병원 선택, duplicate contract probe는 본 섹션의 범위에 포함하지 않는다.
+
+계약 기준:
+
+- `docs/API_SPEC.md`의 `signup-submit` canonical contract
+- `path='user_invite_redeem'`
+- `nextState='active'`
+- invite 상태 규칙: `active`, `expired`, `used`, `revoked`
+- 클라이언트 판정 기준은 자유 텍스트가 아니라 canonical `error.code`다.
+
+### 16.1 공통 전제
+
+1. 대상 화면은 단일 `/signup` 라우트이며 역할은 반드시 `사용자`로 선택한다.
+2. happy path와 fail path를 분리해 실행한다.
+3. fail path 검증 시 `VITE_SIGNUP_FORCE_REMOTE=true`를 설정하고 Vite dev server를 재시작한다.
+4. `VITE_SIGNUP_FORCE_REMOTE=true`가 없으면 dev mock bypass 또는 contract scaffold fallback으로 인해 무효 invite가 성공(`active`)처럼 보일 수 있다.
+5. 아래 fixture를 최소 1건씩 준비한다.
+   - 유효 미사용 invite
+   - 만료 invite
+   - 폐기(revoked) invite
+   - 재사용 검증용으로 한 번 성공시킬 invite
+6. 성공 후 로그인 handoff 검증을 위해 [`src/views/auth/Login.vue`](/home/brown/projects/every-shift-mvp/src/views/auth/Login.vue)의 `signupState` 안내 메시지와 일치 여부를 확인한다.
+7. 보안 검증 시 invite 원문은 입력값으로만 사용하고, 응답/화면/문서 어디에도 재노출되지 않는지 확인한다.
+8. 미존재 invite는 `INVALID_INVITE_CODE` canonical 분기에 포함되지만, 본 task의 최소 E2E 세트에서는 폐기/reuse/race 검증을 우선한다.
+
+### 16.2 시나리오 템플릿
+
+모든 시나리오는 아래 필드를 고정 사용한다.
+
+| Field | 설명 |
+| :--- | :--- |
+| `Scenario ID` | 고유 식별자 (`E2E-INV-00N`) |
+| `Goal` | 검증 목적 |
+| `Precondition` | 테스트 데이터 및 환경 플래그 |
+| `Steps` | 화면 기준 실행 단계 |
+| `Expected Result` | UI/API 계약 기준 기대 결과 |
+| `Security Assertion` | 보안/재사용 방지 검증 포인트 |
+| `Automation Note` | 추후 Playwright 전환 시 주의점 |
+
+### E2E-INV-001
+
+- `Scenario ID`: `E2E-INV-001`
+- `Goal`: 유효한 초대코드로 `user` 가입이 완료되고 즉시 로그인 가능 상태로 전이되는지 검증한다.
+- `Precondition`:
+  - 유효 미사용 invite 1건이 존재한다.
+  - invite는 `role_scope='user'`, `revoked_at is null`, `used_count=0`, `expires_at > now()` 상태다.
+  - 신규 이메일 기준 중복 pending 요청이 없다.
+- `Steps`:
+  1. `/signup`에 진입한다.
+  2. `사용자` 역할을 선택한다.
+  3. 이름, 이메일, 비밀번호를 유효값으로 입력한다.
+  4. 유효 invite code를 입력한다.
+  5. `가입하기` 버튼을 클릭한다.
+  6. 성공 후 `로그인으로 이동` 버튼을 클릭한다.
+- `Expected Result`:
+  - 요청은 성공한다.
+  - signup 성공 상태는 `path='user_invite_redeem'`, `nextState='active'`로 해석된다.
+  - 상단 success alert에 `가입이 완료되었습니다. 로그인 페이지에서 바로 로그인할 수 있습니다.`가 표시된다.
+  - 성공 메시지는 `가입이 완료되었습니다. 로그인할 수 있습니다.`다.
+  - 로그인 화면 이동 후 success alert에 `가입이 완료되었습니다. 로그인할 수 있습니다.`가 표시된다.
+- `Security Assertion`:
+  - 성공 응답/화면 어디에도 invite 원문이 다시 노출되지 않는다.
+  - 성공 플로우에서 `관리자 승인 후 로그인` 또는 pending approval 계열 문구가 나타나지 않는다.
+- `Automation Note`:
+  - 로컬 mock 경로를 사용할 경우에도 `active` handoff와 Login 안내 문구는 동일해야 한다.
+  - 원격 경로를 사용할 경우 network assertion은 `error.code`가 아닌 success envelope의 `nextState='active'` 중심으로 고정한다.
+
+### E2E-INV-002
+
+- `Scenario ID`: `E2E-INV-002`
+- `Goal`: 만료된 초대코드가 즉시 거부되고 활성 상태가 부여되지 않는지 검증한다.
+- `Precondition`:
+  - 만료 invite 1건이 존재한다.
+  - `VITE_SIGNUP_FORCE_REMOTE=true`가 적용되어 있다.
+- `Steps`:
+  1. `/signup`에 진입하고 `사용자` 역할을 선택한다.
+  2. 공통 필드를 유효값으로 입력한다.
+  3. 만료 invite code를 입력한다.
+  4. `가입하기` 버튼을 클릭한다.
+- `Expected Result`:
+  - 요청은 실패한다.
+  - UI 오류 메시지는 `초대코드가 유효하지 않습니다.`다.
+  - canonical 오류값은 `INVALID_INVITE_CODE`다.
+  - success alert와 `/login?signupState=active` handoff는 발생하지 않는다.
+- `Security Assertion`:
+  - 만료 invite로는 승인 membership 또는 즉시 로그인 가능 상태가 생성되지 않는다.
+  - 세부 reason이 `INVITE_EXPIRED`로 오더라도 클라이언트 판정은 `INVALID_INVITE_CODE` 하나로 유지된다.
+- `Automation Note`:
+  - Playwright 전환 시 실패 근거는 alert 문구 + network payload의 `error.code`로 고정한다.
+  - free-text reason 비교는 디버그 로그 용도로만 사용한다.
+
+### E2E-INV-003
+
+- `Scenario ID`: `E2E-INV-003`
+- `Goal`: 폐기된 초대코드가 즉시 거부되고 invite 존재 여부를 추가로 노출하지 않는지 검증한다.
+- `Precondition`:
+  - `revoked_at is not null` 상태의 invite 1건이 존재한다.
+  - `VITE_SIGNUP_FORCE_REMOTE=true`가 적용되어 있다.
+- `Steps`:
+  1. `/signup`에 진입하고 `사용자` 역할을 선택한다.
+  2. 공통 필드를 유효값으로 입력한다.
+  3. 폐기된 invite code를 입력한다.
+  4. `가입하기` 버튼을 클릭한다.
+- `Expected Result`:
+  - 요청은 실패한다.
+  - UI 오류 메시지는 `초대코드가 유효하지 않습니다.`다.
+  - canonical 오류값은 `INVALID_INVITE_CODE`다.
+  - 성공 alert, `active` 전이, 로그인 handoff는 발생하지 않는다.
+- `Security Assertion`:
+  - 폐기 여부 또는 invite 실존 여부를 사용자에게 구체적으로 노출하지 않는다.
+  - 클라이언트는 `INVITE_REVOKED` detail reason을 직접 분기 기준으로 사용하지 않는다.
+- `Automation Note`:
+  - 원격 contract token(`revoked-...`) 사용 시에도 assertion은 `INVALID_INVITE_CODE` 기준으로 유지한다.
+  - free-text detail reason은 evidence 보조값으로만 기록한다.
+
+### E2E-INV-004
+
+- `Scenario ID`: `E2E-INV-004`
+- `Goal`: 1회용 초대코드가 한 번 성공 사용된 뒤 동일 코드로 재사용되지 않는지 검증한다.
+- `Precondition`:
+  - 처음에는 유효 미사용 invite 1건이 존재한다.
+  - 동일 invite code로 두 번째 가입을 시도할 수 있는 환경이다.
+  - 실제 consume 결과를 반영할 수 있도록 원격/통합 검증 경로를 사용한다.
+- `Steps`:
+  1. `E2E-INV-001` 절차로 첫 번째 가입을 성공시킨다.
+  2. 브라우저 세션을 분리하거나 다른 이메일로 다시 `/signup`에 진입한다.
+  3. 같은 invite code를 다시 입력한다.
+  4. `가입하기` 버튼을 클릭한다.
+- `Expected Result`:
+  - 첫 번째 시도만 성공한다.
+  - 두 번째 시도는 실패한다.
+  - 두 번째 시도의 UI 오류 메시지는 `초대코드가 유효하지 않습니다.`다.
+  - 두 번째 시도의 canonical 오류값은 `INVALID_INVITE_CODE`다.
+  - 두 번째 시도에서 `active` 상태와 로그인 handoff는 발생하지 않는다.
+- `Security Assertion`:
+  - 1회용 invite 재사용이 차단된다.
+  - 성공 사용 이후 invite는 더 이상 활성 상태로 남아 있지 않다.
+- `Automation Note`:
+  - Playwright 전환 시 두 개의 isolated browser context를 사용해 첫 성공과 두 번째 재시도를 분리한다.
+  - contract token 기반 mock만으로는 실제 consume 후 재사용 차단을 증명할 수 없으므로 통합 환경 케이스로 분류한다.
+
+### E2E-INV-005
+
+- `Scenario ID`: `E2E-INV-005`
+- `Goal`: 동시성 요청에서 동일 1회용 invite가 정확히 한 번만 성공하도록 방어되는지 검증한다.
+- `Precondition`:
+  - 유효 미사용 invite 1건이 존재한다.
+  - 동일 invite code로 거의 동시에 가입 요청을 발생시킬 수 있는 원격/통합 검증 환경이다.
+  - 서로 다른 브라우저 context 또는 두 명의 applicant 데이터를 준비한다.
+- `Steps`:
+  1. 두 개의 독립 browser context에서 동시에 `/signup`에 진입한다.
+  2. 각 context에서 서로 다른 이메일과 동일 invite code를 입력한다.
+  3. 두 context가 가능한 한 같은 시점에 `가입하기`를 클릭한다.
+  4. 두 응답과 후속 화면 상태를 비교한다.
+- `Expected Result`:
+  - 정확히 한 요청만 성공한다.
+  - 나머지 한 요청은 실패하며 canonical 오류값은 `INVALID_INVITE_CODE`다.
+  - 실패한 요청은 `active` 상태 또는 로그인 handoff를 받지 못한다.
+- `Security Assertion`:
+  - race condition에서도 1회용 규칙이 깨지지 않는다.
+  - 동일 invite로 두 건의 approved user 가입이 동시에 성립하면 안 된다.
+- `Automation Note`:
+  - Playwright 전환 시 `Promise.all` 기반 동시 submit과 두 context의 결과 수집이 필요하다.
+  - contract token만으로는 경쟁 상태를 재현할 수 없으므로 실서버 또는 통합 harness 환경으로 제한한다.
+
+### 16.3 리뷰 체크리스트
+
+1. happy / fail / security 3축 시나리오가 모두 존재하는가
+2. 유효 / 만료 / 폐기 invite와 1회용 재사용 방지 케이스가 모두 포함되는가
+3. `user` 성공 플로우가 `nextState='active'`와 로그인 handoff까지 연결되는가
+4. 실패 플로우가 모두 canonical `INVALID_INVITE_CODE` 기준으로 판정되는가
+5. 재사용 차단과 race condition 방어가 각각 별도 security 시나리오로 존재하는가
+6. invite 원문 재노출 금지와 admin 승인 큐 비대상 규칙이 보안 항목으로 명시되는가
+7. 각 시나리오가 추후 Playwright 자동화로 옮길 수 있는 단계형 구조를 갖는가
