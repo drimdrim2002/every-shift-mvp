@@ -2,17 +2,17 @@
 
 이 문서는 `.shrimp-data/tasks.json`을 단일 기준(source of truth)으로 하여 자동 생성됩니다.
 
-## 최근 반영 내역 (2026-03-08 기준)
+## 최근 반영 내역 (2026-03-12 기준)
 
 - 기준 소스: `.shrimp-data/tasks.json` (canonical)
-- 기준 데이터 수정 시각(UTC): 2026-03-08T10:14:36Z
-- 전체 태스크: 201 (completed=92, in_progress=0, pending=109, other=0)
+- 기준 데이터 수정 시각(UTC): 2026-03-12T12:14:08Z
+- 전체 태스크: 202 (completed=84, in_progress=0, pending=118, other=0)
 - DAG 정합성 확인: missing target=0, cycle=false, orphan root=16
 - Phase 상태 요약:
 - P0: C/IP/P/T = 29/0/0/29
 - P1: C/IP/P/T = 13/0/4/17
-- P2: C/IP/P/T = 50/0/11/61
-- P3: C/IP/P/T = 0/0/10/10
+- P2: C/IP/P/T = 40/0/17/57
+- P3: C/IP/P/T = 0/0/11/11
 - P4: C/IP/P/T = 0/0/11/11
 - P5: C/IP/P/T = 0/0/14/14
 - P6: C/IP/P/T = 0/0/11/11
@@ -20,6 +20,7 @@
 - P8: C/IP/P/T = 0/0/13/13
 - P9: C/IP/P/T = 0/0/12/12
 - P10: C/IP/P/T = 0/0/12/12
+- Unknown: C/IP/P/T = 2/0/2/4
 
 ## P0 (예상 시간: 50시간 0분)
 
@@ -692,6 +693,8 @@
 | `20de8454-5483-4395-b73a-43a16171676f` | **P2-1.4-4-C Lint/테스트 게이트 검증 및 회귀 확인** | completed | P2-1.4-4-B | - |
 | `9df3e61b-bc11-4e92-963d-ccd70d4efadb` | **P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)** | completed | P2-1.4-2 | 120m |
 | `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)** | completed | P2-1.4 | 120m |
+| `f035e92a-3557-470b-b74c-ea969c7a95c1` | **P2-1.10-1 invite-code-manage API_SPEC contract 문서화** | completed | P2-1.8 | - |
+| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)** | completed | P2-1.10 | 120m |
 | `ff1599e4-585f-4e63-9565-a84284e4674c` | **P2-1.5A 가입 스모크 시나리오 섹션 초안 작성** | completed | P2-1.4 | - |
 | `62d44239-440d-4c38-81cb-f25a5d6bddd7` | **P2-1.5B 가입 스모크 시나리오 문서 정합성 검토** | completed | P2-1.5A | - |
 | `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 병원 검색 Edge Function 계약 정의(data.go.kr 프록시)** | completed | P2-1.2 | 150m |
@@ -711,22 +714,16 @@
 | `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환** | pending | P2-1.6 | - |
 | `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스** | pending | P2-1.9-2<br>P2-1.9-3 | - |
 | `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)** | completed | P2-1.8 | 150m |
-| `f035e92a-3557-470b-b74c-ea969c7a95c1` | **P2-1.10-1 invite-code-manage API_SPEC contract 문서화** | completed | P2-1.8 | - |
 | `17d170a7-e65a-451b-a71f-129c6ba70ae5` | **P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬** | completed | P2-1.10-1 | - |
-| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)** | completed | P2-1.10 | 120m |
 | `10000000-0000-4000-8000-000000000057` | **P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별** | completed | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정** | completed | P2-2.1 | 120m |
-| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의** | completed | P2-2.2 | 90m |
-| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)** | completed | P2-2.3 | 90m |
-| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)** | completed | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)** | completed | P2-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙** | completed | P2-3.2 | 150m |
-| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)** | completed | P2-3.2 | 90m |
-| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)** | completed | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m |
-| `1731504b-272e-4000-9c46-4c62e3b06d97` | **Align signup contracts for optional API nextState and deterministic store boundary** | completed | - | - |
-| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion** | pending | - | - |
-| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **Optional hardening: remove success message duplication between store and view** | pending | - | - |
-| `5a783267-88a1-46b7-a71b-e03fdb4e0b99` | **Validate UI integration and single signup invocation path** | completed | 1731504b-272e-4000-9c46-4c62e3b06d97 | - |
+| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정** | pending | P2-2.1 | 120m |
+| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의** | pending | P2-2.2 | 90m |
+| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)** | pending | P2-2.3 | 90m |
+| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)** | pending | P2-1.5 | 120m |
+| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)** | pending | P2-3.1 | 180m |
+| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙** | pending | P2-3.2 | 150m |
+| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)** | pending | P2-3.2 | 90m |
+| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)** | pending | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m |
 
 ### 상세 (Details)
 
@@ -1066,6 +1063,32 @@
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Signup.vue`, `src/api/signup.ts`
 - **노트(Notes)**: P2-1.5는 자동화 도입 전 수동 회귀 체크리스트로 사용한다.
 
+### P2-1.10-1 invite-code-manage API_SPEC contract 문서화
+
+- **Task ID**: `f035e92a-3557-470b-b74c-ea969c7a95c1`
+- **현재 상태(Status)**: completed (2026-03-06)
+- **완료 요약(Summary)**: API_SPEC에 invite-code-manage canonical contract 섹션을 추가해 create/revoke/list 액션별 요청·응답·오류 코드를 표준화했고, 조직 스코프 권한 규칙과 rawCode 1회 반환 규칙을 명확히 고정했다. 기존 signup-submit 문서 스타일과 일관성을 유지해 구현 경계를 문서 기준으로 확정했다.
+- **설명(Description)**: docs/API_SPEC.md에 invite-code-manage Edge Function의 create/revoke/list 요청/응답/오류 계약을 추가한다. 기존 signup-submit 섹션과 동일한 문서 스타일을 유지하고 invite_codes DDL/RLS 제약과 충돌하지 않도록 정리한다.
+- **구현 가이드(Guide)**: 1) Add a new API_SPEC section with boundary: supabase.functions.invoke('invite-code-manage'). 2) Define request union by action=create|revoke|list. 3) For create require organizationId and expiresAt, document that maxUses is fixed server-side to 1 and raw code is returned only once. 4) For revoke define idempotency and inviteCodeId-based targeting within caller scope. 5) For list define metadata-only item schema with derivedStatus(active|expired|used|revoked) and explicit non-return of raw code/code_hash. 6) Add canonical error table aligned with existing envelope style and document admin own-org plus superuser override scope.
+- **검증 기준(Verification)**: API_SPEC includes create/revoke/list request and success schemas, canonical error codes, one-time raw code exposure rule, and organization scope rules without contradicting invite_codes DDL/RLS constraints.
+- **선행 조건(Dependencies)**: P2-1.8
+- **예상 소요 시간**: -
+- **관련 파일**: `docs/API_SPEC.md`, `migrations/010_signup_role_flow.sql`, `migrations/008_rls_progressive_rollout.sql`, `supabase/functions/signup-submit/index.ts`
+- **노트(Notes)**: Reuse existing docs/API_SPEC.md envelope and table patterns from signup-submit; do not create a separate contract document.
+
+### P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)
+
+- **Task ID**: `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8`
+- **현재 상태(Status)**: completed (2026-03-06)
+- **완료 요약(Summary)**: docs/verification/test-validation-guide.md 파일 내에 '16) P2-1.11 user 초대코드 가입 E2E 시나리오 (Playwright)' 섹션이 작성되어 있으며, 요구사항에 맞게 Happy(E2E-INV-001), Fail(E2E-INV-002, 003), Security(E2E-INV-004, 005)의 3축 5개 시나리오가 모두 포함되어 있음을 확인하였습니다. 1회용/만료/폐기/재사용/동시성 방어 검증 케이스가 문서화되었습니다.
+- **설명(Description)**: 초대코드 기반 user 가입의 정상/실패 흐름을 E2E 시나리오로 정의한다.
+- **구현 가이드(Guide)**: docs/verification/test-validation-guide.md 파일에 '16) P2-1.11 user 초대코드 가입 E2E 시나리오 (Playwright)' 섹션을 추가합니다. 구체적으로 다음 5가지 시나리오를 작성합니다: 1. E2E-INV-001 (Happy Path): 유효 초대코드 가입 및 로그인 전환 2. E2E-INV-002 (Fail Path): 만료된 초대코드 입력 차단 3. E2E-INV-003 (Fail Path): 폐기된(Revoked) 초대코드 차단 4. E2E-INV-004 (Security): 1회용 규칙(Single-use) 재사용 차단 5. E2E-INV-005 (Security): 동시성 요청(Race Condition) 1회용 방어
+- **검증 기준(Verification)**: Deliverable: user 초대코드 가입 E2E 시나리오 세트가 작성되어 있다. Method: happy/fail/security 3축 시나리오 포함 여부를 리뷰한다. Pass: 1회용/만료/재사용 방지 규칙 검증 케이스가 모두 존재한다.
+- **선행 조건(Dependencies)**: P2-1.10
+- **예상 소요 시간**: 120m
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/API_SPEC.md`, `src/views/auth/Signup.vue`
+- **노트(Notes)**: 초대코드 시나리오는 admin 승인 큐 시나리오와 분리해 유지한다.
+
 ### P2-1.5A 가입 스모크 시나리오 섹션 초안 작성
 
 - **Task ID**: `ff1599e4-585f-4e63-9565-a84284e4674c`
@@ -1304,19 +1327,6 @@
 - **관련 파일**: `supabase/functions/invite-code-manage/index.ts`, `src/api/invite-code.ts`, `docs/API_SPEC.md`
 - **노트(Notes)**: 초대코드 관리 권한은 admin(자기 조직) + superuser(전체 조직)로 제한한다.
 
-### P2-1.10-1 invite-code-manage API_SPEC contract 문서화
-
-- **Task ID**: `f035e92a-3557-470b-b74c-ea969c7a95c1`
-- **현재 상태(Status)**: completed (2026-03-06)
-- **완료 요약(Summary)**: API_SPEC에 invite-code-manage canonical contract 섹션을 추가해 create/revoke/list 액션별 요청·응답·오류 코드를 표준화했고, 조직 스코프 권한 규칙과 rawCode 1회 반환 규칙을 명확히 고정했다. 기존 signup-submit 문서 스타일과 일관성을 유지해 구현 경계를 문서 기준으로 확정했다.
-- **설명(Description)**: docs/API_SPEC.md에 invite-code-manage Edge Function의 create/revoke/list 요청/응답/오류 계약을 추가한다. 기존 signup-submit 섹션과 동일한 문서 스타일을 유지하고 invite_codes DDL/RLS 제약과 충돌하지 않도록 정리한다.
-- **구현 가이드(Guide)**: 1) Add a new API_SPEC section with boundary: supabase.functions.invoke('invite-code-manage'). 2) Define request union by action=create|revoke|list. 3) For create require organizationId and expiresAt, document that maxUses is fixed server-side to 1 and raw code is returned only once. 4) For revoke define idempotency and inviteCodeId-based targeting within caller scope. 5) For list define metadata-only item schema with derivedStatus(active|expired|used|revoked) and explicit non-return of raw code/code_hash. 6) Add canonical error table aligned with existing envelope style and document admin own-org plus superuser override scope.
-- **검증 기준(Verification)**: API_SPEC includes create/revoke/list request and success schemas, canonical error codes, one-time raw code exposure rule, and organization scope rules without contradicting invite_codes DDL/RLS constraints.
-- **선행 조건(Dependencies)**: P2-1.8
-- **예상 소요 시간**: -
-- **관련 파일**: `docs/API_SPEC.md`, `migrations/010_signup_role_flow.sql`, `migrations/008_rls_progressive_rollout.sql`, `supabase/functions/signup-submit/index.ts`
-- **노트(Notes)**: Reuse existing docs/API_SPEC.md envelope and table patterns from signup-submit; do not create a separate contract document.
-
 ### P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬
 
 - **Task ID**: `17d170a7-e65a-451b-a71f-129c6ba70ae5`
@@ -1329,19 +1339,6 @@
 - **예상 소요 시간**: -
 - **관련 파일**: `supabase/functions/invite-code-manage/index.ts`, `src/api/invite-code.ts`, `supabase/functions/signup-submit/index.ts`, `src/api/signup.ts`
 - **노트(Notes)**: This task is a boundary scaffold, not full business logic completion. Favor minimal implementation that locks the contract shape for later work.
-
-### P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)
-
-- **Task ID**: `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8`
-- **현재 상태(Status)**: completed (2026-03-06)
-- **완료 요약(Summary)**: docs/verification/test-validation-guide.md 파일 내에 '16) P2-1.11 user 초대코드 가입 E2E 시나리오 (Playwright)' 섹션이 작성되어 있으며, 요구사항에 맞게 Happy(E2E-INV-001), Fail(E2E-INV-002, 003), Security(E2E-INV-004, 005)의 3축 5개 시나리오가 모두 포함되어 있음을 확인하였습니다. 1회용/만료/폐기/재사용/동시성 방어 검증 케이스가 문서화되었습니다.
-- **설명(Description)**: 초대코드 기반 user 가입의 정상/실패 흐름을 E2E 시나리오로 정의한다.
-- **구현 가이드(Guide)**: docs/verification/test-validation-guide.md 파일에 '16) P2-1.11 user 초대코드 가입 E2E 시나리오 (Playwright)' 섹션을 추가합니다. 구체적으로 다음 5가지 시나리오를 작성합니다: 1. E2E-INV-001 (Happy Path): 유효 초대코드 가입 및 로그인 전환 2. E2E-INV-002 (Fail Path): 만료된 초대코드 입력 차단 3. E2E-INV-003 (Fail Path): 폐기된(Revoked) 초대코드 차단 4. E2E-INV-004 (Security): 1회용 규칙(Single-use) 재사용 차단 5. E2E-INV-005 (Security): 동시성 요청(Race Condition) 1회용 방어
-- **검증 기준(Verification)**: Deliverable: user 초대코드 가입 E2E 시나리오 세트가 작성되어 있다. Method: happy/fail/security 3축 시나리오 포함 여부를 리뷰한다. Pass: 1회용/만료/재사용 방지 규칙 검증 케이스가 모두 존재한다.
-- **선행 조건(Dependencies)**: P2-1.10
-- **예상 소요 시간**: 120m
-- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/API_SPEC.md`, `src/views/auth/Signup.vue`
-- **노트(Notes)**: 초대코드 시나리오는 admin 승인 큐 시나리오와 분리해 유지한다.
 
 ### P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별
 
@@ -1359,8 +1356,7 @@
 ### P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000058`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: AccessState 기반 route guard 순서를 인증→상태해석→상태차단→권한검사→step guard로 고정했고, admin pending/rejected 전용 라우트 리다이렉트 규칙과 공개 예외 경로를 확정했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: 로그인 이후 접근 상태에 따라 라우팅을 제어하는 가드 순서와 예외 경로를 정의한다.
 - **구현 가이드(Guide)**: 1) 가드 순서를 인증 -> 상태 판별 -> role 기반 접근 -> step 진행 검증으로 고정한다. 2) admin pending/rejected는 전용 안내 라우트로 이동 규칙을 정의한다. 3) user active는 기본 진입 허용 규칙을 정의한다. 4) 공개 라우트 예외(/login, /signup, 상태 안내 페이지)를 명시한다.
 - **검증 기준(Verification)**: Deliverable: 전역 가드 실행 순서도와 예외 라우트 목록이 문서화되어 있다. Method: 라우트 케이스 테이블을 리뷰한다. Pass: 미승인 admin 차단, 승인 user 허용, 공개 라우트 예외가 모두 반영된다.
@@ -1372,8 +1368,7 @@
 ### P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의
 
 - **Task ID**: `10000000-0000-4000-8000-000000000059`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: admin pending/rejected 전용 AccessState 화면 스펙을 확정했다. CTA는 로그아웃 단일로 고정하고, 반려 사유 표시 조건과 새로고침/재로그인 기반 상태 재조회 규칙을 정의했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: 승인 전 admin 계정에 노출할 pending/rejected 안내 화면의 콘텐츠와 CTA를 정의한다.
 - **구현 가이드(Guide)**: 1) pending/rejected 상태별 문구와 CTA(로그아웃, 문의 안내)를 정의한다. 2) 상태 재조회 트리거(새로고침/재로그인) 규칙을 정의한다. 3) user 초대코드 실패 안내는 signup 화면 inline 오류로 처리하고 AccessState 대상에서 제외한다.
 - **검증 기준(Verification)**: Deliverable: pending/rejected 안내 화면 스펙과 라우트 연결 규칙이 정의되어 있다. Method: 상태별 콘텐츠와 CTA 체크리스트를 검토한다. Pass: admin 비승인 상태에서 서비스 핵심 화면 진입이 차단되고 안내 화면으로 유도되는 기준이 명확하다.
@@ -1385,8 +1380,7 @@
 ### P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000060`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: role/status 조합별 라우팅 기대값과 직접 URL/새로고침/세션 복구 시나리오를 테스트 가이드에 추가해 회귀 입력 세트를 고정했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: role과 승인 상태 조합별 라우팅 결과를 검증하는 테스트 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) admin pending/rejected/approved, user approved, super active 케이스별 허용 라우트/리다이렉트 기대값을 정의한다. 2) 직접 URL 접근/새로고침/세션 복구 케이스를 포함한다. 3) 최소 1개 자동화 후보(E2E)를 식별한다.
 - **검증 기준(Verification)**: Deliverable: 상태 조합 기반 라우팅 테스트 표가 문서화되어 있다. Method: 케이스별 입력 상태와 기대 URL/메시지 매핑을 점검한다. Pass: 핵심 role/status 조합이 누락 없이 포함된다.
@@ -1398,8 +1392,7 @@
 ### P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000061`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: admin 가입요청 승인 정책을 superuser 단일 승인 주체로 확정하고, 승인 큐 대상/비대상(admin 요청 전용, user invite 제외)과 감사 필수 항목을 문서화했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: admin 가입요청 승인/반려 정책을 superuser 단일 승인 주체 기준으로 확정하고 감사로그 요구를 정의한다.
 - **구현 가이드(Guide)**: 1) admin 가입요청의 승인 주체를 superuser로 고정한다. 2) 승인/반려 시 필수 감사 필드(actor, target, action, reason)를 정의한다. 3) user 초대코드 가입은 승인 큐 대상에서 제외됨을 명시한다.
 - **검증 기준(Verification)**: Deliverable: 승인 정책 문서에 승인 주체/범위/예외(user 초대코드)가 명확히 정의되어 있다. Method: 정책 문서와 API 계약의 일관성을 검토한다. Pass: 승인 큐 대상과 비대상이 명확히 분리된다.
@@ -1411,8 +1404,7 @@
 ### P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000062`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: approval-decision API 계약을 request/response DTO, 에러코드, 상태전이, 멱등 규칙까지 포함해 canonical 문서와 프론트 API 경계에 반영했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: admin 가입요청 승인/반려를 처리하는 approval-decision API 계약을 정의하고 멱등/감사로그 규칙을 확정한다.
 - **구현 가이드(Guide)**: 1) 입력 스키마(requestId, decision, note)를 정의한다. 2) 승인 시 membership approved 반영 및 signup_requests 상태 업데이트 규칙을 정의한다. 3) 중복 승인/이미 처리된 요청에 대한 멱등 응답 규칙을 명시한다. 4) approval_logs 기록 필수 조건을 정의한다.
 - **검증 기준(Verification)**: Deliverable: approval-decision API 계약과 상태 변경 규칙이 문서/함수 기준으로 정리되어 있다. Method: API 계약표와 상태 전이표를 대조한다. Pass: approve/reject 경로와 멱등 처리 규칙이 누락 없이 정의된다.
@@ -1424,8 +1416,7 @@
 ### P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙
 
 - **Task ID**: `10000000-0000-4000-8000-000000000063`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: superuser 전용 승인 큐 UI 경계를 P4 계정관리와 분리해 확정했고, 목록/필터/상세/액션 필드 스펙과 API 매핑 인터페이스를 정의했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: superuser가 admin 가입요청을 검토할 수 있는 승인 큐 화면의 목록/필터/상세/액션 스펙을 정의한다.
 - **구현 가이드(Guide)**: 1) 목록 컬럼(email, 요청조직, 요청역할, 상태, 생성일)과 필터(status, org, keyword)를 정의한다. 2) 상세 패널에서 가입정보와 note 입력 UI를 정의한다. 3) approve/reject 확인 다이얼로그와 후속 상태 갱신 UX를 정의한다.
 - **검증 기준(Verification)**: Deliverable: 승인 큐 UI 스펙 문서(목록/필터/상세/액션)가 작성되어 구현자가 추가 결정 없이 개발 가능하다. Method: UI 스펙과 API 필드 매핑을 리뷰한다. Pass: 컬럼/필터/액션/오류 처리 기준이 모두 명시된다.
@@ -1437,8 +1428,7 @@
 ### P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000064`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: 승인 결과 이벤트 producer 정책을 signup_approved/signup_rejected 타입, 최소 payload, idempotencyKey 규칙으로 확정했다. 채널/템플릿 정책은 P8 범위로 명시했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: admin 가입요청 승인/반려 결과를 알리는 이벤트 생성 트리거와 payload 최소 필드를 정의한다.
 - **구현 가이드(Guide)**: 1) 승인/반려 상태 전이 시 이벤트 생성 시점을 정의한다. 2) payload 최소 필드(requestId, decision, actorUserId, targetUserId, organizationId, decidedAt)를 명시한다. 3) idempotencyKey 규칙을 정의한다.
 - **검증 기준(Verification)**: Deliverable: 승인 이벤트 생성 정책서와 최소 payload 계약이 문서화되어 있다. Method: 정책 문서와 P8 이벤트 소비 요구사항의 필드 정합성을 점검한다. Pass: 생성 트리거/필드/idempotency 규칙이 누락 없이 명시된다.
@@ -1450,8 +1440,7 @@
 ### P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000065`
-- **현재 상태(Status)**: completed (2026-03-08)
-- **완료 요약(Summary)**: admin 승인형과 user invite형을 포괄하는 통합 E2E 시나리오를 확정해 P3/P4/P6 변경 시 재사용 가능한 기준선으로 고정했다.
+- **현재 상태(Status)**: pending
 - **설명(Description)**: admin 신청-승인 플로우와 user 초대코드 즉시가입 플로우를 통합한 E2E 검증 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) admin 플로우: signup(pending) -> superuser approve -> login allow 시나리오를 정의한다. 2) user 플로우: invite code signup(active) -> login allow 시나리오를 정의한다. 3) 실패 케이스: admin 미승인 접근 차단, user 만료코드 거부를 포함한다.
 - **검증 기준(Verification)**: Deliverable: admin/user 가입 플로우를 포괄하는 통합 E2E 시나리오 문서가 존재한다. Method: 경로별 선행조건/절차/기대결과를 리뷰한다. Pass: 승인형과 즉시승인형 두 플로우가 모두 검증 항목으로 정의된다.
@@ -1460,182 +1449,147 @@
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Login.vue`, `src/router/index.ts`
 - **노트(Notes)**: 본 시나리오는 P3 이후 라우터/온보딩 변경의 회귀 기준선으로 재사용한다.
 
-### Align signup contracts for optional API nextState and deterministic store boundary
 
-- **Task ID**: `1731504b-272e-4000-9c46-4c62e3b06d97`
-- **현재 상태(Status)**: completed (2026-03-05)
-- **완료 요약(Summary)**: signup 타입 계약을 정리해 API nextState optional 호환성을 유지했고, auth store 반환 유니온을 명시적으로 고정해 UI 경계 타입 안정성을 확보했습니다.
-- **설명(Description)**: Refine signup type contracts so API success payload keeps `nextState` optional while store success result remains deterministic and UI-consumable. Maintain centralized canonical error code typing and stable result fields consumed by Signup view.
-- **구현 가이드(Guide)**: 1) In signup type definitions, preserve API payload `SignupSubmitSuccessData.nextState?`. 2) Keep/define explicit store return union with stable keys: success, nextState, message, errorCode, error, data. 3) Ensure success branch resolves nextState deterministically and retains resolved data typing; failure branch returns null nextState and canonical errorCode. 4) Keep error code domain sourced only from shared signup types exports.
-- **검증 기준(Verification)**: TypeScript enforces explicit `Promise<SignupStoreSignupResult>` for authStore.signup; API-level success DTO allows omitted nextState; union fields stay stable and narrow correctly in success/error branches.
-- **선행 조건(Dependencies)**: -
-- **예상 소요 시간**: -
-- **관련 파일**: `src/types/signup.ts`, `src/stores/auth.ts`
-- **노트(Notes)**: Do not add a new API call path or duplicate signup submission logic in view layer. Preserve existing backward compatibility semantics.
-
-### Optional hardening: enforce single signup invocation assertion
-
-- **Task ID**: `9098efca-a3fd-4e21-ac09-785b6b52a792`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Add explicit unit-test assertions to guarantee auth store signup performs exactly one submitSignup API call per action execution.
-- **구현 가이드(Guide)**: 1. Open tests/unit/auth-signup.spec.ts. 2. For success and error branch tests, add expect(submitSignup).toHaveBeenCalledTimes(1) after invoking authStore.signup. 3. Keep existing behavior assertions unchanged.
-- **검증 기준(Verification)**: Vitest passes and each signup test validates submitSignup call count equals 1.
-- **선행 조건(Dependencies)**: -
-- **예상 소요 시간**: -
-- **관련 파일**: `tests/unit/auth-signup.spec.ts`
-
-### Optional hardening: remove success message duplication between store and view
-
-- **Task ID**: `214e88d1-0820-4e5f-9756-5bf9ef56c280`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.
-- **구현 가이드(Guide)**: 1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.
-- **검증 기준(Verification)**: Signup success flow still shows correct pending/active messages and existing tests remain green.
-- **선행 조건(Dependencies)**: -
-- **예상 소요 시간**: -
-- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`
-
-### Validate UI integration and single signup invocation path
-
-- **Task ID**: `5a783267-88a1-46b7-a71b-e03fdb4e0b99`
-- **현재 상태(Status)**: completed (2026-03-05)
-- **완료 요약(Summary)**: Signup.vue가 authStore.signup 반환 유니온을 분기 기반으로 안전하게 소비함을 확인했고, 코드 검색으로 submitSignup 직접 중복 호출 없이 단일 호출 경계를 유지함을 검증했습니다.
-- **설명(Description)**: Verify Signup view compiles against the explicit store union contract without additional type assertions and ensure no duplicate direct API invocation exists outside the auth store boundary.
-- **구현 가이드(Guide)**: 1) Confirm Signup view consumes `authStore.signup` union via success narrowing. 2) Search codebase for signup submission entrypoints and ensure path remains Signup view -> authStore.signup -> submitSignup. 3) Add/update lightweight type-level or usage checks if needed to lock the boundary behavior.
-- **검증 기준(Verification)**: Signup view compiles with current boundary contract and no duplicate signup API invocation path is introduced; search evidence confirms one canonical submission flow.
-- **선행 조건(Dependencies)**: 1731504b-272e-4000-9c46-4c62e3b06d97
-- **예상 소요 시간**: -
-- **관련 파일**: `src/views/auth/Signup.vue`, `src/api/signup.ts`
-- **노트(Notes)**: This is a validation-focused integration task and should avoid broad refactors.
-
-
-## P3 (예상 시간: 21시간 30분)
+## P3 (예상 시간: 24시간 30분)
 
 ### 요약 (Summary)
 
 | Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
 | --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 저장 범위 확정** | pending | P1-1.3<br>P1-1.4<br>P2-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000067` | **P3-1.2 온보딩 진행 API 계약 정의(get/update)** | pending | P3-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000068` | **P3-1.3 프론트 스토어/캐시 전략 정의(온보딩)** | pending | P3-1.2 | 90m |
-| `10000000-0000-4000-8000-000000000069` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정** | pending | P3-1.3 | 120m |
-| `10000000-0000-4000-8000-000000000070` | **P3-2.2 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)** | pending | P3-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000071` | **P3-2.3 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | pending | P3-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000072` | **P3-2.4 온보딩 E2E 테스트 시나리오 정의** | pending | P3-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)** | pending | P3-2.4 | 60m |
-| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)** | pending | P3-3.1 | 120m |
+| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정** | pending | P1-1.3<br>P1-1.4<br>P2-2.4 | 120m |
+| `10000000-0000-4000-8000-000000000067` | **P3-1.2 onboarding_progress 저장/RLS 설계** | pending | P3-1.1 | 120m |
+| `10000000-0000-4000-8000-000000000068` | **P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)** | pending | P3-1.1 | 180m |
+| `10000000-0000-4000-8000-000000000069` | **P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)** | pending | P3-1.3 | 90m |
+| `10000000-0000-4000-8000-000000000070` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정** | pending | P3-1.1 | 120m |
+| `10000000-0000-4000-8000-000000000071` | **P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | pending | P3-2.1 | 120m |
+| `10000000-0000-4000-8000-000000000072` | **P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)** | pending | P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2 | 180m |
+| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)** | pending | P3-1.1<br>P2-2.4 | 120m |
+| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)** | pending | P3-1.3<br>P3-1.4<br>P3-3.1 | 120m |
 | `10000000-0000-4000-8000-000000000075` | **P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)** | pending | P3-3.2 | 120m |
+| `7bfa70f1-d130-4940-982e-c8da747127c2` | **P3-3.4 온보딩 E2E 테스트 시나리오 정의** | pending | P3-1.3<br>P3-2.1<br>P3-3.1 | 180m |
 
 ### 상세 (Details)
 
-### P3-1.1 온보딩 상태 머신(3단계) + 저장 범위 확정
+### P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000066`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: admin 최초 로그인 온보딩의 단계(조직정보 확인→직원 등록→스케줄 요청)와 저장 범위(조직/사용자)를 확정한다. RBAC 요구사항: /onboarding 라우트는 meta.roles: ['admin']으로 설정하여 user 역할은 접근할 수 없다. 전역 가드에서 onboarding_required 상태를 체크하여 미완료 admin은 온보딩 페이지로 강제 이동시킨다.
-- **구현 가이드(Guide)**: 1) 단계 목록과 완료 조건 정의. 2) 조직 단위 완료 여부와 사용자별 진행 저장 여부 결정. 3) UI 이동 경로(메뉴 링크) 결정.
-- **검증 기준(Verification)**: Deliverable: 온보딩 단계/완료 조건이 확정되어 있고, 저장 모델이 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: admin 최초 로그인 온보딩의 3단계 상태 머신(조직 정보 확인→직원 등록 안내→스케줄 요청 안내), 단계별 완료 조건, organization-vs-user ownership을 단일 진실원천으로 확정한다. /onboarding 라우트는 admin 전용이며, 미완료 admin만 강제 진입 대상이라는 불변식을 이 태스크에서 고정한다.
+- **구현 가이드(Guide)**: 1) 3단계 이름, 진입 조건, 단계별 완료 조건을 확정한다. 2) 완료 ownership을 organization-scoped, user-scoped, hybrid 중 하나로 고정하고 canonical read rule을 정의한다. 3) admin 완료/미완료, user 차단, approval pending 우선 규칙을 notes 또는 가이드에 명시한다. 4) 이후 API/store/guard task가 동일한 상태명과 완료 의미만 사용하도록 기준 용어를 고정한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 단계, 완료 조건, completion ownership, admin-only 접근 불변식이 명확히 정리되어 있다. Method: 산출물을 리뷰하고 단계 정의와 ownership 규칙이 후속 task에서 재해석 없이 사용 가능한지 검사한다. Pass: 단계/완료/ownership/admin 전용 규칙이 누락 없이 명시되어 있다.
 - **선행 조건(Dependencies)**: P1-1.3<br>P1-1.4<br>P2-2.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`
+- **관련 파일**: `docs/REFINED_PRD.md`, `docs/migration/RBAC_MATRIX.md`
+- **노트(Notes)**: 이 태스크는 P3 전체의 domain gate다. 후속 task는 여기서 정의한 상태명, 완료 기준, ownership만 소비해야 한다.
 
-### P3-1.2 온보딩 진행 API 계약 정의(get/update)
+### P3-1.2 onboarding_progress 저장/RLS 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000067`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 진행 정보를 조회/업데이트하는 API 계약(서버 경계, 보안, 요청/응답)을 정의한다.
-- **구현 가이드(Guide)**: 1. 온보딩 진행 API의 GET/POST/PUT 계약 정의(요청/응답/에러) 2. 보안: admin 역할만 호출 가능하도록 RLS 또는 Edge Function에서 검증 3. onboarding_progress 테이블의 organization_id 범위 제한 4. RBAC: 라우트 /onboarding → meta.roles: ['admin'], API는 admin만 접근 가능 5. 진행 상태 저장 시 사용자의 organization_id 검증 로직 포함
-- **검증 기준(Verification)**: Deliverable: 온보딩 진행 API 계약이 문서화되어 있고, 권한/보안 기준이 포함된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: onboarding_progress의 persistence ownership, read/write boundary, active admin scope, organization isolation, recovery semantics를 정의하고 현재 RLS gap을 해소하기 위한 설계 기준을 확정한다.
+- **구현 가이드(Guide)**: 1) onboarding_progress의 owner scope와 organization_id 기준 격리 규칙을 정한다. 2) 누가 read/write/update/complete 할 수 있는지 역할과 account 상태 기준을 정의한다. 3) refresh/relogin/recovery 시 어떤 row를 canonical state로 읽을지 고정한다. 4) 현재 RLS disabled 상태를 목표 정책으로 전환하기 위한 요구사항을 문서화한다. 5) API contract task가 이 저장 규칙을 재정의하지 않도록 persistence 경계를 명확히 적는다.
+- **검증 기준(Verification)**: Deliverable: onboarding_progress 저장 모델, tenant/RLS 범위, recovery 규칙이 명시되어 있다. Method: 산출물을 리뷰하고 ownership, read/write 범위, RLS 목표 정책이 분리 없이 설명되는지 검사한다. Pass: 저장 경계와 RLS 목표가 API contract와 독립적으로 해석 가능하게 정의되어 있다.
 - **선행 조건(Dependencies)**: P3-1.1
-- **예상 소요 시간**: 180m
-- **관련 파일**: `supabase/functions/onboarding-progress/index.ts`
+- **예상 소요 시간**: 120m
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`, `migrations/008_rls_progressive_rollout.sql`
 
-### P3-1.3 프론트 스토어/캐시 전략 정의(온보딩)
+### P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000068`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 진행 상태를 프론트에서 어떻게 로딩/캐시/동기화할지 전략을 정의한다(리프레시/다중탭 고려).
-- **구현 가이드(Guide)**: 1. 프론트 스토어(useOnboarding) 구조 정의(상태/게터/액션) 2. 캐시 전략: localStorage에 진행 상태 저장, 리프레시 시 복구 3. 다중 탭 동기화: storage event listener 또는 polling 고려 4. RBAC: onboarding 상태는 admin만 조회/수정 가능, user는 접근 불가 5. authStore의 역할 정보와 연동하여 온보딩 완료 여부 판별 로직 설계
-- **검증 기준(Verification)**: Deliverable: 온보딩 상태의 로딩/저장/초기화 규칙이 명확히 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-1.2
-- **예상 소요 시간**: 90m
-- **관련 파일**: `src/stores/onboarding.ts`
+- **설명(Description)**: onboarding-progress 서버 경계의 get/update/complete 요청·응답 schema, auth boundary, canonical error model을 정의한다. 이 태스크는 저장/RLS 규칙을 재정의하지 않고 transport contract만 고정한다.
+- **구현 가이드(Guide)**: 1) get/update/complete 액션별 request/response envelope과 error code를 정의한다. 2) admin-only 호출 경계와 organization scope 검증 책임을 문서화한다. 3) field name과 state name을 P3-1.1의 용어와 정확히 맞춘다. 4) persistence/RLS 규칙은 P3-1.2를 참조하고 이 태스크에서는 transport contract만 유지한다. 5) 후속 store/router가 추가 결정 없이 사용할 수 있도록 DTO와 상태 전이 결과를 명시한다.
+- **검증 기준(Verification)**: Deliverable: onboarding-progress API contract가 get/update/complete 범위로 문서화되어 있고 auth/error 기준이 포함된다. Method: 산출물을 리뷰하고 request/response/error가 P3-1.1 상태명과 정합하며 추가 해석 없이 프론트에서 소비 가능한지 검사한다. Pass: action별 contract와 auth boundary가 명시되고 persistence 규칙과 역할 경계가 충돌 없이 정리되어 있다.
+- **선행 조건(Dependencies)**: P3-1.1
+- **예상 소요 시간**: 180m
+- **관련 파일**: `docs/API_SPEC.md`, `supabase/functions/onboarding-progress/index.ts`
 
-### P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정
+### P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000069`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 위저드 화면 구성(단계별 설명, CTA, 하이라이트 대상 메뉴)을 확정한다.
-- **구현 가이드(Guide)**: 1. 위저드 단계별 화면 구성(Step1: 조직정보, Step2: 직원등록, Step3: 스케줄요청) 2. 단계별 CTA 버튼(다음/건너뛰기/완료) 정의 3. 하이라이트 대상 메뉴(직원 관리, 근무표 생성) 딥링크 제공 4. RBAC: 위저드 진입 전 역할 확인(admin만 허용), user는 403 또는 안내 페이지로 이동 5. 완료 후 역할별 대시보드(/dashboard/admin)로 자동 리다이렉트
-- **검증 기준(Verification)**: Deliverable: 온보딩 UI가 단계별로 어떤 행동을 유도하는지 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 온보딩 진행 상태를 프론트에서 어떻게 로딩, 캐시, 복구, 동기화할지 정의한다. refresh, relogin, 다중 탭 상황에서도 동일한 canonical state를 사용하도록 store contract를 고정한다.
+- **구현 가이드(Guide)**: 1) store state, getter, action, loading lifecycle을 정의한다. 2) API contract의 field name과 상태명을 그대로 사용한다. 3) local restore, storage event sync, invalidation 규칙을 정한다. 4) admin-only 조회/수정과 미완료/완료 판정 시점을 명확히 적는다. 5) router/guard가 직접 raw payload를 읽지 않고 store를 통해 소비하도록 경계를 고정한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 상태의 로딩, 저장, 복구, 초기화 규칙과 store 인터페이스가 명확히 정의되어 있다. Method: 산출물을 리뷰하고 refresh/relogin/multi-tab 시나리오에서 어떤 state source를 읽는지 추적한다. Pass: store가 API contract와 동일한 필드/상태명을 사용하고, 캐시 무효화와 복구 규칙이 누락 없이 정의되어 있다.
 - **선행 조건(Dependencies)**: P3-1.3
-- **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/Onboarding.vue`
+- **예상 소요 시간**: 90m
+- **관련 파일**: `src/stores/onboarding.ts`, `src/stores/auth.ts`
 
-### P3-2.2 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)
+### P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000070`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 페이지를 추가하기 위한 구현 계획(라우트, 스토어 연동, 진행 저장)을 수립한다.
-- **구현 가이드(Guide)**: 1. 라우트 추가: /onboarding (component: OnboardingWizard.vue) 2. 스토어 연동: useOnboarding, useAuth 스토어와 통합 3. 진행 저장 API 호출 시점(단계 이동 시/완료 시) 4. RBAC: router meta.roles: ['admin'] 설정, 전역 가드에서 검증 5. 온보딩 완료 전 다른 페이지 접근 시 beforeEnter 가드로 차단 후 /onboarding으로 리다이렉트
-- **검증 기준(Verification)**: Deliverable: 온보딩 구현 범위(라우트/스토어/API)가 명확히 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-2.1
-- **예상 소요 시간**: 180m
-- **관련 파일**: `src/router/index.ts`, `src/views/Onboarding.vue`
+- **설명(Description)**: 온보딩 위저드의 단계별 IA, 설명 문구, CTA, 완료 후 dashboard exit semantics를 확정한다. 이 task는 구현 통합 전의 UX 기준 문서 역할을 한다.
+- **구현 가이드(Guide)**: 1) 3단계별 사용자 목적, 설명 copy, CTA를 정의한다. 2) 단계 완료 후 다음 단계 유도와 마지막 완료 메시지를 확정한다. 3) employee registration과 schedule request 안내가 문서 요구사항과 맞는지 확인한다. 4) admin 완료 후 기본 landing route를 명시한다. 5) 이 task는 router/store 세부 구현 없이도 review 가능해야 한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 위저드의 단계별 정보구조, 콘텐츠, CTA, 완료 UX가 문서화되어 있다. Method: 산출물을 리뷰하고 단계별 사용자의 다음 행동과 종료 지점이 명확한지 검사한다. Pass: 각 단계의 목적, CTA, 완료 후 이동 규칙이 누락 없이 정의되어 있다.
+- **선행 조건(Dependencies)**: P3-1.1
+- **예상 소요 시간**: 120m
+- **관련 파일**: `src/views/Onboarding.vue`, `docs/REFINED_PRD.md`
 
-### P3-2.3 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)
+### P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000071`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 단계에서 특정 메뉴로 유도하는 하이라이트/딥링크 UX를 설계한다.
-- **구현 가이드(Guide)**: 1. 메뉴 하이라이트 구현: 해당 메뉴 아이템에 애니메이션/배경색 추가 2. 딥링크 제공: 위저드에서 버튼 클릭 시 /admin/employees 등으로 이동 후 돌아올 수 있는 처리 3. 사이드바 자동 확장: 온보딩 중인 메뉴가 펼쳐진 상태 유지 4. RBAC: 딥링크 대상 페이지도 meta.roles 확인 필요 5. user 역할이 딥링크로 접근 시도하면 403 처리
-- **검증 기준(Verification)**: Deliverable: 온보딩 단계에서 사용자가 다음 행동을 쉽게 찾을 수 있는 UX가 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-2.2
+- **설명(Description)**: 온보딩 위저드에서 직원관리와 엑셀 업로드 화면으로 이동시키는 menu highlight, deep-link, return path UX를 설계한다.
+- **구현 가이드(Guide)**: 1) 어떤 단계에서 어떤 메뉴를 하이라이트할지 정한다. 2) 딥링크 이동 후 온보딩으로 돌아오는 return path를 정의한다. 3) 사이드바 자동 확장, 강조 표시 지속 시간, 완료 후 강조 해제 조건을 적는다. 4) user/non-admin 접근 차단과 잘못된 딥링크 진입 처리도 포함한다. 5) 전체 페이지 통합 계획과는 분리된 UX task로 유지한다.
+- **검증 기준(Verification)**: Deliverable: 사용자가 직원관리/엑셀 업로드를 쉽게 찾을 수 있도록 menu highlight와 deep-link UX가 정의되어 있다. Method: 산출물을 리뷰하고 단계별 목적 화면으로 이동하는 경로와 복귀 경로가 명확한지 검사한다. Pass: highlight 대상, deep-link, 복귀 규칙, 종료 조건이 누락 없이 문서화되어 있다.
+- **선행 조건(Dependencies)**: P3-2.1
 - **예상 소요 시간**: 120m
 - **관련 파일**: `src/components/layout/Sidebar.vue`
 
-### P3-2.4 온보딩 E2E 테스트 시나리오 정의
+### P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000072`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: admin 최초 로그인→온보딩 강제→완료→대시보드 이동까지의 E2E 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: E2E 테스트 시나리오: 1. admin 최초 로그인 → /onboarding 강제 진입 확인 2. 온보딩 단계 완료 → DB 상태 업데이트 확인 3. 완료 후 /dashboard/admin 이동 확인 4. 로그아웃 → 재로그인 시 온보딩 스킵 확인 5. user 역할로 로그인 시 /onboarding 접근 불가(403) 확인 6. URL 직접 입력 시 가드 동작 확인 7. 온보딩 미완료 상태에서 다른 페이지 접근 차단 확인
-- **검증 기준(Verification)**: Deliverable: 온보딩의 성공/실패/재접속 케이스가 테스트 시나리오로 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-2.3
+- **설명(Description)**: route, store, API contract, UX 설계를 하나의 구현 가능한 onboarding page 계획으로 통합한다. 이 task는 page composition과 integration boundary를 고정하는 역할을 한다.
+- **구현 가이드(Guide)**: 1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다. Method: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다. Pass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **관련 파일**: `src/router/index.ts`, `src/views/Onboarding.vue`
 
 ### P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000073`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 온보딩 미완료 admin을 /onboarding으로 강제하는 규칙과 예외(로그인/가입/승인대기)를 정의한다.
-- **구현 가이드(Guide)**: 1. 대상: admin 역할 + onboarding_required 상태인 사용자 2. 강제 규칙: router.beforeEach에서 상태 체크 후 /onboarding으로 리다이렉트 3. 예외 경로: /login, /register, /onboarding 자체는 가드 스킵 4. user 역할: 온보딩 상태와 무관하게 /dashboard/employee로 이동 5. 승인 대기(pending) 상태: 온보딩 가드보다 승인 가드 우선 적용 6. 가드 실행 순서: 인증 → 승인 상태 → 온보딩 상태 → 역별 라우팅
-- **검증 기준(Verification)**: Deliverable: 온보딩 강제 규칙이 명확히 정의되어 있고, 예외 케이스가 포함된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-2.4
-- **예상 소요 시간**: 60m
-- **관련 파일**: `src/router/guards.ts`
+- **설명(Description)**: 누가 /onboarding으로 강제 이동되는지, 누가 예외인지, login/signup/approval pending보다 어떤 순서로 평가되는지 guard rule matrix를 정의한다.
+- **구현 가이드(Guide)**: 1) admin 미완료, admin 완료, user, unauthenticated, approval pending/rejected 케이스의 결과 route를 표로 정리한다. 2) approval guard와 onboarding guard의 우선순위를 고정한다. 3) /login, /register, /onboarding 자체, public route 예외를 명시한다. 4) selected organization 또는 membership 상태가 접근 결정에 미치는 영향을 P2 access model과 맞춘다. 5) router insertion plan이 이 규칙만 소비하도록 정책 경계를 분리한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 강제 진입 규칙, 예외 route, 우선순위 규칙이 matrix 형태로 명확히 정의되어 있다. Method: 산출물을 리뷰하고 admin/user/pending 조합별 결과가 상충 없이 하나로 결정되는지 검사한다. Pass: guard priority와 예외 규칙이 누락 없이 정리되어 이후 router plan에서 재해석이 필요 없다.
+- **선행 조건(Dependencies)**: P3-1.1<br>P2-2.4
+- **예상 소요 시간**: 120m
+- **관련 파일**: `src/router/guards.ts`, `docs/migration/RBAC_MATRIX.md`
 
 ### P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000074`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 현재 인증/Step 가드 구조에 온보딩 가드를 어떻게 삽입할지 구현 계획을 수립한다.
-- **구현 가이드(Guide)**: 1. src/router/guards.ts에 onboardingGuard 함수 추가 2. 실행 순서: authGuard → approvalGuard → onboardingGuard → roleBasedRedirect 3. onboardingGuard:    - authStore에서 onboarding_required 확인    - meta.roles에 'admin' 포함 여부 체크    - 조건 충족 시 /onboarding으로 리다이렉트 4. 기존 Step 가드와의 충돌 방지: 온보딩 완료 전 Step 접근 허용 안 함 5. 가드 테스트: 각 역할/상태 조합별 라우팅 동작 검증
-- **검증 기준(Verification)**: Deliverable: 온보딩 가드가 기존 가드들과 충돌 없이 동작하도록 설계되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P3-3.1
+- **설명(Description)**: 현재 auth/approval/role redirect 구조 안에 onboarding guard를 어디에 삽입할지 정하고, router.beforeEach의 read source와 redirect 순서를 구현 가능한 수준으로 설계한다.
+- **구현 가이드(Guide)**: 1) auth check, approval check, onboarding check, role redirect의 실행 순서를 고정한다. 2) onboarding state를 store에서 읽는 지점과 prefetch 타이밍을 정의한다. 3) /onboarding 진입 허용 조건과 다른 route 강제 리다이렉트 규칙을 적는다. 4) 기존 step guard 또는 role redirect와 충돌하는 경로를 표기한다. 5) guard bypass test가 그대로 사용할 수 있도록 redirect matrix를 명확히 남긴다.
+- **검증 기준(Verification)**: Deliverable: router.beforeEach 안에서 onboarding guard가 어떤 순서와 입력값으로 동작할지 설계되어 있다. Method: 산출물을 리뷰하고 auth/approval/onboarding/role redirect가 순환 없이 단일 흐름으로 연결되는지 검사한다. Pass: route read source, guard 순서, redirect 결과가 충돌 없이 정리되어 있다.
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-3.1
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/router/index.ts`
+- **관련 파일**: `src/router/index.ts`, `src/router/guards.ts`
 
 ### P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000075`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: URL 직접 접근, 새로고침, 로그아웃 등에서 온보딩 가드가 우회되지 않는지 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 테스트 시나리오: 1. URL 직접 입력(/schedule/step1 등): 온보딩 미완료 admin은 /onboarding으로 리다이렉트 2. 새로고침: 온보딩 페이지 유지, 진행 상태 복구 3. 로그아웃/재로그인: 온보딩 미완료 시 다시 /onboarding 진입 4. 브라우저 뒤로가기: 온보딩 페이지에서 벗어나지 않도록 처리 5. user 역할: /onboarding 접근 시 403 또는 /dashboard/employee로 리다이렉트 6. 개발자 도구로 meta.roles 조작 시도 방지(서버측 검증 병행)
-- **검증 기준(Verification)**: Deliverable: 온보딩 가드 우회 방지 테스트 케이스가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: direct URL, refresh, logout/login, back-button, non-admin 접근에서 onboarding guard가 우회되지 않는지 검증하는 regression 시나리오를 정의한다.
+- **구현 가이드(Guide)**: 1) 직접 URL 입력, 새로고침, 로그아웃/재로그인, 뒤로가기, 비관리자 접근 케이스를 정리한다. 2) 각 시나리오에 precondition, steps, expected route, expected state를 고정 포맷으로 적는다. 3) approval pending이 onboarding보다 먼저 차단되는 케이스도 포함한다. 4) guard plan의 redirect matrix를 그대로 참조해 회귀 기준으로 삼는다. 5) 개발자 도구 조작 같은 클라이언트 우회 시도는 서버측 검증 필요성을 별도 메모로 남긴다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 guard 우회 방지 테스트 케이스가 문서화되어 있다. Method: 산출물을 리뷰하고 direct URL, refresh, relogin, back-button, non-admin 접근 케이스가 모두 포함되는지 검사한다. Pass: guard 우회 핵심 경로가 빠짐없이 정의되고 expected result가 route/state 기준으로 명확하다.
 - **선행 조건(Dependencies)**: P3-3.2
 - **예상 소요 시간**: 120m
+- **관련 파일**: `docs/verification/test-validation-guide.md`
+
+### P3-3.4 온보딩 E2E 테스트 시나리오 정의
+
+- **Task ID**: `7bfa70f1-d130-4940-982e-c8da747127c2`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: admin 최초 로그인 후 onboarding 강제 진입, 단계 완료, relogin skip, non-admin 차단까지 포함하는 onboarding E2E 시나리오 세트를 정의한다.
+- **구현 가이드(Guide)**: 1) 최초 로그인 강제 onboarding, 단계 완료 후 dashboard 이동, refresh resume, relogin skip 시나리오를 정의한다. 2) non-admin의 /onboarding 접근 차단과 approval pending 우선 차단 케이스를 포함한다. 3) API complete 호출과 UI 완료 상태가 일치해야 하는 검증 포인트를 적는다. 4) 단계별 CTA와 deep-link UX가 실제 flow에서 어떻게 보이는지 기대 결과를 포함한다. 5) guard bypass 시나리오와 중복되지 않도록 full-flow E2E 관점의 happy/fail/security 세트를 구분한다.
+- **검증 기준(Verification)**: Deliverable: 온보딩 전체 플로우의 E2E 테스트 시나리오가 happy/fail/security 관점으로 문서화되어 있다. Method: 산출물을 리뷰하고 first login, completion, refresh resume, relogin skip, non-admin deny가 모두 포함되는지 검사한다. Pass: onboarding E2E 핵심 플로우가 누락 없이 정의되고 API/store/guard 결과를 함께 검증할 수 있다.
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-2.1<br>P3-3.1
+- **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
 
@@ -1645,7 +1599,7 @@
 
 | Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
 | --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000076` | **P4-1.1 계정 관리 리스트/필터 요구사항 확정** | pending | P2-3.5<br>P3-3.3 | 120m |
+| `10000000-0000-4000-8000-000000000076` | **P4-1.1 계정 관리 리스트/필터 요구사항 확정** | pending | P2-3.5<br>P3-3.3<br>P3-3.4 | 120m |
 | `10000000-0000-4000-8000-000000000077` | **P4-1.2 계정 관리 조회 쿼리/API 설계(테넌트 스코프)** | pending | P4-1.1 | 180m |
 | `10000000-0000-4000-8000-000000000078` | **P4-1.3 UI: 계정 관리 리스트 화면 구현 계획** | pending | P4-1.2 | 180m |
 | `10000000-0000-4000-8000-000000000079` | **P4-1.4 계정 관리 기본 테스트 시나리오 정의** | pending | P4-1.3 | 120m |
@@ -1666,7 +1620,7 @@
 - **설명(Description)**: super/admin 계정 관리 화면에서 필요한 목록 컬럼과 필터(상태/역할/조직)를 확정한다.
 - **구현 가이드(Guide)**: 1) 목록 컬럼(이메일, 조직, 요청역할, 상태, 생성일) 정의. 2) 필터/정렬 요구 정의. 3) 접근 권한(super/admin) 범위 정의.
 - **검증 기준(Verification)**: Deliverable: 계정 관리 리스트/필터 요구사항이 화면 기준으로 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P2-3.5<br>P3-3.3
+- **선행 조건(Dependencies)**: P2-3.5<br>P3-3.3<br>P3-3.4
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/REFINED_PRD.md`
 - **노트(Notes)**: Boundary rule: P2 approval UI(P2-3.3) handles signup approval queue UX, while P4 account management UI handles post-approval account operations. Reuse decision API from P2-3.2 without duplicating queue responsibilities.
@@ -2718,6 +2672,68 @@
 - **관련 파일**: `docs/verification/final-verification-report.md`
 
 
+## Unknown (예상 시간: 0시간 0분)
+
+### 요약 (Summary)
+
+| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
+| --- | --- | --- | --- | --- |
+| `1731504b-272e-4000-9c46-4c62e3b06d97` | **Align signup contracts for optional API nextState and deterministic store boundary** | completed | - | - |
+| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion** | pending | - | - |
+| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **Optional hardening: remove success message duplication between store and view** | pending | - | - |
+| `5a783267-88a1-46b7-a71b-e03fdb4e0b99` | **Validate UI integration and single signup invocation path** | completed | 1731504b-272e-4000-9c46-4c62e3b06d97 | - |
+
+### 상세 (Details)
+
+### Align signup contracts for optional API nextState and deterministic store boundary
+
+- **Task ID**: `1731504b-272e-4000-9c46-4c62e3b06d97`
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: signup 타입 계약을 정리해 API nextState optional 호환성을 유지했고, auth store 반환 유니온을 명시적으로 고정해 UI 경계 타입 안정성을 확보했습니다.
+- **설명(Description)**: Refine signup type contracts so API success payload keeps `nextState` optional while store success result remains deterministic and UI-consumable. Maintain centralized canonical error code typing and stable result fields consumed by Signup view.
+- **구현 가이드(Guide)**: 1) In signup type definitions, preserve API payload `SignupSubmitSuccessData.nextState?`. 2) Keep/define explicit store return union with stable keys: success, nextState, message, errorCode, error, data. 3) Ensure success branch resolves nextState deterministically and retains resolved data typing; failure branch returns null nextState and canonical errorCode. 4) Keep error code domain sourced only from shared signup types exports.
+- **검증 기준(Verification)**: TypeScript enforces explicit `Promise<SignupStoreSignupResult>` for authStore.signup; API-level success DTO allows omitted nextState; union fields stay stable and narrow correctly in success/error branches.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `src/types/signup.ts`, `src/stores/auth.ts`
+- **노트(Notes)**: Do not add a new API call path or duplicate signup submission logic in view layer. Preserve existing backward compatibility semantics.
+
+### Optional hardening: enforce single signup invocation assertion
+
+- **Task ID**: `9098efca-a3fd-4e21-ac09-785b6b52a792`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Add explicit unit-test assertions to guarantee auth store signup performs exactly one submitSignup API call per action execution.
+- **구현 가이드(Guide)**: 1. Open tests/unit/auth-signup.spec.ts. 2. For success and error branch tests, add expect(submitSignup).toHaveBeenCalledTimes(1) after invoking authStore.signup. 3. Keep existing behavior assertions unchanged.
+- **검증 기준(Verification)**: Vitest passes and each signup test validates submitSignup call count equals 1.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `tests/unit/auth-signup.spec.ts`
+
+### Optional hardening: remove success message duplication between store and view
+
+- **Task ID**: `214e88d1-0820-4e5f-9756-5bf9ef56c280`
+- **현재 상태(Status)**: pending
+- **설명(Description)**: Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.
+- **구현 가이드(Guide)**: 1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.
+- **검증 기준(Verification)**: Signup success flow still shows correct pending/active messages and existing tests remain green.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: -
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`
+
+### Validate UI integration and single signup invocation path
+
+- **Task ID**: `5a783267-88a1-46b7-a71b-e03fdb4e0b99`
+- **현재 상태(Status)**: completed (2026-03-05)
+- **완료 요약(Summary)**: Signup.vue가 authStore.signup 반환 유니온을 분기 기반으로 안전하게 소비함을 확인했고, 코드 검색으로 submitSignup 직접 중복 호출 없이 단일 호출 경계를 유지함을 검증했습니다.
+- **설명(Description)**: Verify Signup view compiles against the explicit store union contract without additional type assertions and ensure no duplicate direct API invocation exists outside the auth store boundary.
+- **구현 가이드(Guide)**: 1) Confirm Signup view consumes `authStore.signup` union via success narrowing. 2) Search codebase for signup submission entrypoints and ensure path remains Signup view -> authStore.signup -> submitSignup. 3) Add/update lightweight type-level or usage checks if needed to lock the boundary behavior.
+- **검증 기준(Verification)**: Signup view compiles with current boundary contract and no duplicate signup API invocation path is introduced; search evidence confirms one canonical submission flow.
+- **선행 조건(Dependencies)**: 1731504b-272e-4000-9c46-4c62e3b06d97
+- **예상 소요 시간**: -
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/api/signup.ts`
+- **노트(Notes)**: This is a validation-focused integration task and should avoid broad refactors.
+
+
 ---
 
-**총 예상 소요 시간:** 약 352시간 30분
+**총 예상 소요 시간:** 약 355시간 30분
