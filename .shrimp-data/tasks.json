@@ -1834,7 +1834,7 @@
       "id": "10000000-0000-4000-8000-000000000073",
       "name": "P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)",
       "description": "누가 /onboarding으로 강제 이동되는지, 누가 예외인지, login/signup/approval pending보다 어떤 순서로 평가되는지 guard rule matrix를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1847,20 +1847,52 @@
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
-          "path": "src/router/guards.ts",
-          "type": "TO_MODIFY",
-          "description": "온보딩 guard 규칙 반영 대상"
+          "path": "docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md",
+          "type": "CREATE",
+          "description": "Canonical onboarding guard matrix, precedence, and exception rules for P3-3.1."
         },
         {
-          "path": "docs/migration/RBAC_MATRIX.md",
+          "path": "docs/migration/P2_ACCESS_APPROVAL_POLICY.md",
           "type": "REFERENCE",
-          "description": "meta.roles와 route access matrix 참조"
+          "description": "Upstream access-state guard order and pending/rejected redirect rules."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_STATE_MACHINE.md",
+          "type": "REFERENCE",
+          "description": "Admin-only and incomplete-only onboarding invariants from P3-1.1."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md",
+          "type": "REFERENCE",
+          "description": "Organization-scoped onboarding ownership and recovery semantics."
+        },
+        {
+          "path": "src/router/index.ts",
+          "type": "REFERENCE",
+          "description": "Current beforeEach structure and active route constants usage."
+        },
+        {
+          "path": "src/router/guards.ts",
+          "type": "REFERENCE",
+          "description": "Existing schedule step guard that must remain after onboarding redirect."
+        },
+        {
+          "path": "src/stores/rbac.ts",
+          "type": "REFERENCE",
+          "description": "Effective membership and accessState resolution source for guard decisions."
+        },
+        {
+          "path": "src/constants/routes.ts",
+          "type": "REFERENCE",
+          "description": "Current auth/access route constants and post-auth redirect baseline."
         }
       ],
       "implementationGuide": "1) admin 미완료, admin 완료, user, unauthenticated, approval pending/rejected 케이스의 결과 route를 표로 정리한다. 2) approval guard와 onboarding guard의 우선순위를 고정한다. 3) /login, /register, /onboarding 자체, public route 예외를 명시한다. 4) selected organization 또는 membership 상태가 접근 결정에 미치는 영향을 P2 access model과 맞춘다. 5) router insertion plan이 이 규칙만 소비하도록 정책 경계를 분리한다.",
       "verificationCriteria": "Deliverable: 온보딩 강제 진입 규칙, 예외 route, 우선순위 규칙이 matrix 형태로 명확히 정의되어 있다.\nMethod: 산출물을 리뷰하고 admin/user/pending 조합별 결과가 상충 없이 하나로 결정되는지 검사한다.\nPass: guard priority와 예외 규칙이 누락 없이 정리되어 이후 router plan에서 재해석이 필요 없다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:51:17.790Z",
+      "summary": "`docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md`를 추가해 P2 access-state 차단 이후에 적용되는 온보딩 가드 우선순위, `/login`·`/signup`·`/access/*`·`/onboarding` 예외 규칙, `admin_active`/`user_active`/`admin_pending` 조합별 결과 route, 그리고 selected organization 기반 organization-scoped 평가 규칙을 matrix 형태로 고정했다.",
+      "completedAt": "2026-03-12T12:51:17.785Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000074",
