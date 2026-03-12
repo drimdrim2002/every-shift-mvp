@@ -102,6 +102,7 @@ Superbase 기반 이메일/비밀번호 인증 지원
   3. **2단계 (직원 등록 안내)**: '직원 관리' 메뉴로 이동하여 첫 번째 `user`를 등록하도록 유도합니다. 가이드 텍스트와 함께 해당 메뉴가 하이라이트되는 효과를 적용합니다.
   4. **3단계 (스케줄 요청 안내)**: '엑셀 업로드' 메뉴로 이동하여 템플릿 다운로드 및 샘플 데이터 입력을 안내합니다.
   5. 모든 단계를 마치면 "이제 EveryShift를 사용할 준비가 되었습니다!" 메시지와 함께 대시보드 화면으로 이동합니다.
+- Implementation invariants for step keys, completion ownership, and admin-only forcing are fixed in `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`.
 
 # 6. Master Management
 

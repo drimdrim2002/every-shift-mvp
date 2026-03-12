@@ -12,7 +12,7 @@
 | 주요 기능 구분 | 메뉴 명칭 | 예상 라우트 경로 | super | admin | user |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **인증 및 온보딩** | 로그인/회원가입 | `/login`, `/register` | O | O | O |
-|  | 신규 조직 온보딩 | `/onboarding` | O | O (최초 로그인 시 필수) | 접근 불가 |
+|  | 신규 조직 온보딩 | `/onboarding` | 접근 불가 | O (최초 승인 후, 조직 온보딩 미완료 시 필수) | 접근 불가 |
 | **마스터 관리** | 계정 관리 (Account) | `/admin/accounts` | 모든 조직 계정 조회/생성/수정/삭제, 승인/반려 | 소속 조직 계정 조회/생성/수정/삭제, 승인/반려 | 접근 불가 |
 |  | 조직 관리 (Organization) | `/admin/organizations` | 모든 조직 정보 조회/생성/수정/삭제 | 본인 조직 정보 조회/생성/수정/삭제 | 접근 불가 |
 |  | 직원 관리 (Employee) | `/admin/employees`, `/employees/me` | 모든 조직 직원 조회/수정 | 본인 조직 직원 조회/수정 | 본인 정보만 조회/수정 |
@@ -34,7 +34,7 @@
 | PRD 메뉴/라우트 | 권한 규칙 | 연결 태스크(Phase) | 추적 상태 |
 | :--- | :--- | :--- | :--- |
 | `/login`, `/register` | 공용 진입 + 승인상태 기반 후속 차단 | P2-1.1, P2-1.4, P2-2.2, P2-2.4 | 연결됨 |
-| `/onboarding` | admin 전용 + 미완료 강제 진입 | P3-1.1, P3-2.1, P3-3.1, P3-3.2 | 연결됨 |
+| `/onboarding` | admin 전용 + 미완료 강제 진입 (`docs/migration/P3_ONBOARDING_STATE_MACHINE.md`) | P3-1.1, P3-2.1, P3-3.1, P3-3.2 | 연결됨 |
 | `/admin/accounts` | super/admin만 접근, user 차단 | P4-1.1, P4-1.4, P4-3.1, P4-3.3 | 연결됨 |
 | `/admin/organizations` | super 전체, admin 자기조직, user 차단 | P5-1.1, P5-1.2, P5-1.4 | 연결됨 |
 | `/admin/employees`, `/employees/me` | super/admin 조직 스코프, user self-scope | P6-1.1, P6-1.2, P6-2.4 | 연결됨 |

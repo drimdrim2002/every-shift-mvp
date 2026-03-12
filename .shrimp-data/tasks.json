@@ -1615,7 +1615,7 @@
       "id": "10000000-0000-4000-8000-000000000066",
       "name": "P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정",
       "description": "admin 최초 로그인 온보딩의 3단계 상태 머신(조직 정보 확인→직원 등록 안내→스케줄 요청 안내), 단계별 완료 조건, organization-vs-user ownership을 단일 진실원천으로 확정한다. /onboarding 라우트는 admin 전용이며, 미완료 admin만 강제 진입 대상이라는 불변식을 이 태스크에서 고정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1631,27 +1631,34 @@
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
-          "path": "docs/REFINED_PRD.md",
-          "type": "REFERENCE",
-          "description": "5.3 신규 조직 온보딩 요구사항 원문"
+          "path": "docs/migration/P3_ONBOARDING_STATE_MACHINE.md",
+          "type": "CREATE",
+          "description": "Canonical P3-1.1 domain spec for onboarding step keys, completion ownership, and admin-only forcing."
         },
         {
           "path": "docs/migration/RBAC_MATRIX.md",
-          "type": "REFERENCE",
-          "description": "/onboarding admin 전용 접근과 전역 가드 원칙 참조"
+          "type": "TO_MODIFY",
+          "description": "RBAC matrix updated to make /onboarding admin-only and reference the canonical onboarding spec."
+        },
+        {
+          "path": "docs/REFINED_PRD.md",
+          "type": "TO_MODIFY",
+          "description": "PRD onboarding section now points to the canonical implementation invariant document."
         }
       ],
       "implementationGuide": "1) 3단계 이름, 진입 조건, 단계별 완료 조건을 확정한다. 2) 완료 ownership을 organization-scoped, user-scoped, hybrid 중 하나로 고정하고 canonical read rule을 정의한다. 3) admin 완료/미완료, user 차단, approval pending 우선 규칙을 notes 또는 가이드에 명시한다. 4) 이후 API/store/guard task가 동일한 상태명과 완료 의미만 사용하도록 기준 용어를 고정한다.",
       "verificationCriteria": "Deliverable: 온보딩 단계, 완료 조건, completion ownership, admin-only 접근 불변식이 명확히 정리되어 있다.\nMethod: 산출물을 리뷰하고 단계 정의와 ownership 규칙이 후속 task에서 재해석 없이 사용 가능한지 검사한다.\nPass: 단계/완료/ownership/admin 전용 규칙이 누락 없이 명시되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z",
-      "notes": "이 태스크는 P3 전체의 domain gate다. 후속 task는 여기서 정의한 상태명, 완료 기준, ownership만 소비해야 한다."
+      "updatedAt": "2026-03-12T12:28:33.822Z",
+      "notes": "이 태스크는 P3 전체의 domain gate다. 후속 task는 여기서 정의한 상태명, 완료 기준, ownership만 소비해야 한다.",
+      "summary": "Created a canonical P3 onboarding state-machine spec that fixes the three step keys, organization-scoped completion ownership, canonical organization read rule, approval-before-onboarding precedence, and admin-only/incomplete-only /onboarding access invariant. Updated RBAC docs to remove super access from /onboarding and linked the PRD onboarding section to the new source-of-truth document.",
+      "completedAt": "2026-03-12T12:28:33.816Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000067",
       "name": "P3-1.2 onboarding_progress 저장/RLS 설계",
       "description": "onboarding_progress의 persistence ownership, read/write boundary, active admin scope, organization isolation, recovery semantics를 정의하고 현재 RLS gap을 해소하기 위한 설계 기준을 확정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1661,31 +1668,48 @@
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
+          "path": "docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md",
+          "type": "CREATE",
+          "description": "Canonical persistence and RLS design for onboarding_progress."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_STATE_MACHINE.md",
+          "type": "REFERENCE",
+          "description": "Upstream onboarding ownership and step invariants from P3-1.1."
+        },
+        {
           "path": "docs/verification/test-validation-guide.md",
-          "type": "TO_MODIFY",
-          "description": "onboarding_progress 현재 RLS gap과 목표 제어 방향 반영"
+          "type": "REFERENCE",
+          "description": "Current RLS gap baseline showing onboarding_progress as RLS disabled."
         },
         {
           "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
           "type": "REFERENCE",
-          "description": "RLS 설계 기준 참조"
+          "description": "Shared RLS principles and matrix style reference."
+        },
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "REFERENCE",
+          "description": "Current onboarding_progress schema that still reflects per-user uniqueness."
         },
         {
           "path": "migrations/008_rls_progressive_rollout.sql",
           "type": "REFERENCE",
-          "description": "기존 approval/access RLS 원칙 참조"
+          "description": "Existing RBAC helper and RLS rollout pattern reference."
         }
       ],
       "implementationGuide": "1) onboarding_progress의 owner scope와 organization_id 기준 격리 규칙을 정한다. 2) 누가 read/write/update/complete 할 수 있는지 역할과 account 상태 기준을 정의한다. 3) refresh/relogin/recovery 시 어떤 row를 canonical state로 읽을지 고정한다. 4) 현재 RLS disabled 상태를 목표 정책으로 전환하기 위한 요구사항을 문서화한다. 5) API contract task가 이 저장 규칙을 재정의하지 않도록 persistence 경계를 명확히 적는다.",
       "verificationCriteria": "Deliverable: onboarding_progress 저장 모델, tenant/RLS 범위, recovery 규칙이 명시되어 있다.\nMethod: 산출물을 리뷰하고 ownership, read/write 범위, RLS 목표 정책이 분리 없이 설명되는지 검사한다.\nPass: 저장 경계와 RLS 목표가 API contract와 독립적으로 해석 가능하게 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:39:58.158Z",
+      "summary": "`docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md`를 추가해 onboarding_progress의 organization-scoped ownership, admin_active read/write 범위, legacy row collapse recovery, admin-only RLS 목표 정책, 그리고 P3-1.3 API task가 재정의하면 안 되는 persistence 경계를 명시적으로 고정했다.",
+      "completedAt": "2026-03-12T12:39:58.153Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000068",
       "name": "P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)",
       "description": "onboarding-progress 서버 경계의 get/update/complete 요청·응답 schema, auth boundary, canonical error model을 정의한다. 이 태스크는 저장/RLS 규칙을 재정의하지 않고 transport contract만 고정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1708,7 +1732,9 @@
       "implementationGuide": "1) get/update/complete 액션별 request/response envelope과 error code를 정의한다. 2) admin-only 호출 경계와 organization scope 검증 책임을 문서화한다. 3) field name과 state name을 P3-1.1의 용어와 정확히 맞춘다. 4) persistence/RLS 규칙은 P3-1.2를 참조하고 이 태스크에서는 transport contract만 유지한다. 5) 후속 store/router가 추가 결정 없이 사용할 수 있도록 DTO와 상태 전이 결과를 명시한다.",
       "verificationCriteria": "Deliverable: onboarding-progress API contract가 get/update/complete 범위로 문서화되어 있고 auth/error 기준이 포함된다.\nMethod: 산출물을 리뷰하고 request/response/error가 P3-1.1 상태명과 정합하며 추가 해석 없이 프론트에서 소비 가능한지 검사한다.\nPass: action별 contract와 auth boundary가 명시되고 persistence 규칙과 역할 경계가 충돌 없이 정리되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:41:23.748Z",
+      "summary": "`docs/API_SPEC.md`에 P3 canonical onboarding-progress contract를 추가해 get/update/complete 요청·응답 envelope, admin-only auth boundary, organization-scope resolution, canonical error code를 문서화했다. 또한 Edge Function 타입과 응답 형식을 `currentStepKey`/`completedStepKeys`/`isOnboardingComplete` 기반으로 정렬해 프론트가 추가 해석 없이 사용할 수 있는 transport contract로 맞췄다.",
+      "completedAt": "2026-03-12T12:41:23.742Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000069",
@@ -1737,13 +1763,13 @@
       "implementationGuide": "1) store state, getter, action, loading lifecycle을 정의한다. 2) API contract의 field name과 상태명을 그대로 사용한다. 3) local restore, storage event sync, invalidation 규칙을 정한다. 4) admin-only 조회/수정과 미완료/완료 판정 시점을 명확히 적는다. 5) router/guard가 직접 raw payload를 읽지 않고 store를 통해 소비하도록 경계를 고정한다.",
       "verificationCriteria": "Deliverable: 온보딩 상태의 로딩, 저장, 복구, 초기화 규칙과 store 인터페이스가 명확히 정의되어 있다.\nMethod: 산출물을 리뷰하고 refresh/relogin/multi-tab 시나리오에서 어떤 state source를 읽는지 추적한다.\nPass: store가 API contract와 동일한 필드/상태명을 사용하고, 캐시 무효화와 복구 규칙이 누락 없이 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000070",
       "name": "P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정",
       "description": "온보딩 위저드의 단계별 IA, 설명 문구, CTA, 완료 후 dashboard exit semantics를 확정한다. 이 task는 구현 통합 전의 UX 기준 문서 역할을 한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1753,20 +1779,37 @@
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
-          "path": "src/views/Onboarding.vue",
+          "path": "docs/migration/P3_ONBOARDING_WIZARD_UX.md",
           "type": "CREATE",
-          "description": "온보딩 위저드 화면 구조 대상"
+          "description": "Canonical onboarding wizard IA, copy, CTA, and exit semantics spec for P3-2.1"
         },
         {
           "path": "docs/REFINED_PRD.md",
           "type": "REFERENCE",
-          "description": "5.3 단계별 안내 요구사항 참조"
+          "description": "PRD 5.3 onboarding requirements source"
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_STATE_MACHINE.md",
+          "type": "REFERENCE",
+          "description": "Canonical step keys and completion ownership invariants"
+        },
+        {
+          "path": "docs/migration/RBAC_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "Admin dashboard landing route and onboarding access matrix"
+        },
+        {
+          "path": "src/views/onboarding",
+          "type": "REFERENCE",
+          "description": "Target onboarding view directory in current repo layout"
         }
       ],
       "implementationGuide": "1) 3단계별 사용자 목적, 설명 copy, CTA를 정의한다. 2) 단계 완료 후 다음 단계 유도와 마지막 완료 메시지를 확정한다. 3) employee registration과 schedule request 안내가 문서 요구사항과 맞는지 확인한다. 4) admin 완료 후 기본 landing route를 명시한다. 5) 이 task는 router/store 세부 구현 없이도 review 가능해야 한다.",
       "verificationCriteria": "Deliverable: 온보딩 위저드의 단계별 정보구조, 콘텐츠, CTA, 완료 UX가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 단계별 사용자의 다음 행동과 종료 지점이 명확한지 검사한다.\nPass: 각 단계의 목적, CTA, 완료 후 이동 규칙이 누락 없이 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:51:32.669Z",
+      "summary": "Added `docs/migration/P3_ONBOARDING_WIZARD_UX.md` as the canonical onboarding UX spec. The document fixes `/onboarding` route semantics, the three step IA, Korean step copy, primary CTA labels, per-step completion meaning aligned with the P3 state machine, next-step handoff messaging, and the final admin landing route as `/dashboard/admin`. Updated the task’s related files so later implementation tasks can consume the spec from the correct repo paths.",
+      "completedAt": "2026-03-12T12:51:32.664Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000071",
@@ -1790,7 +1833,7 @@
       "implementationGuide": "1) 어떤 단계에서 어떤 메뉴를 하이라이트할지 정한다. 2) 딥링크 이동 후 온보딩으로 돌아오는 return path를 정의한다. 3) 사이드바 자동 확장, 강조 표시 지속 시간, 완료 후 강조 해제 조건을 적는다. 4) user/non-admin 접근 차단과 잘못된 딥링크 진입 처리도 포함한다. 5) 전체 페이지 통합 계획과는 분리된 UX task로 유지한다.",
       "verificationCriteria": "Deliverable: 사용자가 직원관리/엑셀 업로드를 쉽게 찾을 수 있도록 menu highlight와 deep-link UX가 정의되어 있다.\nMethod: 산출물을 리뷰하고 단계별 목적 화면으로 이동하는 경로와 복귀 경로가 명확한지 검사한다.\nPass: highlight 대상, deep-link, 복귀 규칙, 종료 조건이 누락 없이 문서화되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000072",
@@ -1828,7 +1871,7 @@
       "implementationGuide": "1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.",
       "verificationCriteria": "Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다.\nMethod: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다.\nPass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000073",
@@ -1927,7 +1970,7 @@
       "implementationGuide": "1) auth check, approval check, onboarding check, role redirect의 실행 순서를 고정한다. 2) onboarding state를 store에서 읽는 지점과 prefetch 타이밍을 정의한다. 3) /onboarding 진입 허용 조건과 다른 route 강제 리다이렉트 규칙을 적는다. 4) 기존 step guard 또는 role redirect와 충돌하는 경로를 표기한다. 5) guard bypass test가 그대로 사용할 수 있도록 redirect matrix를 명확히 남긴다.",
       "verificationCriteria": "Deliverable: router.beforeEach 안에서 onboarding guard가 어떤 순서와 입력값으로 동작할지 설계되어 있다.\nMethod: 산출물을 리뷰하고 auth/approval/onboarding/role redirect가 순환 없이 단일 흐름으로 연결되는지 검사한다.\nPass: route read source, guard 순서, redirect 결과가 충돌 없이 정리되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000075",
@@ -1951,7 +1994,7 @@
       "implementationGuide": "1) 직접 URL 입력, 새로고침, 로그아웃/재로그인, 뒤로가기, 비관리자 접근 케이스를 정리한다. 2) 각 시나리오에 precondition, steps, expected route, expected state를 고정 포맷으로 적는다. 3) approval pending이 onboarding보다 먼저 차단되는 케이스도 포함한다. 4) guard plan의 redirect matrix를 그대로 참조해 회귀 기준으로 삼는다. 5) 개발자 도구 조작 같은 클라이언트 우회 시도는 서버측 검증 필요성을 별도 메모로 남긴다.",
       "verificationCriteria": "Deliverable: 온보딩 guard 우회 방지 테스트 케이스가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 direct URL, refresh, relogin, back-button, non-admin 접근 케이스가 모두 포함되는지 검사한다.\nPass: guard 우회 핵심 경로가 빠짐없이 정의되고 expected result가 route/state 기준으로 명확하다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "7bfa70f1-d130-4940-982e-c8da747127c2",
@@ -1980,8 +2023,8 @@
       ],
       "implementationGuide": "1) 최초 로그인 강제 onboarding, 단계 완료 후 dashboard 이동, refresh resume, relogin skip 시나리오를 정의한다. 2) non-admin의 /onboarding 접근 차단과 approval pending 우선 차단 케이스를 포함한다. 3) API complete 호출과 UI 완료 상태가 일치해야 하는 검증 포인트를 적는다. 4) 단계별 CTA와 deep-link UX가 실제 flow에서 어떻게 보이는지 기대 결과를 포함한다. 5) guard bypass 시나리오와 중복되지 않도록 full-flow E2E 관점의 happy/fail/security 세트를 구분한다.",
       "verificationCriteria": "Deliverable: 온보딩 전체 플로우의 E2E 테스트 시나리오가 happy/fail/security 관점으로 문서화되어 있다.\nMethod: 산출물을 리뷰하고 first login, completion, refresh resume, relogin skip, non-admin deny가 모두 포함되는지 검사한다.\nPass: onboarding E2E 핵심 플로우가 누락 없이 정의되고 API/store/guard 결과를 함께 검증할 수 있다.",
-      "createdAt": "2026-03-12T12:10:19Z",
-      "updatedAt": "2026-03-12T12:10:19Z"
+      "createdAt": "2026-03-12T12:10:19.000Z",
+      "updatedAt": "2026-03-12T12:10:19.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000076",
@@ -2011,7 +2054,7 @@
       "implementationGuide": "1) 목록 컬럼(이메일, 조직, 요청역할, 상태, 생성일) 정의. 2) 필터/정렬 요구 정의. 3) 접근 권한(super/admin) 범위 정의.",
       "verificationCriteria": "Deliverable: 계정 관리 리스트/필터 요구사항이 화면 기준으로 정의되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19Z",
+      "updatedAt": "2026-03-12T12:10:19.000Z",
       "notes": "Boundary rule: P2 approval UI(P2-3.3) handles signup approval queue UX, while P4 account management UI handles post-approval account operations. Reuse decision API from P2-3.2 without duplicating queue responsibilities."
     },
     {
