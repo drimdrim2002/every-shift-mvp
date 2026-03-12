@@ -752,3 +752,224 @@ Canonical policy source:
 
 - Canonical v2 signup contract uses role-branch submit with `organizationSelectionMode='existing'`.
 - Legacy `organizationId` alias for `hospitalId` remains accepted for compatibility.
+
+## Onboarding Progress Contract (P3 Canonical)
+
+This section defines the transport contract for the `onboarding-progress` server boundary.
+It fixes request/response/error semantics for `get`, `update`, and `complete` without redefining persistence ownership or RLS policy.
+
+Canonical domain source:
+- `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`
+
+Persistence/RLS policy source:
+- `P3-1.2 onboarding_progress persistence + RLS design`
+
+### Contract Scope
+
+- This section defines:
+  - request and response envelopes for `get`, `update`, and `complete`
+  - canonical step keys and progress DTO fields
+  - admin-only auth boundary and organization-scope resolution responsibility
+  - canonical error codes for frontend branching
+- This section does not define:
+  - storage table shape
+  - RLS implementation details
+  - guard insertion order
+  - onboarding wizard copy or CTA behavior
+
+### Edge Function Boundary (`onboarding-progress`)
+
+- Client boundary is fixed to `supabase.functions.invoke('onboarding-progress')`.
+- Direct browser reads/writes to `onboarding_progress` are not part of this contract.
+- The caller must be authenticated.
+- The server must resolve the caller's effective organization from auth context and approved admin membership.
+- `organizationId` is never accepted from the client request body.
+- Only `admin_active` callers in an effective organization scope may use this function.
+- `user_active`, `super_active`, `admin_pending`, `admin_rejected`, `unauthenticated`, and `no_membership_or_inactive` are outside the allowed caller set.
+
+### Shared Enums
+
+| Name | Values |
+| :--- | :--- |
+| `action` | `get`, `update`, `complete` |
+| `stepKey` | `organization_info`, `employee_seed`, `schedule_request` |
+| `transitionType` | `noop`, `advance`, `complete` |
+| `error.code` | `VALIDATION_ERROR`, `PERMISSION_DENIED`, `FORBIDDEN_STATE_TRANSITION`, `METHOD_NOT_ALLOWED`, `INTERNAL_ERROR` |
+
+### Canonical Progress DTO
+
+`progress` represents organization-scoped onboarding state for the caller's effective organization.
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `organizationId` | UUID | Yes | Effective organization scope resolved by server |
+| `currentStepKey` | String \| `null` | Yes | First incomplete step key in canonical order, or `null` when onboarding is complete |
+| `completedStepKeys` | Array<String> | Yes | Ordered subset of canonical step keys already complete |
+| `isOnboardingComplete` | Boolean | Yes | `true` only when all three steps are complete |
+| `completedAt` | String \| `null` | Yes | ISO-8601 timestamp for terminal completion, otherwise `null` |
+
+### Transition DTO
+
+`transition` communicates the result of a mutating call so the frontend store/router can consume it without additional interpretation.
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `type` | String | Yes | `noop` \| `advance` \| `complete` |
+| `requestedStepKey` | String \| `null` | Yes | Requested target step for `update`, fixed to `schedule_request` for `complete`, `null` for `get` |
+| `previousCurrentStepKey` | String \| `null` | Yes | Previous `progress.currentStepKey` before mutation |
+| `resultingCurrentStepKey` | String \| `null` | Yes | Resulting `progress.currentStepKey` after mutation |
+| `isOnboardingComplete` | Boolean | Yes | Post-mutation completion state |
+
+### Request DTO (Action Union)
+
+#### Action: `get`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `get` |
+
+#### Action: `update`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `update` |
+| `stepKey` | String | Yes | `organization_info` \| `employee_seed` \| `schedule_request` |
+
+`update` means "advance the canonical first-incomplete step to this requested step key" while preserving monotonic progress.
+The server must reject backward movement and must not infer organization scope from the request body.
+
+#### Action: `complete`
+
+| Field | Type | Required | Rules |
+| :--- | :--- | :--- | :--- |
+| `action` | String | Yes | Fixed to `complete` |
+
+`complete` is the terminal onboarding action and represents that the organization has crossed the final `schedule_request` completion boundary.
+
+### Response Envelope
+
+#### Success Envelope
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "update",
+    "progress": {
+      "organizationId": "uuid",
+      "currentStepKey": "employee_seed",
+      "completedStepKeys": ["organization_info"],
+      "isOnboardingComplete": false,
+      "completedAt": null
+    },
+    "transition": {
+      "type": "advance",
+      "requestedStepKey": "employee_seed",
+      "previousCurrentStepKey": "organization_info",
+      "resultingCurrentStepKey": "employee_seed",
+      "isOnboardingComplete": false
+    }
+  }
+}
+```
+
+#### Success Example: `get`
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "get",
+    "progress": {
+      "organizationId": "uuid",
+      "currentStepKey": "schedule_request",
+      "completedStepKeys": ["organization_info", "employee_seed"],
+      "isOnboardingComplete": false,
+      "completedAt": null
+    },
+    "transition": null
+  }
+}
+```
+
+#### Success Example: `complete`
+
+```json
+{
+  "success": true,
+  "data": {
+    "action": "complete",
+    "progress": {
+      "organizationId": "uuid",
+      "currentStepKey": null,
+      "completedStepKeys": [
+        "organization_info",
+        "employee_seed",
+        "schedule_request"
+      ],
+      "isOnboardingComplete": true,
+      "completedAt": "2026-03-12T09:00:00.000Z"
+    },
+    "transition": {
+      "type": "complete",
+      "requestedStepKey": "schedule_request",
+      "previousCurrentStepKey": "schedule_request",
+      "resultingCurrentStepKey": null,
+      "isOnboardingComplete": true
+    }
+  }
+}
+```
+
+#### Error Envelope
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "FORBIDDEN_STATE_TRANSITION",
+    "message": "Onboarding step can only stay the same or move forward.",
+    "details": {
+      "requestedStepKey": "organization_info",
+      "currentStepKey": "employee_seed"
+    }
+  }
+}
+```
+
+Clients must branch by `error.code`, not by free-form message text.
+
+### Canonical Error Code Contract (`onboarding-progress`)
+
+| Code | Meaning | Typical Operation |
+| :--- | :--- | :--- |
+| `VALIDATION_ERROR` | Payload is invalid or required action fields are missing | get/update/complete |
+| `PERMISSION_DENIED` | Caller is unauthenticated, not `admin_active`, or lacks effective organization scope | get/update/complete |
+| `FORBIDDEN_STATE_TRANSITION` | Requested update moves backward or attempts to mutate terminal progress incorrectly | update |
+| `METHOD_NOT_ALLOWED` | Request used an unsupported HTTP method | transport |
+| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+
+### State Interpretation Rules
+
+- Canonical step order is fixed:
+  1. `organization_info`
+  2. `employee_seed`
+  3. `schedule_request`
+- `currentStepKey` always means the first incomplete step in that order.
+- `isOnboardingComplete=true` requires all three step keys to be complete.
+- When onboarding is complete:
+  - `currentStepKey=null`
+  - `completedStepKeys` must contain all three canonical step keys in order
+- `update` may return:
+  - `transition.type='noop'` when the requested `stepKey` already matches `currentStepKey`
+  - `transition.type='advance'` when the requested `stepKey` moves progress forward
+- `complete` may return:
+  - `transition.type='complete'` on the first terminal transition
+  - `transition.type='noop'` on idempotent replay after onboarding is already complete
+
+### Auth Boundary Checklist
+
+- The server resolves effective organization scope from authenticated admin membership.
+- The client does not send `organizationId` or role claims in the request body.
+- Transport contract remains organization-scoped even if persistence internals change in `P3-1.2`.
+- The function response is safe for frontend store/router consumption without extra state-name translation.
