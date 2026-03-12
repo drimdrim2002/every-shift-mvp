@@ -1740,7 +1740,7 @@
       "id": "10000000-0000-4000-8000-000000000069",
       "name": "P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)",
       "description": "온보딩 진행 상태를 프론트에서 어떻게 로딩, 캐시, 복구, 동기화할지 정의한다. refresh, relogin, 다중 탭 상황에서도 동일한 canonical state를 사용하도록 store contract를 고정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1752,18 +1752,38 @@
         {
           "path": "src/stores/onboarding.ts",
           "type": "CREATE",
-          "description": "온보딩 스토어 인터페이스 대상"
+          "description": "Canonical onboarding Pinia store with scope handoff, local restore, storage sync, guard-facing readiness, and invalidation rules.",
+          "lineStart": 1,
+          "lineEnd": 586
+        },
+        {
+          "path": "src/api/onboarding.ts",
+          "type": "CREATE",
+          "description": "onboarding-progress Edge Function wrapper that preserves the API contract field names and canonical error codes.",
+          "lineStart": 1,
+          "lineEnd": 286
+        },
+        {
+          "path": "src/types/onboarding.ts",
+          "type": "CREATE",
+          "description": "Shared onboarding transport and cache contract types reused by the API layer and store.",
+          "lineStart": 1,
+          "lineEnd": 57
         },
         {
           "path": "src/stores/auth.ts",
-          "type": "REFERENCE",
-          "description": "세션 체크와 auth handoff 지점 참조"
+          "type": "TO_MODIFY",
+          "description": "Auth session handoff now clears or resets onboarding memory state on login, logout, and session restore boundaries.",
+          "lineStart": 88,
+          "lineEnd": 210
         }
       ],
-      "implementationGuide": "1) store state, getter, action, loading lifecycle을 정의한다. 2) API contract의 field name과 상태명을 그대로 사용한다. 3) local restore, storage event sync, invalidation 규칙을 정한다. 4) admin-only 조회/수정과 미완료/완료 판정 시점을 명확히 적는다. 5) router/guard가 직접 raw payload를 읽지 않고 store를 통해 소비하도록 경계를 고정한다.",
-      "verificationCriteria": "Deliverable: 온보딩 상태의 로딩, 저장, 복구, 초기화 규칙과 store 인터페이스가 명확히 정의되어 있다.\nMethod: 산출물을 리뷰하고 refresh/relogin/multi-tab 시나리오에서 어떤 state source를 읽는지 추적한다.\nPass: store가 API contract와 동일한 필드/상태명을 사용하고, 캐시 무효화와 복구 규칙이 누락 없이 정의되어 있다.",
+      "implementationGuide": "1) Preserve the onboarding-progress contract field names (`action`, `progress`, `transition`, `currentStepKey`, `completedStepKeys`, `isOnboardingComplete`, `completedAt`) in shared TypeScript types and the API wrapper. 2) Keep the store organization-scoped by accepting `accessState` + `organizationId` as scope input, while auth only hands off `sessionUserId`. 3) Restore from localStorage by organization key for refresh/relogin warm-start, but expose `isReadyForGuard` so router/guard waits for a same-tab remote snapshot before enforcing redirects. 4) Sync same-organization tabs through the `storage` event and ignore malformed or older payloads. 5) Invalidate memory on scope change/logout, optionally clear persisted cache on permission loss, and keep router/guard consumers behind store getters instead of raw payload reads.",
+      "verificationCriteria": "Deliverable: `src/stores/onboarding.ts` defines scope, loading, cache, restore, storage sync, invalidation, and guard-facing getters using the canonical onboarding-progress field names, with auth session handoff updated in `src/stores/auth.ts`. Method: review refresh, relogin, and multi-tab flows by tracing `loadProgress`, `restoreProgressFromCache`, `handleStorageEvent`, `invalidateProgress`, and auth login/logout/checkSession. Pass: the store uses the same API field names/status names, separates local restore from guard readiness via `hasRemoteSnapshot`/`isReadyForGuard`, and defines when cache is retained or cleared on scope and permission changes.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-12T13:09:48.533Z",
+      "summary": "Shared onboarding contract types and an onboarding-progress API wrapper were added, then a new Pinia onboarding store defined organization-scoped loading, local restore, storage-event sync, invalidation, and guard-facing readiness rules. Auth session handoff now resets onboarding memory on login/logout/checkSession boundaries, and `pnpm lint:check` passed after the changes.",
+      "completedAt": "2026-03-12T13:09:48.528Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000070",
@@ -1815,7 +1835,7 @@
       "id": "10000000-0000-4000-8000-000000000071",
       "name": "P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)",
       "description": "온보딩 위저드에서 직원관리와 엑셀 업로드 화면으로 이동시키는 menu highlight, deep-link, return path UX를 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1825,15 +1845,27 @@
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
+          "path": "docs/migration/P3_ONBOARDING_MENU_DEEP_LINK_UX.md",
+          "type": "CREATE",
+          "description": "Canonical P3-2.2 UX spec for onboarding menu highlight, deep-link, and return-path rules"
+        },
+        {
           "path": "src/components/layout/Sidebar.vue",
-          "type": "TO_MODIFY",
-          "description": "메뉴 하이라이트와 자동 확장 UX 대상"
+          "type": "REFERENCE",
+          "description": "Current sidebar shape and compatibility constraint for highlight behavior"
+        },
+        {
+          "path": "src/views/schedule/Step3EmployeeInfo.vue",
+          "type": "REFERENCE",
+          "description": "Current compatibility fallback surface for manual entry and Excel upload deep-links"
         }
       ],
       "implementationGuide": "1) 어떤 단계에서 어떤 메뉴를 하이라이트할지 정한다. 2) 딥링크 이동 후 온보딩으로 돌아오는 return path를 정의한다. 3) 사이드바 자동 확장, 강조 표시 지속 시간, 완료 후 강조 해제 조건을 적는다. 4) user/non-admin 접근 차단과 잘못된 딥링크 진입 처리도 포함한다. 5) 전체 페이지 통합 계획과는 분리된 UX task로 유지한다.",
       "verificationCriteria": "Deliverable: 사용자가 직원관리/엑셀 업로드를 쉽게 찾을 수 있도록 menu highlight와 deep-link UX가 정의되어 있다.\nMethod: 산출물을 리뷰하고 단계별 목적 화면으로 이동하는 경로와 복귀 경로가 명확한지 검사한다.\nPass: highlight 대상, deep-link, 복귀 규칙, 종료 조건이 누락 없이 문서화되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-12T13:05:58.731Z",
+      "summary": "P3-2.2 전용 UX 명세 문서를 추가해 employee_seed 단계의 메뉴 하이라이트 대상, manual/excel 딥링크 계약, 현재 앱의 /schedule/step3 호환 fallback, 온보딩 복귀 배너/저장 후 복귀 CTA, 강조 지속/해제 조건, 비관리자 및 잘못된 딥링크 처리 규칙을 분리 문서로 확정했다.",
+      "completedAt": "2026-03-12T13:05:58.726Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000072",
@@ -2000,7 +2032,7 @@
       "id": "7bfa70f1-d130-4940-982e-c8da747127c2",
       "name": "P3-3.4 온보딩 E2E 테스트 시나리오 정의",
       "description": "admin 최초 로그인 후 onboarding 강제 진입, 단계 완료, relogin skip, non-admin 차단까지 포함하는 onboarding E2E 시나리오 세트를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -2018,13 +2050,30 @@
         {
           "path": "docs/verification/test-validation-guide.md",
           "type": "TO_MODIFY",
-          "description": "온보딩 E2E 시나리오 추가"
+          "description": "Canonical onboarding E2E scenario set for P3-3.4."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_WIZARD_UX.md",
+          "type": "REFERENCE",
+          "description": "Step CTA copy, completion UX, and dashboard landing semantics."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "Access-state precedence and /onboarding allow-deny matrix."
+        },
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "REFERENCE",
+          "description": "onboarding-progress get/update/complete contract and error model."
         }
       ],
       "implementationGuide": "1) 최초 로그인 강제 onboarding, 단계 완료 후 dashboard 이동, refresh resume, relogin skip 시나리오를 정의한다. 2) non-admin의 /onboarding 접근 차단과 approval pending 우선 차단 케이스를 포함한다. 3) API complete 호출과 UI 완료 상태가 일치해야 하는 검증 포인트를 적는다. 4) 단계별 CTA와 deep-link UX가 실제 flow에서 어떻게 보이는지 기대 결과를 포함한다. 5) guard bypass 시나리오와 중복되지 않도록 full-flow E2E 관점의 happy/fail/security 세트를 구분한다.",
       "verificationCriteria": "Deliverable: 온보딩 전체 플로우의 E2E 테스트 시나리오가 happy/fail/security 관점으로 문서화되어 있다.\nMethod: 산출물을 리뷰하고 first login, completion, refresh resume, relogin skip, non-admin deny가 모두 포함되는지 검사한다.\nPass: onboarding E2E 핵심 플로우가 누락 없이 정의되고 API/store/guard 결과를 함께 검증할 수 있다.",
       "createdAt": "2026-03-12T12:10:19.000Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-12T13:07:14.776Z",
+      "summary": "`docs/verification/test-validation-guide.md`에 P3-3.4 canonical onboarding E2E 섹션을 추가해 happy/fail/security 시나리오를 문서화했다. first login force-in, 3단계 완료와 complete API 정합성, refresh resume, relogin skip, approval pending 우선 차단, non-admin deny, organization-scoped completion 재진입 방지까지 포함했고 lint도 통과했다.",
+      "completedAt": "2026-03-12T13:07:14.771Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000076",

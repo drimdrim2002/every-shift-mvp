@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { fetchAuthContext } from '@/api/auth-context'
 import { getSignupErrorMessage, submitSignup, SignupSubmitApiError } from '@/api/signup'
 import { supabase } from '@/api/supabase'
+import { useOnboardingStore } from '@/stores/onboarding'
 import { useRbacStore } from '@/stores/rbac'
 import type { User } from '@supabase/supabase-js'
 import {
@@ -88,9 +89,11 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
 
-  function syncRbacSession(nextUser: User | null) {
+  function syncSessionHandoffs(nextUser: User | null) {
     const rbacStore = useRbacStore()
+    const onboardingStore = useOnboardingStore()
     rbacStore.setSessionUserId(nextUser?.id ?? null)
+    onboardingStore.setSessionUserId(nextUser?.id ?? null)
   }
 
   async function ensureAccessContext(forceRefresh = false) {
@@ -98,6 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     if (!user.value) {
       rbacStore.clearContext()
+      useOnboardingStore().clearContext()
       return null
     }
 
@@ -114,7 +118,10 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error) {
       console.warn('[auth] Failed to hydrate auth context:', error)
       rbacStore.clearContext()
-      syncRbacSession(user.value)
+      useOnboardingStore().setScope({
+        accessState: null,
+        organizationId: null,
+      })
       return null
     }
   }
@@ -133,7 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (error) throw error
 
       user.value = data.user
-      syncRbacSession(data.user)
+      syncSessionHandoffs(data.user)
       await ensureAccessContext(true)
       return { success: true }
     } catch (error: unknown) {
@@ -174,6 +181,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (error) throw error
       user.value = null
       useRbacStore().clearContext()
+      useOnboardingStore().clearContext()
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '로그아웃 실패'
@@ -187,7 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function checkSession() {
     const { data } = await supabase.auth.getSession()
     user.value = data.session?.user ?? null
-    syncRbacSession(user.value)
+    syncSessionHandoffs(user.value)
     await ensureAccessContext()
   }
 
