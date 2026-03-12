@@ -1089,3 +1089,267 @@ commit;
 1. unit: `router beforeEach` 매트릭스 (`P2-RT-001` ~ `P2-RT-008`)
 2. unit/component: `AccessState` pending/rejected copy + logout CTA
 3. integration/e2e: `P2-E2E-001` ~ `P2-E2E-003`
+
+## 18) P3-3.4 온보딩 E2E 시나리오 세트 (Canonical)
+
+본 섹션은 `admin_active` 최초 로그인 온보딩 전체 플로우를 위한 E2E 시나리오 세트다.  
+범위는 forced entry, 단계 완료, refresh resume, relogin skip, approval 우선 차단, non-admin deny, API/store/guard 정합성 검증이다.
+
+기준 문서:
+
+- `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`
+- `docs/migration/P3_ONBOARDING_WIZARD_UX.md`
+- `docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md`
+- `docs/API_SPEC.md`의 `onboarding-progress` contract
+
+비범위:
+
+- direct URL / back-button / logout-login 우회 회귀 자체는 `P3-3.3`에서 별도 검증한다.
+- router `beforeEach` 삽입 순서의 구현 상세는 `P3-3.2`에서 확정한다.
+
+### 18.1 공통 전제
+
+1. 테스트 actor는 기본적으로 승인 완료된 `admin_active` 또는 비교 대상 `user_active` / `admin_pending`이다.
+2. onboarding 상태는 organization-scoped이며, 테스트 데이터는 조직 단위로 준비한다.
+3. `onboarding-progress` 호출은 `supabase.functions.invoke('onboarding-progress')` 경계를 사용한다.
+4. canonical step key는 `organization_info` -> `employee_seed` -> `schedule_request` 순서를 유지한다.
+5. Step 1, Step 2는 `update` action, 최종 완료는 `complete` action을 사용한다.
+6. 완료 후 canonical landing은 `/dashboard/admin`이며, 현재 앱이 임시로 `/schedule/step1`을 post-auth baseline으로 사용하더라도 온보딩 완료 목적지는 dashboard semantics를 유지해야 한다.
+7. E2E 판정은 자유 텍스트가 아니라 route, CTA label, API payload, store state, 완료 UI 상태를 함께 본다.
+
+### 18.2 시나리오 템플릿
+
+| Field | 설명 |
+| :--- | :--- |
+| `Scenario ID` | 고유 식별자 (`E2E-ONB-00N`) |
+| `Category` | `happy`, `fail`, `security` |
+| `Goal` | 검증 목적 |
+| `Precondition` | actor 상태, onboarding row, 조직 fixture |
+| `Steps` | 실제 사용자 흐름 기준 단계 |
+| `Expected Result` | route, CTA, UI 상태, API/store 기대 결과 |
+| `API / Store Assertion` | `get` / `update` / `complete`와 store 동기화 검증 |
+| `Guard Assertion` | access-state / onboarding redirect 기대 결과 |
+| `Automation Note` | Playwright 전환 시 주의점 |
+
+### 18.3 Happy Path
+
+#### E2E-ONB-001
+
+- `Scenario ID`: `E2E-ONB-001`
+- `Category`: `happy`
+- `Goal`: 승인 완료된 admin의 최초 로그인 시 onboarding이 강제 진입되고, 3단계 완료 후 dashboard로 이동하는지 검증한다.
+- `Precondition`:
+  - actor는 `admin_active`다.
+  - 대상 조직의 onboarding은 미완료 상태다.
+  - `get` 응답은 `currentStepKey='organization_info'`, `completedStepKeys=[]`, `isOnboardingComplete=false`다.
+  - 조직에는 Step 2 완료 전까지 schedulable employee가 없고, Step 3 완료 전까지 persisted schedule request가 없다.
+- `Steps`:
+  1. admin이 `/login`에서 로그인한다.
+  2. post-auth 첫 진입 route를 기다린다.
+  3. onboarding 첫 화면에서 headline, 3-step indicator, Step 1 확장 상태를 확인한다.
+  4. Step 1 CTA `조직 정보 확인하기`를 클릭해 조직 설정 entry surface로 이동한다.
+  5. 조직 최소 설정을 저장하고 onboarding surface로 복귀하거나 상태 갱신을 기다린다.
+  6. Step 2 CTA `직원 등록하러 가기`를 클릭해 직원 등록 entry surface로 이동한다.
+  7. 직원 1명 이상을 실제로 생성하고 onboarding surface로 복귀하거나 상태 갱신을 기다린다.
+  8. Step 3 CTA `첫 스케줄 요청 시작하기`를 클릭해 첫 스케줄 생성 entry surface로 이동한다.
+  9. 첫 persisted schedule request를 시작하고 onboarding 완료 상태를 기다린다.
+  10. 완료 화면에서 `대시보드로 이동` CTA를 클릭한다.
+- `Expected Result`:
+  - 로그인 직후 최종 URL은 `/onboarding`이다.
+  - onboarding shell에는 `EveryShift 시작 준비를 함께 완료해볼까요?` headline과 3단계 진행 표시가 보인다.
+  - Step 1에서는 later step card가 disabled preview로 보인다.
+  - Step 1 완료 후 `조직 기본 설정이 준비되었습니다.`와 함께 Step 2가 자동 확장된다.
+  - Step 2 완료 후 `첫 직원 등록이 완료되었습니다.`와 함께 Step 3가 자동 확장된다.
+  - Step 2 deep-link 시 직원관리 메뉴가 식별 가능하게 강조되고, onboarding으로 복귀 가능한 진입점이 제공된다.
+  - Step 3 deep-link 시 스케줄 생성 시작 지점이 강조되고, onboarding으로 복귀 가능한 진입점이 제공된다.
+  - Step 3 완료 후 최종 성공 headline `이제 EveryShift를 사용할 준비가 되었습니다!`와 CTA `대시보드로 이동`이 표시된다.
+  - 최종 CTA 실행 후 URL은 `/dashboard/admin`으로 이동한다.
+- `API / Store Assertion`:
+  - 최초 진입 시 `action='get'` 성공 응답이 store의 canonical source가 된다.
+  - Step 1 완료 시 `update(stepKey='organization_info')` 성공 후 store는 `currentStepKey='employee_seed'`로 이동한다.
+  - Step 2 완료 시 `update(stepKey='employee_seed')` 성공 후 store는 `currentStepKey='schedule_request'`로 이동한다.
+  - Step 3 완료 시 `complete` 성공 후 store는 `currentStepKey=null`, `completedStepKeys` 3개, `isOnboardingComplete=true`, `completedAt!=null`을 반영한다.
+  - 완료 UI는 `complete` API 성공 전에 먼저 표시되면 안 된다.
+- `Guard Assertion`:
+  - `admin_active + incomplete onboarding` 조합에서 auth page 이탈 결과는 `/onboarding`이다.
+  - schedule step guard는 onboarding completion 전까지 실행 결과를 노출하지 않는다.
+- `Automation Note`:
+  - Playwright 전환 시 각 단계 완료는 UI copy만이 아니라 network payload와 store snapshot으로 함께 검증한다.
+  - Step 2, Step 3는 deep-link 페이지 왕복이 포함되므로 browser URL change와 return CTA 노출 여부를 모두 캡처한다.
+
+#### E2E-ONB-002
+
+- `Scenario ID`: `E2E-ONB-002`
+- `Category`: `happy`
+- `Goal`: onboarding 도중 refresh 이후에도 canonical progress를 다시 읽어 현재 단계에서 재개하는지 검증한다.
+- `Precondition`:
+  - actor는 `admin_active`다.
+  - 대상 조직은 Step 1 완료, Step 2 미완료 상태다.
+  - `get` 응답은 `currentStepKey='employee_seed'`, `completedStepKeys=['organization_info']`, `isOnboardingComplete=false`다.
+- `Steps`:
+  1. admin이 보호 라우트 또는 `/onboarding`으로 진입한다.
+  2. onboarding Step 2 화면이 렌더링된 것을 확인한다.
+  3. 브라우저 새로고침을 실행한다.
+  4. 세션 복구와 onboarding progress 재로딩이 완료될 때까지 기다린다.
+- `Expected Result`:
+  - refresh 전후 최종 URL은 계속 `/onboarding`이다.
+  - Step 1은 `완료` 상태로 접혀 있고 Step 2가 다시 확장된다.
+  - Step 2 CTA `직원 등록하러 가기`가 유지되고, Step 3는 여전히 disabled preview 상태다.
+  - 사용자는 Step 1부터 다시 시작하지 않는다.
+- `API / Store Assertion`:
+  - refresh 후 store는 local transient state가 아니라 `get` 응답을 다시 canonical source로 사용한다.
+  - 복구 직후 store의 `currentStepKey`는 `employee_seed`이며 `completedStepKeys=['organization_info']`와 일치한다.
+- `Guard Assertion`:
+  - `admin_active + incomplete onboarding` 상태는 refresh 이후에도 보호 라우트 접근 대신 `/onboarding` 유지가 우선이다.
+- `Automation Note`:
+  - Playwright 전환 시 `page.reload()` 후 skeleton/loading 종료 시점에서 step status를 재검증한다.
+
+#### E2E-ONB-003
+
+- `Scenario ID`: `E2E-ONB-003`
+- `Category`: `happy`
+- `Goal`: onboarding 완료 조직의 admin은 재로그인 시 onboarding을 건너뛰고 dashboard로 바로 진입하는지 검증한다.
+- `Precondition`:
+  - actor는 `admin_active`다.
+  - 대상 조직 onboarding은 이미 완료 상태다.
+  - `get` 응답은 `currentStepKey=null`, `completedStepKeys=['organization_info','employee_seed','schedule_request']`, `isOnboardingComplete=true`, `completedAt!=null`이다.
+- `Steps`:
+  1. admin이 로그아웃한 뒤 다시 로그인한다.
+  2. post-auth landing이 안정화될 때까지 기다린다.
+  3. 같은 세션에서 `/onboarding`으로 직접 이동을 시도한다.
+- `Expected Result`:
+  - 재로그인 직후 onboarding 화면이 나타나지 않는다.
+  - 최종 landing은 `/dashboard/admin`이다.
+  - `/onboarding` 직접 진입 시도는 허용되지 않으며 정상 post-auth route로 되돌린다.
+  - onboarding completion screen이 재노출되지 않는다.
+- `API / Store Assertion`:
+  - 재로그인 후 store는 completed progress를 읽고 `isOnboardingComplete=true` 상태를 유지한다.
+  - client는 `complete`를 다시 호출하지 않는다.
+- `Guard Assertion`:
+  - `admin_active + complete onboarding` 조합에서 `/onboarding`은 deny되고 normal post-auth route가 우선한다.
+- `Automation Note`:
+  - Playwright 전환 시 새 browser context에서 relogin을 수행해 캐시된 메모리 상태 의존성을 제거한다.
+
+### 18.4 Fail / Edge Path
+
+#### E2E-ONB-004
+
+- `Scenario ID`: `E2E-ONB-004`
+- `Category`: `fail`
+- `Goal`: 승인 대기 admin은 onboarding보다 approval pending 차단이 먼저 적용되는지 검증한다.
+- `Precondition`:
+  - actor는 인증 가능하지만 `accessState='admin_pending'`다.
+  - onboarding row 존재 여부와 무관하다.
+- `Steps`:
+  1. pending admin이 로그인한다.
+  2. `/onboarding`으로 직접 진입을 시도한다.
+  3. 보호 라우트 진입도 한 번 더 시도한다.
+- `Expected Result`:
+  - 로그인 직후 또는 `/onboarding` 직접 접근 시 최종 URL은 `/access/pending`이다.
+  - onboarding wizard shell, step CTA, deep-link UI는 전혀 보이지 않는다.
+  - pending 안내 화면만 노출된다.
+- `API / Store Assertion`:
+  - onboarding `get` / `update` / `complete` 호출은 발생하지 않거나, 발생 시 허용되면 안 된다.
+  - onboarding store는 active progress state로 hydrate되면 안 된다.
+- `Guard Assertion`:
+  - `admin_pending`은 onboarding evaluation에 진입하지 않는다.
+  - approval blocking redirect가 onboarding redirect보다 우선한다.
+- `Automation Note`:
+  - Playwright 전환 시 network spy로 onboarding-progress invoke 부재를 확인하는 편이 안전하다.
+
+#### E2E-ONB-005
+
+- `Scenario ID`: `E2E-ONB-005`
+- `Category`: `fail`
+- `Goal`: 최종 완료 직전 `complete` API 실패 시 UI가 완료 상태를 성급하게 표시하지 않는지 검증한다.
+- `Precondition`:
+  - actor는 `admin_active`다.
+  - 대상 조직은 Step 1, Step 2 완료 상태이며 Step 3에서 `complete` 호출만 남아 있다.
+  - `complete` 응답은 `success=false`와 canonical `error.code`(`PERMISSION_DENIED` 또는 `INTERNAL_ERROR`)를 반환하도록 준비한다.
+- `Steps`:
+  1. Step 3에서 `첫 스케줄 요청 시작하기` 흐름을 끝까지 진행한다.
+  2. 최종 `complete` 호출 실패를 발생시킨다.
+  3. 실패 후 onboarding 화면 상태를 관찰한다.
+- `Expected Result`:
+  - 완료 headline `이제 EveryShift를 사용할 준비가 되었습니다!`는 표시되지 않는다.
+  - `대시보드로 이동` CTA는 primary success state로 표시되지 않는다.
+  - 사용자는 여전히 Step 3 문맥에 머무르며 재시도 가능한 오류 피드백을 본다.
+  - route는 `/dashboard/admin`으로 이동하지 않는다.
+- `API / Store Assertion`:
+  - store는 `isOnboardingComplete=false`, `currentStepKey='schedule_request'`를 유지한다.
+  - `completedAt`는 비어 있어야 한다.
+  - client는 API 실패와 무관하게 local step status를 terminal complete로 덮어쓰면 안 된다.
+- `Guard Assertion`:
+  - 실패 후에도 `admin_active + incomplete onboarding` 상태이므로 이후 navigation은 계속 `/onboarding` 우선이다.
+- `Automation Note`:
+  - Playwright 전환 시 network mock 또는 test harness로 `complete` 실패를 deterministically 주입한다.
+
+### 18.5 Security / Access Control
+
+#### E2E-ONB-006
+
+- `Scenario ID`: `E2E-ONB-006`
+- `Category`: `security`
+- `Goal`: 일반 사용자(`user_active`)는 `/onboarding`과 onboarding deep-link 문맥에 접근할 수 없는지 검증한다.
+- `Precondition`:
+  - actor는 `user_active`다.
+  - 대상 조직 onboarding 완료 여부와 무관하다.
+- `Steps`:
+  1. user가 로그인한다.
+  2. 주소창으로 `/onboarding` 직접 진입을 시도한다.
+  3. 온보딩 deep-link가 붙은 URL 또는 onboarding 복귀 query가 포함된 링크가 있다면 동일하게 접근을 시도한다.
+- `Expected Result`:
+  - `/onboarding`은 허용되지 않는다.
+  - 최종 route는 normal post-auth route로 이동한다.
+  - onboarding shell, step CTA, 완료 화면, 복귀 배너가 모두 보이지 않는다.
+  - deep-link query가 있더라도 user를 onboarding actor처럼 취급하지 않는다.
+- `API / Store Assertion`:
+  - onboarding-progress 호출은 발생하지 않거나 성공해서는 안 된다.
+  - onboarding store는 user 세션에서 active wizard state를 만들지 않는다.
+- `Guard Assertion`:
+  - `user_active`는 onboarding actor가 아니므로 `/onboarding` deny 후 normal post-auth route로 보낸다.
+- `Automation Note`:
+  - Playwright 전환 시 query-string만 바꿔도 권한이 상승하지 않는지 확인한다.
+
+#### E2E-ONB-007
+
+- `Scenario ID`: `E2E-ONB-007`
+- `Category`: `security`
+- `Goal`: 완료된 onboarding 상태는 organization-scoped로 유지되고, 이미 완료된 조직에서는 다른 admin도 다시 onboarding에 들어가지 않는지 검증한다.
+- `Precondition`:
+  - 동일 조직에 admin A와 admin B가 있다.
+  - admin A가 onboarding을 완료해 조직 상태가 terminal complete다.
+  - admin B는 개인 로컬 캐시가 비어 있는 새 세션이다.
+- `Steps`:
+  1. admin B가 새 세션에서 로그인한다.
+  2. post-auth landing을 확인한다.
+  3. `/onboarding` 직접 접근을 시도한다.
+- `Expected Result`:
+  - admin B도 onboarding으로 강제 진입되지 않는다.
+  - 최종 landing은 `/dashboard/admin`이다.
+  - `/onboarding` 직접 접근 시 허용되지 않는다.
+  - organization-scoped 완료 상태 때문에 개인별 재온보딩이 발생하지 않는다.
+- `API / Store Assertion`:
+  - `get` 응답은 completed progress를 반환하며 user-scoped empty state를 만들지 않는다.
+  - store는 admin B 개인 기준이 아니라 조직 기준 completion을 반영한다.
+- `Guard Assertion`:
+  - onboarding force는 global user flag가 아니라 effective organization 기준으로 계산된다.
+- `Automation Note`:
+  - Playwright 전환 시 admin A, admin B 두 계정을 분리된 fixture로 운영한다.
+
+### 18.6 리뷰 체크리스트
+
+1. `first login force-in` happy path가 3단계 CTA, deep-link, final dashboard landing까지 포함되는가
+2. `refresh resume` 시나리오가 `get` 재로딩과 step resume을 함께 검증하는가
+3. `relogin skip` 시나리오가 completed admin의 `/onboarding` 재진입 거부까지 포함하는가
+4. `approval pending`이 onboarding보다 먼저 차단된다는 fail path가 존재하는가
+5. `non-admin deny`가 onboarding shell 부재와 API/store 미진입까지 확인하는가
+6. `complete` API 실패 시 UI 완료 상태가 선반영되지 않는다는 정합성 시나리오가 존재하는가
+7. 조직 단위 completion ownership 때문에 다른 admin도 재온보딩되지 않는다는 security 시나리오가 존재하는가
+8. 모든 시나리오가 route, API payload, store state, CTA copy 중 2개 이상을 함께 검증하는가
+
+### 18.7 자동화 후보
+
+1. Playwright full-flow: `E2E-ONB-001`, `E2E-ONB-002`, `E2E-ONB-003`
+2. Network-mocked integration: `E2E-ONB-004`, `E2E-ONB-005`, `E2E-ONB-006`
+3. Multi-account org-scoped regression: `E2E-ONB-007`
