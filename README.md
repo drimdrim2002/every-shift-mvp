@@ -131,13 +131,17 @@ cp .env.example .env.local
 **.env.local 파일 편집**:
 
 ```bash
-# Supabase 프로젝트 정보 입력
+# Required: Supabase 프로젝트 정보
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 
-# AI Solver API (개발 모드)
-# 개발에서는 반드시 빈 값 유지 (Vite /api 프록시 사용)
+# Optional: AI Solver API (개발 모드)
+# 개발에서는 빈 값 유지 (Vite /api 프록시 사용)
 VITE_API_BASE_URL=
+
+# Optional: signup 개발 플래그
+VITE_ENABLE_MOCK_SIGNUP=false
+VITE_SIGNUP_FORCE_REMOTE=false
 ```
 
 **중요: AI Solver URL 규칙**

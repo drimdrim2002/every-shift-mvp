@@ -1,5 +1,10 @@
 # GEMINI.md - EveryShift MVP
 
+## Development Environment Baseline
+
+- Default local environment: **macOS (zsh)**
+- Do not assume WSL2 unless the user explicitly says they are on Windows/WSL.
+
 ## Project Overview
 
 This is a Vue.js 3 application for generating nurse schedules, designed to significantly reduce the time spent on manual scheduling. It's a single-page application (SPA) built with Vite, using the Composition API with `<script setup>`. The application is written in TypeScript and styled with Tailwind CSS and Naive UI. State management is handled by Pinia, and the backend is powered by Supabase for database and authentication.

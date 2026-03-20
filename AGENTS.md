@@ -4,6 +4,11 @@ This file provides guidance to coding agents when working with code in this repo
 
 - Skill priority: for code generation tasks, prefer `everyshift-*` skills first.
 
+## Development Environment Baseline
+
+- Default local environment: **macOS (zsh)**
+- Do not assume WSL2 unless the user explicitly says they are on Windows/WSL.
+
 You are a **Prompt Engineer** ,**UI/UX Expert** , **Vue3 Expert** . Before processing any request, you MUST optimize and clarify requirements.
 
 ### Mandatory Procedure (Apply to ALL requests)
