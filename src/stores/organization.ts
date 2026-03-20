@@ -54,12 +54,35 @@ export const useOrganizationStore = defineStore('organization', () => {
         .from('organizations')
         .select('*')
         .eq('id', orgId)
-        .single()
+        .maybeSingle()
 
       if (orgError) throw orgError
 
+      let resolvedOrgData = orgData as OrganizationRow | null
+
+      // 요청한 조직이 없으면 첫 번째 조직으로 fallback
+      if (!resolvedOrgData) {
+        const { data: fallbackOrgData, error: fallbackOrgError } = await supabase
+          .from('organizations')
+          .select('*')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+
+        if (fallbackOrgError) throw fallbackOrgError
+
+        if (!fallbackOrgData) {
+          current.value = null
+          employees.value = []
+          shifts.value = []
+          return { success: false, error: '조직 정보를 찾을 수 없습니다. organizations 시드 데이터를 확인해주세요.' }
+        }
+
+        resolvedOrgData = fallbackOrgData as OrganizationRow
+      }
+
       // Snake_case to camelCase 변환
-      const org = orgData as OrganizationRow
+      const org = resolvedOrgData
       current.value = {
         id: org.id,
         name: org.name,
@@ -68,11 +91,13 @@ export const useOrganizationStore = defineStore('organization', () => {
         updatedAt: org.updated_at,
       }
 
+      const resolvedOrgId = org.id
+
       // 직원 목록
       const { data: empData, error: empError } = await supabase
         .from('employees')
         .select('*')
-        .eq('organization_id', orgId)
+        .eq('organization_id', resolvedOrgId)
 
       if (empError) throw empError
 
@@ -91,7 +116,7 @@ export const useOrganizationStore = defineStore('organization', () => {
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
         .select('*')
-        .eq('organization_id', orgId)
+        .eq('organization_id', resolvedOrgId)
 
       if (shiftError) throw shiftError
 
@@ -116,6 +141,9 @@ export const useOrganizationStore = defineStore('organization', () => {
 
       return { success: true }
     } catch (error) {
+      current.value = null
+      employees.value = []
+      shifts.value = []
       const message = error instanceof Error ? error.message : 'Unknown error'
       return { success: false, error: message }
     } finally {

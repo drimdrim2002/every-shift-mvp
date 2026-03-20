@@ -159,6 +159,7 @@ interface Schedule {
 const router = useRouter();
 const orgStore = useOrganizationStore();
 const scheduleStore = useScheduleStore();
+const DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 const loading = ref(true);
 const schedules = ref<Schedule[]>([]);
@@ -182,7 +183,12 @@ const monthOptions = computed(() => {
 onMounted(async () => {
   // 조직 정보 로드
   if (!orgStore.current) {
-    await orgStore.loadOrganization('00000000-0000-0000-0000-000000000001');
+    const result = await orgStore.loadOrganization(DEFAULT_ORG_ID);
+    if (!result.success || !orgStore.current) {
+      showError('조직 정보를 불러오지 못했습니다. 시드 데이터 또는 권한 설정을 확인해주세요.');
+      loading.value = false;
+      return;
+    }
   }
 
   // 근무표 목록 로드
@@ -190,13 +196,20 @@ onMounted(async () => {
 });
 
 async function loadSchedules() {
+  if (!orgStore.current) {
+    schedules.value = [];
+    showError('조직 정보가 없어 근무표 목록을 조회할 수 없습니다.');
+    loading.value = false;
+    return;
+  }
+
   try {
     loading.value = true;
-    const data = await getScheduleList(orgStore.current!.id);
+    const data = await getScheduleList(orgStore.current.id);
     schedules.value = data as Schedule[];
   } catch (error) {
     console.warn('근무표 목록 로드 실패:', error);
-    window.$message?.error('근무표 목록을 불러오는데 실패했습니다');
+    showError('근무표 목록을 불러오는데 실패했습니다');
   } finally {
     loading.value = false;
   }
@@ -209,6 +222,11 @@ function handleCreateNew() {
 }
 
 async function handleMonthConfirm() {
+  if (!orgStore.current) {
+    showError('조직 정보가 없습니다. 페이지를 새로고침 해주세요.');
+    return false;
+  }
+
   // 월 선택 확인
   if (!monthForm.value.month) {
     window.$message?.warning('계획월을 선택해주세요');
@@ -221,7 +239,7 @@ async function handleMonthConfirm() {
     const { data, error } = await supabase
       .from('schedules')
       .select('id, month, status')
-      .eq('organization_id', orgStore.current!.id)
+      .eq('organization_id', orgStore.current.id)
       .eq('month', monthForm.value.month)
       .maybeSingle();
 
@@ -236,9 +254,9 @@ async function handleMonthConfirm() {
     scheduleStore.reset();
     scheduleStore.setBasicInfo({
       month: monthForm.value.month,
-      organizationId: orgStore.current!.id,
-      organizationName: orgStore.current!.name,
-      organizationType: orgStore.current!.type,
+      organizationId: orgStore.current.id,
+      organizationName: orgStore.current.name,
+      organizationType: orgStore.current.type,
       shifts: orgStore.shifts,
       employeeCount: orgStore.employees.length,
     });
@@ -255,14 +273,19 @@ async function handleMonthConfirm() {
 }
 
 function handleViewSchedule(schedule: Schedule) {
+  if (!orgStore.current) {
+    showError('조직 정보가 없습니다. 페이지를 새로고침 해주세요.');
+    return;
+  }
+
   // scheduleStore에 기본 정보 로드
   scheduleStore.reset();
   scheduleStore.setBasicInfo({
     scheduleId: schedule.id,
     month: schedule.month,
-    organizationId: orgStore.current!.id,
-    organizationName: orgStore.current!.name,
-    organizationType: orgStore.current!.type,
+    organizationId: orgStore.current.id,
+    organizationName: orgStore.current.name,
+    organizationType: orgStore.current.type,
     shifts: orgStore.shifts,
     employeeCount: orgStore.employees.length,
   });
@@ -277,6 +300,11 @@ function handleViewSchedule(schedule: Schedule) {
 }
 
 async function handleEdit(schedule: Schedule) {
+  if (!orgStore.current) {
+    showError('조직 정보가 없습니다. 페이지를 새로고침 해주세요.');
+    return;
+  }
+
   // running 상태여도 수정 가능하도록 변경 (중간 결과 확인 및 수정 기능 지원)
   // 이전: if (schedule.status === 'running') { ... return; }
 
@@ -285,9 +313,9 @@ async function handleEdit(schedule: Schedule) {
   scheduleStore.setBasicInfo({
     scheduleId: schedule.id,
     month: schedule.month,
-    organizationId: orgStore.current!.id,
-    organizationName: orgStore.current!.name,
-    organizationType: orgStore.current!.type,
+    organizationId: orgStore.current.id,
+    organizationName: orgStore.current.name,
+    organizationType: orgStore.current.type,
     shifts: orgStore.shifts,
     employeeCount: orgStore.employees.length,
   });
