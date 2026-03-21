@@ -1,14 +1,9 @@
 {
   "source": ".shrimp-data/tasks.json",
-  "generatedAt": "2026-03-21T06:26:13.565Z",
+  "generatedAt": "2026-03-21T10:57:38.397Z",
   "pendingOnly": true,
-  "totalTasks": 101,
+  "totalTasks": 97,
   "phases": [
-    {
-      "phase": "P1",
-      "file": ".shrimp-data/tasks/phase1-pending-tasks.json",
-      "taskCount": 4
-    },
     {
       "phase": "P2",
       "file": ".shrimp-data/tasks/phase2-pending-tasks.json",
