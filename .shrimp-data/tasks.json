@@ -1786,6 +1786,89 @@
       "completedAt": "2026-03-12T13:09:48.528Z"
     },
     {
+      "id": "593ad871-842e-44da-aeef-d37d7c989426",
+      "name": "P3-1.5 onboarding_progress 스키마/RLS 구현 정렬",
+      "description": "P3-1.2 설계 기준에 맞게 onboarding_progress의 실제 persistence shape와 RLS 정책을 런타임에 반영한다. 현재 user-scoped draft schema를 organization-scoped canonical state로 정렬하고, legacy row collapse/backfill과 admin-only tenant isolation을 구현한다.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000067"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md",
+          "type": "REFERENCE",
+          "description": "Canonical ownership, recovery, and RLS target model that the runtime migration must implement."
+        },
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "REFERENCE",
+          "description": "Current onboarding_progress table shape that still reflects per-user uniqueness and integer-only step storage."
+        },
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "REFERENCE",
+          "description": "Existing RLS rollout patterns and helper function conventions."
+        },
+        {
+          "path": "migrations",
+          "type": "CREATE",
+          "description": "New forward migration that aligns onboarding_progress persistence and RLS with the P3 canonical model."
+        }
+      ],
+      "implementationGuide": "1) Add a forward migration that replaces the current user-scoped onboarding_progress ownership model with an organization-scoped canonical row model, or a shape that behaves equivalently from the API boundary. 2) Preserve P3-1.3 transport field compatibility while removing UNIQUE(organization_id, user_id) as the authoritative completion owner. 3) Include legacy row collapse/backfill logic so existing per-user rows resolve to one canonical organization-scoped state without data loss. 4) Enable RLS and add explicit admin-only, tenant-isolated read/write policies; anonymous and unrelated authenticated access must be denied. 5) Document verification SQL or migration notes so P3-1.6 and router work can rely on the new persistence contract without reinterpretation.",
+      "verificationCriteria": "Deliverable: onboarding_progress runtime schema and RLS are aligned with the P3 canonical organization-scoped model. Method: review the migration and run schema/policy inspection to confirm that one canonical onboarding state is resolved per organization, legacy rows are handled, and unauthorized access is blocked. Pass: schema ownership, row uniqueness behavior, and RLS enforcement match P3-1.2 without leaving a user-scoped completion path in production.",
+      "createdAt": "2026-03-21T12:19:50.000Z",
+      "updatedAt": "2026-03-21T12:19:50.000Z",
+      "notes": "This is runtime-alignment work that intentionally follows completed spec tasks. Keep P3-1.2 completed and treat this task as the implementation closure for the persistence/RLS gap."
+    },
+    {
+      "id": "1d82b0e8-4d19-405b-a772-80ecbe305c11",
+      "name": "P3-1.6 onboarding-progress Edge Function 구현 정렬",
+      "description": "P3-1.3 transport contract와 P3-1.1 domain invariant를 기준으로 onboarding-progress Edge Function을 실제 런타임 동작에 맞게 정렬한다. organization-scoped progress 조회, step transition 검증, complete semantics를 현재 draft implementation에서 canonical behavior로 끌어올린다.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000068"
+        },
+        {
+          "taskId": "593ad871-842e-44da-aeef-d37d7c989426"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "REFERENCE",
+          "description": "Canonical get/update/complete transport contract that the function must preserve."
+        },
+        {
+          "path": "docs/migration/P3_ONBOARDING_STATE_MACHINE.md",
+          "type": "REFERENCE",
+          "description": "Canonical step keys, completion meaning, and organization-scoped ownership invariants."
+        },
+        {
+          "path": "supabase/functions/onboarding-progress/index.ts",
+          "type": "TO_MODIFY",
+          "description": "Runtime implementation target for organization-scoped onboarding progress resolution and transition enforcement."
+        },
+        {
+          "path": "src/api/onboarding.ts",
+          "type": "REFERENCE",
+          "description": "Client wrapper that must remain transport-compatible after the function change."
+        }
+      ],
+      "implementationGuide": "1) Refactor onboarding-progress to read and mutate the organization-scoped canonical progress model introduced by P3-1.5 instead of assuming a per-user owner row. 2) Preserve the existing get/update/complete envelope, error codes, and step key vocabulary from P3-1.3. 3) Enforce transition rules so update/complete do not bypass the P3-1.1 completion semantics; where the runtime cannot yet infer completion from domain tables automatically, require or derive canonical persisted proof rather than blindly incrementing integers. 4) Keep organization resolution consistent with the approved admin scope used by auth/RBAC and return permission errors for non-admin or inactive callers. 5) Leave router/page concerns to P3-2.3 and P3-3.2, but make the function trustworthy enough that those tasks can consume it without adding their own workaround semantics.",
+      "verificationCriteria": "Deliverable: onboarding-progress Edge Function behavior matches the organization-scoped runtime model and the canonical transport contract. Method: review get/update/complete handling and validate that progress is not owned per user, forbidden transitions are rejected, and complete semantics no longer reduce to an unconditional integer write. Pass: the function returns P3-1.3-compatible payloads while enforcing P3-1.1/P3-1.5 runtime invariants without requiring router or page-level reinterpretation.",
+      "createdAt": "2026-03-21T12:19:50.000Z",
+      "updatedAt": "2026-03-21T12:19:50.000Z",
+      "notes": "This task closes the runtime gap left by the earlier contract-first implementation. It should complete before page integration and onboarding guard insertion consume the function as a source of truth."
+    },
+    {
       "id": "10000000-0000-4000-8000-000000000070",
       "name": "P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정",
       "description": "온보딩 위저드의 단계별 IA, 설명 문구, CTA, 완료 후 dashboard exit semantics를 확정한다. 이 task는 구현 통합 전의 UX 기준 문서 역할을 한다.",
@@ -1885,6 +1968,9 @@
         },
         {
           "taskId": "10000000-0000-4000-8000-000000000071"
+        },
+        {
+          "taskId": "1d82b0e8-4d19-405b-a772-80ecbe305c11"
         }
       ],
       "estimatedMinutes": 180,
@@ -1984,6 +2070,9 @@
         },
         {
           "taskId": "10000000-0000-4000-8000-000000000073"
+        },
+        {
+          "taskId": "1d82b0e8-4d19-405b-a772-80ecbe305c11"
         }
       ],
       "estimatedMinutes": 120,
