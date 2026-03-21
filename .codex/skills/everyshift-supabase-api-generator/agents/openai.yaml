@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Supabase API Generator"
+  short_description: "Generate EveryShift Supabase APIs"
+  default_prompt: "Create or refactor a Supabase API module for EveryShift MVP with typed CRUD helpers, Korean user-facing errors, snake_case to camelCase mapping, and correct single or maybeSingle semantics."

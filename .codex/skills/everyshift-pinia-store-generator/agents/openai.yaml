@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Pinia Store Generator"
+  short_description: "Create EveryShift Pinia stores"
+  default_prompt: "Create or refactor a setup-style Pinia store for EveryShift MVP with strict TypeScript, explicit state/getters/actions, safe persistence, and reset behavior."

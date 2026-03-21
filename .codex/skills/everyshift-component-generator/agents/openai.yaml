@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Component Generator"
+  short_description: "Scaffold EveryShift Vue components"
+  default_prompt: "Create or refactor a Vue 3 component for EveryShift MVP using script setup, strict TypeScript, Tailwind-first styling, Naive UI wrapper utilities, and Korean UI copy."

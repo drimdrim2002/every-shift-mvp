@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Composable Generator"
+  short_description: "Build EveryShift Vue composables"
+  default_prompt: "Create or refactor a Vue composable for EveryShift MVP with strict TypeScript, cleanup, polling and persistence patterns that match the current codebase."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Schedule Grid"
+  short_description: "Work on the schedule grid domain"
+  default_prompt: "Modify EveryShift schedule grid features in Step 4 or Step 5, including ScheduleGrid, useScheduleGrid, planning constraints, validation, persistence, statistics, and performance-sensitive table behavior."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EveryShift Wizard Flow"
+  short_description: "Work on schedule wizard flow"
+  default_prompt: "Modify the EveryShift 5-step scheduling wizard flow, including step routing, guards, store transitions, progression rules, temporary state, and mock solver handoff between Step 4 and Step 5."
