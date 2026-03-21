@@ -1,12 +1,18 @@
 import { supabase } from './supabase';
 import type {
   SignupErrorCode,
+  SignupNextState,
   SignupSubmitError,
   SignupSubmitRequest,
+  SignupSubmitResolvedSuccessData,
   SignupSubmitResponse,
   SignupSubmitSuccessData,
 } from '@/types/signup';
 import { LEGACY_SIGNUP_ERROR_CODE_MAP, SIGNUP_ERROR_MESSAGES } from '@/types/signup';
+
+type SignupSubmitRawSuccessData = Omit<SignupSubmitSuccessData, 'nextState'> & {
+  nextState?: SignupNextState;
+};
 
 function resolveLegacySignupErrorCode(code: unknown): SignupErrorCode | null {
   if (typeof code !== 'string') {
@@ -66,26 +72,47 @@ function normalizeSignupRequest(request: SignupSubmitRequest): SignupSubmitReque
   };
 }
 
+function resolveSignupNextState(data: SignupSubmitRawSuccessData): SignupNextState {
+  if (data.nextState === 'pending_approval' || data.nextState === 'active') {
+    return data.nextState;
+  }
+
+  if (data.signupRequestStatus === 'approved' || data.membershipStatus === 'approved') {
+    return 'active';
+  }
+
+  return 'pending_approval';
+}
+
 function normalizeSignupSuccessData(
-  data: SignupSubmitSuccessData,
+  data: SignupSubmitRawSuccessData,
   request: SignupSubmitRequest,
-): SignupSubmitSuccessData {
+): SignupSubmitResolvedSuccessData {
+  const nextState = resolveSignupNextState(data);
+
   if (request.role !== 'admin') {
-    return data;
+    return {
+      ...data,
+      nextState,
+    };
   }
 
   const requestOrganizationId = request.hospitalId ?? request.organizationId;
   if (!requestOrganizationId || data.organizationId) {
-    return data;
+    return {
+      ...data,
+      nextState,
+    };
   }
 
   return {
     ...data,
+    nextState,
     organizationId: requestOrganizationId,
   };
 }
 
-function createDevMockSuccessData(request: SignupSubmitRequest): SignupSubmitSuccessData {
+function createDevMockSuccessData(request: SignupSubmitRequest): SignupSubmitResolvedSuccessData {
   if (request.role === 'admin') {
     const organizationId = request.hospitalId ?? request.organizationId;
     return {
@@ -203,7 +230,7 @@ async function parseInvokeContextError(error: unknown): Promise<SignupSubmitApiE
  * - direct table fallback is intentionally forbidden.
  * - all signup submissions must go through Edge Function invoke.
  */
-export async function submitSignup(request: SignupSubmitRequest): Promise<SignupSubmitSuccessData> {
+export async function submitSignup(request: SignupSubmitRequest): Promise<SignupSubmitResolvedSuccessData> {
   const normalizedRequest = normalizeSignupRequest(request);
   const forceRemoteInvoke = isSignupForceRemoteEnabled();
 
@@ -253,7 +280,7 @@ export async function submitSignup(request: SignupSubmitRequest): Promise<Signup
     throw toApiError(data.error);
   }
 
-  return normalizeSignupSuccessData(data.data, normalizedRequest);
+  return normalizeSignupSuccessData(data.data as SignupSubmitRawSuccessData, normalizedRequest);
 }
 
 export function getSignupErrorMessage(code: unknown): string {

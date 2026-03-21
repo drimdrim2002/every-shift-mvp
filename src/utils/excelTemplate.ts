@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import type { Shift } from '@/types/shift';
-import { DAY_NAMES } from '@/types/excel';
+import { dayOfWeekToDayName } from '@/types/excel';
 
 // 시트 이름 상수 (3개 시트만)
 const SHEET_NAMES = {
@@ -78,7 +78,7 @@ function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 
   dayOrder.forEach((dayOfWeek) => {
-    const dayName = DAY_NAMES[dayOfWeek];
+    const dayName = dayOfWeekToDayName(dayOfWeek);
     shiftCodes.forEach((code) => {
       // 기본값으로 샘플 인원 수 설정 (실제로는 빈 값이나, 사용 편의를 위해)
       const defaultCount = code === 'O' ? 0 : 5; // Off는 0, 나머지는 5

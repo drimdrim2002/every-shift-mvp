@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
 import * as shiftApi from '@/api/shift'
-import type { Organization } from '@/types/organization'
+import { normalizeOrganizationType, type Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
 
@@ -86,7 +86,7 @@ export const useOrganizationStore = defineStore('organization', () => {
       current.value = {
         id: org.id,
         name: org.name,
-        type: org.type,
+        type: normalizeOrganizationType(org.type),
         createdAt: org.created_at,
         updatedAt: org.updated_at,
       }

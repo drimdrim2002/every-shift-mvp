@@ -5263,14 +5263,14 @@
       "name": "P2-1.9.1 Canonical Contract Sync (API_SPEC + shared DTO)",
       "description": "signup-submit v2 canonical 계약을 문서와 클라이언트 DTO에서 일치시킨다.",
       "notes": "문서가 canonical source이며 구현은 문서를 따라야 한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000054"
         }
       ],
       "createdAt": "2026-03-04T13:25:14.913Z",
-      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -5294,7 +5294,7 @@
       "name": "P2-1.9.2 signup-submit Edge Function v2 응답/검증 반영",
       "description": "supabase/functions/signup-submit/index.ts를 v2 계약에 맞게 확장한다.",
       "notes": "실제 DB 영속화는 단계적으로 구현하되 계약 필드는 먼저 완결한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "6ba9a255-ecd3-4474-a921-8749d93f7949"
@@ -5304,7 +5304,7 @@
         }
       ],
       "createdAt": "2026-03-04T13:25:14.913Z",
-      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/signup-submit/index.ts",
@@ -5328,14 +5328,14 @@
       "name": "P2-1.9.3 hospital-search 프록시 경계 구현 및 클라이언트 전환",
       "description": "병원 검색을 프론트 직접 data.go 호출에서 Edge Function 프록시 단일 경계로 전환한다.",
       "notes": "P2-1.6 노트(프론트 직접 호출 금지, 키 비노출)를 강제한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "63463b1e-64b2-4677-86ea-ebfcde2316d5"
         }
       ],
       "createdAt": "2026-03-04T13:25:14.913Z",
-      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "supabase/functions/hospital-search/index.ts",
@@ -5364,7 +5364,7 @@
       "name": "P2-1.9.4 Front API 연동 정합성 및 검증 매트릭스",
       "description": "src/api/signup.ts와 인증 흐름을 v2 계약에 맞춰 정합화하고 검증 시나리오를 정리한다.",
       "notes": "운영 경계에서는 direct table fallback 금지 원칙 유지.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "db53ffa2-8cda-432e-9207-ad3e0b3f1883"
@@ -5374,7 +5374,7 @@
         }
       ],
       "createdAt": "2026-03-04T13:25:14.913Z",
-      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "phase": "P2",
       "estimatedMinutes": 90,
       "relatedFiles": [
@@ -5461,14 +5461,14 @@
       "name": "P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거",
       "description": "src/api/hospital.ts를 supabase.functions.invoke('hospital-search') 단일 경계 래퍼로 전환하고, 브라우저에서 data.go.kr 직접 호출 및 VITE_HOSPITAL_API_KEY 사용 경로를 제거한다.",
       "notes": "클라이언트는 외부 API 상세를 몰라야 하며 edge function만 의존해야 한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "79e67b38-73fe-46ea-8d18-afe32c884598"
         }
       ],
       "createdAt": "2026-03-04T13:59:43.528Z",
-      "updatedAt": "2026-03-04T13:59:43.528Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "src/api/hospital.ts",
@@ -5497,14 +5497,14 @@
       "name": "P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)",
       "description": "구현 결과가 계약/보안/품질 기준을 만족하는지 점검한다. 브라우저 직접 호출 제거, source 메타 포함, lint 통과를 검증한다.",
       "notes": "이 단계에서 repository 변경은 없고 검증 중심으로 수행한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "b5d67e99-f96d-4f0f-a70f-22476a633d04"
         }
       ],
       "createdAt": "2026-03-04T13:59:43.528Z",
-      "updatedAt": "2026-03-04T13:59:43.528Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -5563,15 +5563,15 @@
       "id": "605ced42-6835-429c-8c6a-fe2509dc1ed0",
       "name": "P2-1.8.2 RLS: invite_codes admin 발급/폐기 정책 정의",
       "description": "migrations/008_rls_progressive_rollout.sql에 invite_codes RLS 방향을 반영해 admin/super만 발급/폐기 가능하고 일반 user 직접 조회는 차단되도록 정책을 설계한다.",
-      "notes": "기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다.",
-      "status": "pending",
+      "notes": "기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다. Canonical 구현은 008 helper + 010 invite_codes RLS policy 조합으로 충족되며 추가 008 table policy 작업은 불필요하다.",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
         }
       ],
       "createdAt": "2026-03-04T14:28:14.815Z",
-      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "migrations/008_rls_progressive_rollout.sql",
@@ -5599,14 +5599,14 @@
       "name": "P2-1.8.3 API 계약 문서화: invite 상태 판별/에러 매핑 보강",
       "description": "docs/API_SPEC.md에 invite active/expired/revoked/consumed 판별 SQL 규칙과 INVALID_INVITE_CODE 매핑을 명시해 서버/클라이언트 해석 여지를 제거한다.",
       "notes": "기존 canonical error code 계약 표 구조를 그대로 재사용해 문서 포맷 일관성을 유지한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
         }
       ],
       "createdAt": "2026-03-04T14:28:14.815Z",
-      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "docs/API_SPEC.md",
@@ -5634,7 +5634,7 @@
       "name": "P2-1.8.4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가",
       "description": "docs/verification/test-validation-guide.md의 invite 관련 시나리오(SGN-004~SGN-009)를 새로운 제약(used_count/max_uses + used_at/used_by 정합)과 맞추어 갱신한다.",
       "notes": "테스트 문서는 구현 선행이 아니라 검증 기준 문서이므로 SQL 예시는 실행 가능성과 설명 명확성 중심으로 유지한다.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [
         {
           "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
@@ -5644,7 +5644,7 @@
         }
       ],
       "createdAt": "2026-03-04T14:28:14.815Z",
-      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "relatedFiles": [
         {
           "path": "docs/verification/test-validation-guide.md",
@@ -6026,10 +6026,10 @@
       "id": "214e88d1-0820-4e5f-9756-5bf9ef56c280",
       "name": "P2-1.4.6 Signup 성공 메시지 단일 소스 정리",
       "description": "Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.",
-      "status": "pending",
+      "status": "completed",
       "dependencies": [],
       "createdAt": "2026-03-05T16:30:05.045Z",
-      "updatedAt": "2026-03-21T06:14:10Z",
+      "updatedAt": "2026-03-21T11:39:50Z",
       "phase": "P2",
       "estimatedMinutes": 60,
       "relatedFiles": [

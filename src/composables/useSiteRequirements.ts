@@ -12,7 +12,35 @@ interface SiteRequirementRow {
   day_of_week: number;
   shift_id: string;
   required_count: number;
-  shifts: ShiftInfo;
+  shifts: ShiftInfo | ShiftInfo[] | null;
+}
+
+const SHIFT_CODES = ['D', 'E', 'N', 'O'] as const;
+
+type DailyShiftCode = (typeof SHIFT_CODES)[number];
+
+function createEmptyDailyRequirement(): DailyRequirement {
+  return { D: 0, E: 0, N: 0, O: 0, total: 0 };
+}
+
+function isDailyShiftCode(value: string): value is DailyShiftCode {
+  return SHIFT_CODES.includes(value as DailyShiftCode);
+}
+
+function getShiftCode(value: SiteRequirementRow['shifts']): string | null {
+  if (Array.isArray(value)) {
+    return value[0]?.code ?? null;
+  }
+
+  if (value && typeof value === 'object' && typeof value.code === 'string') {
+    return value.code;
+  }
+
+  return null;
+}
+
+function normalizeWeeklyReqs(value: unknown): SiteRequirementRow[] {
+  return Array.isArray(value) ? (value as SiteRequirementRow[]) : [];
 }
 
 export function useSiteRequirements() {
@@ -39,17 +67,18 @@ export function useSiteRequirements() {
 
       // 2. 월의 각 날짜에 매핑
       const days = getDaysInMonth(month);
+      const normalizedWeeklyReqs = normalizeWeeklyReqs(weeklyReqs);
       const reqs: SiteRequirements = {};
 
       days.forEach((day) => {
-        const dailyReq: DailyRequirement = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+        const dailyReq = createEmptyDailyRequirement();
 
         // 해당 요일의 요구사항 필터링 및 적용
-        (weeklyReqs as SiteRequirementRow[])
-          ?.filter((r) => r.day_of_week === day.dayOfWeek)
+        normalizedWeeklyReqs
+          .filter((r) => r.day_of_week === day.dayOfWeek)
           .forEach((r) => {
-            const shiftCode = r.shifts?.code as keyof Omit<DailyRequirement, 'total'>;
-            if (shiftCode && shiftCode in dailyReq) {
+            const shiftCode = getShiftCode(r.shifts);
+            if (shiftCode && isDailyShiftCode(shiftCode)) {
               dailyReq[shiftCode] = r.required_count;
             }
           });
@@ -106,25 +135,30 @@ export function useSiteRequirements() {
 
       // 요일별로 그룹화 (0: 일요일 ~ 6: 토요일)
       const weeklyData: Record<number, DailyRequirement> = {};
+      const normalizedWeeklyReqs = normalizeWeeklyReqs(weeklyReqs);
 
       // 초기화
       for (let i = 0; i < 7; i++) {
-        weeklyData[i] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
+        weeklyData[i] = createEmptyDailyRequirement();
       }
 
       // 데이터 매핑
-      (weeklyReqs as SiteRequirementRow[])?.forEach((row) => {
+      normalizedWeeklyReqs.forEach((row) => {
         const dayOfWeek = row.day_of_week;
-        const shiftCode = row.shifts?.code as keyof Omit<DailyRequirement, 'total'>;
+        const shiftCode = getShiftCode(row.shifts);
+        const dailyReq = weeklyData[dayOfWeek];
 
-        if (shiftCode && shiftCode in weeklyData[dayOfWeek]) {
-          weeklyData[dayOfWeek][shiftCode] = row.required_count;
+        if (dailyReq && shiftCode && isDailyShiftCode(shiftCode)) {
+          dailyReq[shiftCode] = row.required_count;
         }
       });
 
       // Total 계산
       for (let i = 0; i < 7; i++) {
         const req = weeklyData[i];
+        if (!req) {
+          continue;
+        }
         req.total = req.D + req.E + req.N + req.O;
       }
 
@@ -153,14 +187,16 @@ export function useSiteRequirements() {
       const upsertData = [];
 
       for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-        const req = weeklyReqs[dayOfWeek];
+        const req = weeklyReqs[dayOfWeek] ?? createEmptyDailyRequirement();
 
         // 각 시프트별로 레코드 생성
         for (const shift of orgStore.shifts) {
           // Holiday 시프트는 제외
           if (shift.code === 'H') continue;
 
-          const count = req[shift.code as keyof Omit<DailyRequirement, 'total'>] || 0;
+          const count = isDailyShiftCode(shift.code)
+            ? req[shift.code]
+            : 0;
 
           upsertData.push({
             organization_id: orgId,

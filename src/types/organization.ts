@@ -1,5 +1,17 @@
 export type OrganizationType = 'hospital' | 'fire' | 'police' | 'logistics' | 'production'
 
+export function isOrganizationType(value: string): value is OrganizationType {
+  return ['hospital', 'fire', 'police', 'logistics', 'production'].includes(value)
+}
+
+export function normalizeOrganizationType(value: string): OrganizationType {
+  if (isOrganizationType(value)) {
+    return value
+  }
+
+  throw new Error(`Invalid organization type: ${value}`)
+}
+
 export interface Organization {
   id: string; // UUID
   name: string; // "세브란스병원"

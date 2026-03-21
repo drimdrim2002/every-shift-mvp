@@ -18,31 +18,31 @@
 
 ### 2.1) 테이블별 RLS 활성화 상태 및 핵심 위험
 
-| 테이블명 | RLS 활성 | 정책(Policies) 위험 요소 | 권한(ACL) 위험 요소 |
-| :--- | :--- | :--- | :--- |
-| `analytics_metrics` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `approval_logs` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `employee_site_assignments` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `employee_skills` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `employees` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `invite_codes` | ✅ 활성 | 정상 (함수 기반 검증) | `anon`/`authenticated` CRUD 전면 허용 |
-| `notification_preferences` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `notifications` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `onboarding_progress` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `organization_memberships` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `organization_settings` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `organizations` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `profiles` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `ranks` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `schedule_assignments` | ❌ 미활성 | (RLS 미적용) - 핵심 데이터 노출 위험 | `anon`/`authenticated` CRUD 전면 허용 |
-| `schedule_preferences` | ✅ 활성 | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `schedules` | ✅ 활성 | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `shifts` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `signup_requests` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `site_requirements` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `site_staffing_requirements` | ❌ 미활성 | (RLS 미적용) | `anon`/`authenticated` CRUD 전면 허용 |
-| `sites` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
-| `skills` | ✅ 활성 | 정책 없음 (기본 차단) | `anon`/`authenticated` CRUD 전면 허용 |
+| 테이블명                     | RLS 활성  | 정책(Policies) 위험 요소                            | 권한(ACL) 위험 요소                   |
+| :--------------------------- | :-------- | :-------------------------------------------------- | :------------------------------------ |
+| `analytics_metrics`          | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `approval_logs`              | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `employee_site_assignments`  | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `employee_skills`            | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `employees`                  | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `invite_codes`               | ✅ 활성   | 정상 (함수 기반 검증)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `notification_preferences`   | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `notifications`              | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `onboarding_progress`        | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `organization_memberships`   | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `organization_settings`      | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `organizations`              | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `profiles`                   | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `ranks`                      | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedule_assignments`       | ❌ 미활성 | (RLS 미적용) - 핵심 데이터 노출 위험                | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedule_preferences`       | ✅ 활성   | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `schedules`                  | ✅ 활성   | ⚠️ `USING (true)` / `WITH CHECK (true)` (전체 허용) | `anon`/`authenticated` CRUD 전면 허용 |
+| `shifts`                     | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `signup_requests`            | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `site_requirements`          | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `site_staffing_requirements` | ❌ 미활성 | (RLS 미적용)                                        | `anon`/`authenticated` CRUD 전면 허용 |
+| `sites`                      | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
+| `skills`                     | ✅ 활성   | 정책 없음 (기본 차단)                               | `anon`/`authenticated` CRUD 전면 허용 |
 
 ### 2.2) 주요 위험(Risk) 요약
 
@@ -56,17 +56,17 @@
 
 모든 시나리오는 아래 필드를 고정 사용한다.
 
-| Field | 설명 |
-| :--- | :--- |
-| `Scenario ID` | 고유 식별자 (`RLS-00N`) |
-| `Threat Class` | `TENANT_BREACH`, `ROLE_ESCALATION`, `IDOR`, `ACCOUNT_BYPASS`, `REGRESSION` |
-| `Actor Role` | `super`, `admin`, `user`, `inactive_user`, `pending_user` |
-| `Target Table` | 검증 대상 테이블 |
-| `Precondition` | 실행 전 데이터/정책 상태 |
-| `Validation SQL` | SQL Editor 또는 MCP `execute_sql` 실행 쿼리 |
-| `Expected Result` | `ALLOW`, `DENY`, `EMPTY_SET`, `ERROR(permission denied)` |
-| `Negative Variant` | 반대 조건(오용 경로) 검증 |
-| `Related Matrix Row` | P1-2.2 매트릭스의 대응 행 |
+| Field                | 설명                                                                       |
+| :------------------- | :------------------------------------------------------------------------- |
+| `Scenario ID`        | 고유 식별자 (`RLS-00N`)                                                    |
+| `Threat Class`       | `TENANT_BREACH`, `ROLE_ESCALATION`, `IDOR`, `ACCOUNT_BYPASS`, `REGRESSION` |
+| `Actor Role`         | `super`, `admin`, `user`, `inactive_user`, `pending_user`                  |
+| `Target Table`       | 검증 대상 테이블                                                           |
+| `Precondition`       | 실행 전 데이터/정책 상태                                                   |
+| `Validation SQL`     | SQL Editor 또는 MCP `execute_sql` 실행 쿼리                                |
+| `Expected Result`    | `ALLOW`, `DENY`, `EMPTY_SET`, `ERROR(permission denied)`                   |
+| `Negative Variant`   | 반대 조건(오용 경로) 검증                                                  |
+| `Related Matrix Row` | P1-2.2 매트릭스의 대응 행                                                  |
 
 ## 4) 판정 규칙
 
@@ -323,18 +323,18 @@ where employee_id = '<ORG_B_EMPLOYEE_ID>';
 
 ## 8) 시나리오-매트릭스 추적표
 
-| Scenario ID | 매핑 기준 |
-| :--- | :--- |
-| `RLS-001` | super 전역 우회 |
-| `RLS-002` | `schedules` admin SELECT 조직 스코프 |
-| `RLS-003` | `schedules` admin UPDATE 조직 스코프 |
-| `RLS-004` | `schedules` admin INSERT 조직 스코프 |
-| `RLS-005` | `schedules` user SELECT 조직 스코프 |
-| `RLS-006` | `schedule_assignments` user self-only SELECT |
-| `RLS-007` | 계정 상태(active) 필수 규칙 |
-| `RLS-008` | membership approved 필수 규칙 |
-| `RLS-009` | `signup_requests` self workflow 규칙 |
-| `RLS-010` | permissive 정책 제거 후 회귀 없음 |
+| Scenario ID | 매핑 기준                                    |
+| :---------- | :------------------------------------------- |
+| `RLS-001`   | super 전역 우회                              |
+| `RLS-002`   | `schedules` admin SELECT 조직 스코프         |
+| `RLS-003`   | `schedules` admin UPDATE 조직 스코프         |
+| `RLS-004`   | `schedules` admin INSERT 조직 스코프         |
+| `RLS-005`   | `schedules` user SELECT 조직 스코프          |
+| `RLS-006`   | `schedule_assignments` user self-only SELECT |
+| `RLS-007`   | 계정 상태(active) 필수 규칙                  |
+| `RLS-008`   | membership approved 필수 규칙                |
+| `RLS-009`   | `signup_requests` self workflow 규칙         |
+| `RLS-010`   | permissive 정책 제거 후 회귀 없음            |
 
 ## 9) 리뷰 체크리스트 (완료 기준)
 
@@ -357,7 +357,7 @@ where employee_id = '<ORG_B_EMPLOYEE_ID>';
 
 ## 11) P2 가입 상태 전이/제약 검증 시나리오 (P2-1.2)
 
-본 섹션은 `docs/migration/P2_SIGNUP_ROLE_FLOW.md`와 `migrations/010_signup_role_flow.sql` 기준 검증이다.
+본 섹션은 `docs/migration/P2_SIGNUP_ROLE_FLOW.md`와 `migrations/010_signup_role_flow.sql` 기준 검증이다. `invite_codes` helper는 `008_rls_progressive_rollout.sql`에 정의되지만 실제 정책/제약 canonical source는 `010_signup_role_flow.sql`이다.
 
 ### 11.1 공통 전제
 
@@ -467,18 +467,19 @@ where organization_id = '<ORG_A_ID>'
 - `Threat Class`: `REGRESSION`
 - `Actor Role`: `applicant_user`
 - `Target Table`: `invite_codes`, `signup_requests`, `organization_memberships`
-- `Precondition`: 유효 미사용 invite 1건 존재 (`used_at is null`, `expires_at > now()`)
+- `Precondition`: 유효 미사용 invite 1건 존재 (`used_count=0`, `max_uses=1`, `used_at is null`, `expires_at > now()`)
 - `Validation SQL`:
 
 ```sql
 -- same transaction contract (conceptual)
 -- 1) consume invite
 update public.invite_codes
-set used_at = now(),
+set used_count = used_count + 1,
+    used_at = now(),
     used_by = '<APPLICANT_USER_ID>',
     updated_at = now()
 where id = '<VALID_INVITE_ID>'
-  and used_at is null
+  and used_count < max_uses
   and revoked_at is null
   and expires_at > now();
 
@@ -515,16 +516,20 @@ values ('<APPLICANT_USER_ID>', '<ORG_A_ID>', 'user', 'approved', '<INVITE_CREATO
 ```sql
 -- expired invite consume attempt
 update public.invite_codes
-set used_at = now(), used_by = '<APPLICANT_USER_ID>'
+set used_count = used_count + 1,
+    used_at = now(),
+    used_by = '<APPLICANT_USER_ID>'
 where id = '<EXPIRED_INVITE_ID>'
-  and used_at is null
+  and used_count < max_uses
   and expires_at > now();
 
 -- already used invite consume attempt
 update public.invite_codes
-set used_at = now(), used_by = '<APPLICANT_USER_ID>'
+set used_count = used_count + 1,
+    used_at = now(),
+    used_by = '<APPLICANT_USER_ID>'
 where id = '<ALREADY_USED_INVITE_ID>'
-  and used_at is null
+  and used_count < max_uses
   and expires_at > now();
 ```
 
@@ -610,9 +615,12 @@ select count(*) from public.schedules;
 -- Session A
 begin;
 update public.invite_codes
-set used_at = now(), used_by = '<USER_A_ID>', updated_at = now()
+set used_count = used_count + 1,
+    used_at = now(),
+    used_by = '<USER_A_ID>',
+    updated_at = now()
 where id = '<RACE_INVITE_ID>'
-  and used_at is null
+  and used_count < max_uses
   and revoked_at is null
   and expires_at > now();
 commit;
@@ -620,31 +628,34 @@ commit;
 -- Session B (run in parallel)
 begin;
 update public.invite_codes
-set used_at = now(), used_by = '<USER_B_ID>', updated_at = now()
+set used_count = used_count + 1,
+    used_at = now(),
+    used_by = '<USER_B_ID>',
+    updated_at = now()
 where id = '<RACE_INVITE_ID>'
-  and used_at is null
+  and used_count < max_uses
   and revoked_at is null
   and expires_at > now();
 commit;
 ```
 
 - `Expected Result`: 정확히 1개 세션만 1 row update, 다른 세션은 0 row update
-- `Negative Variant`: `where used_at is null` 조건 제거 시 경쟁 취약성 발생 가능(금지)
+- `Negative Variant`: `where used_count < max_uses` 조건 제거 시 경쟁 취약성 발생 가능(금지)
 - `Related Matrix Row`: invite consume 원자성/동시성 제어
 
 ## 12) P2 시나리오 추적표
 
-| Scenario ID | 검증 목적 |
-| :--- | :--- |
-| `SGN-001` | admin submit 시 pending 생성 및 승인 membership 미생성 |
-| `SGN-002` | admin approve 시 request/membership 동기화 |
-| `SGN-003` | admin reject 시 승인 membership 미생성 |
-| `SGN-004` | user invite redeem 원자성(consume + membership + audit) |
-| `SGN-005` | invite 만료/재사용 차단 |
-| `SGN-006` | pending dedupe 제약 확인 |
-| `SGN-007` | terminal 요청 재전이 금지 |
-| `SGN-008` | approved membership 접근 게이트 |
-| `SGN-009` | invite 동시성 단일 성공 보장 |
+| Scenario ID | 검증 목적                                               |
+| :---------- | :------------------------------------------------------ |
+| `SGN-001`   | admin submit 시 pending 생성 및 승인 membership 미생성  |
+| `SGN-002`   | admin approve 시 request/membership 동기화              |
+| `SGN-003`   | admin reject 시 승인 membership 미생성                  |
+| `SGN-004`   | user invite redeem 원자성(consume + membership + audit) |
+| `SGN-005`   | invite 만료/재사용 차단                                 |
+| `SGN-006`   | pending dedupe 제약 확인                                |
+| `SGN-007`   | terminal 요청 재전이 금지                               |
+| `SGN-008`   | approved membership 접근 게이트                         |
+| `SGN-009`   | invite 동시성 단일 성공 보장                            |
 
 ## 13) P2 리뷰 체크리스트 (완료 기준)
 
@@ -661,10 +672,10 @@ commit;
 
 ### 14.1 입력 검증 체크리스트
 
-| Role | Required | Optional / Alias | Fail Code |
-| :--- | :--- | :--- | :--- |
-| `admin` | `email`, `password`, `name`, `role=admin`, `hospitalId`(or legacy `organizationId`) | `organizationSelectionMode`, `organizationDraftId` | `VALIDATION_ERROR`, `HOSPITAL_REQUIRED`, `INVALID_ROLE` |
-| `user` | `email`, `password`, `name`, `role=user`, `inviteCode` | `organizationSelectionMode=existing` | `VALIDATION_ERROR`, `INVALID_INVITE_CODE`, `INVALID_ROLE` |
+| Role    | Required                                                                            | Optional / Alias                                   | Fail Code                                                 |
+| :------ | :---------------------------------------------------------------------------------- | :------------------------------------------------- | :-------------------------------------------------------- |
+| `admin` | `email`, `password`, `name`, `role=admin`, `hospitalId`(or legacy `organizationId`) | `organizationSelectionMode`, `organizationDraftId` | `VALIDATION_ERROR`, `HOSPITAL_REQUIRED`, `INVALID_ROLE`   |
+| `user`  | `email`, `password`, `name`, `role=user`, `inviteCode`                              | `organizationSelectionMode=existing`               | `VALIDATION_ERROR`, `INVALID_INVITE_CODE`, `INVALID_ROLE` |
 
 검증 포인트:
 
@@ -677,14 +688,14 @@ commit;
 ### 14.2 Canonical-Detail 매핑 체크리스트
 
 | Detail/Legacy Code (`error.details.reason`) | Canonical Code (`error.code`) |
-| :--- | :--- |
-| `DUPLICATE_PENDING_REQUEST` | `DUPLICATE_REQUEST` |
-| `ORGANIZATION_REQUIRED` | `HOSPITAL_REQUIRED` |
-| `INVITE_NOT_FOUND` | `INVALID_INVITE_CODE` |
-| `INVITE_EXPIRED` | `INVALID_INVITE_CODE` |
-| `INVITE_ALREADY_USED` | `INVALID_INVITE_CODE` |
-| `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
-| `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
+| :------------------------------------------ | :---------------------------- |
+| `DUPLICATE_PENDING_REQUEST`                 | `DUPLICATE_REQUEST`           |
+| `ORGANIZATION_REQUIRED`                     | `HOSPITAL_REQUIRED`           |
+| `INVITE_NOT_FOUND`                          | `INVALID_INVITE_CODE`         |
+| `INVITE_EXPIRED`                            | `INVALID_INVITE_CODE`         |
+| `INVITE_ALREADY_USED`                       | `INVALID_INVITE_CODE`         |
+| `INVITE_REVOKED`                            | `INVALID_INVITE_CODE`         |
+| `INVITE_ROLE_MISMATCH`                      | `INVALID_INVITE_CODE`         |
 
 검증 포인트:
 
@@ -699,14 +710,14 @@ commit;
 
 ### 15.1 스모크 시나리오 요약표
 
-| Scenario ID | Path | 목적 | 관련 기준 |
-| :--- | :--- | :--- | :--- |
-| `SMK-001` | `admin` happy | 병원 검색/선택 후 pending 안내 노출 확인 | `SGN-001`, 14.1 |
-| `SMK-002` | `user` happy | 유효 invite 제출 후 active 안내 노출 확인 | `SGN-004`, 14.1 |
-| `SMK-003` | `admin` fail | 병원 미선택 시 제출 차단 확인 | 14.1 |
-| `SMK-004` | `user` fail | 무효/만료/재사용 invite 오류 처리 확인 | `SGN-005`, 14.1, 14.2 |
-| `SMK-005` | `admin`/`user` fail | 중복 신청 시 canonical 오류 메시지 확인 | `SGN-006`, 14.1, 14.2 |
-| `SMK-006` | `admin`/`user` fail | 함수/백엔드 오류 시 일반 오류 처리 확인 | 14.2 |
+| Scenario ID | Path                | 목적                                      | 관련 기준             |
+| :---------- | :------------------ | :---------------------------------------- | :-------------------- |
+| `SMK-001`   | `admin` happy       | 병원 검색/선택 후 pending 안내 노출 확인  | `SGN-001`, 14.1       |
+| `SMK-002`   | `user` happy        | 유효 invite 제출 후 active 안내 노출 확인 | `SGN-004`, 14.1       |
+| `SMK-003`   | `admin` fail        | 병원 미선택 시 제출 차단 확인             | 14.1                  |
+| `SMK-004`   | `user` fail         | 무효/만료/재사용 invite 오류 처리 확인    | `SGN-005`, 14.1, 14.2 |
+| `SMK-005`   | `admin`/`user` fail | 중복 신청 시 canonical 오류 메시지 확인   | `SGN-006`, 14.1, 14.2 |
+| `SMK-006`   | `admin`/`user` fail | 함수/백엔드 오류 시 일반 오류 처리 확인   | 14.2                  |
 
 ### 15.2 공통 실행 규칙
 
@@ -869,15 +880,15 @@ commit;
 
 모든 시나리오는 아래 필드를 고정 사용한다.
 
-| Field | 설명 |
-| :--- | :--- |
-| `Scenario ID` | 고유 식별자 (`E2E-INV-00N`) |
-| `Goal` | 검증 목적 |
-| `Precondition` | 테스트 데이터 및 환경 플래그 |
-| `Steps` | 화면 기준 실행 단계 |
-| `Expected Result` | UI/API 계약 기준 기대 결과 |
-| `Security Assertion` | 보안/재사용 방지 검증 포인트 |
-| `Automation Note` | 추후 Playwright 전환 시 주의점 |
+| Field                | 설명                           |
+| :------------------- | :----------------------------- |
+| `Scenario ID`        | 고유 식별자 (`E2E-INV-00N`)    |
+| `Goal`               | 검증 목적                      |
+| `Precondition`       | 테스트 데이터 및 환경 플래그   |
+| `Steps`              | 화면 기준 실행 단계            |
+| `Expected Result`    | UI/API 계약 기준 기대 결과     |
+| `Security Assertion` | 보안/재사용 방지 검증 포인트   |
+| `Automation Note`    | 추후 Playwright 전환 시 주의점 |
 
 ### E2E-INV-001
 
@@ -1019,16 +1030,16 @@ commit;
 
 ### 17.1 상태 기반 라우팅 매트릭스
 
-| Scenario | Input AccessState | Entry URL | Expected URL | Notes |
-| :--- | :--- | :--- | :--- | :--- |
-| `P2-RT-001` | `unauthenticated` | `/schedule/step1` | `/login` | 보호 라우트 접근 차단 |
-| `P2-RT-002` | `admin_pending` | `/schedule/step1` | `/access/pending` | 미승인 admin 강제 우회 |
-| `P2-RT-003` | `admin_rejected` | `/schedule/step1` | `/access/rejected` | 반려 admin 강제 우회 |
-| `P2-RT-004` | `admin_pending` | `/login` | `/access/pending` | 인증페이지 재진입 시 상태 우선 |
-| `P2-RT-005` | `admin_rejected` | `/signup` | `/access/rejected` | 인증페이지 재진입 시 상태 우선 |
-| `P2-RT-006` | `user_active` | `/access/pending` | `/schedule/step1` | 상태 페이지 우회 금지 |
-| `P2-RT-007` | `admin_active` | `/access/rejected` | `/schedule/step1` | 상태 페이지 우회 금지 |
-| `P2-RT-008` | `no_membership_or_inactive` | `/schedule/step1` | `/login` | 비활성 계정 보호 라우트 차단 |
+| Scenario    | Input AccessState           | Entry URL          | Expected URL       | Notes                          |
+| :---------- | :-------------------------- | :----------------- | :----------------- | :----------------------------- |
+| `P2-RT-001` | `unauthenticated`           | `/schedule/step1`  | `/login`           | 보호 라우트 접근 차단          |
+| `P2-RT-002` | `admin_pending`             | `/schedule/step1`  | `/access/pending`  | 미승인 admin 강제 우회         |
+| `P2-RT-003` | `admin_rejected`            | `/schedule/step1`  | `/access/rejected` | 반려 admin 강제 우회           |
+| `P2-RT-004` | `admin_pending`             | `/login`           | `/access/pending`  | 인증페이지 재진입 시 상태 우선 |
+| `P2-RT-005` | `admin_rejected`            | `/signup`          | `/access/rejected` | 인증페이지 재진입 시 상태 우선 |
+| `P2-RT-006` | `user_active`               | `/access/pending`  | `/schedule/step1`  | 상태 페이지 우회 금지          |
+| `P2-RT-007` | `admin_active`              | `/access/rejected` | `/schedule/step1`  | 상태 페이지 우회 금지          |
+| `P2-RT-008` | `no_membership_or_inactive` | `/schedule/step1`  | `/login`           | 비활성 계정 보호 라우트 차단   |
 
 ### 17.2 복구/직접 접근 시나리오
 
@@ -1119,17 +1130,17 @@ commit;
 
 ### 18.2 시나리오 템플릿
 
-| Field | 설명 |
-| :--- | :--- |
-| `Scenario ID` | 고유 식별자 (`E2E-ONB-00N`) |
-| `Category` | `happy`, `fail`, `security` |
-| `Goal` | 검증 목적 |
-| `Precondition` | actor 상태, onboarding row, 조직 fixture |
-| `Steps` | 실제 사용자 흐름 기준 단계 |
-| `Expected Result` | route, CTA, UI 상태, API/store 기대 결과 |
+| Field                   | 설명                                              |
+| :---------------------- | :------------------------------------------------ |
+| `Scenario ID`           | 고유 식별자 (`E2E-ONB-00N`)                       |
+| `Category`              | `happy`, `fail`, `security`                       |
+| `Goal`                  | 검증 목적                                         |
+| `Precondition`          | actor 상태, onboarding row, 조직 fixture          |
+| `Steps`                 | 실제 사용자 흐름 기준 단계                        |
+| `Expected Result`       | route, CTA, UI 상태, API/store 기대 결과          |
 | `API / Store Assertion` | `get` / `update` / `complete`와 store 동기화 검증 |
-| `Guard Assertion` | access-state / onboarding redirect 기대 결과 |
-| `Automation Note` | Playwright 전환 시 주의점 |
+| `Guard Assertion`       | access-state / onboarding redirect 기대 결과      |
+| `Automation Note`       | Playwright 전환 시 주의점                         |
 
 ### 18.3 Happy Path
 

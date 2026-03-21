@@ -3,6 +3,13 @@ import dayjs from 'dayjs';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap } from '@/types/schedule';
 
+function sheetToMatrix(sheet: XLSX.WorkSheet): Array<Array<string | number>> {
+  return XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: '',
+  }) as Array<Array<string | number>>;
+}
+
 // ============================================================================
 // 전월 데이터 엑셀 템플릿/파싱 (Step4InitialData 전용)
 // ============================================================================
@@ -107,14 +114,15 @@ export async function parseLastMonthExcel(
     if (!firstSheetName) {
       throw new Error('엑셀 파일에 시트가 없습니다.');
     }
-    sheet = workbook.Sheets[firstSheetName];
+    const firstSheet = workbook.Sheets[firstSheetName];
+    if (!firstSheet) {
+      throw new Error(`엑셀 파일에서 시트를 찾을 수 없습니다: ${firstSheetName}`);
+    }
+    sheet = firstSheet;
   }
   
   // 시트 데이터 파싱
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = sheetToMatrix(sheet);
   
   if (data.length < 2) {
     throw new Error('엑셀 파일에 데이터가 부족합니다. 최소 헤더와 1개의 데이터 행이 필요합니다.');
@@ -153,6 +161,10 @@ export async function parseLastMonthExcel(
     if (!assignments[employee.id]) {
       assignments[employee.id] = {};
     }
+    const employeeAssignments = assignments[employee.id];
+    if (!employeeAssignments) {
+      continue;
+    }
     
     // 날짜별 시프트 추출 (2번 컬럼부터)
     for (let j = 0; j < lastMonthDates.length; j++) {
@@ -172,8 +184,12 @@ export async function parseLastMonthExcel(
           continue;
         }
         
-        const dateStr = lastMonthDates[j].date;
-        assignments[employee.id][dateStr] = shiftCode;
+        const dateColumn = lastMonthDates[j];
+        if (!dateColumn) {
+          continue;
+        }
+        const dateStr = dateColumn.date;
+        employeeAssignments[dateStr] = shiftCode;
       }
     }
   }
@@ -290,6 +306,9 @@ function getStringWidth(str: string): number {
   let width = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str[i];
+    if (!char) {
+      continue;
+    }
     // 한글 및 한자는 2 너비, 그 외는 1 너비
     width += /[\u3000-\u9FFF\uAC00-\uD7AF]/.test(char) ? 2 : 1;
   }

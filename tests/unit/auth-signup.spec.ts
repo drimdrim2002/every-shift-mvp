@@ -68,9 +68,10 @@ describe('auth store signup contract', () => {
     vi.mocked(getSignupErrorMessage).mockImplementation((code: unknown) => `mapped:${String(code)}`)
   })
 
-  it('returns deterministic pending result for admin when nextState is omitted', async () => {
+  it('returns deterministic pending result for admin when nextState is provided', async () => {
     vi.mocked(submitSignup).mockResolvedValue({
       path: 'admin_submit',
+      nextState: 'pending_approval',
       signupRequestStatus: 'pending',
       membershipStatus: 'none',
       organizationId: 'org-1',
@@ -89,10 +90,10 @@ describe('auth store signup contract', () => {
       errorCode: null,
       data: {
         path: 'admin_submit',
+        nextState: 'pending_approval',
         signupRequestStatus: 'pending',
         membershipStatus: 'none',
         organizationId: 'org-1',
-        nextState: 'pending_approval',
       },
     })
   })

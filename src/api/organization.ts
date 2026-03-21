@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { Organization } from '@/types/organization';
+import { normalizeOrganizationType, type Organization } from '@/types/organization';
 
 // Supabase 응답 타입 (snake_case)
 interface OrganizationRow {
@@ -15,7 +15,7 @@ function toOrganization(row: OrganizationRow): Organization {
   return {
     id: row.id,
     name: row.name,
-    type: row.type,
+    type: normalizeOrganizationType(row.type),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -131,4 +131,3 @@ export async function deleteOrganization(orgId: string): Promise<void> {
     throw new Error(`조직 삭제 실패: ${error.message}`);
   }
 }
-

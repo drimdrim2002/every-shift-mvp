@@ -51,16 +51,14 @@ export type SignupSubmitRequest = SignupSubmitAdminRequest | SignupSubmitUserReq
 
 export interface SignupSubmitSuccessData {
   path: SignupPath;
-  nextState?: SignupNextState;
+  nextState: SignupNextState;
   signupRequestStatus: SignupRequestStatus;
   membershipStatus: MembershipStatus;
   signupRequestId?: string;
   organizationId?: string;
 }
 
-export interface SignupSubmitResolvedSuccessData extends SignupSubmitSuccessData {
-  nextState: SignupNextState;
-}
+export type SignupSubmitResolvedSuccessData = SignupSubmitSuccessData;
 
 export interface SignupSubmitError {
   code: SignupErrorCode;

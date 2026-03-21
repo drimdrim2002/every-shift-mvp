@@ -86,7 +86,12 @@ export function useSiteStaffingRequirements() {
     reqs: SiteStaffingRequirement[],
     yearMonth: string
   ): MonthlyRequirement[] {
-    const [year, month] = yearMonth.split('-').map(Number)
+    const [yearPart, monthPart] = yearMonth.split('-')
+    const year = Number(yearPart)
+    const month = Number(monthPart)
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      throw new Error(`잘못된 yearMonth 형식입니다: ${yearMonth}`)
+    }
     const daysInMonth = new Date(year, month, 0).getDate()
     const result: MonthlyRequirement[] = []
 

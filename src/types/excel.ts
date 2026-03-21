@@ -91,5 +91,10 @@ export function dayOfWeekToDayName(dayOfWeek: number): string {
   if (dayOfWeek < 0 || dayOfWeek > 6) {
     throw new Error(`잘못된 요일 번호: ${dayOfWeek}`);
   }
-  return DAY_NAMES[dayOfWeek];
+  const dayName = DAY_NAMES[dayOfWeek];
+  if (!dayName) {
+    throw new Error(`잘못된 요일 번호: ${dayOfWeek}`);
+  }
+
+  return dayName;
 }

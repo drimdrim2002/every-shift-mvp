@@ -19,13 +19,13 @@ The request body consists of five main sections:
 
 ### Root Object
 
-| Field          | Type   | Required | Description                                                                  |
-| :------------- | :----- | :------- | :--------------------------------------------------------------------------- |
-| `organization` | Object | Yes      | Organization details and schedule parameters.                                |
-| `employees`    | Array  | Yes      | List of employees.                                                           |
+| Field          | Type   | Required | Description                                                                    |
+| :------------- | :----- | :------- | :----------------------------------------------------------------------------- |
+| `organization` | Object | Yes      | Organization details and schedule parameters.                                  |
+| `employees`    | Array  | Yes      | List of employees.                                                             |
 | `history`      | Array  | No       | List of past assignments before `firstDraftDate` (Off/O assignments excluded). |
-| `undesirable`  | Array  | No       | List of employee off requests on or after `firstDraftDate`.                  |
-| `requirements` | Array  | Yes      | Staffing requirements for each shift per day.                                |
+| `undesirable`  | Array  | No       | List of employee off requests on or after `firstDraftDate`.                    |
+| `requirements` | Array  | Yes      | Staffing requirements for each shift per day.                                  |
 
 ---
 
@@ -38,7 +38,7 @@ Defines the context and the time range for the schedule.
 | `id`                 | String  | UUID         | Unique identifier for the organization.                                       |
 | `name`               | String  | -            | Name of the organization (e.g., "Severance Hospital").                        |
 | `type`               | String  | -            | Type of organization (e.g., "hospital").                                      |
-| `shifts`             | Array   | -            | List of planning shift definitions (D/E/N only).                             |
+| `shifts`             | Array   | -            | List of planning shift definitions (D/E/N only).                              |
 | `lastHistoricalDate` | String  | `yyyy-MM-dd` | The last date of the historical data period.                                  |
 | `publishLength`      | Integer | -            | Number of days to publish (not directly used in calculation logic currently). |
 | `firstDraftDate`     | String  | `yyyy-MM-dd` | The start date of the planning period (schedule draft).                       |
@@ -73,22 +73,22 @@ List of all employees to be scheduled.
 
 Represents confirmed past schedules used for constraint checking.
 
-| Field         | Type    | Format       | Description                                                            |
-| :------------ | :------ | :----------- | :--------------------------------------------------------------------- |
-| `employee_id` | String  | UUID         | ID of the employee.                                                    |
-| `shift_id`    | String  | UUID         | ID of the assigned shift (`D/E/N`, Off/O is excluded).                |
-| `date`        | String  | `yyyy-MM-dd` | Date of the assignment (`date < firstDraftDate`).                     |
-| `is_locked`   | Boolean | -            | Always `true` (hard constraint).                                       |
+| Field         | Type    | Format       | Description                                            |
+| :------------ | :------ | :----------- | :----------------------------------------------------- |
+| `employee_id` | String  | UUID         | ID of the employee.                                    |
+| `shift_id`    | String  | UUID         | ID of the assigned shift (`D/E/N`, Off/O is excluded). |
+| `date`        | String  | `yyyy-MM-dd` | Date of the assignment (`date < firstDraftDate`).      |
+| `is_locked`   | Boolean | -            | Always `true` (hard constraint).                       |
 
 ### 4. Undesirable (`undesirable`)
 
 Represents future off requests/undesirable days.
 
-| Field         | Type    | Format       | Description                                                |
-| :------------ | :------ | :----------- | :--------------------------------------------------------- |
-| `employee_id` | String  | UUID         | ID of the employee.                                        |
-| `date`        | String  | `yyyy-MM-dd` | Requested date (`date >= firstDraftDate`).                 |
-| `is_locked`   | Boolean | -            | Always `false` (soft constraint).                          |
+| Field         | Type    | Format       | Description                                |
+| :------------ | :------ | :----------- | :----------------------------------------- |
+| `employee_id` | String  | UUID         | ID of the employee.                        |
+| `date`        | String  | `yyyy-MM-dd` | Requested date (`date >= firstDraftDate`). |
+| `is_locked`   | Boolean | -            | Always `false` (soft constraint).          |
 
 ---
 
@@ -167,6 +167,7 @@ This section defines state semantics for signup and approval workflows.
 It is intentionally separated from `PlanningRequest` payload rules above.
 
 Canonical state source:
+
 - `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
 
 ### Contract Scope
@@ -181,13 +182,13 @@ Canonical state source:
 
 ### Shared Enums
 
-| Name | Values |
-| :--- | :--- |
-| `requestedRole` | `admin`, `user` |
-| `organizationSelectionMode` | `existing` |
-| `nextState` | `pending_approval`, `active` |
-| `signupRequestStatus` | `pending`, `approved`, `rejected`, `expired`, `withdrawn` |
-| `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn`, `none` |
+| Name                        | Values                                                    |
+| :-------------------------- | :-------------------------------------------------------- |
+| `requestedRole`             | `admin`, `user`                                           |
+| `organizationSelectionMode` | `existing`                                                |
+| `nextState`                 | `pending_approval`, `active`                              |
+| `signupRequestStatus`       | `pending`, `approved`, `rejected`, `expired`, `withdrawn` |
+| `membershipStatus`          | `pending`, `approved`, `rejected`, `withdrawn`, `none`    |
 
 `membershipStatus='none'` means no membership row was created/updated in that operation.
 
@@ -202,30 +203,30 @@ Canonical state source:
 
 #### Common fields
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `email` | String | Yes | Valid email format |
-| `password` | String | Yes | Policy-validated secret |
-| `name` | String | Yes | Non-empty |
-| `role` | String | Yes | `admin` or `user` |
-| `requestedRole` | String | No | Legacy alias for `role` (deprecated, accepted for compatibility) |
+| Field           | Type   | Required | Rules                                                            |
+| :-------------- | :----- | :------- | :--------------------------------------------------------------- |
+| `email`         | String | Yes      | Valid email format                                               |
+| `password`      | String | Yes      | Policy-validated secret                                          |
+| `name`          | String | Yes      | Non-empty                                                        |
+| `role`          | String | Yes      | `admin` or `user`                                                |
+| `requestedRole` | String | No       | Legacy alias for `role` (deprecated, accepted for compatibility) |
 
 #### Role-specific fields
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `hospitalId` | UUID | Conditional | Required when `role='admin'` |
-| `hospitalName` | String | Conditional | Required when `role='admin'`, selected hospital display name |
-| `hospitalSource` | String | Conditional | Required when `role='admin'`, must be `data.go.kr` |
-| `organizationId` | UUID | No | Legacy alias for `hospitalId` (deprecated, accepted for compatibility) |
-| `inviteCode` | String | Conditional | Required when `role='user'` |
-| `organizationSelectionMode` | String | No | Canonical value is `existing` |
-| `workType` | String | No | Optional profile metadata |
-| `shiftType` | String | No | Optional profile metadata |
-| `requestedSiteName` | String | No | Optional profile metadata |
-| `requestedSkillSummary` | String | No | Optional profile metadata |
-| `requestedRankCode` | String | No | Optional profile metadata |
-| `requestedCredit` | Number | No | Optional profile metadata |
+| Field                       | Type   | Required    | Rules                                                                  |
+| :-------------------------- | :----- | :---------- | :--------------------------------------------------------------------- |
+| `hospitalId`                | UUID   | Conditional | Required when `role='admin'`                                           |
+| `hospitalName`              | String | Conditional | Required when `role='admin'`, selected hospital display name           |
+| `hospitalSource`            | String | Conditional | Required when `role='admin'`, must be `data.go.kr`                     |
+| `organizationId`            | UUID   | No          | Legacy alias for `hospitalId` (deprecated, accepted for compatibility) |
+| `inviteCode`                | String | Conditional | Required when `role='user'`                                            |
+| `organizationSelectionMode` | String | No          | Canonical value is `existing`                                          |
+| `workType`                  | String | No          | Optional profile metadata                                              |
+| `shiftType`                 | String | No          | Optional profile metadata                                              |
+| `requestedSiteName`         | String | No          | Optional profile metadata                                              |
+| `requestedSkillSummary`     | String | No          | Optional profile metadata                                              |
+| `requestedRankCode`         | String | No          | Optional profile metadata                                              |
+| `requestedCredit`           | Number | No          | Optional profile metadata                                              |
 
 ### Input Validation Checklist
 
@@ -252,21 +253,28 @@ Canonical state source:
   - `used_count` is constrained to `0` or `1`
   - `used_count=0` requires `used_at IS NULL` and `used_by IS NULL`
   - `used_count=1` requires `used_at IS NOT NULL` and `used_by IS NOT NULL`
+- Canonical policy source:
+  - helper function is defined in `migrations/008_rls_progressive_rollout.sql`
+  - actual `invite_codes` RLS policies are applied in `migrations/010_signup_role_flow.sql`
 - State classification for validation:
-  - Active: `revoked_at IS NULL` AND `used_count=0` AND `expires_at > NOW()`
+  - Active: `revoked_at IS NULL` AND `used_count < max_uses` AND `expires_at > NOW()`
   - Expired: `expires_at <= NOW()`
-  - Used: `used_count=1`
+  - Used: `used_count >= max_uses`
   - Revoked: `revoked_at IS NOT NULL`
 - Invite issuance/revocation is restricted to super/admin organization scope via RLS policy (`can_manage_invite_codes`).
+- `used_at` / `used_by` remain compatibility integrity fields and must stay aligned with the canonical `used_count/max_uses` state.
 
 ### Contract-Only Scaffold Note
 
 - During contract-only rollout, `signup-submit` may return:
   - `501 INTERNAL_ERROR` with `error.details.stage='contract_only_scaffold'` when persistence is disabled
   - `DUPLICATE_REQUEST` envelope for duplicate-request contract verification
+- `SIGNUP_SUBMIT_CONTRACT_MOCK_SUCCESS=true` is the explicit non-production toggle that swaps the scaffold into success-envelope mode for contract validation.
 - Frontend must branch by canonical `error.code` and treat detail values as supplementary metadata.
 
 ### Success Response Envelope
+
+- `nextState` is required on every success response and is the only canonical client branch key for immediate post-signup behavior.
 
 ```json
 {
@@ -316,29 +324,29 @@ Clients must branch by `error.code` (canonical), not by free-form message text.
 
 ### Canonical Error Code Contract (`signup-submit`)
 
-| Code | Meaning | Typical Operation |
-| :--- | :--- | :--- |
-| `INVALID_ROLE` | Role is missing or not one of `admin` / `user` | signup-submit |
-| `INVALID_INVITE_CODE` | Invite is missing/invalid/expired/used/revoked/role-mismatched | signup-submit (`role='user'`) |
-| `HOSPITAL_REQUIRED` | Admin hospital selection is missing | signup-submit (`role='admin'`) |
-| `DUPLICATE_REQUEST` | Duplicate pending signup request exists in same scope | signup-submit |
-| `VALIDATION_ERROR` | Generic request schema validation failure | signup-submit |
-| `PERMISSION_DENIED` | Caller lacks required scope/permission | signup-submit/approval |
-| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+| Code                  | Meaning                                                        | Typical Operation              |
+| :-------------------- | :------------------------------------------------------------- | :----------------------------- |
+| `INVALID_ROLE`        | Role is missing or not one of `admin` / `user`                 | signup-submit                  |
+| `INVALID_INVITE_CODE` | Invite is missing/invalid/expired/used/revoked/role-mismatched | signup-submit (`role='user'`)  |
+| `HOSPITAL_REQUIRED`   | Admin hospital selection is missing                            | signup-submit (`role='admin'`) |
+| `DUPLICATE_REQUEST`   | Duplicate pending signup request exists in same scope          | signup-submit                  |
+| `VALIDATION_ERROR`    | Generic request schema validation failure                      | signup-submit                  |
+| `PERMISSION_DENIED`   | Caller lacks required scope/permission                         | signup-submit/approval         |
+| `INTERNAL_ERROR`      | Unexpected server-side failure                                 | all                            |
 
 #### Legacy/Error Detail Mapping
 
 The server may include legacy detail reasons under `error.details.reason` for migration compatibility.
 
-| Legacy/Detail Code | Canonical Code |
-| :--- | :--- |
-| `DUPLICATE_PENDING_REQUEST` | `DUPLICATE_REQUEST` |
-| `ORGANIZATION_REQUIRED` | `HOSPITAL_REQUIRED` |
-| `INVITE_NOT_FOUND` | `INVALID_INVITE_CODE` |
-| `INVITE_EXPIRED` | `INVALID_INVITE_CODE` |
-| `INVITE_ALREADY_USED` | `INVALID_INVITE_CODE` |
-| `INVITE_REVOKED` | `INVALID_INVITE_CODE` |
-| `INVITE_ROLE_MISMATCH` | `INVALID_INVITE_CODE` |
+| Legacy/Detail Code          | Canonical Code        |
+| :-------------------------- | :-------------------- |
+| `DUPLICATE_PENDING_REQUEST` | `DUPLICATE_REQUEST`   |
+| `ORGANIZATION_REQUIRED`     | `HOSPITAL_REQUIRED`   |
+| `INVITE_NOT_FOUND`          | `INVALID_INVITE_CODE` |
+| `INVITE_EXPIRED`            | `INVALID_INVITE_CODE` |
+| `INVITE_ALREADY_USED`       | `INVALID_INVITE_CODE` |
+| `INVITE_REVOKED`            | `INVALID_INVITE_CODE` |
+| `INVITE_ROLE_MISMATCH`      | `INVALID_INVITE_CODE` |
 
 ## Auth Context Contract (P2 Canonical)
 
@@ -358,13 +366,13 @@ Client-side access control must derive post-login access from this payload, not 
 
 ### Shared Enums
 
-| Name | Values |
-| :--- | :--- |
-| `globalRole` | `super`, `admin`, `user` |
-| `accountStatus` | `active`, `pending`, `rejected`, `suspended`, `withdrawn` |
-| `membershipRole` | `admin`, `user` |
-| `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn` |
-| `accessState` | `unauthenticated`, `super_active`, `admin_active`, `admin_pending`, `admin_rejected`, `user_active`, `no_membership_or_inactive` |
+| Name               | Values                                                                                                                           |
+| :----------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+| `globalRole`       | `super`, `admin`, `user`                                                                                                         |
+| `accountStatus`    | `active`, `pending`, `rejected`, `suspended`, `withdrawn`                                                                        |
+| `membershipRole`   | `admin`, `user`                                                                                                                  |
+| `membershipStatus` | `pending`, `approved`, `rejected`, `withdrawn`                                                                                   |
+| `accessState`      | `unauthenticated`, `super_active`, `admin_active`, `admin_pending`, `admin_rejected`, `user_active`, `no_membership_or_inactive` |
 
 ### Response Envelope
 
@@ -397,29 +405,29 @@ Client-side access control must derive post-login access from this payload, not 
 
 #### `profile`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `userId` | UUID | Yes | Authenticated user id |
-| `globalRole` | String | Yes | `super` \\| `admin` \\| `user` |
-| `accountStatus` | String | Yes | `active` \\| `pending` \\| `rejected` \\| `suspended` \\| `withdrawn` |
+| Field           | Type   | Required | Rules                 |
+| :-------------- | :----- | :------- | :-------------------- | ------------ | ------------- | -------------- | ----------- |
+| `userId`        | UUID   | Yes      | Authenticated user id |
+| `globalRole`    | String | Yes      | `super` \\            | `admin` \\   | `user`        |
+| `accountStatus` | String | Yes      | `active` \\           | `pending` \\ | `rejected` \\ | `suspended` \\ | `withdrawn` |
 
 #### `memberships[]`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `membershipId` | UUID | No | Membership row id |
-| `organizationId` | UUID | Yes | Organization scope id |
-| `role` | String | Yes | `admin` \\| `user` |
-| `status` | String | Yes | `pending` \\| `approved` \\| `rejected` \\| `withdrawn` |
-| `approvedAt` | String | No | ISO-8601 timestamp or `null` |
-| `createdAt` | String | No | ISO-8601 timestamp or `null` |
-| `rejectionReason` | String | No | Optional rejection metadata |
+| Field             | Type   | Required | Rules                        |
+| :---------------- | :----- | :------- | :--------------------------- | ------------- | ------------- | ----------- |
+| `membershipId`    | UUID   | No       | Membership row id            |
+| `organizationId`  | UUID   | Yes      | Organization scope id        |
+| `role`            | String | Yes      | `admin` \\                   | `user`        |
+| `status`          | String | Yes      | `pending` \\                 | `approved` \\ | `rejected` \\ | `withdrawn` |
+| `approvedAt`      | String | No       | ISO-8601 timestamp or `null` |
+| `createdAt`       | String | No       | ISO-8601 timestamp or `null` |
+| `rejectionReason` | String | No       | Optional rejection metadata  |
 
 #### Optional context field
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `currentOrganizationId` | UUID | No | When present, the matching membership is evaluated first for access resolution |
+| Field                   | Type | Required | Rules                                                                          |
+| :---------------------- | :--- | :------- | :----------------------------------------------------------------------------- |
+| `currentOrganizationId` | UUID | No       | When present, the matching membership is evaluated first for access resolution |
 
 ### Access-State Derivation Rules
 
@@ -452,33 +460,33 @@ This section defines the admin/super invite-code management contract for issuanc
 
 #### Common field
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | `create` \| `revoke` \| `list` |
+| Field    | Type   | Required | Rules                          |
+| :------- | :----- | :------- | :----------------------------- |
+| `action` | String | Yes      | `create` \| `revoke` \| `list` |
 
 #### Action: `create`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `create` |
-| `organizationId` | UUID | Yes | Target organization for issuance |
-| `expiresAt` | String | Yes | ISO-8601 timestamp, must be later than server `NOW()` |
-| `maxUses` | Number | No | Optional compatibility input, server always normalizes to `1` |
+| Field            | Type   | Required | Rules                                                         |
+| :--------------- | :----- | :------- | :------------------------------------------------------------ |
+| `action`         | String | Yes      | Fixed to `create`                                             |
+| `organizationId` | UUID   | Yes      | Target organization for issuance                              |
+| `expiresAt`      | String | Yes      | ISO-8601 timestamp, must be later than server `NOW()`         |
+| `maxUses`        | Number | No       | Optional compatibility input, server always normalizes to `1` |
 
 #### Action: `revoke`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `revoke` |
-| `inviteCodeId` | UUID | Yes | Target invite row id in `public.invite_codes` |
+| Field          | Type   | Required | Rules                                         |
+| :------------- | :----- | :------- | :-------------------------------------------- |
+| `action`       | String | Yes      | Fixed to `revoke`                             |
+| `inviteCodeId` | UUID   | Yes      | Target invite row id in `public.invite_codes` |
 
 #### Action: `list`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `list` |
-| `organizationId` | UUID | Yes | Query scope target organization |
-| `includeInactive` | Boolean | No | Default `true`; when `false`, only `active` items are returned |
+| Field             | Type    | Required | Rules                                                          |
+| :---------------- | :------ | :------- | :------------------------------------------------------------- |
+| `action`          | String  | Yes      | Fixed to `list`                                                |
+| `organizationId`  | UUID    | Yes      | Query scope target organization                                |
+| `includeInactive` | Boolean | No       | Default `true`; when `false`, only `active` items are returned |
 
 ### Response Rules
 
@@ -579,13 +587,13 @@ Clients must branch by `error.code` (canonical), not by free-form message text.
 
 ### Canonical Error Code Contract (`invite-code-manage`)
 
-| Code | Meaning | Typical Operation |
-| :--- | :--- | :--- |
-| `VALIDATION_ERROR` | Request payload schema/field validation failed | create/revoke/list |
-| `PERMISSION_DENIED` | Caller lacks organization scope permission | create/revoke/list |
-| `INVITE_CODE_NOT_FOUND` | Target invite row does not exist in allowed scope | revoke |
-| `INVITE_CODE_ALREADY_REVOKED` | Invite row is already revoked | revoke |
-| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+| Code                          | Meaning                                           | Typical Operation  |
+| :---------------------------- | :------------------------------------------------ | :----------------- |
+| `VALIDATION_ERROR`            | Request payload schema/field validation failed    | create/revoke/list |
+| `PERMISSION_DENIED`           | Caller lacks organization scope permission        | create/revoke/list |
+| `INVITE_CODE_NOT_FOUND`       | Target invite row does not exist in allowed scope | revoke             |
+| `INVITE_CODE_ALREADY_REVOKED` | Invite row is already revoked                     | revoke             |
+| `INTERNAL_ERROR`              | Unexpected server-side failure                    | all                |
 
 ### Contract-Only Scaffold Note
 
@@ -605,11 +613,11 @@ This section defines the contract for hospital lookup used by admin signup.
 
 ### Request DTO
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `keyword` | String | Yes | Trimmed length must be `2..50` |
-| `pageNo` | Number | No | Positive integer, default `1` |
-| `numOfRows` | Number | No | Positive integer, default `20`, max `50` |
+| Field       | Type   | Required | Rules                                    |
+| :---------- | :----- | :------- | :--------------------------------------- |
+| `keyword`   | String | Yes      | Trimmed length must be `2..50`           |
+| `pageNo`    | Number | No       | Positive integer, default `1`            |
+| `numOfRows` | Number | No       | Positive integer, default `20`, max `50` |
 
 ### Input Validation Checklist
 
@@ -660,13 +668,13 @@ Clients must branch by `error.code` (canonical), not by free-form message text.
 
 ### Canonical Error Code Contract (`hospital-search`)
 
-| Code | Meaning |
-| :--- | :--- |
-| `VALIDATION_ERROR` | Request payload validation failed |
-| `UPSTREAM_TIMEOUT` | data.go.kr request timed out |
-| `UPSTREAM_RATE_LIMIT` | data.go.kr or edge-level rate limit was hit |
-| `UPSTREAM_ERROR` | data.go.kr returned non-success or invalid payload |
-| `INTERNAL_ERROR` | Unexpected server-side failure |
+| Code                  | Meaning                                            |
+| :-------------------- | :------------------------------------------------- |
+| `VALIDATION_ERROR`    | Request payload validation failed                  |
+| `UPSTREAM_TIMEOUT`    | data.go.kr request timed out                       |
+| `UPSTREAM_RATE_LIMIT` | data.go.kr or edge-level rate limit was hit        |
+| `UPSTREAM_ERROR`      | data.go.kr returned non-success or invalid payload |
+| `INTERNAL_ERROR`      | Unexpected server-side failure                     |
 
 ### Rate Limit / Timeout / Error Mapping Policy
 
@@ -698,31 +706,33 @@ Clients must branch by `error.code` (canonical), not by free-form message text.
 ### Operation C: Approval Decision (Admin Queue, Reference)
 
 Logical operation:
+
 - Superuser decision on pending admin signup request.
 
 Canonical policy source:
+
 - `docs/migration/P2_ACCESS_APPROVAL_POLICY.md`
 
 #### Request Body
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `signupRequestId` | UUID | Yes | Pending admin request ID |
-| `decision` | String | Yes | `approve` or `reject` |
-| `reviewNote` | String | No | Optional reason/context |
+| Field             | Type   | Required | Rules                    |
+| :---------------- | :----- | :------- | :----------------------- |
+| `signupRequestId` | UUID   | Yes      | Pending admin request ID |
+| `decision`        | String | Yes      | `approve` or `reject`    |
+| `reviewNote`      | String | No       | Optional reason/context  |
 
 ### Success Response DTO (Canonical)
 
-| Field | Type | Required | Notes |
-| :--- | :--- | :--- | :--- |
-| `signupRequestId` | UUID | Yes | Target request id |
-| `decision` | String | Yes | `approve` \| `reject` |
-| `requestStatus` | String | Yes | `approved` \| `rejected` |
-| `membershipStatus` | String | Yes | `approved` \| `none` |
-| `organizationId` | UUID | No | Tenant scope id |
-| `membershipId` | UUID | No | Created/updated membership id for approve path |
-| `decidedAt` | String | Yes | ISO-8601 decision timestamp |
-| `alreadyProcessed` | Boolean | Yes | Idempotent replay indicator |
+| Field              | Type    | Required | Notes                                          |
+| :----------------- | :------ | :------- | :--------------------------------------------- |
+| `signupRequestId`  | UUID    | Yes      | Target request id                              |
+| `decision`         | String  | Yes      | `approve` \| `reject`                          |
+| `requestStatus`    | String  | Yes      | `approved` \| `rejected`                       |
+| `membershipStatus` | String  | Yes      | `approved` \| `none`                           |
+| `organizationId`   | UUID    | No       | Tenant scope id                                |
+| `membershipId`     | UUID    | No       | Created/updated membership id for approve path |
+| `decidedAt`        | String  | Yes      | ISO-8601 decision timestamp                    |
+| `alreadyProcessed` | Boolean | Yes      | Idempotent replay indicator                    |
 
 #### State Write Expectation
 
@@ -735,12 +745,12 @@ Canonical policy source:
 
 #### Approval-Specific Error Codes
 
-| Code | Meaning |
-| :--- | :--- |
+| Code                 | Meaning                                                                  |
+| :------------------- | :----------------------------------------------------------------------- |
 | `INVALID_TRANSITION` | Request state transition is forbidden (already terminal or incompatible) |
-| `REQUEST_NOT_FOUND` | Target signup request does not exist |
-| `PERMISSION_DENIED` | Caller lacks required approval/tenant scope |
-| `INTERNAL_ERROR` | Unexpected server-side failure |
+| `REQUEST_NOT_FOUND`  | Target signup request does not exist                                     |
+| `PERMISSION_DENIED`  | Caller lacks required approval/tenant scope                              |
+| `INTERNAL_ERROR`     | Unexpected server-side failure                                           |
 
 ### Approval Idempotency Rules
 
@@ -759,9 +769,11 @@ This section defines the transport contract for the `onboarding-progress` server
 It fixes request/response/error semantics for `get`, `update`, and `complete` without redefining persistence ownership or RLS policy.
 
 Canonical domain source:
+
 - `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`
 
 Persistence/RLS policy source:
+
 - `P3-1.2 onboarding_progress persistence + RLS design`
 
 ### Contract Scope
@@ -789,60 +801,60 @@ Persistence/RLS policy source:
 
 ### Shared Enums
 
-| Name | Values |
-| :--- | :--- |
-| `action` | `get`, `update`, `complete` |
-| `stepKey` | `organization_info`, `employee_seed`, `schedule_request` |
-| `transitionType` | `noop`, `advance`, `complete` |
-| `error.code` | `VALIDATION_ERROR`, `PERMISSION_DENIED`, `FORBIDDEN_STATE_TRANSITION`, `METHOD_NOT_ALLOWED`, `INTERNAL_ERROR` |
+| Name             | Values                                                                                                        |
+| :--------------- | :------------------------------------------------------------------------------------------------------------ |
+| `action`         | `get`, `update`, `complete`                                                                                   |
+| `stepKey`        | `organization_info`, `employee_seed`, `schedule_request`                                                      |
+| `transitionType` | `noop`, `advance`, `complete`                                                                                 |
+| `error.code`     | `VALIDATION_ERROR`, `PERMISSION_DENIED`, `FORBIDDEN_STATE_TRANSITION`, `METHOD_NOT_ALLOWED`, `INTERNAL_ERROR` |
 
 ### Canonical Progress DTO
 
 `progress` represents organization-scoped onboarding state for the caller's effective organization.
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `organizationId` | UUID | Yes | Effective organization scope resolved by server |
-| `currentStepKey` | String \| `null` | Yes | First incomplete step key in canonical order, or `null` when onboarding is complete |
-| `completedStepKeys` | Array<String> | Yes | Ordered subset of canonical step keys already complete |
-| `isOnboardingComplete` | Boolean | Yes | `true` only when all three steps are complete |
-| `completedAt` | String \| `null` | Yes | ISO-8601 timestamp for terminal completion, otherwise `null` |
+| Field                  | Type             | Required | Rules                                                                               |
+| :--------------------- | :--------------- | :------- | :---------------------------------------------------------------------------------- |
+| `organizationId`       | UUID             | Yes      | Effective organization scope resolved by server                                     |
+| `currentStepKey`       | String \| `null` | Yes      | First incomplete step key in canonical order, or `null` when onboarding is complete |
+| `completedStepKeys`    | Array<String>    | Yes      | Ordered subset of canonical step keys already complete                              |
+| `isOnboardingComplete` | Boolean          | Yes      | `true` only when all three steps are complete                                       |
+| `completedAt`          | String \| `null` | Yes      | ISO-8601 timestamp for terminal completion, otherwise `null`                        |
 
 ### Transition DTO
 
 `transition` communicates the result of a mutating call so the frontend store/router can consume it without additional interpretation.
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `type` | String | Yes | `noop` \| `advance` \| `complete` |
-| `requestedStepKey` | String \| `null` | Yes | Requested target step for `update`, fixed to `schedule_request` for `complete`, `null` for `get` |
-| `previousCurrentStepKey` | String \| `null` | Yes | Previous `progress.currentStepKey` before mutation |
-| `resultingCurrentStepKey` | String \| `null` | Yes | Resulting `progress.currentStepKey` after mutation |
-| `isOnboardingComplete` | Boolean | Yes | Post-mutation completion state |
+| Field                     | Type             | Required | Rules                                                                                            |
+| :------------------------ | :--------------- | :------- | :----------------------------------------------------------------------------------------------- |
+| `type`                    | String           | Yes      | `noop` \| `advance` \| `complete`                                                                |
+| `requestedStepKey`        | String \| `null` | Yes      | Requested target step for `update`, fixed to `schedule_request` for `complete`, `null` for `get` |
+| `previousCurrentStepKey`  | String \| `null` | Yes      | Previous `progress.currentStepKey` before mutation                                               |
+| `resultingCurrentStepKey` | String \| `null` | Yes      | Resulting `progress.currentStepKey` after mutation                                               |
+| `isOnboardingComplete`    | Boolean          | Yes      | Post-mutation completion state                                                                   |
 
 ### Request DTO (Action Union)
 
 #### Action: `get`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `get` |
+| Field    | Type   | Required | Rules          |
+| :------- | :----- | :------- | :------------- |
+| `action` | String | Yes      | Fixed to `get` |
 
 #### Action: `update`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `update` |
-| `stepKey` | String | Yes | `organization_info` \| `employee_seed` \| `schedule_request` |
+| Field     | Type   | Required | Rules                                                        |
+| :-------- | :----- | :------- | :----------------------------------------------------------- |
+| `action`  | String | Yes      | Fixed to `update`                                            |
+| `stepKey` | String | Yes      | `organization_info` \| `employee_seed` \| `schedule_request` |
 
 `update` means "advance the canonical first-incomplete step to this requested step key" while preserving monotonic progress.
 The server must reject backward movement and must not infer organization scope from the request body.
 
 #### Action: `complete`
 
-| Field | Type | Required | Rules |
-| :--- | :--- | :--- | :--- |
-| `action` | String | Yes | Fixed to `complete` |
+| Field    | Type   | Required | Rules               |
+| :------- | :----- | :------- | :------------------ |
+| `action` | String | Yes      | Fixed to `complete` |
 
 `complete` is the terminal onboarding action and represents that the organization has crossed the final `schedule_request` completion boundary.
 
@@ -902,11 +914,7 @@ The server must reject backward movement and must not infer organization scope f
     "progress": {
       "organizationId": "uuid",
       "currentStepKey": null,
-      "completedStepKeys": [
-        "organization_info",
-        "employee_seed",
-        "schedule_request"
-      ],
+      "completedStepKeys": ["organization_info", "employee_seed", "schedule_request"],
       "isOnboardingComplete": true,
       "completedAt": "2026-03-12T09:00:00.000Z"
     },
@@ -941,13 +949,13 @@ Clients must branch by `error.code`, not by free-form message text.
 
 ### Canonical Error Code Contract (`onboarding-progress`)
 
-| Code | Meaning | Typical Operation |
-| :--- | :--- | :--- |
-| `VALIDATION_ERROR` | Payload is invalid or required action fields are missing | get/update/complete |
-| `PERMISSION_DENIED` | Caller is unauthenticated, not `admin_active`, or lacks effective organization scope | get/update/complete |
-| `FORBIDDEN_STATE_TRANSITION` | Requested update moves backward or attempts to mutate terminal progress incorrectly | update |
-| `METHOD_NOT_ALLOWED` | Request used an unsupported HTTP method | transport |
-| `INTERNAL_ERROR` | Unexpected server-side failure | all |
+| Code                         | Meaning                                                                              | Typical Operation   |
+| :--------------------------- | :----------------------------------------------------------------------------------- | :------------------ |
+| `VALIDATION_ERROR`           | Payload is invalid or required action fields are missing                             | get/update/complete |
+| `PERMISSION_DENIED`          | Caller is unauthenticated, not `admin_active`, or lacks effective organization scope | get/update/complete |
+| `FORBIDDEN_STATE_TRANSITION` | Requested update moves backward or attempts to mutate terminal progress incorrectly  | update              |
+| `METHOD_NOT_ALLOWED`         | Request used an unsupported HTTP method                                              | transport           |
+| `INTERNAL_ERROR`             | Unexpected server-side failure                                                       | all                 |
 
 ### State Interpretation Rules
 

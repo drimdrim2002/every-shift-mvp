@@ -9,13 +9,11 @@ import type { User } from '@supabase/supabase-js'
 import {
   SIGNUP_ERROR_MESSAGES,
   type SignupErrorCode,
-  type SignupNextState,
   type SignupStoreSignupErrorResult,
   type SignupStoreSignupResult,
   type SignupStoreSignupSuccessResult,
   type SignupSubmitRequest,
   type SignupSubmitResolvedSuccessData,
-  type SignupSubmitSuccessData,
 } from '@/types/signup'
 
 function isSignupErrorCode(value: unknown): value is SignupErrorCode {
@@ -37,17 +35,7 @@ function resolveSignupErrorCode(error: unknown): SignupErrorCode | null {
   return null
 }
 
-function deriveSignupNextState(data: SignupSubmitSuccessData): SignupNextState {
-  if (data.nextState === 'pending_approval' || data.nextState === 'active') {
-    return data.nextState
-  }
-
-  if (data.signupRequestStatus === 'approved' || data.membershipStatus === 'approved') {
-    return 'active'
-  }
-
-  return 'pending_approval'
-}
+type SignupNextState = SignupSubmitResolvedSuccessData['nextState']
 
 function getSignupSuccessMessage(nextState: SignupNextState): string {
   return nextState === 'active'
@@ -55,20 +43,15 @@ function getSignupSuccessMessage(nextState: SignupNextState): string {
     : '가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.'
 }
 
-function createSignupSuccessResult(data: SignupSubmitSuccessData): SignupStoreSignupSuccessResult {
-  const nextState = deriveSignupNextState(data)
-  const resolvedData: SignupSubmitResolvedSuccessData = {
-    ...data,
-    nextState,
-  }
-
+function createSignupSuccessResult(data: SignupSubmitResolvedSuccessData): SignupStoreSignupSuccessResult {
+  const nextState = data.nextState
   return {
     success: true,
     nextState,
     message: getSignupSuccessMessage(nextState),
     error: null,
     errorCode: null,
-    data: resolvedData,
+    data,
   }
 }
 

@@ -132,8 +132,9 @@ const selectedColorMap: Record<string, string> = {
   N: 'bg-shift-night text-white',
   O: 'bg-shift-off text-white',
 }
+const defaultSingleBoxColor = 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
 const singleBoxColorMap: Record<string, string> = {
-  '': 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50',
+  '': defaultSingleBoxColor,
   D: 'bg-green-50 border-green-200 text-green-700',
   E: 'bg-orange-50 border-orange-200 text-orange-700',
   N: 'bg-blue-50 border-blue-200 text-blue-700',
@@ -162,7 +163,7 @@ function getSingleBoxClass() {
       ? 'bg-gray-100 border-gray-300 text-gray-700'
       : 'bg-white border-gray-200 text-gray-700'
   } else {
-    colorClass = singleBoxColorMap[props.currentShift || ''] || singleBoxColorMap['']
+    colorClass = singleBoxColorMap[props.currentShift || ''] ?? defaultSingleBoxColor
   }
 
   const cursorClass = props.readonly ? 'cursor-not-allowed' : toggleCursorClass

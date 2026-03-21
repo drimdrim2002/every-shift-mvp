@@ -351,13 +351,7 @@ async function handleSignup() {
   }
 
   resultNextState.value = result.nextState
-
-  if (result.nextState === 'active') {
-    success('가입이 완료되었습니다. 로그인할 수 있습니다.')
-    return
-  }
-
-  success('가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.')
+  success(result.message)
 }
 
 async function moveToLogin() {

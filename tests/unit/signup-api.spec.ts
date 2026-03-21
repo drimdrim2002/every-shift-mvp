@@ -30,7 +30,7 @@ describe('signup api boundary', () => {
     expect(getSignupErrorMessage('INVITE_EXPIRED')).toBe(SIGNUP_ERROR_MESSAGES.INVALID_INVITE_CODE)
   })
 
-  it('normalizes admin aliases and fills organizationId fallback from request', async () => {
+  it('normalizes admin aliases, derives nextState, and fills organizationId fallback from request', async () => {
     vi.mocked(supabase.functions.invoke).mockResolvedValue({
       data: {
         success: true,
@@ -61,6 +61,7 @@ describe('signup api boundary', () => {
         hospitalId: 'org-legacy-id',
       }),
     })
+    expect(response.nextState).toBe('pending_approval')
     expect(response.organizationId).toBe('org-legacy-id')
   })
 

@@ -77,7 +77,10 @@ interface InviteCodeRow {
   organization_id: string;
   role_scope: string;
   expires_at: string;
+  max_uses: number;
+  used_count: number;
   used_at: string | null;
+  used_by: string | null;
   revoked_at: string | null;
 }
 
@@ -311,13 +314,16 @@ async function validateInviteCode(inviteCode: string): Promise<InviteValidationR
 
   const serviceClient = createServiceRoleClient();
   if (!serviceClient) {
-    return { type: 'valid' };
+    return {
+      type: 'internal_error',
+      message: 'Invite validation is unavailable because service-role configuration is missing.',
+    };
   }
 
   const codeHash = await toSha256Hex(inviteCode.trim());
   const { data, error } = await serviceClient
     .from('invite_codes')
-    .select('organization_id, role_scope, expires_at, used_at, revoked_at')
+    .select('organization_id, role_scope, expires_at, max_uses, used_count, used_at, used_by, revoked_at')
     .eq('code_hash', codeHash)
     .maybeSingle<InviteCodeRow>();
 
@@ -340,7 +346,15 @@ async function validateInviteCode(inviteCode: string): Promise<InviteValidationR
     return { type: 'invalid', reason: 'INVITE_REVOKED' };
   }
 
-  if (data.used_at) {
+  const maxUses = Number.isInteger(data.max_uses) && data.max_uses > 0 ? data.max_uses : 1;
+  let usedCount = 0;
+  if (Number.isInteger(data.used_count) && data.used_count >= 0) {
+    usedCount = data.used_count;
+  } else if (data.used_at || data.used_by) {
+    usedCount = maxUses;
+  }
+
+  if (usedCount >= maxUses || data.used_at || data.used_by) {
     return { type: 'invalid', reason: 'INVITE_ALREADY_USED' };
   }
 
@@ -450,8 +464,8 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Contract-only scaffold:
-  // Set SIGNUP_SUBMIT_CONTRACT_MOCK_SUCCESS=true to return success envelopes for API integration checks.
+  // Explicit non-production scaffold:
+  // Set SIGNUP_SUBMIT_CONTRACT_MOCK_SUCCESS=true only when validating the v2 contract without persistence.
   const enableMockSuccess = Deno.env.get('SIGNUP_SUBMIT_CONTRACT_MOCK_SUCCESS') === 'true';
   if (!enableMockSuccess) {
     return errorResponse(501, 'INTERNAL_ERROR', 'signup-submit persistence is not implemented yet.', {

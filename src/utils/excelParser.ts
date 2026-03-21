@@ -18,6 +18,13 @@ const SHEET_NAMES = {
 // 요일별 인력 시트 대체 이름 (공백 포함/미포함)
 const SITE_REQUIREMENTS_ALT_NAMES = ['요일별인력', '요일별 인력'];
 
+function sheetToMatrix(sheet: XLSX.WorkSheet): Array<Array<string | number>> {
+  return XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: '',
+  }) as Array<Array<string | number>>;
+}
+
 /**
  * 엑셀 파일을 파싱하여 ParsedExcelData 형식으로 변환
  * @param file - 업로드된 엑셀 파일
@@ -43,6 +50,10 @@ export async function parseExcelFile(
     const empSheet = workbook.Sheets[SHEET_NAMES.EMPLOYEES];
     const reqSheet = findSiteRequirementsSheet(workbook);
     const prevSheet = workbook.Sheets[SHEET_NAMES.PREVIOUS_MONTH];
+
+    if (!empSheet || !prevSheet) {
+      throw new Error('필수 시트 참조에 실패했습니다');
+    }
 
     // 5. 각 시트 데이터 추출
     const employees = extractEmployees(empSheet);
@@ -121,10 +132,7 @@ function findSiteRequirementsSheet(workbook: XLSX.WorkBook): XLSX.WorkSheet {
  * 직원 정보 추출 (2행부터)
  */
 function extractEmployees(sheet: XLSX.WorkSheet): EmployeeData[] {
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = sheetToMatrix(sheet);
 
   if (data.length < 2) {
     throw new Error('직원정보 시트: 직원 데이터가 없습니다');
@@ -187,10 +195,7 @@ function extractEmployees(sheet: XLSX.WorkSheet): EmployeeData[] {
  * 데이터: 월요일, D, 5
  */
 function extractSiteRequirements(sheet: XLSX.WorkSheet): SiteRequirementRow[] {
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = sheetToMatrix(sheet);
 
   if (data.length < 2) {
     throw new Error('요일별인력 시트: 데이터가 부족합니다');
@@ -278,10 +283,7 @@ function extractPreviousMonthData(
   }
 
   // 시트를 JSON으로 변환
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = sheetToMatrix(sheet);
 
   if (data.length < 2) {
     throw new Error('전월데이터 시트: 데이터가 부족합니다');

@@ -1,5 +1,27 @@
 import { supabase } from './supabase';
-import type { EmployeeData, SiteRequirementRow } from '@/types/excel';
+import { dayOfWeekToDayName, type EmployeeData, type SiteRequirementRow } from '@/types/excel';
+
+interface ShiftJoinRow {
+  code: string;
+}
+
+interface SiteRequirementDbRow {
+  day_of_week: number;
+  required_count: number;
+  shifts: ShiftJoinRow | ShiftJoinRow[] | null;
+}
+
+function getShiftCode(value: SiteRequirementDbRow['shifts']): string | null {
+  if (Array.isArray(value)) {
+    return value[0]?.code ?? null;
+  }
+
+  if (value && typeof value === 'object' && typeof value.code === 'string') {
+    return value.code;
+  }
+
+  return null;
+}
 
 /**
  * 조직의 모든 직원 삭제
@@ -140,8 +162,6 @@ export async function replaceSiteRequirements(
  * @returns 세로형 요구사항 배열
  */
 export async function loadSiteRequirements(orgId: string): Promise<SiteRequirementRow[]> {
-  const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-
   // site_requirements와 shifts 조인
   const { data, error } = await supabase
     .from('site_requirements')
@@ -166,10 +186,17 @@ export async function loadSiteRequirements(orgId: string): Promise<SiteRequireme
   }
 
   // 세로형 데이터로 변환
-  return data.map((row) => ({
-    dayOfWeek: row.day_of_week,
-    dayName: DAY_NAMES[row.day_of_week],
-    shiftCode: (row.shifts as { code: string }).code,
-    requiredCount: row.required_count,
-  }));
+  return (data as SiteRequirementDbRow[]).flatMap((row) => {
+    const shiftCode = getShiftCode(row.shifts);
+    if (!shiftCode) {
+      return [];
+    }
+
+    return [{
+      dayOfWeek: row.day_of_week,
+      dayName: dayOfWeekToDayName(row.day_of_week),
+      shiftCode,
+      requiredCount: row.required_count,
+    }];
+  });
 }
