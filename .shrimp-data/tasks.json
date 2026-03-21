@@ -1831,7 +1831,7 @@
       "id": "1d82b0e8-4d19-405b-a772-80ecbe305c11",
       "name": "P3-1.6 onboarding-progress Edge Function 구현 정렬",
       "description": "P3-1.3 transport contract와 P3-1.1 domain invariant를 기준으로 onboarding-progress Edge Function을 실제 런타임 동작에 맞게 정렬한다. organization-scoped progress 조회, step transition 검증, complete semantics를 현재 draft implementation에서 canonical behavior로 끌어올린다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1867,8 +1867,10 @@
       "implementationGuide": "1) Refactor onboarding-progress to read and mutate the organization-scoped canonical progress model introduced by P3-1.5 instead of assuming a per-user owner row. 2) Preserve the existing get/update/complete envelope, error codes, and step key vocabulary from P3-1.3. 3) Enforce transition rules so update/complete do not bypass the P3-1.1 completion semantics; where the runtime cannot yet infer completion from domain tables automatically, require or derive canonical persisted proof rather than blindly incrementing integers. 4) Keep organization resolution consistent with the approved admin scope used by auth/RBAC and return permission errors for non-admin or inactive callers. 5) Leave router/page concerns to P3-2.3 and P3-3.2, but make the function trustworthy enough that those tasks can consume it without adding their own workaround semantics.",
       "verificationCriteria": "Deliverable: onboarding-progress Edge Function behavior matches the organization-scoped runtime model and the canonical transport contract. Method: review get/update/complete handling and validate that progress is not owned per user, forbidden transitions are rejected, and complete semantics no longer reduce to an unconditional integer write. Pass: the function returns P3-1.3-compatible payloads while enforcing P3-1.1/P3-1.5 runtime invariants without requiring router or page-level reinterpretation.",
       "createdAt": "2026-03-21T12:19:50.000Z",
-      "updatedAt": "2026-03-21T12:19:50.000Z",
-      "notes": "This task closes the runtime gap left by the earlier contract-first implementation. It should complete before page integration and onboarding guard insertion consume the function as a source of truth."
+      "updatedAt": "2026-03-21T14:30:00.000Z",
+      "notes": "This task closes the runtime gap left by the earlier contract-first implementation. It should complete before page integration and onboarding guard insertion consume the function as a source of truth.",
+      "summary": "Refactored `supabase/functions/onboarding-progress/index.ts` to use the P3-1.5 organization-scoped canonical row, admin-scope organization resolution, and domain-proof-based transition handling instead of per-user integer progress writes. Added local Supabase CLI tooling for deployment, deployed `onboarding-progress` to the live project `vjmerqaxguovnojinxfq`, and verified the deployed boundary with curl: unauthenticated requests were blocked by the gateway, authenticated invalid action/method requests returned the canonical error envelope, `super_active` and `user_active` callers were denied, and an `admin_active` caller successfully executed `get` plus `update(organization_info)` with canonical progress recalculation to `schedule_request`. Live `complete` invocation was intentionally skipped to avoid forcing terminal onboarding state on the shared organization.",
+      "completedAt": "2026-03-21T14:30:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000070",

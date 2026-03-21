@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -7,9 +7,10 @@ const CORS_HEADERS = {
 };
 
 const STEP_SEQUENCE = ['organization_info', 'employee_seed', 'schedule_request'] as const;
+const PROGRESS_SELECT =
+  'organization_id, current_step, current_step_key, organization_info_confirmed_at, completed_at';
 
 type OnboardingStepKey = (typeof STEP_SEQUENCE)[number];
-type StoredStep = 1 | 2 | 3;
 type OnboardingProgressAction = 'get' | 'update' | 'complete';
 type OnboardingTransitionType = 'noop' | 'advance' | 'complete';
 type OnboardingProgressErrorCode =
@@ -48,9 +49,23 @@ interface OnboardingProgressSuccessData {
 
 interface OnboardingProgressRow {
   organization_id: string;
-  user_id: string;
   current_step: number;
+  current_step_key: OnboardingStepKey | null;
+  organization_info_confirmed_at: string | null;
   completed_at: string | null;
+}
+
+interface ProfileRow {
+  global_role: string;
+  account_status: string;
+}
+
+interface MembershipRow {
+  organization_id: string;
+  role: string;
+  status: string;
+  approved_at: string | null;
+  created_at: string | null;
 }
 
 interface OnboardingProgressSuccessResponse {
@@ -65,6 +80,24 @@ interface OnboardingProgressErrorResponse {
     message: string;
     details?: Record<string, unknown>;
   };
+}
+
+interface DomainProofs {
+  isOrganizationInfoReady: boolean;
+  isEmployeeSeedReady: boolean;
+  isScheduleRequestReady: boolean;
+}
+
+interface CanonicalProgressSnapshot {
+  row: OnboardingProgressRow;
+  progress: OnboardingProgressStateDto;
+  proofs: DomainProofs;
+}
+
+interface SyncOptions {
+  finalizeCompletion: boolean;
+  actorUserId?: string;
+  completedByUserId?: string | null;
 }
 
 type OnboardingProgressResponse = OnboardingProgressSuccessResponse | OnboardingProgressErrorResponse;
@@ -117,38 +150,79 @@ function normalizeStepKey(value: unknown): OnboardingStepKey | null {
   return null;
 }
 
-function sanitizeStep(step: number): StoredStep {
-  if (step <= 1) {
+function compareMembershipTimestamps(
+  leftTimestamp: string | null | undefined,
+  rightTimestamp: string | null | undefined,
+): number {
+  if (leftTimestamp === rightTimestamp) {
+    return 0;
+  }
+
+  if (!leftTimestamp) {
     return 1;
   }
-  if (step >= 3) {
-    return 3;
+
+  if (!rightTimestamp) {
+    return -1;
   }
-  return 2;
+
+  return leftTimestamp.localeCompare(rightTimestamp);
 }
 
-function stepKeyToStoredStep(stepKey: OnboardingStepKey): StoredStep {
-  return (STEP_SEQUENCE.indexOf(stepKey) + 1) as StoredStep;
+function compareMembershipPriority(left: MembershipRow, right: MembershipRow): number {
+  const approvedAtComparison = compareMembershipTimestamps(left.approved_at, right.approved_at);
+  if (approvedAtComparison !== 0) {
+    return approvedAtComparison;
+  }
+
+  const createdAtComparison = compareMembershipTimestamps(left.created_at, right.created_at);
+  if (createdAtComparison !== 0) {
+    return createdAtComparison;
+  }
+
+  return left.organization_id.localeCompare(right.organization_id);
 }
 
-function storedStepToStepKey(step: StoredStep): OnboardingStepKey {
-  return STEP_SEQUENCE[step - 1];
+function resolveCurrentOrganizationHint(user: User): string | null {
+  const candidates = [
+    user.user_metadata?.currentOrganizationId,
+    user.user_metadata?.current_organization_id,
+    user.app_metadata?.currentOrganizationId,
+    user.app_metadata?.current_organization_id,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function buildCompletedStepKeys(currentStepKey: OnboardingStepKey | null): OnboardingStepKey[] {
+  if (currentStepKey === null) {
+    return [...STEP_SEQUENCE];
+  }
+
+  const targetIndex = STEP_SEQUENCE.indexOf(currentStepKey);
+  if (targetIndex <= 0) {
+    return [];
+  }
+
+  return STEP_SEQUENCE.slice(0, targetIndex);
 }
 
 function toProgressState(row: OnboardingProgressRow): OnboardingProgressStateDto {
-  const storedStep = sanitizeStep(row.current_step);
-  const isOnboardingComplete = row.completed_at !== null;
-  const currentStepKey = isOnboardingComplete ? null : storedStepToStepKey(storedStep);
-  const completedStepKeys = isOnboardingComplete
-    ? [...STEP_SEQUENCE]
-    : STEP_SEQUENCE.slice(0, storedStep - 1);
+  const isOnboardingComplete = row.completed_at !== null || row.current_step_key === null;
+  const currentStepKey = isOnboardingComplete ? null : row.current_step_key ?? 'organization_info';
 
   return {
     organizationId: row.organization_id,
     currentStepKey,
-    completedStepKeys,
+    completedStepKeys: buildCompletedStepKeys(currentStepKey),
     isOnboardingComplete,
-    completedAt: row.completed_at,
+    completedAt: isOnboardingComplete ? row.completed_at : null,
   };
 }
 
@@ -170,14 +244,14 @@ function toTransition(
 function successResponse(
   status: number,
   action: OnboardingProgressAction,
-  row: OnboardingProgressRow,
+  snapshot: CanonicalProgressSnapshot,
   transition: OnboardingProgressTransitionDto | null,
 ): Response {
   return jsonResponse(status, {
     success: true,
     data: {
       action,
-      progress: toProgressState(row),
+      progress: snapshot.progress,
       transition,
     },
   });
@@ -239,13 +313,14 @@ async function resolveCallerContext(
     };
   }
 
-  const userId = authData.user.id;
+  const user = authData.user;
+  const userId = user.id;
 
   const { data: profile, error: profileError } = await adminClient
     .from('profiles')
-    .select('account_status')
+    .select('global_role, account_status')
     .eq('id', userId)
-    .maybeSingle<{ account_status: string }>();
+    .maybeSingle<ProfileRow>();
 
   if (profileError && profileError.code !== PROFILE_NOT_FOUND_ERROR_CODE) {
     console.error('[onboarding-progress] Failed to load profile:', profileError);
@@ -254,7 +329,7 @@ async function resolveCallerContext(
     };
   }
 
-  if (profile && profile.account_status !== 'active') {
+  if (!profile || profile.account_status !== 'active' || profile.global_role !== 'admin') {
     return {
       error: errorResponse(403, 'PERMISSION_DENIED', 'Only active admin members can use onboarding.'),
     };
@@ -262,14 +337,11 @@ async function resolveCallerContext(
 
   const { data: memberships, error: membershipError } = await adminClient
     .from('organization_memberships')
-    .select('organization_id')
+    .select('organization_id, role, status, approved_at, created_at')
     .eq('user_id', userId)
     .eq('role', 'admin')
     .eq('status', 'approved')
-    .order('approved_at', { ascending: true, nullsFirst: false })
-    .order('created_at', { ascending: true, nullsFirst: false })
-    .order('organization_id', { ascending: true })
-    .limit(1);
+    .returns<MembershipRow[]>();
 
   if (membershipError) {
     console.error('[onboarding-progress] Failed to load memberships:', membershipError);
@@ -278,29 +350,37 @@ async function resolveCallerContext(
     };
   }
 
-  const membership = memberships?.[0];
-  if (!membership?.organization_id) {
+  const approvedAdminMemberships = (memberships ?? [])
+    .filter((membership) => membership.organization_id && membership.role === 'admin' && membership.status === 'approved')
+    .sort(compareMembershipPriority);
+
+  if (approvedAdminMemberships.length === 0) {
     return {
       error: errorResponse(403, 'PERMISSION_DENIED', 'Only admin_active users can use onboarding.'),
     };
   }
 
+  const currentOrganizationHint = resolveCurrentOrganizationHint(user);
+  const hintedMembership = currentOrganizationHint
+    ? approvedAdminMemberships.find(
+        (membership) => membership.organization_id === currentOrganizationHint,
+      )
+    : null;
+
   return {
     userId,
-    organizationId: membership.organization_id,
+    organizationId: hintedMembership?.organization_id ?? approvedAdminMemberships[0].organization_id,
   };
 }
 
 async function getOrCreateProgressRow(
   adminClient: SupabaseClient,
   organizationId: string,
-  userId: string,
 ): Promise<OnboardingProgressRow | { error: Response }> {
   const existingRowResult = await adminClient
     .from('onboarding_progress')
-    .select('organization_id, user_id, current_step, completed_at')
+    .select(PROGRESS_SELECT)
     .eq('organization_id', organizationId)
-    .eq('user_id', userId)
     .maybeSingle<OnboardingProgressRow>();
 
   if (existingRowResult.error) {
@@ -318,11 +398,11 @@ async function getOrCreateProgressRow(
     .from('onboarding_progress')
     .insert({
       organization_id: organizationId,
-      user_id: userId,
+      current_step_key: 'organization_info',
       current_step: 1,
       completed_at: null,
     })
-    .select('organization_id, user_id, current_step, completed_at')
+    .select(PROGRESS_SELECT)
     .single<OnboardingProgressRow>();
 
   if (!insertResult.error && insertResult.data) {
@@ -332,9 +412,8 @@ async function getOrCreateProgressRow(
   if (insertResult.error?.code === UNIQUE_VIOLATION_ERROR_CODE) {
     const retryResult = await adminClient
       .from('onboarding_progress')
-      .select('organization_id, user_id, current_step, completed_at')
+      .select(PROGRESS_SELECT)
       .eq('organization_id', organizationId)
-      .eq('user_id', userId)
       .single<OnboardingProgressRow>();
 
     if (retryResult.error || !retryResult.data) {
@@ -353,67 +432,305 @@ async function getOrCreateProgressRow(
   };
 }
 
+async function invokeBooleanRpc(
+  adminClient: SupabaseClient,
+  functionName:
+    | 'is_onboarding_org_info_domain_ready'
+    | 'is_onboarding_employee_seed_ready'
+    | 'is_onboarding_schedule_request_ready',
+  organizationId: string,
+): Promise<boolean | { error: Response }> {
+  const { data, error } = await adminClient.rpc<boolean>(functionName, {
+    target_org_id: organizationId,
+  });
+
+  if (error) {
+    console.error(`[onboarding-progress] Failed to run ${functionName}:`, error);
+    return {
+      error: errorResponse(500, 'INTERNAL_ERROR', 'Failed to resolve onboarding domain proof.'),
+    };
+  }
+
+  return data === true;
+}
+
+async function loadDomainProofs(
+  adminClient: SupabaseClient,
+  organizationId: string,
+): Promise<DomainProofs | { error: Response }> {
+  const [organizationInfoReady, employeeSeedReady, scheduleRequestReady] = await Promise.all([
+    invokeBooleanRpc(adminClient, 'is_onboarding_org_info_domain_ready', organizationId),
+    invokeBooleanRpc(adminClient, 'is_onboarding_employee_seed_ready', organizationId),
+    invokeBooleanRpc(adminClient, 'is_onboarding_schedule_request_ready', organizationId),
+  ]);
+
+  if (typeof organizationInfoReady !== 'boolean') {
+    return organizationInfoReady;
+  }
+
+  if (typeof employeeSeedReady !== 'boolean') {
+    return employeeSeedReady;
+  }
+
+  if (typeof scheduleRequestReady !== 'boolean') {
+    return scheduleRequestReady;
+  }
+
+  return {
+    isOrganizationInfoReady: organizationInfoReady,
+    isEmployeeSeedReady: employeeSeedReady,
+    isScheduleRequestReady: scheduleRequestReady,
+  };
+}
+
+function deriveTargetState(
+  row: OnboardingProgressRow,
+  proofs: DomainProofs,
+  options: SyncOptions,
+): Pick<OnboardingProgressRow, 'current_step' | 'current_step_key' | 'completed_at'> {
+  if (row.completed_at !== null) {
+    return {
+      current_step: 4,
+      current_step_key: null,
+      completed_at: row.completed_at,
+    };
+  }
+
+  if (
+    row.organization_info_confirmed_at !== null &&
+    proofs.isOrganizationInfoReady &&
+    proofs.isEmployeeSeedReady &&
+    proofs.isScheduleRequestReady &&
+    options.finalizeCompletion
+  ) {
+    return {
+      current_step: 4,
+      current_step_key: null,
+      completed_at: new Date().toISOString(),
+    };
+  }
+
+  if (row.organization_info_confirmed_at === null || !proofs.isOrganizationInfoReady) {
+    return {
+      current_step: 1,
+      current_step_key: 'organization_info',
+      completed_at: null,
+    };
+  }
+
+  if (!proofs.isEmployeeSeedReady) {
+    return {
+      current_step: 2,
+      current_step_key: 'employee_seed',
+      completed_at: null,
+    };
+  }
+
+  return {
+    current_step: 3,
+    current_step_key: 'schedule_request',
+    completed_at: null,
+  };
+}
+
+async function synchronizeProgressRow(
+  adminClient: SupabaseClient,
+  organizationId: string,
+  options: SyncOptions,
+): Promise<CanonicalProgressSnapshot | { error: Response }> {
+  const row = await getOrCreateProgressRow(adminClient, organizationId);
+  if ('error' in row) {
+    return row;
+  }
+
+  const proofs = await loadDomainProofs(adminClient, organizationId);
+  if ('error' in proofs) {
+    return proofs;
+  }
+
+  const targetState = deriveTargetState(row, proofs, options);
+  const needsUpdate =
+    row.current_step !== targetState.current_step ||
+    row.current_step_key !== targetState.current_step_key ||
+    row.completed_at !== targetState.completed_at;
+
+  if (!needsUpdate) {
+    return {
+      row,
+      proofs,
+      progress: toProgressState(row),
+    };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    current_step: targetState.current_step,
+    current_step_key: targetState.current_step_key,
+    completed_at: targetState.completed_at,
+  };
+
+  if (options.actorUserId) {
+    updatePayload.last_actor_user_id = options.actorUserId;
+  }
+
+  if (targetState.completed_at !== null && options.completedByUserId !== undefined) {
+    updatePayload.completed_by = options.completedByUserId;
+  }
+
+  if (targetState.completed_at === null) {
+    updatePayload.completed_by = null;
+  }
+
+  const updateResult = await adminClient
+    .from('onboarding_progress')
+    .update(updatePayload)
+    .eq('organization_id', organizationId)
+    .select(PROGRESS_SELECT)
+    .single<OnboardingProgressRow>();
+
+  if (updateResult.error || !updateResult.data) {
+    console.error('[onboarding-progress] Failed to synchronize progress:', updateResult.error);
+    return {
+      error: errorResponse(500, 'INTERNAL_ERROR', 'Failed to synchronize onboarding progress.'),
+    };
+  }
+
+  return {
+    row: updateResult.data,
+    proofs,
+    progress: toProgressState(updateResult.data),
+  };
+}
+
+async function confirmOrganizationInfoStep(
+  adminClient: SupabaseClient,
+  context: CallerContext,
+  snapshot: CanonicalProgressSnapshot,
+): Promise<OnboardingProgressRow | { error: Response }> {
+  if (!snapshot.proofs.isOrganizationInfoReady) {
+    return {
+      error: errorResponse(
+        409,
+        'FORBIDDEN_STATE_TRANSITION',
+        'Organization info cannot be completed before the required organization setup exists.',
+        {
+          requestedStepKey: 'organization_info',
+          currentStepKey: snapshot.progress.currentStepKey,
+        },
+      ),
+    };
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    last_actor_user_id: context.userId,
+  };
+
+  if (snapshot.row.organization_info_confirmed_at === null) {
+    updatePayload.organization_info_confirmed_at = new Date().toISOString();
+    updatePayload.organization_info_confirmed_by = context.userId;
+  }
+
+  const updateResult = await adminClient
+    .from('onboarding_progress')
+    .update(updatePayload)
+    .eq('organization_id', context.organizationId)
+    .select(PROGRESS_SELECT)
+    .single<OnboardingProgressRow>();
+
+  if (updateResult.error || !updateResult.data) {
+    console.error('[onboarding-progress] Failed to confirm organization info step:', updateResult.error);
+    return {
+      error: errorResponse(500, 'INTERNAL_ERROR', 'Failed to persist organization info completion.'),
+    };
+  }
+
+  return updateResult.data;
+}
+
 async function handleUpdateAction(
   adminClient: SupabaseClient,
   context: CallerContext,
   stepKey: OnboardingStepKey,
 ): Promise<Response> {
-  const row = await getOrCreateProgressRow(adminClient, context.organizationId, context.userId);
-  if ('error' in row) {
-    return row.error;
+  const previousSnapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+    finalizeCompletion: false,
+    actorUserId: context.userId,
+  });
+  if ('error' in previousSnapshot) {
+    return previousSnapshot.error;
   }
 
-  const previousProgress = toProgressState(row);
-  if (row.completed_at) {
+  if (previousSnapshot.progress.isOnboardingComplete) {
     return errorResponse(409, 'FORBIDDEN_STATE_TRANSITION', 'Completed onboarding cannot be modified.', {
       requestedStepKey: stepKey,
-      currentStepKey: previousProgress.currentStepKey,
+      currentStepKey: previousSnapshot.progress.currentStepKey,
     });
   }
 
-  const storedStep = sanitizeStep(row.current_step);
-  const requestedStep = stepKeyToStoredStep(stepKey);
-  if (requestedStep < storedStep) {
+  if (previousSnapshot.progress.currentStepKey !== stepKey) {
     return errorResponse(
       409,
       'FORBIDDEN_STATE_TRANSITION',
-      'Onboarding step can only stay same or move forward.',
+      'Onboarding update must target the current incomplete step.',
       {
-        currentStepKey: previousProgress.currentStepKey,
+        currentStepKey: previousSnapshot.progress.currentStepKey,
         requestedStepKey: stepKey,
       },
     );
   }
 
-  if (requestedStep === storedStep) {
+  if (stepKey === 'organization_info') {
+    const confirmationResult = await confirmOrganizationInfoStep(adminClient, context, previousSnapshot);
+    if ('error' in confirmationResult) {
+      return confirmationResult.error;
+    }
+
+    const nextSnapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+      finalizeCompletion: false,
+      actorUserId: context.userId,
+    });
+    if ('error' in nextSnapshot) {
+      return nextSnapshot.error;
+    }
+
     return successResponse(
       200,
       'update',
-      row,
-      toTransition('noop', stepKey, previousProgress, previousProgress),
+      nextSnapshot,
+      toTransition('advance', stepKey, previousSnapshot.progress, nextSnapshot.progress),
     );
   }
 
-  const updateResult = await adminClient
-    .from('onboarding_progress')
-    .update({
-      current_step: requestedStep,
-    })
-    .eq('organization_id', context.organizationId)
-    .eq('user_id', context.userId)
-    .select('organization_id, user_id, current_step, completed_at')
-    .single<OnboardingProgressRow>();
-
-  if (updateResult.error || !updateResult.data) {
-    console.error('[onboarding-progress] Failed to update step:', updateResult.error);
-    return errorResponse(500, 'INTERNAL_ERROR', 'Failed to update onboarding step.');
+  if (stepKey === 'employee_seed' && !previousSnapshot.proofs.isEmployeeSeedReady) {
+    return errorResponse(
+      409,
+      'FORBIDDEN_STATE_TRANSITION',
+      'Employee seed cannot be completed before at least one schedulable employee exists.',
+      {
+        currentStepKey: previousSnapshot.progress.currentStepKey,
+        requestedStepKey: stepKey,
+      },
+    );
   }
+
+  const nextSnapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+    finalizeCompletion: false,
+    actorUserId: context.userId,
+  });
+  if ('error' in nextSnapshot) {
+    return nextSnapshot.error;
+  }
+
+  const transitionType: OnboardingTransitionType =
+    previousSnapshot.progress.currentStepKey === nextSnapshot.progress.currentStepKey &&
+    previousSnapshot.progress.isOnboardingComplete === nextSnapshot.progress.isOnboardingComplete
+      ? 'noop'
+      : 'advance';
 
   return successResponse(
     200,
     'update',
-    updateResult.data,
-    toTransition('advance', stepKey, previousProgress, toProgressState(updateResult.data)),
+    nextSnapshot,
+    toTransition(transitionType, stepKey, previousSnapshot.progress, nextSnapshot.progress),
   );
 }
 
@@ -421,43 +738,65 @@ async function handleCompleteAction(
   adminClient: SupabaseClient,
   context: CallerContext,
 ): Promise<Response> {
-  const row = await getOrCreateProgressRow(adminClient, context.organizationId, context.userId);
-  if ('error' in row) {
-    return row.error;
+  const previousSnapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+    finalizeCompletion: false,
+    actorUserId: context.userId,
+  });
+  if ('error' in previousSnapshot) {
+    return previousSnapshot.error;
   }
 
-  const previousProgress = toProgressState(row);
-  if (row.completed_at) {
+  if (previousSnapshot.progress.isOnboardingComplete) {
     return successResponse(
       200,
       'complete',
-      row,
-      toTransition('noop', 'schedule_request', previousProgress, previousProgress),
+      previousSnapshot,
+      toTransition('noop', 'schedule_request', previousSnapshot.progress, previousSnapshot.progress),
     );
   }
 
-  const completedAt = row.completed_at ?? new Date().toISOString();
-  const updateResult = await adminClient
-    .from('onboarding_progress')
-    .update({
-      current_step: 3,
-      completed_at: completedAt,
-    })
-    .eq('organization_id', context.organizationId)
-    .eq('user_id', context.userId)
-    .select('organization_id, user_id, current_step, completed_at')
-    .single<OnboardingProgressRow>();
+  if (previousSnapshot.progress.currentStepKey !== 'schedule_request') {
+    return errorResponse(
+      409,
+      'FORBIDDEN_STATE_TRANSITION',
+      'Onboarding can only be completed from the final schedule_request step.',
+      {
+        currentStepKey: previousSnapshot.progress.currentStepKey,
+        requestedStepKey: 'schedule_request',
+      },
+    );
+  }
 
-  if (updateResult.error || !updateResult.data) {
-    console.error('[onboarding-progress] Failed to complete onboarding:', updateResult.error);
-    return errorResponse(500, 'INTERNAL_ERROR', 'Failed to complete onboarding.');
+  if (!previousSnapshot.proofs.isScheduleRequestReady) {
+    return errorResponse(
+      409,
+      'FORBIDDEN_STATE_TRANSITION',
+      'Onboarding cannot be completed before the first schedule request is persisted.',
+      {
+        currentStepKey: previousSnapshot.progress.currentStepKey,
+        requestedStepKey: 'schedule_request',
+      },
+    );
+  }
+
+  const nextSnapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+    finalizeCompletion: true,
+    actorUserId: context.userId,
+    completedByUserId: context.userId,
+  });
+  if ('error' in nextSnapshot) {
+    return nextSnapshot.error;
+  }
+
+  if (!nextSnapshot.progress.isOnboardingComplete) {
+    return errorResponse(500, 'INTERNAL_ERROR', 'Failed to finalize onboarding completion.');
   }
 
   return successResponse(
     200,
     'complete',
-    updateResult.data,
-    toTransition('complete', 'schedule_request', previousProgress, toProgressState(updateResult.data)),
+    nextSnapshot,
+    toTransition('complete', 'schedule_request', previousSnapshot.progress, nextSnapshot.progress),
   );
 }
 
@@ -506,12 +845,15 @@ Deno.serve(async (req: Request) => {
   }
 
   if (action === 'get') {
-    const row = await getOrCreateProgressRow(adminClient, context.organizationId, context.userId);
-    if ('error' in row) {
-      return row.error;
+    const snapshot = await synchronizeProgressRow(adminClient, context.organizationId, {
+      finalizeCompletion: true,
+      actorUserId: context.userId,
+    });
+    if ('error' in snapshot) {
+      return snapshot.error;
     }
 
-    return successResponse(200, 'get', row, null);
+    return successResponse(200, 'get', snapshot, null);
   }
 
   if (action === 'update') {
