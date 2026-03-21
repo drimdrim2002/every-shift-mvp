@@ -1789,7 +1789,7 @@
       "id": "593ad871-842e-44da-aeef-d37d7c989426",
       "name": "P3-1.5 onboarding_progress 스키마/RLS 구현 정렬",
       "description": "P3-1.2 설계 기준에 맞게 onboarding_progress의 실제 persistence shape와 RLS 정책을 런타임에 반영한다. 현재 user-scoped draft schema를 organization-scoped canonical state로 정렬하고, legacy row collapse/backfill과 admin-only tenant isolation을 구현한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1822,8 +1822,10 @@
       "implementationGuide": "1) Add a forward migration that replaces the current user-scoped onboarding_progress ownership model with an organization-scoped canonical row model, or a shape that behaves equivalently from the API boundary. 2) Preserve P3-1.3 transport field compatibility while removing UNIQUE(organization_id, user_id) as the authoritative completion owner. 3) Include legacy row collapse/backfill logic so existing per-user rows resolve to one canonical organization-scoped state without data loss. 4) Enable RLS and add explicit admin-only, tenant-isolated read/write policies; anonymous and unrelated authenticated access must be denied. 5) Document verification SQL or migration notes so P3-1.6 and router work can rely on the new persistence contract without reinterpretation.",
       "verificationCriteria": "Deliverable: onboarding_progress runtime schema and RLS are aligned with the P3 canonical organization-scoped model. Method: review the migration and run schema/policy inspection to confirm that one canonical onboarding state is resolved per organization, legacy rows are handled, and unauthorized access is blocked. Pass: schema ownership, row uniqueness behavior, and RLS enforcement match P3-1.2 without leaving a user-scoped completion path in production.",
       "createdAt": "2026-03-21T12:19:50.000Z",
-      "updatedAt": "2026-03-21T12:19:50.000Z",
-      "notes": "This is runtime-alignment work that intentionally follows completed spec tasks. Keep P3-1.2 completed and treat this task as the implementation closure for the persistence/RLS gap."
+      "updatedAt": "2026-03-21T13:23:05.000Z",
+      "notes": "This is runtime-alignment work that intentionally follows completed spec tasks. Keep P3-1.2 completed and treat this task as the implementation closure for the persistence/RLS gap.",
+      "summary": "Added `migrations/013_onboarding_progress_runtime_alignment.sql` to move `onboarding_progress` to a canonical organization-scoped model with legacy row collapse, audit-field replacement for `user_id`, onboarding helper functions, and admin-only RLS/ACL tightening. Updated the persistence spec and DBML snapshot, added verification SQL, and verified in Supabase that the new columns/functions/policies exist, `organization_id` is uniquely enforced, duplicate rows are absent, RLS is enabled, and ACLs exclude anonymous access.",
+      "completedAt": "2026-03-21T13:23:05.000Z"
     },
     {
       "id": "1d82b0e8-4d19-405b-a772-80ecbe305c11",

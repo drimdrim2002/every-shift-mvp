@@ -94,16 +94,16 @@ The current `(organization_id, user_id)` uniqueness is legacy-only and must not 
 The persistence layer must store organization-scoped state using the P3-1.1 step vocabulary.
 The recommended target row shape is:
 
-| Field | Meaning | Notes |
-| :--- | :--- | :--- |
-| `organization_id` | canonical owner key | required, unique |
-| `current_step_key` | first incomplete step key | enum limited to `organization_info`, `employee_seed`, `schedule_request` or `null` when complete |
-| `organization_info_confirmed_at` | explicit completion timestamp for Step 1 | Step 1 needs a persisted confirmation event |
-| `organization_info_confirmed_by` | admin who confirmed Step 1 | audit only |
-| `completed_at` | organization onboarding completion timestamp | set only when all three steps are complete |
-| `completed_by` | admin who triggered the final completion transition | audit only |
-| `last_actor_user_id` | last admin that changed the row | audit only |
-| `created_at` / `updated_at` | normal audit timestamps | required |
+| Field                            | Meaning                                             | Notes                                                                                            |
+| :------------------------------- | :-------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
+| `organization_id`                | canonical owner key                                 | required, unique                                                                                 |
+| `current_step_key`               | first incomplete step key                           | enum limited to `organization_info`, `employee_seed`, `schedule_request` or `null` when complete |
+| `organization_info_confirmed_at` | explicit completion timestamp for Step 1            | Step 1 needs a persisted confirmation event                                                      |
+| `organization_info_confirmed_by` | admin who confirmed Step 1                          | audit only                                                                                       |
+| `completed_at`                   | organization onboarding completion timestamp        | set only when all three steps are complete                                                       |
+| `completed_by`                   | admin who triggered the final completion transition | audit only                                                                                       |
+| `last_actor_user_id`             | last admin that changed the row                     | audit only                                                                                       |
+| `created_at` / `updated_at`      | normal audit timestamps                             | required                                                                                         |
 
 Notes:
 
@@ -315,3 +315,19 @@ The next implementation or migration task should treat the following as mandator
 5. make recovery deterministic for legacy duplicate rows before tightening the unique key
 
 When those five items are satisfied, `onboarding_progress` can be interpreted independently from the later API contract and without ambiguity in refresh/relogin/guard flows.
+
+## 10. P3-1.5 Runtime Artifacts
+
+`P3-1.5` implements this design with:
+
+- [`migrations/013_onboarding_progress_runtime_alignment.sql`](/Users/brown/workspace/every-shift-mvp/migrations/013_onboarding_progress_runtime_alignment.sql)
+- [`docs/migration/sql/p3_1_5_onboarding_progress_verification.sql`](/Users/brown/workspace/every-shift-mvp/docs/migration/sql/p3_1_5_onboarding_progress_verification.sql)
+
+The migration is responsible for:
+
+- collapsing legacy duplicate rows into one canonical row per organization
+- replacing user ownership semantics with explicit audit fields
+- recalculating canonical step state from persisted confirmation plus domain facts
+- enabling admin-only RLS without a super-role bypass in product traffic
+
+The verification SQL is the handoff artifact for `P3-1.6` and later router/guard work when they need to confirm the persistence boundary before consuming it.

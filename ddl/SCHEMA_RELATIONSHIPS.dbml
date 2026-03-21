@@ -200,15 +200,18 @@ Table public.approval_logs {
 Table public.onboarding_progress {
   id uuid [pk]
   organization_id uuid [not null]
-  user_id uuid [not null]
+  current_step_key varchar(32)
+  organization_info_confirmed_at timestamptz
+  organization_info_confirmed_by uuid
+  completed_by uuid
+  last_actor_user_id uuid
   current_step int [not null]
   completed_at timestamptz
   created_at timestamptz [not null]
   updated_at timestamptz [not null]
 
   Indexes {
-    (organization_id, user_id) [unique, name: "onboarding_progress_organization_id_user_id_key"]
-    (user_id, completed_at) [name: "idx_onboarding_user_completed_at"]
+    (organization_id) [unique, name: "onboarding_progress_organization_id_key"]
   }
 }
 
@@ -386,7 +389,9 @@ Ref: public.approval_logs.actor_user_id > auth.users.id
 Ref: public.approval_logs.target_user_id > auth.users.id
 
 Ref: public.onboarding_progress.organization_id > public.organizations.id
-Ref: public.onboarding_progress.user_id > auth.users.id
+Ref: public.onboarding_progress.organization_info_confirmed_by > auth.users.id
+Ref: public.onboarding_progress.completed_by > auth.users.id
+Ref: public.onboarding_progress.last_actor_user_id > auth.users.id
 
 Ref: public.notifications.organization_id > public.organizations.id
 Ref: public.notifications.recipient_user_id > auth.users.id
