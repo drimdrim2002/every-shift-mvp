@@ -279,3 +279,5 @@ super, admin 계정 사용자만 해당 메뉴를 볼 수 있다. user 계정은
 
 - **필터 기능**: 대시보드의 모든 차트와 데이터는 기간, 근무 사이트, 직급별로 필터링이 가능해야 합니다.
 - **데이터 내보내기**: 필터링된 대시보드의 데이터를 기반으로 맞춤형 보고서를 생성하고, **Excel/CSV 형식**으로 내보낼 수 있습니다.
+
+> Detailed implementation-facing contract for dashboard metrics, filters, RBAC landing, and dependency states is maintained in `docs/specs/p9/P9-1.1-dashboard-metrics-filter-spec.md`.
