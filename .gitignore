@@ -1,6 +1,7 @@
 .mcp.json
 .claude/*.*
 .env.local
+*.smp
 node_modules/
 package-lock.json
 node_modules/*
