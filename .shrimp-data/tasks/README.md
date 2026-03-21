@@ -1,20 +1,56 @@
 # Task Files - Development Phase Organization
 
+## Current Pending Phase Files
+
+The current canonical backlog is `.shrimp-data/tasks.json`.
+
+Pending tasks can be regenerated into phase-scoped execution files with:
+
+```bash
+node .shrimp-data/generate_phase_task_files.mjs
+```
+
+Generated files:
+
+- `.shrimp-data/tasks/phase1-pending-tasks.json`
+- `.shrimp-data/tasks/phase2-pending-tasks.json`
+- `.shrimp-data/tasks/phase3-pending-tasks.json`
+- `.shrimp-data/tasks/phase4-pending-tasks.json`
+- `.shrimp-data/tasks/phase5-pending-tasks.json`
+- `.shrimp-data/tasks/phase6-pending-tasks.json`
+- `.shrimp-data/tasks/phase7-pending-tasks.json`
+- `.shrimp-data/tasks/phase8-pending-tasks.json`
+- `.shrimp-data/tasks/phase9-pending-tasks.json`
+- `.shrimp-data/tasks/phase10-pending-tasks.json`
+
+Index file:
+
+- `.shrimp-data/tasks/phase-pending-index.json`
+
+Execution pattern:
+
+```bash
+cp .shrimp-data/tasks/phase3-pending-tasks.json .shrimp-data/tasks.json
+```
+
+Legacy split files were moved to `.shrimp-data/tasks/lazy/` and renamed with a `lazy-` prefix. They are historical artifacts and are not the current canonical pending backlog.
+
 This directory contains 87 tasks from the EveryShift MVP project, organized into 9 development phases for better token efficiency when working with AI assistants.
 
 ## 📂 File Structure
 
 ```
 .shrimp-data/tasks/
-├── phase-0-infrastructure.json     (10 tasks)  ~8,000 tokens
-├── phase-1-database.json          (7 tasks)   ~5,500 tokens
-├── phase-2-foundation.json        (12 tasks)  ~9,500 tokens
-├── phase-3-authentication.json    (4 tasks)   ~3,000 tokens
-├── phase-4-step1-2.json          (6 tasks)   ~4,700 tokens
-├── phase-5-step3-grid.json       (18 tasks)  ~14,000 tokens
-├── phase-6-step4-results.json    (8 tasks)   ~6,300 tokens
-├── phase-7-integration.json      (12 tasks)  ~9,500 tokens
-└── phase-8-polish.json           (10 tasks)  ~8,000 tokens
+├── lazy/
+│   ├── lazy-phase-0-infrastructure.json     (10 tasks)  ~8,000 tokens
+│   ├── lazy-phase-1-database.json          (7 tasks)   ~5,500 tokens
+│   ├── lazy-phase-2-foundation.json        (12 tasks)  ~9,500 tokens
+│   ├── lazy-phase-3-authentication.json    (4 tasks)   ~3,000 tokens
+│   ├── lazy-phase-4-step1-2.json          (6 tasks)   ~4,700 tokens
+│   ├── lazy-phase-5-step3-grid.json       (18 tasks)  ~14,000 tokens
+│   ├── lazy-phase-6-step4-results.json    (8 tasks)   ~6,300 tokens
+│   ├── lazy-phase-7-integration.json      (12 tasks)  ~9,500 tokens
+│   └── lazy-phase-8-polish.json           (10 tasks)  ~8,000 tokens
 ```
 
 **Original file:** `.shrimp-data/tasks-original-backup.json` (294KB, ~75,000 tokens)
@@ -179,33 +215,33 @@ The shrimp-task-manager MCP server reads from `.shrimp-data/tasks.json`. To work
 
 ### Option 1: Copy to tasks.json (Recommended)
 ```bash
-# Work on Phase 3
-cp .shrimp-data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
+# Work on current pending Phase 3 backlog
+cp .shrimp-data/tasks/phase3-pending-tasks.json .shrimp-data/tasks.json
 
 # Use shrimp-task-manager (reads from .shrimp-data/tasks.json)
 # ... work on tasks ...
 
 # Save changes back to phase file
-cp .shrimp-data/tasks.json .shrimp-data/tasks/phase-3-authentication.json
+cp .shrimp-data/tasks.json .shrimp-data/tasks/phase3-pending-tasks.json
 ```
 
 ### Option 2: Symbolic link
 ```bash
-# Create symlink to current phase
-ln -sf "$PWD/.shrimp-data/tasks/phase-3-authentication.json" "$PWD/.shrimp-data/tasks.json"
+# Create symlink to current pending phase
+ln -sf "$PWD/.shrimp-data/tasks/phase3-pending-tasks.json" "$PWD/.shrimp-data/tasks.json"
 
 # Work normally, changes will be saved to the phase file
 ```
 
 ### Option 3: Rename temporarily
 ```bash
-# Rename current phase to tasks.json
-mv .shrimp-data/tasks/phase-3-authentication.json .shrimp-data/tasks.json
+# Rename current pending phase to tasks.json
+mv .shrimp-data/tasks/phase3-pending-tasks.json .shrimp-data/tasks.json
 
 # Work on tasks...
 
 # Rename back when done
-mv .shrimp-data/tasks.json .shrimp-data/tasks/phase-3-authentication.json
+mv .shrimp-data/tasks.json .shrimp-data/tasks/phase3-pending-tasks.json
 ```
 
 ## 📊 Statistics

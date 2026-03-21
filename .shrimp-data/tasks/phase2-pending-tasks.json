@@ -1,0 +1,343 @@
+{
+  "tasks": [
+    {
+      "id": "6ba9a255-ecd3-4474-a921-8749d93f7949",
+      "name": "P2-1.9.1 Canonical Contract Sync (API_SPEC + shared DTO)",
+      "description": "signup-submit v2 canonical 계약을 문서와 클라이언트 DTO에서 일치시킨다.",
+      "notes": "문서가 canonical source이며 구현은 문서를 따라야 한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000054"
+        }
+      ],
+      "createdAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "signup-submit v2 canonical contract"
+        },
+        {
+          "path": "src/types/signup.ts",
+          "type": "TO_MODIFY",
+          "description": "DTO/error code alignment with API spec"
+        }
+      ],
+      "implementationGuide": "1) docs/API_SPEC.md의 signup-submit 성공 응답에 nextState(pending_approval|active)를 명시한다. 2) admin/user 경로별 필수 입력(병원 식별자/초대코드)과 에러 코드 매핑 표를 v2 기준으로 정리한다. 3) src/types/signup.ts에서 문서와 동일한 타입/에러코드를 확인·보정한다.",
+      "verificationCriteria": "API_SPEC와 src/types/signup.ts에서 nextState, role별 필수값, 에러코드 매핑이 동일하게 표현된다.",
+      "analysisResult": "P2-1.9 is partially reflected on client types but not completed end-to-end. To satisfy v2 canonical contract, server response (`nextState`), hospital-search edge proxy boundary, invite lifecycle validation, and API_SPEC sync must be implemented together without frontend direct data.go key usage.",
+      "phase": "P2",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "db53ffa2-8cda-432e-9207-ad3e0b3f1883",
+      "name": "P2-1.9.2 signup-submit Edge Function v2 응답/검증 반영",
+      "description": "supabase/functions/signup-submit/index.ts를 v2 계약에 맞게 확장한다.",
+      "notes": "실제 DB 영속화는 단계적으로 구현하되 계약 필드는 먼저 완결한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "6ba9a255-ecd3-4474-a921-8749d93f7949"
+        },
+        {
+          "taskId": "79d3fd2b-ecec-45bc-9578-a88f19599d20"
+        }
+      ],
+      "createdAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/signup-submit/index.ts",
+          "type": "TO_MODIFY",
+          "description": "v2 role-path validation + nextState response"
+        },
+        {
+          "path": "migrations/010_signup_role_flow.sql",
+          "type": "REFERENCE",
+          "description": "invite code domain constraints reference"
+        }
+      ],
+      "implementationGuide": "1) 성공 응답에 nextState를 포함한다(admin->pending_approval, user->active). 2) admin 요청에서 병원 선택 검증을 강화하고 user 요청에서 invite 상태 검증 분기(만료/사용/폐기/역할불일치)를 canonical error로 normalize한다. 3) error.details.reason을 legacy mapping 표와 맞춘다. 4) contract-only scaffold 여부를 명확히 구분해 반환한다.",
+      "verificationCriteria": "signup-submit 응답이 nextState를 포함하고, admin 병원 누락/user invite 오류/중복 요청 케이스가 계약된 에러코드로 반환된다.",
+      "analysisResult": "P2-1.9 is partially reflected on client types but not completed end-to-end. To satisfy v2 canonical contract, server response (`nextState`), hospital-search edge proxy boundary, invite lifecycle validation, and API_SPEC sync must be implemented together without frontend direct data.go key usage.",
+      "phase": "P2",
+      "estimatedMinutes": 120
+    },
+    {
+      "id": "1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99",
+      "name": "P2-1.9.3 hospital-search 프록시 경계 구현 및 클라이언트 전환",
+      "description": "병원 검색을 프론트 직접 data.go 호출에서 Edge Function 프록시 단일 경계로 전환한다.",
+      "notes": "P2-1.6 노트(프론트 직접 호출 금지, 키 비노출)를 강제한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "63463b1e-64b2-4677-86ea-ebfcde2316d5"
+        }
+      ],
+      "createdAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "relatedFiles": [
+        {
+          "path": "supabase/functions/hospital-search/index.ts",
+          "type": "CREATE",
+          "description": "server-side data.go proxy"
+        },
+        {
+          "path": "src/api/hospital.ts",
+          "type": "TO_MODIFY",
+          "description": "edge function boundary client wrapper"
+        },
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "hospital-search request/response contract"
+        }
+      ],
+      "implementationGuide": "1) supabase/functions/hospital-search/index.ts를 생성해 HOSPITAL_API_BASE_URL/HOSPITAL_API_KEY(서버 env)로 data.go를 호출하고 UI 친화 응답으로 정규화한다. 2) timeout/rate-limit/error mapping을 정의한다. 3) src/api/hospital.ts는 edge function invoke만 사용하도록 변경하고 브라우저 키 사용 코드를 제거한다.",
+      "verificationCriteria": "브라우저 네트워크에서 data.go 직접 호출이 사라지고 hospital-search edge function 단일 경계로 조회되며 source=data.go.kr 메타가 포함된다.",
+      "analysisResult": "P2-1.9 is partially reflected on client types but not completed end-to-end. To satisfy v2 canonical contract, server response (`nextState`), hospital-search edge proxy boundary, invite lifecycle validation, and API_SPEC sync must be implemented together without frontend direct data.go key usage.",
+      "phase": "P2",
+      "estimatedMinutes": 120
+    },
+    {
+      "id": "6596bd1b-b2db-4edf-b6e4-87c340a9a0e0",
+      "name": "P2-1.9.4 Front API 연동 정합성 및 검증 매트릭스",
+      "description": "src/api/signup.ts와 인증 흐름을 v2 계약에 맞춰 정합화하고 검증 시나리오를 정리한다.",
+      "notes": "운영 경계에서는 direct table fallback 금지 원칙 유지.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "db53ffa2-8cda-432e-9207-ad3e0b3f1883"
+        },
+        {
+          "taskId": "1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99"
+        }
+      ],
+      "createdAt": "2026-03-04T13:25:14.913Z",
+      "updatedAt": "2026-03-04T13:25:14.913Z",
+      "phase": "P2",
+      "estimatedMinutes": 90,
+      "relatedFiles": [
+        {
+          "path": "src/api/signup.ts",
+          "type": "TO_MODIFY",
+          "description": "signup-submit v2 consumption and fallback policy"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "REFERENCE",
+          "description": "nextState branching behavior"
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "signup v2 validation matrix"
+        }
+      ],
+      "implementationGuide": "1) src/api/signup.ts에서 nextState를 우선 소비하고 dev fallback 정책을 문서화된 개발 모드 규칙으로 제한한다. 2) canonical error code -> 한국어 메시지 매핑 유지 여부를 점검한다. 3) 검증 매트릭스(admin 병원 누락, user invite invalid/expired/used/revoked, duplicate request, success nextState 분기)를 문서화한다.",
+      "verificationCriteria": "클라이언트가 nextState 기반으로 일관 분기하고, v2 에러 케이스가 검증 매트릭스에서 누락 없이 확인된다.",
+      "analysisResult": "P2-1.9 is partially reflected on client types but not completed end-to-end. To satisfy v2 canonical contract, server response (`nextState`), hospital-search edge proxy boundary, invite lifecycle validation, and API_SPEC sync must be implemented together without frontend direct data.go key usage."
+    },
+    {
+      "id": "b5d67e99-f96d-4f0f-a70f-22476a633d04",
+      "name": "P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거",
+      "description": "src/api/hospital.ts를 supabase.functions.invoke('hospital-search') 단일 경계 래퍼로 전환하고, 브라우저에서 data.go.kr 직접 호출 및 VITE_HOSPITAL_API_KEY 사용 경로를 제거한다.",
+      "notes": "클라이언트는 외부 API 상세를 몰라야 하며 edge function만 의존해야 한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "79e67b38-73fe-46ea-8d18-afe32c884598"
+        }
+      ],
+      "createdAt": "2026-03-04T13:59:43.528Z",
+      "updatedAt": "2026-03-04T13:59:43.528Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/hospital.ts",
+          "type": "TO_MODIFY",
+          "description": "hospital-search invoke 래퍼로 전환"
+        },
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "REFERENCE",
+          "description": "searchHospitals 호출부 호환성 확인"
+        },
+        {
+          "path": "src/api/signup.ts",
+          "type": "REFERENCE",
+          "description": "invoke + fallback 처리 패턴 참조"
+        }
+      ],
+      "implementationGuide": "1) HospitalSearch 응답 타입을 edge function envelope에 맞춰 정리. 2) searchHospitals(keyword, limit)에서 invoke('hospital-search') 호출로 변경(pageNo=1, numOfRows=limit 변환). 3) 기존 브라우저 direct fetch 로직과 VITE_HOSPITAL_API_* 참조 제거. 4) 에러 코드 기반 사용자 친화 메시지 매핑을 최소 추가. 5) 기존 Signup.vue 호출 시그니처 호환 유지.",
+      "verificationCriteria": "Deliverable: 클라이언트 병원 검색 경로가 invoke('hospital-search') 단일 경계로 통일된다. Method: 코드 검색으로 data.go.kr 직접 fetch/VITE_HOSPITAL_API_KEY 참조 여부 확인. Pass: 클라이언트 코드에서 직접 외부 API 호출이 제거된다.",
+      "analysisResult": "P2-1.6의 목표는 병원 검색 경계를 프론트 직접 외부 호출에서 Edge Function 프록시 단일 경계로 전환하고, 요청/응답/에러 계약을 API_SPEC에 명문화하는 것이다. 기존 signup-submit의 envelope 패턴과 invoke 패턴을 재사용해 일관성을 유지하며, 과도한 추상화 없이 hospital-search 함수 단위로 구현한다. 핵심 리스크는 docs/migration/REMAINING_TASKS_MERGED.md의 동일 taskId 의미 드리프트이므로 canonical source를 .shrimp-data/tasks.json으로 고정한다.",
+      "phase": "P2",
+      "estimatedMinutes": 120
+    },
+    {
+      "id": "7f9a378a-9f68-48ee-93a7-089efd4d31ff",
+      "name": "P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)",
+      "description": "구현 결과가 계약/보안/품질 기준을 만족하는지 점검한다. 브라우저 직접 호출 제거, source 메타 포함, lint 통과를 검증한다.",
+      "notes": "이 단계에서 repository 변경은 없고 검증 중심으로 수행한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "b5d67e99-f96d-4f0f-a70f-22476a633d04"
+        }
+      ],
+      "createdAt": "2026-03-04T13:59:43.528Z",
+      "updatedAt": "2026-03-04T13:59:43.528Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "REFERENCE",
+          "description": "최종 계약 기준"
+        },
+        {
+          "path": "src/api/hospital.ts",
+          "type": "REFERENCE",
+          "description": "최종 경계 구현 검증"
+        },
+        {
+          "path": "supabase/functions/hospital-search/index.ts",
+          "type": "REFERENCE",
+          "description": "최종 서버 경계 검증"
+        }
+      ],
+      "implementationGuide": "1) 정적 검증: rg로 data.go.kr direct fetch 및 VITE_HOSPITAL_API_KEY 참조 잔존 검색. 2) 타입/린트 게이트 실행(pnpm lint:check) 및 오류 해소. 3) 샘플 요청/응답 예시를 문서/코드와 대조해 계약 일치 검증. 4) 보안 체크리스트(키 비노출, 서버 env 전용 경계) 확인. 5) 확인 결과를 태스크 코멘트/요약으로 기록.",
+      "verificationCriteria": "Deliverable: 계약/보안/코드 품질 체크 결과가 확인된다. Method: lint 결과와 코드 검색 결과를 검토한다. Pass: lint error=0, direct data.go 호출=0, source 메타 포함 경로가 확인된다.",
+      "analysisResult": "P2-1.6의 목표는 병원 검색 경계를 프론트 직접 외부 호출에서 Edge Function 프록시 단일 경계로 전환하고, 요청/응답/에러 계약을 API_SPEC에 명문화하는 것이다. 기존 signup-submit의 envelope 패턴과 invoke 패턴을 재사용해 일관성을 유지하며, 과도한 추상화 없이 hospital-search 함수 단위로 구현한다. 핵심 리스크는 docs/migration/REMAINING_TASKS_MERGED.md의 동일 taskId 의미 드리프트이므로 canonical source를 .shrimp-data/tasks.json으로 고정한다.",
+      "phase": "P2",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "605ced42-6835-429c-8c6a-fe2509dc1ed0",
+      "name": "P2-1.8.2 RLS: invite_codes admin 발급/폐기 정책 정의",
+      "description": "migrations/008_rls_progressive_rollout.sql에 invite_codes RLS 방향을 반영해 admin/super만 발급/폐기 가능하고 일반 user 직접 조회는 차단되도록 정책을 설계한다.",
+      "notes": "기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "migrations/008_rls_progressive_rollout.sql",
+          "type": "TO_MODIFY",
+          "description": "RLS enable 및 invite_codes 정책 추가",
+          "lineStart": 76,
+          "lineEnd": 140
+        },
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "권한 매트릭스 및 helper 함수 원칙",
+          "lineStart": 35,
+          "lineEnd": 95
+        }
+      ],
+      "implementationGuide": "1) invite_codes RLS ENABLE 포함. 2) super admin 전역 허용과 has_org_access(organization_id, 'admin') 기반 조직 admin 허용 정책 추가(SELECT/INSERT/UPDATE 범위 명시). 3) 사용자 직접 invite_codes 접근 차단 원칙을 정책으로 명시. 4) signup-submit은 service role 경계를 통해 invite 검증 수행하도록 문서화.",
+      "verificationCriteria": "정책 검토 시 admin/super 발급/폐기 허용, 일반 user 직접 접근 차단, service-role 기반 검증 경계가 충돌 없이 성립해야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints.",
+      "phase": "P2",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6",
+      "name": "P2-1.8.3 API 계약 문서화: invite 상태 판별/에러 매핑 보강",
+      "description": "docs/API_SPEC.md에 invite active/expired/revoked/consumed 판별 SQL 규칙과 INVALID_INVITE_CODE 매핑을 명시해 서버/클라이언트 해석 여지를 제거한다.",
+      "notes": "기존 canonical error code 계약 표 구조를 그대로 재사용해 문서 포맷 일관성을 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/API_SPEC.md",
+          "type": "TO_MODIFY",
+          "description": "signup-submit invite 검증 계약 보강",
+          "lineStart": 210,
+          "lineEnd": 330
+        },
+        {
+          "path": "docs/migration/P2_SIGNUP_ROLE_FLOW.md",
+          "type": "REFERENCE",
+          "description": "state model canonical 용어 정합 확인",
+          "lineStart": 58,
+          "lineEnd": 130
+        }
+      ],
+      "implementationGuide": "1) invite 유효성 판별 규칙을 상태식으로 추가(active/revoked/expired/consumed). 2) INVALID_INVITE_CODE 하위 reason 매핑 유지 및 consumed 기준을 used_count/max_uses와 연결. 3) code_hash 원문 미저장 정책과 해시 생성 책임(서버측) 명시. 4) role=user 경로 요구사항 표를 최신 제약과 일치시킴.",
+      "verificationCriteria": "문서 리뷰 시 invite unusable 사유(만료/소진/폐기/역할불일치/미존재)와 상태 판별 규칙이 상호모순 없이 연결되어야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints.",
+      "phase": "P2",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "3181bcb1-37ae-49a9-afb7-29e409976a23",
+      "name": "P2-1.8.4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가",
+      "description": "docs/verification/test-validation-guide.md의 invite 관련 시나리오(SGN-004~SGN-009)를 새로운 제약(used_count/max_uses + used_at/used_by 정합)과 맞추어 갱신한다.",
+      "notes": "테스트 문서는 구현 선행이 아니라 검증 기준 문서이므로 SQL 예시는 실행 가능성과 설명 명확성 중심으로 유지한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8"
+        },
+        {
+          "taskId": "6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6"
+        }
+      ],
+      "createdAt": "2026-03-04T14:28:14.815Z",
+      "updatedAt": "2026-03-04T14:28:14.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "SGN-004~009 invite 시나리오 정합화",
+          "lineStart": 330,
+          "lineEnd": 620
+        }
+      ],
+      "implementationGuide": "1) consume SQL 예시에 used_count 갱신 및 가드 조건(used_count < max_uses) 반영. 2) 만료/재사용/동시성 시나리오 기대결과를 row update=0/1 기준으로 명확화. 3) 기존 used_at 기반 검증은 호환성 체크로 유지하되 count 기반 불변식 검증 절 추가. 4) SGN 추적표와 리뷰 체크리스트에 신규 제약 확인 항목 추가.",
+      "verificationCriteria": "시나리오 리뷰 시 단일 소비 보장, 만료 차단, 재사용 차단, 동시성 단일 성공이 used_count/used_at 기준으로 모두 검증 가능해야 한다.",
+      "analysisResult": "P2-1.8 must be implemented by extending existing public.invite_codes (not introducing a new table), enforcing one-time-use + mandatory expiration + hashed-only storage, and aligning RLS/docs with current canonical signup architecture. Keep used_at/used_by for compatibility while adding max_uses/used_count constraints.",
+      "phase": "P2",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "214e88d1-0820-4e5f-9756-5bf9ef56c280",
+      "name": "P2-1.4.6 Signup 성공 메시지 단일 소스 정리",
+      "description": "Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2026-03-05T16:30:05.045Z",
+      "updatedAt": "2026-03-21T06:14:10Z",
+      "phase": "P2",
+      "estimatedMinutes": 60,
+      "relatedFiles": [
+        {
+          "path": "src/views/auth/Signup.vue",
+          "type": "TO_MODIFY",
+          "description": "Use deterministic store message in success branch"
+        },
+        {
+          "path": "src/stores/auth.ts",
+          "type": "REFERENCE",
+          "description": "Source of canonical success message"
+        }
+      ],
+      "implementationGuide": "1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.",
+      "verificationCriteria": "Signup success flow still shows correct pending/active messages and existing tests remain green.",
+      "analysisResult": "P2-1.4-1C deterministic signup result contract is already satisfied; only optional hardening remains."
+    }
+  ]
+}

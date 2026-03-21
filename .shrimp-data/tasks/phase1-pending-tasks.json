@@ -1,0 +1,122 @@
+{
+  "tasks": [
+    {
+      "id": "644a8e6c-e5fa-48d7-a566-fb3af2ad5f28",
+      "name": "P1-2.3.2 위협 기반 RLS 검증 시나리오 설계",
+      "description": "테넌트 침범 방지 목적의 공격/오용 시나리오를 threat class별로 정의하고 actor, precondition, expected를 명확히 설계한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9096b180-6645-45fc-8176-e02fb8a118fc"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/migration/P1-2.2_RLS_POLICY_MATRIX.md",
+          "type": "REFERENCE",
+          "description": "P1-2.2 인계 시나리오와 1:1 매핑",
+          "lineStart": 120,
+          "lineEnd": 240
+        },
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "RLS 시나리오 섹션 신설/재구성",
+          "lineStart": 1,
+          "lineEnd": 260
+        }
+      ],
+      "implementationGuide": "1) threat class 정의(tenant breach/role escalation/IDOR/account status bypass/permissive regression). 2) 시나리오 ID 부여. 3) 각 시나리오에 actor, 대상 테이블, 사전조건, 기대결과를 작성.",
+      "verificationCriteria": "각 위협 클래스가 최소 1개 이상 시나리오로 커버되고, 모든 시나리오에 기대 결과(허용/차단/빈 결과/오류)가 명시되어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다.",
+      "phase": "P1",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "e2c5c03d-b0e8-4fbc-8d57-d115075a31d9",
+      "name": "P1-2.3.3 SQL 검증 절차 및 합격 기준 정의",
+      "description": "문서+SQL 산출물 요구에 맞게 각 시나리오별 실행 SQL과 판정 기준을 정의한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "644a8e6c-e5fa-48d7-a566-fb3af2ad5f28"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "실행 SQL 및 기대 결과 표 추가",
+          "lineStart": 1,
+          "lineEnd": 260
+        }
+      ],
+      "implementationGuide": "1) role 전환/가정 기반 SQL 템플릿 정의. 2) SELECT/INSERT/UPDATE/DELETE별 pass/fail 조건 정의. 3) 목표 RLS 상태 기준으로 negative test를 포함.",
+      "verificationCriteria": "각 핵심 시나리오에 재현 가능한 SQL과 명확한 pass/fail 기준이 존재해야 하며, 타조직 접근 차단 및 권한 상승 차단이 반드시 포함되어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다.",
+      "phase": "P1",
+      "estimatedMinutes": 90
+    },
+    {
+      "id": "8ac31a0f-b346-4374-ba36-201d779e664f",
+      "name": "P1-2.3.4 문서 통합 및 리뷰 체크리스트 완성",
+      "description": "기존 검증 가이드 파일에 RLS 검증 섹션을 통합하고 리뷰 가능한 체크리스트 형태로 마무리한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e2c5c03d-b0e8-4fbc-8d57-d115075a31d9"
+        }
+      ],
+      "createdAt": "2026-03-02T03:41:10.815Z",
+      "updatedAt": "2026-03-02T03:41:10.815Z",
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "최종 산출물 반영 파일",
+          "lineStart": 1,
+          "lineEnd": 320
+        }
+      ],
+      "implementationGuide": "1) 기존 파일 구조를 유지하며 RLS 전용 챕터 구성. 2) P1-2.2 매트릭스 행과 traceability 링크 구성. 3) 리뷰 체크리스트와 후속 자동화 전환 포인트를 추가.",
+      "verificationCriteria": "문서가 단독으로 리뷰 가능해야 하며, 테넌트 격리/권한 상승 방지/IDOR 차단 테스트 케이스 목록이 확정되어 있어야 한다.",
+      "analysisResult": "P1-2.3는 실DB 보안 상태를 기준으로 목표 RLS 상태 검증 시나리오를 문서+SQL로 설계하는 작업이다. 핵심은 타조직 침범, 권한 상승, IDOR, 계정상태 우회, permissive 정책 회귀를 케이스화하고 각 케이스에 실행 쿼리와 기대결과를 명시하는 것이다.",
+      "phase": "P1",
+      "estimatedMinutes": 60
+    },
+    {
+      "id": "69509a33-e960-49ce-9c00-a817035ec815",
+      "name": "P1-3.4.2 운영 Runbook 문서화",
+      "description": "docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 auth 사용자 생성부터 함수 실행/검증/오류대응 절차를 표준화한다.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "4e50eff2-86f4-475e-b634-fd3b1a22d245"
+        }
+      ],
+      "createdAt": "2026-03-03T14:55:22.470Z",
+      "updatedAt": "2026-03-03T14:55:22.470Z",
+      "relatedFiles": [
+        {
+          "path": "docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md",
+          "type": "CREATE",
+          "description": "운영 실행 절차 문서"
+        },
+        {
+          "path": "migrations/011_superuser_grant_function.sql",
+          "type": "REFERENCE",
+          "description": "호출 대상 함수"
+        }
+      ],
+      "implementationGuide": "1) 사전조건(콘솔 auth 사용자 존재) 정의. 2) 함수 호출 예시(조직 미지정/다중 조직 지정) 제시. 3) 검증 쿼리(profiles/memberships) 제공. 4) 재실행 멱등성 및 장애 대응(사용자 없음/조직ID 오류) 절차 명시.",
+      "verificationCriteria": "Runbook만으로 신규 superuser 온보딩과 재실행 검증이 재현 가능해야 한다.",
+      "analysisResult": "Implement reusable superuser bootstrap function and runbook with strict idempotency, validation, and verification query guidance aligned with migrations 007/009 patterns.",
+      "phase": "P1",
+      "estimatedMinutes": 90
+    }
+  ]
+}

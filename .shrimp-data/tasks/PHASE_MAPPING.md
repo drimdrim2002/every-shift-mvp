@@ -6,20 +6,20 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 
 | Phase | File | Tasks | Size | Primary Focus |
 |-------|------|-------|------|---------------|
-| 0 | phase-0-infrastructure.json | 10 | ~8KB | Setup & Config |
-| 1 | phase-1-database.json | 7 | ~6KB | Database Layer |
-| 2 | phase-2-foundation.json | 12 | ~10KB | Types & Utils |
-| 3 | phase-3-authentication.json | 4 | ~3KB | Auth System |
-| 4 | phase-4-step1-2.json | 6 | ~5KB | First Two Steps |
-| 5 | phase-5-step3-grid.json | 18 | ~14KB | Core Grid (80%) |
-| 6 | phase-6-step4-results.json | 8 | ~7KB | Results & Export |
-| 7 | phase-7-integration.json | 12 | ~10KB | Integration Tests |
-| 8 | phase-8-polish.json | 10 | ~8KB | Polish & Docs |
+| 0 | lazy/lazy-phase-0-infrastructure.json | 10 | ~8KB | Setup & Config |
+| 1 | lazy/lazy-phase-1-database.json | 7 | ~6KB | Database Layer |
+| 2 | lazy/lazy-phase-2-foundation.json | 12 | ~10KB | Types & Utils |
+| 3 | lazy/lazy-phase-3-authentication.json | 4 | ~3KB | Auth System |
+| 4 | lazy/lazy-phase-4-step1-2.json | 6 | ~5KB | First Two Steps |
+| 5 | lazy/lazy-phase-5-step3-grid.json | 18 | ~14KB | Core Grid (80%) |
+| 6 | lazy/lazy-phase-6-step4-results.json | 8 | ~7KB | Results & Export |
+| 7 | lazy/lazy-phase-7-integration.json | 12 | ~10KB | Integration Tests |
+| 8 | lazy/lazy-phase-8-polish.json | 10 | ~8KB | Polish & Docs |
 
 ## Detailed Phase Mappings
 
 ### Phase 0: Infrastructure Setup
-**File:** `phase-0-infrastructure.json`
+**File:** `lazy/lazy-phase-0-infrastructure.json`
 **Count:** 10 tasks
 **Focus:** Project initialization, package installation, tooling setup
 
@@ -38,7 +38,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 1: Database Layer
-**File:** `phase-1-database.json`
+**File:** `lazy/lazy-phase-1-database.json`
 **Count:** 7 tasks
 **Focus:** Supabase configuration, schema, RLS, seed data
 
@@ -54,7 +54,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 2: Foundation Layer
-**File:** `phase-2-foundation.json`
+**File:** `lazy/lazy-phase-2-foundation.json`
 **Count:** 12 tasks
 **Focus:** Core types, utilities, API clients, base components
 
@@ -75,7 +75,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 3: Authentication System
-**File:** `phase-3-authentication.json`
+**File:** `lazy/lazy-phase-3-authentication.json`
 **Count:** 4 tasks
 **Focus:** Login, auth store, router guards
 
@@ -88,7 +88,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 4: Step 1-2 Pages
-**File:** `phase-4-step1-2.json`
+**File:** `lazy/lazy-phase-4-step1-2.json`
 **Count:** 6 tasks
 **Focus:** Wizard steps 1 & 2 (basic info, site requirements)
 
@@ -103,7 +103,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 5: Step 3 Grid (CORE COMPONENT) 🔥
-**File:** `phase-5-step3-grid.json`
+**File:** `lazy/lazy-phase-5-step3-grid.json`
 **Count:** 18 tasks (21% of total work)
 **Focus:** 30×36 TanStack Table grid - the heart of the application
 
@@ -132,7 +132,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 6: Step 4 Results & Export
-**File:** `phase-6-step4-results.json`
+**File:** `lazy/lazy-phase-6-step4-results.json`
 **Count:** 8 tasks
 **Focus:** AI-generated results, manual editing, Excel export
 
@@ -149,7 +149,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 7: Integration & Testing
-**File:** `phase-7-integration.json`
+**File:** `lazy/lazy-phase-7-integration.json`
 **Count:** 12 tasks
 **Focus:** App setup, step connections, validation, E2E tests
 
@@ -170,7 +170,7 @@ Comprehensive mapping of all 87 tasks to their respective development phases.
 ---
 
 ### Phase 8: Polish & Documentation
-**File:** `phase-8-polish.json`
+**File:** `lazy/lazy-phase-8-polish.json`
 **Count:** 10 tasks
 **Focus:** Optimization, bug fixes, comprehensive documentation
 

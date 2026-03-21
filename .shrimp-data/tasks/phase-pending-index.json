@@ -1,0 +1,58 @@
+{
+  "source": ".shrimp-data/tasks.json",
+  "generatedAt": "2026-03-21T06:26:13.565Z",
+  "pendingOnly": true,
+  "totalTasks": 101,
+  "phases": [
+    {
+      "phase": "P1",
+      "file": ".shrimp-data/tasks/phase1-pending-tasks.json",
+      "taskCount": 4
+    },
+    {
+      "phase": "P2",
+      "file": ".shrimp-data/tasks/phase2-pending-tasks.json",
+      "taskCount": 10
+    },
+    {
+      "phase": "P3",
+      "file": ".shrimp-data/tasks/phase3-pending-tasks.json",
+      "taskCount": 3
+    },
+    {
+      "phase": "P4",
+      "file": ".shrimp-data/tasks/phase4-pending-tasks.json",
+      "taskCount": 11
+    },
+    {
+      "phase": "P5",
+      "file": ".shrimp-data/tasks/phase5-pending-tasks.json",
+      "taskCount": 14
+    },
+    {
+      "phase": "P6",
+      "file": ".shrimp-data/tasks/phase6-pending-tasks.json",
+      "taskCount": 11
+    },
+    {
+      "phase": "P7",
+      "file": ".shrimp-data/tasks/phase7-pending-tasks.json",
+      "taskCount": 11
+    },
+    {
+      "phase": "P8",
+      "file": ".shrimp-data/tasks/phase8-pending-tasks.json",
+      "taskCount": 13
+    },
+    {
+      "phase": "P9",
+      "file": ".shrimp-data/tasks/phase9-pending-tasks.json",
+      "taskCount": 12
+    },
+    {
+      "phase": "P10",
+      "file": ".shrimp-data/tasks/phase10-pending-tasks.json",
+      "taskCount": 12
+    }
+  ]
+}

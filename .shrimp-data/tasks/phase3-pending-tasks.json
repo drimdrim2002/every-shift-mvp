@@ -1,0 +1,101 @@
+{
+  "tasks": [
+    {
+      "id": "10000000-0000-4000-8000-000000000072",
+      "name": "P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)",
+      "description": "route, store, API contract, UX 설계를 하나의 구현 가능한 onboarding page 계획으로 통합한다. 이 task는 page composition과 integration boundary를 고정하는 역할을 한다.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000068"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000069"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000070"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000071"
+        }
+      ],
+      "estimatedMinutes": 180,
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "/onboarding 라우트와 page integration 대상"
+        },
+        {
+          "path": "src/views/Onboarding.vue",
+          "type": "CREATE",
+          "description": "온보딩 page composition 대상"
+        }
+      ],
+      "implementationGuide": "1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.",
+      "verificationCriteria": "Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다.\nMethod: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다.\nPass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-03-12T12:10:19.000Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000074",
+      "name": "P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)",
+      "description": "현재 auth/approval/role redirect 구조 안에 onboarding guard를 어디에 삽입할지 정하고, router.beforeEach의 read source와 redirect 순서를 구현 가능한 수준으로 설계한다.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000068"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000069"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000073"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "beforeEach 삽입 순서와 route wiring 대상"
+        },
+        {
+          "path": "src/router/guards.ts",
+          "type": "TO_MODIFY",
+          "description": "onboarding guard 함수 분리/조합 대상"
+        }
+      ],
+      "implementationGuide": "1) auth check, approval check, onboarding check, role redirect의 실행 순서를 고정한다. 2) onboarding state를 store에서 읽는 지점과 prefetch 타이밍을 정의한다. 3) /onboarding 진입 허용 조건과 다른 route 강제 리다이렉트 규칙을 적는다. 4) 기존 step guard 또는 role redirect와 충돌하는 경로를 표기한다. 5) guard bypass test가 그대로 사용할 수 있도록 redirect matrix를 명확히 남긴다.",
+      "verificationCriteria": "Deliverable: router.beforeEach 안에서 onboarding guard가 어떤 순서와 입력값으로 동작할지 설계되어 있다.\nMethod: 산출물을 리뷰하고 auth/approval/onboarding/role redirect가 순환 없이 단일 흐름으로 연결되는지 검사한다.\nPass: route read source, guard 순서, redirect 결과가 충돌 없이 정리되어 있다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-03-12T12:10:19.000Z"
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000075",
+      "name": "P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)",
+      "description": "direct URL, refresh, logout/login, back-button, non-admin 접근에서 onboarding guard가 우회되지 않는지 검증하는 regression 시나리오를 정의한다.",
+      "status": "pending",
+      "phase": "P3",
+      "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000074"
+        }
+      ],
+      "estimatedMinutes": 120,
+      "relatedFiles": [
+        {
+          "path": "docs/verification/test-validation-guide.md",
+          "type": "TO_MODIFY",
+          "description": "온보딩 guard 우회 방지 시나리오 추가"
+        }
+      ],
+      "implementationGuide": "1) 직접 URL 입력, 새로고침, 로그아웃/재로그인, 뒤로가기, 비관리자 접근 케이스를 정리한다. 2) 각 시나리오에 precondition, steps, expected route, expected state를 고정 포맷으로 적는다. 3) approval pending이 onboarding보다 먼저 차단되는 케이스도 포함한다. 4) guard plan의 redirect matrix를 그대로 참조해 회귀 기준으로 삼는다. 5) 개발자 도구 조작 같은 클라이언트 우회 시도는 서버측 검증 필요성을 별도 메모로 남긴다.",
+      "verificationCriteria": "Deliverable: 온보딩 guard 우회 방지 테스트 케이스가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 direct URL, refresh, relogin, back-button, non-admin 접근 케이스가 모두 포함되는지 검사한다.\nPass: guard 우회 핵심 경로가 빠짐없이 정의되고 expected result가 route/state 기준으로 명확하다.",
+      "createdAt": "2026-02-27T07:35:57.870Z",
+      "updatedAt": "2026-03-12T12:10:19.000Z"
+    }
+  ]
+}
