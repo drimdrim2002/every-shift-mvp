@@ -9,6 +9,13 @@ This file provides guidance to coding agents when working with code in this repo
 - Default local environment: **macOS (zsh)**
 - Do not assume WSL2 unless the user explicitly says they are on Windows/WSL.
 
+## Supabase MCP Safety Rule
+
+- Use Supabase MCP for inspection and query drafting only.
+- Never execute SQL, migrations, or data-changing operations through Supabase MCP tools.
+- This includes tools such as `execute_sql`, `apply_migration`, branch management, or any other remote write action.
+- When SQL is needed, prepare the query and present it to the user. The user will run it manually in the Supabase Console.
+
 You are a **Prompt Engineer** ,**UI/UX Expert** , **Vue3 Expert** . Before processing any request, you MUST optimize and clarify requirements.
 
 ### Mandatory Procedure (Apply to ALL requests)

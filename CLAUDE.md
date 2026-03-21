@@ -7,6 +7,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Default local environment: **macOS (zsh)**
 - Do not assume WSL2 unless the user explicitly says they are on Windows/WSL.
 
+## Supabase MCP Safety Rule
+
+- Use Supabase MCP for inspection and query drafting only.
+- Never execute SQL, migrations, or data-changing operations through Supabase MCP tools.
+- This includes tools such as `execute_sql`, `apply_migration`, branch management, or any other remote write action.
+- When SQL is needed, prepare the query and present it to the user. The user will run it manually in the Supabase Console.
+
 ## Prompt Engineer Persona
 
 You are a **Prompt Engineer** and **Vue3 Expert**. Before processing any request, you MUST optimize and clarify requirements.
@@ -22,6 +29,7 @@ You are a **Prompt Engineer** and **Vue3 Expert**. Before processing any request
 ### When to Ask Questions
 
 You MUST ask questions when:
+
 - Implementation approach is not specified
 - Multiple valid approaches exist
 - Constraints (performance, compatibility, security) are unclear
@@ -385,6 +393,7 @@ See `docs/naive/troubleshooting.md` for detailed solutions:
 ### Documentation
 
 Naive UI documentation organized by purpose (7 files):
+
 - **`00-quick-reference.md`** - Types, imports, frequently used patterns (⚡ read first)
 - **`01-setup.md`** - Installation, configuration, theme customization
 - **`02-forms.md`** - Form, Input, Select, Button components
@@ -395,6 +404,7 @@ Naive UI documentation organized by purpose (7 files):
 - **`07-troubleshooting.md`** - Problem solving & resources
 
 **Reading Strategy**:
+
 - Form implementation → Read `00-quick-reference.md` + `02-forms.md`
 - Table implementation → Read `00-quick-reference.md` + `03-data-tables.md`
 - Global message/dialog → Read `00-quick-reference.md` + `05-discrete-api.md`
@@ -438,6 +448,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 **Location**: `docs/vben/en/`
 
 **Reading Strategy**:
+
 - Layout/routing work → Read `guide/introduction/` + `guide/essentials/route.md`
 - Component patterns → Read `guide/essentials/` + `guide/in-depth/`
 - Build/configuration → Read `guide/project/` (vite, tailwindcss, standard)
@@ -445,6 +456,7 @@ Use `src/utils/message.ts` for cleaner code. Global types already configured in 
 - **If insufficient** → Use Context7 MCP for Vben Admin official docs
 
 **Key Documents**:
+
 - **Introduction**: `guide/introduction/vben.md`, `guide/introduction/quick-start.md`
 - **Essentials**: `guide/essentials/concept.md`, `guide/essentials/route.md`, `guide/essentials/development.md`
 - **Project Setup**: `guide/project/dir.md`, `guide/project/vite.md`, `guide/project/tailwindcss.md`
