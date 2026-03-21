@@ -3,7 +3,8 @@
     {
       "id": "10000000-0000-4000-8000-000000000087",
       "name": "P5-1.1 조직 관리 범위/권한/필드 스펙 확정",
-      "description": "조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다. RBAC 요구사항: /admin/organizations 라우트는 meta.roles: ['super', 'admin']으로 설정하여 user 역할은 접근할 수 없다. super는 모든 조직을 조회/수정 가능하고, admin은 자신의 조직만 접근 가능하도록 데이터 필터링을 구현해야 한다.",
+      "description": "조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다. 이 태스크는 Phase 5 전체의 안전 게이트로서 라우트 경로, 접근 상태 모델, 조직 타입 허용 범위, organization_settings 저장 경계, legacy site_requirements와 service-native site_staffing_requirements의 역할 분리를 함께 고정한다.",
+      "notes": "하위 태스크 착수 전 반드시 이 태스크에서 canonical 계약을 문서화한다. 특히 `/admin/organization` 단일 라우트, `allowedAccessStates` 기반 접근 제어, P5에서는 `site_staffing_requirements`만 관리하고 Step2 wizard의 `site_requirements`는 건드리지 않는 원칙, 삭제는 기본적으로 차단 우선 정책을 확정한다.",
       "status": "pending",
       "phase": "P5",
       "dependencies": [
@@ -22,7 +23,7 @@
           "description": "6.2 Organization management"
         }
       ],
-      "implementationGuide": "1) 조직 필드 목록 확정(code/timezone/work_pattern 등). 2) super 조직 선택 UX 결정. 3) admin 수정 가능 범위 결정.",
+      "implementationGuide": "1) 조직 필드 목록과 organization_settings 책임 범위를 확정한다. 2) super 조직 선택 UX와 admin 수정 가능 범위를 확정한다. 3) 현재 앱의 RBAC가 `allowedAccessStates`를 사용한다는 점을 기준으로 접근 계약을 고정한다. 4) `site_requirements`(wizard legacy)와 `site_staffing_requirements`(P5 admin) 경계를 문서화한다. 5) organization type enum이 DB 제약과 불일치하는 경우 UI 허용 범위를 DB 기준으로 제한하거나 후속 마이그레이션 필요 여부를 명시한다.",
       "verificationCriteria": "Deliverable: 조직 관리 스펙(필드/권한/UX)이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -30,7 +31,8 @@
     {
       "id": "10000000-0000-4000-8000-000000000088",
       "name": "P5-1.2 조직 관리 화면 IA/라우트 설계",
-      "description": "조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다.",
+      "description": "조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다. 안전성을 위해 Phase 5에서는 단일 관리자 페이지 셸과 가드만 확정하고, 데이터 저장 로직은 P5-1.3 이후에 연결한다.",
+      "notes": "현재 라우터는 `meta.roles`가 아니라 `allowedAccessStates`를 사용한다. P5-1.1에서 별도 전환을 결정하지 않는 한 기존 규약을 유지한다. 이 태스크는 라우트와 화면 뼈대에만 집중하고 저장/삭제 동작을 먼저 넣지 않는다.",
       "status": "pending",
       "phase": "P5",
       "dependencies": [
@@ -41,9 +43,14 @@
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "src/views/management/OrganizationManagement.vue",
+          "path": "src/views/admin/OrganizationManagement.vue",
           "type": "CREATE",
           "description": "조직 관리 화면"
+        },
+        {
+          "path": "src/router/index.ts",
+          "type": "TO_MODIFY",
+          "description": "관리 라우트 및 allowedAccessStates 가드 추가"
         },
         {
           "path": "src/components/layout/Sidebar.vue",
@@ -51,7 +58,7 @@
           "description": "메뉴 추가"
         }
       ],
-      "implementationGuide": "1. 메뉴 구조: 사이드바 LNB에 '조직 관리' 항목 추가\n2. 라우트 설계: /admin/organizations (meta.roles: ['super', 'admin'])\n3. 화면 구성: 조직 목록/상세/편집 탭\n4. RBAC: 역할별 접근 제어 - super는 전체 조직 조회, admin은 본인 조직만 조회\n5. user 역할: 메뉴 노출 안 함, 접근 시 403 처리\n6. 데이터 필터링: API 요청 시 organization_id 기반 자동 필터링 적용",
+      "implementationGuide": "1. 메뉴 구조: 사이드바 LNB에 '조직 관리' 항목을 추가하되 `super_active`, `admin_active`에서만 노출한다.\n2. 라우트 설계: `/admin/organization` 단일 페이지 + 탭 구조를 기본안으로 사용한다.\n3. 라우터 가드: 현재 앱 규약에 맞춰 `allowedAccessStates: ['super_active', 'admin_active']`를 사용한다.\n4. 화면 구성: `OrganizationManagement.vue` 셸과 탭 컨테이너만 먼저 정의한다.\n5. user 역할: 메뉴 미노출, 직접 접근 시 홈 또는 접근 가능 경로로 리다이렉트한다.\n6. 이 태스크에서는 데이터 저장 로직을 직접 구현하지 않고 P5-1.3 계약에 맞춰 연결 지점만 노출한다.",
       "verificationCriteria": "Deliverable: 조직 관리 화면 구조/라우트/메뉴가 결정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -64,7 +71,7 @@
       "phase": "P5",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000088"
+          "taskId": "10000000-0000-4000-8000-000000000087"
         }
       ],
       "estimatedMinutes": 180,
@@ -75,7 +82,8 @@
           "description": "조직 관리 API 확장"
         }
       ],
-      "implementationGuide": "1. API 경계 선택: Supabase RLS + RPC 함수 조합\n2. organizations 테이블: RLS로 super/admin 접근 제어\n3. organization_settings: RPC 함수로 CRUD 처리, organization_id 검증\n4. RBAC:\n   - super: 모든 조직 데이터 접근 가능\n   - admin: 자신의 organization_id와 일치하는 데이터만 접근\n   - user: API 호출 시 403 반환\n5. CRUD 요청 시 사용자의 역할과 organization_id 검증 로직 포함",
+      "notes": "현재 backlog의 RPC 지시와 실제 코드/스펙의 direct `.from()` 패턴이 충돌한다. 이 태스크에서 canonical 방식을 하나로 고정해야 하며, UI 셸(P5-1.2)과 병렬 가능하지만 결과는 P5 전체의 저장 계약 기준이 된다.",
+      "implementationGuide": "1. 현재 구현(`src/api/organization.ts`, `src/api/organization-settings.ts`)과 문서의 불일치를 정리한다.\n2. P5 기본안은 direct `.from()` + RLS를 canonical로 사용하고, cross-table invariant가 필요한 경우에만 후속 서버 경계를 추가하는 것으로 고정한다.\n3. organizations / organization_settings 조회·저장 시그니처를 문서화한다.\n4. super는 전체 조직, admin은 자기 조직만 접근 가능하도록 RLS와 클라이언트 호출 규칙을 정리한다.\n5. user는 조직 관리 API를 호출하지 않도록 가드/UX와 에러 처리를 함께 정의한다.",
       "verificationCriteria": "Deliverable: 조직 관리 저장 경계가 결정되어 있고, API 인터페이스가 정의되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -88,6 +96,9 @@
       "phase": "P5",
       "dependencies": [
         {
+          "taskId": "10000000-0000-4000-8000-000000000088"
+        },
+        {
           "taskId": "10000000-0000-4000-8000-000000000089"
         }
       ],
@@ -99,7 +110,7 @@
           "description": "조직 관리 테스트 케이스 추가"
         }
       ],
-      "implementationGuide": "테스트 시나리오:\n1. super 역할: 전체 조직 목록 조회/수정 확인\n2. admin 역할: 본인 조직만 조회, 타 조직 접근 시 403 확인\n3. user 역할: /admin/organizations 접근 시 403 또는 메뉴 미노출 확인\n4. 테넌트 격리: admin이 타 조직 데이터를 URL 조작으로 접근 시도 차단 확인\n5. 필드 검증: 유형/근무패턴/제약 필드 CRUD 정상 동작 확인\n6. API 무결성: organization_id 위조/변조 시도 시 서버측 검증으로 거부 확인",
+      "implementationGuide": "테스트 시나리오:\n1. super 역할: 전체 조직 목록 조회/수정 확인\n2. admin 역할: 본인 조직만 조회, 타 조직 접근 시 403 확인\n3. user 역할: `/admin/organization` 접근 시 리다이렉트 또는 메뉴 미노출 확인\n4. 테넌트 격리: admin이 타 조직 데이터를 URL 조작으로 접근 시도 차단 확인\n5. 필드 검증: 유형/근무패턴/제약 필드 CRUD 정상 동작 확인\n6. API 무결성: organization_id 위조/변조 시도 시 서버측 검증으로 거부 확인",
       "verificationCriteria": "Deliverable: 조직 관리 기능 테스트 시나리오가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -112,18 +123,22 @@
       "phase": "P5",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000090"
+          "taskId": "10000000-0000-4000-8000-000000000088"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000089"
         }
       ],
       "estimatedMinutes": 120,
       "relatedFiles": [
         {
-          "path": "src/views/management/OrganizationManagement.vue",
+          "path": "src/views/admin/OrganizationManagement.vue",
           "type": "TO_MODIFY",
           "description": "마스터 데이터 탭 추가"
         }
       ],
-      "implementationGuide": "1) 탭/섹션 구분(shift/constraint/skill/rank) 결정. 2) 활성/비활성 정책 결정. 3) 기본값(3교대, LV1~4) 제공 방식 결정.",
+      "notes": "시프트/제약/스킬/직급은 동일 페이지 내부의 병렬 탭으로 나누되, Step wizard 컴포넌트(예: ShiftSelector) 리팩터는 P7로 미룬다. 이 태스크에서는 탭 분리와 화면 책임만 확정한다.",
+      "implementationGuide": "1) 탭/섹션 구분(shift/constraint/skill/rank/site)과 공통 페이지 셸을 확정한다. 2) 활성/비활성 정책은 soft delete 전용 컬럼이 없는 한 '삭제 차단 우선'으로 설계한다. 3) 기본값(3교대, LV1~4) 제공 방식과 각 탭의 데이터 로드/저장 경계를 정의한다.",
       "verificationCriteria": "Deliverable: 마스터 데이터 관리 UX가 결정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -147,7 +162,8 @@
           "description": "조직 마스터 기반으로 확장"
         }
       ],
-      "implementationGuide": "1) shift_code/시작-종료/색상 등 필드 정의. 2) 중복/겹침 검증 규칙 정의. 3) 기존 D/E/N/O 고정 로직 제거 범위 정의.",
+      "notes": "P5에서는 시프트 CRUD 규칙만 확정한다. `ShiftSelector.vue`, Step wizard, solver 입력 구조 변경은 P7로 넘긴다. 삭제는 현재 cascade 구현을 유지하지 말고 '참조 중이면 차단' 정책을 목표 상태로 삼는다.",
+      "implementationGuide": "1) shift_code/시작-종료/색상 등 필드를 확정한다. 2) 중복/시간 검증 규칙을 정의한다. 3) 삭제 정책은 참조 중 차단을 기본으로 문서화하고, 현재 cascade 구현은 known delta로 기록한다. 4) 기존 D/E/N/O 고정 UI 해체는 P7 범위로 명시한다.",
       "verificationCriteria": "Deliverable: 시프트 마스터의 필드/검증 규칙이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -159,6 +175,9 @@
       "status": "pending",
       "phase": "P5",
       "dependencies": [
+        {
+          "taskId": "10000000-0000-4000-8000-000000000091"
+        },
         {
           "taskId": "10000000-0000-4000-8000-000000000092"
         }
@@ -184,7 +203,7 @@
       "phase": "P5",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000093"
+          "taskId": "10000000-0000-4000-8000-000000000091"
         }
       ],
       "estimatedMinutes": 180,
@@ -195,6 +214,7 @@
           "description": "organization_skills/organization_ranks 포함"
         }
       ],
+      "notes": "skill/rank는 시프트/제약과 병렬로 확정 가능하지만, site staffing 저장 범위와 연결되므로 code uniqueness와 참조 무결성 규칙을 먼저 분명히 남긴다.",
       "implementationGuide": "1) code 유니크 정책 정의. 2) rank credit 기본값 정책 정의. 3) 비활성 처리 및 참조 무결성 정책 정의.",
       "verificationCriteria": "Deliverable: 스킬/직급 마스터의 저장 규칙과 UI 요구사항이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
@@ -208,6 +228,12 @@
       "phase": "P5",
       "dependencies": [
         {
+          "taskId": "10000000-0000-4000-8000-000000000092"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000093"
+        },
+        {
           "taskId": "10000000-0000-4000-8000-000000000094"
         }
       ],
@@ -219,6 +245,7 @@
           "description": "마스터 CRUD 테스트 케이스 추가"
         }
       ],
+      "notes": "이 태스크는 각 마스터 도메인 규칙이 고정된 뒤에만 수행한다. 아직 구현하지 않은 wizard 동적 반영은 P7 범위로 분리하고, P5에서는 관리 화면 자체의 CRUD와 저장 정합성만 검증한다.",
       "implementationGuide": "1) CRUD happy-path 정의. 2) 중복 code/참조중 삭제 실패 케이스 정의. 3) 스케줄 step에서 반영 확인 항목 정의.",
       "verificationCriteria": "Deliverable: 마스터 데이터 테스트 시나리오가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
@@ -232,7 +259,13 @@
       "phase": "P5",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000095"
+          "taskId": "10000000-0000-4000-8000-000000000089"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000092"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000094"
         }
       ],
       "estimatedMinutes": 120,
@@ -243,7 +276,8 @@
           "description": "6.2 근무 사이트/요일별 필요 인력"
         }
       ],
-      "implementationGuide": "1) site_code/site_name 필드 확정. 2) 요일(0~6) 기준과 shift 연결 규칙 확정. 3) skill/rank 선택적 요구의 저장 모델 확정.",
+      "notes": "P5 admin은 `site_staffing_requirements`를 primary로 사용하고, 기존 Step2 wizard의 `site_requirements`는 그대로 둔다. 두 스키마를 동시에 수정하는 작업은 금지하고 호환 전략은 후속 phase에서 다룬다.",
+      "implementationGuide": "1) site_code/site_name 필드와 CRUD 범위를 확정한다. 2) 요일(0~6) 기준과 shift 연결 규칙을 확정한다. 3) skill/rank 선택 요구의 의미를 정의한다. 4) legacy `site_requirements`와의 역할 분리를 명확히 문서화한다.",
       "verificationCriteria": "Deliverable: 사이트/요구인원 스펙이 확정되어 있고, DB/UI 구현 범위가 결정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -256,18 +290,22 @@
       "phase": "P5",
       "dependencies": [
         {
+          "taskId": "10000000-0000-4000-8000-000000000088"
+        },
+        {
           "taskId": "10000000-0000-4000-8000-000000000096"
         }
       ],
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "src/views/management/SiteManagement.vue",
+          "path": "src/components/admin/SiteManagementTab.vue",
           "type": "CREATE",
           "description": "사이트 관리 화면(또는 조직관리 내 탭)"
         }
       ],
-      "implementationGuide": "1) CRUD 액션과 모달/폼 구조 정의. 2) site_code 유니크/검증 규칙 정의. 3) 삭제 대신 비활성 정책 결정.",
+      "notes": "비활성 컬럼이 없는 현재 스키마에서는 삭제 차단 정책을 우선 채택한다. cascade 삭제를 전제로 UI를 설계하지 않는다.",
+      "implementationGuide": "1) CRUD 액션과 모달/폼 구조를 정의한다. 2) site_code 유니크/검증 규칙을 정의한다. 3) soft delete 지원이 없는 한 삭제 시 FK 차단 정책을 기본 UX로 삼는다.",
       "verificationCriteria": "Deliverable: 사이트 CRUD UX와 검증 규칙이 정의되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -281,17 +319,21 @@
       "dependencies": [
         {
           "taskId": "10000000-0000-4000-8000-000000000097"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000099"
         }
       ],
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "src/components/requirements/SiteStaffRequirementsEditor.vue",
+          "path": "src/components/admin/SiteStaffingGrid.vue",
           "type": "CREATE",
           "description": "요구인원 편집 컴포넌트"
         }
       ],
-      "implementationGuide": "1) 표시 단위(사이트/시프트/요일) 결정. 2) skill/rank 옵션 필터 UX 결정. 3) 저장 단위(일괄 저장/자동 저장) 결정.",
+      "notes": "편집 UI는 P5-3.4에서 저장 스코프가 확정된 뒤 구현한다. skill/rank 옵션은 unique scope와 저장 계약을 넘지 않도록 제한한다.",
+      "implementationGuide": "1) 표시 단위(사이트/시프트/요일)를 결정한다. 2) skill/rank 옵션 필터 UX를 정의하되 저장 스코프와 정확히 맞춘다. 3) 저장 단위는 일괄 저장을 기본값으로 두고 부분 자동 저장은 후속으로 미룬다.",
       "verificationCriteria": "Deliverable: 요구인원 편집 UI가 사용자가 이해할 수 있는 형태로 설계되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -304,7 +346,10 @@
       "phase": "P5",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000098"
+          "taskId": "10000000-0000-4000-8000-000000000089"
+        },
+        {
+          "taskId": "10000000-0000-4000-8000-000000000096"
         }
       ],
       "estimatedMinutes": 180,
@@ -315,7 +360,8 @@
           "description": "sites/site_staff_requirements 테이블 포함"
         }
       ],
-      "implementationGuide": "1) unique key 정의(site+shift+dow+skill?+rank?). 2) 쿼리 패턴 기반 인덱스 정의. 3) 기존 site_requirements와의 관계(대체/호환) 정의.",
+      "notes": "현재 구현의 `upsert(onConflict: organization_id,site_id,shift_id,day_of_week)`는 skill/rank scope와 불일치한다. 이 태스크에서 unique scope, upsert 방식, null 처리 전략을 먼저 고정해야 하며 원격 DB 변경은 Supabase MCP가 아니라 사용자 SQL 실행 또는 로컬 마이그레이션 파일 수정으로만 다룬다.",
+      "implementationGuide": "1) unique key(site+shift+dow+skill?+rank?)를 DB/클라이언트 수준에서 일치시키는 방법을 확정한다. 2) nullable skill/rank를 포함한 upsert 충돌 해결 전략을 문서화한다. 3) 쿼리 패턴 기반 인덱스를 점검한다. 4) 기존 `site_requirements`와의 대체/호환 경계를 정의한다.",
       "verificationCriteria": "Deliverable: 요구인원 저장 모델과 인덱스가 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
@@ -328,6 +374,9 @@
       "phase": "P5",
       "dependencies": [
         {
+          "taskId": "10000000-0000-4000-8000-000000000098"
+        },
+        {
           "taskId": "10000000-0000-4000-8000-000000000099"
         }
       ],
@@ -339,6 +388,7 @@
           "description": "요일→월 계산 로직(후속 구현)"
         }
       ],
+      "notes": "월별 적용 테스트는 P5 admin 도메인 규칙 검증용이다. 기존 Step2 wizard를 즉시 신 스키마로 바꾸지 말고, 월 확장 계산 규칙과 엣지케이스를 독립적으로 검증한다.",
       "implementationGuide": "1) 계획 월/요일 계산 규칙 정의. 2) 편집/저장 플로우 정의. 3) 엣지케이스(윤년/월 시작 요일) 포함.",
       "verificationCriteria": "Deliverable: 요일 요구인원→월 적용 기능의 테스트 시나리오가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
