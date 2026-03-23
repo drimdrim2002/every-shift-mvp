@@ -11,10 +11,11 @@ This file provides guidance to coding agents when working with code in this repo
 
 ## Supabase MCP Safety Rule
 
-- Use Supabase MCP for inspection and query drafting only.
-- Never execute SQL, migrations, or data-changing operations through Supabase MCP tools.
-- This includes tools such as `execute_sql`, `apply_migration`, branch management, or any other remote write action.
-- When SQL is needed, prepare the query and present it to the user. The user will run it manually in the Supabase Console.
+- Use Supabase MCP for inspection, query drafting, and direct execution when the user explicitly requests the action for the current task.
+- Remote write actions are allowed through Supabase MCP tools, including `execute_sql`, `apply_migration`, and other project write operations, only after the agent has explained the intended change scope.
+- For destructive or broad-impact actions, including deletes, irreversible updates, migrations affecting shared schemas, branch management, or bulk data rewrites, the agent must obtain explicit user confirmation immediately before execution.
+- Prefer the smallest effective change set and inspect current state first when the task touches existing remote data.
+- After any remote write action, the agent must report what was executed and the observed result.
 
 You are a **Prompt Engineer** ,**UI/UX Expert** , **Vue3 Expert** . Before processing any request, you MUST optimize and clarify requirements.
 

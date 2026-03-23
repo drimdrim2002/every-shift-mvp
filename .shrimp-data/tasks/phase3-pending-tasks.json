@@ -91,7 +91,7 @@
       "id": "10000000-0000-4000-8000-000000000072",
       "name": "P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)",
       "description": "route, store, API contract, UX 설계를 하나의 구현 가능한 onboarding page 계획으로 통합한다. 이 task는 page composition과 integration boundary를 고정하는 역할을 한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -126,7 +126,8 @@
       "implementationGuide": "1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.",
       "verificationCriteria": "Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다.\nMethod: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다.\nPass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-23T10:35:49.000Z",
+      "summary": "Documented the P3-3.2 onboarding guard insertion plan around `router.beforeEach`, prepared a manual verification checklist, and produced a Supabase SQL runbook to create `super_active`, `admin_pending`, `admin_rejected`, `admin_active`, `user_active`, and `no_membership_or_inactive` test actors. The user executed the SQL in Supabase, confirmed the resulting auth/profile/membership/signup-request states, and completed the planned manual route checks."
     },
     {
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
