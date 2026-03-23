@@ -1,6 +1,21 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
+import { useOnboardingStore } from '@/stores/onboarding';
 import { supabase } from '@/api/supabase';
+import { OnboardingProgressApiError } from '@/api/onboarding';
+import type { AccessState } from '@/types/rbac';
+import {
+  isAccessStateRoutePath,
+  isAuthPagePath,
+  isOnboardingRoutePath,
+  LOGIN_ROUTE_PATH,
+  ONBOARDING_ROUTE_PATH,
+  resolvePostAuthRedirectPath,
+} from '@/constants/routes';
+import {
+  isAllowedOnboardingCompatibilityTarget,
+  isEmployeeSeedDeepLinkTarget,
+} from '@/utils/onboarding-context';
 
 /**
  * Step 진행 순서 검증 가드
@@ -27,6 +42,11 @@ export async function stepProgressGuard(
 
   // Step 3 (직원 정보) 접근 시 Step 2 완료 확인
   if (to.path === '/schedule/step3') {
+    if (isEmployeeSeedDeepLinkTarget(to)) {
+      next();
+      return;
+    }
+
     if (!scheduleStore.basicInfo?.month) {
       window.$message?.warning('먼저 기본 정보를 입력해주세요.');
       next('/schedule/step1');
@@ -77,4 +97,79 @@ export async function stepProgressGuard(
   }
 
   next();
+}
+
+export async function onboardingProgressGuard(
+  to: RouteLocationNormalized,
+  accessState: AccessState | null,
+  effectiveOrganizationId: string | null,
+): Promise<string | null> {
+  const toPath = to.path;
+  const isAuthPage = isAuthPagePath(toPath);
+  const isAccessStatePage = isAccessStateRoutePath(toPath);
+  const isOnboardingPage = isOnboardingRoutePath(toPath);
+
+  if (!accessState || accessState === 'unauthenticated') {
+    if (isOnboardingPage) {
+      return LOGIN_ROUTE_PATH;
+    }
+
+    return null;
+  }
+
+  if (accessState === 'admin_pending' || accessState === 'admin_rejected') {
+    return null;
+  }
+
+  if (accessState === 'no_membership_or_inactive') {
+    return isOnboardingPage ? LOGIN_ROUTE_PATH : null;
+  }
+
+  if (accessState === 'user_active' || accessState === 'super_active') {
+    if (isOnboardingPage || isAuthPage) {
+      return resolvePostAuthRedirectPath(accessState);
+    }
+
+    return null;
+  }
+
+  if (!effectiveOrganizationId) {
+    return null;
+  }
+
+  const onboardingStore = useOnboardingStore();
+
+  try {
+    await onboardingStore.loadProgress({
+      scope: {
+        accessState,
+        organizationId: effectiveOrganizationId,
+      },
+    });
+  } catch (caughtError) {
+    if (caughtError instanceof OnboardingProgressApiError && caughtError.code === 'PERMISSION_DENIED') {
+      return LOGIN_ROUTE_PATH;
+    }
+
+    return null;
+  }
+
+  if (!onboardingStore.shouldForceOnboarding) {
+    if (isOnboardingPage || isAuthPage) {
+      return resolvePostAuthRedirectPath(accessState);
+    }
+
+    return null;
+  }
+
+  const shouldForceOnboarding = isAuthPage || isAccessStatePage || to.matched.some((record) => record.meta.requiresAuth);
+  if (shouldForceOnboarding && isAllowedOnboardingCompatibilityTarget(to)) {
+    return null;
+  }
+
+  if (shouldForceOnboarding) {
+    return ONBOARDING_ROUTE_PATH;
+  }
+
+  return null;
 }

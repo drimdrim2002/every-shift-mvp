@@ -4,15 +4,18 @@ import { useAuthStore } from '@/stores/auth';
 import { useRbacStore } from '@/stores/rbac';
 import type { AccessState } from '@/types/rbac';
 import {
+  ADMIN_DASHBOARD_ROUTE_PATH,
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
+  isAccessStateRoutePath,
   LOGIN_ROUTE_PATH,
+  ONBOARDING_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
   isAuthPagePath,
   isPublicRoutePath,
   resolvePostAuthRedirectPath,
 } from '@/constants/routes';
-import { stepProgressGuard } from './guards';
+import { onboardingProgressGuard, stepProgressGuard } from './guards';
 
 const BLOCKED_ACCESS_STATE_SET = new Set<AccessState>(['admin_pending', 'admin_rejected']);
 
@@ -105,6 +108,16 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false, title: 'P5 Organization Master 테스트' },
   },
   {
+    path: ONBOARDING_ROUTE_PATH,
+    name: 'Onboarding',
+    component: () => import('@/views/Onboarding.vue'),
+    meta: {
+      requiresAuth: true,
+      title: '온보딩',
+      allowedAccessStates: ['admin_active'],
+    },
+  },
+  {
     path: '/',
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
@@ -114,6 +127,12 @@ const routes: RouteRecordRaw[] = [
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '대시보드' },
+      },
+      {
+        path: ADMIN_DASHBOARD_ROUTE_PATH.slice(1),
+        name: 'AdminDashboard',
+        component: () => import('@/views/Dashboard.vue'),
+        meta: { title: '관리자 대시보드' },
       },
       {
         path: 'schedule/step1',
@@ -179,7 +198,7 @@ router.beforeEach(async (to, from, next) => {
   const accessState = rbacStore.accessState;
   const blockedStatePath = resolveBlockedStatePath(accessState);
 
-  if (isAuthPagePath(to.path) && authStore.user) {
+  if (isAuthPagePath(to.path) && authStore.user && accessState !== 'admin_active') {
     const redirectPath = resolvePostAuthRedirectPath(accessState);
     if (redirectPath !== to.path) {
       next(redirectPath);
@@ -203,8 +222,24 @@ router.beforeEach(async (to, from, next) => {
   }
 
   const allowedAccessStates = getAllowedAccessStates(to);
-  if (authStore.user && allowedAccessStates && accessState && !allowedAccessStates.includes(accessState)) {
+  if (
+    authStore.user &&
+    allowedAccessStates &&
+    accessState &&
+    !allowedAccessStates.includes(accessState) &&
+    !(accessState === 'admin_active' && isAccessStateRoutePath(to.path))
+  ) {
     next(resolvePostAuthRedirectPath(accessState));
+    return;
+  }
+
+  const onboardingRedirect = await onboardingProgressGuard(
+    to,
+    accessState,
+    rbacStore.effectiveMembership?.organizationId ?? null,
+  );
+  if (onboardingRedirect && onboardingRedirect !== to.path) {
+    next(onboardingRedirect);
     return;
   }
 

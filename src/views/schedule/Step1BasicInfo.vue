@@ -1,5 +1,27 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
+    <div
+      v-if="showOnboardingBanner"
+      class="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4"
+    >
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-sm font-semibold text-sky-700">
+            3단계: 첫 스케줄 요청 시작
+          </p>
+          <p class="mt-1 text-sm leading-6 text-slate-600">
+            기본 정보를 저장하면 첫 스케줄 요청이 시작되고, 온보딩 완료 상태를 확인하러 돌아갑니다.
+          </p>
+        </div>
+        <n-button
+          secondary
+          @click="handleReturnToOnboarding"
+        >
+          온보딩으로 돌아가기
+        </n-button>
+      </div>
+    </div>
+
     <StepIndicator :current-step="1" />
 
     <n-card title="근무표 생성 - 기본 정보 설정">
@@ -110,7 +132,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   NCard,
   NSpace,
@@ -127,7 +149,10 @@ import { useOrganizationStore } from '@/stores/organization';
 import { createShift, updateShift, deleteShift } from '@/api/shift';
 import { createSchedule } from '@/api/schedule';
 import type { Shift } from '@/types/shift';
+import { ADMIN_DASHBOARD_ROUTE_PATH } from '@/constants/routes';
+import { buildOnboardingQuery, resolveOnboardingRouteContext } from '@/utils/onboarding-context';
 
+const route = useRoute();
 const router = useRouter();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
@@ -145,6 +170,10 @@ const shiftsWithTime = computed(() => {
 // 시프트 모달 상태
 const showShiftModal = ref(false);
 const editingShift = ref<Shift | null>(null);
+const onboardingContext = computed(() => resolveOnboardingRouteContext(route.query));
+const showOnboardingBanner = computed(
+  () => onboardingContext.value.isOnboardingSource && onboardingContext.value.step === 'schedule_request'
+);
 
 // 조직 유형 라벨 헬퍼 함수
 function getOrgTypeLabel(type?: string): string {
@@ -254,7 +283,7 @@ onMounted(async () => {
   // Dashboard에서 계획월이 설정되지 않은 경우 Dashboard로 리다이렉트
   if (!scheduleStore.basicInfo?.month) {
     window.$message?.warning('계획월을 먼저 선택해주세요');
-    router.push('/');
+    router.push(ADMIN_DASHBOARD_ROUTE_PATH);
     return;
   }
   
@@ -353,6 +382,11 @@ function handleShiftCancel() {
 
 // 취소 핸들러
 function handleCancel() {
+  if (showOnboardingBanner.value) {
+    handleReturnToOnboarding();
+    return;
+  }
+
   router.push('/');
 }
 
@@ -390,6 +424,21 @@ async function handleNext() {
       shifts: shiftsWithTime.value,
     });
 
+    if (showOnboardingBanner.value) {
+      window.$message?.success('첫 스케줄 요청이 시작되었습니다. 온보딩으로 돌아가 완료 상태를 확인합니다.');
+      await router.push({
+        path: onboardingContext.value.returnTo,
+        query: buildOnboardingQuery({
+          step: 'schedule_request',
+          returnTo: onboardingContext.value.returnTo,
+          returnStep: onboardingContext.value.returnStep ?? 'schedule_request',
+          scheduleStarted: true,
+          resumeStep: 'schedule_request',
+        }),
+      });
+      return;
+    }
+
     // Step2로 이동
     scheduleStore.currentStep = 2;
     if (existingScheduleId) {
@@ -402,5 +451,17 @@ async function handleNext() {
     const errorMessage = error instanceof Error ? error.message : '데이터 저장 중 오류가 발생했습니다.';
     window.$message?.error(errorMessage);
   }
+}
+
+function handleReturnToOnboarding() {
+  router.push({
+    path: onboardingContext.value.returnTo,
+    query: buildOnboardingQuery({
+      step: 'schedule_request',
+      returnTo: onboardingContext.value.returnTo,
+      returnStep: onboardingContext.value.returnStep ?? 'schedule_request',
+      resumeStep: onboardingContext.value.returnStep ?? 'schedule_request',
+    }),
+  });
 }
 </script>
