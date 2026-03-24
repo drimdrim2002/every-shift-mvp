@@ -4,9 +4,40 @@ export type DashboardGrouping = 'employee' | 'site'
 
 export type DashboardResponseState = 'ready' | 'empty' | 'dependency'
 
+export type DashboardStoreStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'empty'
+  | 'dependency'
+  | 'blocked'
+  | 'error'
+
 export type DashboardEmptyReason = 'no_persisted_schedule'
 
 export type EmployeeDashboardDependencyReason = 'employee_mapping_required'
+
+export type DashboardApiErrorCode =
+  | 'DASHBOARD_ACCESS_DENIED'
+  | 'DASHBOARD_ORGANIZATION_SCOPE_REQUIRED'
+  | 'DASHBOARD_INVALID_PERIOD_MONTH'
+  | 'DASHBOARD_UNSUPPORTED_RANK_SCOPE'
+  | 'DASHBOARD_INTERNAL_ERROR'
+
+export interface DashboardFilterOption {
+  value: string
+  label: string
+}
+
+export interface DashboardFilterCapabilities {
+  siteFilterVisible: boolean
+  rankFilterVisible: boolean
+}
+
+export interface DashboardStoreError {
+  code: DashboardApiErrorCode | null
+  message: string
+}
 
 export interface DashboardFilters {
   periodMonth: string
