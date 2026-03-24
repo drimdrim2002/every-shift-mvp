@@ -3,7 +3,12 @@ import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
 import * as shiftApi from '@/api/shift'
-import { normalizeOrganizationType, type Organization } from '@/types/organization'
+import {
+  normalizeOrganizationType,
+  type Organization,
+  type OrganizationProfileInput,
+  type OrganizationProfilePatch,
+} from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
 
@@ -154,7 +159,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   /**
    * 새 조직 생성
    */
-  async function createOrganization(orgData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>) {
+  async function createOrganization(orgData: OrganizationProfileInput) {
     loading.value = true
     try {
       const newOrg = await organizationApi.createOrganization(orgData)
@@ -173,7 +178,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   /**
    * 현재 조직 수정
    */
-  async function updateCurrentOrganization(orgData: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>) {
+  async function updateCurrentOrganization(orgData: OrganizationProfilePatch) {
     if (!current.value) {
       return { success: false, error: '수정할 조직이 선택되지 않았습니다.' }
     }

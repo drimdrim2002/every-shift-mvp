@@ -1,5 +1,13 @@
 import { supabase } from './supabase';
-import { normalizeOrganizationType, type Organization } from '@/types/organization';
+import {
+  assertPersistedOrganizationType,
+  normalizeOrganizationType,
+  ORGANIZATION_MANAGEMENT_ALLOWED_ACCESS_STATES,
+  type Organization,
+  type OrganizationManagementScope,
+  type OrganizationProfileInput,
+  type OrganizationProfilePatch,
+} from '@/types/organization';
 
 // Supabase 응답 타입 (snake_case)
 interface OrganizationRow {
@@ -21,6 +29,47 @@ function toOrganization(row: OrganizationRow): Organization {
   };
 }
 
+function assertOrganizationManagementAccess(
+  accessState: OrganizationManagementScope['accessState'],
+): void {
+  if (
+    accessState &&
+    ORGANIZATION_MANAGEMENT_ALLOWED_ACCESS_STATES.includes(
+      accessState as (typeof ORGANIZATION_MANAGEMENT_ALLOWED_ACCESS_STATES)[number],
+    )
+  ) {
+    return;
+  }
+
+  throw new Error('조직 관리 권한이 없습니다.');
+}
+
+export function resolveOrganizationManagementOrganizationId(
+  scope: OrganizationManagementScope,
+  targetOrganizationId?: string | null,
+): string {
+  assertOrganizationManagementAccess(scope.accessState);
+
+  if (scope.accessState === 'super_active') {
+    const resolvedOrganizationId = targetOrganizationId ?? scope.organizationId;
+    if (!resolvedOrganizationId) {
+      throw new Error('슈퍼 관리자는 대상 조직을 선택해야 합니다.');
+    }
+
+    return resolvedOrganizationId;
+  }
+
+  if (!scope.organizationId) {
+    throw new Error('관리자 조직 범위를 확인할 수 없습니다.');
+  }
+
+  if (targetOrganizationId && targetOrganizationId !== scope.organizationId) {
+    throw new Error('다른 조직 데이터에는 접근할 수 없습니다.');
+  }
+
+  return scope.organizationId;
+}
+
 /**
  * 조직 조회
  * @param orgId - 조직 ID
@@ -29,7 +78,7 @@ function toOrganization(row: OrganizationRow): Organization {
 export async function loadOrganization(orgId: string): Promise<Organization> {
   const { data, error } = await supabase
     .from('organizations')
-    .select('*')
+    .select('id, name, type, created_at, updated_at')
     .eq('id', orgId)
     .single();
 
@@ -48,7 +97,7 @@ export async function loadOrganization(orgId: string): Promise<Organization> {
 export async function loadAllOrganizations(): Promise<Organization[]> {
   const { data, error } = await supabase
     .from('organizations')
-    .select('*')
+    .select('id, name, type, created_at, updated_at')
     .order('name');
 
   if (error) {
@@ -60,16 +109,44 @@ export async function loadAllOrganizations(): Promise<Organization[]> {
 }
 
 /**
+ * Canonical P5 read boundary for the organization management screen:
+ * direct `.from()` access protected by route guards + RLS.
+ */
+export async function loadOrganizationsForManagement(
+  scope: OrganizationManagementScope,
+): Promise<Organization[]> {
+  assertOrganizationManagementAccess(scope.accessState);
+
+  if (scope.accessState === 'super_active') {
+    return loadAllOrganizations();
+  }
+
+  return [await loadOrganization(resolveOrganizationManagementOrganizationId(scope))];
+}
+
+/**
+ * Canonical P5 detail read boundary for the organization management screen.
+ */
+export async function loadOrganizationForManagement(
+  scope: OrganizationManagementScope,
+  targetOrganizationId?: string | null,
+): Promise<Organization> {
+  return loadOrganization(
+    resolveOrganizationManagementOrganizationId(scope, targetOrganizationId),
+  );
+}
+
+/**
  * 새 조직 생성
  * @param orgData - 조직 데이터 (id 제외)
  * @returns 생성된 조직
  */
 export async function createOrganization(
-  orgData: Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>
+  orgData: OrganizationProfileInput,
 ): Promise<Organization> {
   const row = {
     name: orgData.name,
-    type: orgData.type,
+    type: assertPersistedOrganizationType(orgData.type),
   };
 
   const { data, error } = await supabase
@@ -93,7 +170,7 @@ export async function createOrganization(
  */
 export async function updateOrganization(
   orgId: string,
-  orgData: Partial<Omit<Organization, 'id' | 'createdAt' | 'updatedAt'>>
+  orgData: OrganizationProfilePatch,
 ): Promise<void> {
   const updateData: Record<string, unknown> = {};
 
@@ -101,7 +178,11 @@ export async function updateOrganization(
     updateData.name = orgData.name;
   }
   if (orgData.type !== undefined) {
-    updateData.type = orgData.type;
+    updateData.type = assertPersistedOrganizationType(orgData.type);
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return;
   }
 
   const { error } = await supabase
@@ -113,6 +194,24 @@ export async function updateOrganization(
     console.error('[updateOrganization] Supabase error:', error);
     throw new Error(`조직 수정 실패: ${error.message}`);
   }
+}
+
+/**
+ * Canonical P5 write boundary for the organization management screen.
+ * Root organization creation/deletion remains outside the Phase 5 screen scope.
+ */
+export async function saveOrganizationForManagement(
+  scope: OrganizationManagementScope,
+  orgData: OrganizationProfilePatch,
+  targetOrganizationId?: string | null,
+): Promise<Organization> {
+  const resolvedOrganizationId = resolveOrganizationManagementOrganizationId(
+    scope,
+    targetOrganizationId,
+  );
+
+  await updateOrganization(resolvedOrganizationId, orgData);
+  return loadOrganization(resolvedOrganizationId);
 }
 
 /**

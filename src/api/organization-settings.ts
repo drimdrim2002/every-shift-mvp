@@ -1,5 +1,12 @@
 import { supabase } from './supabase';
-import type { OrganizationSettings, WorkConstraints, MinimumRestHours } from '@/types/organization';
+import type {
+  OrganizationManagementScope,
+  OrganizationSettings,
+  OrganizationSettingsSaveInput,
+  WorkConstraints,
+  MinimumRestHours,
+} from '@/types/organization';
+import { resolveOrganizationManagementOrganizationId } from './organization';
 
 // Supabase 응답 타입 (snake_case)
 interface OrganizationSettingsRow {
@@ -59,7 +66,7 @@ export async function loadSettings(orgId: string): Promise<OrganizationSettings 
  */
 export async function upsertSettings(
   orgId: string,
-  settings: Partial<Omit<OrganizationSettings, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>>
+  settings: OrganizationSettingsSaveInput,
 ): Promise<OrganizationSettings> {
   const row: Record<string, unknown> = {
     organization_id: orgId,
@@ -87,4 +94,31 @@ export async function upsertSettings(
   }
 
   return toSettings(data as OrganizationSettingsRow);
+}
+
+/**
+ * Canonical P5 detail read boundary for organization_settings.
+ */
+export async function loadSettingsForManagement(
+  scope: OrganizationManagementScope,
+  targetOrganizationId?: string | null,
+): Promise<OrganizationSettings | null> {
+  return loadSettings(
+    resolveOrganizationManagementOrganizationId(scope, targetOrganizationId),
+  );
+}
+
+/**
+ * Canonical P5 write boundary for organization_settings.
+ * This remains a direct `.from()` upsert backed by RLS rather than RPC.
+ */
+export async function saveSettingsForManagement(
+  scope: OrganizationManagementScope,
+  settings: OrganizationSettingsSaveInput,
+  targetOrganizationId?: string | null,
+): Promise<OrganizationSettings> {
+  return upsertSettings(
+    resolveOrganizationManagementOrganizationId(scope, targetOrganizationId),
+    settings,
+  );
 }

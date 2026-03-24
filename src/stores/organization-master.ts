@@ -4,7 +4,7 @@ import * as settingsApi from '@/api/organization-settings'
 import * as siteApi from '@/api/site'
 import * as skillApi from '@/api/skill'
 import * as rankApi from '@/api/rank'
-import type { OrganizationSettings } from '@/types/organization'
+import type { OrganizationSettings, OrganizationSettingsSaveInput } from '@/types/organization'
 import type { Site } from '@/types/site'
 import type { Skill } from '@/types/skill'
 import type { Rank } from '@/types/rank'
@@ -39,7 +39,7 @@ export const useOrganizationMasterStore = defineStore('organization-master', () 
 
   async function saveSettings(
     orgId: string,
-    data: Partial<Omit<OrganizationSettings, 'id' | 'organizationId' | 'createdAt' | 'updatedAt'>>
+    data: OrganizationSettingsSaveInput
   ): Promise<{ success: boolean; error?: string }> {
     try {
       settings.value = await settingsApi.upsertSettings(orgId, data)
