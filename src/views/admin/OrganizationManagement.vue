@@ -21,7 +21,7 @@
           </h1>
           <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
             조직 정보, 시프트, 근무 제약, 스킬, 직급, 사이트를 단일 라우트에서 관리하는 Phase 5 관리자 셸입니다.
-            이 태스크에서는 각 탭의 책임과 기본 정책을 확정하고, 저장 연결은 후속 태스크에서 붙입니다.
+            시프트 탭은 CRUD 연결까지 활성화하고, 나머지 탭은 각 도메인 책임과 저장 경계를 단계적으로 확정합니다.
           </p>
         </div>
       </div>
@@ -211,19 +211,29 @@
                     </n-tag>
                   </div>
                   <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                    코드, 이름, 색상, 시작/종료 시각을 한 표에서 관리합니다. 기본 3교대와 휴무(O) 프리셋을 기준으로 유지하며,
-                    삭제는 참조 데이터가 남아 있으면 차단합니다.
+                    코드, 이름, 색상, 시작/종료 시각을 한 표에서 관리합니다. D/E/N/O 운영 계약은 유지하고,
+                    추가 코드는 관리자 마스터에 저장하되 Step wizard와 결과 화면의 실사용 확장은 P7로 미룹니다.
                   </p>
                 </div>
                 <n-button
                   tertiary
                   type="primary"
-                  @click="handleDeferredAction('시프트 CRUD 연결은 P5-2.2에서 확정합니다.')"
+                  @click="handleDeferredAction('D/E/N/O는 현재 운영 호환 범위이며, 추가 코드의 실사용 반영은 P7에서 확장합니다.')"
                 >
-                  연결 포인트 확인
+                  운영 호환 정책 보기
                 </n-button>
               </div>
             </section>
+
+            <n-alert
+              v-if="nonOperationalShiftCodes.length > 0"
+              type="warning"
+              :show-icon="true"
+              class="rounded-2xl"
+            >
+              현재 {{ nonOperationalShiftCodes.join(', ') }} 코드는 관리자 시프트 마스터에 저장되어 있습니다.
+              하지만 `/schedule/step1`, `/schedule/step2`, `/schedule/step5` 흐름의 운영 반영은 아직 D/E/N/O 기준입니다.
+            </n-alert>
 
             <section class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
               <n-card
@@ -234,7 +244,8 @@
                   <n-button
                     tertiary
                     type="primary"
-                    @click="handleDeferredAction('시프트 추가 모달은 P5-2.2에서 활성화됩니다.')"
+                    :disabled="!canManageShifts || shiftSaving"
+                    @click="handleCreateShift"
                   >
                     + 추가
                   </n-button>
@@ -668,6 +679,15 @@
         </n-tab-pane>
       </n-tabs>
     </n-card>
+
+    <ShiftManagementModal
+      :visible="showShiftModal"
+      :editing-shift="editingShift"
+      :existing-shifts="organizationStore.shifts"
+      :saving="shiftSaving"
+      @update:visible="handleShiftModalVisibilityChange"
+      @submit="handleShiftSubmit"
+    />
   </div>
 </template>
 
@@ -680,11 +700,13 @@ import {
   NCard,
   NDataTable,
   NInputNumber,
+  NPopconfirm,
   NTabPane,
   NTabs,
   NTag,
   type DataTableColumns,
 } from 'naive-ui'
+import ShiftManagementModal from '@/components/admin/ShiftManagementModal.vue'
 import { useOrganizationMasterStore } from '@/stores/organization-master'
 import { useOrganizationStore } from '@/stores/organization'
 import { useRbacStore } from '@/stores/rbac'
@@ -693,7 +715,7 @@ import type { Rank } from '@/types/rank'
 import type { Shift } from '@/types/shift'
 import type { Site } from '@/types/site'
 import type { Skill } from '@/types/skill'
-import { showInfo } from '@/utils/message'
+import { showError, showInfo, showSuccess, showWarning } from '@/utils/message'
 
 type OrganizationManagementTabKey =
   | 'info'
@@ -730,6 +752,8 @@ const DEFAULT_MINIMUM_REST_HOURS: Record<string, number> = {
   E: 24,
   N: 36,
 }
+
+const CORE_OPERATIONAL_SHIFT_CODES = ['D', 'E', 'N', 'O'] as const
 
 const DEFAULT_SHIFT_ROWS: Shift[] = [
   {
@@ -857,26 +881,26 @@ const infoCards: ContentCard[] = [
 
 const shiftCards: ContentCard[] = [
   {
-    title: '기본 프리셋',
+    title: '운영 호환 범위',
     items: [
-      '신규 조직 기본 시프트: D, E, N, O',
-      '표시 필드: 코드, 이름, 색상, 시작/종료 시각',
+      '현재 planning/result 흐름의 운영 코어는 D, E, N, O',
+      '추가 코드는 관리자 마스터에 저장할 수 있지만 실사용 반영은 P7에서 확장',
       'O(휴무)는 시간 없이 유지 가능',
     ],
   },
   {
     title: '삭제 정책',
     items: [
-      'schedule_assignments, site_requirements 참조가 있으면 삭제 차단',
+      'schedule_assignments, site_requirements, site_staffing_requirements 참조가 있으면 삭제 차단',
       'soft delete 컬럼이 생기기 전까지 숨김 처리 대신 명시적 오류 메시지 사용',
-      'wizard 컴포넌트 리팩터는 P7로 이연',
+      '공유 shift API가 모든 호출 경로에서 동일한 차단 규칙을 사용',
     ],
   },
   {
     title: '저장 경계',
     items: [
       '조회/생성/수정/삭제는 shift API 경계를 그대로 사용',
-      '관리 화면은 모달/표 셸만 제공하고 세부 검증은 P5-2.2에서 확정',
+      '관리 화면은 전용 모달에서 코드/시간/색상 검증을 선행',
       '실제 데이터가 없으면 기본 프리셋을 미리보기로 노출',
     ],
   },
@@ -998,6 +1022,10 @@ const organizationMasterStore = useOrganizationMasterStore()
 
 const masterDataLoadError = ref<string | null>(null)
 const lastLoadedOrganizationId = ref<string | null>(null)
+const showShiftModal = ref(false)
+const editingShift = ref<Shift | null>(null)
+const shiftSaving = ref(false)
+const shiftDeletingId = ref<string | null>(null)
 
 function parseTabKey(value: unknown): OrganizationManagementTabKey {
   if (typeof value === 'string') {
@@ -1073,6 +1101,8 @@ const dataLoadSummary = computed(() => {
   return '기본 셸 + 실데이터 준비'
 })
 
+const canManageShifts = computed(() => Boolean(resolvedOrganizationId.value))
+
 const organizationContextMessage = computed(() => {
   if (!resolvedOrganizationId.value) {
     return '선택된 조직이 없어서 기본 프리셋 기준 UX만 표시합니다. 슈퍼 관리자용 조직 선택기는 후속 태스크에서 연결됩니다.'
@@ -1110,6 +1140,11 @@ const siteTableRows = computed(() => organizationMasterStore.sites)
 const isShiftPreview = computed(() => organizationStore.shifts.length === 0)
 const isSkillPreview = computed(() => organizationMasterStore.skills.length === 0)
 const isRankPreview = computed(() => organizationMasterStore.ranks.length === 0)
+const nonOperationalShiftCodes = computed(() =>
+  organizationStore.shifts
+    .map((shift) => shift.code.toUpperCase())
+    .filter((code) => !CORE_OPERATIONAL_SHIFT_CODES.includes(code as (typeof CORE_OPERATIONAL_SHIFT_CODES)[number])),
+)
 
 const constraintSnapshot = computed(() => {
   const settings = organizationMasterStore.settings
@@ -1149,6 +1184,94 @@ function formatCredit(value: Rank['credit']) {
   return Number(value).toFixed(2)
 }
 
+function isPreviewShiftRow(shift: Shift) {
+  return shift.organizationId === 'preview' || shift.id.startsWith('preview-')
+}
+
+function handleCreateShift() {
+  if (!canManageShifts.value) {
+    showWarning('수정할 조직을 먼저 선택해주세요.')
+    return
+  }
+
+  editingShift.value = null
+  showShiftModal.value = true
+}
+
+function handleEditShift(shift: Shift) {
+  if (isPreviewShiftRow(shift)) {
+    showInfo('미리보기 시프트는 수정할 수 없습니다. 실제 조직 데이터를 먼저 불러와주세요.')
+    return
+  }
+
+  editingShift.value = { ...shift }
+  showShiftModal.value = true
+}
+
+async function handleDeleteShift(shift: Shift) {
+  if (isPreviewShiftRow(shift)) {
+    showInfo('미리보기 시프트는 삭제할 수 없습니다.')
+    return
+  }
+
+  shiftDeletingId.value = shift.id
+  try {
+    const result = await organizationStore.deleteShift(shift.id)
+    if (!result.success) {
+      showError(result.error ?? '시프트 삭제 중 오류가 발생했습니다.')
+      return
+    }
+
+    if (editingShift.value?.id === shift.id) {
+      editingShift.value = null
+      showShiftModal.value = false
+    }
+    showSuccess(`시프트 ${shift.code}가 삭제되었습니다.`)
+  } finally {
+    shiftDeletingId.value = null
+  }
+}
+
+function handleShiftModalVisibilityChange(value: boolean) {
+  showShiftModal.value = value
+  if (!value) {
+    editingShift.value = null
+  }
+}
+
+async function handleShiftSubmit(shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>) {
+  if (!canManageShifts.value) {
+    showError('조직 정보를 확인한 후 다시 시도해주세요.')
+    return
+  }
+
+  shiftSaving.value = true
+  try {
+    if (editingShift.value) {
+      const result = await organizationStore.updateShift(editingShift.value.id, shiftData)
+      if (!result.success) {
+        showError(result.error ?? '시프트 수정 중 오류가 발생했습니다.')
+        return
+      }
+
+      showSuccess(`시프트 ${shiftData.code}가 수정되었습니다.`)
+    } else {
+      const result = await organizationStore.addShift(shiftData)
+      if (!result.success) {
+        showError(result.error ?? '시프트 추가 중 오류가 발생했습니다.')
+        return
+      }
+
+      showSuccess(`시프트 ${shiftData.code}가 추가되었습니다.`)
+    }
+
+    editingShift.value = null
+    showShiftModal.value = false
+  } finally {
+    shiftSaving.value = false
+  }
+}
+
 function renderDeferredActions(label: string) {
   return h('div', { class: 'flex flex-wrap gap-2' }, [
     h(
@@ -1168,6 +1291,47 @@ function renderDeferredActions(label: string) {
         onClick: () => handleDeferredAction(`${label} 삭제는 참조 차단 정책과 함께 후속 태스크에서 활성화됩니다.`),
       },
       { default: () => '삭제' },
+    ),
+  ])
+}
+
+function renderShiftActions(shift: Shift) {
+  if (isPreviewShiftRow(shift)) {
+    return h('span', { class: 'text-xs text-slate-400' }, '미리보기')
+  }
+
+  return h('div', { class: 'flex flex-wrap gap-2' }, [
+    h(
+      NButton,
+      {
+        text: true,
+        type: 'primary',
+        disabled: shiftSaving.value || shiftDeletingId.value === shift.id,
+        onClick: () => handleEditShift(shift),
+      },
+      { default: () => '수정' },
+    ),
+    h(
+      NPopconfirm,
+      {
+        positiveText: '삭제',
+        negativeText: '취소',
+        onPositiveClick: () => handleDeleteShift(shift),
+      },
+      {
+        trigger: () =>
+          h(
+            NButton,
+            {
+              text: true,
+              type: 'error',
+              loading: shiftDeletingId.value === shift.id,
+              disabled: shiftSaving.value,
+            },
+            { default: () => '삭제' },
+          ),
+        default: () => `${shift.code} 시프트를 삭제하시겠습니까? 참조 중이면 삭제가 차단됩니다.`,
+      },
     ),
   ])
 }
@@ -1206,7 +1370,7 @@ const shiftColumns: DataTableColumns<Shift> = [
     title: '작업',
     key: 'actions',
     width: 120,
-    render: (row) => renderDeferredActions(`시프트 ${row.code}`),
+    render: (row) => renderShiftActions(row),
   },
 ]
 

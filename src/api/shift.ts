@@ -34,6 +34,90 @@ function toShift(row: ShiftRow): Shift {
   };
 }
 
+function normalizeShiftCode(code: string): string {
+  return code.trim().toUpperCase();
+}
+
+function validateShiftData(
+  shiftData: Partial<Omit<Shift, 'id' | 'organizationId' | 'createdAt'>>,
+  options: { requireCode: boolean }
+): void {
+  const code = shiftData.code !== undefined ? normalizeShiftCode(shiftData.code) : null;
+  const name = shiftData.name?.trim();
+
+  if (options.requireCode && !code) {
+    throw new Error('시프트 코드를 입력해주세요.');
+  }
+
+  if (code && !/^[A-Z0-9]{1,2}$/.test(code)) {
+    throw new Error('시프트 코드는 대문자 영숫자 1~2자여야 합니다.');
+  }
+
+  if (shiftData.name !== undefined) {
+    if (!name) {
+      throw new Error('시프트 이름을 입력해주세요.');
+    }
+
+    if (name.length > 50) {
+      throw new Error('시프트 이름은 50자 이하여야 합니다.');
+    }
+  }
+
+  if (shiftData.colorCode !== undefined && !/^#[0-9A-Fa-f]{6}$/.test(shiftData.colorCode)) {
+    throw new Error('색상은 #RRGGBB 형식이어야 합니다.');
+  }
+
+  const hasStart = shiftData.startTime !== undefined;
+  const hasEnd = shiftData.endTime !== undefined;
+  if (!hasStart && !hasEnd) {
+    return;
+  }
+
+  const startTime = shiftData.startTime ?? null;
+  const endTime = shiftData.endTime ?? null;
+  if ((startTime === null) !== (endTime === null)) {
+    throw new Error('시작 시간과 종료 시간은 모두 입력하거나 모두 비워주세요.');
+  }
+
+  if (code === 'O' && (startTime !== null || endTime !== null)) {
+    throw new Error('휴무(O) 시프트는 시간을 비워두어야 합니다.');
+  }
+
+  if (code !== null && code !== 'O' && (startTime === null || endTime === null)) {
+    throw new Error('근무 시프트는 시작 시간과 종료 시간을 모두 입력해야 합니다.');
+  }
+
+  if (startTime !== null && endTime !== null && startTime === endTime) {
+    throw new Error('시작 시간과 종료 시간은 같을 수 없습니다.');
+  }
+}
+
+async function loadShiftReferenceLabels(shiftId: string): Promise<string[]> {
+  const referenceChecks = [
+    { table: 'site_requirements', label: '사이트 요구인원' },
+    { table: 'site_staffing_requirements', label: '사이트 요일별 요구인원' },
+    { table: 'schedule_assignments', label: '스케줄 배정' },
+  ] as const;
+
+  const results = await Promise.all(
+    referenceChecks.map(async ({ table, label }) => {
+      const { count, error } = await supabase
+        .from(table)
+        .select('id', { count: 'exact', head: true })
+        .eq('shift_id', shiftId);
+
+      if (error) {
+        console.error(`[loadShiftReferenceLabels] ${table} error:`, error);
+        throw new Error(`시프트 참조 상태 확인 실패: ${error.message}`);
+      }
+
+      return (count ?? 0) > 0 ? label : null;
+    })
+  );
+
+  return results.filter((label): label is string => label !== null);
+}
+
 /**
  * 조직의 모든 시프트 조회
  * @param orgId - 조직 ID
@@ -64,10 +148,12 @@ export async function createShift(
   orgId: string,
   shiftData: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>
 ): Promise<Shift> {
+  validateShiftData(shiftData, { requireCode: true });
+
   const row = {
     organization_id: orgId,
-    code: shiftData.code.toUpperCase(), // 코드는 대문자로 저장
-    name: shiftData.name,
+    code: normalizeShiftCode(shiftData.code), // 코드는 대문자로 저장
+    name: shiftData.name.trim(),
     color_code: shiftData.colorCode,
     start_time: shiftData.startTime,
     end_time: shiftData.endTime,
@@ -100,13 +186,15 @@ export async function updateShift(
   shiftId: string,
   shiftData: Partial<Omit<Shift, 'id' | 'organizationId' | 'createdAt'>>
 ): Promise<void> {
+  validateShiftData(shiftData, { requireCode: false });
+
   const updateData: Record<string, unknown> = {};
 
   if (shiftData.code !== undefined) {
-    updateData.code = shiftData.code.toUpperCase();
+    updateData.code = normalizeShiftCode(shiftData.code);
   }
   if (shiftData.name !== undefined) {
-    updateData.name = shiftData.name;
+    updateData.name = shiftData.name.trim();
   }
   if (shiftData.colorCode !== undefined) {
     updateData.color_code = shiftData.colorCode;
@@ -134,46 +222,28 @@ export async function updateShift(
 
 /**
  * 시프트 삭제
- * 관련 site_requirements와 schedule_assignments를 먼저 삭제한 후 시프트 삭제
+ * 참조 데이터가 있으면 삭제를 차단한 후 시프트 삭제
  * @param shiftId - 시프트 ID
  */
 export async function deleteShift(shiftId: string): Promise<void> {
-  // 1. 관련 site_requirements 먼저 삭제
-  const { error: siteReqError } = await supabase
-    .from('site_requirements')
-    .delete()
-    .eq('shift_id', shiftId);
-
-  if (siteReqError) {
-    console.error('[deleteShift] Site requirements delete error:', siteReqError);
-    throw new Error(`관련 사이트 정보 삭제 실패: ${siteReqError.message}`);
+  const referenceLabels = await loadShiftReferenceLabels(shiftId);
+  if (referenceLabels.length > 0) {
+    throw new Error(
+      `이 시프트는 현재 ${referenceLabels.join(', ')}에서 사용 중이어서 삭제할 수 없습니다.`
+    );
   }
 
-  // 2. 관련 schedule_assignments 삭제 (있을 경우)
-  const { error: assignmentError } = await supabase
-    .from('schedule_assignments')
-    .delete()
-    .eq('shift_id', shiftId);
-
-  if (assignmentError) {
-    console.error('[deleteShift] Schedule assignments delete error:', assignmentError);
-    throw new Error(`관련 배정 정보 삭제 실패: ${assignmentError.message}`);
-  }
-
-  // 3. 시프트 삭제
   const { error } = await supabase.from('shifts').delete().eq('id', shiftId);
 
   if (error) {
     console.error('[deleteShift] Supabase error:', error);
-    
-    // 외래 키 제약 위반 에러 처리 (혹시 모를 경우)
+
     if (error.code === '23503') {
       throw new Error(
-        '이 시프트는 현재 사용 중이어서 삭제할 수 없습니다. ' +
-        '관련된 데이터를 먼저 제거해주세요.'
+        '이 시프트는 현재 참조 중이어서 삭제할 수 없습니다. 관련 요구인원 또는 배정 데이터를 먼저 정리해주세요.'
       );
     }
-    
+
     throw new Error(`시프트 삭제 실패: ${error.message}`);
   }
 }
@@ -187,6 +257,8 @@ export async function replaceAllShifts(
   orgId: string,
   shifts: Omit<Shift, 'id' | 'organizationId' | 'createdAt'>[]
 ): Promise<Shift[]> {
+  shifts.forEach((shift) => validateShiftData(shift, { requireCode: true }));
+
   // 1. 기존 시프트 삭제
   const { error: deleteError } = await supabase
     .from('shifts')
@@ -201,8 +273,8 @@ export async function replaceAllShifts(
   // 2. 새 시프트 일괄 생성
   const rows = shifts.map((shift) => ({
     organization_id: orgId,
-    code: shift.code.toUpperCase(),
-    name: shift.name,
+    code: normalizeShiftCode(shift.code),
+    name: shift.name.trim(),
     color_code: shift.colorCode,
     start_time: shift.startTime,
     end_time: shift.endTime,
@@ -223,4 +295,3 @@ export async function replaceAllShifts(
 
   return (data as ShiftRow[]).map(toShift);
 }
-
