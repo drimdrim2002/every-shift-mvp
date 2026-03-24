@@ -311,9 +311,9 @@
                 <n-button
                   tertiary
                   type="primary"
-                  @click="handleDeferredAction('근무 제약 상세 요구사항과 저장 활성화는 P5-2.3에서 확정합니다.')"
+                  @click="handleDeferredAction('근무 제약 규칙은 P5-2.3 spec에 따라 organization_settings 저장 모델과 organizationMasterStore.saveSettings() 경계로 고정되었습니다.')"
                 >
-                  상세 요구사항 보기
+                  제약 규칙 보기
                 </n-button>
               </div>
             </section>
@@ -403,7 +403,7 @@
                   <n-button
                     type="primary"
                     tertiary
-                    @click="handleDeferredAction('근무 제약 저장 버튼은 organizationMasterStore.saveSettings() 경계로 연결됩니다.')"
+                    @click="handleDeferredAction('근무 제약 저장 경계는 organizationMasterStore.saveSettings()를 통해 organization_settings upsert로 연결되도록 고정되어 있습니다.')"
                   >
                     저장 경계 보기
                   </n-button>
@@ -924,11 +924,11 @@ const constraintCards: ContentCard[] = [
     ],
   },
   {
-    title: '후속 상세화',
+    title: '검증 기준',
     items: [
-      '주 40/52, 휴무일, 연속 N 검증 규칙은 P5-2.3에서 명세화',
+      '주 40/52, 휴무일, 연속 N 검증 규칙은 P5-2.3 spec에 고정',
       '저장 실패 메시지는 Naive UI 글로벌 메시지로 통일',
-      '이 태스크에서는 폼 책임과 저장 경계만 고정',
+      '현재 화면은 read-only 셸이지만 폼 책임과 저장 경계는 확정',
     ],
   },
 ]

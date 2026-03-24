@@ -76,6 +76,28 @@ If multiple screens or routes are involved, the agent must separate them explici
 
 If the user asks how to test something, the answer must be written as a concrete verification guide, not as a high-level or ambiguous summary.
 
+## UI Test Execution Rule
+
+- When UI verification is needed, agents may execute the check directly through **Playwright MCP** instead of stopping at a written test plan.
+- Before starting a Playwright MCP UI test that requires authentication, the agent may ask the user which account should be used for the current verification run.
+- Playwright MCP account catalog:
+  - P3 role/state fixture accounts, all with password `5t4r3e@W1q`:
+    - `p3-admin-active@example.com`
+    - `p3-admin-pending@example.com`
+    - `p3-admin-rejected@example.com`
+    - `p3-no-membership@example.com`
+    - `p3-super@example.com`
+    - `p3-user-active@example.com`
+  - default `admin_active` account:
+    - email: `sindeaf@gmail.com`
+    - password: `5t4r3e@W1q`
+  - default `super_active` account:
+    - email: `admin@everyshift.com`
+    - password: `admin123456`
+- If the user does not provide a different account and explicitly wants the UI test to proceed, use the default account that matches the scenario. For generic admin verification, use `sindeaf@gmail.com`. For super-admin verification, use `admin@everyshift.com`. For P3 access-state matrix verification, prefer the matching `p3-*` fixture account.
+- The agent must still explain which exact route, UI surface, user action, and expected result will be validated.
+- If the selected account is not suitable for the target scenario (for example, onboarding-complete state when onboarding-incomplete verification is required), the agent must say so clearly and request a different account or fixture path before continuing.
+
 ## Token Saving Rules
 
 ### Language Convention

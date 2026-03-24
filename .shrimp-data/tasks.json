@@ -1999,43 +1999,42 @@
     },
     {
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
-      "name": "P3-2.4 온보딩 완료 전 이전 단계 재진입 UX/상태 규칙 정의",
-      "description": "Step 3 완료 전까지 admin이 온보딩에서 Step 1/Step 2를 다시 열어 수정할 수 있는지, 어떤 CTA와 상태 규칙으로 허용할지 canonical UX 규칙을 정의한다. 기존 P3-2.1의 '첫 미완료 단계만 actionable' 규칙과의 충돌을 정리하고, 완료된 step의 재진입 허용 범위와 종료 조건을 고정한다.",
+      "name": "P3-2.4 온보딩 context/deep-link 계약 정리 + 단위 테스트",
+      "description": "온보딩 재진입과 compatibility deep-link에서 사용하는 query contract를 `src/utils/onboarding-context.ts`에 고정하고, 잘못된 파라미터 sanitize 규칙까지 unit test로 닫는다. 문서 합의만 남기는 task가 아니라 실제 helper contract와 테스트를 한 세션에서 끝내는 작업이다.",
       "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
-          "taskId": "10000000-0000-4000-8000-000000000070"
+          "taskId": "10000000-0000-4000-8000-000000000069"
         },
         {
           "taskId": "10000000-0000-4000-8000-000000000071"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000072"
         }
       ],
-      "estimatedMinutes": 120,
+      "estimatedMinutes": 90,
       "relatedFiles": [
         {
-          "path": "docs/migration/P3_ONBOARDING_WIZARD_UX.md",
+          "path": "src/utils/onboarding-context.ts",
           "type": "TO_MODIFY",
-          "description": "완료된 Step 재진입 허용 여부와 CTA 규칙을 canonical onboarding UX에 반영"
+          "description": "returnTo, returnStep, resumeStep, deep-link allowlist sanitize 규칙 정리"
+        },
+        {
+          "path": "tests/unit/onboarding-context.spec.ts",
+          "type": "CREATE",
+          "description": "query parsing/building과 compatibility target 허용 규칙 unit test"
         },
         {
           "path": "docs/migration/P3_ONBOARDING_MENU_DEEP_LINK_UX.md",
-          "type": "TO_MODIFY",
-          "description": "Step 2 재진입 deep-link와 복귀 규칙을 확장"
-        },
-        {
-          "path": "docs/verification/test-validation-guide.md",
           "type": "REFERENCE",
-          "description": "후속 테스트 시나리오가 참조할 기대 동작 기준"
+          "description": "deep-link UX contract source of truth"
         }
       ],
-      "implementationGuide": "1) Step 3 완료 전까지 Step 1/2 completed card에 '다시 수정' 또는 동등한 secondary CTA를 허용할지 결정한다. 2) 재진입 허용 범위를 고정한다: Step 1은 인라인 재오픈인지, Step 2는 onboarding deep-link 재진입인지, Step 3는 완료 전 편집 상태와 어떤 관계를 갖는지 정의한다. 3) currentStepKey/completedStepKeys의 canonical 의미를 재정의하지 않고 UI에서 edit session을 어떻게 표현할지 정한다. 4) Step 1/2 재수정 후 온보딩으로 돌아왔을 때 progress refresh, 카드 확장, 완료 배지 유지/재계산 규칙을 명시한다. 5) Step 3 완료 후에는 이전 단계 재진입을 계속 허용할지, completion state 우선으로 막을지 최종 규칙을 고정한다.",
-      "verificationCriteria": "Deliverable: 완료된 Step 1/2 재진입 허용 범위, CTA copy, 상태 전이, 종료 조건이 문서화되어 있다.\nMethod: 산출물을 리뷰하고 기존 P3-2.1의 actionable 규칙과 충돌 없이 재진입 규칙이 설명되는지 검사한다.\nPass: 재진입 대상, 허용 시점, 복귀 동작, Step 3 완료 이후 정책이 추가 해석 없이 명확하다.",
-      "createdAt": "2026-03-23T00:00:00.000Z",
-      "updatedAt": "2026-03-23T00:00:00.000Z"
+      "implementationGuide": "1) `resolveOnboardingRouteContext`, `buildOnboardingQuery`, compatibility target helper의 입력/출력 규칙을 현재 UX 문서와 맞춘다. 2) 잘못된 `returnTo`, `entry`, `resumeStep` 값이 들어와도 내부 route로 sanitize 되도록 보정한다. 3) employee_seed/schedule_request deep-link allowlist를 테스트 가능한 순수 함수 기준으로 유지한다. 4) query contract 회귀를 막기 위해 unit test를 추가한다. 5) 이 task 안에서 `pnpm lint:check`와 대상 unit test를 끝낸다.",
+      "verificationCriteria": "Deliverable: onboarding query contract helper와 sanitize 규칙이 코드와 unit test로 고정된다.\nMethod: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/onboarding-context.spec.ts`로 검증한다.\nPass: 잘못된 query가 안전하게 보정되고, 허용된 deep-link target 판별이 테스트로 고정되며 lint와 대상 테스트가 모두 통과한다.",
+      "createdAt": "2026-03-23T18:00:00.000Z",
+      "updatedAt": "2026-03-24T14:10:00.000Z",
+      "summary": "`src/utils/onboarding-context.ts`의 onboarding query/deep-link contract를 현재 소비처 기준으로 고정하고, `tests/unit/onboarding-context.spec.ts`를 추가해 sanitize, query build, compatibility target allowlist를 회귀 테스트로 잠갔다. 추가로 `tests/unit/router-auth-guards.spec.ts`에 `/dashboard/admin` 및 `/schedule/step1` schedule_request compatibility route 허용 회귀를 보강했고, `pnpm lint:check`, `pnpm exec vitest run tests/unit/onboarding-context.spec.ts`, `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts`, `pnpm exec vitest run tests/unit/onboarding-view.spec.ts`를 통과했다.",
+      "completedAt": "2026-03-24T14:10:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000073",
@@ -2145,7 +2144,7 @@
       "id": "10000000-0000-4000-8000-000000000075",
       "name": "P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)",
       "description": "direct URL, refresh, logout/login, back-button, non-admin 접근에서 onboarding guard가 우회되지 않는지 검증하는 regression 시나리오를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -2557,7 +2556,7 @@
       "name": "P5-1.1 조직 관리 범위/권한/필드 스펙 확정",
       "description": "조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다. 이 태스크는 Phase 5 전체의 안전 게이트로서 라우트 경로, 접근 상태 모델, 조직 타입 허용 범위, organization_settings 저장 경계, legacy site_requirements와 service-native site_staffing_requirements의 역할 분리를 함께 고정한다.",
       "notes": "하위 태스크 착수 전 반드시 이 태스크에서 canonical 계약을 문서화한다. 특히 `/admin/organization` 단일 라우트, `allowedAccessStates` 기반 접근 제어, P5에서는 `site_staffing_requirements`만 관리하고 Step2 wizard의 `site_requirements`는 건드리지 않는 원칙, 삭제는 기본적으로 차단 우선 정책을 확정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2578,14 +2577,16 @@
       "implementationGuide": "1) 조직 필드 목록과 organization_settings 책임 범위를 확정한다. 2) super 조직 선택 UX와 admin 수정 가능 범위를 확정한다. 3) 현재 앱의 RBAC가 `allowedAccessStates`를 사용한다는 점을 기준으로 접근 계약을 고정한다. 4) `site_requirements`(wizard legacy)와 `site_staffing_requirements`(P5 admin) 경계를 문서화한다. 5) organization type enum이 DB 제약과 불일치하는 경우 UI 허용 범위를 DB 기준으로 제한하거나 후속 마이그레이션 필요 여부를 명시한다.",
       "verificationCriteria": "Deliverable: 조직 관리 스펙(필드/권한/UX)이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-21T15:02:25.000Z",
+      "summary": "조직 관리의 canonical 계약을 문서화했고 `/admin/organization` 단일 라우트, `allowedAccessStates` 기반 접근 제어, `organizations`와 `organization_settings` 책임 분리, legacy `site_requirements`와 `site_staffing_requirements` 경계, blocked-first 삭제 정책을 고정했다.",
+      "completedAt": "2026-03-21T15:02:25.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000088",
       "name": "P5-1.2 조직 관리 화면 IA/라우트 설계",
       "description": "조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다. 안전성을 위해 Phase 5에서는 단일 관리자 페이지 셸과 가드만 확정하고, 데이터 저장 로직은 P5-1.3 이후에 연결한다.",
       "notes": "현재 라우터는 `meta.roles`가 아니라 `allowedAccessStates`를 사용한다. P5-1.1에서 별도 전환을 결정하지 않는 한 기존 규약을 유지한다. 이 태스크는 라우트와 화면 뼈대에만 집중하고 저장/삭제 동작을 먼저 넣지 않는다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2613,13 +2614,15 @@
       "implementationGuide": "1. 메뉴 구조: 사이드바 LNB에 '조직 관리' 항목을 추가하되 `super_active`, `admin_active`에서만 노출한다.\n2. 라우트 설계: `/admin/organization` 단일 페이지 + 탭 구조를 기본안으로 사용한다.\n3. 라우터 가드: 현재 앱 규약에 맞춰 `allowedAccessStates: ['super_active', 'admin_active']`를 사용한다.\n4. 화면 구성: `OrganizationManagement.vue` 셸과 탭 컨테이너만 먼저 정의한다.\n5. user 역할: 메뉴 미노출, 직접 접근 시 홈 또는 접근 가능 경로로 리다이렉트한다.\n6. 이 태스크에서는 데이터 저장 로직을 직접 구현하지 않고 P5-1.3 계약에 맞춰 연결 지점만 노출한다.",
       "verificationCriteria": "Deliverable: 조직 관리 화면 구조/라우트/메뉴가 결정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T12:36:24.000Z",
+      "summary": "사이드바 메뉴, `/admin/organization` 라우트, `allowedAccessStates` 가드, 단일 페이지 6탭 셸을 현재 라우터 규약에 맞춰 연결해 조직 관리 화면 IA와 진입 구조를 구현했다.",
+      "completedAt": "2026-03-24T12:36:24.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000089",
       "name": "P5-1.3 조직/설정 데이터 저장 API 경계 설계",
       "description": "organizations 및 organization_settings 저장/조회 방식을 설계한다(직접 테이블 접근 vs RPC/함수).",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2638,13 +2641,15 @@
       "implementationGuide": "1. 현재 구현(`src/api/organization.ts`, `src/api/organization-settings.ts`)과 문서의 불일치를 정리한다.\n2. P5 기본안은 direct `.from()` + RLS를 canonical로 사용하고, cross-table invariant가 필요한 경우에만 후속 서버 경계를 추가하는 것으로 고정한다.\n3. organizations / organization_settings 조회·저장 시그니처를 문서화한다.\n4. super는 전체 조직, admin은 자기 조직만 접근 가능하도록 RLS와 클라이언트 호출 규칙을 정리한다.\n5. user는 조직 관리 API를 호출하지 않도록 가드/UX와 에러 처리를 함께 정의한다.",
       "verificationCriteria": "Deliverable: 조직 관리 저장 경계가 결정되어 있고, API 인터페이스가 정의되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T12:39:00.000Z",
+      "summary": "조직 관리 저장 경계를 direct `.from()` + RLS 기준으로 확정했고, 슈퍼/어드민 조직 범위를 강제하는 management scope helper와 organizations·organization_settings 전용 조회·저장 API 시그니처를 코드와 문서에 반영했다.",
+      "completedAt": "2026-03-24T12:39:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000090",
       "name": "P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)",
       "description": "조직 관리의 권한/테넌트 격리/필드 검증 테스트 시나리오를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2665,13 +2670,15 @@
       "implementationGuide": "테스트 시나리오:\n1. super 역할: 전체 조직 목록 조회/수정 확인\n2. admin 역할: 본인 조직만 조회, 타 조직 접근 시 403 확인\n3. user 역할: `/admin/organization` 접근 시 리다이렉트 또는 메뉴 미노출 확인\n4. 테넌트 격리: admin이 타 조직 데이터를 URL 조작으로 접근 시도 차단 확인\n5. 필드 검증: 유형/근무패턴/제약 필드 CRUD 정상 동작 확인\n6. API 무결성: organization_id 위조/변조 시도 시 서버측 검증으로 거부 확인",
       "verificationCriteria": "Deliverable: 조직 관리 기능 테스트 시나리오가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-21T15:02:25.000Z",
+      "summary": "조직 관리 권한 매트릭스, 테넌트 격리, URL 직접 접근, legacy staffing 경계, blocked-first 삭제 정책을 포함한 테스트 시나리오를 문서화해 P5-1.x 계약 검증 기준을 정리했다.",
+      "completedAt": "2026-03-21T15:02:25.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000091",
       "name": "P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계",
       "description": "조직 단위 마스터 데이터(시프트, 제약, 스킬, 직급/크레딧) 관리 UX를 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2693,13 +2700,15 @@
       "implementationGuide": "1) 탭/섹션 구분(shift/constraint/skill/rank/site)과 공통 페이지 셸을 확정한다. 2) 활성/비활성 정책은 soft delete 전용 컬럼이 없는 한 '삭제 차단 우선'으로 설계한다. 3) 기본값(3교대, LV1~4) 제공 방식과 각 탭의 데이터 로드/저장 경계를 정의한다.",
       "verificationCriteria": "Deliverable: 마스터 데이터 관리 UX가 결정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T13:28:43.000Z",
+      "summary": "조직 관리 화면을 기본 정보, 시프트, 근무 제약, 스킬, 직급, 사이트의 6개 탭으로 분리하고 각 탭의 책임, 기본 프리셋, 삭제 차단 우선 정책, 후속 저장 연결 지점을 포함한 마스터 데이터 UX 셸을 구현했다.",
+      "completedAt": "2026-03-24T13:28:43.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000092",
       "name": "P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)",
       "description": "시프트를 자유롭게 등록(예: 3교대)하는 요구사항과 검증 규칙(중복 코드, 시간 범위)을 확정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2718,13 +2727,15 @@
       "implementationGuide": "1) shift_code/시작-종료/색상 등 필드를 확정한다. 2) 중복/시간 검증 규칙을 정의한다. 3) 삭제 정책은 참조 중 차단을 기본으로 문서화하고, 현재 cascade 구현은 known delta로 기록한다. 4) 기존 D/E/N/O 고정 UI 해체는 P7 범위로 명시한다.",
       "verificationCriteria": "Deliverable: 시프트 마스터의 필드/검증 규칙이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T14:09:11.000Z",
+      "summary": "관리자 조직관리 화면의 시프트 탭에 전용 CRUD 모달과 row action을 연결했고, 공유 shift API에 코드/시간 검증과 참조중 삭제 차단을 추가했으며, local migration과 P5-2.2 canonical spec을 현재 구현 기준으로 정렬했다.",
+      "completedAt": "2026-03-24T14:09:11.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000093",
       "name": "P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)",
       "description": "근무 제약(최대 연속 N, 주 목표/최대, 휴무일, 시프트 변경 최소 휴식)을 저장/표시하는 요구사항을 확정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2745,13 +2756,15 @@
       "implementationGuide": "1) 제약 필드 목록과 단위(분/시간) 결정. 2) shift_change_rest_rules JSON 스키마 결정. 3) UI 입력 폼/검증 규칙 정의.",
       "verificationCriteria": "Deliverable: 근무 제약 설정의 저장 모델과 UI 요구가 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T14:29:25.000Z",
+      "summary": "근무 제약 canonical spec을 기준으로 organization_settings 저장 모델, work_constraints와 minimum_rest_hours JSON 구조, 주 40/52·휴무일·연속 N 검증 규칙, 시프트 연동 UI 요구를 확정했고 관리자 셸 문구도 현재 계약과 맞게 정리했다.",
+      "completedAt": "2026-03-24T14:29:25.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000094",
       "name": "P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)",
-      "description": "조직 스킬/직급 마스터(코드/이름/크레딧) 저장 규칙과 UI 요구사항을 확정한다.",
-      "status": "pending",
+      "description": "조직 스킬/직급 마스터의 canonical 계약을 확정한다. 범위에는 `skills`/`ranks` 테이블 기준의 조직별 코드 정규화·유니크 규칙, 신규 조직 기본값(GENERAL/RN) 정책, rank credit 입력/표시/상속 규칙, 그리고 Phase 5 blocked-first 삭제 UX와 현재 DB FK(CASCADE/SET NULL) 간의 known delta 문서화가 포함된다.",
+      "status": "completed",
       "phase": "P5",
       "dependencies": [
         {
@@ -2761,16 +2774,48 @@
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "path": "docs/specs/p5/P5-2.4-skill-rank-spec.md",
           "type": "TO_MODIFY",
-          "description": "organization_skills/organization_ranks 포함"
+          "description": "스킬/직급 canonical 요구사항 및 실행 계획 초안"
+        },
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "REFERENCE",
+          "description": "skills/ranks, employee_skills, site_staffing_requirements FK 기준"
+        },
+        {
+          "path": "migrations/012_organization_master_fields.sql",
+          "type": "REFERENCE",
+          "description": "ranks.credit 컬럼 기준"
+        },
+        {
+          "path": "src/api/skill.ts",
+          "type": "REFERENCE",
+          "description": "code uppercasing, duplicate error, delete handling 현재 구현"
+        },
+        {
+          "path": "src/api/rank.ts",
+          "type": "REFERENCE",
+          "description": "credit 처리와 delete handling 현재 구현"
+        },
+        {
+          "path": "docs/specs/p5/P5-1.1-organization-field-spec.md",
+          "type": "REFERENCE",
+          "description": "Phase 5 blocked-first delete 정책 기준"
+        },
+        {
+          "path": "docs/specs/p5/P5-3.1-site-staffing-domain-spec.md",
+          "type": "REFERENCE",
+          "description": "skill/rank가 site staffing과 연결되는 저장 경계"
         }
       ],
-      "notes": "skill/rank는 시프트/제약과 병렬로 확정 가능하지만, site staffing 저장 범위와 연결되므로 code uniqueness와 참조 무결성 규칙을 먼저 분명히 남긴다.",
-      "implementationGuide": "1) code 유니크 정책 정의. 2) rank credit 기본값 정책 정의. 3) 비활성 처리 및 참조 무결성 정책 정의.",
-      "verificationCriteria": "Deliverable: 스킬/직급 마스터의 저장 규칙과 UI 요구사항이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
+      "notes": "이 태스크는 P5-2.1 이후 병렬 수행 가능하며 P5-2.3 완료를 기다릴 필요는 없다. 다만 site staffing과 P6 employee 관리가 이 계약을 재사용하므로, `organization_skills`/`organization_ranks` 같은 legacy 명칭은 폐기하고 실제 스키마명 `skills`/`ranks`를 canonical로 고정해야 한다. 또한 soft delete 컬럼이 없는 현재 스키마에서는 '비활성'을 DB 상태가 아니라 UX 정책/후속 스키마 후보로 구분해 기록한다.",
+      "implementationGuide": "1) canonical 테이블/타입 이름을 `skills`, `ranks`, `Skill`, `Rank`로 고정하고 legacy 명칭을 제거한다. 2) code 규칙을 정의한다: 저장 전 trim + uppercase 정규화, 조직 단위 유니크, 최대 길이, duplicate 에러 메시지. 3) 기본값 정책을 정의한다: 신규 조직 seed는 GENERAL 스킬 1종과 RN 직급 1종이며, LV1~LV4는 PRD 예시/운영 옵션이지 필수 seed가 아님을 문서화한다. 4) rank credit 정책을 정의한다: P5에서는 nullable 허용, 값이 있으면 0 이상, 화면 표시 포맷은 소수 둘째 자리, P6 직원 생성 시 rank.credit을 초기 제안값으로 사용하되 직원 저장값은 독립적으로 변경 가능하다는 전제를 명시한다. 5) 삭제/참조 무결성 정책을 정의한다: Phase 5 UX 계약은 blocked-first이고, 현재 DB FK의 CASCADE/SET NULL은 desired behavior가 아니라 known delta로 기록한다. P5 구현 기본안은 사전 참조 조회 + 사용자 안내로 차단 UX를 제공하고, 엄격한 DB RESTRICT 전환은 별도 후속 마이그레이션 후보로 남긴다. 6) 참조 범위를 문서화한다: skill은 현재 employee_skills 및 site_staffing_requirements와 연결되고, rank는 현재 site_staffing_requirements와 연결되며 employee rank FK는 P6 확장 범위임을 분리해서 적는다. 7) 결과물을 바탕으로 P5-2.5와 P5-3.1이 재해석 없이 사용할 수 있는 acceptance checklist와 실행 순서를 남긴다.",
+      "verificationCriteria": "Deliverable: 스킬/직급 마스터 canonical spec과 실행 계획 초안이 문서화되어 있다.\nMethod: 산출물을 리뷰하고 아래 조건이 모두 명시되었는지 확인한다: (a) canonical 테이블명이 `skills`/`ranks`로 고정됨, (b) code 정규화 및 조직별 유니크 규칙이 명시됨, (c) GENERAL/RN seed와 LV1~LV4 예시의 관계가 정리됨, (d) credit nullable/검증/표시/직원 초기값 규칙이 명시됨, (e) blocked-first UX와 current FK delta가 함께 기록됨, (f) 후속 구현 순서와 영향 파일이 정리됨.\nPass: 모든 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T14:13:27.000Z",
+      "summary": "스킬·직급 canonical spec을 보강해 `skills`·`ranks` 스키마명, code 정규화와 조직별 유니크 규칙, GENERAL/RN 기본값, LV1~LV4 예시의 위치, nullable `credit` 규칙, blocked-first UX와 FK delta, 후속 실행 순서를 명시했다.",
+      "completedAt": "2026-03-24T14:13:27.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000095",
