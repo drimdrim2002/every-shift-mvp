@@ -1,4 +1,11 @@
 import { createClient, type SupabaseClient, type User } from 'npm:@supabase/supabase-js@2';
+import {
+  type OnboardingProgressAction,
+  type OnboardingProgressRequest,
+  STEP_SEQUENCE,
+  type OnboardingStepKey,
+  validateOnboardingProgressRequest,
+} from './contract.ts';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -6,12 +13,9 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const STEP_SEQUENCE = ['organization_info', 'employee_seed', 'schedule_request'] as const;
 const PROGRESS_SELECT =
   'organization_id, current_step, current_step_key, organization_info_confirmed_at, completed_at';
 
-type OnboardingStepKey = (typeof STEP_SEQUENCE)[number];
-type OnboardingProgressAction = 'get' | 'update' | 'complete';
 type OnboardingTransitionType = 'noop' | 'advance' | 'complete';
 type OnboardingProgressErrorCode =
   | 'VALIDATION_ERROR'
@@ -19,11 +23,6 @@ type OnboardingProgressErrorCode =
   | 'FORBIDDEN_STATE_TRANSITION'
   | 'METHOD_NOT_ALLOWED'
   | 'INTERNAL_ERROR';
-
-interface OnboardingProgressRequest {
-  action?: unknown;
-  stepKey?: unknown;
-}
 
 interface OnboardingProgressStateDto {
   organizationId: string;
@@ -134,20 +133,6 @@ function errorResponse(
       ...(details ? { details } : {}),
     },
   });
-}
-
-function normalizeAction(value: unknown): OnboardingProgressAction | null {
-  if (value === 'get' || value === 'update' || value === 'complete') {
-    return value;
-  }
-  return null;
-}
-
-function normalizeStepKey(value: unknown): OnboardingStepKey | null {
-  if (value === 'organization_info' || value === 'employee_seed' || value === 'schedule_request') {
-    return value;
-  }
-  return null;
 }
 
 function compareMembershipTimestamps(
@@ -823,13 +808,17 @@ Deno.serve(async (req: Request) => {
     return errorResponse(400, 'VALIDATION_ERROR', 'Invalid JSON payload.');
   }
 
-  const action = normalizeAction(payload.action);
-  if (!action) {
-    return errorResponse(400, 'VALIDATION_ERROR', 'action must be get, update, or complete.', {
-      field: 'action',
-      allowedValues: ['get', 'update', 'complete'],
-    });
+  const validation = validateOnboardingProgressRequest(payload);
+  if ('status' in validation) {
+    return errorResponse(
+      validation.status,
+      validation.code,
+      validation.message,
+      validation.details,
+    );
   }
+
+  const { action, stepKey } = validation;
 
   let adminClient: SupabaseClient;
   try {
@@ -857,27 +846,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (action === 'update') {
-    const stepKey = normalizeStepKey(payload.stepKey);
-    if (!stepKey) {
-      return errorResponse(
-        400,
-        'VALIDATION_ERROR',
-        'stepKey must be one of organization_info, employee_seed, or schedule_request.',
-        {
-          field: 'stepKey',
-          allowedValues: STEP_SEQUENCE,
-        },
-      );
-    }
-
     return handleUpdateAction(adminClient, context, stepKey);
-  }
-
-  if (payload.stepKey !== undefined) {
-    return errorResponse(400, 'VALIDATION_ERROR', 'stepKey is only allowed for the update action.', {
-      field: 'stepKey',
-      action,
-    });
   }
 
   return handleCompleteAction(adminClient, context);
