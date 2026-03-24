@@ -4,6 +4,10 @@ import type { OnboardingStepKey } from '@/types/onboarding'
 
 export type OnboardingEntryMode = 'manual' | 'excel' | 'create_schedule'
 
+const EMPLOYEE_SEED_COMPATIBILITY_PATH = '/schedule/step3'
+const SCHEDULE_REQUEST_CREATE_TARGET_PATHS = [ADMIN_DASHBOARD_ROUTE_PATH, '/'] as const
+const SCHEDULE_REQUEST_RETURN_PATH = '/schedule/step1'
+
 export interface OnboardingRouteContext {
   isOnboardingSource: boolean
   step: OnboardingStepKey | null
@@ -86,7 +90,7 @@ export function resolveOnboardingRouteContext(query: LocationQuery): OnboardingR
   }
 }
 
-export function buildOnboardingQuery(options: OnboardingQueryOptions) {
+export function buildOnboardingQuery(options: OnboardingQueryOptions): Record<string, string> {
   const query: Record<string, string> = {
     source: 'onboarding',
     step: options.step,
@@ -117,7 +121,7 @@ export function isEmployeeSeedDeepLinkTarget(route: RouteLocationNormalized): bo
   const context = resolveOnboardingRouteContext(route.query)
   return (
     context.isOnboardingSource &&
-    route.path === '/schedule/step3' &&
+    route.path === EMPLOYEE_SEED_COMPATIBILITY_PATH &&
     context.step === 'employee_seed' &&
     (context.entry === 'manual' || context.entry === 'excel')
   )
@@ -125,17 +129,19 @@ export function isEmployeeSeedDeepLinkTarget(route: RouteLocationNormalized): bo
 
 export function isScheduleRequestDeepLinkTarget(route: RouteLocationNormalized): boolean {
   const context = resolveOnboardingRouteContext(route.query)
+  const isCreateScheduleTarget =
+    SCHEDULE_REQUEST_CREATE_TARGET_PATHS.includes(
+      route.path as (typeof SCHEDULE_REQUEST_CREATE_TARGET_PATHS)[number],
+    ) &&
+    context.step === 'schedule_request' &&
+    context.entry === 'create_schedule' &&
+    context.openCreateSchedule
+  const isScheduleRequestReturnTarget =
+    route.path === SCHEDULE_REQUEST_RETURN_PATH && context.step === 'schedule_request'
+
   return (
     context.isOnboardingSource &&
-    ((route.path === ADMIN_DASHBOARD_ROUTE_PATH &&
-      context.step === 'schedule_request' &&
-      context.entry === 'create_schedule' &&
-      context.openCreateSchedule) ||
-      (route.path === '/' &&
-        context.step === 'schedule_request' &&
-        context.entry === 'create_schedule' &&
-        context.openCreateSchedule) ||
-      (route.path === '/schedule/step1' && context.step === 'schedule_request'))
+    (isCreateScheduleTarget || isScheduleRequestReturnTarget)
   )
 }
 

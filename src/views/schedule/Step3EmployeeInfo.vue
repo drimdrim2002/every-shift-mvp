@@ -9,6 +9,7 @@
       <div
         v-if="showOnboardingBanner"
         class="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4"
+        data-test="onboarding-banner"
       >
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -16,11 +17,12 @@
               2단계: 첫 직원 등록
             </p>
             <p class="mt-1 text-sm leading-6 text-slate-600">
-              직원을 1명 이상 저장하면 온보딩으로 돌아가 다음 단계를 진행할 수 있습니다.
+              {{ onboardingBannerDescription }}
             </p>
           </div>
           <n-button
             secondary
+            data-test="onboarding-banner-return"
             @click="handleReturnToOnboarding"
           >
             온보딩으로 돌아가기
@@ -48,6 +50,18 @@
           name="manual"
           tab="직접 입력"
         >
+          <div
+            v-if="showOnboardingBanner"
+            class="mb-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3"
+            data-test="manual-entry-callout"
+          >
+            <p class="text-sm font-semibold text-sky-700">
+              직접 입력으로 시작하세요
+            </p>
+            <p class="mt-1 text-sm leading-6 text-slate-600">
+              `+ 직원 추가` 버튼으로 직원을 1명 이상 저장하면 온보딩 2단계가 완료됩니다.
+            </p>
+          </div>
           <EmployeeTable
             :employees="employees"
             :shifts="shifts"
@@ -61,10 +75,31 @@
           name="excel"
           tab="엑셀 업로드"
         >
-          <EmployeeExcelUpload
-            :shifts="shifts"
-            @upload="handleExcelUpload"
-          />
+          <div
+            ref="excelEntryRef"
+            :class="
+              showOnboardingBanner
+                ? 'rounded-2xl border border-sky-200 bg-sky-50/60 p-4'
+                : undefined
+            "
+            data-test="excel-upload-entry"
+          >
+            <div
+              v-if="showOnboardingBanner"
+              class="mb-4"
+            >
+              <p class="text-sm font-semibold text-sky-700">
+                엑셀 업로드로 시작하세요
+              </p>
+              <p class="mt-1 text-sm leading-6 text-slate-600">
+                엑셀 파일로 직원을 한 번에 등록할 수 있습니다. 업로드 후 저장이 완료되면 온보딩으로 돌아가세요.
+              </p>
+            </div>
+            <EmployeeExcelUpload
+              :shifts="shifts"
+              @upload="handleExcelUpload"
+            />
+          </div>
 
           <div
             v-if="employees.length > 0"
@@ -112,6 +147,7 @@
             type="primary"
             size="medium"
             :disabled="hasUnsavedChanges"
+            data-test="onboarding-footer-return"
             @click="handleReturnToOnboarding"
           >
             온보딩으로 돌아가기
@@ -132,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NAlert, NButton, NCard, NPopconfirm, NTabPane, NTabs } from 'naive-ui'
 import StepIndicator from '@/components/schedule/StepIndicator.vue'
@@ -141,6 +177,7 @@ import EmployeeTable from '@/components/schedule/EmployeeTable.vue'
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee'
 import { getScheduleStatus } from '@/api/schedule'
 import { supabase } from '@/api/supabase'
+import { useOnboardingStore } from '@/stores/onboarding'
 import { useOrganizationStore } from '@/stores/organization'
 import { useRbacStore } from '@/stores/rbac'
 import { useScheduleStore } from '@/stores/schedule'
@@ -151,12 +188,15 @@ import { showError, showInfo, showSuccess, showWarning } from '@/utils/message'
 
 const route = useRoute()
 const router = useRouter()
+const onboardingStore = useOnboardingStore()
 const rbacStore = useRbacStore()
 const scheduleStore = useScheduleStore()
 const orgStore = useOrganizationStore()
 
 const activeTab = ref<'manual' | 'excel'>('manual')
 const employees = ref<EmployeeInput[]>([])
+const excelEntryRef = ref<HTMLElement | null>(null)
+const hasAutoFocusedExcelEntry = ref(false)
 const isSaving = ref(false)
 const hasUnsavedChanges = ref(false)
 
@@ -194,14 +234,40 @@ function getQueryText(value: unknown): string | null {
 
 const onboardingContext = computed(() => resolveOnboardingRouteContext(route.query))
 const isOnboardingEmployeeSeedMode = computed(
-  () => onboardingContext.value.isOnboardingSource && onboardingContext.value.step === 'employee_seed',
+  () =>
+    onboardingContext.value.isOnboardingSource &&
+    onboardingContext.value.step === 'employee_seed' &&
+    onboardingStore.shouldForceOnboarding &&
+    rbacStore.accessState === 'admin_active',
 )
 const showOnboardingBanner = computed(() => isOnboardingEmployeeSeedMode.value)
+const onboardingBannerDescription = computed(() =>
+  activeTab.value === 'excel'
+    ? '엑셀 파일로 직원을 한 번에 등록할 수 있습니다. 업로드 후 저장이 완료되면 온보딩으로 돌아가세요.'
+    : '직원을 1명 이상 저장하면 온보딩으로 돌아가 다음 단계를 진행할 수 있습니다.',
+)
 const activeOrganizationId = computed(
   () => scheduleStore.basicInfo?.organizationId ?? rbacStore.effectiveMembership?.organizationId ?? null,
 )
 const shifts = computed<Shift[]>(() => scheduleStore.basicInfo?.shifts || orgStore.shifts || [])
 const canProceed = computed(() => employees.value.length > 0)
+
+watch(
+  () => [showOnboardingBanner.value, activeTab.value] as const,
+  async ([isVisible, tab]) => {
+    if (!isVisible || tab !== 'excel' || hasAutoFocusedExcelEntry.value) {
+      return
+    }
+
+    await nextTick()
+    excelEntryRef.value?.scrollIntoView?.({
+      behavior: 'smooth',
+      block: 'start',
+    })
+    hasAutoFocusedExcelEntry.value = true
+  },
+  { immediate: true },
+)
 
 async function initializePage() {
   const organizationId = activeOrganizationId.value

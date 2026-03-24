@@ -269,6 +269,50 @@ describe('router auth guard regression', () => {
   )
 
   it(
+    'allows schedule-request dashboard compatibility deep link while onboarding is incomplete',
+    async () => {
+      setAuthenticatedAccessState('admin_active')
+      onboardingStoreMock.shouldForceOnboarding = true
+
+      await router.push({
+        path: '/dashboard/admin',
+        query: buildOnboardingQuery({
+          step: 'schedule_request',
+          entry: 'create_schedule',
+          openCreateSchedule: true,
+        }),
+      })
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/admin')
+      expect(stepProgressGuardMock).not.toHaveBeenCalled()
+      expect(onboardingStoreMock.loadProgress).toHaveBeenCalledTimes(1)
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'allows schedule-request step1 return route while onboarding is incomplete',
+    async () => {
+      setAuthenticatedAccessState('admin_active')
+      onboardingStoreMock.shouldForceOnboarding = true
+
+      await router.push({
+        path: '/schedule/step1',
+        query: buildOnboardingQuery({
+          step: 'schedule_request',
+        }),
+      })
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/schedule/step1')
+      expect(stepProgressGuardMock).toHaveBeenCalledTimes(1)
+      expect(onboardingStoreMock.loadProgress).toHaveBeenCalledTimes(1)
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
     'redirects completed admin away from /onboarding to the normal post-auth route',
     async () => {
       setAuthenticatedAccessState('admin_active')

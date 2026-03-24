@@ -30,6 +30,7 @@ export async function stepProgressGuard(
   next: NavigationGuardNext,
 ) {
   const scheduleStore = useScheduleStore();
+  const onboardingStore = useOnboardingStore();
 
   // Step 2 접근 시 Step 1 완료 확인
   if (to.path === '/schedule/step2') {
@@ -42,7 +43,7 @@ export async function stepProgressGuard(
 
   // Step 3 (직원 정보) 접근 시 Step 2 완료 확인
   if (to.path === '/schedule/step3') {
-    if (isEmployeeSeedDeepLinkTarget(to)) {
+    if (isEmployeeSeedDeepLinkTarget(to) && onboardingStore.shouldForceOnboarding) {
       next();
       return;
     }

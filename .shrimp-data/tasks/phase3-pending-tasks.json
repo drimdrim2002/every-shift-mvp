@@ -4,7 +4,7 @@
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
       "name": "P3-2.4 온보딩 context/deep-link 계약 정리 + 단위 테스트",
       "description": "온보딩 재진입과 compatibility deep-link에서 사용하는 query contract를 `src/utils/onboarding-context.ts`에 고정하고, 잘못된 파라미터 sanitize 규칙까지 unit test로 닫는다. 문서 합의만 남기는 task가 아니라 실제 helper contract와 테스트를 한 세션에서 끝내는 작업이다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -35,14 +35,16 @@
       "implementationGuide": "1) `resolveOnboardingRouteContext`, `buildOnboardingQuery`, compatibility target helper의 입력/출력 규칙을 현재 UX 문서와 맞춘다. 2) 잘못된 `returnTo`, `entry`, `resumeStep` 값이 들어와도 내부 route로 sanitize 되도록 보정한다. 3) employee_seed/schedule_request deep-link allowlist를 테스트 가능한 순수 함수 기준으로 유지한다. 4) query contract 회귀를 막기 위해 unit test를 추가한다. 5) 이 task 안에서 `pnpm lint:check`와 대상 unit test를 끝낸다.",
       "verificationCriteria": "Deliverable: onboarding query contract helper와 sanitize 규칙이 코드와 unit test로 고정된다.\nMethod: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/onboarding-context.spec.ts`로 검증한다.\nPass: 잘못된 query가 안전하게 보정되고, 허용된 deep-link target 판별이 테스트로 고정되며 lint와 대상 테스트가 모두 통과한다.",
       "createdAt": "2026-03-23T18:00:00.000Z",
-      "updatedAt": "2026-03-23T18:00:00.000Z",
-      "notes": "병렬 가능: P3-2.3과 병렬 착수 가능. 후속 guard/re-entry task가 이 helper contract만 소비하도록 유지한다."
+      "updatedAt": "2026-03-24T14:10:00.000Z",
+      "notes": "병렬 가능: P3-2.3과 병렬 착수 가능. 후속 guard/re-entry task가 이 helper contract만 소비하도록 유지한다.",
+      "summary": "`src/utils/onboarding-context.ts`의 onboarding query/deep-link contract를 현재 소비처 기준으로 고정하고, `tests/unit/onboarding-context.spec.ts`를 추가해 sanitize, query build, compatibility target allowlist를 회귀 테스트로 잠갔다. 추가로 `tests/unit/router-auth-guards.spec.ts`에 `/dashboard/admin` 및 `/schedule/step1` schedule_request compatibility route 허용 회귀를 보강했고, `pnpm lint:check`, `pnpm exec vitest run tests/unit/onboarding-context.spec.ts`, `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts`, `pnpm exec vitest run tests/unit/onboarding-view.spec.ts`를 통과했다.",
+      "completedAt": "2026-03-24T14:10:00.000Z"
     },
     {
       "id": "923deef2-e75d-48eb-8bee-ca4e9ee0319a",
       "name": "P3-2.5 Step 1/2 재진입 UX 구현 + 회귀 테스트",
       "description": "완료 전 Step 1 재오픈과 Step 2 deep-link 재진입/복귀 UX를 실제 화면에 연결한다. `Onboarding.vue`, `Step3EmployeeInfo.vue`, onboarding query contract, guard 예외를 통합하는 구현 task이며, 한 세션에서 구현과 대상 회귀 테스트까지 마무리한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -81,8 +83,10 @@
       "implementationGuide": "1) `Onboarding.vue`에서 completed Step 1/2에 low-emphasis 재진입 CTA를 노출한다. 2) Step 1은 인라인 재오픈 방식으로 처리하고 canonical progress 자체는 덮어쓰지 않는다. 3) Step 2는 기존 `/schedule/step3` compatibility deep-link와 복귀 CTA를 재사용하되, unsaved changes와 refresh 복귀에서 상태가 꼬이지 않도록 보정한다. 4) 재진입 정책이 완료 전까지만 유효하도록 UI와 route 동작을 정리한다. 5) 대상 회귀 test를 추가하고 `pnpm lint:check` 및 해당 test를 통과시킨다.",
       "verificationCriteria": "Deliverable: 완료 전 Step 1/2 재진입 UX가 동작하고 이를 고정하는 회귀 test가 존재한다.\nMethod: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/onboarding-reentry.spec.ts`로 검증한다.\nPass: Step 1 재오픈, Step 2 deep-link 진입, 온보딩 복귀 CTA, completion 전 경계 조건이 테스트로 고정되고 lint와 대상 테스트가 모두 통과한다.",
       "createdAt": "2026-03-23T18:00:00.000Z",
-      "updatedAt": "2026-03-23T18:00:00.000Z",
-      "notes": "병렬 비권장: `src/views/Onboarding.vue` ownership 충돌 때문에 P3-2.3 완료 후 진행한다."
+      "updatedAt": "2026-03-24T14:56:00.000Z",
+      "notes": "병렬 비권장: `src/views/Onboarding.vue` ownership 충돌 때문에 P3-2.3 완료 후 진행한다. Positive-path Playwright smoke는 partial onboarding fixture 또는 disposable test org의 onboarding_progress 조정이 준비된 뒤 P3-3.3에서 이어서 닫는다.",
+      "summary": "`src/views/Onboarding.vue`에 완료 전 Step 1/2 재진입 CTA를 연결해 Step 1은 인라인으로 다시 열고 canonical progress는 유지하도록 정리했다. `src/views/schedule/Step3EmployeeInfo.vue`에는 employee_seed deep-link 재진입, 온보딩 복귀 배너/CTA, 저장되지 않은 변경사항 경고 다이얼로그, `entry=excel` 진입 시 업로드 영역 스크롤/강조 로직을 추가했다. `tests/unit/onboarding-reentry.spec.ts`로 Step 1 재오픈, Step 2 deep-link와 복귀 CTA, completion 경계, Excel entry focus 동작을 회귀 테스트로 고정했고 `pnpm lint:check`, `pnpm exec vitest run tests/unit/onboarding-reentry.spec.ts`를 다시 통과했다. 추가 Playwright 확인에서는 onboarding 완료 계정이 `/onboarding`과 employee_seed deep-link에서 정상적으로 `/dashboard/admin`으로 정리되는 음의 경계만 재확인했으며, 양의 경로 smoke는 partial onboarding fixture 준비 이후 P3-3.3에서 이어서 검증한다.",
+      "completedAt": "2026-03-24T14:56:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000075",

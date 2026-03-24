@@ -130,15 +130,17 @@
                       {{ step.body }}
                     </p>
                   </div>
-                  <n-button
-                    v-if="getStepStatus(step.key) === 'current' && step.key === 'organization_info'"
-                    type="primary"
-                    :loading="isConfirmingOrganizationInfo"
-                    :disabled="!canConfirmOrganizationInfo"
-                    @click="handleConfirmOrganizationInfo"
-                  >
-                    조직 정보 확인하기
-                  </n-button>
+                  <div class="flex flex-wrap gap-3 md:justify-end">
+                    <n-button
+                      v-if="isCurrentStep(step.key) && step.key === 'organization_info'"
+                      type="primary"
+                      :loading="isConfirmingOrganizationInfo"
+                      :disabled="!canConfirmOrganizationInfo"
+                      @click="handleConfirmOrganizationInfo"
+                    >
+                      조직 정보 확인하기
+                    </n-button>
+                  </div>
                 </div>
 
                 <ul class="mt-5 space-y-2 text-sm leading-6 text-slate-600">
@@ -162,13 +164,58 @@
                   <p class="mt-1 text-sm text-emerald-700">
                     {{ step.nextNudge }}
                   </p>
+                  <div
+                    v-if="canReenterCompletedStep(step.key)"
+                    class="mt-4 flex flex-wrap gap-2"
+                  >
+                    <n-button
+                      v-if="step.key === 'organization_info'"
+                      size="small"
+                      secondary
+                      @click="handleExpandCompletedStep(step.key)"
+                    >
+                      {{ isExpandedCompletedStep(step.key) ? '현재 단계 보기' : '다시 확인하기' }}
+                    </n-button>
+                    <template v-else-if="step.key === 'employee_seed'">
+                      <n-button
+                        v-if="!isStepExpanded(step.key)"
+                        size="small"
+                        secondary
+                        @click="handleEmployeeSeedEntry('manual')"
+                      >
+                        직원 등록 다시 열기
+                      </n-button>
+                      <n-button
+                        v-if="!isStepExpanded(step.key)"
+                        size="small"
+                        secondary
+                        @click="handleEmployeeSeedEntry('excel')"
+                      >
+                        엑셀 업로드 다시 열기
+                      </n-button>
+                      <n-button
+                        v-if="isExpandedCompletedStep(step.key)"
+                        size="small"
+                        tertiary
+                        @click="handleReturnToCurrentStep"
+                      >
+                        현재 단계 보기
+                      </n-button>
+                    </template>
+                  </div>
                 </div>
 
-                <template v-if="getStepStatus(step.key) === 'current'">
+                <template v-if="isStepExpanded(step.key)">
                   <div
                     v-if="step.key === 'organization_info'"
                     class="mt-6 space-y-6"
                   >
+                    <n-alert
+                      v-if="isExpandedCompletedStep(step.key)"
+                      type="info"
+                    >
+                      조직 기본 설정은 이미 완료된 단계입니다. 시프트와 사이트를 수정해도 온보딩 진행 상태는 그대로 유지됩니다.
+                    </n-alert>
                     <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
                       <div class="space-y-4">
                         <div class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -379,9 +426,13 @@
                   >
                     <n-alert
                       type="info"
-                      title="직원 등록 방식 선택"
+                      :title="isExpandedCompletedStep(step.key) ? '직원 등록 다시 열기' : '직원 등록 방식 선택'"
                     >
-                      직원은 직접 입력하거나 엑셀 업로드 방식으로 등록할 수 있습니다. 저장 후에는 온보딩으로 돌아와 다음 단계를 진행하세요.
+                      {{
+                        isExpandedCompletedStep(step.key)
+                          ? '직원 등록은 이미 완료되었지만, 필요하면 직원을 추가로 등록하거나 엑셀 업로드를 다시 열 수 있습니다.'
+                          : '직원은 직접 입력하거나 엑셀 업로드 방식으로 등록할 수 있습니다. 저장 후에는 온보딩으로 돌아와 다음 단계를 진행하세요.'
+                      }}
                     </n-alert>
                     <div class="flex flex-wrap gap-3">
                       <n-button
@@ -508,6 +559,7 @@ const siteForm = ref({
   code: '',
   name: '',
 })
+const expandedStepOverride = ref<OnboardingStepKey | 'current' | null>(null)
 
 const onboardingSteps: StepDefinition[] = [
   {
@@ -564,6 +616,29 @@ const canConfirmOrganizationInfo = computed(
 const showCompletionState = computed(
   () => !isInitializing.value && loadErrorState.value === null && onboardingStore.isOnboardingComplete,
 )
+const resumeExpandedStepKey = computed<OnboardingStepKey | null>(() => {
+  if (!routeContext.value.isOnboardingSource || onboardingStore.isOnboardingComplete) {
+    return null
+  }
+
+  const candidate = routeContext.value.resumeStep ?? routeContext.value.step
+  if (!candidate || candidate === 'schedule_request') {
+    return null
+  }
+
+  return onboardingStore.completedStepKeys.includes(candidate) ? candidate : null
+})
+const expandedStepKey = computed<OnboardingStepKey | null>(() => {
+  if (expandedStepOverride.value === 'current') {
+    return onboardingStore.currentStepKey
+  }
+
+  if (expandedStepOverride.value) {
+    return expandedStepOverride.value
+  }
+
+  return resumeExpandedStepKey.value ?? onboardingStore.currentStepKey
+})
 const loadErrorTitle = computed(() => {
   if (loadErrorState.value?.kind === 'organization') {
     return '온보딩 화면 정보를 불러오지 못했습니다'
@@ -652,6 +727,38 @@ function formatShiftTime(shift: Shift) {
   }
 
   return `${shift.startTime} - ${shift.endTime}`
+}
+
+function isCurrentStep(stepKey: OnboardingStepKey) {
+  return onboardingStore.currentStepKey === stepKey
+}
+
+function isStepExpanded(stepKey: OnboardingStepKey) {
+  return expandedStepKey.value === stepKey
+}
+
+function canReenterCompletedStep(stepKey: OnboardingStepKey) {
+  return (
+    !onboardingStore.isOnboardingComplete &&
+    onboardingStore.completedStepKeys.includes(stepKey) &&
+    (stepKey === 'organization_info' || stepKey === 'employee_seed')
+  )
+}
+
+function isExpandedCompletedStep(stepKey: OnboardingStepKey) {
+  return canReenterCompletedStep(stepKey) && isStepExpanded(stepKey) && !isCurrentStep(stepKey)
+}
+
+function handleExpandCompletedStep(stepKey: OnboardingStepKey) {
+  if (!canReenterCompletedStep(stepKey)) {
+    return
+  }
+
+  expandedStepOverride.value = isExpandedCompletedStep(stepKey) ? 'current' : stepKey
+}
+
+function handleReturnToCurrentStep() {
+  expandedStepOverride.value = 'current'
 }
 
 function getStepStatus(stepKey: OnboardingStepKey) {
