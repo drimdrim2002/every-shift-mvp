@@ -1,53 +1,6 @@
 {
   "tasks": [
     {
-      "id": "10000000-0000-4000-8000-000000000072",
-      "name": "P3-2.3 온보딩 화면 상태/CTA 정합화 + 단위 테스트",
-      "description": "현재 구현된 `src/views/Onboarding.vue`를 기준으로 로딩, 오류, 진행 중, 완료 상태와 단계별 CTA를 세션 내에서 마무리한다. 이 task는 라우트 신규 설계가 아니라 실제 온보딩 화면의 상태 렌더링과 store 연동 정합성을 닫는 데 집중한다.",
-      "status": "pending",
-      "phase": "P3",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000068"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000069"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000070"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000071"
-        },
-        {
-          "taskId": "1d82b0e8-4d19-405b-a772-80ecbe305c11"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "src/views/Onboarding.vue",
-          "type": "TO_MODIFY",
-          "description": "온보딩 진행 상태, 완료 상태, 단계별 CTA 렌더링과 initialize 흐름 정리"
-        },
-        {
-          "path": "src/stores/onboarding.ts",
-          "type": "REFERENCE",
-          "description": "화면이 소비해야 하는 canonical onboarding progress source"
-        },
-        {
-          "path": "tests/unit/onboarding-view.spec.ts",
-          "type": "CREATE",
-          "description": "로딩/오류/완료/현재 단계 CTA 노출을 검증하는 unit smoke test"
-        }
-      ],
-      "implementationGuide": "1) `Onboarding.vue`에서 loading, load error, in-progress, completion state가 상호 배타적으로 렌더링되도록 정리한다. 2) current/completed step badge, primary CTA, completion landing CTA가 P3 UX 문서와 현재 store contract를 그대로 따르도록 맞춘다. 3) page init 시 `loadProgress` 실패와 organization data 로드 실패가 섞여 UI가 꼬이지 않도록 처리한다. 4) view-level regression을 위한 unit test를 추가해 주요 상태 분기를 고정한다. 5) 이 task 안에서 `pnpm lint:check`와 대상 unit test까지 통과시켜 세션을 종료한다.",
-      "verificationCriteria": "Deliverable: `Onboarding.vue`의 주요 상태와 CTA 동작이 정리되고 이를 검증하는 unit test가 존재한다.\nMethod: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/onboarding-view.spec.ts`로 검증한다.\nPass: 로딩/오류/완료/현재 단계 UI가 의도대로 렌더링되고 lint와 대상 테스트가 모두 통과한다.",
-      "createdAt": "2026-03-23T18:00:00.000Z",
-      "updatedAt": "2026-03-23T18:00:00.000Z",
-      "notes": "병렬 가능: P3-2.4와 병렬 착수 가능. 이 task는 `src/views/Onboarding.vue`와 view test ownership만 가진다."
-    },
-    {
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
       "name": "P3-2.4 온보딩 context/deep-link 계약 정리 + 단위 테스트",
       "description": "온보딩 재진입과 compatibility deep-link에서 사용하는 query contract를 `src/utils/onboarding-context.ts`에 고정하고, 잘못된 파라미터 sanitize 규칙까지 unit test로 닫는다. 문서 합의만 남기는 task가 아니라 실제 helper contract와 테스트를 한 세션에서 끝내는 작업이다.",
@@ -84,50 +37,6 @@
       "createdAt": "2026-03-23T18:00:00.000Z",
       "updatedAt": "2026-03-23T18:00:00.000Z",
       "notes": "병렬 가능: P3-2.3과 병렬 착수 가능. 후속 guard/re-entry task가 이 helper contract만 소비하도록 유지한다."
-    },
-    {
-      "id": "10000000-0000-4000-8000-000000000074",
-      "name": "P3-3.2 온보딩 guard 리다이렉트 정합화 + 단위 테스트",
-      "description": "현재 `src/router/guards.ts`와 `src/router/index.ts`에 들어간 onboarding guard를 실제 access state, organization scope, compatibility deep-link 예외 기준으로 정리하고 단위 테스트로 고정한다. 문서 설계 task가 아니라 라우터 동작과 guard regression을 한 세션에서 끝내는 구현 task다.",
-      "status": "pending",
-      "phase": "P3",
-      "dependencies": [
-        {
-          "taskId": "10000000-0000-4000-8000-000000000069"
-        },
-        {
-          "taskId": "10000000-0000-4000-8000-000000000073"
-        },
-        {
-          "taskId": "1d82b0e8-4d19-405b-a772-80ecbe305c11"
-        },
-        {
-          "taskId": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d"
-        }
-      ],
-      "estimatedMinutes": 120,
-      "relatedFiles": [
-        {
-          "path": "src/router/guards.ts",
-          "type": "TO_MODIFY",
-          "description": "onboardingProgressGuard access-state 분기와 compatibility 예외 정리"
-        },
-        {
-          "path": "src/router/index.ts",
-          "type": "TO_MODIFY",
-          "description": "beforeEach 내 onboarding guard 호출 순서와 redirect 적용 정합화"
-        },
-        {
-          "path": "tests/unit/router-auth-guards.spec.ts",
-          "type": "TO_MODIFY",
-          "description": "onboarding redirect와 bypass 방지 regression 추가"
-        }
-      ],
-      "implementationGuide": "1) auth/access/onboarding guard의 실행 순서를 현재 router 흐름 안에서 고정한다. 2) `admin_active`, `user_active`, `super_active`, `admin_pending`, `no_membership_or_inactive` 케이스별 `/onboarding` 허용/차단을 정리한다. 3) compatibility deep-link target은 P3-2.4 helper 기준으로만 예외 허용한다. 4) `tests/unit/router-auth-guards.spec.ts`에 onboarding redirect, onboarding skip, non-admin deny, pending precedence 케이스를 추가한다. 5) 이 task 안에서 `pnpm lint:check`와 대상 unit test를 통과시킨다.",
-      "verificationCriteria": "Deliverable: onboarding guard redirect가 코드와 unit regression으로 고정된다.\nMethod: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/router-auth-guards.spec.ts`로 검증한다.\nPass: protected route 접근, `/onboarding` 직접 접근, compatibility deep-link 예외, non-admin 차단이 기대 route로 수렴하고 lint와 대상 테스트가 모두 통과한다.",
-      "createdAt": "2026-03-23T18:00:00.000Z",
-      "updatedAt": "2026-03-23T18:00:00.000Z",
-      "notes": "병렬 가능: P3-2.3과 병렬 진행 가능하지만 `src/router/index.ts` ownership은 이 task가 가진다."
     },
     {
       "id": "923deef2-e75d-48eb-8bee-ca4e9ee0319a",

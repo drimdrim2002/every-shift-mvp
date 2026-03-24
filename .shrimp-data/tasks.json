@@ -1958,7 +1958,7 @@
       "id": "10000000-0000-4000-8000-000000000072",
       "name": "P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)",
       "description": "route, store, API contract, UX 설계를 하나의 구현 가능한 onboarding page 계획으로 통합한다. 이 task는 page composition과 integration boundary를 고정하는 역할을 한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -1993,7 +1993,9 @@
       "implementationGuide": "1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.",
       "verificationCriteria": "Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다.\nMethod: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다.\nPass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-24T13:20:00.000Z",
+      "summary": "`src/views/Onboarding.vue` 기준으로 loading, load error, in-progress, completion state와 단계별 CTA 정합성을 점검했고, `tests/unit/onboarding-view.spec.ts`를 이번 단계 검증 대상으로 고정했다. `pnpm lint:check`와 대상 view/unit 검증이 통과해 page-level integration 기준이 충족됨을 확인했다.",
+      "completedAt": "2026-03-24T13:20:00.000Z"
     },
     {
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
@@ -2103,7 +2105,7 @@
       "id": "10000000-0000-4000-8000-000000000074",
       "name": "P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)",
       "description": "현재 auth/approval/role redirect 구조 안에 onboarding guard를 어디에 삽입할지 정하고, router.beforeEach의 read source와 redirect 순서를 구현 가능한 수준으로 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
@@ -2135,7 +2137,9 @@
       "implementationGuide": "1) auth check, approval check, onboarding check, role redirect의 실행 순서를 고정한다. 2) onboarding state를 store에서 읽는 지점과 prefetch 타이밍을 정의한다. 3) /onboarding 진입 허용 조건과 다른 route 강제 리다이렉트 규칙을 적는다. 4) 기존 step guard 또는 role redirect와 충돌하는 경로를 표기한다. 5) guard bypass test가 그대로 사용할 수 있도록 redirect matrix를 명확히 남긴다.",
       "verificationCriteria": "Deliverable: router.beforeEach 안에서 onboarding guard가 어떤 순서와 입력값으로 동작할지 설계되어 있다.\nMethod: 산출물을 리뷰하고 auth/approval/onboarding/role redirect가 순환 없이 단일 흐름으로 연결되는지 검사한다.\nPass: route read source, guard 순서, redirect 결과가 충돌 없이 정리되어 있다.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-03-12T12:10:19.000Z"
+      "updatedAt": "2026-03-24T13:22:00.000Z",
+      "summary": "`tests/unit/router-auth-guards.spec.ts`에 onboarding redirect, onboarding skip, non-admin deny, pending precedence, compatibility deep-link 허용 회귀 케이스를 추가해 현재 guard 계약을 고정했다. `pnpm lint:check`, `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts`, 그리고 현재 스크립트 기준 `pnpm test:unit -- tests/unit/router-auth-guards.spec.ts`까지 통과했다.",
+      "completedAt": "2026-03-24T13:22:00.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000075",
