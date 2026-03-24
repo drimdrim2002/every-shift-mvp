@@ -8,7 +8,7 @@
         <div class="space-y-8">
           <div class="space-y-3">
             <p class="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
-              New Organization Onboarding
+              신규 조직 온보딩
             </p>
             <div class="space-y-2">
               <h1 class="text-3xl font-bold text-slate-900">
@@ -32,31 +32,31 @@
             </div>
           </div>
 
-          <template v-else>
-            <n-alert
-              v-if="loadErrorMessage"
-              type="error"
-              title="온보딩 상태를 확인하지 못했습니다"
-            >
-              <div class="space-y-3">
-                <p>{{ loadErrorMessage }}</p>
-                <n-button
-                  size="small"
-                  secondary
-                  @click="initializePage"
-                >
-                  다시 시도
-                </n-button>
-              </div>
-            </n-alert>
+          <n-alert
+            v-else-if="loadErrorState"
+            type="error"
+            :title="loadErrorTitle"
+          >
+            <div class="space-y-3">
+              <p>{{ loadErrorState.message }}</p>
+              <n-button
+                size="small"
+                secondary
+                @click="initializePage"
+              >
+                다시 시도
+              </n-button>
+            </div>
+          </n-alert>
 
+          <template v-else>
             <template v-if="showCompletionState">
               <div class="rounded-3xl border border-emerald-200 bg-emerald-50 px-6 py-12 text-center">
                 <div class="mx-auto mb-5 flex size-16 items-center justify-center rounded-full bg-emerald-600 text-2xl text-white">
                   ✓
                 </div>
-                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
-                  Onboarding Complete
+                <p class="text-sm font-semibold tracking-[0.2em] text-emerald-700">
+                  온보딩 완료
                 </p>
                 <h2 class="mt-3 text-3xl font-bold text-slate-900">
                   이제 EveryShift를 사용할 준비가 되었습니다!
@@ -480,6 +480,11 @@ interface StepDefinition {
   nextNudge: string
 }
 
+interface LoadErrorState {
+  kind: 'progress' | 'organization'
+  message: string
+}
+
 const DEFAULT_SETTINGS = {
   maxConsecutiveNightShifts: 3,
   minimumRestHours: { D: 24, E: 24, N: 36 },
@@ -494,10 +499,9 @@ const orgStore = useOrganizationStore()
 const masterStore = useOrganizationMasterStore()
 
 const isInitializing = ref(true)
-const loadErrorMessage = ref<string | null>(null)
+const loadErrorState = ref<LoadErrorState | null>(null)
 const isConfirmingOrganizationInfo = ref(false)
 const isSavingSite = ref(false)
-const showCompletionState = ref(false)
 const showShiftModal = ref(false)
 const editingShift = ref<Shift | null>(null)
 const siteForm = ref({
@@ -557,6 +561,16 @@ const shiftsWithTime = computed(() =>
 const canConfirmOrganizationInfo = computed(
   () => Boolean(orgStore.current) && shiftsWithTime.value.length > 0 && masterStore.sites.length > 0,
 )
+const showCompletionState = computed(
+  () => !isInitializing.value && loadErrorState.value === null && onboardingStore.isOnboardingComplete,
+)
+const loadErrorTitle = computed(() => {
+  if (loadErrorState.value?.kind === 'organization') {
+    return '온보딩 화면 정보를 불러오지 못했습니다'
+  }
+
+  return '온보딩 상태를 확인하지 못했습니다'
+})
 
 const shiftColumns = computed<DataTableColumns<Shift>>(() => [
   {
@@ -704,6 +718,13 @@ function getStepCardClass(stepKey: OnboardingStepKey) {
   return 'border-slate-200 bg-slate-50/70'
 }
 
+function setLoadError(kind: LoadErrorState['kind'], error: unknown, fallbackMessage: string) {
+  loadErrorState.value = {
+    kind,
+    message: error instanceof Error ? error.message : fallbackMessage,
+  }
+}
+
 async function initializePage() {
   const organizationId = activeOrganizationId.value
   const accessState = rbacStore.accessState
@@ -714,47 +735,79 @@ async function initializePage() {
   }
 
   isInitializing.value = true
-  loadErrorMessage.value = null
+  loadErrorState.value = null
 
   try {
-    const [organizationResult, settingsResult, sitesResult] = await Promise.all([
-      orgStore.loadOrganization(organizationId),
-      masterStore.loadSettings(organizationId),
-      masterStore.loadSites(organizationId),
-      onboardingStore.loadProgress({
+    try {
+      await onboardingStore.loadProgress({
         scope: {
           accessState,
           organizationId,
         },
         force: true,
-      }),
-    ])
+      })
+    } catch (error) {
+      console.warn('[Onboarding] Failed to load onboarding progress:', error)
+      setLoadError('progress', error, '온보딩 상태를 불러오는 중 오류가 발생했습니다.')
+      return
+    }
+
+    let organizationResult: Awaited<ReturnType<typeof orgStore.loadOrganization>>
+    let settingsResult: Awaited<ReturnType<typeof masterStore.loadSettings>>
+    let sitesResult: Awaited<ReturnType<typeof masterStore.loadSites>>
+
+    try {
+      ;[organizationResult, settingsResult, sitesResult] = await Promise.all([
+        orgStore.loadOrganization(organizationId),
+        masterStore.loadSettings(organizationId),
+        masterStore.loadSites(organizationId),
+      ])
+    } catch (error) {
+      console.warn('[Onboarding] Failed to load onboarding page data:', error)
+      setLoadError('organization', error, '온보딩 화면 정보를 불러오는 중 오류가 발생했습니다.')
+      return
+    }
 
     if (!organizationResult.success) {
-      throw new Error(organizationResult.error || '조직 정보를 불러오지 못했습니다.')
+      setLoadError(
+        'organization',
+        new Error(organizationResult.error || '조직 정보를 불러오지 못했습니다.'),
+        '온보딩 화면 정보를 불러오는 중 오류가 발생했습니다.',
+      )
+      return
     }
 
     if (!settingsResult.success) {
-      throw new Error(settingsResult.error || '운영 기준을 불러오지 못했습니다.')
+      setLoadError(
+        'organization',
+        new Error(settingsResult.error || '운영 기준을 불러오지 못했습니다.'),
+        '온보딩 화면 정보를 불러오는 중 오류가 발생했습니다.',
+      )
+      return
     }
 
     if (!sitesResult.success) {
-      throw new Error(sitesResult.error || '사이트 목록을 불러오지 못했습니다.')
+      setLoadError(
+        'organization',
+        new Error(sitesResult.error || '사이트 목록을 불러오지 못했습니다.'),
+        '온보딩 화면 정보를 불러오는 중 오류가 발생했습니다.',
+      )
+      return
     }
 
-    if (
-      routeContext.value.scheduleStarted &&
-      onboardingStore.currentStepKey === 'schedule_request' &&
-      !onboardingStore.isOnboardingComplete
-    ) {
-      await onboardingStore.complete()
+    try {
+      if (
+        routeContext.value.scheduleStarted &&
+        onboardingStore.currentStepKey === 'schedule_request' &&
+        !onboardingStore.isOnboardingComplete
+      ) {
+        await onboardingStore.complete()
+      }
+    } catch (error) {
+      console.warn('[Onboarding] Failed to finalize onboarding completion:', error)
+      setLoadError('progress', error, '온보딩 완료 상태를 반영하는 중 오류가 발생했습니다.')
+      return
     }
-
-    showCompletionState.value = onboardingStore.isOnboardingComplete
-  } catch (error) {
-    console.warn('[Onboarding] Failed to initialize page:', error)
-    loadErrorMessage.value =
-      error instanceof Error ? error.message : '온보딩 상태를 불러오는 중 오류가 발생했습니다.'
   } finally {
     isInitializing.value = false
   }
