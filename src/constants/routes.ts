@@ -6,6 +6,7 @@ export const ACCESS_PENDING_ROUTE_PATH = '/access/pending'
 export const ACCESS_REJECTED_ROUTE_PATH = '/access/rejected'
 export const ONBOARDING_ROUTE_PATH = '/onboarding'
 export const ADMIN_DASHBOARD_ROUTE_PATH = '/dashboard/admin'
+export const ADMIN_ORGANIZATION_ROUTE_PATH = '/admin/organization'
 export const POST_AUTH_REDIRECT_PATH = '/schedule/step1'
 
 const AUTH_PAGE_PATH_SET = new Set([LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH])

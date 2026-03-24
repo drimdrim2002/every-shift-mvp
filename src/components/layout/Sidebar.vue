@@ -13,18 +13,36 @@
 
 <script setup lang="ts">
 import { NMenu } from 'naive-ui'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ADMIN_ORGANIZATION_ROUTE_PATH } from '@/constants/routes'
+import { useRbacStore } from '@/stores/rbac'
 
 const router = useRouter()
 const route = useRoute()
+const rbacStore = useRbacStore()
 
-const menuOptions = ref([
-  {
-    label: '근무표 생성',
-    key: '/schedule/step1',
-  },
-])
+const canAccessOrganizationManagement = computed(
+  () => rbacStore.accessState === 'admin_active' || rbacStore.accessState === 'super_active',
+)
+
+const menuOptions = computed(() => {
+  const options = [
+    {
+      label: '근무표 생성',
+      key: '/schedule/step1',
+    },
+  ]
+
+  if (canAccessOrganizationManagement.value) {
+    options.push({
+      label: '조직 관리',
+      key: ADMIN_ORGANIZATION_ROUTE_PATH,
+    })
+  }
+
+  return options
+})
 
 const currentRoute = computed(() => route.path)
 

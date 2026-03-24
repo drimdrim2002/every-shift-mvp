@@ -5,6 +5,7 @@ import { useRbacStore } from '@/stores/rbac';
 import type { AccessState } from '@/types/rbac';
 import {
   ADMIN_DASHBOARD_ROUTE_PATH,
+  ADMIN_ORGANIZATION_ROUTE_PATH,
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
   isAccessStateRoutePath,
@@ -133,6 +134,15 @@ const routes: RouteRecordRaw[] = [
         name: 'AdminDashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '관리자 대시보드' },
+      },
+      {
+        path: ADMIN_ORGANIZATION_ROUTE_PATH.slice(1),
+        name: 'OrganizationManagement',
+        component: () => import('@/views/admin/OrganizationManagement.vue'),
+        meta: {
+          title: '조직 관리',
+          allowedAccessStates: ['super_active', 'admin_active'],
+        },
       },
       {
         path: 'schedule/step1',
