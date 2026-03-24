@@ -981,3 +981,236 @@ Clients must branch by `error.code`, not by free-form message text.
 - The client does not send `organizationId` or role claims in the request body.
 - Transport contract remains organization-scoped even if persistence internals change in `P3-1.2`.
 - The function response is safe for frontend store/router consumption without extra state-name translation.
+
+---
+
+## Dashboard Analytics Contract (P9 Canonical)
+
+This section defines the read-only dashboard analytics boundary for `P9-1.3`.
+
+Canonical sources:
+
+- `docs/specs/p9/P9-1.1-dashboard-metrics-filter-spec.md`
+- `src/types/dashboard.ts`
+
+### Contract Scope
+
+- This section defines:
+  - the client-to-Supabase boundary for dashboard metrics
+  - request/response contracts for admin and employee dashboards
+  - RBAC and scope-resolution rules for organization and employee access
+  - empty/dependency states that must be represented without fabricating zero-valued metrics
+- This section does not define:
+  - the final SQL body of the RPC functions
+  - chart library or page layout concerns
+  - export/download behavior (`P9-3.x`)
+
+### Aggregation Boundary Decision
+
+The canonical dashboard metrics boundary is **Supabase RPC**. Frontend callers must use `supabase.rpc(...)` through a dedicated API wrapper layer.
+
+Decision summary:
+
+- `RPC (chosen)`: primary path for dashboard reads because the metrics are multi-table aggregates over `schedules`, `schedule_assignments`, `employees`, `shifts`, and optional site/rank scope. The database is the correct place to compute fairness counts and enforce tenant scope close to the data.
+- `Edge Function (not primary)`: not used for the main dashboard read path because it adds an extra network hop and duplicates auth/scope checks that are better enforced in SQL/RLS-adjacent logic. Edge Functions remain appropriate for export or long-running report generation later.
+- `Direct client aggregation (forbidden)`: the browser must not fetch raw assignment sets and recompute fairness metrics locally. That would duplicate business formulas, enlarge payloads, and weaken RBAC guarantees.
+
+### Client Boundary
+
+The public frontend boundary is:
+
+```typescript
+getAdminDashboardStats(input: AdminDashboardStatsRequest): Promise<AdminDashboardStatsResponse>
+getEmployeeDashboardStats(input: EmployeeDashboardStatsRequest): Promise<EmployeeDashboardStatsResponse>
+```
+
+These contracts are defined in `src/types/dashboard.ts`.
+
+Implementation rule:
+
+- Optional UI filters may be omitted at the TypeScript/browser contract.
+- The API layer normalizes omitted optional filters to nullable RPC arguments (`null`) when calling `supabase.rpc(...)`.
+- Sentinel strings such as `'all'` or `'none'` must not cross the API boundary.
+
+### RPC Function Contract
+
+#### Admin dashboard RPC
+
+Frontend wrapper target:
+
+```typescript
+supabase.rpc('get_admin_dashboard_stats', {
+  p_period_month: input.filters.periodMonth,
+  p_site_id: input.filters.siteId ?? null,
+  p_rank_id: input.filters.rankId ?? null,
+  p_grouping: input.scope.grouping,
+  p_organization_id: input.scope.organizationId ?? null,
+});
+```
+
+Rules:
+
+- `p_period_month` is required and uses `YYYY-MM`.
+- `p_grouping` is required and must be `'employee'` or `'site'`.
+- `p_organization_id` is:
+  - required for `super_active`
+  - omitted / `null` for `admin_active`, where the server resolves the caller's effective organization
+- `p_site_id` and `p_rank_id` are nullable optional filters.
+- The RPC must reject cross-organization access. `admin_active` cannot override organization scope.
+- The RPC must return an `empty` state for months without persisted schedule data instead of returning fabricated zeroed summary values.
+
+#### Employee dashboard RPC
+
+Frontend wrapper target:
+
+```typescript
+supabase.rpc('get_employee_dashboard_stats', {
+  p_period_month: input.filters.periodMonth,
+  p_site_id: input.filters.siteId ?? null,
+  p_rank_id: input.filters.rankId ?? null,
+});
+```
+
+Rules:
+
+- The public client contract intentionally does **not** accept an arbitrary `employeeId`.
+- The RPC resolves the caller's employee scope from `auth.uid()` and the linked employee row (`employees.user_id`) inside the database boundary.
+- If the signed-in account has no linked employee row for the effective scope, the RPC returns a `dependency` state with reason `employee_mapping_required`.
+- `admin_active` and `super_active` visiting `/dashboard/employee` still use the same employee-perspective contract; widening this API into an arbitrary employee-inspection endpoint is out of scope for `P9-1.3`.
+
+### TypeScript Contract
+
+The exact TypeScript contract lives in `src/types/dashboard.ts`.
+
+Key request interfaces:
+
+```typescript
+export interface DashboardFilters {
+  periodMonth: string;
+  siteId?: string | null;
+  rankId?: string | null;
+}
+
+export interface AdminDashboardScopeSelector {
+  organizationId?: string | null;
+  grouping: 'employee' | 'site';
+}
+
+export interface AdminDashboardStatsRequest {
+  filters: DashboardFilters;
+  scope: AdminDashboardScopeSelector;
+}
+
+export interface EmployeeDashboardStatsRequest {
+  filters: DashboardFilters;
+}
+```
+
+Key response states:
+
+- `ready`: metrics and data rows are available
+- `empty`: there is no persisted schedule data for the selected month/scope
+- `dependency`: a required non-permission dependency is missing, currently `employee_mapping_required` only
+
+### Response Shape Semantics
+
+#### Admin dashboard response
+
+`AdminDashboardStatsResponse` returns:
+
+- `dashboardScope='admin'`
+- `filters`: resolved filter values with explicit `null` for unselected optional filters
+- `resolvedScope.organizationId`: the organization actually used after RBAC resolution
+- `resolvedScope.grouping`: `'employee'` or `'site'`
+- `summary`: fairness summary metrics for the current grouping set
+- `rows`: grouped metric rows
+
+Summary metrics:
+
+- `nightShiftAvg`, `nightShiftMin`, `nightShiftMax`, `nightShiftGap`
+- `weekendWorkAvg`, `weekendWorkMin`, `weekendWorkMax`, `weekendWorkGap`
+- `groupCount`: number of included grouped rows after all filters
+
+Grouped row semantics:
+
+- `grouping='employee'`:
+  - one row per included employee
+  - each row exposes `nightShiftCount` and `weekendWorkCount`
+  - row metadata may include `siteId`, `siteName`, `rankId`, `rankName`
+- `grouping='site'`:
+  - one row per included site
+  - each row exposes `nightShiftCount` and `weekendWorkCount`
+
+#### Employee dashboard response
+
+`EmployeeDashboardStatsResponse` returns:
+
+- `dashboardScope='employee'`
+- `filters`: resolved filter values with explicit `null` for unselected optional filters
+- `resolvedScope.organizationId`: effective organization scope when available
+- `resolvedScope.employeeId`: resolved employee id when available
+- `summary`:
+  - `myNightShiftCount`
+  - `myWeekendWorkCount`
+  - `teamNightShiftAvg`
+  - `teamWeekendWorkAvg`
+  - `teamMemberCount`
+- `calendarAssignments`: persisted daily assignments for the month, each including:
+  - `date`
+  - `shiftCode`
+  - `shiftName`
+  - optional `siteId` / `siteName`
+
+### Metric Evaluation Rules
+
+All dashboard RPC implementations must inherit the metric semantics from `P9-1.1` exactly:
+
+- Source data is persisted schedule assignment data only.
+- `N` counts as a night shift.
+- Weekend work means Saturday/Sunday assignments whose shift code is one of `D`, `E`, `N`.
+- `O` is excluded from work-count metrics.
+- The selected month is always the evaluation window.
+- Hidden or unsupported filters must be omitted at the client contract, not represented by sentinel strings.
+
+Implementation note:
+
+- Dashboard queries should operate on finalized persisted schedule states (`complete`, `changed`) rather than draft/running states so the dashboard does not expose in-progress solver output.
+
+### RBAC and Scope Rules
+
+- `super_active`
+  - may call admin dashboard RPC for any selected organization
+  - must provide `organizationId`; implicit all-organization aggregation is forbidden
+  - may call employee dashboard RPC only for the signed-in user's own employee mapping
+- `admin_active`
+  - may call admin dashboard RPC only for the effective membership organization
+  - organization override attempts must be rejected
+  - may call employee dashboard RPC only for the signed-in user's own employee mapping
+- `user_active`
+  - may not call admin dashboard RPC
+  - may call employee dashboard RPC only for the signed-in user's own employee mapping
+
+### Error and State Contract
+
+Known product states must be modeled in the response union where possible rather than being surfaced as generic transport failures:
+
+- `empty` + `reason='no_persisted_schedule'`
+- `dependency` + `reason='employee_mapping_required'`
+
+Canonical RPC/business error codes:
+
+| Code                                    | Meaning                                                                        |
+| :-------------------------------------- | :----------------------------------------------------------------------------- |
+| `DASHBOARD_ACCESS_DENIED`               | Caller role cannot access the requested dashboard scope                        |
+| `DASHBOARD_ORGANIZATION_SCOPE_REQUIRED` | `super_active` attempted admin dashboard access without selecting organization |
+| `DASHBOARD_INVALID_PERIOD_MONTH`        | `periodMonth` failed `YYYY-MM` validation                                      |
+| `DASHBOARD_UNSUPPORTED_RANK_SCOPE`      | `rankId` was provided before employee-rank mapping is supported                |
+| `DASHBOARD_INTERNAL_ERROR`              | Unexpected server-side failure                                                 |
+
+### Implementation Checklist
+
+- Frontend reads must go through RPC wrappers, not ad hoc table joins in views/stores.
+- The API layer normalizes omitted optional filters to nullable RPC args.
+- The SQL layer enforces auth-derived organization/employee scope.
+- Super admin requests must never default to implicit all-org aggregation.
+- Empty/dependency states must remain distinguishable from numeric zero metrics.
