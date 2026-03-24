@@ -2001,7 +2001,7 @@
       "id": "df783bb0-cbc9-4f5d-ab0f-cec0d025e39d",
       "name": "P3-2.4 온보딩 완료 전 이전 단계 재진입 UX/상태 규칙 정의",
       "description": "Step 3 완료 전까지 admin이 온보딩에서 Step 1/Step 2를 다시 열어 수정할 수 있는지, 어떤 CTA와 상태 규칙으로 허용할지 canonical UX 규칙을 정의한다. 기존 P3-2.1의 '첫 미완료 단계만 actionable' 규칙과의 충돌을 정리하고, 완료된 step의 재진입 허용 범위와 종료 조건을 고정한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P3",
       "dependencies": [
         {
