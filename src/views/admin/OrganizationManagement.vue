@@ -7,14 +7,21 @@
           <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
             {{ scopeRoleLabel }}
           </span>
+          <n-tag
+            round
+            size="small"
+            type="info"
+          >
+            6-탭 IA 확정
+          </n-tag>
         </div>
         <div>
           <h1 class="text-3xl font-semibold tracking-tight text-slate-900">
             조직 관리
           </h1>
           <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            조직 정보, 운영 규칙, 마스터 데이터, 배치 기준을 한 화면에서 관리하는 관리자 셸입니다.
-            Phase 5에서는 구조와 접근 계약만 확정하고 저장 로직은 후속 태스크에서 연결합니다.
+            조직 정보, 시프트, 근무 제약, 스킬, 직급, 사이트를 단일 라우트에서 관리하는 Phase 5 관리자 셸입니다.
+            이 태스크에서는 각 탭의 책임과 기본 정책을 확정하고, 저장 연결은 후속 태스크에서 붙입니다.
           </p>
         </div>
       </div>
@@ -36,11 +43,19 @@
             {{ selectedOrganizationLabel }}
           </p>
         </div>
+        <div>
+          <p class="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+            데이터 상태
+          </p>
+          <p class="mt-1 font-semibold text-slate-900">
+            {{ dataLoadSummary }}
+          </p>
+        </div>
         <n-button
           secondary
           type="primary"
           class="justify-self-start"
-          @click="handleDeferredAction('조직 선택과 저장 연결은 P5-1.3 이후 태스크에서 활성화됩니다.')"
+          @click="handleDeferredAction('슈퍼 관리자 조직 선택과 저장 연결은 P5-1.3 이후 태스크에서 활성화됩니다.')"
         >
           연결 예정 기능 보기
         </n-button>
@@ -52,8 +67,26 @@
       :show-icon="true"
       class="rounded-2xl"
     >
-      이 페이지는 Phase 5 관리자 IA 셸입니다. 저장, 삭제, 조직 전환은 아직 연결하지 않으며
-      `site_requirements` 대신 `site_staffing_requirements` 기반 관리 화면을 붙일 준비만 완료합니다.
+      삭제는 soft delete 컬럼이 없는 한 차단 우선 정책을 유지합니다.
+      Step wizard 컴포넌트 리팩터는 P7로 미루며, 관리자 화면은 `site_staffing_requirements`를 목표 경계로 삼습니다.
+    </n-alert>
+
+    <n-alert
+      v-if="organizationContextMessage"
+      type="info"
+      :show-icon="true"
+      class="rounded-2xl"
+    >
+      {{ organizationContextMessage }}
+    </n-alert>
+
+    <n-alert
+      v-if="masterDataLoadError"
+      type="error"
+      :show-icon="true"
+      class="rounded-2xl"
+    >
+      {{ masterDataLoadError }}
     </n-alert>
 
     <n-card
@@ -83,9 +116,19 @@
             조직 관리 작업 영역
           </h2>
           <p class="text-sm text-slate-500">
-            단일 라우트(`/admin/organization`) 안에서 탭으로 세부 도메인을 분리합니다.
+            단일 라우트(`/admin/organization`) 안에서 6개 탭으로 도메인을 분리합니다.
           </p>
         </div>
+      </template>
+
+      <template #header-extra>
+        <n-tag
+          round
+          :type="masterDataLoading ? 'warning' : 'success'"
+          size="small"
+        >
+          {{ masterDataLoading ? '데이터 동기화 중' : 'UX 셸 준비 완료' }}
+        </n-tag>
       </template>
 
       <n-tabs
@@ -99,30 +142,33 @@
           :name="tab.key"
           :tab="tab.label"
         >
-          <div class="space-y-4">
+          <div
+            v-if="tab.key === 'info'"
+            class="space-y-4"
+          >
             <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
               <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <h3 class="text-lg font-semibold text-slate-900">
-                    {{ tab.headline }}
+                    기본 정보 탭
                   </h3>
                   <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                    {{ tab.description }}
+                    조직명/유형 수정 폼이 들어갈 위치를 고정하고, 슈퍼 관리자 조직 선택 UX와 저장 연결 지점을 상단 컨텍스트에 모읍니다.
                   </p>
                 </div>
                 <n-button
                   tertiary
                   type="primary"
-                  @click="handleDeferredAction(tab.ctaMessage)"
+                  @click="handleDeferredAction('기본 정보 저장 로직은 organizationStore.updateCurrentOrganization() 경계로 연결됩니다.')"
                 >
-                  연결 포인트 확인
+                  저장 경계 보기
                 </n-button>
               </div>
             </section>
 
-            <section class="grid gap-4 lg:grid-cols-2">
+            <section class="grid gap-4 lg:grid-cols-3">
               <article
-                v-for="card in tab.cards"
+                v-for="card in infoCards"
                 :key="card.title"
                 class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
               >
@@ -145,6 +191,480 @@
               </article>
             </section>
           </div>
+
+          <div
+            v-else-if="tab.key === 'shifts'"
+            class="space-y-4"
+          >
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      시프트 마스터
+                    </h3>
+                    <n-tag
+                      size="small"
+                      :type="isShiftPreview ? 'warning' : 'success'"
+                    >
+                      {{ isShiftPreview ? '기본 프리셋 표시' : `실데이터 ${shiftTableRows.length}건` }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    코드, 이름, 색상, 시작/종료 시각을 한 표에서 관리합니다. 기본 3교대와 휴무(O) 프리셋을 기준으로 유지하며,
+                    삭제는 참조 데이터가 남아 있으면 차단합니다.
+                  </p>
+                </div>
+                <n-button
+                  tertiary
+                  type="primary"
+                  @click="handleDeferredAction('시프트 CRUD 연결은 P5-2.2에서 확정합니다.')"
+                >
+                  연결 포인트 확인
+                </n-button>
+              </div>
+            </section>
+
+            <section class="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(300px,1fr)]">
+              <n-card
+                title="시프트 목록"
+                class="rounded-3xl"
+              >
+                <template #header-extra>
+                  <n-button
+                    tertiary
+                    type="primary"
+                    @click="handleDeferredAction('시프트 추가 모달은 P5-2.2에서 활성화됩니다.')"
+                  >
+                    + 추가
+                  </n-button>
+                </template>
+
+                <n-data-table
+                  :columns="shiftColumns"
+                  :data="shiftTableRows"
+                  :bordered="false"
+                  :pagination="false"
+                  :single-line="false"
+                  :row-key="getRowKey"
+                />
+              </n-card>
+
+              <div class="space-y-4">
+                <article
+                  v-for="card in shiftCards"
+                  :key="card.title"
+                  class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p class="text-base font-semibold text-slate-900">
+                    {{ card.title }}
+                  </p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                    <li
+                      v-for="item in card.items"
+                      :key="item"
+                      class="flex gap-2"
+                    >
+                      <span class="mt-1 size-1.5 rounded-full bg-slate-400" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div
+            v-else-if="tab.key === 'constraints'"
+            class="space-y-4"
+          >
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      근무 제약 설정
+                    </h3>
+                    <n-tag
+                      size="small"
+                      :type="organizationMasterStore.settings ? 'success' : 'warning'"
+                    >
+                      {{ organizationMasterStore.settings ? 'organization_settings 로드됨' : '기본 제약값 표시' }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    `organization_settings` 단일 레코드에 연속 N, 주간 근무시간, 휴무 기준, 시프트별 최소 휴식시간을 저장합니다.
+                    휴식시간 행은 현재 시프트 정의를 기반으로 동적으로 표시됩니다.
+                  </p>
+                </div>
+                <n-button
+                  tertiary
+                  type="primary"
+                  @click="handleDeferredAction('근무 제약 상세 요구사항과 저장 활성화는 P5-2.3에서 확정합니다.')"
+                >
+                  상세 요구사항 보기
+                </n-button>
+              </div>
+            </section>
+
+            <section class="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]">
+              <n-card
+                title="근무 제약 입력 셸"
+                class="rounded-3xl"
+              >
+                <div class="grid gap-4 md:grid-cols-2">
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-slate-700">최대 연속 N근무</span>
+                    <n-input-number
+                      :value="constraintSnapshot.maxConsecutiveNightShifts"
+                      :min="0"
+                      class="w-full"
+                      readonly
+                    />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-slate-700">주 평균 근무시간</span>
+                    <n-input-number
+                      :value="constraintSnapshot.weeklyTargetHours"
+                      :min="0"
+                      class="w-full"
+                      readonly
+                    />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-slate-700">주 최대 근무시간</span>
+                    <n-input-number
+                      :value="constraintSnapshot.weeklyMaxHours"
+                      :min="0"
+                      class="w-full"
+                      readonly
+                    />
+                  </label>
+                  <label class="space-y-2">
+                    <span class="text-sm font-medium text-slate-700">주 휴무일</span>
+                    <n-input-number
+                      :value="constraintSnapshot.weeklyOffDays"
+                      :min="0"
+                      class="w-full"
+                      readonly
+                    />
+                  </label>
+                </div>
+
+                <div class="mt-6 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <p class="text-sm font-semibold text-slate-900">
+                      시프트별 최소 휴식시간
+                    </p>
+                    <n-tag
+                      size="small"
+                      type="info"
+                    >
+                      시프트 목록 연동
+                    </n-tag>
+                  </div>
+                  <div class="grid gap-3">
+                    <div
+                      v-for="shift in restHourShiftRows"
+                      :key="shift.id"
+                      class="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-[120px_minmax(0,1fr)] md:items-center"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span
+                          class="size-3 rounded-full border border-slate-200"
+                          :style="{ backgroundColor: shift.colorCode }"
+                        />
+                        <span class="text-sm font-medium text-slate-700">
+                          {{ shift.code }} 근무 후
+                        </span>
+                      </div>
+                      <n-input-number
+                        :value="constraintSnapshot.minimumRestHours[shift.code] ?? 0"
+                        :min="0"
+                        class="w-full"
+                        readonly
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                  <n-button
+                    type="primary"
+                    tertiary
+                    @click="handleDeferredAction('근무 제약 저장 버튼은 organizationMasterStore.saveSettings() 경계로 연결됩니다.')"
+                  >
+                    저장 경계 보기
+                  </n-button>
+                </div>
+              </n-card>
+
+              <div class="space-y-4">
+                <article
+                  v-for="card in constraintCards"
+                  :key="card.title"
+                  class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p class="text-base font-semibold text-slate-900">
+                    {{ card.title }}
+                  </p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                    <li
+                      v-for="item in card.items"
+                      :key="item"
+                      class="flex gap-2"
+                    >
+                      <span class="mt-1 size-1.5 rounded-full bg-slate-400" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div
+            v-else-if="tab.key === 'skills'"
+            class="space-y-4"
+          >
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      스킬 마스터
+                    </h3>
+                    <n-tag
+                      size="small"
+                      :type="isSkillPreview ? 'warning' : 'success'"
+                    >
+                      {{ isSkillPreview ? '기본 GENERAL 프리셋' : `실데이터 ${skillTableRows.length}건` }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    스킬 코드는 조직 내 고유값으로 관리하고, 직원 스킬 및 사이트 요구인원과 연결될 것을 전제로 삭제 차단 UX를 선행합니다.
+                  </p>
+                </div>
+                <n-button
+                  tertiary
+                  type="primary"
+                  @click="handleDeferredAction('스킬 CRUD 연결은 이후 마스터 데이터 태스크에서 활성화됩니다.')"
+                >
+                  연결 포인트 확인
+                </n-button>
+              </div>
+            </section>
+
+            <section class="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+              <n-card
+                title="스킬 목록"
+                class="rounded-3xl"
+              >
+                <template #header-extra>
+                  <n-button
+                    tertiary
+                    type="primary"
+                    @click="handleDeferredAction('스킬 추가 모달은 후속 CRUD 태스크에서 활성화됩니다.')"
+                  >
+                    + 추가
+                  </n-button>
+                </template>
+
+                <n-data-table
+                  :columns="skillColumns"
+                  :data="skillTableRows"
+                  :bordered="false"
+                  :pagination="false"
+                  :single-line="false"
+                  :row-key="getRowKey"
+                />
+              </n-card>
+
+              <div class="space-y-4">
+                <article
+                  v-for="card in skillCards"
+                  :key="card.title"
+                  class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p class="text-base font-semibold text-slate-900">
+                    {{ card.title }}
+                  </p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                    <li
+                      v-for="item in card.items"
+                      :key="item"
+                      class="flex gap-2"
+                    >
+                      <span class="mt-1 size-1.5 rounded-full bg-slate-400" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div
+            v-else-if="tab.key === 'ranks'"
+            class="space-y-4"
+          >
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      직급 마스터
+                    </h3>
+                    <n-tag
+                      size="small"
+                      :type="isRankPreview ? 'warning' : 'success'"
+                    >
+                      {{ isRankPreview ? '기본 RN 프리셋' : `실데이터 ${rankTableRows.length}건` }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    직급 코드, 이름, 크레딧을 표로 관리합니다. 크레딧은 필수 전환 규칙이 정리되기 전까지 nullable로 유지하고, 참조 중 삭제는 막습니다.
+                  </p>
+                </div>
+                <n-button
+                  tertiary
+                  type="primary"
+                  @click="handleDeferredAction('직급/크레딧 상세 규칙은 P5-2.4에서 확정합니다.')"
+                >
+                  상세 요구사항 보기
+                </n-button>
+              </div>
+            </section>
+
+            <section class="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(300px,1fr)]">
+              <n-card
+                title="직급 목록"
+                class="rounded-3xl"
+              >
+                <template #header-extra>
+                  <n-button
+                    tertiary
+                    type="primary"
+                    @click="handleDeferredAction('직급 추가 모달은 P5-2.4 이후 태스크에서 활성화됩니다.')"
+                  >
+                    + 추가
+                  </n-button>
+                </template>
+
+                <n-data-table
+                  :columns="rankColumns"
+                  :data="rankTableRows"
+                  :bordered="false"
+                  :pagination="false"
+                  :single-line="false"
+                  :row-key="getRowKey"
+                />
+              </n-card>
+
+              <div class="space-y-4">
+                <article
+                  v-for="card in rankCards"
+                  :key="card.title"
+                  class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p class="text-base font-semibold text-slate-900">
+                    {{ card.title }}
+                  </p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                    <li
+                      v-for="item in card.items"
+                      :key="item"
+                      class="flex gap-2"
+                    >
+                      <span class="mt-1 size-1.5 rounded-full bg-slate-400" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <div
+            v-else-if="tab.key === 'sites'"
+            class="space-y-4"
+          >
+            <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      사이트 마스터
+                    </h3>
+                    <n-tag
+                      size="small"
+                      :type="siteTableRows.length > 0 ? 'success' : 'warning'"
+                    >
+                      {{ siteTableRows.length > 0 ? `실데이터 ${siteTableRows.length}건` : '상세 UX는 P5-3.2 예정' }}
+                    </n-tag>
+                  </div>
+                  <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                    사이트 자체는 이 탭에서 관리하고, 사이트별 요일/직급/스킬 요구인원 편집은 `site_staffing_requirements` 전용 후속 화면으로 분리합니다.
+                  </p>
+                </div>
+                <n-button
+                  tertiary
+                  type="primary"
+                  @click="handleDeferredAction('사이트 상세 CRUD UX는 P5-3.2, 요일별 요구인원 편집은 P5-3.3에서 설계합니다.')"
+                >
+                  후속 태스크 보기
+                </n-button>
+              </div>
+            </section>
+
+            <section class="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)]">
+              <n-card
+                title="사이트 목록"
+                class="rounded-3xl"
+              >
+                <template #header-extra>
+                  <n-button
+                    tertiary
+                    type="primary"
+                    @click="handleDeferredAction('사이트 추가는 P5-3.2에서 활성화됩니다.')"
+                  >
+                    + 추가
+                  </n-button>
+                </template>
+
+                <n-data-table
+                  :columns="siteColumns"
+                  :data="siteTableRows"
+                  :bordered="false"
+                  :pagination="false"
+                  :single-line="false"
+                  :row-key="getRowKey"
+                />
+              </n-card>
+
+              <div class="space-y-4">
+                <article
+                  v-for="card in siteCards"
+                  :key="card.title"
+                  class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <p class="text-base font-semibold text-slate-900">
+                    {{ card.title }}
+                  </p>
+                  <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+                    <li
+                      v-for="item in card.items"
+                      :key="item"
+                      class="flex gap-2"
+                    >
+                      <span class="mt-1 size-1.5 rounded-full bg-slate-400" />
+                      <span>{{ item }}</span>
+                    </li>
+                  </ul>
+                </article>
+              </div>
+            </section>
+          </div>
         </n-tab-pane>
       </n-tabs>
     </n-card>
@@ -152,187 +672,360 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, h, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NAlert, NButton, NCard, NTabPane, NTabs } from 'naive-ui'
+import {
+  NAlert,
+  NButton,
+  NCard,
+  NDataTable,
+  NInputNumber,
+  NTabPane,
+  NTabs,
+  NTag,
+  type DataTableColumns,
+} from 'naive-ui'
+import { useOrganizationMasterStore } from '@/stores/organization-master'
 import { useOrganizationStore } from '@/stores/organization'
 import { useRbacStore } from '@/stores/rbac'
+import type { WorkConstraints } from '@/types/organization'
+import type { Rank } from '@/types/rank'
+import type { Shift } from '@/types/shift'
+import type { Site } from '@/types/site'
+import type { Skill } from '@/types/skill'
 import { showInfo } from '@/utils/message'
 
-type OrganizationManagementTabKey = 'overview' | 'settings' | 'master-data' | 'staffing'
+type OrganizationManagementTabKey =
+  | 'info'
+  | 'shifts'
+  | 'constraints'
+  | 'skills'
+  | 'ranks'
+  | 'sites'
 
 interface ManagementPrinciple {
   title: string
   description: string
 }
 
-interface TabCard {
-  title: string
-  description: string
-  items: string[]
-}
-
 interface TabDefinition {
   key: OrganizationManagementTabKey
   label: string
-  headline: string
-  description: string
-  ctaMessage: string
-  cards: TabCard[]
 }
 
-const VALID_TAB_KEYS: OrganizationManagementTabKey[] = ['overview', 'settings', 'master-data', 'staffing']
-const route = useRoute()
-const router = useRouter()
-const rbacStore = useRbacStore()
-const organizationStore = useOrganizationStore()
+interface ContentCard {
+  title: string
+  description?: string
+  items: string[]
+}
+
+const DEFAULT_WORK_CONSTRAINTS: WorkConstraints = {
+  weeklyTargetHours: 40,
+  weeklyMaxHours: 52,
+  weeklyOffDays: 2,
+}
+
+const DEFAULT_MINIMUM_REST_HOURS: Record<string, number> = {
+  D: 24,
+  E: 24,
+  N: 36,
+}
+
+const DEFAULT_SHIFT_ROWS: Shift[] = [
+  {
+    id: 'preview-shift-d',
+    organizationId: 'preview',
+    code: 'D',
+    name: '낮',
+    colorCode: '#FF6B6B',
+    startTime: '07:00',
+    endTime: '15:00',
+  },
+  {
+    id: 'preview-shift-e',
+    organizationId: 'preview',
+    code: 'E',
+    name: '저녁',
+    colorCode: '#4ECDC4',
+    startTime: '15:00',
+    endTime: '23:00',
+  },
+  {
+    id: 'preview-shift-n',
+    organizationId: 'preview',
+    code: 'N',
+    name: '밤',
+    colorCode: '#45B7D1',
+    startTime: '23:00',
+    endTime: '07:00',
+  },
+  {
+    id: 'preview-shift-o',
+    organizationId: 'preview',
+    code: 'O',
+    name: '휴무',
+    colorCode: '#96CEB4',
+    startTime: null,
+    endTime: null,
+  },
+]
+
+const DEFAULT_SKILL_ROWS: Skill[] = [
+  {
+    id: 'preview-skill-general',
+    organizationId: 'preview',
+    code: 'GENERAL',
+    name: '일반',
+  },
+]
+
+const DEFAULT_RANK_ROWS: Rank[] = [
+  {
+    id: 'preview-rank-rn',
+    organizationId: 'preview',
+    code: 'RN',
+    name: '일반 간호사',
+    credit: null,
+  },
+]
+
+const VALID_TAB_KEYS: OrganizationManagementTabKey[] = ['info', 'shifts', 'constraints', 'skills', 'ranks', 'sites']
+const LEGACY_TAB_MAP: Record<string, OrganizationManagementTabKey> = {
+  overview: 'info',
+  settings: 'constraints',
+  'master-data': 'shifts',
+  staffing: 'sites',
+}
 
 const managementPrinciples: ManagementPrinciple[] = [
   {
-    title: '권한 가드 유지',
-    description: '`allowedAccessStates` 규약을 그대로 사용하고, `super_active`와 `admin_active`만 진입할 수 있습니다.',
+    title: '6-탭 단일 페이지',
+    description: '`/admin/organization` 한 페이지 안에서 기본 정보, 시프트, 근무 제약, 스킬, 직급, 사이트를 탭으로 분리합니다.',
   },
   {
-    title: '단일 페이지 셸',
-    description: 'Phase 5에서는 `/admin/organization` 한 페이지에 탭을 두고, 중첩 라우트 없이 도메인 구조만 고정합니다.',
+    title: '삭제 차단 우선',
+    description: 'soft delete 컬럼이 없는 한 즉시 비활성화 대신 FK 참조 차단을 먼저 적용하고, UX 문구도 같은 정책을 따릅니다.',
   },
   {
-    title: '저장 연결 보류',
-    description: '데이터 조회·저장·삭제 API는 P5-1.3 이후 계약에 맞춰 연결하고, 이번 태스크에서는 진입점만 노출합니다.',
+    title: '기본값 프리셋 제공',
+    description: '새 조직은 3교대(D/E/N/O), GENERAL 스킬, RN 직급을 기본으로 시작하는 정책을 화면에서도 명시합니다.',
   },
   {
-    title: '레거시 스키마 보호',
-    description: '관리 화면은 서비스 전환용 `site_staffing_requirements`를 목표로 하고, 기존 스케줄 wizard의 `site_requirements`는 건드리지 않습니다.',
+    title: '서비스 전환 경계 고정',
+    description: '사이트 탭은 `site_staffing_requirements` 중심의 관리자 경계를 준비하고, 기존 wizard의 `site_requirements`는 건드리지 않습니다.',
   },
 ]
 
 const tabDefinitions: TabDefinition[] = [
+  { key: 'info', label: '기본 정보' },
+  { key: 'shifts', label: '시프트' },
+  { key: 'constraints', label: '근무 제약' },
+  { key: 'skills', label: '스킬' },
+  { key: 'ranks', label: '직급' },
+  { key: 'sites', label: '사이트' },
+]
+
+const infoCards: ContentCard[] = [
   {
-    key: 'overview',
-    label: '조직 정보',
-    headline: '조직 기본 정보와 권한 범위를 확인합니다.',
-    description: '조직 이름, 유형, 수정 가능 범위, 슈퍼/어드민의 책임 경계를 한 곳에서 보여주는 영역입니다.',
-    ctaMessage: '조직 기본 정보 저장 연결은 P5-1.3에서 확정됩니다.',
-    cards: [
-      {
-        title: '이번 태스크에서 확정한 내용',
-        description: '조직 정보는 단일 관리자 페이지에서 시작하며, 직접 접근은 라우터 가드가 차단합니다.',
-        items: [
-          '슈퍼 관리자와 조직 관리자만 메뉴를 볼 수 있습니다.',
-          '어드민은 자기 조직만 수정하는 흐름을 전제로 셸을 고정합니다.',
-          '슈퍼 관리자의 조직 선택 UX는 이 페이지 상단 컨텍스트 영역에서 이어집니다.',
-        ],
-      },
-      {
-        title: '후속 연결 포인트',
-        description: '데이터 계약이 정리되면 아래 순서로 연결합니다.',
-        items: [
-          'organizations 조회와 수정 폼 바인딩',
-          'organization type 허용 범위 검증',
-          '슈퍼 관리자 전용 조직 전환 selector',
-        ],
-      },
+    title: '기본 정보 책임',
+    description: '조직명과 유형 수정은 이 탭이 맡고, 조직 생성/삭제는 Phase 5 범위에서 제외합니다.',
+    items: [
+      '조직명은 organizations.name에 직접 연결됩니다.',
+      '조직 유형은 persisted type(hospital/fire/police)만 저장합니다.',
+      '저장 API는 organizationStore.updateCurrentOrganization() 경계를 재사용합니다.',
     ],
   },
   {
-    key: 'settings',
-    label: '운영 설정',
-    headline: '연속 N, 최소 휴식, 주간 제약 같은 조직 규칙을 묶습니다.',
-    description: 'organization_settings 책임 범위를 시각적으로 분리해 저장 API가 붙기 전에도 도메인 경계를 명확히 유지합니다.',
-    ctaMessage: '운영 설정 저장 API는 organization_settings 경계 확정 후 연결됩니다.',
-    cards: [
-      {
-        title: '운영 규칙 범위',
-        description: '조직 차원의 스케줄링 제약은 별도 설정 영역에서 관리합니다.',
-        items: [
-          '최대 연속 야간 근무 수',
-          '시프트 전환 최소 휴식 시간',
-          '주간 목표/최대 근무 시간과 휴무일 기준',
-        ],
-      },
-      {
-        title: '현재 셸 상태',
-        description: '저장 버튼 없이 설명 카드만 두고, 추후 폼 컴포넌트가 교체될 위치를 확보합니다.',
-        items: [
-          'P5-1.3에서 direct `.from()` 기반 API 연결 여부 확정',
-          '필드 단위 검증 규칙은 P5-2.3 이후 상세화',
-          '읽기/쓰기 실패 처리는 Naive UI 글로벌 메시지로 통일',
-        ],
-      },
+    title: '권한/범위',
+    description: '슈퍼 관리자와 조직 관리자의 책임을 UI에서 분리합니다.',
+    items: [
+      '슈퍼 관리자는 조직 선택 UX가 연결되면 대상 조직을 전환합니다.',
+      '조직 관리자는 자기 조직만 수정합니다.',
+      'user 역할은 메뉴 미노출과 라우터 가드로 차단합니다.',
     ],
   },
   {
-    key: 'master-data',
-    label: '마스터 데이터',
-    headline: '시프트, 사이트, 스킬, 직급 관리 탭이 들어올 영역입니다.',
-    description: 'Phase 5-2.x 작업이 붙을 수 있도록 마스터 데이터 묶음을 별도 탭으로 분리해 후속 확장 비용을 줄입니다.',
-    ctaMessage: '마스터 데이터 CRUD 연결은 P5-2.x 태스크에서 순차적으로 활성화됩니다.',
-    cards: [
-      {
-        title: '포함 도메인',
-        description: '병렬 탭으로 확장될 후보들을 미리 고정합니다.',
-        items: [
-          '시프트 정의와 표시 규칙',
-          '사이트 목록과 사이트별 운영 단위',
-          '스킬 및 직급과 크레딧 설정',
-        ],
-      },
-      {
-        title: '안전 장치',
-        description: '삭제는 즉시 구현하지 않고 참조 중 차단 정책을 우선합니다.',
-        items: [
-          'soft delete 컬럼이 없으면 삭제 차단을 기본값으로 유지',
-          'wizard 컴포넌트 리팩터는 P7로 미루고 현행 UI를 보존',
-          'FK 참조가 있는 엔티티는 DB 차단 정책과 UX를 함께 검토',
-        ],
-      },
-    ],
-  },
-  {
-    key: 'staffing',
-    label: '배치 기준',
-    headline: '서비스 전환용 인력 배치 기준을 연결할 자리입니다.',
-    description: '레거시 Step 2 흐름과 분리된 관리자용 기준 데이터를 다루며, `site_staffing_requirements`를 주 경계로 사용합니다.',
-    ctaMessage: '배치 기준 화면은 `site_staffing_requirements` 전용으로 후속 연결됩니다.',
-    cards: [
-      {
-        title: '스키마 경계',
-        description: '관리자 페이지와 스케줄 생성 wizard가 서로 다른 데이터 책임을 가지도록 분리합니다.',
-        items: [
-          '`site_staffing_requirements`는 관리자 화면의 canonical 소스입니다.',
-          '`site_requirements`는 기존 wizard 호환성을 위해 그대로 둡니다.',
-          '두 스키마를 동시에 수정하는 작업은 이 단계에서 금지합니다.',
-        ],
-      },
-      {
-        title: '후속 확장',
-        description: '월별 확장, 사이트/직급/스킬 조합, 테넌트 격리 검증이 이어집니다.',
-        items: [
-          '조직 단위 조회와 저장 가드 추가',
-          'URL 조작에 대한 접근 차단 확인',
-          '월별 확장 UI 또는 계산 보조 도구 연결',
-        ],
-      },
+    title: '후속 연결 포인트',
+    description: '이 태스크는 입력 필드 배치와 화면 책임만 고정합니다.',
+    items: [
+      '상단 컨텍스트 영역에 조직 선택 UI 배치',
+      '저장 성공/실패는 글로벌 메시지 패턴으로 통일',
+      'P5-1.4 테스트 시나리오와 접근 제어 계약 유지',
     ],
   },
 ]
 
+const shiftCards: ContentCard[] = [
+  {
+    title: '기본 프리셋',
+    items: [
+      '신규 조직 기본 시프트: D, E, N, O',
+      '표시 필드: 코드, 이름, 색상, 시작/종료 시각',
+      'O(휴무)는 시간 없이 유지 가능',
+    ],
+  },
+  {
+    title: '삭제 정책',
+    items: [
+      'schedule_assignments, site_requirements 참조가 있으면 삭제 차단',
+      'soft delete 컬럼이 생기기 전까지 숨김 처리 대신 명시적 오류 메시지 사용',
+      'wizard 컴포넌트 리팩터는 P7로 이연',
+    ],
+  },
+  {
+    title: '저장 경계',
+    items: [
+      '조회/생성/수정/삭제는 shift API 경계를 그대로 사용',
+      '관리 화면은 모달/표 셸만 제공하고 세부 검증은 P5-2.2에서 확정',
+      '실제 데이터가 없으면 기본 프리셋을 미리보기로 노출',
+    ],
+  },
+]
+
+const constraintCards: ContentCard[] = [
+  {
+    title: '저장 모델',
+    items: [
+      '단일 organization_settings 레코드에 저장',
+      'maxConsecutiveNightShifts와 workConstraints를 함께 관리',
+      '최소 휴식시간은 shift code 기반 JSONB로 유지',
+    ],
+  },
+  {
+    title: '동적 렌더링',
+    items: [
+      '최소 휴식시간 행은 현재 시프트 목록 기준으로 생성',
+      '시간이 없는 휴무(O)는 휴식시간 입력 행에서 제외',
+      '기본값은 D/E/N = 24/24/36시간',
+    ],
+  },
+  {
+    title: '후속 상세화',
+    items: [
+      '주 40/52, 휴무일, 연속 N 검증 규칙은 P5-2.3에서 명세화',
+      '저장 실패 메시지는 Naive UI 글로벌 메시지로 통일',
+      '이 태스크에서는 폼 책임과 저장 경계만 고정',
+    ],
+  },
+]
+
+const skillCards: ContentCard[] = [
+  {
+    title: '기본 프리셋',
+    items: [
+      '신규 조직 기본 스킬은 GENERAL 1종',
+      '코드는 조직 내 유일값으로 대문자 저장',
+      '이름은 한국어 표시명을 기준으로 관리',
+    ],
+  },
+  {
+    title: '삭제 정책',
+    items: [
+      '직원 스킬 또는 사이트 요구인원에서 참조 중이면 삭제 차단',
+      '참조 해제 후 삭제하도록 유도하는 문구 사용',
+      'soft delete 없이 물리 삭제를 유지하되 UX는 차단 우선',
+    ],
+  },
+  {
+    title: '저장 경계',
+    items: [
+      'CRUD는 skill API 경계를 그대로 사용',
+      '추가/수정 모달은 후속 마스터 태스크에서 연결',
+      '데이터가 없을 때는 GENERAL 프리셋을 기준 예시로 노출',
+    ],
+  },
+]
+
+const rankCards: ContentCard[] = [
+  {
+    title: '기본 프리셋',
+    items: [
+      '신규 조직 기본 직급은 RN',
+      'LV1~4 같은 운영 레벨은 추후 조직 정책에 맞춰 추가',
+      'credit 컬럼은 nullable을 허용하고 표시 규칙만 먼저 고정',
+    ],
+  },
+  {
+    title: '삭제 정책',
+    items: [
+      '직원 또는 site_staffing_requirements 참조가 있으면 삭제 차단',
+      'FK 오류를 사용자 친화적 문구로 변환',
+      '사용 중인 직급은 숨기지 않고 명시적으로 보호',
+    ],
+  },
+  {
+    title: '저장 경계',
+    items: [
+      'CRUD는 rank API 경계를 유지',
+      '크레딧 기본값/표시 포맷은 P5-2.4에서 확정',
+      '실데이터가 비어 있으면 RN 예시 행으로 UX를 고정',
+    ],
+  },
+]
+
+const siteCards: ContentCard[] = [
+  {
+    title: '사이트 자체 책임',
+    items: [
+      '이 탭은 사이트 코드/이름 CRUD 책임만 가집니다.',
+      '사이트 상세 UX는 P5-3.2에서 확정합니다.',
+      '테넌트 범위는 organization_id로 고정합니다.',
+    ],
+  },
+  {
+    title: '요구인원 경계',
+    items: [
+      '요일별 요구인원 편집은 별도 후속 UX로 분리',
+      'canonical 소스는 site_staffing_requirements',
+      '기존 Step 2용 site_requirements는 이 화면에서 직접 수정하지 않음',
+    ],
+  },
+  {
+    title: '삭제 정책',
+    items: [
+      '연결된 요구인원 데이터가 있으면 삭제 차단 검토',
+      '사이트 삭제 전 영향 범위 경고가 필요',
+      '물리 삭제 전제라도 차단 우선 UX를 유지',
+    ],
+  },
+]
+
+const route = useRoute()
+const router = useRouter()
+const rbacStore = useRbacStore()
+const organizationStore = useOrganizationStore()
+const organizationMasterStore = useOrganizationMasterStore()
+
+const masterDataLoadError = ref<string | null>(null)
+const lastLoadedOrganizationId = ref<string | null>(null)
+
 function parseTabKey(value: unknown): OrganizationManagementTabKey {
-  if (typeof value === 'string' && VALID_TAB_KEYS.includes(value as OrganizationManagementTabKey)) {
-    return value as OrganizationManagementTabKey
+  if (typeof value === 'string') {
+    const normalized = LEGACY_TAB_MAP[value] ?? value
+    if (VALID_TAB_KEYS.includes(normalized as OrganizationManagementTabKey)) {
+      return normalized as OrganizationManagementTabKey
+    }
   }
 
   if (Array.isArray(value)) {
     const candidate = value.find((item) => typeof item === 'string')
-    if (candidate && VALID_TAB_KEYS.includes(candidate as OrganizationManagementTabKey)) {
-      return candidate as OrganizationManagementTabKey
+    if (candidate) {
+      return parseTabKey(candidate)
     }
   }
 
-  return 'overview'
+  return 'info'
 }
 
 const activeTab = ref<OrganizationManagementTabKey>(parseTabKey(route.query.tab))
+
+const resolvedOrganizationId = computed(() => {
+  if (rbacStore.accessState === 'super_active') {
+    return organizationStore.current?.id ?? null
+  }
+
+  return rbacStore.effectiveMembership?.organizationId ?? organizationStore.current?.id ?? null
+})
 
 const scopeRoleLabel = computed(() => {
   if (rbacStore.accessState === 'super_active') {
@@ -342,43 +1035,243 @@ const scopeRoleLabel = computed(() => {
   return '조직 관리자'
 })
 
-const currentOrganizationName = computed(() => {
-  const organizationId = rbacStore.effectiveMembership?.organizationId ?? null
-  if (!organizationId) {
-    return null
+const selectedOrganizationLabel = computed(() => {
+  if (organizationStore.current?.id && organizationStore.current?.name) {
+    return `${organizationStore.current.name} (${organizationStore.current.id})`
   }
 
-  if (organizationStore.current?.id === organizationId) {
-    return organizationStore.current.name
+  if (rbacStore.accessState === 'super_active') {
+    return '전체 조직 대상 선택 예정'
+  }
+
+  return rbacStore.effectiveMembership?.organizationId ?? '조직 정보 확인 필요'
+})
+
+const scopeSummaryLabel = computed(() => {
+  if (rbacStore.accessState === 'super_active') {
+    return '선택된 조직 기준 조회/수정'
+  }
+
+  return '현재 소속 조직만 수정'
+})
+
+const masterDataLoading = computed(() => organizationStore.loading || organizationMasterStore.loading)
+
+const dataLoadSummary = computed(() => {
+  if (masterDataLoading.value) {
+    return '동기화 중'
+  }
+
+  if (!resolvedOrganizationId.value) {
+    return '조직 선택 대기'
+  }
+
+  if (masterDataLoadError.value) {
+    return '일부 로드 실패'
+  }
+
+  return '기본 셸 + 실데이터 준비'
+})
+
+const organizationContextMessage = computed(() => {
+  if (!resolvedOrganizationId.value) {
+    return '선택된 조직이 없어서 기본 프리셋 기준 UX만 표시합니다. 슈퍼 관리자용 조직 선택기는 후속 태스크에서 연결됩니다.'
   }
 
   return null
 })
 
-const selectedOrganizationLabel = computed(() => {
-  if (rbacStore.accessState === 'super_active') {
-    return '전체 조직 대상 선택 예정'
+const shiftTableRows = computed(() => {
+  if (organizationStore.shifts.length > 0) {
+    return organizationStore.shifts
   }
 
-  const organizationId = rbacStore.effectiveMembership?.organizationId
-  if (!organizationId) {
-    return '조직 정보 확인 필요'
-  }
-
-  if (currentOrganizationName.value) {
-    return `${currentOrganizationName.value} (${organizationId})`
-  }
-
-  return organizationId
+  return DEFAULT_SHIFT_ROWS
 })
 
-const scopeSummaryLabel = computed(() => {
-  if (rbacStore.accessState === 'super_active') {
-    return '전체 조직 조회 및 선택'
+const skillTableRows = computed(() => {
+  if (organizationMasterStore.skills.length > 0) {
+    return organizationMasterStore.skills
   }
 
-  return '현재 소속 조직만 수정'
+  return DEFAULT_SKILL_ROWS
 })
+
+const rankTableRows = computed(() => {
+  if (organizationMasterStore.ranks.length > 0) {
+    return organizationMasterStore.ranks
+  }
+
+  return DEFAULT_RANK_ROWS
+})
+
+const siteTableRows = computed(() => organizationMasterStore.sites)
+
+const isShiftPreview = computed(() => organizationStore.shifts.length === 0)
+const isSkillPreview = computed(() => organizationMasterStore.skills.length === 0)
+const isRankPreview = computed(() => organizationMasterStore.ranks.length === 0)
+
+const constraintSnapshot = computed(() => {
+  const settings = organizationMasterStore.settings
+  const minimumRestHours = settings?.minimumRestHours ?? DEFAULT_MINIMUM_REST_HOURS
+  const workConstraints = settings?.workConstraints ?? DEFAULT_WORK_CONSTRAINTS
+
+  return {
+    maxConsecutiveNightShifts: settings?.maxConsecutiveNightShifts ?? 3,
+    weeklyTargetHours: workConstraints.weeklyTargetHours,
+    weeklyMaxHours: workConstraints.weeklyMaxHours,
+    weeklyOffDays: workConstraints.weeklyOffDays,
+    minimumRestHours,
+  }
+})
+
+const restHourShiftRows = computed(() =>
+  shiftTableRows.value.filter((shift) => shift.startTime !== null && shift.endTime !== null),
+)
+
+function getRowKey(row: { id: string }) {
+  return row.id
+}
+
+function formatTimeRange(shift: Shift) {
+  if (!shift.startTime || !shift.endTime) {
+    return '휴무/시간 없음'
+  }
+
+  return `${shift.startTime} - ${shift.endTime}`
+}
+
+function formatCredit(value: Rank['credit']) {
+  if (value === null || value === undefined) {
+    return '-'
+  }
+
+  return Number(value).toFixed(2)
+}
+
+function renderDeferredActions(label: string) {
+  return h('div', { class: 'flex flex-wrap gap-2' }, [
+    h(
+      NButton,
+      {
+        text: true,
+        type: 'primary',
+        onClick: () => handleDeferredAction(`${label} 수정 UI는 후속 태스크에서 활성화됩니다.`),
+      },
+      { default: () => '수정' },
+    ),
+    h(
+      NButton,
+      {
+        text: true,
+        type: 'error',
+        onClick: () => handleDeferredAction(`${label} 삭제는 참조 차단 정책과 함께 후속 태스크에서 활성화됩니다.`),
+      },
+      { default: () => '삭제' },
+    ),
+  ])
+}
+
+const shiftColumns: DataTableColumns<Shift> = [
+  {
+    title: '코드',
+    key: 'code',
+    width: 90,
+  },
+  {
+    title: '이름',
+    key: 'name',
+    width: 120,
+  },
+  {
+    title: '색상',
+    key: 'colorCode',
+    width: 150,
+    render: (row) =>
+      h('div', { class: 'flex items-center gap-2 text-sm text-slate-700' }, [
+        h('span', {
+          class: 'inline-flex size-4 rounded border border-slate-200',
+          style: { backgroundColor: row.colorCode },
+        }),
+        h('span', row.colorCode),
+      ]),
+  },
+  {
+    title: '시간',
+    key: 'timeRange',
+    minWidth: 180,
+    render: (row) => formatTimeRange(row),
+  },
+  {
+    title: '작업',
+    key: 'actions',
+    width: 120,
+    render: (row) => renderDeferredActions(`시프트 ${row.code}`),
+  },
+]
+
+const skillColumns: DataTableColumns<Skill> = [
+  {
+    title: '코드',
+    key: 'code',
+    width: 140,
+  },
+  {
+    title: '이름',
+    key: 'name',
+    minWidth: 180,
+  },
+  {
+    title: '작업',
+    key: 'actions',
+    width: 120,
+    render: (row) => renderDeferredActions(`스킬 ${row.code}`),
+  },
+]
+
+const rankColumns: DataTableColumns<Rank> = [
+  {
+    title: '코드',
+    key: 'code',
+    width: 120,
+  },
+  {
+    title: '이름',
+    key: 'name',
+    minWidth: 180,
+  },
+  {
+    title: '크레딧',
+    key: 'credit',
+    width: 100,
+    render: (row) => formatCredit(row.credit),
+  },
+  {
+    title: '작업',
+    key: 'actions',
+    width: 120,
+    render: (row) => renderDeferredActions(`직급 ${row.code}`),
+  },
+]
+
+const siteColumns: DataTableColumns<Site> = [
+  {
+    title: '코드',
+    key: 'code',
+    width: 140,
+  },
+  {
+    title: '이름',
+    key: 'name',
+    minWidth: 220,
+  },
+  {
+    title: '작업',
+    key: 'actions',
+    width: 120,
+    render: (row) => renderDeferredActions(`사이트 ${row.code}`),
+  },
+]
 
 watch(
   () => route.query.tab,
@@ -402,6 +1295,40 @@ watch(activeTab, async (nextTab) => {
     },
   })
 })
+
+watch(
+  resolvedOrganizationId,
+  async (nextOrganizationId) => {
+    if (!nextOrganizationId) {
+      masterDataLoadError.value = null
+      lastLoadedOrganizationId.value = null
+      return
+    }
+
+    masterDataLoadError.value = null
+
+    if (organizationStore.current?.id !== nextOrganizationId) {
+      const organizationResult = await organizationStore.loadOrganization(nextOrganizationId)
+      if (!organizationResult.success) {
+        masterDataLoadError.value = organizationResult.error ?? '조직 정보를 불러오지 못했습니다.'
+        return
+      }
+    }
+
+    if (lastLoadedOrganizationId.value === nextOrganizationId) {
+      return
+    }
+
+    const masterResult = await organizationMasterStore.loadAll(nextOrganizationId)
+    if (!masterResult.success) {
+      masterDataLoadError.value = masterResult.error ?? '마스터 데이터를 불러오지 못했습니다.'
+      return
+    }
+
+    lastLoadedOrganizationId.value = nextOrganizationId
+  },
+  { immediate: true },
+)
 
 function handleDeferredAction(message: string) {
   showInfo(message)

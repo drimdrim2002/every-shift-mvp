@@ -4,7 +4,7 @@
       "id": "10000000-0000-4000-8000-000000000135",
       "name": "P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정",
       "description": "관리자/직원 대시보드에서 제공할 지표(야간/주말 등)와 필터(기간/사이트/직급) 스펙을 확정한다. RBAC 요구사항: /dashboard/admin은 meta.roles: ['super', 'admin'], /dashboard/employee는 meta.roles: ['super', 'admin', 'user']로 설정한다. 로그인 후 역할에 따라 자동으로 적절한 대시보드로 분기해야 한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P9",
       "dependencies": [
         {
@@ -25,13 +25,15 @@
       "implementationGuide": "1) 공정성 지표 목록/정의 확정. 2) 필터 항목/기본값 결정. 3) 권한별(관리자 vs 직원) 표시 차이 결정.",
       "verificationCriteria": "Deliverable: 대시보드 지표/필터 요구사항이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T13:21:05.000Z",
+      "summary": "P9-1.1 dashboard metrics, filter defaults, RBAC landing, route split, and dependency/empty-state contract were fixed in the canonical spec document.",
+      "completedAt": "2026-03-24T13:21:05.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000136",
       "name": "P9-1.2 대시보드 데이터 모델/타입/스토어 설계",
       "description": "대시보드 조회 결과를 표현할 타입과 상태 관리(스토어) 구조를 설계한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P9",
       "dependencies": [
         {
@@ -54,13 +56,15 @@
       "implementationGuide": "1. 타입 정의:\n   - AdminDashboardData: 조직 전체 지표 (직원별/사이트별 공정성)\n   - EmployeeDashboardData: 본인 일정/팀 통계\n2. 스토어 구조: useAdminDashboard, useEmployeeDashboard 별도 정의\n3. RBAC:\n   - admin: 자신의 organization_id 필터링된 데이터만 스토어에 저장\n   - user: 본인 employee_id 기반 데이터만 접근\n   - super: 전체 조직 데이터 접근 가능\n4. 상태 관리: 필터(기간/사이트/직급)별로 지표 재계산 로직\n5. 캐싱: 대시보드 데이터는 5분 캐시, 필터 변경 시 재조회",
       "verificationCriteria": "Deliverable: 대시보드 타입/스토어 설계가 완료되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T13:21:05.000Z",
+      "summary": "P9-1.2 dashboard request/response types, API/store-facing helper types, and admin/employee Pinia dashboard stores with cache/scope handling were implemented and unit-tested.",
+      "completedAt": "2026-03-24T13:21:05.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000137",
       "name": "P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)",
       "description": "대시보드 집계를 어디에서 계산할지(DB RPC/Edge Function/클라이언트) 경계를 결정하고 API 계약을 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P9",
       "dependencies": [
         {
@@ -78,7 +82,9 @@
       "implementationGuide": "1. 집계 경계 결정: DB RPC 함수 사용 (Supabase rpc 호출)\n2. API 설계:\n   - get_admin_dashboard_stats(organization_id, filters) → RPC\n   - get_employee_dashboard_stats(employee_id, filters) → RPC\n3. RBAC:\n   - RPC 함수 내에서 auth.uid() 기반 organization_id/employee_id 검증\n   - admin: 자신의 조직 통계만 집계\n   - user: 본인 통계만 집계\n   - super: 파라미터로 organization_id 전달 시 전체 조직 집계\n4. 성능 최적화: 필요한 집계만 DB에서 계산, 클라이언트는 시각화만 담당\n5. API 계약: 요청/응답 스키마 TypeScript 인터페이스로 정의",
       "verificationCriteria": "Deliverable: 대시보드 집계 경계와 API 계약이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T13:21:05.000Z",
+      "summary": "P9-1.3 dashboard analytics boundary was fixed to Supabase RPC in API_SPEC and implemented as a dedicated frontend API wrapper with direct unit coverage for RPC argument mapping and error normalization.",
+      "completedAt": "2026-03-24T13:21:05.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000138",
