@@ -26,37 +26,37 @@
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000034` | **P0-1.1 운영 규칙/DoD 문서 초안 작성** | completed | - | 90m |
-| `10000000-0000-4000-8000-000000000035` | **P0-1.2 품질 게이트(릴리스 전 체크) 기준 확정** | completed | P0-1.1 | 120m |
-| `10000000-0000-4000-8000-000000000036` | **P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정** | completed | P0-1.2 | 90m |
-| `10000000-0000-4000-8000-000000000037` | **P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리** | completed | P0-1.3 | 60m |
-| `10000000-0000-4000-8000-000000000038` | **P0-2.2 에픽별 하위 태스크 분해(1~3h) + 의존성 그래프 작성** | completed | P0-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000039` | **P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리** | completed | P0-2.2<br>P0-2.3.3<br>P0-2.3.4<br>P0-2.3.2<br>P0-2.3.1 | 90m |
-| `9578fcaa-fff0-431c-9884-ab167cfd6b52` | **P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)** | completed | - | 60m |
-| `90f21096-9495-4ab6-83d3-253ccf24b15c` | **P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화** | completed | P0-2.3.1 | 60m |
-| `24b9304c-ee93-4908-9f78-c0fd145b7b2e` | **P0-2.3.3 네이밍 규칙/검증기준 문구 표준화** | completed | P0-2.3.2 | 120m |
-| `3750ea45-f661-494c-b858-747cf94656f9` | **P0-2.3.4 태스크 정합성 자동검증 명령/스크립트 정리** | completed | P0-2.3.3 | 90m |
-| `b17e29b8-877d-48bc-8742-e54b82498cb7` | **P0-2.3.5 namePattern 위반 태스크 리네이밍** | completed | - | 60m |
-| `bd363acc-f675-4dd5-8a1b-d536c94f8e96` | **P0-2.3.6 verificationCriteria 3요소 형태로 개편** | completed | P0-2.3.5 | 90m |
-| `014e3ec4-3769-4af4-8815-0512223a3a1c` | **P0-2.3.7 규칙 준수율 측정 및 기록** | completed | P0-2.3.6 | 60m |
-| `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강** | completed | P0-2.1<br>P0-2.4.2<br>P0-2.4.1 | 90m |
-| `21d4bb02-23fe-4055-9fae-4123143f91a9` | **P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성** | completed | P0-2.1 | 120m |
-| `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강** | completed | P0-2.4.1 | 120m |
-| `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결** | completed | P0-2.4 | 90m |
-| `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강** | completed | P0-2.5 | 90m |
-| `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합** | completed | P0-2.2 | 120m |
-| `c227e7ec-7a5e-4d8b-b838-b308af62fd63` | **P0-2.8 P3~P4 하위 태스크 canonical 병합** | completed | P0-2.7 | 120m |
-| `d2cb1c5e-adda-4649-b59f-9985432fb377` | **P0-2.9 P5~P6 하위 태스크 canonical 병합** | completed | P0-2.8 | 120m |
-| `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합** | completed | P0-2.9 | 120m |
-| `db6ead17-422c-4e1b-a994-2171fb5b913a` | **P0-2.11 P9~P10 하위 태스크 canonical 병합** | completed | P0-2.10 | 120m |
-| `4f954f47-cf4b-44ca-81eb-7e3f6c28b34a` | **P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리** | completed | P0-2.11 | 120m |
-| `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | completed | P0-2.12 | 120m |
-| `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정** | completed | P0-2.12<br>P0-2.13 | 180m |
-| `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의** | completed | P0-2.3 | 90m |
-| `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계** | completed | P0-3.1 | 90m |
-| `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의** | completed | P0-3.2 | 120m |
+| Task ID                                | 태스크 명                                                              | 상태      | 선행 태스크(Dependencies)                              | 예상 시간 |
+| -------------------------------------- | ---------------------------------------------------------------------- | --------- | ------------------------------------------------------ | --------- |
+| `10000000-0000-4000-8000-000000000034` | **P0-1.1 운영 규칙/DoD 문서 초안 작성**                                | completed | -                                                      | 90m       |
+| `10000000-0000-4000-8000-000000000035` | **P0-1.2 품질 게이트(릴리스 전 체크) 기준 확정**                       | completed | P0-1.1                                                 | 120m      |
+| `10000000-0000-4000-8000-000000000036` | **P0-1.3 Shrimp 태스크 작성 규칙(템플릿) 확정**                        | completed | P0-1.2                                                 | 90m       |
+| `10000000-0000-4000-8000-000000000037` | **P0-2.1 PRD→Phase 매핑 점검(누락/중복) 정리**                         | completed | P0-1.3                                                 | 60m       |
+| `10000000-0000-4000-8000-000000000038` | **P0-2.2 에픽별 하위 태스크 분해(1~3h) + 의존성 그래프 작성**          | completed | P0-2.1                                                 | 180m      |
+| `10000000-0000-4000-8000-000000000039` | **P0-2.3 태스크 품질 표준화(검증기준/relatedFiles/추정치) 정리**       | completed | P0-2.2<br>P0-2.3.3<br>P0-2.3.4<br>P0-2.3.2<br>P0-2.3.1 | 90m       |
+| `9578fcaa-fff0-431c-9884-ab167cfd6b52` | **P0-2.3.1 requiredFields 누락 13건 보정(estimatedMinutes 중심)**      | completed | -                                                      | 60m       |
+| `90f21096-9495-4ab6-83d3-253ccf24b15c` | **P0-2.3.2 relatedFiles.type 표준 위반(TO_CREATE) 정규화**             | completed | P0-2.3.1                                               | 60m       |
+| `24b9304c-ee93-4908-9f78-c0fd145b7b2e` | **P0-2.3.3 네이밍 규칙/검증기준 문구 표준화**                          | completed | P0-2.3.2                                               | 120m      |
+| `3750ea45-f661-494c-b858-747cf94656f9` | **P0-2.3.4 태스크 정합성 자동검증 명령/스크립트 정리**                 | completed | P0-2.3.3                                               | 90m       |
+| `b17e29b8-877d-48bc-8742-e54b82498cb7` | **P0-2.3.5 namePattern 위반 태스크 리네이밍**                          | completed | -                                                      | 60m       |
+| `bd363acc-f675-4dd5-8a1b-d536c94f8e96` | **P0-2.3.6 verificationCriteria 3요소 형태로 개편**                    | completed | P0-2.3.5                                               | 90m       |
+| `014e3ec4-3769-4af4-8815-0512223a3a1c` | **P0-2.3.7 규칙 준수율 측정 및 기록**                                  | completed | P0-2.3.6                                               | 60m       |
+| `a59d8e0e-df2b-4f1d-9002-6f0b8825441b` | **P0-2.4 전역 RBAC 메뉴/라우트 매트릭스 누락 보강**                    | completed | P0-2.1<br>P0-2.4.2<br>P0-2.4.1                         | 90m       |
+| `21d4bb02-23fe-4055-9fae-4123143f91a9` | **P0-2.4.1 전역 RBAC 라우트/메뉴 권한 매트릭스 문서 작성**             | completed | P0-2.1                                                 | 120m      |
+| `194b66c3-288f-4b89-bf46-b97496d4e62d` | **P0-2.4.2 기존 Phase 태스크(P3~P9)에 RBAC 가드 요구사항 보강**        | completed | P0-2.4.1                                               | 120m      |
+| `c189da56-e1d2-4f5c-b7ca-8c0928d11fb3` | **P0-2.5 가입-조직생성(6.2 재사용) 요구 백로그 연결**                  | completed | P0-2.4                                                 | 90m       |
+| `92faa6b4-20db-404d-a5d9-9b24760168fc` | **P0-2.6 Solver 완료 알림 이벤트 경계 보강**                           | completed | P0-2.5                                                 | 90m       |
+| `634b3991-aa06-4b2f-9e39-2e14bf89fba5` | **P0-2.7 P1~P2 하위 태스크 canonical 병합**                            | completed | P0-2.2                                                 | 120m      |
+| `c227e7ec-7a5e-4d8b-b838-b308af62fd63` | **P0-2.8 P3~P4 하위 태스크 canonical 병합**                            | completed | P0-2.7                                                 | 120m      |
+| `d2cb1c5e-adda-4649-b59f-9985432fb377` | **P0-2.9 P5~P6 하위 태스크 canonical 병합**                            | completed | P0-2.8                                                 | 120m      |
+| `56e8a782-25c0-4aea-be2e-24da11e4918f` | **P0-2.10 P7~P8 하위 태스크 canonical 병합**                           | completed | P0-2.9                                                 | 120m      |
+| `db6ead17-422c-4e1b-a994-2171fb5b913a` | **P0-2.11 P9~P10 하위 태스크 canonical 병합**                          | completed | P0-2.10                                                | 120m      |
+| `4f954f47-cf4b-44ca-81eb-7e3f6c28b34a` | **P0-2.12 의존성 그래프 무결성 자동 점검 스크립트 정리**               | completed | P0-2.11                                                | 120m      |
+| `0ea4c78a-4916-43db-885b-126553d59343` | **P0-2.13 taskTemplate 정합성 보정(phase/estimatedMinutes 누락 해소)** | completed | P0-2.12                                                | 120m      |
+| `9a83c8aa-8482-4075-80dd-62c420de2a9b` | **P0-2.14 P0~P10 크리티컬 패스 문서화 및 완료 판정**                   | completed | P0-2.12<br>P0-2.13                                     | 180m      |
+| `10000000-0000-4000-8000-000000000040` | **P0-3.1 Phase KPI/릴리스 준비도(Ready) 정의**                         | completed | P0-2.3                                                 | 90m       |
+| `10000000-0000-4000-8000-000000000041` | **P0-3.2 마이그레이션 대시보드(문서) 구조 설계**                       | completed | P0-3.1                                                 | 90m       |
+| `10000000-0000-4000-8000-000000000042` | **P0-3.3 Shrimp 상태 조회 표준(쿼리/리포트) 정의**                     | completed | P0-3.2                                                 | 120m      |
 
 ### 상세 (Details)
 
@@ -427,30 +427,29 @@
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/setup/MCP_INSTALLATION.md`
 
-
 ## P1 (예상 시간: 27시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000043` | **P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)** | completed | P0-1.3 | 180m |
-| `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성** | completed | P1-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)** | completed | P1-1.2 | 120m |
-| `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | completed | - | 120m |
-| `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)** | completed | P1-1.3<br>P1-1.4 | 180m |
-| `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정** | completed | P1-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000048` | **P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)** | completed | P1-2.2 | 120m |
-| `9096b180-6645-45fc-8176-e02fb8a118fc` | **P1-2.3-1 Supabase 실DB 보안 베이스라인 확정** | completed | - | - |
-| `644a8e6c-e5fa-48d7-a566-fb3af2ad5f28` | **P1-2.3-2 위협 기반 RLS 검증 시나리오 설계** | pending | P1-2.3-1 | - |
-| `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9` | **P1-2.3-3 SQL 검증 절차 및 합격 기준 정의** | pending | P1-2.3-2 | - |
-| `8ac31a0f-b346-4374-ba36-201d779e664f` | **P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성** | pending | P1-2.3-3 | - |
-| `10000000-0000-4000-8000-000000000049` | **P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화** | completed | P1-1.3<br>P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000050` | **P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)** | completed | P1-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000051` | **P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트** | completed | P1-3.2 | 120m |
-| `eed4ff2d-ff87-42d8-8b8d-885ef320b42f` | **P1-3.4 Supabase Console superuser 생성 SQL 함수/Runbook 정의** | completed | P1-1.2<br>P1-3.3 | 120m |
-| `4e50eff2-86f4-475e-b634-fd3b1a22d245` | **P1-3.4-A SQL 함수 구현: grant_superuser** | completed | - | - |
-| `69509a33-e960-49ce-9c00-a817035ec815` | **P1-3.4-B 운영 Runbook 문서화** | pending | P1-3.4-A | - |
+| Task ID                                | 태스크 명                                                                      | 상태      | 선행 태스크(Dependencies) | 예상 시간 |
+| -------------------------------------- | ------------------------------------------------------------------------------ | --------- | ------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000043` | **P1-1.1 멀티테넌트/RBAC 데이터 모델 확정(ERD 수준)**                          | completed | P0-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000044` | **P1-1.2 마이그레이션 007 설계/DDL 초안 작성**                                 | completed | P1-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000045` | **P1-1.3 Seed/Backfill 기준 정의(기존 MVP 호환)**                              | completed | P1-1.2                    | 120m      |
+| `00726cae-2c8e-4f81-af12-4bb55e494203` | **P1-1.4 Harden 007 migration for legacy site_requirements multitenant scope** | completed | -                         | 120m      |
+| `10000000-0000-4000-8000-000000000046` | **P1-2.1 RBAC 판별 로직/헬퍼 함수 설계(정책 기준)**                            | completed | P1-1.3<br>P1-1.4          | 180m      |
+| `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정**                         | completed | P1-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000048` | **P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)**                     | completed | P1-2.2                    | 120m      |
+| `9096b180-6645-45fc-8176-e02fb8a118fc` | **P1-2.3-1 Supabase 실DB 보안 베이스라인 확정**                                | completed | -                         | -         |
+| `644a8e6c-e5fa-48d7-a566-fb3af2ad5f28` | **P1-2.3-2 위협 기반 RLS 검증 시나리오 설계**                                  | pending   | P1-2.3-1                  | -         |
+| `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9` | **P1-2.3-3 SQL 검증 절차 및 합격 기준 정의**                                   | pending   | P1-2.3-2                  | -         |
+| `8ac31a0f-b346-4374-ba36-201d779e664f` | **P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성**                                 | pending   | P1-2.3-3                  | -         |
+| `10000000-0000-4000-8000-000000000049` | **P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화**                              | completed | P1-1.3<br>P1-1.4          | 120m      |
+| `10000000-0000-4000-8000-000000000050` | **P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)**                           | completed | P1-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000051` | **P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트**                         | completed | P1-3.2                    | 120m      |
+| `eed4ff2d-ff87-42d8-8b8d-885ef320b42f` | **P1-3.4 Supabase Console superuser 생성 SQL 함수/Runbook 정의**               | completed | P1-1.2<br>P1-3.3          | 120m      |
+| `4e50eff2-86f4-475e-b634-fd3b1a22d245` | **P1-3.4-A SQL 함수 구현: grant_superuser**                                    | completed | -                         | -         |
+| `69509a33-e960-49ce-9c00-a817035ec815` | **P1-3.4-B 운영 Runbook 문서화**                                               | pending   | P1-3.4-A                  | -         |
 
 ### 상세 (Details)
 
@@ -483,7 +482,7 @@
 - **현재 상태(Status)**: completed (2026-02-28)
 - **완료 요약(Summary)**: 기존 MVP 데이터 운영의 하위 호환성을 보장하면서 멀티테넌트, RBAC 스키마 확장을 지원하는 시드/백필 로직을 정의하고, 이를 docs/migration/SEED_BACKFILL_PRINCIPLES.md로 문서화하여 검증 기준(Deliverable)을 완벽히 충족했습니다.
 - **설명(Description)**: 기존 MVP seed.sql 및 운영 데이터가 새 스키마로 자연스럽게 확장되도록 seed/backfill 원칙을 정의한다.
-- **구현 가이드(Guide)**: 1) 기본 조직/시프트/직원 seed 유지 원칙 정의: 기존 조직(0000...01), 시프트(D, E, N, O), 직원(30명) 레코드는 user_id, site_id 등의 신규 컬럼이 NULL을 허용하므로 무수정 비파괴 유지.  2) memberships/profiles 생성 규칙: 관리자 계정 생성 시 profiles(global_role='admin') 및 organization_memberships(MVP조직, role='admin', status='approved') 기본 레코드 생성 정의.  3) 백필 목록화: MVP 조직의 organization_settings, sites, ranks, skills 마스터 데이터 기본값 백필, 실제 유저 매핑을 위한 employees.user_id 백필 시나리오, 향후 legacy site_requirements에서 site_staffing_requirements로의 마이그레이션 권고 문서화.
+- **구현 가이드(Guide)**: 1) 기본 조직/시프트/직원 seed 유지 원칙 정의: 기존 조직(0000...01), 시프트(D, E, N, O), 직원(30명) 레코드는 user_id, site_id 등의 신규 컬럼이 NULL을 허용하므로 무수정 비파괴 유지. 2) memberships/profiles 생성 규칙: 관리자 계정 생성 시 profiles(global_role='admin') 및 organization_memberships(MVP조직, role='admin', status='approved') 기본 레코드 생성 정의. 3) 백필 목록화: MVP 조직의 organization_settings, sites, ranks, skills 마스터 데이터 기본값 백필, 실제 유저 매핑을 위한 employees.user_id 백필 시나리오, 향후 legacy site_requirements에서 site_staffing_requirements로의 마이그레이션 권고 문서화.
 - **검증 기준(Verification)**: Deliverable: 기존 MVP 데이터가 서비스 스키마로 확장되는 경로가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P1-1.2
 - **예상 소요 시간**: 120m
@@ -640,7 +639,7 @@
 
 - **Task ID**: `4e50eff2-86f4-475e-b634-fd3b1a22d245`
 - **현재 상태(Status)**: completed (2026-03-06)
-- **완료 요약(Summary)**: Task Completion Summary * **Task ID**: 4e50eff2-86f4-475e-b634-fd3b1a22d245 * **Execution Results**: The `grant_superuser` SQL function in `migrations/011_superuser_grant_function.sql` was confirmed to be fully implemented according to the required specifications. * **Important Decisions/Verifications**:     * **Function Signature**: Correctly implemented as `grant_superuser(target_email text, target_organization_ids uuid[] default null)`.     * **Email Normalization & Validation**: Inputs are trimmed, lowercased, and checked for null/empty values.     * **Auth.users Verification**: It accurately looks up users from `auth.users` and raises proper exceptions if missing.     * **Idempotency**: The `profiles` and `organization_memberships` tables are modified using reliable `ON CONFLICT DO UPDATE` (upsert) clauses, ensuring that rerunning the function with the same inputs produces consistent state without duplicate errors.     * **Return Values**: Provides informative output `(target_user_id, normalized_email, profile_upserted, membership_upserted_count)` confirming the result of operations. * **Conclusion**: No further code modifications were required, as the existing code was of high quality and thoroughly met the verification criteria. The task is complete.
+- **완료 요약(Summary)**: Task Completion Summary _ **Task ID**: 4e50eff2-86f4-475e-b634-fd3b1a22d245 _ **Execution Results**: The `grant_superuser` SQL function in `migrations/011_superuser_grant_function.sql` was confirmed to be fully implemented according to the required specifications. _ **Important Decisions/Verifications**: _ **Function Signature**: Correctly implemented as `grant_superuser(target_email text, target_organization_ids uuid[] default null)`. _ **Email Normalization & Validation**: Inputs are trimmed, lowercased, and checked for null/empty values. _ **Auth.users Verification**: It accurately looks up users from `auth.users` and raises proper exceptions if missing. _ **Idempotency**: The `profiles` and `organization_memberships` tables are modified using reliable `ON CONFLICT DO UPDATE` (upsert) clauses, ensuring that rerunning the function with the same inputs produces consistent state without duplicate errors. _ **Return Values**: Provides informative output `(target_user_id, normalized_email, profile_upserted, membership_upserted_count)` confirming the result of operations. \* **Conclusion**: No further code modifications were required, as the existing code was of high quality and thoroughly met the verification criteria. The task is complete.
 - **설명(Description)**: migrations/011_superuser_grant_function.sql에 grant_superuser 함수를 정의해 auth.users 기반 super 권한 부여 및 선택 조직 membership admin 승인 upsert를 멱등적으로 처리한다.
 - **구현 가이드(Guide)**: 1) 함수 시그니처: grant_superuser(target_email text, target_organization_ids uuid[] default null). 2) 이메일 정규화/유효성 검증. 3) auth.users 조회 및 미존재 오류 처리. 4) profiles upsert(global_role=super, account_status=active). 5) target_organization_ids 제공 시 organization_memberships upsert(role=admin,status=approved). 6) 재실행 멱등성 보장과 결과 반환 필드 제공. (코드 구현은 이미 완료됨)
 - **검증 기준(Verification)**: 함수 시그니처/검증/멱등성이 SQL로 구현되고 동일 이메일 재실행 시 최종 상태가 동일해야 한다.
@@ -660,70 +659,69 @@
 - **예상 소요 시간**: -
 - **관련 파일**: `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/011_superuser_grant_function.sql`
 
-
 ## P2 (예상 시간: 47시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000052` | **P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정** | completed | P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000053` | **P2-1.2 DB 규칙: admin 승인형 / user 초대코드형 가입 상태 모델 정의** | completed | P2-1.1<br>P1-3.4 | 180m |
-| `218a6547-34d4-40c2-b7bd-c925abf49cac` | **P2-1.2-A 가입 상태 전이 canonical 문서 확정** | completed | - | - |
-| `9e4ebebd-fcd1-4cd6-9ba2-7d50e2e46b5e` | **P2-1.2-B migration 010 DDL: 상태/초대코드/무결성 제약 구현** | completed | P2-1.2-A | - |
-| `08fb4c54-bdfe-487e-a72b-aab7258c2312` | **P2-1.2-C API 계약 정렬: 가입 상태/에러 코드 명세** | completed | P2-1.2-A | - |
-| `b1c76de8-80bd-4202-ba49-ecd6b9fbb727` | **P2-1.2-D 검증 체크리스트: 상태 전이/제약 회귀 시나리오** | completed | P2-1.2-B<br>P2-1.2-C | - |
-| `10000000-0000-4000-8000-000000000054` | **P2-1.3 가입 제출 API 기본 계약 설계(역할 분기/입력 검증)** | completed | P2-1.2 | 180m |
-| `c5538cee-788a-469f-b3a0-6af3c73d5b3a` | **P2-1.3-1 signup-submit API 계약 표준화 문서 확정** | completed | - | - |
-| `cb4bde42-6236-4c60-a1cb-2825cd43a84f` | **P2-1.3-2 signup-submit Edge Function 엔트리포인트 골격 구현** | completed | P2-1.3-1 | - |
-| `91a05915-7f12-4c36-8047-b760993cc9a8` | **P2-1.3-3 클라이언트 signup API 래퍼 경계 고정** | completed | P2-1.3-1 | - |
-| `4c02b69e-0834-42c9-9834-e9e80f9380bf` | **P2-1.3-4 에러 코드 매핑/검증 체크리스트 정리** | completed | P2-1.3-2<br>P2-1.3-3 | - |
-| `10000000-0000-4000-8000-000000000055` | **P2-1.4 UI: 단일 /signup 분기형 구현(admin 병원선택 / user 초대코드)** | completed | P2-1.9 | 210m |
-| `3d552bc3-2866-437c-a3e5-8e208b1d5c51` | **P2-1.4-1 Signup Contract Alignment (types/api/store boundary)** | completed | P2-1.9 | - |
-| `5dc645e9-e740-4955-9dcb-8c432774ca0a` | **P2-1.4-1A Define deterministic signup contracts for UI boundary** | completed | - | - |
-| `600f17c8-9fe9-431e-88e2-b0b5391610f8` | **P2-1.4-1B Preserve single signup API boundary with alias normalization** | completed | P2-1.4-1A | - |
-| `d8f5ac61-1bd8-46e0-9d14-16f3248a3138` | **P2-1.4-1C Implement and validate auth store deterministic signup result** | completed | P2-1.4-1A<br>P2-1.4-1B | - |
-| `d3f05381-f3aa-48d6-976f-84962d45bfd5` | **P2-1.4-2 Signup View Role-Branch UI (/signup single route)** | completed | P2-1.4-1 | - |
-| `1b94e697-94d4-4919-8a0a-0a437d951cdd` | **P2-1.4-3 Auth Routing and Login Entry Integration** | completed | P2-1.4-2 | - |
-| `d06c74d0-4dc0-49ac-9ed9-02fb0b3a0937` | **P2-1.4-3a Auth Route Guard Regression Verification** | completed | P2-1.4-3 | - |
-| `c6f241be-cfae-44b8-bde5-13cfdb2156aa` | **P2-1.4-3b Redirect Policy Consistency Hardening** | completed | P2-1.4-3a | - |
-| `c7596ca4-9628-4f2c-a7ec-75eb0891c253` | **P2-1.4-4 Validation Matrix and Manual QA for Role Branching** | completed | P2-1.4-3 | - |
-| `33e48eb4-da81-40e3-9c69-c796565700bb` | **P2-1.4-4-A Signup Role-Branch Manual QA Matrix 문서 보강** | completed | - | - |
-| `0740a18e-6648-4bfa-8b33-17d11a3cdb7b` | **P2-1.4-4-B Role Branching 수동 실행 증거 기록** | completed | P2-1.4-4-A | - |
-| `20de8454-5483-4395-b73a-43a16171676f` | **P2-1.4-4-C Lint/테스트 게이트 검증 및 회귀 확인** | completed | P2-1.4-4-B | - |
-| `9df3e61b-bc11-4e92-963d-ccd70d4efadb` | **P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)** | completed | P2-1.4-2 | 120m |
-| `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)** | completed | P2-1.4 | 120m |
-| `f035e92a-3557-470b-b74c-ea969c7a95c1` | **P2-1.10-1 invite-code-manage API_SPEC contract 문서화** | completed | P2-1.8 | - |
-| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)** | completed | P2-1.10 | 120m |
-| `ff1599e4-585f-4e63-9565-a84284e4674c` | **P2-1.5A 가입 스모크 시나리오 섹션 초안 작성** | completed | P2-1.4 | - |
-| `62d44239-440d-4c38-81cb-f25a5d6bddd7` | **P2-1.5B 가입 스모크 시나리오 문서 정합성 검토** | completed | P2-1.5A | - |
-| `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 병원 검색 Edge Function 계약 정의(data.go.kr 프록시)** | completed | P2-1.2 | 150m |
-| `8f8612a3-5e8c-456c-962d-4fdd91566dcb` | **P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)** | completed | - | - |
-| `79e67b38-73fe-46ea-8d18-afe32c884598` | **P2-1.6.2 Edge Function 구현: data.go.kr 프록시 및 정규화** | completed | P2-1.6.1 | - |
-| `bcc4bbfb-abc1-4540-b292-2330e96f326f` | **P2-1.6.2 테스트: hospital-search Edge Function 검증** | completed | - | - |
-| `b5d67e99-f96d-4f0f-a70f-22476a633d04` | **P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거** | pending | P2-1.6.2 | - |
-| `7f9a378a-9f68-48ee-93a7-089efd4d31ff` | **P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)** | pending | P2-1.6.3 | - |
-| `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)** | completed | P2-1.2 | 150m |
-| `8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8` | **P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장** | completed | - | - |
-| `605ced42-6835-429c-8c6a-fe2509dc1ed0` | **P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의** | pending | P2-1.8-1 | - |
-| `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6` | **P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강** | pending | P2-1.8-1 | - |
-| `3181bcb1-37ae-49a9-afb7-29e409976a23` | **P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가** | pending | P2-1.8-1<br>P2-1.8-3 | - |
-| `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)** | completed | P2-1.3<br>P2-1.6<br>P2-1.8 | 180m |
-| `6ba9a255-ecd3-4474-a921-8749d93f7949` | **P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)** | pending | P2-1.3 | - |
-| `db53ffa2-8cda-432e-9207-ad3e0b3f1883` | **P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영** | pending | P2-1.9-1<br>P2-1.8 | - |
-| `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환** | pending | P2-1.6 | - |
-| `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스** | pending | P2-1.9-2<br>P2-1.9-3 | - |
-| `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)** | completed | P2-1.8 | 150m |
-| `17d170a7-e65a-451b-a71f-129c6ba70ae5` | **P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬** | completed | P2-1.10-1 | - |
-| `10000000-0000-4000-8000-000000000057` | **P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별** | completed | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정** | pending | P2-2.1 | 120m |
-| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의** | pending | P2-2.2 | 90m |
-| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)** | pending | P2-2.3 | 90m |
-| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)** | pending | P2-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)** | pending | P2-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙** | pending | P2-3.2 | 150m |
-| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)** | pending | P2-3.2 | 90m |
-| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)** | pending | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m |
+| Task ID                                | 태스크 명                                                                   | 상태      | 선행 태스크(Dependencies)   | 예상 시간 |
+| -------------------------------------- | --------------------------------------------------------------------------- | --------- | --------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000052` | **P2-1.1 회원가입 UX/필드/상태(승인대기/반려) 스펙 확정**                   | completed | P1-1.4                      | 120m      |
+| `10000000-0000-4000-8000-000000000053` | **P2-1.2 DB 규칙: admin 승인형 / user 초대코드형 가입 상태 모델 정의**      | completed | P2-1.1<br>P1-3.4            | 180m      |
+| `218a6547-34d4-40c2-b7bd-c925abf49cac` | **P2-1.2-A 가입 상태 전이 canonical 문서 확정**                             | completed | -                           | -         |
+| `9e4ebebd-fcd1-4cd6-9ba2-7d50e2e46b5e` | **P2-1.2-B migration 010 DDL: 상태/초대코드/무결성 제약 구현**              | completed | P2-1.2-A                    | -         |
+| `08fb4c54-bdfe-487e-a72b-aab7258c2312` | **P2-1.2-C API 계약 정렬: 가입 상태/에러 코드 명세**                        | completed | P2-1.2-A                    | -         |
+| `b1c76de8-80bd-4202-ba49-ecd6b9fbb727` | **P2-1.2-D 검증 체크리스트: 상태 전이/제약 회귀 시나리오**                  | completed | P2-1.2-B<br>P2-1.2-C        | -         |
+| `10000000-0000-4000-8000-000000000054` | **P2-1.3 가입 제출 API 기본 계약 설계(역할 분기/입력 검증)**                | completed | P2-1.2                      | 180m      |
+| `c5538cee-788a-469f-b3a0-6af3c73d5b3a` | **P2-1.3-1 signup-submit API 계약 표준화 문서 확정**                        | completed | -                           | -         |
+| `cb4bde42-6236-4c60-a1cb-2825cd43a84f` | **P2-1.3-2 signup-submit Edge Function 엔트리포인트 골격 구현**             | completed | P2-1.3-1                    | -         |
+| `91a05915-7f12-4c36-8047-b760993cc9a8` | **P2-1.3-3 클라이언트 signup API 래퍼 경계 고정**                           | completed | P2-1.3-1                    | -         |
+| `4c02b69e-0834-42c9-9834-e9e80f9380bf` | **P2-1.3-4 에러 코드 매핑/검증 체크리스트 정리**                            | completed | P2-1.3-2<br>P2-1.3-3        | -         |
+| `10000000-0000-4000-8000-000000000055` | **P2-1.4 UI: 단일 /signup 분기형 구현(admin 병원선택 / user 초대코드)**     | completed | P2-1.9                      | 210m      |
+| `3d552bc3-2866-437c-a3e5-8e208b1d5c51` | **P2-1.4-1 Signup Contract Alignment (types/api/store boundary)**           | completed | P2-1.9                      | -         |
+| `5dc645e9-e740-4955-9dcb-8c432774ca0a` | **P2-1.4-1A Define deterministic signup contracts for UI boundary**         | completed | -                           | -         |
+| `600f17c8-9fe9-431e-88e2-b0b5391610f8` | **P2-1.4-1B Preserve single signup API boundary with alias normalization**  | completed | P2-1.4-1A                   | -         |
+| `d8f5ac61-1bd8-46e0-9d14-16f3248a3138` | **P2-1.4-1C Implement and validate auth store deterministic signup result** | completed | P2-1.4-1A<br>P2-1.4-1B      | -         |
+| `d3f05381-f3aa-48d6-976f-84962d45bfd5` | **P2-1.4-2 Signup View Role-Branch UI (/signup single route)**              | completed | P2-1.4-1                    | -         |
+| `1b94e697-94d4-4919-8a0a-0a437d951cdd` | **P2-1.4-3 Auth Routing and Login Entry Integration**                       | completed | P2-1.4-2                    | -         |
+| `d06c74d0-4dc0-49ac-9ed9-02fb0b3a0937` | **P2-1.4-3a Auth Route Guard Regression Verification**                      | completed | P2-1.4-3                    | -         |
+| `c6f241be-cfae-44b8-bde5-13cfdb2156aa` | **P2-1.4-3b Redirect Policy Consistency Hardening**                         | completed | P2-1.4-3a                   | -         |
+| `c7596ca4-9628-4f2c-a7ec-75eb0891c253` | **P2-1.4-4 Validation Matrix and Manual QA for Role Branching**             | completed | P2-1.4-3                    | -         |
+| `33e48eb4-da81-40e3-9c69-c796565700bb` | **P2-1.4-4-A Signup Role-Branch Manual QA Matrix 문서 보강**                | completed | -                           | -         |
+| `0740a18e-6648-4bfa-8b33-17d11a3cdb7b` | **P2-1.4-4-B Role Branching 수동 실행 증거 기록**                           | completed | P2-1.4-4-A                  | -         |
+| `20de8454-5483-4395-b73a-43a16171676f` | **P2-1.4-4-C Lint/테스트 게이트 검증 및 회귀 확인**                         | completed | P2-1.4-4-B                  | -         |
+| `9df3e61b-bc11-4e92-963d-ccd70d4efadb` | **P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)**      | completed | P2-1.4-2                    | 120m      |
+| `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)**           | completed | P2-1.4                      | 120m      |
+| `f035e92a-3557-470b-b74c-ea969c7a95c1` | **P2-1.10-1 invite-code-manage API_SPEC contract 문서화**                   | completed | P2-1.8                      | -         |
+| `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)**         | completed | P2-1.10                     | 120m      |
+| `ff1599e4-585f-4e63-9565-a84284e4674c` | **P2-1.5A 가입 스모크 시나리오 섹션 초안 작성**                             | completed | P2-1.4                      | -         |
+| `62d44239-440d-4c38-81cb-f25a5d6bddd7` | **P2-1.5B 가입 스모크 시나리오 문서 정합성 검토**                           | completed | P2-1.5A                     | -         |
+| `63463b1e-64b2-4677-86ea-ebfcde2316d5` | **P2-1.6 병원 검색 Edge Function 계약 정의(data.go.kr 프록시)**             | completed | P2-1.2                      | 150m      |
+| `8f8612a3-5e8c-456c-962d-4fdd91566dcb` | **P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)**                      | completed | -                           | -         |
+| `79e67b38-73fe-46ea-8d18-afe32c884598` | **P2-1.6.2 Edge Function 구현: data.go.kr 프록시 및 정규화**                | completed | P2-1.6.1                    | -         |
+| `bcc4bbfb-abc1-4540-b292-2330e96f326f` | **P2-1.6.2 테스트: hospital-search Edge Function 검증**                     | completed | -                           | -         |
+| `b5d67e99-f96d-4f0f-a70f-22476a633d04` | **P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거**                        | pending   | P2-1.6.2                    | -         |
+| `7f9a378a-9f68-48ee-93a7-089efd4d31ff` | **P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)**                            | pending   | P2-1.6.3                    | -         |
+| `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)**                  | completed | P2-1.2                      | 150m      |
+| `8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8` | **P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장**                    | completed | -                           | -         |
+| `605ced42-6835-429c-8c6a-fe2509dc1ed0` | **P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의**                    | pending   | P2-1.8-1                    | -         |
+| `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6` | **P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강**               | pending   | P2-1.8-1                    | -         |
+| `3181bcb1-37ae-49a9-afb7-29e409976a23` | **P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가**         | pending   | P2-1.8-1<br>P2-1.8-3        | -         |
+| `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)**         | completed | P2-1.3<br>P2-1.6<br>P2-1.8  | 180m      |
+| `6ba9a255-ecd3-4474-a921-8749d93f7949` | **P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)**                | pending   | P2-1.3                      | -         |
+| `db53ffa2-8cda-432e-9207-ad3e0b3f1883` | **P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영**                  | pending   | P2-1.9-1<br>P2-1.8          | -         |
+| `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환**            | pending   | P2-1.6                      | -         |
+| `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스**                         | pending   | P2-1.9-2<br>P2-1.9-3        | -         |
+| `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)**                 | completed | P2-1.8                      | 150m      |
+| `17d170a7-e65a-451b-a71f-129c6ba70ae5` | **P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬**                  | completed | P2-1.10-1                   | -         |
+| `10000000-0000-4000-8000-000000000057` | **P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별**          | completed | P2-1.5                      | 120m      |
+| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정**            | pending   | P2-2.1                      | 120m      |
+| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의**                 | pending   | P2-2.2                      | 90m       |
+| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)**        | pending   | P2-2.3                      | 90m       |
+| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)**       | pending   | P2-1.5                      | 120m      |
+| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)**     | pending   | P2-3.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙**                      | pending   | P2-3.2                      | 150m      |
+| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)**             | pending   | P2-3.2                      | 90m       |
+| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)**              | pending   | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m      |
 
 ### 상세 (Details)
 
@@ -1172,7 +1170,7 @@
 - **Task ID**: `b5d67e99-f96d-4f0f-a70f-22476a633d04`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: src/api/hospital.ts를 supabase.functions.invoke('hospital-search') 단일 경계 래퍼로 전환하고, 브라우저에서 data.go.kr 직접 호출 및 VITE_HOSPITAL_API_KEY 사용 경로를 제거한다.
-- **구현 가이드(Guide)**: 1) HospitalSearch 응답 타입을 edge function envelope에 맞춰 정리. 2) searchHospitals(keyword, limit)에서 invoke('hospital-search') 호출로 변경(pageNo=1, numOfRows=limit 변환). 3) 기존 브라우저 direct fetch 로직과 VITE_HOSPITAL_API_* 참조 제거. 4) 에러 코드 기반 사용자 친화 메시지 매핑을 최소 추가. 5) 기존 Signup.vue 호출 시그니처 호환 유지.
+- **구현 가이드(Guide)**: 1) HospitalSearch 응답 타입을 edge function envelope에 맞춰 정리. 2) searchHospitals(keyword, limit)에서 invoke('hospital-search') 호출로 변경(pageNo=1, numOfRows=limit 변환). 3) 기존 브라우저 direct fetch 로직과 VITE*HOSPITAL_API*\* 참조 제거. 4) 에러 코드 기반 사용자 친화 메시지 매핑을 최소 추가. 5) 기존 Signup.vue 호출 시그니처 호환 유지.
 - **검증 기준(Verification)**: Deliverable: 클라이언트 병원 검색 경로가 invoke('hospital-search') 단일 경계로 통일된다. Method: 코드 검색으로 data.go.kr 직접 fetch/VITE_HOSPITAL_API_KEY 참조 여부 확인. Pass: 클라이언트 코드에서 직접 외부 API 호출이 제거된다.
 - **선행 조건(Dependencies)**: P2-1.6.2
 - **예상 소요 시간**: -
@@ -1449,24 +1447,23 @@
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Login.vue`, `src/router/index.ts`
 - **노트(Notes)**: 본 시나리오는 P3 이후 라우터/온보딩 변경의 회귀 기준선으로 재사용한다.
 
-
 ## P3 (예상 시간: 24시간 30분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정** | pending | P1-1.3<br>P1-1.4<br>P2-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000067` | **P3-1.2 onboarding_progress 저장/RLS 설계** | pending | P3-1.1 | 120m |
-| `10000000-0000-4000-8000-000000000068` | **P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)** | pending | P3-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000069` | **P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)** | pending | P3-1.3 | 90m |
-| `10000000-0000-4000-8000-000000000070` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정** | pending | P3-1.1 | 120m |
-| `10000000-0000-4000-8000-000000000071` | **P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | pending | P3-2.1 | 120m |
-| `10000000-0000-4000-8000-000000000072` | **P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)** | pending | P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2 | 180m |
-| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)** | pending | P3-1.1<br>P2-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)** | pending | P3-1.3<br>P3-1.4<br>P3-3.1 | 120m |
-| `10000000-0000-4000-8000-000000000075` | **P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)** | pending | P3-3.2 | 120m |
-| `7bfa70f1-d130-4940-982e-c8da747127c2` | **P3-3.4 온보딩 E2E 테스트 시나리오 정의** | pending | P3-1.3<br>P3-2.1<br>P3-3.1 | 180m |
+| Task ID                                | 태스크 명                                                       | 상태    | 선행 태스크(Dependencies)            | 예상 시간 |
+| -------------------------------------- | --------------------------------------------------------------- | ------- | ------------------------------------ | --------- |
+| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정**        | pending | P1-1.3<br>P1-1.4<br>P2-2.4           | 120m      |
+| `10000000-0000-4000-8000-000000000067` | **P3-1.2 onboarding_progress 저장/RLS 설계**                    | pending | P3-1.1                               | 120m      |
+| `10000000-0000-4000-8000-000000000068` | **P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)**       | pending | P3-1.1                               | 180m      |
+| `10000000-0000-4000-8000-000000000069` | **P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)**                 | pending | P3-1.3                               | 90m       |
+| `10000000-0000-4000-8000-000000000070` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정**                  | pending | P3-1.1                               | 120m      |
+| `10000000-0000-4000-8000-000000000071` | **P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | pending | P3-2.1                               | 120m      |
+| `10000000-0000-4000-8000-000000000072` | **P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)**      | pending | P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2 | 180m      |
+| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)**                | pending | P3-1.1<br>P2-2.4                     | 120m      |
+| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)**        | pending | P3-1.3<br>P3-1.4<br>P3-3.1           | 120m      |
+| `10000000-0000-4000-8000-000000000075` | **P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)**          | pending | P3-3.2                               | 120m      |
+| `7bfa70f1-d130-4940-982e-c8da747127c2` | **P3-3.4 온보딩 E2E 테스트 시나리오 정의**                      | pending | P3-1.3<br>P3-2.1<br>P3-3.1           | 180m      |
 
 ### 상세 (Details)
 
@@ -1592,24 +1589,23 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-
 ## P4 (예상 시간: 24시간 30분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000076` | **P4-1.1 계정 관리 리스트/필터 요구사항 확정** | pending | P2-3.5<br>P3-3.3<br>P3-3.4 | 120m |
-| `10000000-0000-4000-8000-000000000077` | **P4-1.2 계정 관리 조회 쿼리/API 설계(테넌트 스코프)** | pending | P4-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000078` | **P4-1.3 UI: 계정 관리 리스트 화면 구현 계획** | pending | P4-1.2 | 180m |
-| `10000000-0000-4000-8000-000000000079` | **P4-1.4 계정 관리 기본 테스트 시나리오 정의** | pending | P4-1.3 | 120m |
-| `10000000-0000-4000-8000-000000000080` | **P4-2.1 계정 액션 정책(approve/reject/withdraw) + 확인 UX 확정** | pending | P4-1.4 | 90m |
-| `10000000-0000-4000-8000-000000000081` | **P4-2.2 승인 결정 API 연동 계획(재사용/에러 처리)** | pending | P4-2.1 | 120m |
-| `10000000-0000-4000-8000-000000000082` | **P4-2.3 감사로그/알림 이벤트 연동 확인 항목 정의** | pending | P4-2.2 | 90m |
-| `10000000-0000-4000-8000-000000000083` | **P4-2.4 계정 액션 E2E 테스트 시나리오 정의** | pending | P4-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000084` | **P4-3.1 계정 모듈 RBAC 매트릭스(화면/액션/데이터) 작성** | pending | P4-2.4 | 90m |
-| `10000000-0000-4000-8000-000000000085` | **P4-3.2 RBAC 테스트 전략 정의(유닛/E2E 분리)** | pending | P4-3.1 | 120m |
-| `10000000-0000-4000-8000-000000000086` | **P4-3.3 RBAC E2E 케이스 최소 세트 정의(super/admin/user)** | pending | P4-3.2 | 180m |
+| Task ID                                | 태스크 명                                                         | 상태    | 선행 태스크(Dependencies)  | 예상 시간 |
+| -------------------------------------- | ----------------------------------------------------------------- | ------- | -------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000076` | **P4-1.1 계정 관리 리스트/필터 요구사항 확정**                    | pending | P2-3.5<br>P3-3.3<br>P3-3.4 | 120m      |
+| `10000000-0000-4000-8000-000000000077` | **P4-1.2 계정 관리 조회 쿼리/API 설계(테넌트 스코프)**            | pending | P4-1.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000078` | **P4-1.3 UI: 계정 관리 리스트 화면 구현 계획**                    | pending | P4-1.2                     | 180m      |
+| `10000000-0000-4000-8000-000000000079` | **P4-1.4 계정 관리 기본 테스트 시나리오 정의**                    | pending | P4-1.3                     | 120m      |
+| `10000000-0000-4000-8000-000000000080` | **P4-2.1 계정 액션 정책(approve/reject/withdraw) + 확인 UX 확정** | pending | P4-1.4                     | 90m       |
+| `10000000-0000-4000-8000-000000000081` | **P4-2.2 승인 결정 API 연동 계획(재사용/에러 처리)**              | pending | P4-2.1                     | 120m      |
+| `10000000-0000-4000-8000-000000000082` | **P4-2.3 감사로그/알림 이벤트 연동 확인 항목 정의**               | pending | P4-2.2                     | 90m       |
+| `10000000-0000-4000-8000-000000000083` | **P4-2.4 계정 액션 E2E 테스트 시나리오 정의**                     | pending | P4-2.3                     | 180m      |
+| `10000000-0000-4000-8000-000000000084` | **P4-3.1 계정 모듈 RBAC 매트릭스(화면/액션/데이터) 작성**         | pending | P4-2.4                     | 90m       |
+| `10000000-0000-4000-8000-000000000085` | **P4-3.2 RBAC 테스트 전략 정의(유닛/E2E 분리)**                   | pending | P4-3.1                     | 120m      |
+| `10000000-0000-4000-8000-000000000086` | **P4-3.3 RBAC E2E 케이스 최소 세트 정의(super/admin/user)**       | pending | P4-3.2                     | 180m      |
 
 ### 상세 (Details)
 
@@ -1735,27 +1731,26 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-
 ## P5 (예상 시간: 39시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000087` | **P5-1.1 조직 관리 범위/권한/필드 스펙 확정** | pending | P1-1.3<br>P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계** | pending | P5-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계** | pending | P5-1.2 | 180m |
-| `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)** | pending | P5-1.3 | 180m |
-| `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계** | pending | P5-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)** | pending | P5-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | pending | P5-2.2 | 180m |
-| `10000000-0000-4000-8000-000000000094` | **P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)** | pending | P5-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000095` | **P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의** | pending | P5-2.4 | 180m |
-| `10000000-0000-4000-8000-000000000096` | **P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정** | pending | P5-2.5 | 120m |
-| `10000000-0000-4000-8000-000000000097` | **P5-3.2 사이트 CRUD 화면/UX 설계** | pending | P5-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000098` | **P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계** | pending | P5-3.2 | 180m |
-| `10000000-0000-4000-8000-000000000099` | **P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획** | pending | P5-3.3 | 180m |
-| `10000000-0000-4000-8000-000000000100` | **P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)** | pending | P5-3.4 | 180m |
+| Task ID                                | 태스크 명                                                          | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
+| -------------------------------------- | ------------------------------------------------------------------ | ------- | ------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000087` | **P5-1.1 조직 관리 범위/권한/필드 스펙 확정**                      | pending | P1-1.3<br>P1-1.4          | 120m      |
+| `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계**                           | pending | P5-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계**                     | pending | P5-1.2                    | 180m      |
+| `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)**        | pending | P5-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계**                    | pending | P5-1.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)**               | pending | P5-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | pending | P5-2.2                    | 180m      |
+| `10000000-0000-4000-8000-000000000094` | **P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)**        | pending | P5-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000095` | **P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의**                 | pending | P5-2.4                    | 180m      |
+| `10000000-0000-4000-8000-000000000096` | **P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정**                 | pending | P5-2.5                    | 120m      |
+| `10000000-0000-4000-8000-000000000097` | **P5-3.2 사이트 CRUD 화면/UX 설계**                                | pending | P5-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000098` | **P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계**             | pending | P5-3.2                    | 180m      |
+| `10000000-0000-4000-8000-000000000099` | **P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획**  | pending | P5-3.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000100` | **P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)**            | pending | P5-3.4                    | 180m      |
 
 ### 상세 (Details)
 
@@ -1786,7 +1781,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000089`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: organizations 및 organization_settings 저장/조회 방식을 설계한다(직접 테이블 접근 vs RPC/함수).
-- **구현 가이드(Guide)**: 1. API 경계 선택: Supabase RLS + RPC 함수 조합 2. organizations 테이블: RLS로 super/admin 접근 제어 3. organization_settings: RPC 함수로 CRUD 처리, organization_id 검증 4. RBAC:    - super: 모든 조직 데이터 접근 가능    - admin: 자신의 organization_id와 일치하는 데이터만 접근    - user: API 호출 시 403 반환 5. CRUD 요청 시 사용자의 역할과 organization_id 검증 로직 포함
+- **구현 가이드(Guide)**: 1. API 경계 선택: Supabase RLS + RPC 함수 조합 2. organizations 테이블: RLS로 super/admin 접근 제어 3. organization_settings: RPC 함수로 CRUD 처리, organization_id 검증 4. RBAC: - super: 모든 조직 데이터 접근 가능 - admin: 자신의 organization_id와 일치하는 데이터만 접근 - user: API 호출 시 403 반환 5. CRUD 요청 시 사용자의 역할과 organization_id 검증 로직 포함
 - **검증 기준(Verification)**: Deliverable: 조직 관리 저장 경계가 결정되어 있고, API 인터페이스가 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P5-1.2
 - **예상 소요 시간**: 180m
@@ -1840,12 +1835,12 @@
 
 - **Task ID**: `10000000-0000-4000-8000-000000000094`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 조직 스킬/직급 마스터(코드/이름/크레딧) 저장 규칙과 UI 요구사항을 확정한다.
-- **구현 가이드(Guide)**: 1) code 유니크 정책 정의. 2) rank credit 기본값 정책 정의. 3) 비활성 처리 및 참조 무결성 정책 정의.
-- **검증 기준(Verification)**: Deliverable: 스킬/직급 마스터의 저장 규칙과 UI 요구사항이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-2.3
+- **설명(Description)**: 조직 스킬/직급 마스터의 canonical 계약을 확정한다. 범위에는 `skills`/`ranks` 테이블 기준의 조직별 코드 정규화·유니크 규칙, 신규 조직 기본값(GENERAL/RN) 정책, rank credit 입력/표시/상속 규칙, 그리고 Phase 5 blocked-first 삭제 UX와 현재 DB FK(CASCADE/SET NULL) 간의 known delta 문서화가 포함된다.
+- **구현 가이드(Guide)**: 1) canonical 테이블/타입 이름을 `skills`, `ranks`, `Skill`, `Rank`로 고정하고 legacy 명칭을 제거한다. 2) code 규칙을 정의한다: 저장 전 trim + uppercase 정규화, 조직 단위 유니크, 최대 길이, duplicate 에러 메시지. 3) 기본값 정책을 정의한다: 신규 조직 seed는 GENERAL 스킬 1종과 RN 직급 1종이며, LV1~LV4는 PRD 예시/운영 옵션이지 필수 seed가 아님을 문서화한다. 4) rank credit 정책을 정의한다: P5에서는 nullable 허용, 값이 있으면 0 이상, 화면 표시 포맷은 소수 둘째 자리, P6 직원 생성 시 rank.credit을 초기 제안값으로 사용하되 직원 저장값은 독립적으로 변경 가능하다는 전제를 명시한다. 5) 삭제/참조 무결성 정책을 정의한다: Phase 5 UX 계약은 blocked-first이고, 현재 DB FK의 CASCADE/SET NULL은 desired behavior가 아니라 known delta로 기록한다. P5 구현 기본안은 사전 참조 조회 + 사용자 안내로 차단 UX를 제공하고, 엄격한 DB RESTRICT 전환은 별도 후속 마이그레이션 후보로 남긴다. 6) 참조 범위를 문서화한다: skill은 현재 employee_skills 및 site_staffing_requirements와 연결되고, rank는 현재 site_staffing_requirements와 연결되며 employee rank FK는 P6 확장 범위임을 분리해서 적는다.
+- **검증 기준(Verification)**: Deliverable: 스킬/직급 마스터 canonical spec과 실행 계획 초안이 문서화되어 있다. Method: 산출물을 리뷰하고 아래 조건이 모두 명시되었는지 확인한다: (a) canonical 테이블명이 `skills`/`ranks`로 고정됨, (b) code 정규화 및 조직별 유니크 규칙이 명시됨, (c) GENERAL/RN seed와 LV1~LV4 예시의 관계가 정리됨, (d) credit nullable/검증/표시/직원 초기값 규칙이 명시됨, (e) blocked-first UX와 current FK delta가 함께 기록됨, (f) 후속 구현 순서와 영향 파일이 정리됨. Pass: 모든 조건이 누락 없이 확인됨.
+- **선행 조건(Dependencies)**: P5-2.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `migrations/007_service_transition_rbac_multitenant.sql`
+- **관련 파일**: `docs/specs/p5/P5-2.4-skill-rank-spec.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/012_organization_master_fields.sql`, `src/api/skill.ts`, `src/api/rank.ts`
 
 ### P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의
 
@@ -1913,24 +1908,23 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `src/composables/useSiteRequirements.ts`
 
-
 ## P6 (예상 시간: 26시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000101` | **P6-1.1 직원 관리 권한/스코프 정의** | pending | P2-3.1<br>P2-3.5<br>P5-3.5 | 90m |
-| `10000000-0000-4000-8000-000000000102` | **P6-1.2 직원 목록/상세 화면 요구사항 확정(필터 포함)** | pending | P6-1.1 | 120m |
-| `10000000-0000-4000-8000-000000000103` | **P6-1.3 직원 관리 구현 구조 설계(API/컴포넌트/상태)** | pending | P6-1.2 | 90m |
-| `10000000-0000-4000-8000-000000000104` | **P6-2.1 직원 스키마 확장 설계(site/rank/skill/credit/user_id)** | pending | P6-1.3 | 120m |
-| `10000000-0000-4000-8000-000000000105` | **P6-2.2 직원 CRUD UX 확정(매핑 선택 포함)** | pending | P6-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000106` | **P6-2.3 직원 데이터 검증 규칙 정의(근무 가능 시프트/사이트 일관성)** | pending | P6-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000107` | **P6-2.4 직원 CRUD 테스트 시나리오 정의(RLS 포함)** | pending | P6-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000108` | **P6-3.1 직원 엑셀 템플릿(필드 매핑) 확정** | pending | P6-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000109` | **P6-3.2 엑셀 파서/검증/미리보기 UX 설계** | pending | P6-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000110` | **P6-3.3 커밋(배치 upsert) 및 실패 리포트 정책 정의** | pending | P6-3.2 | 180m |
-| `10000000-0000-4000-8000-000000000111` | **P6-3.4 엑셀 업로드 테스트 시나리오 정의(오류/중복/권한)** | pending | P6-3.3 | 180m |
+| Task ID                                | 태스크 명                                                             | 상태    | 선행 태스크(Dependencies)  | 예상 시간 |
+| -------------------------------------- | --------------------------------------------------------------------- | ------- | -------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000101` | **P6-1.1 직원 관리 권한/스코프 정의**                                 | pending | P2-3.1<br>P2-3.5<br>P5-3.5 | 90m       |
+| `10000000-0000-4000-8000-000000000102` | **P6-1.2 직원 목록/상세 화면 요구사항 확정(필터 포함)**               | pending | P6-1.1                     | 120m      |
+| `10000000-0000-4000-8000-000000000103` | **P6-1.3 직원 관리 구현 구조 설계(API/컴포넌트/상태)**                | pending | P6-1.2                     | 90m       |
+| `10000000-0000-4000-8000-000000000104` | **P6-2.1 직원 스키마 확장 설계(site/rank/skill/credit/user_id)**      | pending | P6-1.3                     | 120m      |
+| `10000000-0000-4000-8000-000000000105` | **P6-2.2 직원 CRUD UX 확정(매핑 선택 포함)**                          | pending | P6-2.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000106` | **P6-2.3 직원 데이터 검증 규칙 정의(근무 가능 시프트/사이트 일관성)** | pending | P6-2.2                     | 120m      |
+| `10000000-0000-4000-8000-000000000107` | **P6-2.4 직원 CRUD 테스트 시나리오 정의(RLS 포함)**                   | pending | P6-2.3                     | 180m      |
+| `10000000-0000-4000-8000-000000000108` | **P6-3.1 직원 엑셀 템플릿(필드 매핑) 확정**                           | pending | P6-2.4                     | 120m      |
+| `10000000-0000-4000-8000-000000000109` | **P6-3.2 엑셀 파서/검증/미리보기 UX 설계**                            | pending | P6-3.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000110` | **P6-3.3 커밋(배치 upsert) 및 실패 리포트 정책 정의**                 | pending | P6-3.2                     | 180m      |
+| `10000000-0000-4000-8000-000000000111` | **P6-3.4 엑셀 업로드 테스트 시나리오 정의(오류/중복/권한)**           | pending | P6-3.3                     | 180m      |
 
 ### 상세 (Details)
 
@@ -2055,24 +2049,23 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-
 ## P7 (예상 시간: 26시간 30분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000112` | **P7-1.1 Step1 조직 마스터 데이터 연결 계획(시프트/제약)** | pending | P5-3.5 | 120m |
-| `10000000-0000-4000-8000-000000000113` | **P7-1.2 Step2 요일 요구→월 요구 계산/편집/저장 플로우 설계** | pending | P7-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000114` | **P7-1.3 구 스키마(site_requirements)와 신 스키마 호환 전략 정의** | pending | P7-1.2 | 120m |
-| `10000000-0000-4000-8000-000000000115` | **P7-1.4 스케줄 플로우 회귀 방지 체크리스트(그리드/엑셀/solver)** | pending | P7-1.3 | 180m |
-| `10000000-0000-4000-8000-000000000116` | **P7-2.1 Solver 계약(API) 문서화 + 버전 정책 확정** | pending | P7-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000117` | **P7-2.2 Mapper/Validator 고정 전략 정의 + 테스트 케이스 목록화** | pending | P7-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000118` | **P7-2.3 에러/타임아웃/재시도 UX 정책 정의** | pending | P7-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000119` | **P7-3.1 스케줄 워크플로우 회귀 E2E 시나리오 정의(Step1→5)** | pending | P7-2.3 | 120m |
-| `10000000-0000-4000-8000-000000000120` | **P7-3.2 Playwright 회귀 테스트 구현 범위/전략 결정** | pending | P7-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000121` | **P7-3.3 유닛 테스트 보강 대상 선정(스토어/유틸/매퍼)** | pending | P7-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000122` | **P7-3.4 회귀 테스트를 품질 게이트에 포함하는 기준 확정** | pending | P7-3.2 | 90m |
+| Task ID                                | 태스크 명                                                          | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
+| -------------------------------------- | ------------------------------------------------------------------ | ------- | ------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000112` | **P7-1.1 Step1 조직 마스터 데이터 연결 계획(시프트/제약)**         | pending | P5-3.5                    | 120m      |
+| `10000000-0000-4000-8000-000000000113` | **P7-1.2 Step2 요일 요구→월 요구 계산/편집/저장 플로우 설계**      | pending | P7-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000114` | **P7-1.3 구 스키마(site_requirements)와 신 스키마 호환 전략 정의** | pending | P7-1.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000115` | **P7-1.4 스케줄 플로우 회귀 방지 체크리스트(그리드/엑셀/solver)**  | pending | P7-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000116` | **P7-2.1 Solver 계약(API) 문서화 + 버전 정책 확정**                | pending | P7-1.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000117` | **P7-2.2 Mapper/Validator 고정 전략 정의 + 테스트 케이스 목록화**  | pending | P7-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000118` | **P7-2.3 에러/타임아웃/재시도 UX 정책 정의**                       | pending | P7-2.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000119` | **P7-3.1 스케줄 워크플로우 회귀 E2E 시나리오 정의(Step1→5)**       | pending | P7-2.3                    | 120m      |
+| `10000000-0000-4000-8000-000000000120` | **P7-3.2 Playwright 회귀 테스트 구현 범위/전략 결정**              | pending | P7-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000121` | **P7-3.3 유닛 테스트 보강 대상 선정(스토어/유틸/매퍼)**            | pending | P7-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000122` | **P7-3.4 회귀 테스트를 품질 게이트에 포함하는 기준 확정**          | pending | P7-3.2                    | 90m       |
 
 ### 상세 (Details)
 
@@ -2081,7 +2074,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000112`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: Step1(기본 정보)에서 조직 마스터 데이터(시프트/제약/조직정보)를 조회/수정할 수 있도록 연결 계획을 수립한다.
-- **구현 가이드(Guide)**: 1. Step1 컴포넌트: 조직 마스터 데이터(시프트/제약)를 조직/사이트별로 로드 2. API 연동: organizations/{id}/shifts, organizations/{id}/constraints 엔드포인트 3. RBAC:    - 라우트 /schedule/step* → meta.roles: ['super', 'admin']    - user 역할은 스케줄 생성 메뉴 노출 안 함    - admin은 자신의 조직 마스터 데이터만 조회 4. 데이터 검증: 마스터 데이터 변경 시 Step2/Step3에 미치는 영향 검증 5. 캐싱: 마스터 데이터는 Pinia store에 캐시하여 Step 간 재사용
+- **구현 가이드(Guide)**: 1. Step1 컴포넌트: 조직 마스터 데이터(시프트/제약)를 조직/사이트별로 로드 2. API 연동: organizations/{id}/shifts, organizations/{id}/constraints 엔드포인트 3. RBAC: - 라우트 /schedule/step\* → meta.roles: ['super', 'admin'] - user 역할은 스케줄 생성 메뉴 노출 안 함 - admin은 자신의 조직 마스터 데이터만 조회 4. 데이터 검증: 마스터 데이터 변경 시 Step2/Step3에 미치는 영향 검증 5. 캐싱: 마스터 데이터는 Pinia store에 캐시하여 Step 간 재사용
 - **검증 기준(Verification)**: Deliverable: Step1이 조직 마스터 데이터를 기반으로 동작하도록 변경 범위가 정리되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P5-3.5
 - **예상 소요 시간**: 120m
@@ -2092,7 +2085,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000113`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: Step2에서 사이트별 요일 요구인원을 계획 월에 적용해 월별 요구인원으로 계산/편집/저장하는 플로우를 설계한다.
-- **구현 가이드(Guide)**: 1. 요일 요구→월 요구 계산 로직: site_staffing_templates 기반으로 날짜별 요구인원 생성 2. 편집 UI: 그리드/테이블 형태로 사이트/날짜/시프트별 요구인원 편집 3. 저장 API: POST /schedules/{id}/staffing-requirements (admin만 호출 가능) 4. RBAC:    - /schedule/step2 라우트 → meta.roles: ['super', 'admin']    - user 역할 접근 시 403    - admin은 자신의 organization_id 기반 데이터만 저장 5. 데이터 검증: 요구인원 변경 시 solver 입력 데이터 무결성 확인
+- **구현 가이드(Guide)**: 1. 요일 요구→월 요구 계산 로직: site_staffing_templates 기반으로 날짜별 요구인원 생성 2. 편집 UI: 그리드/테이블 형태로 사이트/날짜/시프트별 요구인원 편집 3. 저장 API: POST /schedules/{id}/staffing-requirements (admin만 호출 가능) 4. RBAC: - /schedule/step2 라우트 → meta.roles: ['super', 'admin'] - user 역할 접근 시 403 - admin은 자신의 organization_id 기반 데이터만 저장 5. 데이터 검증: 요구인원 변경 시 solver 입력 데이터 무결성 확인
 - **검증 기준(Verification)**: Deliverable: Step2의 월별 요구인원 계산/편집/저장 플로우가 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P7-1.1
 - **예상 소요 시간**: 180m
@@ -2103,7 +2096,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000114`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 기존 site_requirements와 신규 site_staff_requirements 간의 호환/마이그레이션 전략(대체 시점, 데이터 변환)을 정의한다.
-- **구현 가이드(Guide)**: 1. 구 스키마: site_requirements (day_of_week 기반) - MVP에서 사용 2. 신 스키마: site_staffing_requirements (날짜 기반) - 서비스 전환 후 사용 3. 호환 전략:    - 마이그레이션 기간: 두 스키마 모두 유지    - 데이터 변환: site_requirements → site_staffing_requirements 변환 함수    - API 호환: Step2는 신 스키마 사용, legacy는 구 스키마 참조 4. RBAC: 두 스키마 모두 organization_id 기반 RLS 적용 5. 전환 시점: P7 완료 후 구 스키마 deprecate 계획 수립
+- **구현 가이드(Guide)**: 1. 구 스키마: site_requirements (day_of_week 기반) - MVP에서 사용 2. 신 스키마: site_staffing_requirements (날짜 기반) - 서비스 전환 후 사용 3. 호환 전략: - 마이그레이션 기간: 두 스키마 모두 유지 - 데이터 변환: site_requirements → site_staffing_requirements 변환 함수 - API 호환: Step2는 신 스키마 사용, legacy는 구 스키마 참조 4. RBAC: 두 스키마 모두 organization_id 기반 RLS 적용 5. 전환 시점: P7 완료 후 구 스키마 deprecate 계획 수립
 - **검증 기준(Verification)**: Deliverable: 호환 전략이 문서화되어 있고, 단계적 전환 경로가 명확하다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P7-1.2
 - **예상 소요 시간**: 120m
@@ -2197,26 +2190,25 @@
 - **예상 소요 시간**: 90m
 - **관련 파일**: `scripts/quality-gate.sh`
 
-
 ## P8 (예상 시간: 32시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000123` | **P8-1.1 알림 이벤트/채널/설정 요구사항 정리** | pending | P1-1.3<br>P1-1.4<br>P7-2.1 | 120m |
-| `10000000-0000-4000-8000-000000000124` | **P8-1.2 알림 DB 스키마/마이그레이션 설계(notification_* 테이블)** | pending | P8-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000125` | **P8-1.3 알림 API 계약 정의(조회/읽음/설정)** | pending | P8-1.2 | 180m |
-| `10000000-0000-4000-8000-000000000126` | **P8-1.4 알림 도메인 테스트 시나리오 정의(권한/격리/읽음)** | pending | P8-1.3 | 180m |
-| `31f6f58e-3337-4af5-8a8e-f5f76b253f53` | **P8-1.5 Solver 완료 알림 이벤트 경계 검증 시나리오 정의** | pending | P8-1.4<br>P7-2.1 | 90m |
-| `10000000-0000-4000-8000-000000000127` | **P8-2.1 헤더 🔔 알림 UX 설계(뱃지/드롭다운/링크)** | pending | P8-1.5 | 120m |
-| `10000000-0000-4000-8000-000000000128` | **P8-2.2 알림 센터 페이지 IA/필터/읽음 UX 설계** | pending | P8-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000129` | **P8-2.3 알림 설정 UI 설계(이벤트별 앱내/이메일)** | pending | P8-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000130` | **P8-2.4 알림센터 E2E 시나리오 정의(승인 알림)** | pending | P8-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000131` | **P8-3.1 Resend 이메일 발송 정책/템플릿 요구사항 확정** | pending | P8-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000132` | **P8-3.2 notify-dispatch 설계(큐/재시도/멱등)** | pending | P8-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000133` | **P8-3.3 이메일 환경변수/시크릿/로컬 개발 전략 확정** | pending | P8-3.2 | 90m |
-| `10000000-0000-4000-8000-000000000134` | **P8-3.4 이메일 발송 테스트 시나리오 정의(실패/중복/설정)** | pending | P8-3.3 | 180m |
+| Task ID                                | 태스크 명                                                            | 상태    | 선행 태스크(Dependencies)  | 예상 시간 |
+| -------------------------------------- | -------------------------------------------------------------------- | ------- | -------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000123` | **P8-1.1 알림 이벤트/채널/설정 요구사항 정리**                       | pending | P1-1.3<br>P1-1.4<br>P7-2.1 | 120m      |
+| `10000000-0000-4000-8000-000000000124` | **P8-1.2 알림 DB 스키마/마이그레이션 설계(notification\_\* 테이블)** | pending | P8-1.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000125` | **P8-1.3 알림 API 계약 정의(조회/읽음/설정)**                        | pending | P8-1.2                     | 180m      |
+| `10000000-0000-4000-8000-000000000126` | **P8-1.4 알림 도메인 테스트 시나리오 정의(권한/격리/읽음)**          | pending | P8-1.3                     | 180m      |
+| `31f6f58e-3337-4af5-8a8e-f5f76b253f53` | **P8-1.5 Solver 완료 알림 이벤트 경계 검증 시나리오 정의**           | pending | P8-1.4<br>P7-2.1           | 90m       |
+| `10000000-0000-4000-8000-000000000127` | **P8-2.1 헤더 🔔 알림 UX 설계(뱃지/드롭다운/링크)**                  | pending | P8-1.5                     | 120m      |
+| `10000000-0000-4000-8000-000000000128` | **P8-2.2 알림 센터 페이지 IA/필터/읽음 UX 설계**                     | pending | P8-2.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000129` | **P8-2.3 알림 설정 UI 설계(이벤트별 앱내/이메일)**                   | pending | P8-2.2                     | 120m      |
+| `10000000-0000-4000-8000-000000000130` | **P8-2.4 알림센터 E2E 시나리오 정의(승인 알림)**                     | pending | P8-2.3                     | 180m      |
+| `10000000-0000-4000-8000-000000000131` | **P8-3.1 Resend 이메일 발송 정책/템플릿 요구사항 확정**              | pending | P8-1.4                     | 120m      |
+| `10000000-0000-4000-8000-000000000132` | **P8-3.2 notify-dispatch 설계(큐/재시도/멱등)**                      | pending | P8-3.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000133` | **P8-3.3 이메일 환경변수/시크릿/로컬 개발 전략 확정**                | pending | P8-3.2                     | 90m       |
+| `10000000-0000-4000-8000-000000000134` | **P8-3.4 이메일 발송 테스트 시나리오 정의(실패/중복/설정)**          | pending | P8-3.3                     | 180m      |
 
 ### 상세 (Details)
 
@@ -2231,7 +2223,7 @@
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/REFINED_PRD.md`
 
-### P8-1.2 알림 DB 스키마/마이그레이션 설계(notification_* 테이블)
+### P8-1.2 알림 DB 스키마/마이그레이션 설계(notification\_\* 테이블)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000124`
 - **현재 상태(Status)**: pending
@@ -2363,25 +2355,24 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-
 ## P9 (예상 시간: 30시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000135` | **P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정** | pending | P1-1.3<br>P1-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000136` | **P9-1.2 대시보드 데이터 모델/타입/스토어 설계** | pending | P9-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000137` | **P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)** | pending | P9-1.2 | 120m |
-| `10000000-0000-4000-8000-000000000138` | **P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)** | pending | P9-1.3 | 180m |
-| `10000000-0000-4000-8000-000000000139` | **P9-2.1 관리자 대시보드 페이지 IA/차트 구성 확정** | pending | P9-1.4 | 120m |
-| `10000000-0000-4000-8000-000000000140` | **P9-2.2 직원(개인) 대시보드 페이지 IA/캘린더 요구 확정** | pending | P9-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000141` | **P9-2.3 대시보드 필터 UI/상태 저장 정책 정의** | pending | P9-2.2 | 120m |
-| `10000000-0000-4000-8000-000000000142` | **P9-2.4 대시보드 필터 E2E 시나리오 정의** | pending | P9-2.3 | 180m |
-| `10000000-0000-4000-8000-000000000143` | **P9-3.1 리포트/Export 요구사항 확정(Excel/CSV, 컬럼)** | pending | P9-2.4 | 120m |
-| `10000000-0000-4000-8000-000000000144` | **P9-3.2 Export API 설계(dashboard-export) + 권한/테넌트 검증** | pending | P9-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000145` | **P9-3.3 프론트 Export UI(다운로드/진행/에러) 설계** | pending | P9-3.2 | 120m |
-| `10000000-0000-4000-8000-000000000146` | **P9-3.4 Export 테스트 시나리오 정의(CSV/Excel, 대용량)** | pending | P9-3.3 | 180m |
+| Task ID                                | 태스크 명                                                       | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
+| -------------------------------------- | --------------------------------------------------------------- | ------- | ------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000135` | **P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정**          | pending | P1-1.3<br>P1-1.4          | 120m      |
+| `10000000-0000-4000-8000-000000000136` | **P9-1.2 대시보드 데이터 모델/타입/스토어 설계**                | pending | P9-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000137` | **P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)**      | pending | P9-1.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000138` | **P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)** | pending | P9-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000139` | **P9-2.1 관리자 대시보드 페이지 IA/차트 구성 확정**             | pending | P9-1.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000140` | **P9-2.2 직원(개인) 대시보드 페이지 IA/캘린더 요구 확정**       | pending | P9-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000141` | **P9-2.3 대시보드 필터 UI/상태 저장 정책 정의**                 | pending | P9-2.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000142` | **P9-2.4 대시보드 필터 E2E 시나리오 정의**                      | pending | P9-2.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000143` | **P9-3.1 리포트/Export 요구사항 확정(Excel/CSV, 컬럼)**         | pending | P9-2.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000144` | **P9-3.2 Export API 설계(dashboard-export) + 권한/테넌트 검증** | pending | P9-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000145` | **P9-3.3 프론트 Export UI(다운로드/진행/에러) 설계**            | pending | P9-3.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000146` | **P9-3.4 Export 테스트 시나리오 정의(CSV/Excel, 대용량)**       | pending | P9-3.3                    | 180m      |
 
 ### 상세 (Details)
 
@@ -2401,7 +2392,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000136`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 대시보드 조회 결과를 표현할 타입과 상태 관리(스토어) 구조를 설계한다.
-- **구현 가이드(Guide)**: 1. 타입 정의:    - AdminDashboardData: 조직 전체 지표 (직원별/사이트별 공정성)    - EmployeeDashboardData: 본인 일정/팀 통계 2. 스토어 구조: useAdminDashboard, useEmployeeDashboard 별도 정의 3. RBAC:    - admin: 자신의 organization_id 필터링된 데이터만 스토어에 저장    - user: 본인 employee_id 기반 데이터만 접근    - super: 전체 조직 데이터 접근 가능 4. 상태 관리: 필터(기간/사이트/직급)별로 지표 재계산 로직 5. 캐싱: 대시보드 데이터는 5분 캐시, 필터 변경 시 재조회
+- **구현 가이드(Guide)**: 1. 타입 정의: - AdminDashboardData: 조직 전체 지표 (직원별/사이트별 공정성) - EmployeeDashboardData: 본인 일정/팀 통계 2. 스토어 구조: useAdminDashboard, useEmployeeDashboard 별도 정의 3. RBAC: - admin: 자신의 organization_id 필터링된 데이터만 스토어에 저장 - user: 본인 employee_id 기반 데이터만 접근 - super: 전체 조직 데이터 접근 가능 4. 상태 관리: 필터(기간/사이트/직급)별로 지표 재계산 로직 5. 캐싱: 대시보드 데이터는 5분 캐시, 필터 변경 시 재조회
 - **검증 기준(Verification)**: Deliverable: 대시보드 타입/스토어 설계가 완료되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P9-1.1
 - **예상 소요 시간**: 180m
@@ -2412,7 +2403,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000137`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 대시보드 집계를 어디에서 계산할지(DB RPC/Edge Function/클라이언트) 경계를 결정하고 API 계약을 정의한다.
-- **구현 가이드(Guide)**: 1. 집계 경계 결정: DB RPC 함수 사용 (Supabase rpc 호출) 2. API 설계:    - get_admin_dashboard_stats(organization_id, filters) → RPC    - get_employee_dashboard_stats(employee_id, filters) → RPC 3. RBAC:    - RPC 함수 내에서 auth.uid() 기반 organization_id/employee_id 검증    - admin: 자신의 조직 통계만 집계    - user: 본인 통계만 집계    - super: 파라미터로 organization_id 전달 시 전체 조직 집계 4. 성능 최적화: 필요한 집계만 DB에서 계산, 클라이언트는 시각화만 담당 5. API 계약: 요청/응답 스키마 TypeScript 인터페이스로 정의
+- **구현 가이드(Guide)**: 1. 집계 경계 결정: DB RPC 함수 사용 (Supabase rpc 호출) 2. API 설계: - get_admin_dashboard_stats(organization_id, filters) → RPC - get_employee_dashboard_stats(employee_id, filters) → RPC 3. RBAC: - RPC 함수 내에서 auth.uid() 기반 organization_id/employee_id 검증 - admin: 자신의 조직 통계만 집계 - user: 본인 통계만 집계 - super: 파라미터로 organization_id 전달 시 전체 조직 집계 4. 성능 최적화: 필요한 집계만 DB에서 계산, 클라이언트는 시각화만 담당 5. API 계약: 요청/응답 스키마 TypeScript 인터페이스로 정의
 - **검증 기준(Verification)**: Deliverable: 대시보드 집계 경계와 API 계약이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P9-1.2
 - **예상 소요 시간**: 120m
@@ -2423,7 +2414,7 @@
 - **Task ID**: `10000000-0000-4000-8000-000000000138`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 샘플 스케줄 데이터를 기반으로 지표가 올바르게 계산되는지 검증하는 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 테스트 시나리오: 1. admin 대시보드:    - 자신의 조직 지표만 표시 확인    - 필터(기간/사이트/직급)별 지표 동적 변경 확인    - 타 조직 데이터 혼입 방지 확인 2. user 대시보드:    - 본인 일정/팀 통계만 표시 확인    - 다른 직원 데이터 노출 방지 확인 3. 자동 라우팅:    - admin 로그인 → /dashboard/admin 자동 이동 확인    - user 로그인 → /dashboard/employee 자동 이동 확인    - user가 /dashboard/admin 직접 접근 시 403 확인 4. 지표 정확성:    - 샘플 스케줄 데이터로 지표 계산 검증    - 공정성 지표(야간/주말 분산) 정확성 확인
+- **구현 가이드(Guide)**: 테스트 시나리오: 1. admin 대시보드: - 자신의 조직 지표만 표시 확인 - 필터(기간/사이트/직급)별 지표 동적 변경 확인 - 타 조직 데이터 혼입 방지 확인 2. user 대시보드: - 본인 일정/팀 통계만 표시 확인 - 다른 직원 데이터 노출 방지 확인 3. 자동 라우팅: - admin 로그인 → /dashboard/admin 자동 이동 확인 - user 로그인 → /dashboard/employee 자동 이동 확인 - user가 /dashboard/admin 직접 접근 시 403 확인 4. 지표 정확성: - 샘플 스케줄 데이터로 지표 계산 검증 - 공정성 지표(야간/주말 분산) 정확성 확인
 - **검증 기준(Verification)**: Deliverable: 대시보드 지표 검증 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P9-1.3
 - **예상 소요 시간**: 180m
@@ -2517,25 +2508,24 @@
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-
 ## P10 (예상 시간: 29시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `10000000-0000-4000-8000-000000000147` | **P10-1.1 보안 감사 체크리스트 작성(RLS/권한/로그)** | pending | P1-2.3<br>P9-3.4<br>P0-1.2 | 120m |
-| `10000000-0000-4000-8000-000000000148` | **P10-1.2 Edge Function 보안 정책 정리(service role/검증/로그)** | pending | P10-1.1 | 180m |
-| `10000000-0000-4000-8000-000000000149` | **P10-1.3 침투/오용 시나리오 테스트 계획(테넌트 침범/권한 상승)** | pending | P10-1.2 | 180m |
-| `10000000-0000-4000-8000-000000000150` | **P10-1.4 보안 이슈 트리아지/리메디에이션 태스크 생성 규칙 정의** | pending | P10-1.3 | 120m |
-| `10000000-0000-4000-8000-000000000151` | **P10-2.1 성능 측정/기준선 수립 계획(목록/대시보드/리포트)** | pending | P9-2.4 | 90m |
-| `10000000-0000-4000-8000-000000000152` | **P10-2.2 DB/쿼리 최적화 후보 목록화(인덱스/집계)** | pending | P10-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000153` | **P10-2.3 프론트 성능 최적화 후보 목록화(렌더/상태/차트)** | pending | P10-2.1 | 180m |
-| `10000000-0000-4000-8000-000000000154` | **P10-2.4 성능 회귀 체크(스모크) 시나리오 정의** | pending | P10-2.2<br>P10-2.3 | 120m |
-| `10000000-0000-4000-8000-000000000155` | **P10-3.1 릴리스 체크리스트 초안(배포 순서/게이트/스모크)** | pending | P10-1.4<br>P10-2.4<br>P0-1.2 | 120m |
-| `10000000-0000-4000-8000-000000000156` | **P10-3.2 운영 런북 작성(장애 대응/알림/데이터 복구)** | pending | P10-3.1 | 180m |
-| `10000000-0000-4000-8000-000000000157` | **P10-3.3 롤백 플랜 정의(DB/함수/프론트) + 리허설 시나리오** | pending | P10-3.2 | 180m |
-| `10000000-0000-4000-8000-000000000158` | **P10-3.4 Private Beta Go/No-Go 리뷰 아젠다/자료 정의** | pending | P10-3.3 | 90m |
+| Task ID                                | 태스크 명                                                         | 상태    | 선행 태스크(Dependencies)    | 예상 시간 |
+| -------------------------------------- | ----------------------------------------------------------------- | ------- | ---------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000147` | **P10-1.1 보안 감사 체크리스트 작성(RLS/권한/로그)**              | pending | P1-2.3<br>P9-3.4<br>P0-1.2   | 120m      |
+| `10000000-0000-4000-8000-000000000148` | **P10-1.2 Edge Function 보안 정책 정리(service role/검증/로그)**  | pending | P10-1.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000149` | **P10-1.3 침투/오용 시나리오 테스트 계획(테넌트 침범/권한 상승)** | pending | P10-1.2                      | 180m      |
+| `10000000-0000-4000-8000-000000000150` | **P10-1.4 보안 이슈 트리아지/리메디에이션 태스크 생성 규칙 정의** | pending | P10-1.3                      | 120m      |
+| `10000000-0000-4000-8000-000000000151` | **P10-2.1 성능 측정/기준선 수립 계획(목록/대시보드/리포트)**      | pending | P9-2.4                       | 90m       |
+| `10000000-0000-4000-8000-000000000152` | **P10-2.2 DB/쿼리 최적화 후보 목록화(인덱스/집계)**               | pending | P10-2.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000153` | **P10-2.3 프론트 성능 최적화 후보 목록화(렌더/상태/차트)**        | pending | P10-2.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000154` | **P10-2.4 성능 회귀 체크(스모크) 시나리오 정의**                  | pending | P10-2.2<br>P10-2.3           | 120m      |
+| `10000000-0000-4000-8000-000000000155` | **P10-3.1 릴리스 체크리스트 초안(배포 순서/게이트/스모크)**       | pending | P10-1.4<br>P10-2.4<br>P0-1.2 | 120m      |
+| `10000000-0000-4000-8000-000000000156` | **P10-3.2 운영 런북 작성(장애 대응/알림/데이터 복구)**            | pending | P10-3.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000157` | **P10-3.3 롤백 플랜 정의(DB/함수/프론트) + 리허설 시나리오**      | pending | P10-3.2                      | 180m      |
+| `10000000-0000-4000-8000-000000000158` | **P10-3.4 Private Beta Go/No-Go 리뷰 아젠다/자료 정의**           | pending | P10-3.3                      | 90m       |
 
 ### 상세 (Details)
 
@@ -2671,17 +2661,16 @@
 - **예상 소요 시간**: 90m
 - **관련 파일**: `docs/verification/final-verification-report.md`
 
-
 ## Unknown (예상 시간: 0시간 0분)
 
 ### 요약 (Summary)
 
-| Task ID | 태스크 명 | 상태 | 선행 태스크(Dependencies) | 예상 시간 |
-| --- | --- | --- | --- | --- |
-| `1731504b-272e-4000-9c46-4c62e3b06d97` | **Align signup contracts for optional API nextState and deterministic store boundary** | completed | - | - |
-| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion** | pending | - | - |
-| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **Optional hardening: remove success message duplication between store and view** | pending | - | - |
-| `5a783267-88a1-46b7-a71b-e03fdb4e0b99` | **Validate UI integration and single signup invocation path** | completed | 1731504b-272e-4000-9c46-4c62e3b06d97 | - |
+| Task ID                                | 태스크 명                                                                              | 상태      | 선행 태스크(Dependencies)            | 예상 시간 |
+| -------------------------------------- | -------------------------------------------------------------------------------------- | --------- | ------------------------------------ | --------- |
+| `1731504b-272e-4000-9c46-4c62e3b06d97` | **Align signup contracts for optional API nextState and deterministic store boundary** | completed | -                                    | -         |
+| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion**                     | pending   | -                                    | -         |
+| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **Optional hardening: remove success message duplication between store and view**      | pending   | -                                    | -         |
+| `5a783267-88a1-46b7-a71b-e03fdb4e0b99` | **Validate UI integration and single signup invocation path**                          | completed | 1731504b-272e-4000-9c46-4c62e3b06d97 | -         |
 
 ### 상세 (Details)
 
@@ -2732,7 +2721,6 @@
 - **예상 소요 시간**: -
 - **관련 파일**: `src/views/auth/Signup.vue`, `src/api/signup.ts`
 - **노트(Notes)**: This is a validation-focused integration task and should avoid broad refactors.
-
 
 ---
 

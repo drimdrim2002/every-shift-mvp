@@ -200,7 +200,7 @@
     {
       "id": "10000000-0000-4000-8000-000000000094",
       "name": "P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)",
-      "description": "조직 스킬/직급 마스터(코드/이름/크레딧) 저장 규칙과 UI 요구사항을 확정한다.",
+      "description": "조직 스킬/직급 마스터의 canonical 계약을 확정한다. 범위에는 `skills`/`ranks` 테이블 기준의 조직별 코드 정규화·유니크 규칙, 신규 조직 기본값(GENERAL/RN) 정책, rank credit 입력/표시/상속 규칙, 그리고 Phase 5 blocked-first 삭제 UX와 현재 DB FK(CASCADE/SET NULL) 간의 known delta 문서화가 포함된다.",
       "status": "pending",
       "phase": "P5",
       "dependencies": [
@@ -211,14 +211,44 @@
       "estimatedMinutes": 180,
       "relatedFiles": [
         {
-          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "path": "docs/specs/p5/P5-2.4-skill-rank-spec.md",
           "type": "TO_MODIFY",
-          "description": "organization_skills/organization_ranks 포함"
+          "description": "스킬/직급 canonical 요구사항 및 실행 계획 초안"
+        },
+        {
+          "path": "migrations/007_service_transition_rbac_multitenant.sql",
+          "type": "REFERENCE",
+          "description": "skills/ranks, employee_skills, site_staffing_requirements FK 기준"
+        },
+        {
+          "path": "migrations/012_organization_master_fields.sql",
+          "type": "REFERENCE",
+          "description": "ranks.credit 컬럼 기준"
+        },
+        {
+          "path": "src/api/skill.ts",
+          "type": "REFERENCE",
+          "description": "code uppercasing, duplicate error, delete handling 현재 구현"
+        },
+        {
+          "path": "src/api/rank.ts",
+          "type": "REFERENCE",
+          "description": "credit 처리와 delete handling 현재 구현"
+        },
+        {
+          "path": "docs/specs/p5/P5-1.1-organization-field-spec.md",
+          "type": "REFERENCE",
+          "description": "Phase 5 blocked-first delete 정책 기준"
+        },
+        {
+          "path": "docs/specs/p5/P5-3.1-site-staffing-domain-spec.md",
+          "type": "REFERENCE",
+          "description": "skill/rank가 site staffing과 연결되는 저장 경계"
         }
       ],
-      "notes": "skill/rank는 시프트/제약과 병렬로 확정 가능하지만, site staffing 저장 범위와 연결되므로 code uniqueness와 참조 무결성 규칙을 먼저 분명히 남긴다.",
-      "implementationGuide": "1) code 유니크 정책 정의. 2) rank credit 기본값 정책 정의. 3) 비활성 처리 및 참조 무결성 정책 정의.",
-      "verificationCriteria": "Deliverable: 스킬/직급 마스터의 저장 규칙과 UI 요구사항이 확정되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
+      "notes": "이 태스크는 P5-2.1 이후 병렬 수행 가능하며 P5-2.3 완료를 기다릴 필요는 없다. 다만 site staffing과 P6 employee 관리가 이 계약을 재사용하므로, `organization_skills`/`organization_ranks` 같은 legacy 명칭은 폐기하고 실제 스키마명 `skills`/`ranks`를 canonical로 고정해야 한다. 또한 soft delete 컬럼이 없는 현재 스키마에서는 '비활성'을 DB 상태가 아니라 UX 정책/후속 스키마 후보로 구분해 기록한다.",
+      "implementationGuide": "1) canonical 테이블/타입 이름을 `skills`, `ranks`, `Skill`, `Rank`로 고정하고 legacy 명칭을 제거한다. 2) code 규칙을 정의한다: 저장 전 trim + uppercase 정규화, 조직 단위 유니크, 최대 길이, duplicate 에러 메시지. 3) 기본값 정책을 정의한다: 신규 조직 seed는 GENERAL 스킬 1종과 RN 직급 1종이며, LV1~LV4는 PRD 예시/운영 옵션이지 필수 seed가 아님을 문서화한다. 4) rank credit 정책을 정의한다: P5에서는 nullable 허용, 값이 있으면 0 이상, 화면 표시 포맷은 소수 둘째 자리, P6 직원 생성 시 rank.credit을 초기 제안값으로 사용하되 직원 저장값은 독립적으로 변경 가능하다는 전제를 명시한다. 5) 삭제/참조 무결성 정책을 정의한다: Phase 5 UX 계약은 blocked-first이고, 현재 DB FK의 CASCADE/SET NULL은 desired behavior가 아니라 known delta로 기록한다. P5 구현 기본안은 사전 참조 조회 + 사용자 안내로 차단 UX를 제공하고, 엄격한 DB RESTRICT 전환은 별도 후속 마이그레이션 후보로 남긴다. 6) 참조 범위를 문서화한다: skill은 현재 employee_skills 및 site_staffing_requirements와 연결되고, rank는 현재 site_staffing_requirements와 연결되며 employee rank FK는 P6 확장 범위임을 분리해서 적는다. 7) 결과물을 바탕으로 P5-2.5와 P5-3.1이 재해석 없이 사용할 수 있는 acceptance checklist와 실행 순서를 남긴다.",
+      "verificationCriteria": "Deliverable: 스킬/직급 마스터 canonical spec과 실행 계획 초안이 문서화되어 있다.\nMethod: 산출물을 리뷰하고 아래 조건이 모두 명시되었는지 확인한다: (a) canonical 테이블명이 `skills`/`ranks`로 고정됨, (b) code 정규화 및 조직별 유니크 규칙이 명시됨, (c) GENERAL/RN seed와 LV1~LV4 예시의 관계가 정리됨, (d) credit nullable/검증/표시/직원 초기값 규칙이 명시됨, (e) blocked-first UX와 current FK delta가 함께 기록됨, (f) 후속 구현 순서와 영향 파일이 정리됨.\nPass: 모든 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
       "updatedAt": "2026-02-27T07:35:57.870Z"
     },
