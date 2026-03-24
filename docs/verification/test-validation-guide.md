@@ -1364,3 +1364,360 @@ commit;
 1. Playwright full-flow: `E2E-ONB-001`, `E2E-ONB-002`, `E2E-ONB-003`
 2. Network-mocked integration: `E2E-ONB-004`, `E2E-ONB-005`, `E2E-ONB-006`
 3. Multi-account org-scoped regression: `E2E-ONB-007`
+
+## 20) P9-1.4 대시보드 지표 테스트 시나리오 (샘플 데이터 기반)
+
+본 섹션은 Task `10000000-0000-4000-8000-000000000138`의 산출물이다.  
+대상 범위는 `/dashboard/admin`, `/dashboard/employee`의 지표 검증, 필터 반응, 역할별 라우팅, 테넌트 격리, dependency state 판정이다.
+
+### 20.1 범위와 canonical 기준
+
+- canonical routes
+  - 관리자 지표 화면: `/dashboard/admin`
+  - 직원 지표 화면: `/dashboard/employee`
+- canonical UI surface
+  - `/dashboard/admin`: 상단 filter bar(`periodMonth`, `siteId`, `rankId`, `grouping`), 공정성 summary card 영역, 직원/사이트 비교 table 또는 chart 영역
+  - `/dashboard/employee`: 상단 filter bar(`periodMonth`, `siteId`, `rankId`), 개인 summary card 영역, 개인 월간 calendar 영역
+- canonical API/read boundary
+  - `getAdminDashboardStats() -> supabase.rpc('get_admin_dashboard_stats', ...)`
+  - `getEmployeeDashboardStats() -> supabase.rpc('get_employee_dashboard_stats', ...)`
+- canonical metric semantics
+  - `N`은 야간 근무에 포함된다.
+  - 토/일의 `D`, `E`, `N`만 주말 근무에 포함된다.
+  - `O`는 근무 횟수 집계에서 제외된다.
+  - `complete`, `changed` 상태의 persisted schedule만 집계에 포함된다.
+- canonical reference
+  - `docs/specs/p9/P9-1.1-dashboard-metrics-filter-spec.md`
+  - `docs/API_SPEC.md`의 Dashboard Analytics Contract
+  - `src/types/dashboard.ts`
+- 현재 구현 메모 (`2026-03-24` 기준)
+  - `src/constants/routes.ts`의 `resolvePostAuthRedirectPath()`는 아직 active user를 `/schedule/step1`로 보낸다.
+  - 따라서 아래 라우팅 시나리오 중 post-auth landing 분기 항목은 P9 canonical acceptance로 유지하며, 실제 구현이 뒤따르기 전까지는 red scenario일 수 있다.
+
+### 20.2 샘플 fixture 전제
+
+#### 20.2.1 조직 / 사용자 fixture
+
+| Fixture Key        | 조직     | 역할 / 용도                                                             |
+| :----------------- | :------- | :---------------------------------------------------------------------- |
+| `ORG-A`            | 서울병원 | admin 대시보드 기본 검증 조직                                           |
+| `ORG-B`            | 남부병원 | 타 조직 데이터 혼입 방지 검증 조직                                      |
+| `admin-a`          | `ORG-A`  | `/dashboard/admin` 검증 actor (`admin_active`)                          |
+| `user-kim`         | `ORG-A`  | `/dashboard/employee` 검증 actor (`user_active`, employee mapping 존재) |
+| `user-no-employee` | `ORG-A`  | employee mapping 누락 dependency 검증 actor (`user_active`)             |
+| `super-1`          | global   | 조직 선택 강제 및 super scope 검증 actor (`super_active`)               |
+
+#### 20.2.2 샘플 스케줄 fixture
+
+Weekend dates used in this section:
+
+- `2026-03`: `01`, `07`, `08`, `14`, `15`, `21`, `22`, `28`, `29`
+- `2026-02`: `01`, `07`, `08`, `14`, `15`, `21`, `22`, `28`
+
+| Org     | Month     | Schedule Status | Employee            | Site | Rank   | Metric-driving persisted assignments                             | Derived Metric         |
+| :------ | :-------- | :-------------- | :------------------ | :--- | :----- | :--------------------------------------------------------------- | :--------------------- |
+| `ORG-A` | `2026-03` | `complete`      | 김하늘 (`user-kim`) | ICU  | Senior | `03-01 N`, `03-07 D`, `03-12 N`, `03-22 E`, `03-28 N`, `03-29 N` | night=`4`, weekend=`5` |
+| `ORG-A` | `2026-03` | `complete`      | 이서준              | ICU  | Junior | `03-03 N`, `03-14 D`, `03-21 E`, `03-27 N`, `03-29 D`            | night=`2`, weekend=`3` |
+| `ORG-A` | `2026-03` | `complete`      | 박민지              | Ward | Senior | `03-07 D`, `03-20 N`, `03-21 O`                                  | night=`1`, weekend=`1` |
+| `ORG-A` | `2026-02` | `changed`       | 김하늘 (`user-kim`) | ICU  | Senior | `02-01 N`, `02-07 D`, `02-12 N`                                  | night=`2`, weekend=`2` |
+| `ORG-A` | `2026-02` | `changed`       | 이서준              | ICU  | Junior | `02-14 N`, `02-21 D`                                             | night=`1`, weekend=`2` |
+| `ORG-A` | `2026-02` | `changed`       | 박민지              | Ward | Senior | `02-08 D`                                                        | night=`0`, weekend=`1` |
+| `ORG-B` | `2026-03` | `complete`      | 최도윤              | ER   | Senior | `03-01 N`, `03-08 N`, `03-14 D`, `03-21 N`, `03-28 D`, `03-29 E` | night=`3`, weekend=`6` |
+
+추가 전제:
+
+1. `ORG-A`에는 `status='running'`인 `2026-03` draft schedule이 별도로 존재하고, 여기에 더 큰 night/weekend count가 들어 있어도 dashboard 집계에는 포함되면 안 된다.
+2. `ORG-A`는 기본 fixture에서 usable site가 2개(`ICU`, `Ward`)이므로 `siteId` filter가 표시된다.
+3. `ORG-A`는 기본 fixture에서 rank mapping이 존재하므로 `rankId` filter가 표시된다.
+4. unsupported visibility 시나리오에서는 별도 변형 fixture로 usable site를 1개만 남기고 rank mapping을 제거한다.
+
+### 20.3 샘플 데이터 기준 기대값
+
+#### 20.3.1 `ORG-A` / `2026-03` / admin dashboard / grouping=`employee`
+
+| Row / Summary | Night | Weekend |
+| :------------ | ----: | ------: |
+| 김하늘        |     4 |       5 |
+| 이서준        |     2 |       3 |
+| 박민지        |     1 |       1 |
+| `groupCount`  |     3 |       3 |
+| `avg`         |  2.33 |    3.00 |
+| `min`         |     1 |       1 |
+| `max`         |     4 |       5 |
+| `gap`         |     3 |       4 |
+
+#### 20.3.2 `ORG-A` / `2026-03` / admin dashboard / grouping=`site`
+
+| Row / Summary | Night | Weekend |
+| :------------ | ----: | ------: |
+| ICU           |     6 |       8 |
+| Ward          |     1 |       1 |
+| `groupCount`  |     2 |       2 |
+| `avg`         |  3.50 |    4.50 |
+| `min`         |     1 |       1 |
+| `max`         |     6 |       8 |
+| `gap`         |     5 |       7 |
+
+#### 20.3.3 `ORG-A` / `2026-03` / filtered expected values
+
+| Filter Condition                           | Expected Rows          | Night Summary (`avg/min/max/gap`) | Weekend Summary (`avg/min/max/gap`) |
+| :----------------------------------------- | :--------------------- | :-------------------------------- | :---------------------------------- |
+| `siteId=ICU`, grouping=`employee`          | 김하늘, 이서준         | `3.00 / 2 / 4 / 2`                | `4.00 / 3 / 5 / 2`                  |
+| `rankId=Senior`, grouping=`employee`       | 김하늘, 박민지         | `2.50 / 1 / 4 / 3`                | `3.00 / 1 / 5 / 4`                  |
+| `periodMonth=2026-02`, grouping=`employee` | 김하늘, 이서준, 박민지 | `1.00 / 0 / 2 / 2`                | `1.67 / 1 / 2 / 1`                  |
+
+#### 20.3.4 `ORG-A` / `2026-03` / employee dashboard (`user-kim`)
+
+| Filter Condition    | My Night | My Weekend | Team Night Avg | Team Weekend Avg | Team Member Count |
+| :------------------ | -------: | ---------: | -------------: | ---------------: | ----------------: |
+| no site/rank filter |        4 |          5 |           2.33 |             3.00 |                 3 |
+| `siteId=ICU`        |        4 |          5 |           3.00 |             4.00 |                 2 |
+| `rankId=Senior`     |        4 |          5 |           2.50 |             3.00 |                 2 |
+
+Calendar assertions for `user-kim`:
+
+- `2026-03-01` cell shows `N`
+- `2026-03-07` cell shows `D`
+- `2026-03-22` cell shows `E`
+- `2026-03-28` cell shows `N`
+- `2026-03-29` cell shows `N`
+
+### 20.4 시나리오 인터페이스
+
+| Field                   | 설명                                                                         |
+| :---------------------- | :--------------------------------------------------------------------------- |
+| `Scenario ID`           | 고유 식별자 (`DSH-00N`)                                                      |
+| `Layer`                 | `route_rbac`, `metric_accuracy`, `filter_behavior`, `dependency`, `api_rbac` |
+| `Target Route`          | 검증 대상 route                                                              |
+| `Exact UI Surface`      | summary card, filter bar, calendar, table/chart 등 정확한 위치               |
+| `Actor`                 | 로그인 actor / API actor                                                     |
+| `Precondition`          | fixture, 선택된 조직, employee mapping 여부                                  |
+| `Action`                | 사용자가 클릭/선택/직접 입력해야 하는 동작                                   |
+| `Expected Result`       | route, visible UI, redirect, state                                           |
+| `Sample-data Assertion` | 샘플 fixture 기준 기대 숫자 또는 row 집합                                    |
+| `Automation Candidate`  | `unit`, `store`, `playwright`, `integration`                                 |
+
+### 20.5 시나리오 목록
+
+### DSH-001
+
+- `Scenario ID`: `DSH-001`
+- `Layer`: `metric_accuracy`
+- `Target Route`: `/dashboard/admin`
+- `Exact UI Surface`: 상단 filter bar 아래 `공정성 summary card` 영역, 그 아래 `직원별 비교 table/chart` 영역
+- `Actor`: `admin-a` (`admin_active`, `ORG-A`)
+- `Precondition`:
+  - `ORG-A` `2026-03` complete fixture와 `2026-03` running draft fixture가 동시에 존재한다.
+  - 진입 시 `periodMonth='2026-03'`, `grouping='employee'`, `siteId=null`, `rankId=null`이다.
+- `Action`:
+  1. `/login`에서 `admin-a`로 로그인한다.
+  2. `/dashboard/admin`으로 이동한다.
+  3. filter bar에서 `기준 월=2026-03`, `그룹 기준=직원별` 상태를 확인한다.
+  4. summary card와 직원별 비교 영역의 값을 확인한다.
+- `Expected Result`:
+  - 최종 route는 `/dashboard/admin`이다.
+  - admin dashboard shell과 filter bar가 렌더링된다.
+  - running draft schedule은 지표 계산에 반영되지 않는다.
+- `Sample-data Assertion`:
+  - 직원별 row는 김하늘=`4/5`, 이서준=`2/3`, 박민지=`1/1`(night/weekend)만 보여야 한다.
+  - summary는 night=`avg 2.33, min 1, max 4, gap 3`, weekend=`avg 3.00, min 1, max 5, gap 4`여야 한다.
+  - `ORG-B` 직원/사이트 이름은 어떤 admin row에도 나타나면 안 된다.
+- `Automation Candidate`: `playwright`, `integration`
+
+### DSH-002
+
+- `Scenario ID`: `DSH-002`
+- `Layer`: `filter_behavior`
+- `Target Route`: `/dashboard/admin`
+- `Exact UI Surface`: 상단 `filter bar`, `공정성 summary card`, `직원/사이트 비교 table/chart`
+- `Actor`: `admin-a` (`admin_active`, `ORG-A`)
+- `Precondition`:
+  - `ORG-A` fixture가 기본 상태(usable site 2개, rank mapping 존재)로 준비되어 있다.
+- `Action`:
+  1. `/dashboard/admin`에서 baseline으로 `2026-03`, `grouping='employee'` 값을 확인한다.
+  2. 같은 화면의 filter bar에서 `siteId=ICU`를 선택한다.
+  3. `siteId`를 해제한 뒤 `rankId=Senior`를 선택한다.
+  4. `rankId`를 해제하고 `grouping='site'`로 바꾼다.
+  5. `periodMonth=2026-02`로 바꾼다.
+- `Expected Result`:
+  - 모든 동작은 `/dashboard/admin` 내부에서만 일어나며 다른 route로 튀지 않는다.
+  - filter 변경 시 summary와 비교 영역이 즉시 재조회 또는 재렌더링된다.
+  - hidden/unsupported filter가 아닌 실제 visible filter만 동작한다.
+- `Sample-data Assertion`:
+  - `siteId=ICU` 후 employee row는 김하늘, 이서준만 남고 night summary=`3.00 / 2 / 4 / 2`, weekend summary=`4.00 / 3 / 5 / 2`가 된다.
+  - `rankId=Senior` 후 employee row는 김하늘, 박민지만 남고 night summary=`2.50 / 1 / 4 / 3`, weekend summary=`3.00 / 1 / 5 / 4`가 된다.
+  - `grouping='site'` 후 row는 ICU=`6/8`, Ward=`1/1`이어야 한다.
+  - `periodMonth=2026-02` 후 employee row는 김하늘=`2/2`, 이서준=`1/2`, 박민지=`0/1`로 바뀌고 March 수치가 남아 있으면 실패다.
+- `Automation Candidate`: `playwright`, `store`
+
+### DSH-003
+
+- `Scenario ID`: `DSH-003`
+- `Layer`: `api_rbac`
+- `Target Route`: `/dashboard/admin`
+- `Exact UI Surface`: 관리자 대시보드의 `summary card` 영역과 `비교 table/chart`; 필요 시 network/RPC assertion 병행
+- `Actor`: `admin-a` (`admin_active`, `ORG-A`) 및 `super-1` (`super_active`)
+- `Precondition`:
+  - `ORG-A`, `ORG-B` 모두 `2026-03` persisted schedule fixture를 가진다.
+  - `super-1`은 org selector를 통해 `ORG-A` 또는 `ORG-B`를 선택할 수 있다.
+- `Action`:
+  1. `admin-a`로 `/dashboard/admin`에 진입한다.
+  2. 지표와 row에 `ORG-B` 데이터가 섞이지 않는지 확인한다.
+  3. 별도 세션에서 `super-1`로 `/dashboard/admin`에 진입한다.
+  4. org selector에서 `ORG-B`를 선택한 후 다시 `ORG-A`를 선택한다.
+- `Expected Result`:
+  - `admin-a`는 자기 조직(`ORG-A`)만 본다.
+  - `super-1`은 명시적으로 선택한 조직의 값만 본다.
+  - 어떤 경우에도 implicit all-org aggregate가 발생하면 안 된다.
+- `Sample-data Assertion`:
+  - `admin-a` 기준 row/summary는 반드시 `ORG-A` 기대값과 일치하고, 최도윤(`ORG-B`)이 admin table/chart에 나타나면 실패다.
+  - `super-1 + ORG-B` 선택 시 `ORG-A`의 김하늘/이서준/박민지 row가 보이면 실패다.
+  - `super-1`이 조직을 아직 선택하지 않은 상태라면 metrics load 대신 organization selection blocking state가 먼저 보여야 한다.
+- `Automation Candidate`: `playwright`, `store`, `integration`
+
+### DSH-004
+
+- `Scenario ID`: `DSH-004`
+- `Layer`: `metric_accuracy`
+- `Target Route`: `/dashboard/employee`
+- `Exact UI Surface`: 상단 `filter bar`, `개인 summary card` 영역, `개인 월간 calendar` 영역
+- `Actor`: `user-kim` (`user_active`, employee mapping 존재, `ORG-A`)
+- `Precondition`:
+  - `user-kim`은 김하늘 employee row와 연결되어 있다.
+  - `ORG-A` `2026-03` fixture가 준비되어 있다.
+- `Action`:
+  1. `/login`에서 `user-kim`으로 로그인한다.
+  2. `/dashboard/employee`에 진입한다.
+  3. baseline `periodMonth=2026-03` 값을 확인한다.
+  4. 같은 화면에서 `siteId=ICU`를 선택한다.
+  5. `siteId`를 해제하고 `rankId=Senior`를 선택한다.
+  6. calendar에서 `2026-03-01`, `2026-03-07`, `2026-03-22`, `2026-03-28`, `2026-03-29` 셀을 확인한다.
+- `Expected Result`:
+  - 최종 route는 계속 `/dashboard/employee`다.
+  - 화면에는 `나의 지표`와 `개인 월간 일정`만 보여야 하며, 다른 직원의 상세 row/table은 노출되면 안 된다.
+  - filter 변경 시 개인/팀 지표와 calendar 범위가 현재 scope로 다시 계산된다.
+- `Sample-data Assertion`:
+  - baseline summary는 `myNightShiftCount=4`, `myWeekendWorkCount=5`, `teamNightShiftAvg=2.33`, `teamWeekendWorkAvg=3.00`, `teamMemberCount=3`이다.
+  - `siteId=ICU` 후 summary는 `4 / 5 / 3.00 / 4.00 / 2`로 바뀐다.
+  - `rankId=Senior` 후 summary는 `4 / 5 / 2.50 / 3.00 / 2`로 바뀐다.
+  - calendar cell은 `03-01=N`, `03-07=D`, `03-22=E`, `03-28=N`, `03-29=N`을 보여야 한다.
+- `Automation Candidate`: `playwright`, `integration`
+
+### DSH-005
+
+- `Scenario ID`: `DSH-005`
+- `Layer`: `dependency`
+- `Target Route`: `/dashboard/employee`
+- `Exact UI Surface`: employee dashboard의 `dependency state panel` 또는 empty-placeholder 영역
+- `Actor`: `user-no-employee` (`user_active`, employee mapping 없음, `ORG-A`)
+- `Precondition`:
+  - 인증과 membership은 유효하지만 `employees.user_id = auth.uid()`로 resolve되는 employee row가 없다.
+  - `/dashboard/employee` route 자체는 접근 가능하다.
+- `Action`:
+  1. `/login`에서 `user-no-employee`로 로그인한다.
+  2. `/dashboard/employee`로 이동한다.
+  3. summary card, calendar, generic error UI 노출 여부를 확인한다.
+- `Expected Result`:
+  - route는 `/dashboard/employee`에 남는다.
+  - permission-denied screen이 아니라 dependency state가 보인다.
+  - team summary와 personal calendar는 로드되지 않는다.
+  - retry 또는 안내 문구는 employee mapping 의존성을 설명해야 한다.
+- `Sample-data Assertion`:
+  - response/store state는 `state='dependency'`, `reason='employee_mapping_required'`여야 한다.
+  - `summary=null`, `calendarAssignments=[]`여야 한다.
+- `Automation Candidate`: `store`, `integration`, `playwright`
+
+### DSH-006
+
+- `Scenario ID`: `DSH-006`
+- `Layer`: `route_rbac`
+- `Target Route`: `/login`, `/dashboard/admin`, `/dashboard/employee`
+- `Exact UI Surface`: 로그인 직후 landing route, 브라우저 주소창 route, admin dashboard shell 노출 여부
+- `Actor`: `super-1`, `admin-a`, `user-kim`
+- `Precondition`:
+  - 세 actor 모두 active session을 만들 수 있다.
+  - dashboard route split이 P9 canonical대로 구현되었는지 검증한다.
+- `Action`:
+  1. `/login`에서 `super-1`로 로그인해 최종 landing을 확인한다.
+  2. `/login`에서 `admin-a`로 로그인해 최종 landing을 확인한다.
+  3. `/login`에서 `user-kim`으로 로그인해 최종 landing을 확인한다.
+  4. `user-kim` 세션으로 브라우저 주소창에 `/dashboard/admin`을 직접 입력한다.
+  5. 같은 세션에서 admin RPC를 직접 호출하거나 admin dashboard load를 강제 시도한다.
+- `Expected Result`:
+  - `super-1`, `admin-a`는 `/dashboard/admin`으로 landing한다.
+  - `user-kim`은 `/dashboard/employee`로 landing한다.
+  - `user-kim`의 `/dashboard/admin` 직접 접근은 route guard에서 차단된다.
+  - route guard 차단과 API/RPC 차단은 별도로 검증한다.
+- `Sample-data Assertion`:
+  - route layer expected result: `user-kim`의 브라우저 최종 route는 `/dashboard/employee`여야 하며 admin dashboard summary/table이 렌더링되면 실패다.
+  - API layer expected result: user session의 `get_admin_dashboard_stats`는 `DASHBOARD_ACCESS_DENIED` 또는 HTTP 403 equivalent로 실패해야 한다.
+- `Automation Candidate`: `router`, `playwright`, `integration`
+
+### DSH-007
+
+- `Scenario ID`: `DSH-007`
+- `Layer`: `filter_behavior`
+- `Target Route`: `/dashboard/admin`, `/dashboard/employee`
+- `Exact UI Surface`: 두 dashboard 화면의 `filter bar`
+- `Actor`: `admin-a`, `user-kim`
+- `Precondition`:
+  - `ORG-A` 변형 fixture에서 usable site는 1개만 남는다.
+  - rank master 또는 employee-rank mapping이 제거되어 rank scope가 unsupported 상태다.
+- `Action`:
+  1. `admin-a`로 `/dashboard/admin`에 진입한다.
+  2. filter bar에 `siteId`, `rankId` control이 렌더링되는지 확인한다.
+  3. `user-kim`으로 `/dashboard/employee`에 진입한다.
+  4. 동일하게 filter bar의 visible control을 확인한다.
+  5. network/RPC payload에서 optional filter 인자가 어떻게 전달되는지 확인한다.
+- `Expected Result`:
+  - usable site가 1개뿐이면 `siteId` control은 disabled가 아니라 hidden이어야 한다.
+  - rank mapping이 unsupported면 `rankId` control은 hidden이어야 한다.
+  - hidden filter 때문에 query가 실패하면 안 된다.
+- `Sample-data Assertion`:
+  - admin/employee 둘 다 `siteId`, `rankId` UI control이 사라진다.
+  - RPC payload는 hidden filter를 sentinel string 없이 `null` 또는 omitted optional argument로 보낸다.
+  - summary와 calendar/row 값은 기본 organization scope 기준으로 정상 로드된다.
+- `Automation Candidate`: `store`, `playwright`, `integration`
+
+### 20.6 역할 × 라우트 / API 판정표
+
+| 검증 항목                       | `super_active`                    | `admin_active`                    | `user_active`                     |
+| :------------------------------ | :-------------------------------- | :-------------------------------- | :-------------------------------- |
+| 로그인 직후 landing             | `/dashboard/admin`                | `/dashboard/admin`                | `/dashboard/employee`             |
+| `/dashboard/admin` 직접 접근    | Allow                             | Allow                             | Route-level deny                  |
+| `/dashboard/employee` 직접 접근 | Allow (employee perspective)      | Allow (employee perspective)      | Allow                             |
+| admin dashboard RPC 호출        | Allow, 단 `organizationId` 필수   | Allow, 단 자기 조직만             | Deny                              |
+| employee dashboard RPC 호출     | Allow, 단 본인 employee mapping만 | Allow, 단 본인 employee mapping만 | Allow, 단 본인 employee mapping만 |
+| employee mapping 없음           | dependency state                  | dependency state                  | dependency state                  |
+
+주의:
+
+1. UI route guard 결과와 API/RPC 결과는 같은 의미라도 별도 계층으로 본다.
+2. "403" 요구사항은 현재 앱 패턴상 `redirect + API access deny` 조합으로 판정할 수 있다.
+
+### 20.7 리뷰 체크리스트
+
+1. 샘플 fixture가 최소 2개 조직(`ORG-A`, `ORG-B`), 2개 route(`/dashboard/admin`, `/dashboard/employee`), 2개 월(`2026-02`, `2026-03`)을 모두 포함하는가
+2. admin dashboard 시나리오가 `employee` grouping, `site` grouping, `periodMonth`, `siteId`, `rankId` 변화를 실제 숫자로 검증하는가
+3. employee dashboard 시나리오가 personal summary와 monthly calendar를 정확한 날짜/shift code로 검증하는가
+4. `running` draft schedule exclusion과 `ORG-B` tenant leakage 방지가 별도 assertion으로 문서화되어 있는가
+5. post-auth landing 분기와 `/dashboard/admin` direct access deny가 route layer와 API layer로 분리되어 있는가
+6. employee mapping 누락 시 `dependency` state를 permission error와 구분해서 검증하는가
+7. single-site / missing-rank unsupported 상태에서 filter가 hidden이어야 한다는 규칙이 포함되어 있는가
+8. 각 시나리오가 Target Route, Exact UI Surface, Action, Expected Result를 모두 명시하는가
+
+### 20.8 권장 자동화 매핑
+
+1. router / unit
+   - post-auth landing 분기
+   - `/dashboard/admin` direct access deny
+2. store / unit
+   - `dependency` state 유지
+   - hidden filter capability 계산
+   - super organization selection blocking
+3. API / integration
+   - `get_admin_dashboard_stats` / `get_employee_dashboard_stats` RBAC
+   - `running` schedule exclusion
+   - cross-tenant aggregate isolation
+4. playwright
+   - `DSH-001`, `DSH-002`, `DSH-004`, `DSH-006`, `DSH-007`

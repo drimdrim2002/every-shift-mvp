@@ -90,7 +90,7 @@
       "id": "10000000-0000-4000-8000-000000000138",
       "name": "P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)",
       "description": "샘플 스케줄 데이터를 기반으로 지표가 올바르게 계산되는지 검증하는 테스트 시나리오를 정의한다.",
-      "status": "pending",
+      "status": "completed",
       "phase": "P9",
       "dependencies": [
         {
@@ -108,7 +108,9 @@
       "implementationGuide": "테스트 시나리오:\n1. admin 대시보드:\n   - 자신의 조직 지표만 표시 확인\n   - 필터(기간/사이트/직급)별 지표 동적 변경 확인\n   - 타 조직 데이터 혼입 방지 확인\n2. user 대시보드:\n   - 본인 일정/팀 통계만 표시 확인\n   - 다른 직원 데이터 노출 방지 확인\n3. 자동 라우팅:\n   - admin 로그인 → /dashboard/admin 자동 이동 확인\n   - user 로그인 → /dashboard/employee 자동 이동 확인\n   - user가 /dashboard/admin 직접 접근 시 403 확인\n4. 지표 정확성:\n   - 샘플 스케줄 데이터로 지표 계산 검증\n   - 공정성 지표(야간/주말 분산) 정확성 확인",
       "verificationCriteria": "Deliverable: 대시보드 지표 검증 시나리오가 문서화되어 있다.\nMethod: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다.\nPass: 모든 명시된 조건이 누락 없이 확인됨.",
       "createdAt": "2026-02-27T07:35:57.870Z",
-      "updatedAt": "2026-02-27T07:35:57.870Z"
+      "updatedAt": "2026-03-24T13:36:55.000Z",
+      "summary": "P9-1.4 dashboard verification scenarios were documented with concrete sample fixtures, expected metric values for admin and employee dashboards, route/API RBAC separation, tenant-isolation checks, and unsupported-filter dependency cases.",
+      "completedAt": "2026-03-24T13:36:55.000Z"
     },
     {
       "id": "10000000-0000-4000-8000-000000000139",
