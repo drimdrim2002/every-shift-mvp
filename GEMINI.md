@@ -12,6 +12,31 @@
 - This includes tools such as `execute_sql`, `apply_migration`, branch management, or any other remote write action.
 - When SQL is needed, prepare the query and present it to the user. The user will run it manually in the Supabase Console.
 
+## Critical Explanation Rule
+
+**VERY IMPORTANT**: Never describe UI, navigation, tabs, panels, flows, or test steps in vague terms.
+
+When explaining UI behavior, UX validation, QA steps, or implementation status, the agent **MUST** explicitly identify all of the following:
+
+1. **Target Screen or Route**: State the exact screen, route, or component being discussed.
+2. **Exact UI Surface**: State which tab, section, panel, modal, table, form, or control the explanation refers to.
+3. **User Action**: State exactly what the user or tester should click, open, enter, or navigate to.
+4. **Expected Result**: State the exact visible result, redirect result, or data result that should occur.
+5. **Scope Boundary**: Clearly separate route-guard checks, screen-level checks, and in-screen tab/content checks.
+
+The agent **MUST NOT** say things like:
+
+- "check the screen structure"
+- "test the tab behavior"
+- "verify the shell policy"
+- "confirm the UI"
+
+unless it immediately specifies **which exact screen**, **which exact tab/section**, **which exact action**, and **which exact expected outcome**.
+
+If multiple screens or routes are involved, the agent must separate them explicitly instead of blending them into one vague explanation.
+
+If the user asks how to test something, the answer must be written as a concrete verification guide, not as a high-level or ambiguous summary.
+
 ## Project Overview
 
 This is a Vue.js 3 application for generating nurse schedules, designed to significantly reduce the time spent on manual scheduling. It's a single-page application (SPA) built with Vite, using the Composition API with `<script setup>`. The application is written in TypeScript and styled with Tailwind CSS and Naive UI. State management is handled by Pinia, and the backend is powered by Supabase for database and authentication.

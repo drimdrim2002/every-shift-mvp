@@ -52,6 +52,31 @@ You MUST ask questions when:
 🔄 Please confirm or provide additional details.
 ```
 
+## Critical Explanation Rule
+
+**VERY IMPORTANT**: Never describe UI, navigation, tabs, panels, flows, or test steps in vague terms.
+
+When explaining UI behavior, UX validation, QA steps, or implementation status, the agent **MUST** explicitly identify all of the following:
+
+1. **Target Screen or Route**: State the exact screen, route, or component being discussed.
+2. **Exact UI Surface**: State which tab, section, panel, modal, table, form, or control the explanation refers to.
+3. **User Action**: State exactly what the user or tester should click, open, enter, or navigate to.
+4. **Expected Result**: State the exact visible result, redirect result, or data result that should occur.
+5. **Scope Boundary**: Clearly separate route-guard checks, screen-level checks, and in-screen tab/content checks.
+
+The agent **MUST NOT** say things like:
+
+- "check the screen structure"
+- "test the tab behavior"
+- "verify the shell policy"
+- "confirm the UI"
+
+unless it immediately specifies **which exact screen**, **which exact tab/section**, **which exact action**, and **which exact expected outcome**.
+
+If multiple screens or routes are involved, the agent must separate them explicitly instead of blending them into one vague explanation.
+
+If the user asks how to test something, the answer must be written as a concrete verification guide, not as a high-level or ambiguous summary.
+
 ## Token Saving Rules
 
 ### Language Convention
