@@ -8,6 +8,17 @@ const routeMock = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
 }))
 const loginMock = vi.fn()
+const rbacStoreMock = vi.hoisted(() => ({
+  accessState: 'admin_active' as
+    | 'super_active'
+    | 'admin_active'
+    | 'user_active'
+    | 'admin_pending'
+    | 'admin_rejected'
+    | 'no_membership_or_inactive'
+    | 'unauthenticated'
+    | null,
+}))
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeMock,
@@ -24,6 +35,10 @@ vi.mock('@/stores/auth', () => ({
   }),
 }))
 
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
+}))
+
 vi.mock('@/composables/useGlobalMessage', () => ({
   useGlobalMessage: () => ({
     success: vi.fn(),
@@ -38,6 +53,7 @@ describe('Login view signup state handoff', () => {
     vi.clearAllMocks()
     routeMock.path = '/login'
     routeMock.query = {}
+    rbacStoreMock.accessState = 'admin_active'
   })
 
   it('consumes signupState from query and clears URL state', () => {

@@ -113,8 +113,36 @@ describe('router auth guard regression', () => {
       await router.push('/signup')
       await router.isReady()
 
-      expect(router.currentRoute.value.path).toBe('/schedule/step1')
+      expect(router.currentRoute.value.path).toBe('/dashboard/employee')
       expect(authStoreMock.checkSession).not.toHaveBeenCalled()
+      expect(authStoreMock.ensureAccessContext).toHaveBeenCalled()
+      expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'redirects active admin away from /signup to /dashboard/admin',
+    async () => {
+      setAuthenticatedAccessState('admin_active')
+      await router.push('/signup')
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/admin')
+      expect(authStoreMock.ensureAccessContext).toHaveBeenCalled()
+      expect(onboardingStoreMock.loadProgress).toHaveBeenCalled()
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'redirects super admin away from /signup to /dashboard/admin',
+    async () => {
+      setAuthenticatedAccessState('super_active')
+      await router.push('/signup')
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/admin')
       expect(authStoreMock.ensureAccessContext).toHaveBeenCalled()
       expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
     },
@@ -322,7 +350,7 @@ describe('router auth guard regression', () => {
       await router.push('/onboarding')
       await router.isReady()
 
-      expect(router.currentRoute.value.path).toBe('/schedule/step1')
+      expect(router.currentRoute.value.path).toBe('/dashboard/admin')
       expect(onboardingStoreMock.loadProgress).toHaveBeenCalled()
     },
     ROUTER_GUARD_TEST_TIMEOUT,
@@ -336,7 +364,52 @@ describe('router auth guard regression', () => {
       await router.push('/onboarding')
       await router.isReady()
 
-      expect(router.currentRoute.value.path).toBe('/schedule/step1')
+      expect(router.currentRoute.value.path).toBe('/dashboard/employee')
+      expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'allows user_active access to /dashboard/employee',
+    async () => {
+      setAuthenticatedAccessState('user_active')
+      await navigateFromNeutralRoute()
+
+      await router.push('/dashboard/employee')
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/employee')
+      expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'redirects user_active away from /dashboard/admin to /dashboard/employee',
+    async () => {
+      setAuthenticatedAccessState('user_active')
+      await navigateFromNeutralRoute()
+
+      await router.push('/dashboard/admin')
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/employee')
+      expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
+    },
+    ROUTER_GUARD_TEST_TIMEOUT,
+  )
+
+  it(
+    'redirects normal root visits to the role-specific dashboard landing',
+    async () => {
+      setAuthenticatedAccessState('user_active')
+      await navigateFromNeutralRoute()
+
+      await router.push('/')
+      await router.isReady()
+
+      expect(router.currentRoute.value.path).toBe('/dashboard/employee')
       expect(onboardingStoreMock.loadProgress).not.toHaveBeenCalled()
     },
     ROUTER_GUARD_TEST_TIMEOUT,

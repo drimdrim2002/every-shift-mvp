@@ -8,6 +8,7 @@ import {
   ADMIN_ORGANIZATION_ROUTE_PATH,
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
+  EMPLOYEE_DASHBOARD_ROUTE_PATH,
   isAccessStateRoutePath,
   LOGIN_ROUTE_PATH,
   ONBOARDING_ROUTE_PATH,
@@ -17,6 +18,7 @@ import {
   resolvePostAuthRedirectPath,
 } from '@/constants/routes';
 import { onboardingProgressGuard, stepProgressGuard } from './guards';
+import { isAllowedOnboardingCompatibilityTarget } from '@/utils/onboarding-context';
 
 const BLOCKED_ACCESS_STATE_SET = new Set<AccessState>(['admin_pending', 'admin_rejected']);
 
@@ -132,8 +134,20 @@ const routes: RouteRecordRaw[] = [
       {
         path: ADMIN_DASHBOARD_ROUTE_PATH.slice(1),
         name: 'AdminDashboard',
-        component: () => import('@/views/Dashboard.vue'),
-        meta: { title: '관리자 대시보드' },
+        component: () => import('@/views/dashboard/AdminDashboard.vue'),
+        meta: {
+          title: '관리자 대시보드',
+          allowedAccessStates: ['super_active', 'admin_active'],
+        },
+      },
+      {
+        path: EMPLOYEE_DASHBOARD_ROUTE_PATH.slice(1),
+        name: 'EmployeeDashboard',
+        component: () => import('@/views/dashboard/EmployeeDashboard.vue'),
+        meta: {
+          title: '직원 대시보드',
+          allowedAccessStates: ['super_active', 'admin_active', 'user_active'],
+        },
       },
       {
         path: ADMIN_ORGANIZATION_ROUTE_PATH.slice(1),
@@ -229,6 +243,19 @@ router.beforeEach(async (to, from, next) => {
   if (authStore.user && accessState === 'no_membership_or_inactive' && !isPublicRoutePath(to.path)) {
     next(LOGIN_ROUTE_PATH);
     return;
+  }
+
+  if (
+    authStore.user &&
+    accessState &&
+    to.path === '/' &&
+    !isAllowedOnboardingCompatibilityTarget(to)
+  ) {
+    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    if (redirectPath !== to.path) {
+      next(redirectPath);
+      return;
+    }
   }
 
   const allowedAccessStates = getAllowedAccessStates(to);

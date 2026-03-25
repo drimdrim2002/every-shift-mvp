@@ -73,13 +73,15 @@ import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormItemRule } from 'naive-ui'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import { useGlobalMessage } from '@/composables/useGlobalMessage'
-import { POST_AUTH_REDIRECT_PATH, SIGNUP_ROUTE_PATH } from '@/constants/routes'
+import { SIGNUP_ROUTE_PATH, resolvePostAuthRedirectPath } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
+import { useRbacStore } from '@/stores/rbac'
 import type { SignupNextState } from '@/types/signup'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const rbacStore = useRbacStore()
 const { success, error } = useGlobalMessage()
 
 const formRef = ref<FormInst | null>(null)
@@ -133,7 +135,7 @@ async function handleLogin() {
 
   if (result.success) {
     success('로그인 성공')
-    router.push(POST_AUTH_REDIRECT_PATH)
+    router.push(resolvePostAuthRedirectPath(rbacStore.accessState))
   } else {
     error(result.error || '로그인 실패')
   }

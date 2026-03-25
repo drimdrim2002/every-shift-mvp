@@ -6,8 +6,9 @@ export const ACCESS_PENDING_ROUTE_PATH = '/access/pending'
 export const ACCESS_REJECTED_ROUTE_PATH = '/access/rejected'
 export const ONBOARDING_ROUTE_PATH = '/onboarding'
 export const ADMIN_DASHBOARD_ROUTE_PATH = '/dashboard/admin'
+export const EMPLOYEE_DASHBOARD_ROUTE_PATH = '/dashboard/employee'
 export const ADMIN_ORGANIZATION_ROUTE_PATH = '/admin/organization'
-export const POST_AUTH_REDIRECT_PATH = '/schedule/step1'
+export const POST_AUTH_REDIRECT_PATH = ADMIN_DASHBOARD_ROUTE_PATH
 
 const AUTH_PAGE_PATH_SET = new Set([LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH])
 const PUBLIC_ROUTE_PATH_SET = new Set([
@@ -39,8 +40,9 @@ export function resolvePostAuthRedirectPath(accessState: AccessState | null): st
       return ACCESS_PENDING_ROUTE_PATH
     case 'admin_rejected':
       return ACCESS_REJECTED_ROUTE_PATH
-    case 'admin_active':
     case 'user_active':
+      return EMPLOYEE_DASHBOARD_ROUTE_PATH
+    case 'admin_active':
     case 'super_active':
       return POST_AUTH_REDIRECT_PATH
     case 'no_membership_or_inactive':
