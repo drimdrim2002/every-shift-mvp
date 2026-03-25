@@ -2,25 +2,25 @@
 
 이 문서는 `.shrimp-data/tasks.json`을 단일 기준(source of truth)으로 하여 자동 생성됩니다.
 
-## 최근 반영 내역 (2026-03-12 기준)
+## 최근 반영 내역 (2026-03-24 기준)
 
 - 기준 소스: `.shrimp-data/tasks.json` (canonical)
-- 기준 데이터 수정 시각(UTC): 2026-03-12T12:14:08Z
-- 전체 태스크: 202 (completed=84, in_progress=0, pending=118, other=0)
+- 기준 데이터 수정 시각(UTC): 2026-03-24T15:05:44Z
+- 전체 태스크: 207 (completed=129, in_progress=0, pending=78, other=0)
 - DAG 정합성 확인: missing target=0, cycle=false, orphan root=16
 - Phase 상태 요약:
 - P0: C/IP/P/T = 29/0/0/29
-- P1: C/IP/P/T = 13/0/4/17
-- P2: C/IP/P/T = 40/0/17/57
-- P3: C/IP/P/T = 0/0/11/11
+- P1: C/IP/P/T = 17/0/0/17
+- P2: C/IP/P/T = 59/0/0/59
+- P3: C/IP/P/T = 14/0/2/16
 - P4: C/IP/P/T = 0/0/11/11
-- P5: C/IP/P/T = 0/0/14/14
+- P5: C/IP/P/T = 8/0/6/14
 - P6: C/IP/P/T = 0/0/11/11
 - P7: C/IP/P/T = 0/0/11/11
 - P8: C/IP/P/T = 0/0/13/13
 - P9: C/IP/P/T = 0/0/12/12
 - P10: C/IP/P/T = 0/0/12/12
-- Unknown: C/IP/P/T = 2/0/2/4
+- Unknown: C/IP/P/T = 2/0/0/2
 
 ## P0 (예상 시간: 50시간 0분)
 
@@ -427,7 +427,7 @@
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/setup/MCP_INSTALLATION.md`
 
-## P1 (예상 시간: 27시간 0분)
+## P1 (예상 시간: 32시간 30분)
 
 ### 요약 (Summary)
 
@@ -441,15 +441,15 @@
 | `10000000-0000-4000-8000-000000000047` | **P1-2.2 테이블별 RLS 매트릭스 작성 + 적용 순서 결정**                         | completed | P1-2.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000048` | **P1-2.3 RLS 검증 시나리오/테스트 설계(테넌트 침범 방지)**                     | completed | P1-2.2                    | 120m      |
 | `9096b180-6645-45fc-8176-e02fb8a118fc` | **P1-2.3-1 Supabase 실DB 보안 베이스라인 확정**                                | completed | -                         | -         |
-| `644a8e6c-e5fa-48d7-a566-fb3af2ad5f28` | **P1-2.3-2 위협 기반 RLS 검증 시나리오 설계**                                  | pending   | P1-2.3-1                  | -         |
-| `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9` | **P1-2.3-3 SQL 검증 절차 및 합격 기준 정의**                                   | pending   | P1-2.3-2                  | -         |
-| `8ac31a0f-b346-4374-ba36-201d779e664f` | **P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성**                                 | pending   | P1-2.3-3                  | -         |
+| `644a8e6c-e5fa-48d7-a566-fb3af2ad5f28` | **P1-2.3.2 위협 기반 RLS 검증 시나리오 설계**                                  | completed | P1-2.3-1                  | 90m       |
+| `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9` | **P1-2.3.3 SQL 검증 절차 및 합격 기준 정의**                                   | completed | P1-2.3.2                  | 90m       |
+| `8ac31a0f-b346-4374-ba36-201d779e664f` | **P1-2.3.4 문서 통합 및 리뷰 체크리스트 완성**                                 | completed | P1-2.3.3                  | 60m       |
 | `10000000-0000-4000-8000-000000000049` | **P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화**                              | completed | P1-1.3<br>P1-1.4          | 120m      |
 | `10000000-0000-4000-8000-000000000050` | **P1-3.2 백필 SQL/절차 초안 작성(멱등/재실행 가능)**                           | completed | P1-3.1                    | 180m      |
 | `10000000-0000-4000-8000-000000000051` | **P1-3.3 백필 후 검증(무결성/샘플 플로우) 체크리스트**                         | completed | P1-3.2                    | 120m      |
 | `eed4ff2d-ff87-42d8-8b8d-885ef320b42f` | **P1-3.4 Supabase Console superuser 생성 SQL 함수/Runbook 정의**               | completed | P1-1.2<br>P1-3.3          | 120m      |
+| `69509a33-e960-49ce-9c00-a817035ec815` | **P1-3.4.2 운영 Runbook 문서화**                                               | completed | P1-3.4-A                  | 90m       |
 | `4e50eff2-86f4-475e-b634-fd3b1a22d245` | **P1-3.4-A SQL 함수 구현: grant_superuser**                                    | completed | -                         | -         |
-| `69509a33-e960-49ce-9c00-a817035ec815` | **P1-3.4-B 운영 Runbook 문서화**                                               | pending   | P1-3.4-A                  | -         |
 
 ### 상세 (Details)
 
@@ -552,37 +552,40 @@
 - **관련 파일**: `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`, `docs/verification/test-validation-guide.md`
 - **노트(Notes)**: 직접적인 execute_sql 도구가 없을 경우 Node.js(pg 라이브러리 또는 @supabase/supabase-js) 임시 스크립트를 활용하여 DB에 쿼리를 실행합니다.
 
-### P1-2.3-2 위협 기반 RLS 검증 시나리오 설계
+### P1-2.3.2 위협 기반 RLS 검증 시나리오 설계
 
 - **Task ID**: `644a8e6c-e5fa-48d7-a566-fb3af2ad5f28`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: docs/verification/test-validation-guide.md에 TENANT_BREACH, ROLE_ESCALATION, IDOR, ACCOUNT_BYPASS, REGRESSION 위협 클래스를 모두 포함한 RLS-001~RLS-010 시나리오가 정리되어 있고, 각 시나리오에 actor, precondition, expected result가 명시되어 있어 검증 기준을 충족한다.
 - **설명(Description)**: 테넌트 침범 방지 목적의 공격/오용 시나리오를 threat class별로 정의하고 actor, precondition, expected를 명확히 설계한다.
 - **구현 가이드(Guide)**: 1) threat class 정의(tenant breach/role escalation/IDOR/account status bypass/permissive regression). 2) 시나리오 ID 부여. 3) 각 시나리오에 actor, 대상 테이블, 사전조건, 기대결과를 작성.
 - **검증 기준(Verification)**: 각 위협 클래스가 최소 1개 이상 시나리오로 커버되고, 모든 시나리오에 기대 결과(허용/차단/빈 결과/오류)가 명시되어야 한다.
 - **선행 조건(Dependencies)**: P1-2.3-1
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`, `docs/verification/test-validation-guide.md`
 
-### P1-2.3-3 SQL 검증 절차 및 합격 기준 정의
+### P1-2.3.3 SQL 검증 절차 및 합격 기준 정의
 
 - **Task ID**: `e2c5c03d-b0e8-4fbc-8d57-d115075a31d9`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: docs/verification/test-validation-guide.md에 actor 전환용 공통 준비 SQL, 시나리오별 Validation SQL, Expected Result, Negative Variant, 판정 규칙이 정리되어 있으며, 타조직 접근 차단과 권한 상승 차단을 포함한 핵심 케이스별 재현 가능한 pass/fail 기준이 명확히 정의되어 있다.
 - **설명(Description)**: 문서+SQL 산출물 요구에 맞게 각 시나리오별 실행 SQL과 판정 기준을 정의한다.
 - **구현 가이드(Guide)**: 1) role 전환/가정 기반 SQL 템플릿 정의. 2) SELECT/INSERT/UPDATE/DELETE별 pass/fail 조건 정의. 3) 목표 RLS 상태 기준으로 negative test를 포함.
 - **검증 기준(Verification)**: 각 핵심 시나리오에 재현 가능한 SQL과 명확한 pass/fail 기준이 존재해야 하며, 타조직 접근 차단 및 권한 상승 차단이 반드시 포함되어야 한다.
-- **선행 조건(Dependencies)**: P1-2.3-2
-- **예상 소요 시간**: -
+- **선행 조건(Dependencies)**: P1-2.3.2
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
-### P1-2.3-4 문서 통합 및 리뷰 체크리스트 완성
+### P1-2.3.4 문서 통합 및 리뷰 체크리스트 완성
 
 - **Task ID**: `8ac31a0f-b346-4374-ba36-201d779e664f`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: docs/verification/test-validation-guide.md가 단일 파일 안에 RLS 전용 챕터, 시나리오-매트릭스 추적표, 리뷰 체크리스트, 자동화 전환 포인트를 포함하고 있어 독립 리뷰 가능한 상태이며, 테넌트 격리·권한 상승 방지·IDOR 차단 테스트 목록이 확정되어 있다.
 - **설명(Description)**: 기존 검증 가이드 파일에 RLS 검증 섹션을 통합하고 리뷰 가능한 체크리스트 형태로 마무리한다.
 - **구현 가이드(Guide)**: 1) 기존 파일 구조를 유지하며 RLS 전용 챕터 구성. 2) P1-2.2 매트릭스 행과 traceability 링크 구성. 3) 리뷰 체크리스트와 후속 자동화 전환 포인트를 추가.
 - **검증 기준(Verification)**: 문서가 단독으로 리뷰 가능해야 하며, 테넌트 격리/권한 상승 방지/IDOR 차단 테스트 케이스 목록이 확정되어 있어야 한다.
-- **선행 조건(Dependencies)**: P1-2.3-3
-- **예상 소요 시간**: -
+- **선행 조건(Dependencies)**: P1-2.3.3
+- **예상 소요 시간**: 60m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
 ### P1-3.1 백필 대상/매핑 정의 + 검증 쿼리 목록화
@@ -635,6 +638,18 @@
 - **관련 파일**: `migrations/011_superuser_grant_function.sql`, `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/009_backfill_service_fields.sql`
 - **노트(Notes)**: 이 태스크는 P2 가입/승인 정책 태스크의 선행 조건이다.
 
+### P1-3.4.2 운영 Runbook 문서화
+
+- **Task ID**: `69509a33-e960-49ce-9c00-a817035ec815`
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 사전조건, auth 사용자 확인 SQL, grant_superuser 호출 예시, profiles 및 organization_memberships 검증 쿼리, 멱등 재실행 규칙, 이메일/사용자/조직 오류 대응 절차가 포함되어 있어 runbook 단독으로 superuser 온보딩과 재실행 검증을 재현할 수 있다.
+- **설명(Description)**: docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 auth 사용자 생성부터 함수 실행/검증/오류대응 절차를 표준화한다.
+- **구현 가이드(Guide)**: 1) 사전조건(콘솔 auth 사용자 존재) 정의. 2) 함수 호출 예시(조직 미지정/다중 조직 지정) 제시. 3) 검증 쿼리(profiles/memberships) 제공. 4) 재실행 멱등성 및 장애 대응(사용자 없음/조직ID 오류) 절차 명시.
+- **검증 기준(Verification)**: Runbook만으로 신규 superuser 온보딩과 재실행 검증이 재현 가능해야 한다.
+- **선행 조건(Dependencies)**: P1-3.4-A
+- **예상 소요 시간**: 90m
+- **관련 파일**: `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/011_superuser_grant_function.sql`
+
 ### P1-3.4-A SQL 함수 구현: grant_superuser
 
 - **Task ID**: `4e50eff2-86f4-475e-b634-fd3b1a22d245`
@@ -648,18 +663,7 @@
 - **관련 파일**: `migrations/011_superuser_grant_function.sql`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/009_backfill_service_fields.sql`
 - **노트(Notes)**: 분석 결과 구현이 완벽히 완료되어 있음을 확인했습니다. 바로 태스크를 실행(execute_task) 후 검증(verify_task)하여 마무리하십시오.
 
-### P1-3.4-B 운영 Runbook 문서화
-
-- **Task ID**: `69509a33-e960-49ce-9c00-a817035ec815`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md에 auth 사용자 생성부터 함수 실행/검증/오류대응 절차를 표준화한다.
-- **구현 가이드(Guide)**: 1) 사전조건(콘솔 auth 사용자 존재) 정의. 2) 함수 호출 예시(조직 미지정/다중 조직 지정) 제시. 3) 검증 쿼리(profiles/memberships) 제공. 4) 재실행 멱등성 및 장애 대응(사용자 없음/조직ID 오류) 절차 명시.
-- **검증 기준(Verification)**: Runbook만으로 신규 superuser 온보딩과 재실행 검증이 재현 가능해야 한다.
-- **선행 조건(Dependencies)**: P1-3.4-A
-- **예상 소요 시간**: -
-- **관련 파일**: `docs/migration/SUPERUSER_BOOTSTRAP_RUNBOOK.md`, `migrations/011_superuser_grant_function.sql`
-
-## P2 (예상 시간: 47시간 0분)
+## P2 (예상 시간: 64시간 0분)
 
 ### 요약 (Summary)
 
@@ -690,6 +694,7 @@
 | `0740a18e-6648-4bfa-8b33-17d11a3cdb7b` | **P2-1.4-4-B Role Branching 수동 실행 증거 기록**                           | completed | P2-1.4-4-A                  | -         |
 | `20de8454-5483-4395-b73a-43a16171676f` | **P2-1.4-4-C Lint/테스트 게이트 검증 및 회귀 확인**                         | completed | P2-1.4-4-B                  | -         |
 | `9df3e61b-bc11-4e92-963d-ccd70d4efadb` | **P2-1.4-5 Signup E2E 시나리오 추가(역할 전환/제출 차단/성공 라우팅)**      | completed | P2-1.4-2                    | 120m      |
+| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **P2-1.4.6 Signup 성공 메시지 단일 소스 정리**                              | completed | -                           | 60m       |
 | `10000000-0000-4000-8000-000000000056` | **P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)**           | completed | P2-1.4                      | 120m      |
 | `f035e92a-3557-470b-b74c-ea969c7a95c1` | **P2-1.10-1 invite-code-manage API_SPEC contract 문서화**                   | completed | P2-1.8                      | -         |
 | `f3ea69c1-2e67-45c1-8d28-f7cf37f768f8` | **P2-1.11 user 초대코드 가입 E2E 시나리오 정의(1회용/만료/재사용)**         | completed | P2-1.10                     | 120m      |
@@ -699,29 +704,30 @@
 | `8f8612a3-5e8c-456c-962d-4fdd91566dcb` | **P2-1.6.1 hospital-search API 계약 문서화(API_SPEC)**                      | completed | -                           | -         |
 | `79e67b38-73fe-46ea-8d18-afe32c884598` | **P2-1.6.2 Edge Function 구현: data.go.kr 프록시 및 정규화**                | completed | P2-1.6.1                    | -         |
 | `bcc4bbfb-abc1-4540-b292-2330e96f326f` | **P2-1.6.2 테스트: hospital-search Edge Function 검증**                     | completed | -                           | -         |
-| `b5d67e99-f96d-4f0f-a70f-22476a633d04` | **P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거**                        | pending   | P2-1.6.2                    | -         |
-| `7f9a378a-9f68-48ee-93a7-089efd4d31ff` | **P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)**                            | pending   | P2-1.6.3                    | -         |
+| `b5d67e99-f96d-4f0f-a70f-22476a633d04` | **P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거**                        | completed | P2-1.6.2                    | 120m      |
+| `7f9a378a-9f68-48ee-93a7-089efd4d31ff` | **P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)**                            | completed | P2-1.6.3                    | 90m       |
 | `79d3fd2b-ecec-45bc-9578-a88f19599d20` | **P2-1.8 DB: 초대코드 도메인/DDL 설계(1회용+만료일 필수)**                  | completed | P2-1.2                      | 150m      |
 | `8c07e6c2-a27b-4116-b7fa-4e06bd8fcff8` | **P2-1.8-1 DDL: invite_codes 1회용/만료/해시 제약 확장**                    | completed | -                           | -         |
-| `605ced42-6835-429c-8c6a-fe2509dc1ed0` | **P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의**                    | pending   | P2-1.8-1                    | -         |
-| `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6` | **P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강**               | pending   | P2-1.8-1                    | -         |
-| `3181bcb1-37ae-49a9-afb7-29e409976a23` | **P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가**         | pending   | P2-1.8-1<br>P2-1.8-3        | -         |
+| `605ced42-6835-429c-8c6a-fe2509dc1ed0` | **P2-1.8.2 RLS: invite_codes admin 발급/폐기 정책 정의**                    | completed | P2-1.8-1                    | 90m       |
+| `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6` | **P2-1.8.3 API 계약 문서화: invite 상태 판별/에러 매핑 보강**               | completed | P2-1.8-1                    | 90m       |
+| `3181bcb1-37ae-49a9-afb7-29e409976a23` | **P2-1.8.4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가**         | completed | P2-1.8-1<br>P2-1.8.3        | 90m       |
 | `97cfb736-1ec7-425e-948d-b9a9d5b247f0` | **P2-1.9 signup-submit v2 계약 확장(admin 병원선택/user 초대코드)**         | completed | P2-1.3<br>P2-1.6<br>P2-1.8  | 180m      |
-| `6ba9a255-ecd3-4474-a921-8749d93f7949` | **P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)**                | pending   | P2-1.3                      | -         |
-| `db53ffa2-8cda-432e-9207-ad3e0b3f1883` | **P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영**                  | pending   | P2-1.9-1<br>P2-1.8          | -         |
-| `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환**            | pending   | P2-1.6                      | -         |
-| `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스**                         | pending   | P2-1.9-2<br>P2-1.9-3        | -         |
+| `6ba9a255-ecd3-4474-a921-8749d93f7949` | **P2-1.9.1 Canonical Contract Sync (API_SPEC + shared DTO)**                | completed | P2-1.3                      | 90m       |
+| `db53ffa2-8cda-432e-9207-ad3e0b3f1883` | **P2-1.9.2 signup-submit Edge Function v2 응답/검증 반영**                  | completed | P2-1.9.1<br>P2-1.8          | 120m      |
+| `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99` | **P2-1.9.3 hospital-search 프록시 경계 구현 및 클라이언트 전환**            | completed | P2-1.6                      | 120m      |
+| `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0` | **P2-1.9.4 Front API 연동 정합성 및 검증 매트릭스**                         | completed | P2-1.9.2<br>P2-1.9.3        | 90m       |
 | `c5743d61-4d08-4793-9c3b-216b39c59e8b` | **P2-1.10 초대코드 관리 API 계약 정의(create/revoke/list)**                 | completed | P2-1.8                      | 150m      |
 | `17d170a7-e65a-451b-a71f-129c6ba70ae5` | **P2-1.10-2 invite-code-manage 서버/클라이언트 골격 정렬**                  | completed | P2-1.10-1                   | -         |
 | `10000000-0000-4000-8000-000000000057` | **P2-2.1 로그인 접근 모델링: role + account/membership 상태 판별**          | completed | P2-1.5                      | 120m      |
-| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정**            | pending   | P2-2.1                      | 120m      |
-| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의**                 | pending   | P2-2.2                      | 90m       |
-| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)**        | pending   | P2-2.3                      | 90m       |
-| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)**       | pending   | P2-1.5                      | 120m      |
-| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)**     | pending   | P2-3.1                      | 180m      |
-| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙**                      | pending   | P2-3.2                      | 150m      |
-| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)**             | pending   | P2-3.2                      | 90m       |
-| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)**              | pending   | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m      |
+| `10000000-0000-4000-8000-000000000058` | **P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정**            | completed | P2-2.1                      | 120m      |
+| `10000000-0000-4000-8000-000000000059` | **P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의**                 | completed | P2-2.2                      | 90m       |
+| `10000000-0000-4000-8000-000000000060` | **P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)**        | completed | P2-2.3                      | 90m       |
+| `10000000-0000-4000-8000-000000000061` | **P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)**       | completed | P2-1.5                      | 120m      |
+| `10000000-0000-4000-8000-000000000062` | **P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)**     | completed | P2-3.1                      | 180m      |
+| `10000000-0000-4000-8000-000000000063` | **P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙**                      | completed | P2-3.2                      | 150m      |
+| `10000000-0000-4000-8000-000000000064` | **P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)**             | completed | P2-3.2                      | 90m       |
+| `10000000-0000-4000-8000-000000000065` | **P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)**              | completed | P2-3.3<br>P2-3.4<br>P2-1.11 | 180m      |
+| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion**          | completed | -                           | 60m       |
 
 ### 상세 (Details)
 
@@ -1048,6 +1054,17 @@
 - **관련 파일**: `tests/e2e/signup-flow.spec.ts`, `tests/e2e/helpers.ts`, `playwright.config.ts`, `src/views/auth/Signup.vue`, `src/views/auth/Login.vue`
 - **노트(Notes)**: 대상 범위는 /signup 단일 화면이며 user 전용 별도 라우트는 만들지 않는다. 성공 라우팅은 /login?signupState=... 핸드오프를 기준으로 검증한다.
 
+### P2-1.4.6 Signup 성공 메시지 단일 소스 정리
+
+- **Task ID**: `214e88d1-0820-4e5f-9756-5bf9ef56c280`
+- **현재 상태(Status)**: completed
+- **설명(Description)**: Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.
+- **구현 가이드(Guide)**: 1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.
+- **검증 기준(Verification)**: Signup success flow still shows correct pending/active messages and existing tests remain green.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: 60m
+- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`
+
 ### P2-1.5 가입 제출 스모크 테스트 시나리오 정의(admin/user 분기)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000056`
@@ -1168,24 +1185,24 @@
 ### P2-1.6.3 프론트 API 래퍼 전환: direct fetch 제거
 
 - **Task ID**: `b5d67e99-f96d-4f0f-a70f-22476a633d04`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: src/api/hospital.ts를 supabase.functions.invoke('hospital-search') 단일 경계 래퍼로 전환하고, 브라우저에서 data.go.kr 직접 호출 및 VITE_HOSPITAL_API_KEY 사용 경로를 제거한다.
 - **구현 가이드(Guide)**: 1) HospitalSearch 응답 타입을 edge function envelope에 맞춰 정리. 2) searchHospitals(keyword, limit)에서 invoke('hospital-search') 호출로 변경(pageNo=1, numOfRows=limit 변환). 3) 기존 브라우저 direct fetch 로직과 VITE*HOSPITAL_API*\* 참조 제거. 4) 에러 코드 기반 사용자 친화 메시지 매핑을 최소 추가. 5) 기존 Signup.vue 호출 시그니처 호환 유지.
 - **검증 기준(Verification)**: Deliverable: 클라이언트 병원 검색 경로가 invoke('hospital-search') 단일 경계로 통일된다. Method: 코드 검색으로 data.go.kr 직접 fetch/VITE_HOSPITAL_API_KEY 참조 여부 확인. Pass: 클라이언트 코드에서 직접 외부 API 호출이 제거된다.
 - **선행 조건(Dependencies)**: P2-1.6.2
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 120m
 - **관련 파일**: `src/api/hospital.ts`, `src/views/auth/Signup.vue`, `src/api/signup.ts`
 - **노트(Notes)**: 클라이언트는 외부 API 상세를 몰라야 하며 edge function만 의존해야 한다.
 
 ### P2-1.6.4 검증 및 품질 게이트(보안 경계 포함)
 
 - **Task ID**: `7f9a378a-9f68-48ee-93a7-089efd4d31ff`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: 구현 결과가 계약/보안/품질 기준을 만족하는지 점검한다. 브라우저 직접 호출 제거, source 메타 포함, lint 통과를 검증한다.
 - **구현 가이드(Guide)**: 1) 정적 검증: rg로 data.go.kr direct fetch 및 VITE_HOSPITAL_API_KEY 참조 잔존 검색. 2) 타입/린트 게이트 실행(pnpm lint:check) 및 오류 해소. 3) 샘플 요청/응답 예시를 문서/코드와 대조해 계약 일치 검증. 4) 보안 체크리스트(키 비노출, 서버 env 전용 경계) 확인. 5) 확인 결과를 태스크 코멘트/요약으로 기록.
 - **검증 기준(Verification)**: Deliverable: 계약/보안/코드 품질 체크 결과가 확인된다. Method: lint 결과와 코드 검색 결과를 검토한다. Pass: lint error=0, direct data.go 호출=0, source 메타 포함 경로가 확인된다.
 - **선행 조건(Dependencies)**: P2-1.6.3
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/API_SPEC.md`, `src/api/hospital.ts`, `supabase/functions/hospital-search/index.ts`
 - **노트(Notes)**: 이 단계에서 repository 변경은 없고 검증 중심으로 수행한다.
 
@@ -1215,39 +1232,39 @@
 - **관련 파일**: `migrations/010_signup_role_flow.sql`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
 - **노트(Notes)**: organization_invite_codes 신설 대신 canonical invite_codes 확장으로 고정. 기존 used_at/used_by 호환성 유지 필수.
 
-### P2-1.8-2 RLS: invite_codes admin 발급/폐기 정책 정의
+### P2-1.8.2 RLS: invite_codes admin 발급/폐기 정책 정의
 
 - **Task ID**: `605ced42-6835-429c-8c6a-fe2509dc1ed0`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: migrations/008_rls_progressive_rollout.sql에 invite_codes RLS 방향을 반영해 admin/super만 발급/폐기 가능하고 일반 user 직접 조회는 차단되도록 정책을 설계한다.
 - **구현 가이드(Guide)**: 1) invite_codes RLS ENABLE 포함. 2) super admin 전역 허용과 has_org_access(organization_id, 'admin') 기반 조직 admin 허용 정책 추가(SELECT/INSERT/UPDATE 범위 명시). 3) 사용자 직접 invite_codes 접근 차단 원칙을 정책으로 명시. 4) signup-submit은 service role 경계를 통해 invite 검증 수행하도록 문서화.
 - **검증 기준(Verification)**: 정책 검토 시 admin/super 발급/폐기 허용, 일반 user 직접 접근 차단, service-role 기반 검증 경계가 충돌 없이 성립해야 한다.
 - **선행 조건(Dependencies)**: P2-1.8-1
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 90m
 - **관련 파일**: `migrations/008_rls_progressive_rollout.sql`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`
-- **노트(Notes)**: 기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다.
+- **노트(Notes)**: 기존 helper 함수 is_super_admin/has_org_access를 재사용하고 정책 명명 규칙을 migration 스타일과 일치시킨다. Canonical 구현은 008 helper + 010 invite_codes RLS policy 조합으로 충족되며 추가 008 table policy 작업은 불필요하다.
 
-### P2-1.8-3 API 계약 문서화: invite 상태 판별/에러 매핑 보강
+### P2-1.8.3 API 계약 문서화: invite 상태 판별/에러 매핑 보강
 
 - **Task ID**: `6aebe53f-5fdf-4b65-a9d5-d6ed6ec3c5f6`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: docs/API_SPEC.md에 invite active/expired/revoked/consumed 판별 SQL 규칙과 INVALID_INVITE_CODE 매핑을 명시해 서버/클라이언트 해석 여지를 제거한다.
 - **구현 가이드(Guide)**: 1) invite 유효성 판별 규칙을 상태식으로 추가(active/revoked/expired/consumed). 2) INVALID_INVITE_CODE 하위 reason 매핑 유지 및 consumed 기준을 used_count/max_uses와 연결. 3) code_hash 원문 미저장 정책과 해시 생성 책임(서버측) 명시. 4) role=user 경로 요구사항 표를 최신 제약과 일치시킴.
 - **검증 기준(Verification)**: 문서 리뷰 시 invite unusable 사유(만료/소진/폐기/역할불일치/미존재)와 상태 판별 규칙이 상호모순 없이 연결되어야 한다.
 - **선행 조건(Dependencies)**: P2-1.8-1
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/API_SPEC.md`, `docs/migration/P2_SIGNUP_ROLE_FLOW.md`
 - **노트(Notes)**: 기존 canonical error code 계약 표 구조를 그대로 재사용해 문서 포맷 일관성을 유지한다.
 
-### P2-1.8-4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가
+### P2-1.8.4 검증 시나리오 정합화: used_count 기반 회귀 포인트 추가
 
 - **Task ID**: `3181bcb1-37ae-49a9-afb7-29e409976a23`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: docs/verification/test-validation-guide.md의 invite 관련 시나리오(SGN-004~SGN-009)를 새로운 제약(used_count/max_uses + used_at/used_by 정합)과 맞추어 갱신한다.
 - **구현 가이드(Guide)**: 1) consume SQL 예시에 used_count 갱신 및 가드 조건(used_count < max_uses) 반영. 2) 만료/재사용/동시성 시나리오 기대결과를 row update=0/1 기준으로 명확화. 3) 기존 used_at 기반 검증은 호환성 체크로 유지하되 count 기반 불변식 검증 절 추가. 4) SGN 추적표와 리뷰 체크리스트에 신규 제약 확인 항목 추가.
 - **검증 기준(Verification)**: 시나리오 리뷰 시 단일 소비 보장, 만료 차단, 재사용 차단, 동시성 단일 성공이 used_count/used_at 기준으로 모두 검증 가능해야 한다.
-- **선행 조건(Dependencies)**: P2-1.8-1<br>P2-1.8-3
-- **예상 소요 시간**: -
+- **선행 조건(Dependencies)**: P2-1.8-1<br>P2-1.8.3
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 - **노트(Notes)**: 테스트 문서는 구현 선행이 아니라 검증 기준 문서이므로 SQL 예시는 실행 가능성과 설명 명확성 중심으로 유지한다.
 
@@ -1264,51 +1281,51 @@
 - **관련 파일**: `supabase/functions/signup-submit/index.ts`, `src/api/signup.ts`, `docs/API_SPEC.md`
 - **노트(Notes)**: 기존 organizationSelectionMode=create_new 브리지 계약은 폐기하고 v2 역할 분기 계약을 canonical로 사용한다. 2026-03-05 후속 검증: 원격 Supabase Edge Function `signup-submit`를 v5로 재배포해 duplicate probe 및 organizationSelectionMode 검증 분기를 활성화했고, SC-UI-004에서 `409 DUPLICATE_REQUEST`(details.reason=`DUPLICATE_PENDING_REQUEST`) 응답을 확인했다.
 
-### P2-1.9-1 Canonical Contract Sync (API_SPEC + shared DTO)
+### P2-1.9.1 Canonical Contract Sync (API_SPEC + shared DTO)
 
 - **Task ID**: `6ba9a255-ecd3-4474-a921-8749d93f7949`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: signup-submit v2 canonical 계약을 문서와 클라이언트 DTO에서 일치시킨다.
 - **구현 가이드(Guide)**: 1) docs/API_SPEC.md의 signup-submit 성공 응답에 nextState(pending_approval|active)를 명시한다. 2) admin/user 경로별 필수 입력(병원 식별자/초대코드)과 에러 코드 매핑 표를 v2 기준으로 정리한다. 3) src/types/signup.ts에서 문서와 동일한 타입/에러코드를 확인·보정한다.
 - **검증 기준(Verification)**: API_SPEC와 src/types/signup.ts에서 nextState, role별 필수값, 에러코드 매핑이 동일하게 표현된다.
 - **선행 조건(Dependencies)**: P2-1.3
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 90m
 - **관련 파일**: `docs/API_SPEC.md`, `src/types/signup.ts`
 - **노트(Notes)**: 문서가 canonical source이며 구현은 문서를 따라야 한다.
 
-### P2-1.9-2 signup-submit Edge Function v2 응답/검증 반영
+### P2-1.9.2 signup-submit Edge Function v2 응답/검증 반영
 
 - **Task ID**: `db53ffa2-8cda-432e-9207-ad3e0b3f1883`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: supabase/functions/signup-submit/index.ts를 v2 계약에 맞게 확장한다.
 - **구현 가이드(Guide)**: 1) 성공 응답에 nextState를 포함한다(admin->pending_approval, user->active). 2) admin 요청에서 병원 선택 검증을 강화하고 user 요청에서 invite 상태 검증 분기(만료/사용/폐기/역할불일치)를 canonical error로 normalize한다. 3) error.details.reason을 legacy mapping 표와 맞춘다. 4) contract-only scaffold 여부를 명확히 구분해 반환한다.
 - **검증 기준(Verification)**: signup-submit 응답이 nextState를 포함하고, admin 병원 누락/user invite 오류/중복 요청 케이스가 계약된 에러코드로 반환된다.
-- **선행 조건(Dependencies)**: P2-1.9-1<br>P2-1.8
-- **예상 소요 시간**: -
+- **선행 조건(Dependencies)**: P2-1.9.1<br>P2-1.8
+- **예상 소요 시간**: 120m
 - **관련 파일**: `supabase/functions/signup-submit/index.ts`, `migrations/010_signup_role_flow.sql`
 - **노트(Notes)**: 실제 DB 영속화는 단계적으로 구현하되 계약 필드는 먼저 완결한다.
 
-### P2-1.9-3 hospital-search 프록시 경계 구현 및 클라이언트 전환
+### P2-1.9.3 hospital-search 프록시 경계 구현 및 클라이언트 전환
 
 - **Task ID**: `1f28f3ff-6eec-4fb5-9c0e-6c2d4f9c3f99`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: 병원 검색을 프론트 직접 data.go 호출에서 Edge Function 프록시 단일 경계로 전환한다.
 - **구현 가이드(Guide)**: 1) supabase/functions/hospital-search/index.ts를 생성해 HOSPITAL_API_BASE_URL/HOSPITAL_API_KEY(서버 env)로 data.go를 호출하고 UI 친화 응답으로 정규화한다. 2) timeout/rate-limit/error mapping을 정의한다. 3) src/api/hospital.ts는 edge function invoke만 사용하도록 변경하고 브라우저 키 사용 코드를 제거한다.
 - **검증 기준(Verification)**: 브라우저 네트워크에서 data.go 직접 호출이 사라지고 hospital-search edge function 단일 경계로 조회되며 source=data.go.kr 메타가 포함된다.
 - **선행 조건(Dependencies)**: P2-1.6
-- **예상 소요 시간**: -
+- **예상 소요 시간**: 120m
 - **관련 파일**: `supabase/functions/hospital-search/index.ts`, `src/api/hospital.ts`, `docs/API_SPEC.md`
 - **노트(Notes)**: P2-1.6 노트(프론트 직접 호출 금지, 키 비노출)를 강제한다.
 
-### P2-1.9-4 Front API 연동 정합성 및 검증 매트릭스
+### P2-1.9.4 Front API 연동 정합성 및 검증 매트릭스
 
 - **Task ID**: `6596bd1b-b2db-4edf-b6e4-87c340a9a0e0`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: src/api/signup.ts와 인증 흐름을 v2 계약에 맞춰 정합화하고 검증 시나리오를 정리한다.
 - **구현 가이드(Guide)**: 1) src/api/signup.ts에서 nextState를 우선 소비하고 dev fallback 정책을 문서화된 개발 모드 규칙으로 제한한다. 2) canonical error code -> 한국어 메시지 매핑 유지 여부를 점검한다. 3) 검증 매트릭스(admin 병원 누락, user invite invalid/expired/used/revoked, duplicate request, success nextState 분기)를 문서화한다.
 - **검증 기준(Verification)**: 클라이언트가 nextState 기반으로 일관 분기하고, v2 에러 케이스가 검증 매트릭스에서 누락 없이 확인된다.
-- **선행 조건(Dependencies)**: P2-1.9-2<br>P2-1.9-3
-- **예상 소요 시간**: -
+- **선행 조건(Dependencies)**: P2-1.9.2<br>P2-1.9.3
+- **예상 소요 시간**: 90m
 - **관련 파일**: `src/api/signup.ts`, `src/stores/auth.ts`, `docs/verification/test-validation-guide.md`
 - **노트(Notes)**: 운영 경계에서는 direct table fallback 금지 원칙 유지.
 
@@ -1354,7 +1371,8 @@
 ### P2-2.2 Route guard 설계: 상태 기반 차단/리다이렉트 규칙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000058`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: AccessState 기반 route guard 순서를 인증→상태해석→상태차단→권한검사→step guard로 고정했고, admin pending/rejected 전용 라우트 리다이렉트 규칙과 공개 예외 경로를 확정했다.
 - **설명(Description)**: 로그인 이후 접근 상태에 따라 라우팅을 제어하는 가드 순서와 예외 경로를 정의한다.
 - **구현 가이드(Guide)**: 1) 가드 순서를 인증 -> 상태 판별 -> role 기반 접근 -> step 진행 검증으로 고정한다. 2) admin pending/rejected는 전용 안내 라우트로 이동 규칙을 정의한다. 3) user active는 기본 진입 허용 규칙을 정의한다. 4) 공개 라우트 예외(/login, /signup, 상태 안내 페이지)를 명시한다.
 - **검증 기준(Verification)**: Deliverable: 전역 가드 실행 순서도와 예외 라우트 목록이 문서화되어 있다. Method: 라우트 케이스 테이블을 리뷰한다. Pass: 미승인 admin 차단, 승인 user 허용, 공개 라우트 예외가 모두 반영된다.
@@ -1366,7 +1384,8 @@
 ### P2-2.3 UI: admin 승인대기/반려 상태 안내 화면 스펙 정의
 
 - **Task ID**: `10000000-0000-4000-8000-000000000059`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: admin pending/rejected 전용 AccessState 화면 스펙을 확정했다. CTA는 로그아웃 단일로 고정하고, 반려 사유 표시 조건과 새로고침/재로그인 기반 상태 재조회 규칙을 정의했다.
 - **설명(Description)**: 승인 전 admin 계정에 노출할 pending/rejected 안내 화면의 콘텐츠와 CTA를 정의한다.
 - **구현 가이드(Guide)**: 1) pending/rejected 상태별 문구와 CTA(로그아웃, 문의 안내)를 정의한다. 2) 상태 재조회 트리거(새로고침/재로그인) 규칙을 정의한다. 3) user 초대코드 실패 안내는 signup 화면 inline 오류로 처리하고 AccessState 대상에서 제외한다.
 - **검증 기준(Verification)**: Deliverable: pending/rejected 안내 화면 스펙과 라우트 연결 규칙이 정의되어 있다. Method: 상태별 콘텐츠와 CTA 체크리스트를 검토한다. Pass: admin 비승인 상태에서 서비스 핵심 화면 진입이 차단되고 안내 화면으로 유도되는 기준이 명확하다.
@@ -1378,7 +1397,8 @@
 ### P2-2.4 승인 상태별 라우팅 테스트 시나리오 정의(role/status 조합)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000060`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: role/status 조합별 라우팅 기대값과 직접 URL/새로고침/세션 복구 시나리오를 테스트 가이드에 추가해 회귀 입력 세트를 고정했다.
 - **설명(Description)**: role과 승인 상태 조합별 라우팅 결과를 검증하는 테스트 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) admin pending/rejected/approved, user approved, super active 케이스별 허용 라우트/리다이렉트 기대값을 정의한다. 2) 직접 URL 접근/새로고침/세션 복구 케이스를 포함한다. 3) 최소 1개 자동화 후보(E2E)를 식별한다.
 - **검증 기준(Verification)**: Deliverable: 상태 조합 기반 라우팅 테스트 표가 문서화되어 있다. Method: 케이스별 입력 상태와 기대 URL/메시지 매핑을 점검한다. Pass: 핵심 role/status 조합이 누락 없이 포함된다.
@@ -1390,7 +1410,8 @@
 ### P2-3.1 승인 워크플로우 정책 확정(admin 가입요청 / superuser 승인)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000061`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: admin 가입요청 승인 정책을 superuser 단일 승인 주체로 확정하고, 승인 큐 대상/비대상(admin 요청 전용, user invite 제외)과 감사 필수 항목을 문서화했다.
 - **설명(Description)**: admin 가입요청 승인/반려 정책을 superuser 단일 승인 주체 기준으로 확정하고 감사로그 요구를 정의한다.
 - **구현 가이드(Guide)**: 1) admin 가입요청의 승인 주체를 superuser로 고정한다. 2) 승인/반려 시 필수 감사 필드(actor, target, action, reason)를 정의한다. 3) user 초대코드 가입은 승인 큐 대상에서 제외됨을 명시한다.
 - **검증 기준(Verification)**: Deliverable: 승인 정책 문서에 승인 주체/범위/예외(user 초대코드)가 명확히 정의되어 있다. Method: 정책 문서와 API 계약의 일관성을 검토한다. Pass: 승인 큐 대상과 비대상이 명확히 분리된다.
@@ -1402,7 +1423,8 @@
 ### P2-3.2 승인 결정 API 계약 정의(approve/reject, admin 가입요청 전용)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000062`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: approval-decision API 계약을 request/response DTO, 에러코드, 상태전이, 멱등 규칙까지 포함해 canonical 문서와 프론트 API 경계에 반영했다.
 - **설명(Description)**: admin 가입요청 승인/반려를 처리하는 approval-decision API 계약을 정의하고 멱등/감사로그 규칙을 확정한다.
 - **구현 가이드(Guide)**: 1) 입력 스키마(requestId, decision, note)를 정의한다. 2) 승인 시 membership approved 반영 및 signup_requests 상태 업데이트 규칙을 정의한다. 3) 중복 승인/이미 처리된 요청에 대한 멱등 응답 규칙을 명시한다. 4) approval_logs 기록 필수 조건을 정의한다.
 - **검증 기준(Verification)**: Deliverable: approval-decision API 계약과 상태 변경 규칙이 문서/함수 기준으로 정리되어 있다. Method: API 계약표와 상태 전이표를 대조한다. Pass: approve/reject 경로와 멱등 처리 규칙이 누락 없이 정의된다.
@@ -1414,7 +1436,8 @@
 ### P2-3.3 UI: superuser 승인 대기 목록/필터/상세 스펙
 
 - **Task ID**: `10000000-0000-4000-8000-000000000063`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: superuser 전용 승인 큐 UI 경계를 P4 계정관리와 분리해 확정했고, 목록/필터/상세/액션 필드 스펙과 API 매핑 인터페이스를 정의했다.
 - **설명(Description)**: superuser가 admin 가입요청을 검토할 수 있는 승인 큐 화면의 목록/필터/상세/액션 스펙을 정의한다.
 - **구현 가이드(Guide)**: 1) 목록 컬럼(email, 요청조직, 요청역할, 상태, 생성일)과 필터(status, org, keyword)를 정의한다. 2) 상세 패널에서 가입정보와 note 입력 UI를 정의한다. 3) approve/reject 확인 다이얼로그와 후속 상태 갱신 UX를 정의한다.
 - **검증 기준(Verification)**: Deliverable: 승인 큐 UI 스펙 문서(목록/필터/상세/액션)가 작성되어 구현자가 추가 결정 없이 개발 가능하다. Method: UI 스펙과 API 필드 매핑을 리뷰한다. Pass: 컬럼/필터/액션/오류 처리 기준이 모두 명시된다.
@@ -1426,7 +1449,8 @@
 ### P2-3.4 승인 결과 알림 이벤트 생성 정책 정의(admin 가입요청)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000064`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: 승인 결과 이벤트 producer 정책을 signup_approved/signup_rejected 타입, 최소 payload, idempotencyKey 규칙으로 확정했다. 채널/템플릿 정책은 P8 범위로 명시했다.
 - **설명(Description)**: admin 가입요청 승인/반려 결과를 알리는 이벤트 생성 트리거와 payload 최소 필드를 정의한다.
 - **구현 가이드(Guide)**: 1) 승인/반려 상태 전이 시 이벤트 생성 시점을 정의한다. 2) payload 최소 필드(requestId, decision, actorUserId, targetUserId, organizationId, decidedAt)를 명시한다. 3) idempotencyKey 규칙을 정의한다.
 - **검증 기준(Verification)**: Deliverable: 승인 이벤트 생성 정책서와 최소 payload 계약이 문서화되어 있다. Method: 정책 문서와 P8 이벤트 소비 요구사항의 필드 정합성을 점검한다. Pass: 생성 트리거/필드/idempotency 규칙이 누락 없이 명시된다.
@@ -1438,7 +1462,8 @@
 ### P2-3.5 End-to-End 가입/승인 통합 시나리오 정의(admin+user)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000065`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-08)
+- **완료 요약(Summary)**: admin 승인형과 user invite형을 포괄하는 통합 E2E 시나리오를 확정해 P3/P4/P6 변경 시 재사용 가능한 기준선으로 고정했다.
 - **설명(Description)**: admin 신청-승인 플로우와 user 초대코드 즉시가입 플로우를 통합한 E2E 검증 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) admin 플로우: signup(pending) -> superuser approve -> login allow 시나리오를 정의한다. 2) user 플로우: invite code signup(active) -> login allow 시나리오를 정의한다. 3) 실패 케이스: admin 미승인 접근 차단, user 만료코드 거부를 포함한다.
 - **검증 기준(Verification)**: Deliverable: admin/user 가입 플로우를 포괄하는 통합 E2E 시나리오 문서가 존재한다. Method: 경로별 선행조건/절차/기대결과를 리뷰한다. Pass: 승인형과 즉시승인형 두 플로우가 모두 검증 항목으로 정의된다.
@@ -1447,53 +1472,73 @@
 - **관련 파일**: `docs/verification/test-validation-guide.md`, `src/views/auth/Login.vue`, `src/router/index.ts`
 - **노트(Notes)**: 본 시나리오는 P3 이후 라우터/온보딩 변경의 회귀 기준선으로 재사용한다.
 
-## P3 (예상 시간: 24시간 30분)
+### Optional hardening: enforce single signup invocation assertion
+
+- **Task ID**: `9098efca-a3fd-4e21-ac09-785b6b52a792`
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: tests/unit/auth-signup.spec.ts에 submitSignup 단일 호출 보장 assertion이 이미 반영되어 있어 중복 API 호출 회귀 방지 조건이 충족됨을 확인하고, stale pending 항목을 완료 처리했다.
+- **설명(Description)**: Add explicit unit-test assertions to guarantee auth store signup performs exactly one submitSignup API call per action execution.
+- **구현 가이드(Guide)**: 1. Open tests/unit/auth-signup.spec.ts. 2. For success and error branch tests, add expect(submitSignup).toHaveBeenCalledTimes(1) after invoking authStore.signup. 3. Keep existing behavior assertions unchanged.
+- **검증 기준(Verification)**: Vitest passes and each signup test validates submitSignup call count equals 1.
+- **선행 조건(Dependencies)**: -
+- **예상 소요 시간**: 60m
+- **관련 파일**: `tests/unit/auth-signup.spec.ts`
+
+## P3 (예상 시간: 38시간 30분)
 
 ### 요약 (Summary)
 
-| Task ID                                | 태스크 명                                                       | 상태    | 선행 태스크(Dependencies)            | 예상 시간 |
-| -------------------------------------- | --------------------------------------------------------------- | ------- | ------------------------------------ | --------- |
-| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정**        | pending | P1-1.3<br>P1-1.4<br>P2-2.4           | 120m      |
-| `10000000-0000-4000-8000-000000000067` | **P3-1.2 onboarding_progress 저장/RLS 설계**                    | pending | P3-1.1                               | 120m      |
-| `10000000-0000-4000-8000-000000000068` | **P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)**       | pending | P3-1.1                               | 180m      |
-| `10000000-0000-4000-8000-000000000069` | **P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)**                 | pending | P3-1.3                               | 90m       |
-| `10000000-0000-4000-8000-000000000070` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정**                  | pending | P3-1.1                               | 120m      |
-| `10000000-0000-4000-8000-000000000071` | **P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | pending | P3-2.1                               | 120m      |
-| `10000000-0000-4000-8000-000000000072` | **P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)**      | pending | P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2 | 180m      |
-| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)**                | pending | P3-1.1<br>P2-2.4                     | 120m      |
-| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)**        | pending | P3-1.3<br>P3-1.4<br>P3-3.1           | 120m      |
-| `10000000-0000-4000-8000-000000000075` | **P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)**          | pending | P3-3.2                               | 120m      |
-| `7bfa70f1-d130-4940-982e-c8da747127c2` | **P3-3.4 온보딩 E2E 테스트 시나리오 정의**                      | pending | P3-1.3<br>P3-2.1<br>P3-3.1           | 180m      |
+| Task ID                                | 태스크 명                                                       | 상태      | 선행 태스크(Dependencies)                      | 예상 시간 |
+| -------------------------------------- | --------------------------------------------------------------- | --------- | ---------------------------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000066` | **P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정**        | completed | P1-1.3<br>P1-1.4<br>P2-2.4                     | 120m      |
+| `10000000-0000-4000-8000-000000000067` | **P3-1.2 onboarding_progress 저장/RLS 설계**                    | completed | P3-1.1                                         | 120m      |
+| `10000000-0000-4000-8000-000000000068` | **P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)**       | completed | P3-1.1                                         | 180m      |
+| `10000000-0000-4000-8000-000000000069` | **P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)**                 | completed | P3-1.3                                         | 90m       |
+| `593ad871-842e-44da-aeef-d37d7c989426` | **P3-1.5 onboarding_progress 스키마/RLS 구현 정렬**             | completed | P3-1.2                                         | 180m      |
+| `1d82b0e8-4d19-405b-a772-80ecbe305c11` | **P3-1.6 onboarding-progress Edge Function 구현 정렬**          | completed | P3-1.3<br>P3-1.5                               | 180m      |
+| `10000000-0000-4000-8000-000000000070` | **P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정**                  | completed | P3-1.1                                         | 120m      |
+| `10000000-0000-4000-8000-000000000071` | **P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)** | completed | P3-2.1                                         | 120m      |
+| `10000000-0000-4000-8000-000000000072` | **P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)**      | completed | P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2<br>P3-1.6 | 180m      |
+| `df783bb0-cbc9-4f5d-ab0f-cec0d025e39d` | **P3-2.4 온보딩 context/deep-link 계약 정리 + 단위 테스트**     | completed | P3-1.4<br>P3-2.2                               | 90m       |
+| `923deef2-e75d-48eb-8bee-ca4e9ee0319a` | **P3-2.5 온보딩 Step 1/2 재진입 구현**                          | completed | P3-2.4                                         | 240m      |
+| `10000000-0000-4000-8000-000000000073` | **P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)**                | completed | P3-1.1<br>P2-2.4                               | 120m      |
+| `10000000-0000-4000-8000-000000000074` | **P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)**        | completed | P3-1.3<br>P3-1.4<br>P3-3.1<br>P3-1.6           | 120m      |
+| `10000000-0000-4000-8000-000000000075` | **P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)**          | completed | P3-3.2                                         | 120m      |
+| `7bfa70f1-d130-4940-982e-c8da747127c2` | **P3-3.4 온보딩 E2E 테스트 시나리오 정의**                      | completed | P3-1.3<br>P3-2.1<br>P3-3.1                     | 180m      |
+| `e1374fa2-7862-464f-91b2-9aa419dc5283` | **P3-3.5 온보딩 이전 단계 재진입 회귀 시나리오 정의**           | completed | P3-2.4<br>P3-2.5<br>P3-3.3                     | 150m      |
 
 ### 상세 (Details)
 
 ### P3-1.1 온보딩 상태 머신(3단계) + 완료 ownership 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000066`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: Created a canonical P3 onboarding state-machine spec that fixes the three step keys, organization-scoped completion ownership, canonical organization read rule, approval-before-onboarding precedence, and admin-only/incomplete-only /onboarding access invariant. Updated RBAC docs to remove super access from /onboarding and linked the PRD onboarding section to the new source-of-truth document.
 - **설명(Description)**: admin 최초 로그인 온보딩의 3단계 상태 머신(조직 정보 확인→직원 등록 안내→스케줄 요청 안내), 단계별 완료 조건, organization-vs-user ownership을 단일 진실원천으로 확정한다. /onboarding 라우트는 admin 전용이며, 미완료 admin만 강제 진입 대상이라는 불변식을 이 태스크에서 고정한다.
 - **구현 가이드(Guide)**: 1) 3단계 이름, 진입 조건, 단계별 완료 조건을 확정한다. 2) 완료 ownership을 organization-scoped, user-scoped, hybrid 중 하나로 고정하고 canonical read rule을 정의한다. 3) admin 완료/미완료, user 차단, approval pending 우선 규칙을 notes 또는 가이드에 명시한다. 4) 이후 API/store/guard task가 동일한 상태명과 완료 의미만 사용하도록 기준 용어를 고정한다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 단계, 완료 조건, completion ownership, admin-only 접근 불변식이 명확히 정리되어 있다. Method: 산출물을 리뷰하고 단계 정의와 ownership 규칙이 후속 task에서 재해석 없이 사용 가능한지 검사한다. Pass: 단계/완료/ownership/admin 전용 규칙이 누락 없이 명시되어 있다.
 - **선행 조건(Dependencies)**: P1-1.3<br>P1-1.4<br>P2-2.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`, `docs/migration/RBAC_MATRIX.md`
+- **관련 파일**: `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`, `docs/migration/RBAC_MATRIX.md`, `docs/REFINED_PRD.md`
 - **노트(Notes)**: 이 태스크는 P3 전체의 domain gate다. 후속 task는 여기서 정의한 상태명, 완료 기준, ownership만 소비해야 한다.
 
 ### P3-1.2 onboarding_progress 저장/RLS 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000067`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: `docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md`를 추가해 onboarding_progress의 organization-scoped ownership, admin_active read/write 범위, legacy row collapse recovery, admin-only RLS 목표 정책, 그리고 P3-1.3 API task가 재정의하면 안 되는 persistence 경계를 명시적으로 고정했다.
 - **설명(Description)**: onboarding_progress의 persistence ownership, read/write boundary, active admin scope, organization isolation, recovery semantics를 정의하고 현재 RLS gap을 해소하기 위한 설계 기준을 확정한다.
 - **구현 가이드(Guide)**: 1) onboarding_progress의 owner scope와 organization_id 기준 격리 규칙을 정한다. 2) 누가 read/write/update/complete 할 수 있는지 역할과 account 상태 기준을 정의한다. 3) refresh/relogin/recovery 시 어떤 row를 canonical state로 읽을지 고정한다. 4) 현재 RLS disabled 상태를 목표 정책으로 전환하기 위한 요구사항을 문서화한다. 5) API contract task가 이 저장 규칙을 재정의하지 않도록 persistence 경계를 명확히 적는다.
 - **검증 기준(Verification)**: Deliverable: onboarding_progress 저장 모델, tenant/RLS 범위, recovery 규칙이 명시되어 있다. Method: 산출물을 리뷰하고 ownership, read/write 범위, RLS 목표 정책이 분리 없이 설명되는지 검사한다. Pass: 저장 경계와 RLS 목표가 API contract와 독립적으로 해석 가능하게 정의되어 있다.
 - **선행 조건(Dependencies)**: P3-1.1
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`, `migrations/008_rls_progressive_rollout.sql`
+- **관련 파일**: `docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md`, `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`, `docs/verification/test-validation-guide.md`, `docs/migration/P1-2.2_RLS_POLICY_MATRIX.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/008_rls_progressive_rollout.sql`
 
 ### P3-1.3 온보딩 진행 API 계약 정의(get/update/complete)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000068`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: `docs/API_SPEC.md`에 P3 canonical onboarding-progress contract를 추가해 get/update/complete 요청·응답 envelope, admin-only auth boundary, organization-scope resolution, canonical error code를 문서화했다. 또한 Edge Function 타입과 응답 형식을 `currentStepKey`/`completedStepKeys`/`isOnboardingComplete` 기반으로 정렬해 프론트가 추가 해석 없이 사용할 수 있는 transport contract로 맞췄다.
 - **설명(Description)**: onboarding-progress 서버 경계의 get/update/complete 요청·응답 schema, auth boundary, canonical error model을 정의한다. 이 태스크는 저장/RLS 규칙을 재정의하지 않고 transport contract만 고정한다.
 - **구현 가이드(Guide)**: 1) get/update/complete 액션별 request/response envelope과 error code를 정의한다. 2) admin-only 호출 경계와 organization scope 검증 책임을 문서화한다. 3) field name과 state name을 P3-1.1의 용어와 정확히 맞춘다. 4) persistence/RLS 규칙은 P3-1.2를 참조하고 이 태스크에서는 transport contract만 유지한다. 5) 후속 store/router가 추가 결정 없이 사용할 수 있도록 DTO와 상태 전이 결과를 명시한다.
 - **검증 기준(Verification)**: Deliverable: onboarding-progress API contract가 get/update/complete 범위로 문서화되어 있고 auth/error 기준이 포함된다. Method: 산출물을 리뷰하고 request/response/error가 P3-1.1 상태명과 정합하며 추가 해석 없이 프론트에서 소비 가능한지 검사한다. Pass: action별 contract와 auth boundary가 명시되고 persistence 규칙과 역할 경계가 충돌 없이 정리되어 있다.
@@ -1504,73 +1549,129 @@
 ### P3-1.4 프론트 스토어/캐시 전략 정의(온보딩)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000069`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: Shared onboarding contract types and an onboarding-progress API wrapper were added, then a new Pinia onboarding store defined organization-scoped loading, local restore, storage-event sync, invalidation, and guard-facing readiness rules. Auth session handoff now resets onboarding memory on login/logout/checkSession boundaries, and `pnpm lint:check` passed after the changes.
 - **설명(Description)**: 온보딩 진행 상태를 프론트에서 어떻게 로딩, 캐시, 복구, 동기화할지 정의한다. refresh, relogin, 다중 탭 상황에서도 동일한 canonical state를 사용하도록 store contract를 고정한다.
-- **구현 가이드(Guide)**: 1) store state, getter, action, loading lifecycle을 정의한다. 2) API contract의 field name과 상태명을 그대로 사용한다. 3) local restore, storage event sync, invalidation 규칙을 정한다. 4) admin-only 조회/수정과 미완료/완료 판정 시점을 명확히 적는다. 5) router/guard가 직접 raw payload를 읽지 않고 store를 통해 소비하도록 경계를 고정한다.
-- **검증 기준(Verification)**: Deliverable: 온보딩 상태의 로딩, 저장, 복구, 초기화 규칙과 store 인터페이스가 명확히 정의되어 있다. Method: 산출물을 리뷰하고 refresh/relogin/multi-tab 시나리오에서 어떤 state source를 읽는지 추적한다. Pass: store가 API contract와 동일한 필드/상태명을 사용하고, 캐시 무효화와 복구 규칙이 누락 없이 정의되어 있다.
+- **구현 가이드(Guide)**: 1) Preserve the onboarding-progress contract field names (`action`, `progress`, `transition`, `currentStepKey`, `completedStepKeys`, `isOnboardingComplete`, `completedAt`) in shared TypeScript types and the API wrapper. 2) Keep the store organization-scoped by accepting `accessState` + `organizationId` as scope input, while auth only hands off `sessionUserId`. 3) Restore from localStorage by organization key for refresh/relogin warm-start, but expose `isReadyForGuard` so router/guard waits for a same-tab remote snapshot before enforcing redirects. 4) Sync same-organization tabs through the `storage` event and ignore malformed or older payloads. 5) Invalidate memory on scope change/logout, optionally clear persisted cache on permission loss, and keep router/guard consumers behind store getters instead of raw payload reads.
+- **검증 기준(Verification)**: Deliverable: `src/stores/onboarding.ts` defines scope, loading, cache, restore, storage sync, invalidation, and guard-facing getters using the canonical onboarding-progress field names, with auth session handoff updated in `src/stores/auth.ts`. Method: review refresh, relogin, and multi-tab flows by tracing `loadProgress`, `restoreProgressFromCache`, `handleStorageEvent`, `invalidateProgress`, and auth login/logout/checkSession. Pass: the store uses the same API field names/status names, separates local restore from guard readiness via `hasRemoteSnapshot`/`isReadyForGuard`, and defines when cache is retained or cleared on scope and permission changes.
 - **선행 조건(Dependencies)**: P3-1.3
 - **예상 소요 시간**: 90m
-- **관련 파일**: `src/stores/onboarding.ts`, `src/stores/auth.ts`
+- **관련 파일**: `src/stores/onboarding.ts`, `src/api/onboarding.ts`, `src/types/onboarding.ts`, `src/stores/auth.ts`
+
+### P3-1.5 onboarding_progress 스키마/RLS 구현 정렬
+
+- **Task ID**: `593ad871-842e-44da-aeef-d37d7c989426`
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: Added `migrations/013_onboarding_progress_runtime_alignment.sql` to move `onboarding_progress` to a canonical organization-scoped model with legacy row collapse, audit-field replacement for `user_id`, onboarding helper functions, and admin-only RLS/ACL tightening. Updated the persistence spec and DBML snapshot, added verification SQL, and verified in Supabase that the new columns/functions/policies exist, `organization_id` is uniquely enforced, duplicate rows are absent, RLS is enabled, and ACLs exclude anonymous access.
+- **설명(Description)**: P3-1.2 설계 기준에 맞게 onboarding_progress의 실제 persistence shape와 RLS 정책을 런타임에 반영한다. 현재 user-scoped draft schema를 organization-scoped canonical state로 정렬하고, legacy row collapse/backfill과 admin-only tenant isolation을 구현한다.
+- **구현 가이드(Guide)**: 1) Add a forward migration that replaces the current user-scoped onboarding_progress ownership model with an organization-scoped canonical row model, or a shape that behaves equivalently from the API boundary. 2) Preserve P3-1.3 transport field compatibility while removing UNIQUE(organization_id, user_id) as the authoritative completion owner. 3) Include legacy row collapse/backfill logic so existing per-user rows resolve to one canonical organization-scoped state without data loss. 4) Enable RLS and add explicit admin-only, tenant-isolated read/write policies; anonymous and unrelated authenticated access must be denied. 5) Document verification SQL or migration notes so P3-1.6 and router work can rely on the new persistence contract without reinterpretation.
+- **검증 기준(Verification)**: Deliverable: onboarding_progress runtime schema and RLS are aligned with the P3 canonical organization-scoped model. Method: review the migration and run schema/policy inspection to confirm that one canonical onboarding state is resolved per organization, legacy rows are handled, and unauthorized access is blocked. Pass: schema ownership, row uniqueness behavior, and RLS enforcement match P3-1.2 without leaving a user-scoped completion path in production.
+- **선행 조건(Dependencies)**: P3-1.2
+- **예상 소요 시간**: 180m
+- **관련 파일**: `docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/008_rls_progressive_rollout.sql`, `migrations`
+- **노트(Notes)**: This is runtime-alignment work that intentionally follows completed spec tasks. Keep P3-1.2 completed and treat this task as the implementation closure for the persistence/RLS gap.
+
+### P3-1.6 onboarding-progress Edge Function 구현 정렬
+
+- **Task ID**: `1d82b0e8-4d19-405b-a772-80ecbe305c11`
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: Refactored `supabase/functions/onboarding-progress/index.ts` to use the P3-1.5 organization-scoped canonical row, admin-scope organization resolution, and domain-proof-based transition handling instead of per-user integer progress writes. Added local Supabase CLI tooling for deployment, deployed `onboarding-progress` to the live project `vjmerqaxguovnojinxfq`, and verified the deployed boundary with curl: unauthenticated requests were blocked by the gateway, authenticated invalid action/method requests returned the canonical error envelope, `super_active` and `user_active` callers were denied, and an `admin_active` caller successfully executed `get` plus `update(organization_info)` with canonical progress recalculation to `schedule_request`. Live `complete` invocation was intentionally skipped to avoid forcing terminal onboarding state on the shared organization.
+- **설명(Description)**: P3-1.3 transport contract와 P3-1.1 domain invariant를 기준으로 onboarding-progress Edge Function을 실제 런타임 동작에 맞게 정렬한다. organization-scoped progress 조회, step transition 검증, complete semantics를 현재 draft implementation에서 canonical behavior로 끌어올린다.
+- **구현 가이드(Guide)**: 1) Refactor onboarding-progress to read and mutate the organization-scoped canonical progress model introduced by P3-1.5 instead of assuming a per-user owner row. 2) Preserve the existing get/update/complete envelope, error codes, and step key vocabulary from P3-1.3. 3) Enforce transition rules so update/complete do not bypass the P3-1.1 completion semantics; where the runtime cannot yet infer completion from domain tables automatically, require or derive canonical persisted proof rather than blindly incrementing integers. 4) Keep organization resolution consistent with the approved admin scope used by auth/RBAC and return permission errors for non-admin or inactive callers. 5) Leave router/page concerns to P3-2.3 and P3-3.2, but make the function trustworthy enough that those tasks can consume it without adding their own workaround semantics.
+- **검증 기준(Verification)**: Deliverable: onboarding-progress Edge Function behavior matches the organization-scoped runtime model and the canonical transport contract. Method: review get/update/complete handling and validate that progress is not owned per user, forbidden transitions are rejected, and complete semantics no longer reduce to an unconditional integer write. Pass: the function returns P3-1.3-compatible payloads while enforcing P3-1.1/P3-1.5 runtime invariants without requiring router or page-level reinterpretation.
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.5
+- **예상 소요 시간**: 180m
+- **관련 파일**: `docs/API_SPEC.md`, `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`, `supabase/functions/onboarding-progress/index.ts`, `src/api/onboarding.ts`
+- **노트(Notes)**: This task closes the runtime gap left by the earlier contract-first implementation. It should complete before page integration and onboarding guard insertion consume the function as a source of truth.
 
 ### P3-2.1 온보딩 위저드 UI 플로우/콘텐츠 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000070`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: Added `docs/migration/P3_ONBOARDING_WIZARD_UX.md` as the canonical onboarding UX spec. The document fixes `/onboarding` route semantics, the three step IA, Korean step copy, primary CTA labels, per-step completion meaning aligned with the P3 state machine, next-step handoff messaging, and the final admin landing route as `/dashboard/admin`. Updated the task’s related files so later implementation tasks can consume the spec from the correct repo paths.
 - **설명(Description)**: 온보딩 위저드의 단계별 IA, 설명 문구, CTA, 완료 후 dashboard exit semantics를 확정한다. 이 task는 구현 통합 전의 UX 기준 문서 역할을 한다.
 - **구현 가이드(Guide)**: 1) 3단계별 사용자 목적, 설명 copy, CTA를 정의한다. 2) 단계 완료 후 다음 단계 유도와 마지막 완료 메시지를 확정한다. 3) employee registration과 schedule request 안내가 문서 요구사항과 맞는지 확인한다. 4) admin 완료 후 기본 landing route를 명시한다. 5) 이 task는 router/store 세부 구현 없이도 review 가능해야 한다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 위저드의 단계별 정보구조, 콘텐츠, CTA, 완료 UX가 문서화되어 있다. Method: 산출물을 리뷰하고 단계별 사용자의 다음 행동과 종료 지점이 명확한지 검사한다. Pass: 각 단계의 목적, CTA, 완료 후 이동 규칙이 누락 없이 정의되어 있다.
 - **선행 조건(Dependencies)**: P3-1.1
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/Onboarding.vue`, `docs/REFINED_PRD.md`
+- **관련 파일**: `docs/migration/P3_ONBOARDING_WIZARD_UX.md`, `docs/REFINED_PRD.md`, `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`, `docs/migration/RBAC_MATRIX.md`, `src/views/onboarding`
 
 ### P3-2.2 메뉴 하이라이트/딥링크 UX 설계(직원관리/엑셀 업로드)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000071`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: P3-2.2 전용 UX 명세 문서를 추가해 employee_seed 단계의 메뉴 하이라이트 대상, manual/excel 딥링크 계약, 현재 앱의 /schedule/step3 호환 fallback, 온보딩 복귀 배너/저장 후 복귀 CTA, 강조 지속/해제 조건, 비관리자 및 잘못된 딥링크 처리 규칙을 분리 문서로 확정했다.
 - **설명(Description)**: 온보딩 위저드에서 직원관리와 엑셀 업로드 화면으로 이동시키는 menu highlight, deep-link, return path UX를 설계한다.
 - **구현 가이드(Guide)**: 1) 어떤 단계에서 어떤 메뉴를 하이라이트할지 정한다. 2) 딥링크 이동 후 온보딩으로 돌아오는 return path를 정의한다. 3) 사이드바 자동 확장, 강조 표시 지속 시간, 완료 후 강조 해제 조건을 적는다. 4) user/non-admin 접근 차단과 잘못된 딥링크 진입 처리도 포함한다. 5) 전체 페이지 통합 계획과는 분리된 UX task로 유지한다.
 - **검증 기준(Verification)**: Deliverable: 사용자가 직원관리/엑셀 업로드를 쉽게 찾을 수 있도록 menu highlight와 deep-link UX가 정의되어 있다. Method: 산출물을 리뷰하고 단계별 목적 화면으로 이동하는 경로와 복귀 경로가 명확한지 검사한다. Pass: highlight 대상, deep-link, 복귀 규칙, 종료 조건이 누락 없이 문서화되어 있다.
 - **선행 조건(Dependencies)**: P3-2.1
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/components/layout/Sidebar.vue`
+- **관련 파일**: `docs/migration/P3_ONBOARDING_MENU_DEEP_LINK_UX.md`, `src/components/layout/Sidebar.vue`, `src/views/schedule/Step3EmployeeInfo.vue`
 
 ### P3-2.3 온보딩 페이지 구현 계획(컴포넌트/라우트/스토어)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000072`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: `src/views/Onboarding.vue` 기준으로 loading, load error, in-progress, completion state와 단계별 CTA 정합성을 점검했고, `tests/unit/onboarding-view.spec.ts`를 이번 단계 검증 대상으로 고정했다. `pnpm lint:check`와 대상 view/unit 검증이 통과해 page-level integration 기준이 충족됨을 확인했다.
 - **설명(Description)**: route, store, API contract, UX 설계를 하나의 구현 가능한 onboarding page 계획으로 통합한다. 이 task는 page composition과 integration boundary를 고정하는 역할을 한다.
 - **구현 가이드(Guide)**: 1) /onboarding 라우트, page component, store/API 호출 시점을 하나의 계획으로 묶는다. 2) 단계 이동 시 저장, 완료 시 complete 호출, dashboard 이동 시점을 정한다. 3) 메뉴 딥링크와 위저드 복귀 흐름을 포함한다. 4) guard 삽입 세부 설계는 P3-3.2에 남기고, 이 task는 page-level integration에 집중한다. 5) 구현자가 route/view/store/API 연결만으로 페이지를 구성할 수 있게 경계를 정리한다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 페이지의 route, view, store, API 연결 범위가 구현 가능한 수준으로 정리되어 있다. Method: 산출물을 리뷰하고 page composition에 필요한 입력이 모두 모였는지 검사한다. Pass: route/view/store/API/UX 통합 계획이 추가 결정 없이 이해 가능한 수준으로 정의되어 있다.
-- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-2.1<br>P3-2.2<br>P3-1.6
 - **예상 소요 시간**: 180m
 - **관련 파일**: `src/router/index.ts`, `src/views/Onboarding.vue`
+
+### P3-2.4 온보딩 context/deep-link 계약 정리 + 단위 테스트
+
+- **Task ID**: `df783bb0-cbc9-4f5d-ab0f-cec0d025e39d`
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: `src/utils/onboarding-context.ts`의 onboarding query/deep-link contract를 현재 소비처 기준으로 고정하고, `tests/unit/onboarding-context.spec.ts`를 추가해 sanitize, query build, compatibility target allowlist를 회귀 테스트로 잠갔다. 추가로 `tests/unit/router-auth-guards.spec.ts`에 `/dashboard/admin` 및 `/schedule/step1` schedule_request compatibility route 허용 회귀를 보강했고, `pnpm lint:check`, `pnpm exec vitest run tests/unit/onboarding-context.spec.ts`, `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts`, `pnpm exec vitest run tests/unit/onboarding-view.spec.ts`를 통과했다.
+- **설명(Description)**: 온보딩 재진입과 compatibility deep-link에서 사용하는 query contract를 `src/utils/onboarding-context.ts`에 고정하고, 잘못된 파라미터 sanitize 규칙까지 unit test로 닫는다. 문서 합의만 남기는 task가 아니라 실제 helper contract와 테스트를 한 세션에서 끝내는 작업이다.
+- **구현 가이드(Guide)**: 1) `resolveOnboardingRouteContext`, `buildOnboardingQuery`, compatibility target helper의 입력/출력 규칙을 현재 UX 문서와 맞춘다. 2) 잘못된 `returnTo`, `entry`, `resumeStep` 값이 들어와도 내부 route로 sanitize 되도록 보정한다. 3) employee_seed/schedule_request deep-link allowlist를 테스트 가능한 순수 함수 기준으로 유지한다. 4) query contract 회귀를 막기 위해 unit test를 추가한다. 5) 이 task 안에서 `pnpm lint:check`와 대상 unit test를 끝낸다.
+- **검증 기준(Verification)**: Deliverable: onboarding query contract helper와 sanitize 규칙이 코드와 unit test로 고정된다. Method: `pnpm lint:check` 실행 후 `pnpm test:unit -- tests/unit/onboarding-context.spec.ts`로 검증한다. Pass: 잘못된 query가 안전하게 보정되고, 허용된 deep-link target 판별이 테스트로 고정되며 lint와 대상 테스트가 모두 통과한다.
+- **선행 조건(Dependencies)**: P3-1.4<br>P3-2.2
+- **예상 소요 시간**: 90m
+- **관련 파일**: `src/utils/onboarding-context.ts`, `tests/unit/onboarding-context.spec.ts`, `docs/migration/P3_ONBOARDING_MENU_DEEP_LINK_UX.md`
+
+### P3-2.5 온보딩 Step 1/2 재진입 구현
+
+- **Task ID**: `923deef2-e75d-48eb-8bee-ca4e9ee0319a`
+- **현재 상태(Status)**: completed (2026-03-25)
+- **완료 요약(Summary)**: `src/views/Onboarding.vue`에 completed Step 1/2 재진입 CTA와 current-step 복귀 동작을 추가하고, `src/views/schedule/Step3EmployeeInfo.vue`에 onboarding banner와 return CTA를 연결했다. `src/utils/onboarding-context.ts`와 `src/router/guards.ts`를 통해 `employee_seed` deep-link/resume contract를 유지하면서 canonical progress를 덮어쓰지 않는 재진입 흐름을 고정했고, `tests/unit/onboarding-reentry.spec.ts`로 Step 1 inline 재오픈, Step 2 manual/excel 재진입, onboarding 복귀, completion 이후 guard 복원을 회귀 테스트로 잠갔다.
+- **설명(Description)**: P3-2.4에서 고정한 규칙에 따라 온보딩 화면에서 완료된 Step 1/2를 Step 3 완료 전까지 다시 열어 수정할 수 있도록 구현한다. 현재 completed-only 렌더링을 edit-capable UX로 확장하고, Step 2 deep-link 재진입과 복귀 상태를 실제 라우트/컴포넌트에 연결한다.
+- **구현 가이드(Guide)**: 1) Onboarding.vue의 step status 렌더링을 확장해 completed Step 1/2에 low-emphasis 재진입 CTA를 노출한다. 2) Step 1 재진입은 기존 인라인 패널을 재오픈하는 방식으로 우선 구현하고, 별도 route를 만들지 않는다. 3) Step 2 재진입은 기존 onboarding deep-link(`/schedule/step3?...step=employee_seed...`)를 재사용하되 returnStep/resumeStep 처리와 완료 배너/복귀 CTA를 다시 맞춘다. 4) 재진입은 onboarding-progress의 canonical currentStepKey를 덮어쓰지 않고, UI level edit state 또는 sanitized query로만 표현한다. 5) Step 3 완료 직전/직후, refresh, direct URL 복귀에서 카드 상태가 꼬이지 않도록 initialize/loadProgress 흐름을 보정한다.
+- **검증 기준(Verification)**: Deliverable: Step 3 완료 전 completed Step 1/2를 다시 열 수 있는 UI와 라우트 복귀가 동작한다. Method: 코드 리뷰와 수동 검증으로 Step 2 완료 후 재진입, Step 1 수정 후 재확인, Step 3 진입 후 이전 단계 수정, refresh 복귀를 추적한다. Pass: onboarding progress canonical 값은 유지되면서도 UI에서 이전 단계 재수정이 가능하고, 이후 Step 3 흐름으로 자연스럽게 복귀한다.
+- **선행 조건(Dependencies)**: P3-2.4
+- **예상 소요 시간**: 240m
+- **관련 파일**: `src/views/Onboarding.vue`, `src/utils/onboarding-context.ts`, `src/views/schedule/Step3EmployeeInfo.vue`, `src/router/guards.ts`
 
 ### P3-3.1 온보딩 강제 가드 규칙 정의(예외 포함)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000073`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: `docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md`를 추가해 P2 access-state 차단 이후에 적용되는 온보딩 가드 우선순위, `/login`·`/signup`·`/access/*`·`/onboarding` 예외 규칙, `admin_active`/`user_active`/`admin_pending` 조합별 결과 route, 그리고 selected organization 기반 organization-scoped 평가 규칙을 matrix 형태로 고정했다.
 - **설명(Description)**: 누가 /onboarding으로 강제 이동되는지, 누가 예외인지, login/signup/approval pending보다 어떤 순서로 평가되는지 guard rule matrix를 정의한다.
 - **구현 가이드(Guide)**: 1) admin 미완료, admin 완료, user, unauthenticated, approval pending/rejected 케이스의 결과 route를 표로 정리한다. 2) approval guard와 onboarding guard의 우선순위를 고정한다. 3) /login, /register, /onboarding 자체, public route 예외를 명시한다. 4) selected organization 또는 membership 상태가 접근 결정에 미치는 영향을 P2 access model과 맞춘다. 5) router insertion plan이 이 규칙만 소비하도록 정책 경계를 분리한다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 강제 진입 규칙, 예외 route, 우선순위 규칙이 matrix 형태로 명확히 정의되어 있다. Method: 산출물을 리뷰하고 admin/user/pending 조합별 결과가 상충 없이 하나로 결정되는지 검사한다. Pass: guard priority와 예외 규칙이 누락 없이 정리되어 이후 router plan에서 재해석이 필요 없다.
 - **선행 조건(Dependencies)**: P3-1.1<br>P2-2.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/router/guards.ts`, `docs/migration/RBAC_MATRIX.md`
+- **관련 파일**: `docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md`, `docs/migration/P2_ACCESS_APPROVAL_POLICY.md`, `docs/migration/P3_ONBOARDING_STATE_MACHINE.md`, `docs/migration/P3_ONBOARDING_PERSISTENCE_RLS.md`, `src/router/index.ts`, `src/router/guards.ts`, `src/stores/rbac.ts`, `src/constants/routes.ts`
 
 ### P3-3.2 온보딩 가드 구현 계획(라우터 beforeEach 흐름)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000074`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: `tests/unit/router-auth-guards.spec.ts`에 onboarding redirect, onboarding skip, non-admin deny, pending precedence, compatibility deep-link 허용 회귀 케이스를 추가해 현재 guard 계약을 고정했다. `pnpm lint:check`, `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts`, 그리고 현재 스크립트 기준 `pnpm test:unit -- tests/unit/router-auth-guards.spec.ts`까지 통과했다.
 - **설명(Description)**: 현재 auth/approval/role redirect 구조 안에 onboarding guard를 어디에 삽입할지 정하고, router.beforeEach의 read source와 redirect 순서를 구현 가능한 수준으로 설계한다.
 - **구현 가이드(Guide)**: 1) auth check, approval check, onboarding check, role redirect의 실행 순서를 고정한다. 2) onboarding state를 store에서 읽는 지점과 prefetch 타이밍을 정의한다. 3) /onboarding 진입 허용 조건과 다른 route 강제 리다이렉트 규칙을 적는다. 4) 기존 step guard 또는 role redirect와 충돌하는 경로를 표기한다. 5) guard bypass test가 그대로 사용할 수 있도록 redirect matrix를 명확히 남긴다.
 - **검증 기준(Verification)**: Deliverable: router.beforeEach 안에서 onboarding guard가 어떤 순서와 입력값으로 동작할지 설계되어 있다. Method: 산출물을 리뷰하고 auth/approval/onboarding/role redirect가 순환 없이 단일 흐름으로 연결되는지 검사한다. Pass: route read source, guard 순서, redirect 결과가 충돌 없이 정리되어 있다.
-- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-3.1
+- **선행 조건(Dependencies)**: P3-1.3<br>P3-1.4<br>P3-3.1<br>P3-1.6
 - **예상 소요 시간**: 120m
 - **관련 파일**: `src/router/index.ts`, `src/router/guards.ts`
 
 ### P3-3.3 온보딩 가드 테스트 시나리오 정의(우회 방지)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000075`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed
 - **설명(Description)**: direct URL, refresh, logout/login, back-button, non-admin 접근에서 onboarding guard가 우회되지 않는지 검증하는 regression 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) 직접 URL 입력, 새로고침, 로그아웃/재로그인, 뒤로가기, 비관리자 접근 케이스를 정리한다. 2) 각 시나리오에 precondition, steps, expected route, expected state를 고정 포맷으로 적는다. 3) approval pending이 onboarding보다 먼저 차단되는 케이스도 포함한다. 4) guard plan의 redirect matrix를 그대로 참조해 회귀 기준으로 삼는다. 5) 개발자 도구 조작 같은 클라이언트 우회 시도는 서버측 검증 필요성을 별도 메모로 남긴다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 guard 우회 방지 테스트 케이스가 문서화되어 있다. Method: 산출물을 리뷰하고 direct URL, refresh, relogin, back-button, non-admin 접근 케이스가 모두 포함되는지 검사한다. Pass: guard 우회 핵심 경로가 빠짐없이 정의되고 expected result가 route/state 기준으로 명확하다.
@@ -1581,12 +1682,25 @@
 ### P3-3.4 온보딩 E2E 테스트 시나리오 정의
 
 - **Task ID**: `7bfa70f1-d130-4940-982e-c8da747127c2`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-12)
+- **완료 요약(Summary)**: `docs/verification/test-validation-guide.md`에 P3-3.4 canonical onboarding E2E 섹션을 추가해 happy/fail/security 시나리오를 문서화했다. first login force-in, 3단계 완료와 complete API 정합성, refresh resume, relogin skip, approval pending 우선 차단, non-admin deny, organization-scoped completion 재진입 방지까지 포함했고 lint도 통과했다.
 - **설명(Description)**: admin 최초 로그인 후 onboarding 강제 진입, 단계 완료, relogin skip, non-admin 차단까지 포함하는 onboarding E2E 시나리오 세트를 정의한다.
 - **구현 가이드(Guide)**: 1) 최초 로그인 강제 onboarding, 단계 완료 후 dashboard 이동, refresh resume, relogin skip 시나리오를 정의한다. 2) non-admin의 /onboarding 접근 차단과 approval pending 우선 차단 케이스를 포함한다. 3) API complete 호출과 UI 완료 상태가 일치해야 하는 검증 포인트를 적는다. 4) 단계별 CTA와 deep-link UX가 실제 flow에서 어떻게 보이는지 기대 결과를 포함한다. 5) guard bypass 시나리오와 중복되지 않도록 full-flow E2E 관점의 happy/fail/security 세트를 구분한다.
 - **검증 기준(Verification)**: Deliverable: 온보딩 전체 플로우의 E2E 테스트 시나리오가 happy/fail/security 관점으로 문서화되어 있다. Method: 산출물을 리뷰하고 first login, completion, refresh resume, relogin skip, non-admin deny가 모두 포함되는지 검사한다. Pass: onboarding E2E 핵심 플로우가 누락 없이 정의되고 API/store/guard 결과를 함께 검증할 수 있다.
 - **선행 조건(Dependencies)**: P3-1.3<br>P3-2.1<br>P3-3.1
 - **예상 소요 시간**: 180m
+- **관련 파일**: `docs/verification/test-validation-guide.md`, `docs/migration/P3_ONBOARDING_WIZARD_UX.md`, `docs/migration/P3_ONBOARDING_GUARD_RULE_MATRIX.md`, `docs/API_SPEC.md`
+
+### P3-3.5 온보딩 이전 단계 재진입 회귀 시나리오 정의
+
+- **Task ID**: `e1374fa2-7862-464f-91b2-9aa419dc5283`
+- **현재 상태(Status)**: completed (2026-03-25)
+- **완료 요약(Summary)**: `docs/verification/test-validation-guide.md`에 refresh, deep-link, completion boundary, pending precedence, back-button/relogin manual case를 포함한 재진입 회귀 시나리오 세트를 추가했고, `tests/e2e/onboarding-regression.spec.ts`와 `tests/unit/onboarding-reentry.spec.ts`로 주요 브라우저/뷰 레벨 회귀를 실행 가능한 검증 자산으로 정리했다. 문서 번호는 `18.8 P3-3.3` addendum 형태로 남아 있지만 산출물 내용은 P3-3.5의 재진입 회귀 범위를 충족한다.
+- **설명(Description)**: Step 3 완료 전 Step 1/2 재진입 허용 규칙이 refresh, deep-link, relogin, back-button, completion 경계에서 깨지지 않는지 검증하는 회귀 시나리오를 정의한다.
+- **구현 가이드(Guide)**: 1) Step 1 완료 후 Step 2 진입, Step 2 완료 후 Step 3 진입 상태에서 각각 이전 단계 재진입 시나리오를 정의한다. 2) direct CTA 재진입, deep-link 직접 입력, 온보딩 복귀 CTA, refresh/relogin 후 상태 복구를 모두 포함한다. 3) completedStepKeys 유지 여부, currentStepKey 유지 여부, Step 3 CTA 재노출 여부를 expected state로 명시한다. 4) completion 직후에는 이전 단계 재진입이 허용되는지 또는 completion landing이 우선되는지 P3-2.4 결정 결과를 그대로 반영한다. 5) 기존 P3-3.3/P3-3.4 guard/E2E 시나리오와 중복되지 않도록 '완료 전 재진입' 관점의 케이스만 추가한다.
+- **검증 기준(Verification)**: Deliverable: 완료 전 이전 단계 재진입 회귀 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 Step 1 재오픈, Step 2 재오픈, refresh, relogin, direct URL, completion 경계 케이스가 모두 포함되는지 검사한다. Pass: 재진입 허용 정책의 핵심 경로와 차단 경계가 route/state 기준으로 명확히 정의되어 있다.
+- **선행 조건(Dependencies)**: P3-2.4<br>P3-2.5<br>P3-3.3
+- **예상 소요 시간**: 150m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
 ## P4 (예상 시간: 24시간 30분)
@@ -1735,112 +1849,126 @@
 
 ### 요약 (Summary)
 
-| Task ID                                | 태스크 명                                                          | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
-| -------------------------------------- | ------------------------------------------------------------------ | ------- | ------------------------- | --------- |
-| `10000000-0000-4000-8000-000000000087` | **P5-1.1 조직 관리 범위/권한/필드 스펙 확정**                      | pending | P1-1.3<br>P1-1.4          | 120m      |
-| `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계**                           | pending | P5-1.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계**                     | pending | P5-1.2                    | 180m      |
-| `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)**        | pending | P5-1.3                    | 180m      |
-| `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계**                    | pending | P5-1.4                    | 120m      |
-| `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)**               | pending | P5-2.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | pending | P5-2.2                    | 180m      |
-| `10000000-0000-4000-8000-000000000094` | **P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)**        | pending | P5-2.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000095` | **P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의**                 | pending | P5-2.4                    | 180m      |
-| `10000000-0000-4000-8000-000000000096` | **P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정**                 | pending | P5-2.5                    | 120m      |
-| `10000000-0000-4000-8000-000000000097` | **P5-3.2 사이트 CRUD 화면/UX 설계**                                | pending | P5-3.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000098` | **P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계**             | pending | P5-3.2                    | 180m      |
-| `10000000-0000-4000-8000-000000000099` | **P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획**  | pending | P5-3.3                    | 180m      |
-| `10000000-0000-4000-8000-000000000100` | **P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)**            | pending | P5-3.4                    | 180m      |
+| Task ID                                | 태스크 명                                                          | 상태      | 선행 태스크(Dependencies)  | 예상 시간 |
+| -------------------------------------- | ------------------------------------------------------------------ | --------- | -------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000087` | **P5-1.1 조직 관리 범위/권한/필드 스펙 확정**                      | completed | P1-1.3<br>P1-1.4           | 120m      |
+| `10000000-0000-4000-8000-000000000088` | **P5-1.2 조직 관리 화면 IA/라우트 설계**                           | completed | P5-1.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000089` | **P5-1.3 조직/설정 데이터 저장 API 경계 설계**                     | completed | P5-1.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000090` | **P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)**        | completed | P5-1.2<br>P5-1.3           | 180m      |
+| `10000000-0000-4000-8000-000000000091` | **P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계**                    | completed | P5-1.2<br>P5-1.3           | 120m      |
+| `10000000-0000-4000-8000-000000000092` | **P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)**               | completed | P5-2.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000093` | **P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)** | completed | P5-2.1<br>P5-2.2           | 180m      |
+| `10000000-0000-4000-8000-000000000094` | **P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)**        | completed | P5-2.1                     | 180m      |
+| `10000000-0000-4000-8000-000000000095` | **P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의**                 | pending   | P5-2.2<br>P5-2.3<br>P5-2.4 | 180m      |
+| `10000000-0000-4000-8000-000000000096` | **P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정**                 | pending   | P5-1.3<br>P5-2.2<br>P5-2.4 | 120m      |
+| `10000000-0000-4000-8000-000000000097` | **P5-3.2 사이트 CRUD 화면/UX 설계**                                | pending   | P5-1.2<br>P5-3.1           | 180m      |
+| `10000000-0000-4000-8000-000000000098` | **P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계**             | pending   | P5-3.2<br>P5-3.4           | 180m      |
+| `10000000-0000-4000-8000-000000000099` | **P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획**  | pending   | P5-1.3<br>P5-3.1           | 180m      |
+| `10000000-0000-4000-8000-000000000100` | **P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)**            | pending   | P5-3.3<br>P5-3.4           | 180m      |
 
 ### 상세 (Details)
 
 ### P5-1.1 조직 관리 범위/권한/필드 스펙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000087`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: 조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다. RBAC 요구사항: /admin/organizations 라우트는 meta.roles: ['super', 'admin']으로 설정하여 user 역할은 접근할 수 없다. super는 모든 조직을 조회/수정 가능하고, admin은 자신의 조직만 접근 가능하도록 데이터 필터링을 구현해야 한다.
-- **구현 가이드(Guide)**: 1) 조직 필드 목록 확정(code/timezone/work_pattern 등). 2) super 조직 선택 UX 결정. 3) admin 수정 가능 범위 결정.
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: 조직 관리의 canonical 계약을 문서화했고 `/admin/organization` 단일 라우트, `allowedAccessStates` 기반 접근 제어, `organizations`와 `organization_settings` 책임 분리, legacy `site_requirements`와 `site_staffing_requirements` 경계, blocked-first 삭제 정책을 고정했다.
+- **설명(Description)**: 조직 정보 CRUD(슈퍼: 전체, 어드민: 자기조직) 범위와 필드(유형/근무패턴/제약)를 확정한다. 이 태스크는 Phase 5 전체의 안전 게이트로서 라우트 경로, 접근 상태 모델, 조직 타입 허용 범위, organization_settings 저장 경계, legacy site_requirements와 service-native site_staffing_requirements의 역할 분리를 함께 고정한다.
+- **구현 가이드(Guide)**: 1) 조직 필드 목록과 organization_settings 책임 범위를 확정한다. 2) super 조직 선택 UX와 admin 수정 가능 범위를 확정한다. 3) 현재 앱의 RBAC가 `allowedAccessStates`를 사용한다는 점을 기준으로 접근 계약을 고정한다. 4) `site_requirements`(wizard legacy)와 `site_staffing_requirements`(P5 admin) 경계를 문서화한다. 5) organization type enum이 DB 제약과 불일치하는 경우 UI 허용 범위를 DB 기준으로 제한하거나 후속 마이그레이션 필요 여부를 명시한다.
 - **검증 기준(Verification)**: Deliverable: 조직 관리 스펙(필드/권한/UX)이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P1-1.3<br>P1-1.4
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/REFINED_PRD.md`
+- **노트(Notes)**: 하위 태스크 착수 전 반드시 이 태스크에서 canonical 계약을 문서화한다. 특히 `/admin/organization` 단일 라우트, `allowedAccessStates` 기반 접근 제어, P5에서는 `site_staffing_requirements`만 관리하고 Step2 wizard의 `site_requirements`는 건드리지 않는 원칙, 삭제는 기본적으로 차단 우선 정책을 확정한다.
 
 ### P5-1.2 조직 관리 화면 IA/라우트 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000088`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: 조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다.
-- **구현 가이드(Guide)**: 1. 메뉴 구조: 사이드바 LNB에 '조직 관리' 항목 추가 2. 라우트 설계: /admin/organizations (meta.roles: ['super', 'admin']) 3. 화면 구성: 조직 목록/상세/편집 탭 4. RBAC: 역할별 접근 제어 - super는 전체 조직 조회, admin은 본인 조직만 조회 5. user 역할: 메뉴 노출 안 함, 접근 시 403 처리 6. 데이터 필터링: API 요청 시 organization_id 기반 자동 필터링 적용
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 사이드바 메뉴, `/admin/organization` 라우트, `allowedAccessStates` 가드, 단일 페이지 6탭 셸을 현재 라우터 규약에 맞춰 연결해 조직 관리 화면 IA와 진입 구조를 구현했다.
+- **설명(Description)**: 조직 관리 메뉴, 라우트, 화면 구성(조회/수정/탭)을 설계한다. 안전성을 위해 Phase 5에서는 단일 관리자 페이지 셸과 가드만 확정하고, 데이터 저장 로직은 P5-1.3 이후에 연결한다.
+- **구현 가이드(Guide)**: 1. 메뉴 구조: 사이드바 LNB에 '조직 관리' 항목을 추가하되 `super_active`, `admin_active`에서만 노출한다. 2. 라우트 설계: `/admin/organization` 단일 페이지 + 탭 구조를 기본안으로 사용한다. 3. 라우터 가드: 현재 앱 규약에 맞춰 `allowedAccessStates: ['super_active', 'admin_active']`를 사용한다. 4. 화면 구성: `OrganizationManagement.vue` 셸과 탭 컨테이너만 먼저 정의한다. 5. user 역할: 메뉴 미노출, 직접 접근 시 홈 또는 접근 가능 경로로 리다이렉트한다. 6. 이 태스크에서는 데이터 저장 로직을 직접 구현하지 않고 P5-1.3 계약에 맞춰 연결 지점만 노출한다.
 - **검증 기준(Verification)**: Deliverable: 조직 관리 화면 구조/라우트/메뉴가 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P5-1.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `src/views/management/OrganizationManagement.vue`, `src/components/layout/Sidebar.vue`
+- **관련 파일**: `src/views/admin/OrganizationManagement.vue`, `src/router/index.ts`, `src/components/layout/Sidebar.vue`
+- **노트(Notes)**: 현재 라우터는 `meta.roles`가 아니라 `allowedAccessStates`를 사용한다. P5-1.1에서 별도 전환을 결정하지 않는 한 기존 규약을 유지한다. 이 태스크는 라우트와 화면 뼈대에만 집중하고 저장/삭제 동작을 먼저 넣지 않는다.
 
 ### P5-1.3 조직/설정 데이터 저장 API 경계 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000089`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 조직 관리 저장 경계를 direct `.from()` + RLS 기준으로 확정했고, 슈퍼/어드민 조직 범위를 강제하는 management scope helper와 organizations·organization_settings 전용 조회·저장 API 시그니처를 코드와 문서에 반영했다.
 - **설명(Description)**: organizations 및 organization_settings 저장/조회 방식을 설계한다(직접 테이블 접근 vs RPC/함수).
-- **구현 가이드(Guide)**: 1. API 경계 선택: Supabase RLS + RPC 함수 조합 2. organizations 테이블: RLS로 super/admin 접근 제어 3. organization_settings: RPC 함수로 CRUD 처리, organization_id 검증 4. RBAC: - super: 모든 조직 데이터 접근 가능 - admin: 자신의 organization_id와 일치하는 데이터만 접근 - user: API 호출 시 403 반환 5. CRUD 요청 시 사용자의 역할과 organization_id 검증 로직 포함
+- **구현 가이드(Guide)**: 1. 현재 구현(`src/api/organization.ts`, `src/api/organization-settings.ts`)과 문서의 불일치를 정리한다. 2. P5 기본안은 direct `.from()` + RLS를 canonical로 사용하고, cross-table invariant가 필요한 경우에만 후속 서버 경계를 추가하는 것으로 고정한다. 3. organizations / organization_settings 조회·저장 시그니처를 문서화한다. 4. super는 전체 조직, admin은 자기 조직만 접근 가능하도록 RLS와 클라이언트 호출 규칙을 정리한다. 5. user는 조직 관리 API를 호출하지 않도록 가드/UX와 에러 처리를 함께 정의한다.
 - **검증 기준(Verification)**: Deliverable: 조직 관리 저장 경계가 결정되어 있고, API 인터페이스가 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-1.2
+- **선행 조건(Dependencies)**: P5-1.1
 - **예상 소요 시간**: 180m
 - **관련 파일**: `src/api/organization.ts`
+- **노트(Notes)**: 현재 backlog의 RPC 지시와 실제 코드/스펙의 direct `.from()` 패턴이 충돌한다. 이 태스크에서 canonical 방식을 하나로 고정해야 하며, UI 셸(P5-1.2)과 병렬 가능하지만 결과는 P5 전체의 저장 계약 기준이 된다.
 
 ### P5-1.4 조직 관리 테스트 시나리오 정의(테넌트 격리 포함)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000090`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-21)
+- **완료 요약(Summary)**: 조직 관리 권한 매트릭스, 테넌트 격리, URL 직접 접근, legacy staffing 경계, blocked-first 삭제 정책을 포함한 테스트 시나리오를 문서화해 P5-1.x 계약 검증 기준을 정리했다.
 - **설명(Description)**: 조직 관리의 권한/테넌트 격리/필드 검증 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 테스트 시나리오: 1. super 역할: 전체 조직 목록 조회/수정 확인 2. admin 역할: 본인 조직만 조회, 타 조직 접근 시 403 확인 3. user 역할: /admin/organizations 접근 시 403 또는 메뉴 미노출 확인 4. 테넌트 격리: admin이 타 조직 데이터를 URL 조작으로 접근 시도 차단 확인 5. 필드 검증: 유형/근무패턴/제약 필드 CRUD 정상 동작 확인 6. API 무결성: organization_id 위조/변조 시도 시 서버측 검증으로 거부 확인
+- **구현 가이드(Guide)**: 테스트 시나리오: 1. super 역할: 전체 조직 목록 조회/수정 확인 2. admin 역할: 본인 조직만 조회, 타 조직 접근 시 403 확인 3. user 역할: `/admin/organization` 접근 시 리다이렉트 또는 메뉴 미노출 확인 4. 테넌트 격리: admin이 타 조직 데이터를 URL 조작으로 접근 시도 차단 확인 5. 필드 검증: 유형/근무패턴/제약 필드 CRUD 정상 동작 확인 6. API 무결성: organization_id 위조/변조 시도 시 서버측 검증으로 거부 확인
 - **검증 기준(Verification)**: Deliverable: 조직 관리 기능 테스트 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-1.3
+- **선행 조건(Dependencies)**: P5-1.2<br>P5-1.3
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
 
 ### P5-2.1 시프트/제약/스킬/직급 마스터 UX 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000091`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 조직 관리 화면을 기본 정보, 시프트, 근무 제약, 스킬, 직급, 사이트의 6개 탭으로 분리하고 각 탭의 책임, 기본 프리셋, 삭제 차단 우선 정책, 후속 저장 연결 지점을 포함한 마스터 데이터 UX 셸을 구현했다.
 - **설명(Description)**: 조직 단위 마스터 데이터(시프트, 제약, 스킬, 직급/크레딧) 관리 UX를 설계한다.
-- **구현 가이드(Guide)**: 1) 탭/섹션 구분(shift/constraint/skill/rank) 결정. 2) 활성/비활성 정책 결정. 3) 기본값(3교대, LV1~4) 제공 방식 결정.
+- **구현 가이드(Guide)**: 1) 탭/섹션 구분(shift/constraint/skill/rank/site)과 공통 페이지 셸을 확정한다. 2) 활성/비활성 정책은 soft delete 전용 컬럼이 없는 한 '삭제 차단 우선'으로 설계한다. 3) 기본값(3교대, LV1~4) 제공 방식과 각 탭의 데이터 로드/저장 경계를 정의한다.
 - **검증 기준(Verification)**: Deliverable: 마스터 데이터 관리 UX가 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-1.4
+- **선행 조건(Dependencies)**: P5-1.2<br>P5-1.3
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/management/OrganizationManagement.vue`
+- **관련 파일**: `src/views/admin/OrganizationManagement.vue`
+- **노트(Notes)**: 시프트/제약/스킬/직급은 동일 페이지 내부의 병렬 탭으로 나누되, Step wizard 컴포넌트(예: ShiftSelector) 리팩터는 P7로 미룬다. 이 태스크에서는 탭 분리와 화면 책임만 확정한다.
 
 ### P5-2.2 시프트 관리 요구사항 확정(시간/코드/표시)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000092`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 관리자 조직관리 화면의 시프트 탭에 전용 CRUD 모달과 row action을 연결했고, 공유 shift API에 코드/시간 검증과 참조중 삭제 차단을 추가했으며, local migration과 P5-2.2 canonical spec을 현재 구현 기준으로 정렬했다.
 - **설명(Description)**: 시프트를 자유롭게 등록(예: 3교대)하는 요구사항과 검증 규칙(중복 코드, 시간 범위)을 확정한다.
-- **구현 가이드(Guide)**: 1) shift_code/시작-종료/색상 등 필드 정의. 2) 중복/겹침 검증 규칙 정의. 3) 기존 D/E/N/O 고정 로직 제거 범위 정의.
+- **구현 가이드(Guide)**: 1) shift_code/시작-종료/색상 등 필드를 확정한다. 2) 중복/시간 검증 규칙을 정의한다. 3) 삭제 정책은 참조 중 차단을 기본으로 문서화하고, 현재 cascade 구현은 known delta로 기록한다. 4) 기존 D/E/N/O 고정 UI 해체는 P7 범위로 명시한다.
 - **검증 기준(Verification)**: Deliverable: 시프트 마스터의 필드/검증 규칙이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P5-2.1
 - **예상 소요 시간**: 180m
 - **관련 파일**: `src/components/schedule/ShiftManager.vue`
+- **노트(Notes)**: P5에서는 시프트 CRUD 규칙만 확정한다. `ShiftSelector.vue`, Step wizard, solver 입력 구조 변경은 P7로 넘긴다. 삭제는 현재 cascade 구현을 유지하지 말고 '참조 중이면 차단' 정책을 목표 상태로 삼는다.
 
 ### P5-2.3 근무 제약 설정 요구사항 확정(연속N/주40/주52/휴무/휴식)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000093`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 근무 제약 canonical spec을 기준으로 organization_settings 저장 모델, work_constraints와 minimum_rest_hours JSON 구조, 주 40/52·휴무일·연속 N 검증 규칙, 시프트 연동 UI 요구를 확정했고 관리자 셸 문구도 현재 계약과 맞게 정리했다.
 - **설명(Description)**: 근무 제약(최대 연속 N, 주 목표/최대, 휴무일, 시프트 변경 최소 휴식)을 저장/표시하는 요구사항을 확정한다.
 - **구현 가이드(Guide)**: 1) 제약 필드 목록과 단위(분/시간) 결정. 2) shift_change_rest_rules JSON 스키마 결정. 3) UI 입력 폼/검증 규칙 정의.
 - **검증 기준(Verification)**: Deliverable: 근무 제약 설정의 저장 모델과 UI 요구가 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-2.2
+- **선행 조건(Dependencies)**: P5-2.1<br>P5-2.2
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/REFINED_PRD.md`
 
 ### P5-2.4 스킬/직급 마스터 요구사항 확정(코드/이름/크레딧)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000094`
-- **현재 상태(Status)**: pending
+- **현재 상태(Status)**: completed (2026-03-24)
+- **완료 요약(Summary)**: 스킬·직급 canonical spec을 보강해 `skills`·`ranks` 스키마명, code 정규화와 조직별 유니크 규칙, GENERAL/RN 기본값, LV1~LV4 예시의 위치, nullable `credit` 규칙, blocked-first UX와 FK delta, 후속 실행 순서를 명시했다.
 - **설명(Description)**: 조직 스킬/직급 마스터의 canonical 계약을 확정한다. 범위에는 `skills`/`ranks` 테이블 기준의 조직별 코드 정규화·유니크 규칙, 신규 조직 기본값(GENERAL/RN) 정책, rank credit 입력/표시/상속 규칙, 그리고 Phase 5 blocked-first 삭제 UX와 현재 DB FK(CASCADE/SET NULL) 간의 known delta 문서화가 포함된다.
-- **구현 가이드(Guide)**: 1) canonical 테이블/타입 이름을 `skills`, `ranks`, `Skill`, `Rank`로 고정하고 legacy 명칭을 제거한다. 2) code 규칙을 정의한다: 저장 전 trim + uppercase 정규화, 조직 단위 유니크, 최대 길이, duplicate 에러 메시지. 3) 기본값 정책을 정의한다: 신규 조직 seed는 GENERAL 스킬 1종과 RN 직급 1종이며, LV1~LV4는 PRD 예시/운영 옵션이지 필수 seed가 아님을 문서화한다. 4) rank credit 정책을 정의한다: P5에서는 nullable 허용, 값이 있으면 0 이상, 화면 표시 포맷은 소수 둘째 자리, P6 직원 생성 시 rank.credit을 초기 제안값으로 사용하되 직원 저장값은 독립적으로 변경 가능하다는 전제를 명시한다. 5) 삭제/참조 무결성 정책을 정의한다: Phase 5 UX 계약은 blocked-first이고, 현재 DB FK의 CASCADE/SET NULL은 desired behavior가 아니라 known delta로 기록한다. P5 구현 기본안은 사전 참조 조회 + 사용자 안내로 차단 UX를 제공하고, 엄격한 DB RESTRICT 전환은 별도 후속 마이그레이션 후보로 남긴다. 6) 참조 범위를 문서화한다: skill은 현재 employee_skills 및 site_staffing_requirements와 연결되고, rank는 현재 site_staffing_requirements와 연결되며 employee rank FK는 P6 확장 범위임을 분리해서 적는다.
+- **구현 가이드(Guide)**: 1) canonical 테이블/타입 이름을 `skills`, `ranks`, `Skill`, `Rank`로 고정하고 legacy 명칭을 제거한다. 2) code 규칙을 정의한다: 저장 전 trim + uppercase 정규화, 조직 단위 유니크, 최대 길이, duplicate 에러 메시지. 3) 기본값 정책을 정의한다: 신규 조직 seed는 GENERAL 스킬 1종과 RN 직급 1종이며, LV1~LV4는 PRD 예시/운영 옵션이지 필수 seed가 아님을 문서화한다. 4) rank credit 정책을 정의한다: P5에서는 nullable 허용, 값이 있으면 0 이상, 화면 표시 포맷은 소수 둘째 자리, P6 직원 생성 시 rank.credit을 초기 제안값으로 사용하되 직원 저장값은 독립적으로 변경 가능하다는 전제를 명시한다. 5) 삭제/참조 무결성 정책을 정의한다: Phase 5 UX 계약은 blocked-first이고, 현재 DB FK의 CASCADE/SET NULL은 desired behavior가 아니라 known delta로 기록한다. P5 구현 기본안은 사전 참조 조회 + 사용자 안내로 차단 UX를 제공하고, 엄격한 DB RESTRICT 전환은 별도 후속 마이그레이션 후보로 남긴다. 6) 참조 범위를 문서화한다: skill은 현재 employee_skills 및 site_staffing_requirements와 연결되고, rank는 현재 site_staffing_requirements와 연결되며 employee rank FK는 P6 확장 범위임을 분리해서 적는다. 7) 결과물을 바탕으로 P5-2.5와 P5-3.1이 재해석 없이 사용할 수 있는 acceptance checklist와 실행 순서를 남긴다.
 - **검증 기준(Verification)**: Deliverable: 스킬/직급 마스터 canonical spec과 실행 계획 초안이 문서화되어 있다. Method: 산출물을 리뷰하고 아래 조건이 모두 명시되었는지 확인한다: (a) canonical 테이블명이 `skills`/`ranks`로 고정됨, (b) code 정규화 및 조직별 유니크 규칙이 명시됨, (c) GENERAL/RN seed와 LV1~LV4 예시의 관계가 정리됨, (d) credit nullable/검증/표시/직원 초기값 규칙이 명시됨, (e) blocked-first UX와 current FK delta가 함께 기록됨, (f) 후속 구현 순서와 영향 파일이 정리됨. Pass: 모든 조건이 누락 없이 확인됨.
 - **선행 조건(Dependencies)**: P5-2.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/specs/p5/P5-2.4-skill-rank-spec.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/012_organization_master_fields.sql`, `src/api/skill.ts`, `src/api/rank.ts`
+- **관련 파일**: `docs/specs/p5/P5-2.4-skill-rank-spec.md`, `migrations/007_service_transition_rbac_multitenant.sql`, `migrations/012_organization_master_fields.sql`, `src/api/skill.ts`, `src/api/rank.ts`, `docs/specs/p5/P5-1.1-organization-field-spec.md`, `docs/specs/p5/P5-3.1-site-staffing-domain-spec.md`
+- **노트(Notes)**: 이 태스크는 P5-2.1 이후 병렬 수행 가능하며 P5-2.3 완료를 기다릴 필요는 없다. 다만 site staffing과 P6 employee 관리가 이 계약을 재사용하므로, `organization_skills`/`organization_ranks` 같은 legacy 명칭은 폐기하고 실제 스키마명 `skills`/`ranks`를 canonical로 고정해야 한다. 또한 soft delete 컬럼이 없는 현재 스키마에서는 '비활성'을 DB 상태가 아니라 UX 정책/후속 스키마 후보로 구분해 기록한다.
 
 ### P5-2.5 마스터 데이터 CRUD 테스트 시나리오 정의
 
@@ -1849,53 +1977,58 @@
 - **설명(Description)**: 시프트/제약/스킬/직급 CRUD의 기본 동작과 스케줄 화면 반영에 대한 스모크 테스트 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) CRUD happy-path 정의. 2) 중복 code/참조중 삭제 실패 케이스 정의. 3) 스케줄 step에서 반영 확인 항목 정의.
 - **검증 기준(Verification)**: Deliverable: 마스터 데이터 테스트 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-2.4
+- **선행 조건(Dependencies)**: P5-2.2<br>P5-2.3<br>P5-2.4
 - **예상 소요 시간**: 180m
 - **관련 파일**: `docs/verification/test-validation-guide.md`
+- **노트(Notes)**: 이 태스크는 각 마스터 도메인 규칙이 고정된 뒤에만 수행한다. 아직 구현하지 않은 wizard 동적 반영은 P7 범위로 분리하고, P5에서는 관리 화면 자체의 CRUD와 저장 정합성만 검증한다.
 
 ### P5-3.1 사이트/요일별 요구인원 도메인 스펙 확정
 
 - **Task ID**: `10000000-0000-4000-8000-000000000096`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 사이트 목록, 요일별 필요 인력, skill/rank 옵션 필터를 포함한 요구인원 도메인 스펙을 확정한다.
-- **구현 가이드(Guide)**: 1) site_code/site_name 필드 확정. 2) 요일(0~6) 기준과 shift 연결 규칙 확정. 3) skill/rank 선택적 요구의 저장 모델 확정.
+- **구현 가이드(Guide)**: 1) site_code/site_name 필드와 CRUD 범위를 확정한다. 2) 요일(0~6) 기준과 shift 연결 규칙을 확정한다. 3) skill/rank 선택 요구의 의미를 정의한다. 4) legacy `site_requirements`와의 역할 분리를 명확히 문서화한다.
 - **검증 기준(Verification)**: Deliverable: 사이트/요구인원 스펙이 확정되어 있고, DB/UI 구현 범위가 결정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-2.5
+- **선행 조건(Dependencies)**: P5-1.3<br>P5-2.2<br>P5-2.4
 - **예상 소요 시간**: 120m
 - **관련 파일**: `docs/REFINED_PRD.md`
+- **노트(Notes)**: P5 admin은 `site_staffing_requirements`를 primary로 사용하고, 기존 Step2 wizard의 `site_requirements`는 그대로 둔다. 두 스키마를 동시에 수정하는 작업은 금지하고 호환 전략은 후속 phase에서 다룬다.
 
 ### P5-3.2 사이트 CRUD 화면/UX 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000097`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 사이트 등록/수정/비활성/삭제 UI 흐름과 검증 규칙을 설계한다.
-- **구현 가이드(Guide)**: 1) CRUD 액션과 모달/폼 구조 정의. 2) site_code 유니크/검증 규칙 정의. 3) 삭제 대신 비활성 정책 결정.
+- **구현 가이드(Guide)**: 1) CRUD 액션과 모달/폼 구조를 정의한다. 2) site_code 유니크/검증 규칙을 정의한다. 3) soft delete 지원이 없는 한 삭제 시 FK 차단 정책을 기본 UX로 삼는다.
 - **검증 기준(Verification)**: Deliverable: 사이트 CRUD UX와 검증 규칙이 정의되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-3.1
+- **선행 조건(Dependencies)**: P5-1.2<br>P5-3.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `src/views/management/SiteManagement.vue`
+- **관련 파일**: `src/components/admin/SiteManagementTab.vue`
+- **노트(Notes)**: 비활성 컬럼이 없는 현재 스키마에서는 삭제 차단 정책을 우선 채택한다. cascade 삭제를 전제로 UI를 설계하지 않는다.
 
 ### P5-3.3 요일별 요구인원 편집 UI(테이블/그리드) 설계
 
 - **Task ID**: `10000000-0000-4000-8000-000000000098`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: 사이트별로 요일별 요구인원을 편집하는 UI(테이블/그리드) 요구사항을 설계한다.
-- **구현 가이드(Guide)**: 1) 표시 단위(사이트/시프트/요일) 결정. 2) skill/rank 옵션 필터 UX 결정. 3) 저장 단위(일괄 저장/자동 저장) 결정.
+- **구현 가이드(Guide)**: 1) 표시 단위(사이트/시프트/요일)를 결정한다. 2) skill/rank 옵션 필터 UX를 정의하되 저장 스코프와 정확히 맞춘다. 3) 저장 단위는 일괄 저장을 기본값으로 두고 부분 자동 저장은 후속으로 미룬다.
 - **검증 기준(Verification)**: Deliverable: 요구인원 편집 UI가 사용자가 이해할 수 있는 형태로 설계되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-3.2
+- **선행 조건(Dependencies)**: P5-3.2<br>P5-3.4
 - **예상 소요 시간**: 180m
-- **관련 파일**: `src/components/requirements/SiteStaffRequirementsEditor.vue`
+- **관련 파일**: `src/components/admin/SiteStaffingGrid.vue`
+- **노트(Notes)**: 편집 UI는 P5-3.4에서 저장 스코프가 확정된 뒤 구현한다. skill/rank 옵션은 unique scope와 저장 계약을 넘지 않도록 제한한다.
 
 ### P5-3.4 DB 저장 모델/인덱스(요구인원) 확정 + 마이그레이션 계획
 
 - **Task ID**: `10000000-0000-4000-8000-000000000099`
 - **현재 상태(Status)**: pending
 - **설명(Description)**: site_staff_requirements 저장 모델(유니크 키, 인덱스)을 확정하고 마이그레이션 반영 계획을 수립한다.
-- **구현 가이드(Guide)**: 1) unique key 정의(site+shift+dow+skill?+rank?). 2) 쿼리 패턴 기반 인덱스 정의. 3) 기존 site_requirements와의 관계(대체/호환) 정의.
+- **구현 가이드(Guide)**: 1) unique key(site+shift+dow+skill?+rank?)를 DB/클라이언트 수준에서 일치시키는 방법을 확정한다. 2) nullable skill/rank를 포함한 upsert 충돌 해결 전략을 문서화한다. 3) 쿼리 패턴 기반 인덱스를 점검한다. 4) 기존 `site_requirements`와의 대체/호환 경계를 정의한다.
 - **검증 기준(Verification)**: Deliverable: 요구인원 저장 모델과 인덱스가 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-3.3
+- **선행 조건(Dependencies)**: P5-1.3<br>P5-3.1
 - **예상 소요 시간**: 180m
 - **관련 파일**: `migrations/007_service_transition_rbac_multitenant.sql`
+- **노트(Notes)**: 현재 구현의 `upsert(onConflict: organization_id,site_id,shift_id,day_of_week)`는 skill/rank scope와 불일치한다. 이 태스크에서 unique scope, upsert 방식, null 처리 전략을 먼저 고정해야 하며 원격 DB 변경은 Supabase MCP가 아니라 사용자 SQL 실행 또는 로컬 마이그레이션 파일 수정으로만 다룬다.
 
 ### P5-3.5 월별 적용(7.2) 테스트 시나리오 정의(요일→월)
 
@@ -1904,9 +2037,10 @@
 - **설명(Description)**: 요일별 요구인원을 계획 월에 적용하여 월별 요구인원 테이블을 생성/수정하는(7.2) 테스트 시나리오를 정의한다.
 - **구현 가이드(Guide)**: 1) 계획 월/요일 계산 규칙 정의. 2) 편집/저장 플로우 정의. 3) 엣지케이스(윤년/월 시작 요일) 포함.
 - **검증 기준(Verification)**: Deliverable: 요일 요구인원→월 적용 기능의 테스트 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
-- **선행 조건(Dependencies)**: P5-3.4
+- **선행 조건(Dependencies)**: P5-3.3<br>P5-3.4
 - **예상 소요 시간**: 180m
 - **관련 파일**: `src/composables/useSiteRequirements.ts`
+- **노트(Notes)**: 월별 적용 테스트는 P5 admin 도메인 규칙 검증용이다. 기존 Step2 wizard를 즉시 신 스키마로 바꾸지 말고, 월 확장 계산 규칙과 엣지케이스를 독립적으로 검증한다.
 
 ## P6 (예상 시간: 26시간 0분)
 
@@ -2359,154 +2493,154 @@
 
 ### 요약 (Summary)
 
-| Task ID                                | 태스크 명                                                       | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
-| -------------------------------------- | --------------------------------------------------------------- | ------- | ------------------------- | --------- |
-| `10000000-0000-4000-8000-000000000135` | **P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정**          | pending | P1-1.3<br>P1-1.4          | 120m      |
-| `10000000-0000-4000-8000-000000000136` | **P9-1.2 대시보드 데이터 모델/타입/스토어 설계**                | pending | P9-1.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000137` | **P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)**      | pending | P9-1.2                    | 120m      |
-| `10000000-0000-4000-8000-000000000138` | **P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)** | pending | P9-1.3                    | 180m      |
-| `10000000-0000-4000-8000-000000000139` | **P9-2.1 관리자 대시보드 페이지 IA/차트 구성 확정**             | pending | P9-1.4                    | 120m      |
-| `10000000-0000-4000-8000-000000000140` | **P9-2.2 직원(개인) 대시보드 페이지 IA/캘린더 요구 확정**       | pending | P9-2.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000141` | **P9-2.3 대시보드 필터 UI/상태 저장 정책 정의**                 | pending | P9-2.2                    | 120m      |
-| `10000000-0000-4000-8000-000000000142` | **P9-2.4 대시보드 필터 E2E 시나리오 정의**                      | pending | P9-2.3                    | 180m      |
-| `10000000-0000-4000-8000-000000000143` | **P9-3.1 리포트/Export 요구사항 확정(Excel/CSV, 컬럼)**         | pending | P9-2.4                    | 120m      |
-| `10000000-0000-4000-8000-000000000144` | **P9-3.2 Export API 설계(dashboard-export) + 권한/테넌트 검증** | pending | P9-3.1                    | 180m      |
-| `10000000-0000-4000-8000-000000000145` | **P9-3.3 프론트 Export UI(다운로드/진행/에러) 설계**            | pending | P9-3.2                    | 120m      |
-| `10000000-0000-4000-8000-000000000146` | **P9-3.4 Export 테스트 시나리오 정의(CSV/Excel, 대용량)**       | pending | P9-3.3                    | 180m      |
+| Task ID                                | 태스크 명                                                                 | 상태    | 선행 태스크(Dependencies) | 예상 시간 |
+| -------------------------------------- | ------------------------------------------------------------------------- | ------- | ------------------------- | --------- |
+| `10000000-0000-4000-8000-000000000135` | **P9-1.1 Dashboard route split + post-auth landing + RBAC baseline 구현** | pending | P1-1.3<br>P1-1.4          | 120m      |
+| `10000000-0000-4000-8000-000000000136` | **P9-1.2 Dashboard shared contracts/store/api scaffolding 정합화**        | pending | P9-1.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000137` | **P9-1.3 Dashboard analytics RPC 구현(SQL function + migration + RBAC)**  | pending | P9-1.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000138` | **P9-1.4 Dashboard analytics fixture + executable verification 구현**     | pending | P9-1.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000139` | **P9-2.1 관리자 대시보드 live page 구현**                                 | pending | P9-1.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000140` | **P9-2.2 직원 대시보드 live page 구현**                                   | pending | P9-2.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000141` | **P9-2.3 Dashboard filter persistence/restore 구현**                      | pending | P9-2.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000142` | **P9-2.4 Dashboard Playwright E2E + RBAC/filter 검증 구현**               | pending | P9-2.3                    | 180m      |
+| `10000000-0000-4000-8000-000000000143` | **P9-3.1 Dashboard export contract + report schema 정규화**               | pending | P9-2.4                    | 120m      |
+| `10000000-0000-4000-8000-000000000144` | **P9-3.2 Dashboard export backend 구현**                                  | pending | P9-3.1                    | 180m      |
+| `10000000-0000-4000-8000-000000000145` | **P9-3.3 Dashboard export UI 구현**                                       | pending | P9-3.2                    | 120m      |
+| `10000000-0000-4000-8000-000000000146` | **P9-3.4 Export integration/E2E validation 구현**                         | pending | P9-3.3                    | 180m      |
 
 ### 상세 (Details)
 
-### P9-1.1 대시보드 지표(공정성) 정의 + 필터 스펙 확정
+### P9-1.1 Dashboard route split + post-auth landing + RBAC baseline 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000135`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 관리자/직원 대시보드에서 제공할 지표(야간/주말 등)와 필터(기간/사이트/직급) 스펙을 확정한다. RBAC 요구사항: /dashboard/admin은 meta.roles: ['super', 'admin'], /dashboard/employee는 meta.roles: ['super', 'admin', 'user']로 설정한다. 로그인 후 역할에 따라 자동으로 적절한 대시보드로 분기해야 한다.
-- **구현 가이드(Guide)**: 1) 공정성 지표 목록/정의 확정. 2) 필터 항목/기본값 결정. 3) 권한별(관리자 vs 직원) 표시 차이 결정.
-- **검증 기준(Verification)**: Deliverable: 대시보드 지표/필터 요구사항이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 관리자/직원 대시보드의 실제 진입 경로를 `/dashboard/admin`, `/dashboard/employee`로 고정하고, `/` 및 로그인 후 landing, route guard, 메뉴 노출을 런타임 기준으로 정렬한다.
+- **구현 가이드(Guide)**: 1) `POST_AUTH_REDIRECT_PATH`와 `resolvePostAuthRedirectPath()`를 역할별 dashboard landing으로 교체한다. 2) `/dashboard/admin`은 super/admin만, `/dashboard/employee`는 active user 모두 접근 가능하게 route/guard를 정리한다. 3) `/` compatibility route, direct access deny, sidebar/menu visibility를 동일한 권한 모델로 맞춘다. 4) 기존 P9-1.1 spec 문서는 입력으로 사용하되 문서-런타임 drift를 제거한다.
+- **검증 기준(Verification)**: Deliverable: admin/user/super의 실제 landing, dashboard route 접근, direct access deny, sidebar 노출이 코드 기준으로 정렬된 P9 route baseline. Method: `src/constants/routes.ts`, `src/router/index.ts`, `src/components/layout/Sidebar.vue`를 리뷰하고 각 accessState의 최종 경로와 노출 규칙을 추적한다. Pass: active user가 더 이상 `/schedule/step1`을 canonical landing으로 사용하지 않고, `/dashboard/admin`과 `/dashboard/employee` 접근 규칙이 문서와 코드에서 일치한다.
 - **선행 조건(Dependencies)**: P1-1.3<br>P1-1.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`
+- **관련 파일**: `src/constants/routes.ts`, `src/router/index.ts`, `src/components/layout/Sidebar.vue`
 
-### P9-1.2 대시보드 데이터 모델/타입/스토어 설계
+### P9-1.2 Dashboard shared contracts/store/api scaffolding 정합화
 
 - **Task ID**: `10000000-0000-4000-8000-000000000136`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 대시보드 조회 결과를 표현할 타입과 상태 관리(스토어) 구조를 설계한다.
-- **구현 가이드(Guide)**: 1. 타입 정의: - AdminDashboardData: 조직 전체 지표 (직원별/사이트별 공정성) - EmployeeDashboardData: 본인 일정/팀 통계 2. 스토어 구조: useAdminDashboard, useEmployeeDashboard 별도 정의 3. RBAC: - admin: 자신의 organization_id 필터링된 데이터만 스토어에 저장 - user: 본인 employee_id 기반 데이터만 접근 - super: 전체 조직 데이터 접근 가능 4. 상태 관리: 필터(기간/사이트/직급)별로 지표 재계산 로직 5. 캐싱: 대시보드 데이터는 5분 캐시, 필터 변경 시 재조회
-- **검증 기준(Verification)**: Deliverable: 대시보드 타입/스토어 설계가 완료되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 대시보드 공용 타입, Pinia store, API wrapper를 실제 route/runtime 요구에 맞게 정합화하고, placeholder drift를 제거한다.
+- **구현 가이드(Guide)**: 1) `src/types/dashboard.ts`의 request/response, empty/dependency/error 상태를 실제 route/runtime 요구에 맞게 정렬한다. 2) `src/stores/dashboard.ts`에서 admin/employee store의 조직 scope, filter setter, cache invalidation, blocked state가 P9-1.1 baseline과 일치하도록 정리한다. 3) `src/api/dashboard.ts`의 RPC argument 이름, error normalization, default period resolution을 P9-1.3 SQL 계약과 맞춘다. 4) 기존 구현을 재사용하되 dead field, speculative placeholder, route 미연동 상태를 제거한다.
+- **검증 기준(Verification)**: Deliverable: dashboard 타입, store, API wrapper가 실제 route 및 RPC 경계와 일치하는 shared scaffolding. Method: `src/types/dashboard.ts`, `src/stores/dashboard.ts`, `src/api/dashboard.ts`에서 request/response 이름, status union, filter/grouping 처리, error mapping을 교차 리뷰한다. Pass: admin/employee dashboard의 공용 계약에 dead placeholder가 없고, route split 및 RPC 함수명/파라미터명과 불일치가 0건이다.
 - **선행 조건(Dependencies)**: P9-1.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `src/types/dashboard.ts`, `src/stores/dashboard.ts`
+- **관련 파일**: `src/types/dashboard.ts`, `src/stores/dashboard.ts`, `src/api/dashboard.ts`
 
-### P9-1.3 대시보드 집계 쿼리/API 경계 결정(RPC/함수/직접)
+### P9-1.3 Dashboard analytics RPC 구현(SQL function + migration + RBAC)
 
 - **Task ID**: `10000000-0000-4000-8000-000000000137`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 대시보드 집계를 어디에서 계산할지(DB RPC/Edge Function/클라이언트) 경계를 결정하고 API 계약을 정의한다.
-- **구현 가이드(Guide)**: 1. 집계 경계 결정: DB RPC 함수 사용 (Supabase rpc 호출) 2. API 설계: - get_admin_dashboard_stats(organization_id, filters) → RPC - get_employee_dashboard_stats(employee_id, filters) → RPC 3. RBAC: - RPC 함수 내에서 auth.uid() 기반 organization_id/employee_id 검증 - admin: 자신의 조직 통계만 집계 - user: 본인 통계만 집계 - super: 파라미터로 organization_id 전달 시 전체 조직 집계 4. 성능 최적화: 필요한 집계만 DB에서 계산, 클라이언트는 시각화만 담당 5. API 계약: 요청/응답 스키마 TypeScript 인터페이스로 정의
-- **검증 기준(Verification)**: Deliverable: 대시보드 집계 경계와 API 계약이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: dashboard analytics를 위한 `get_admin_dashboard_stats`, `get_employee_dashboard_stats` SQL 함수를 구현하고 migration/권한 검증까지 닫는다.
+- **구현 가이드(Guide)**: 1) `get_admin_dashboard_stats`, `get_employee_dashboard_stats` SQL 함수 시그니처를 프론트 wrapper와 동일하게 구현한다. 2) finalized schedule(`complete`, `changed`)만 집계하고, `auth.uid()` 기반으로 admin/super/user scope를 강제한다. 3) super는 organization param 필수, admin은 override 금지, employee view는 employee mapping dependency state를 반환하도록 한다. 4) migration 추가 후 원격 DB에 적용되어 schema cache에서 함수가 조회 가능해야 한다.
+- **검증 기준(Verification)**: Deliverable: dashboard RPC SQL 함수, migration, RBAC/scope 규칙, API_SPEC 정합화가 포함된 backend analytics 경계. Method: migration 파일과 API_SPEC를 리뷰하고, 실제 Supabase schema cache에서 두 RPC가 조회 가능하며 프론트 wrapper와 동일한 함수명/파라미터명을 사용하는지 확인한다. Pass: `get_admin_dashboard_stats`와 `get_employee_dashboard_stats`가 실제 호출 가능하고, admin/super/user scope 위반 시 명시적 거부 또는 dependency state를 반환한다.
 - **선행 조건(Dependencies)**: P9-1.2
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/API_SPEC.md`
+- **관련 파일**: `migrations/015_dashboard_analytics_rpc.sql`, `docs/API_SPEC.md`, `src/api/dashboard.ts`
 
-### P9-1.4 대시보드 지표 테스트 시나리오 정의(샘플 데이터 기반)
+### P9-1.4 Dashboard analytics fixture + executable verification 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000138`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 샘플 스케줄 데이터를 기반으로 지표가 올바르게 계산되는지 검증하는 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 테스트 시나리오: 1. admin 대시보드: - 자신의 조직 지표만 표시 확인 - 필터(기간/사이트/직급)별 지표 동적 변경 확인 - 타 조직 데이터 혼입 방지 확인 2. user 대시보드: - 본인 일정/팀 통계만 표시 확인 - 다른 직원 데이터 노출 방지 확인 3. 자동 라우팅: - admin 로그인 → /dashboard/admin 자동 이동 확인 - user 로그인 → /dashboard/employee 자동 이동 확인 - user가 /dashboard/admin 직접 접근 시 403 확인 4. 지표 정확성: - 샘플 스케줄 데이터로 지표 계산 검증 - 공정성 지표(야간/주말 분산) 정확성 확인
-- **검증 기준(Verification)**: Deliverable: 대시보드 지표 검증 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 대시보드 지표를 샘플 데이터로 재현 가능하게 검증하고, 문서형 시나리오를 실행 가능한 verification asset로 전환한다.
+- **구현 가이드(Guide)**: 1) admin/employee dashboard metric을 재현할 seed fixture와 기대값을 고정한다. 2) 문서형 narrative만 남기지 말고, 실제 RPC/UI 검증이 가능한 expected-value 표와 실행 순서를 만든다. 3) finalized schedule만 집계되고 draft가 제외되는지, tenant isolation과 employee mapping dependency가 재현되는지 검증 자산에 포함한다.
+- **검증 기준(Verification)**: Deliverable: dashboard metric을 실제 데이터로 재현하고 expected value를 확인할 수 있는 fixture와 verification asset. Method: `supabase/seed.sql`과 `docs/verification/test-validation-guide.md`를 리뷰해 fixture key, 대상 월, 기대 night/weekend 값, tenant/dependency 케이스가 실행 가능한 형태로 정리됐는지 확인한다. Pass: narrative-only 시나리오 없이 seed fixture와 expected values가 함께 정의되고, admin/employee/RBAC 케이스가 모두 재현 가능하다.
 - **선행 조건(Dependencies)**: P9-1.3
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **관련 파일**: `supabase/seed.sql`, `docs/verification/test-validation-guide.md`
 
-### P9-2.1 관리자 대시보드 페이지 IA/차트 구성 확정
+### P9-2.1 관리자 대시보드 live page 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000139`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 관리자 대시보드(공정성 지표)를 어떤 차트/표로 구성할지 IA를 확정한다.
-- **구현 가이드(Guide)**: 1) 지표별 시각화 방식(막대그래프 등) 결정. 2) 필터 UI 배치 결정. 3) 빈 상태/로딩 상태 UX 정의.
-- **검증 기준(Verification)**: Deliverable: 관리자 대시보드 화면 구성이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 관리자 대시보드 화면을 live analytics RPC와 실제 schedule operations 흐름에 연결해 `/dashboard/admin`을 운영 가능한 상태로 만든다.
+- **구현 가이드(Guide)**: 1) 현재 `AdminDashboard.vue` 셸을 재사용하되 live RPC response를 summary/table/chart에 연결한다. 2) blocked/error/empty/loading 상태를 실제 RPC 결과와 맞게 표시한다. 3) `schedule operations` 섹션의 create/view/edit/delete 흐름이 같은 route에서 운영 가능해야 한다. 4) P9-1.3 RPC 미구현을 UI placeholder로 덮지 말고 실제 live path를 닫는다.
+- **검증 기준(Verification)**: Deliverable: `/dashboard/admin` route에서 live analytics와 schedule operations가 함께 동작하는 관리자 대시보드. Method: 실제 route에서 필터 bar, summary card, comparison 영역, schedule operations 섹션이 RPC 및 schedule API와 연결되는지 확인한다. Pass: `/dashboard/admin` 진입 시 RPC missing/placeholder 오류 없이 지표가 로드되고, empty/error/blocked 상태와 schedule create modal이 동일 화면에서 동작한다.
 - **선행 조건(Dependencies)**: P9-1.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/dashboard/AdminDashboard.vue`
+- **관련 파일**: `src/views/dashboard/AdminDashboard.vue`, `src/router/index.ts`, `docs/specs/p9/P9-2.1-admin-dashboard-ia.md`
 
-### P9-2.2 직원(개인) 대시보드 페이지 IA/캘린더 요구 확정
+### P9-2.2 직원 대시보드 live page 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000140`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 직원 대시보드(개인 일정 캘린더 + 통계) 화면 구성과 요구사항을 확정한다.
-- **구현 가이드(Guide)**: 1) 캘린더 표시 단위(월/주) 결정. 2) 통계 항목(야간/주말 등) 확정. 3) 권한/데이터 범위(본인만) 확인.
-- **검증 기준(Verification)**: Deliverable: 직원 대시보드 요구사항이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 직원 관점 대시보드 `/dashboard/employee`를 구현하고 personal summary, calendar, dependency state, 본인 scope 제약을 연결한다.
+- **구현 가이드(Guide)**: 1) `/dashboard/employee` route를 실제 등록하고 post-auth landing/user direct access 흐름과 연결한다. 2) employee dashboard는 personal summary, monthly calendar, dependency state(`employee_mapping_required`)를 live RPC와 연결한다. 3) admin/super가 employee dashboard에 들어와도 employee-perspective contract만 사용하도록 한다.
+- **검증 기준(Verification)**: Deliverable: `/dashboard/employee` route에서 personal summary, calendar, dependency state가 live data와 함께 동작하는 직원 대시보드. Method: route 등록, landing 분기, employee scope 제한, dependency state, calendar render를 코드와 실제 UI 기준으로 확인한다. Pass: `user_active`는 `/dashboard/employee`에 접근 가능하고 `/dashboard/admin` direct access는 차단되며, employee mapping이 없을 때 permission error가 아닌 dependency state가 표시된다.
 - **선행 조건(Dependencies)**: P9-2.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `src/views/dashboard/MyDashboard.vue`
+- **관련 파일**: `src/views/dashboard/EmployeeDashboard.vue`, `src/constants/routes.ts`, `src/router/index.ts`
 
-### P9-2.3 대시보드 필터 UI/상태 저장 정책 정의
+### P9-2.3 Dashboard filter persistence/restore 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000141`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 필터 변경 시 스토어 상태 저장, URL 쿼리 동기화 여부, 기본값/복원 정책을 정의한다.
-- **구현 가이드(Guide)**: 1) 필터 기본값 결정. 2) URL sync 여부 결정. 3) 새로고침/재방문 시 복원 규칙 정의.
-- **검증 기준(Verification)**: Deliverable: 필터 상태 저장/복원 정책이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 대시보드 필터의 기본값, 스토어 유지, URL 쿼리 동기화, 새로고침/재방문 복원 동작을 구현한다.
+- **구현 가이드(Guide)**: 1) `periodMonth`, `siteId`, `rankId`, `grouping`의 기본값과 precedence를 코드로 고정한다. 2) URL query sync 사용 여부를 실제 구현으로 결정하고, 선택한 정책을 admin/employee dashboard 모두에 일관되게 적용한다. 3) 새로고침/재방문 시 이전 filter state가 복원되더라도 role 간 scope leakage가 생기지 않도록 한다.
+- **검증 기준(Verification)**: Deliverable: dashboard filter state가 store, route, 새로고침 흐름에서 일관되게 복원되는 구현. Method: admin/employee dashboard의 filter 변경 후 refresh/revisit 경로를 추적하고 store/query 복원 및 scope sanitation을 확인한다. Pass: 필터 상태가 지정한 정책대로 복원되며, 다른 역할/조직의 stale filter가 재사용되지 않는다.
 - **선행 조건(Dependencies)**: P9-2.2
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/stores/dashboard.ts`
+- **관련 파일**: `src/stores/dashboard.ts`, `src/views/dashboard/AdminDashboard.vue`, `src/views/dashboard/EmployeeDashboard.vue`
 
-### P9-2.4 대시보드 필터 E2E 시나리오 정의
+### P9-2.4 Dashboard Playwright E2E + RBAC/filter 검증 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000142`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 필터 변경에 따라 차트/표가 업데이트되는지 검증하는 E2E 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 1) 기간/사이트 필터 케이스 정의. 2) 기대 결과(지표 변화) 정의. 3) 권한별 접근 차단 케이스 포함 여부 결정.
-- **검증 기준(Verification)**: Deliverable: 대시보드 필터 E2E 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: dashboard route split, filter 반응, RBAC 차단, tenant isolation을 실제 Playwright 기반 자동화로 검증한다.
+- **구현 가이드(Guide)**: 1) Playwright 시나리오로 admin `/dashboard/admin`, user `/dashboard/employee`, direct access deny, filter 변경 반응, tenant isolation을 자동화한다. 2) 문서형 시나리오는 테스트가 소비할 canonical expected-result로만 유지한다. 3) smoke 수준이 아닌 dashboard 핵심 route/filter/RBAC regression 세트를 만든다.
+- **검증 기준(Verification)**: Deliverable: dashboard route split, filter 반응, RBAC, tenant isolation을 검증하는 Playwright 자동화 테스트와 보조 문서. Method: `tests/e2e/dashboard.spec.ts`와 verification guide를 리뷰하고 실제 test run에서 admin/user route, direct access deny, filter change, tenant isolation 케이스가 실행되는지 확인한다. Pass: dashboard 핵심 경로가 문서 서술이 아니라 실제 Playwright 테스트로 재현되며, admin/user 각각의 expected route와 filter 결과를 자동 검증한다.
 - **선행 조건(Dependencies)**: P9-2.3
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **관련 파일**: `tests/e2e/dashboard.spec.ts`, `docs/verification/test-validation-guide.md`
 
-### P9-3.1 리포트/Export 요구사항 확정(Excel/CSV, 컬럼)
+### P9-3.1 Dashboard export contract + report schema 정규화
 
 - **Task ID**: `10000000-0000-4000-8000-000000000143`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 필터링된 대시보드 데이터를 기반으로 Excel/CSV로 내보낼 리포트 요구사항(포맷/컬럼)을 확정한다.
-- **구현 가이드(Guide)**: 1) Export 대상 데이터/컬럼 확정. 2) 파일명/시트명 규칙 정의. 3) 개인정보/권한 필터링 규칙 정의.
-- **검증 기준(Verification)**: Deliverable: 리포트 Export 요구사항이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: 필터링된 dashboard 데이터 기반 export의 컬럼, 포맷, 파일 naming, 권한 scope를 implementation-ready 계약으로 정규화한다.
+- **구현 가이드(Guide)**: 1) admin dashboard filter state 기준으로 export request와 report column matrix를 고정한다. 2) CSV/Excel 모두에서 필요한 sheet/file naming, locale, 필드 masking/scope 제한을 문서에 명시한다. 3) 별도 Reports route를 전제하지 말고 admin dashboard의 export action이 소비할 계약으로 정리한다.
+- **검증 기준(Verification)**: Deliverable: export backend/UI가 바로 사용할 수 있는 request/response/report schema contract. Method: `docs/API_SPEC.md`에서 request DTO, output format, 컬럼 순서, 파일 naming, 권한 scope가 모두 명시됐는지 리뷰한다. Pass: backend/UI 구현자가 추가 의사결정 없이 export endpoint와 UI를 만들 수 있을 정도로 컬럼/포맷/scope 규칙이 고정된다.
 - **선행 조건(Dependencies)**: P9-2.4
 - **예상 소요 시간**: 120m
-- **관련 파일**: `docs/REFINED_PRD.md`
+- **관련 파일**: `docs/API_SPEC.md`, `docs/REFINED_PRD.md`
 
-### P9-3.2 Export API 설계(dashboard-export) + 권한/테넌트 검증
+### P9-3.2 Dashboard export backend 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000144`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 리포트 내보내기 API(Edge Function 또는 서버 경계)를 설계하고 권한/테넌트 격리 검증 규칙을 포함한다.
-- **구현 가이드(Guide)**: 1) 필터 파라미터 스키마 정의. 2) 권한/테넌트 검증 방안 포함. 3) 파일 생성 방식(서버 생성 vs 클라이언트) 결정.
-- **검증 기준(Verification)**: Deliverable: Export API 계약과 보안 기준이 확정되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: dashboard export를 위한 서버 경계를 구현하고 tenant guard, 파일 생성, API wrapper까지 닫는다.
+- **구현 가이드(Guide)**: 1) export request를 받아 CSV/Excel payload를 생성하는 backend 경계를 구현한다. 2) admin/super scope, tenant isolation, large payload 대응 방식을 backend에서 강제한다. 3) 프론트는 `src/api/dashboard-export.ts` 단일 wrapper만 사용하도록 경계를 고정한다.
+- **검증 기준(Verification)**: Deliverable: dashboard export backend 함수, 프론트 wrapper, API contract 정합화. Method: 함수 엔트리포인트, wrapper, API_SPEC를 리뷰하고 admin/super scope 및 tenant guard가 실제 구현 경계에 반영됐는지 확인한다. Pass: export가 더 이상 spec-only 상태가 아니며, 프론트가 단일 wrapper를 통해 서버 경계를 호출할 수 있다.
 - **선행 조건(Dependencies)**: P9-3.1
 - **예상 소요 시간**: 180m
-- **관련 파일**: `supabase/functions/dashboard-export/index.ts`, `docs/API_SPEC.md`
+- **관련 파일**: `supabase/functions/dashboard-export/index.ts`, `src/api/dashboard-export.ts`, `docs/API_SPEC.md`
 
-### P9-3.3 프론트 Export UI(다운로드/진행/에러) 설계
+### P9-3.3 Dashboard export UI 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000145`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: 사용자가 리포트를 다운로드할 수 있는 UI(진행 표시, 오류 처리)를 설계한다.
-- **구현 가이드(Guide)**: 1) Export 버튼/필터 UI 정의. 2) 다운로드 진행/완료 메시지 정의. 3) 실패 시 재시도/오류 안내 정의.
-- **검증 기준(Verification)**: Deliverable: Export UI 요구사항이 정의되어 있고, API와 연결된다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: admin dashboard에서 export를 실행할 수 있는 다운로드 UI, 진행 상태, 에러/재시도 UX를 구현한다.
+- **구현 가이드(Guide)**: 1) admin dashboard filter context를 그대로 사용하는 export CTA를 추가한다. 2) 다운로드 진행, 성공, 실패, 재시도 UX를 현재 Naive UI/global message 패턴과 맞춘다. 3) 별도 Reports route를 새로 만들지 않고 기존 admin dashboard surface 안에서 export를 제공한다.
+- **검증 기준(Verification)**: Deliverable: admin dashboard에서 실제 export backend를 호출하고 결과 상태를 보여주는 UI. Method: `/dashboard/admin`의 export CTA, loading/progress, success/error handling, retry path를 코드와 수동 검증 기준으로 확인한다. Pass: 사용자가 현재 filter context 그대로 export를 실행할 수 있고, 진행/실패 상태가 명시적으로 표시된다.
 - **선행 조건(Dependencies)**: P9-3.2
 - **예상 소요 시간**: 120m
-- **관련 파일**: `src/views/Reports.vue`
+- **관련 파일**: `src/views/dashboard/AdminDashboard.vue`, `src/api/dashboard-export.ts`
 
-### P9-3.4 Export 테스트 시나리오 정의(CSV/Excel, 대용량)
+### P9-3.4 Export integration/E2E validation 구현
 
 - **Task ID**: `10000000-0000-4000-8000-000000000146`
 - **현재 상태(Status)**: pending
-- **설명(Description)**: Export 결과 파일의 내용/형식과 대용량(레코드 수) 처리에 대한 테스트 시나리오를 정의한다.
-- **구현 가이드(Guide)**: 1) CSV/Excel 각각의 검증 포인트 정의. 2) 필터 적용 결과 검증. 3) 대용량 처리 시 타임아웃/분할 정책 케이스 정의.
-- **검증 기준(Verification)**: Deliverable: Export 테스트 시나리오가 문서화되어 있다. Method: 산출물을 리뷰하고 명시된 조건이 충족되었는지 검사한다. Pass: 모든 명시된 조건이 누락 없이 확인됨.
+- **설명(Description)**: export 결과 파일의 내용, 권한 scope, 대용량 처리, UI 흐름을 실제 검증 자산으로 닫는다.
+- **구현 가이드(Guide)**: 1) CSV/Excel의 컬럼/형식/파일명과 filter scope 반영을 실제 검증 자산으로 만든다. 2) tenant isolation, unauthorized access, large payload/timeout 케이스를 자동화 또는 실행 가능한 절차로 정리한다. 3) export UI와 backend를 분리하지 않고 end-to-end로 확인한다.
+- **검증 기준(Verification)**: Deliverable: export 기능의 내용, 권한 scope, 대용량 처리, UI 흐름을 검증하는 실행 가능한 test asset. Method: `tests/e2e/dashboard-export.spec.ts`와 verification guide를 리뷰하고, 실제 export 호출 결과와 다운로드 흐름을 재현 가능한지 확인한다. Pass: export 기능이 문서형 체크리스트가 아니라 실행 가능한 integration/E2E 검증 자산으로 닫힌다.
 - **선행 조건(Dependencies)**: P9-3.3
 - **예상 소요 시간**: 180m
-- **관련 파일**: `docs/verification/test-validation-guide.md`
+- **관련 파일**: `tests/e2e/dashboard-export.spec.ts`, `docs/verification/test-validation-guide.md`
 
 ## P10 (예상 시간: 29시간 0분)
 
@@ -2668,8 +2802,6 @@
 | Task ID                                | 태스크 명                                                                              | 상태      | 선행 태스크(Dependencies)            | 예상 시간 |
 | -------------------------------------- | -------------------------------------------------------------------------------------- | --------- | ------------------------------------ | --------- |
 | `1731504b-272e-4000-9c46-4c62e3b06d97` | **Align signup contracts for optional API nextState and deterministic store boundary** | completed | -                                    | -         |
-| `9098efca-a3fd-4e21-ac09-785b6b52a792` | **Optional hardening: enforce single signup invocation assertion**                     | pending   | -                                    | -         |
-| `214e88d1-0820-4e5f-9756-5bf9ef56c280` | **Optional hardening: remove success message duplication between store and view**      | pending   | -                                    | -         |
 | `5a783267-88a1-46b7-a71b-e03fdb4e0b99` | **Validate UI integration and single signup invocation path**                          | completed | 1731504b-272e-4000-9c46-4c62e3b06d97 | -         |
 
 ### 상세 (Details)
@@ -2687,28 +2819,6 @@
 - **관련 파일**: `src/types/signup.ts`, `src/stores/auth.ts`
 - **노트(Notes)**: Do not add a new API call path or duplicate signup submission logic in view layer. Preserve existing backward compatibility semantics.
 
-### Optional hardening: enforce single signup invocation assertion
-
-- **Task ID**: `9098efca-a3fd-4e21-ac09-785b6b52a792`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Add explicit unit-test assertions to guarantee auth store signup performs exactly one submitSignup API call per action execution.
-- **구현 가이드(Guide)**: 1. Open tests/unit/auth-signup.spec.ts. 2. For success and error branch tests, add expect(submitSignup).toHaveBeenCalledTimes(1) after invoking authStore.signup. 3. Keep existing behavior assertions unchanged.
-- **검증 기준(Verification)**: Vitest passes and each signup test validates submitSignup call count equals 1.
-- **선행 조건(Dependencies)**: -
-- **예상 소요 시간**: -
-- **관련 파일**: `tests/unit/auth-signup.spec.ts`
-
-### Optional hardening: remove success message duplication between store and view
-
-- **Task ID**: `214e88d1-0820-4e5f-9756-5bf9ef56c280`
-- **현재 상태(Status)**: pending
-- **설명(Description)**: Reduce duplicated success strings by using store-returned message in Signup view success flow while preserving current Korean UX text.
-- **구현 가이드(Guide)**: 1. Open src/views/auth/Signup.vue. 2. In handleSignup success path, prefer result.message for toast display. 3. Keep nextState-based alert visibility and routing handoff unchanged.
-- **검증 기준(Verification)**: Signup success flow still shows correct pending/active messages and existing tests remain green.
-- **선행 조건(Dependencies)**: -
-- **예상 소요 시간**: -
-- **관련 파일**: `src/views/auth/Signup.vue`, `src/stores/auth.ts`
-
 ### Validate UI integration and single signup invocation path
 
 - **Task ID**: `5a783267-88a1-46b7-a71b-e03fdb4e0b99`
@@ -2724,4 +2834,4 @@
 
 ---
 
-**총 예상 소요 시간:** 약 355시간 30분
+**총 예상 소요 시간:** 약 392시간 0분
