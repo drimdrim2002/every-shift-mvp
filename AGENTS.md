@@ -4,6 +4,25 @@ This file provides guidance to coding agents when working with code in this repo
 
 - Skill priority: for code generation tasks, prefer `everyshift-*` skills first.
 
+## Skill Routing Rule
+
+- Treat `docs/SKILLS_USAGE_GUIDE.md` as the repository's local skill routing reference.
+- Before asking clarifying questions, proposing a plan, or making code changes, map the request against `docs/SKILLS_USAGE_GUIDE.md` and the currently available runtime skill list.
+- Use the runtime-provided skill list as the source of truth for what is actually available in the current session.
+- Use `docs/SKILLS_USAGE_GUIDE.md` as the default routing guide for:
+  - selecting the most relevant skill automatically when the match is clear
+  - selecting the preferred combination order when multiple skills apply
+  - recommending 1-3 candidate skills with a short reason when the match is ambiguous
+- For EveryShift application code tasks, prefer this routing order unless higher-priority instructions override it:
+  1. relevant `everyshift-*` skill
+  2. required process skill such as `brainstorming`, `systematic-debugging`, or `writing-plans`
+  3. output- or artifact-specific skill if needed
+  4. completion skills such as `verification-before-completion` and `requesting-code-review`
+- In the initial response, explicitly state either:
+  - which skill(s) will be used automatically and why, or
+  - which skill(s) are recommended and why, if automatic selection is not sufficiently clear
+- If `docs/SKILLS_USAGE_GUIDE.md` and live repository/runtime context diverge, prefer the live codebase and runtime skill availability, then note the mismatch.
+
 ## Development Environment Baseline
 
 - Default local environment: **macOS (zsh)**
