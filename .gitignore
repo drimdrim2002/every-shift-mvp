@@ -24,3 +24,6 @@ node_modules/*
 dist/
 tools/
 supabase/
+supabase/*.temp
+playwright-report/
+supabase/.temp/cli-latest
