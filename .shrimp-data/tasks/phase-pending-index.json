@@ -1,19 +1,9 @@
 {
   "source": ".shrimp-data/tasks.json",
-  "generatedAt": "2026-03-21T12:19:50.000Z",
+  "generatedAt": "2026-03-25T12:40:56.697Z",
   "pendingOnly": true,
-  "totalTasks": 99,
+  "totalTasks": 74,
   "phases": [
-    {
-      "phase": "P2",
-      "file": ".shrimp-data/tasks/phase2-pending-tasks.json",
-      "taskCount": 10
-    },
-    {
-      "phase": "P3",
-      "file": ".shrimp-data/tasks/phase3-pending-tasks.json",
-      "taskCount": 5
-    },
     {
       "phase": "P4",
       "file": ".shrimp-data/tasks/phase4-pending-tasks.json",
@@ -22,7 +12,7 @@
     {
       "phase": "P5",
       "file": ".shrimp-data/tasks/phase5-pending-tasks.json",
-      "taskCount": 14
+      "taskCount": 4
     },
     {
       "phase": "P6",
