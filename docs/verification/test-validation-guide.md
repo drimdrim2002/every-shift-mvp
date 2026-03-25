@@ -1365,6 +1365,781 @@ commit;
 2. Network-mocked integration: `E2E-ONB-004`, `E2E-ONB-005`, `E2E-ONB-006`
 3. Multi-account org-scoped regression: `E2E-ONB-007`
 
+### 18.8 P3-3.3 온보딩 guard / 재진입 회귀 시나리오 (Addendum)
+
+본 subsection은 Task `10000000-0000-4000-8000-000000000075`의 산출물이다.
+범위는 P3-3.4 canonical full onboarding happy path를 다시 반복하는 것이 아니라,
+이미 구현된 guard precedence, deep-link compatibility, 재진입 CTA, completion
+boundary를 브라우저 레벨에서 회귀 검증하는 데 있다.
+
+대상 문서/코드:
+
+- `src/router/guards.ts`
+- `src/router/index.ts`
+- `src/views/Onboarding.vue`
+- `src/views/schedule/Step3EmployeeInfo.vue`
+- `src/utils/onboarding-context.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+
+비범위:
+
+- 실제 조직/직원/스케줄 생성의 end-to-end happy path
+- `complete` action 성공 후 최종 저장 payload 상세
+- multi-account organization-scoped completion ownership full fixture
+
+#### 18.8.1 회귀 목표
+
+1. `admin_active + incomplete onboarding` 세션은 보호 라우트 direct URL에서도 `/onboarding`으로 강제 복귀된다.
+2. `employee_seed` deep-link는 `/schedule/step3`에서만 허용되고, 화면에는 onboarding 복귀 CTA가 노출된다.
+3. 새로고침 후에도 `/onboarding`은 canonical progress 기준으로 같은 단계에서 재개된다.
+4. onboarding 완료 후 `/onboarding` direct access는 허용되지 않고 normal post-auth route로 되돌아간다.
+5. `admin_pending`, `user_active`는 `/onboarding` actor가 아니므로 onboarding shell을 보지 못한다.
+
+#### 18.8.2 회귀 시나리오 템플릿
+
+| Field               | 설명                                                            |
+| :------------------ | :-------------------------------------------------------------- |
+| `Scenario ID`       | 고유 식별자 (`E2E-ONB-REG-00N`)                                 |
+| `Target Route`      | 정확한 route path                                               |
+| `Exact UI Surface`  | exact tab / banner / CTA / shell                                |
+| `Actor`             | access-state fixture                                            |
+| `User Action`       | 클릭, 새로고침, 주소 직접 입력, back-button 등 실제 사용자 동작 |
+| `Expected Result`   | 최종 route, 표시 UI, query 유지/제거 여부                       |
+| `Automation Status` | `playwright`, `manual`, `unit-covered`                          |
+| `Related Baseline`  | 연관 unit or canonical E2E scenario                             |
+
+#### E2E-ONB-REG-001
+
+- `Scenario ID`: `E2E-ONB-REG-001`
+- `Target Route`: `/schedule/step1`
+- `Exact UI Surface`: `/onboarding` shell headline, step progress card
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='organization_info'`)
+- `User Action`:
+  1. 로그인 후 브라우저 주소창으로 `/schedule/step1`을 직접 입력한다.
+  2. route stabilization이 끝날 때까지 기다린다.
+- `Expected Result`:
+  - 최종 route는 `/onboarding`이다.
+  - `/onboarding` 상단 headline `EveryShift 시작 준비를 함께 완료해볼까요?`가 보인다.
+  - onboarding shell 바깥의 schedule step surface는 노출되지 않는다.
+- `Automation Status`: `playwright`
+- `Related Baseline`: `tests/unit/router-auth-guards.spec.ts`의 incomplete admin redirect regression
+
+#### E2E-ONB-REG-002
+
+- `Scenario ID`: `E2E-ONB-REG-002`
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: Step 2 current card, `직원 등록하러 가기` CTA
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='employee_seed'`)
+- `User Action`:
+  1. `/onboarding`으로 진입한다.
+  2. Step 2가 current 상태인 것을 확인한다.
+  3. 브라우저 새로고침을 실행한다.
+- `Expected Result`:
+  - refresh 전후 최종 route는 계속 `/onboarding`이다.
+  - Step 1은 완료 상태로 접혀 있고 Step 2 CTA `직원 등록하러 가기`가 다시 보인다.
+  - Step 3 `첫 스케줄 요청 시작하기`는 current로 승격되지 않는다.
+- `Automation Status`: `playwright`
+- `Related Baseline`: `E2E-ONB-002`
+
+#### E2E-ONB-REG-003
+
+- `Scenario ID`: `E2E-ONB-REG-003`
+- `Target Route`: `/schedule/step3?source=onboarding&step=employee_seed&entry=excel`
+- `Exact UI Surface`: Step3EmployeeInfo onboarding banner, excel upload callout, footer return CTA
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='employee_seed'`)
+- `User Action`:
+  1. `/onboarding` Step 2 current card에서 `엑셀 업로드로 시작` CTA를 클릭한다.
+  2. onboarding banner와 excel surface를 확인한다.
+  3. 하단 `온보딩으로 돌아가기` CTA를 클릭한다.
+- `Expected Result`:
+  - CTA 클릭 결과 route는 `/schedule/step3?source=onboarding&step=employee_seed&entry=excel...`로 이동한다.
+  - onboarding banner(`data-test='onboarding-banner'`)가 보인다.
+  - `data-test='excel-upload-entry'` 영역이 보인다.
+  - 하단 `data-test='onboarding-footer-return'` CTA가 보인다.
+  - CTA 클릭 후 route는 `/onboarding`으로 돌아가고 `step=employee_seed` query 문맥이 유지된다.
+- `Automation Status`: `playwright`
+- `Related Baseline`: `tests/unit/router-auth-guards.spec.ts` employee-seed compatibility allow
+
+#### E2E-ONB-REG-004
+
+- `Scenario ID`: `E2E-ONB-REG-004`
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: onboarding shell absence, `/dashboard/admin` summary surface
+- `Actor`: `admin_active` + completed onboarding
+- `User Action`:
+  1. 완료 상태 admin으로 로그인한다.
+  2. 같은 세션에서 브라우저 주소창으로 `/onboarding`을 직접 입력한다.
+- `Expected Result`:
+  - route guard 단계에서는 `/onboarding` direct access가 거부된다.
+  - 이후 current app shell에서 post-auth fallback route는 `/schedule/step1`이며, screen-level normalization에 따라 `/dashboard/admin`으로 이어질 수 있다.
+  - onboarding headline, completion card, onboarding CTA는 보이지 않는다.
+- `Automation Status`: `playwright`
+- `Related Baseline`: `tests/unit/router-auth-guards.spec.ts` completed admin deny
+
+#### E2E-ONB-REG-005
+
+- `Scenario ID`: `E2E-ONB-REG-005`
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: approval pending screen only
+- `Actor`: `admin_pending`
+- `User Action`:
+  1. pending admin으로 로그인한다.
+  2. `/onboarding`을 직접 입력한다.
+- `Expected Result`:
+  - 최종 route는 `/access/pending`이다.
+  - onboarding shell headline과 step CTA는 보이지 않는다.
+  - approval pending 안내 화면만 보인다.
+- `Automation Status`: `playwright`
+- `Related Baseline`: `E2E-ONB-004`, `tests/unit/router-auth-guards.spec.ts`
+
+#### E2E-ONB-REG-006
+
+- `Scenario ID`: `E2E-ONB-REG-006`
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: onboarding shell absence
+- `Actor`: `user_active`
+- `User Action`:
+  1. 일반 사용자로 로그인한다.
+  2. `/onboarding`을 직접 입력한다.
+- `Expected Result`:
+  - route guard 기준 `/onboarding`은 거부된다.
+  - 이후 normal post-auth route 또는 그 다음 screen-level normalization으로 정리된다.
+  - onboarding shell, completion card, onboarding return banner는 보이지 않는다.
+- `Automation Status`: `unit-covered`
+- `Related Baseline`: `E2E-ONB-006`, `tests/unit/router-auth-guards.spec.ts`
+
+#### E2E-ONB-REG-007
+
+- `Scenario ID`: `E2E-ONB-REG-007`
+- `Target Route`: `/schedule/step3?source=onboarding&step=employee_seed`
+- `Exact UI Surface`: onboarding banner + browser history
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='employee_seed'`)
+- `User Action`:
+  1. onboarding shell에서 `직원 등록하러 가기`를 눌러 `/schedule/step3`로 이동한다.
+  2. 브라우저 뒤로가기를 누른다.
+  3. 다시 주소창으로 `/schedule/step1`을 직접 입력한다.
+- `Expected Result`:
+  - 뒤로가기 직후 route는 `/onboarding`으로 돌아간다.
+  - 그 상태에서 `/schedule/step1` direct URL을 입력하면 다시 `/onboarding`으로 강제 복귀된다.
+- `Automation Status`: `manual`
+- `Related Baseline`: `E2E-ONB-REG-001`, `E2E-ONB-REG-003`
+
+#### E2E-ONB-REG-008
+
+- `Scenario ID`: `E2E-ONB-REG-008`
+- `Target Route`: `/login` -> post-auth landing -> `/onboarding`
+- `Exact UI Surface`: login form, `/dashboard/admin` landing surface
+- `Actor`: `admin_active` + completed onboarding
+- `User Action`:
+  1. 완료 상태 admin으로 로그인한다.
+  2. 로그아웃 후 다시 로그인한다.
+  3. `/onboarding` 직접 접근을 시도한다.
+- `Expected Result`:
+  - 로그인 직후와 재로그인 직후 모두 onboarding shell이 아니라 `/dashboard/admin`이 노출된다.
+  - `/onboarding` 직접 접근은 여전히 허용되지 않는다.
+- `Automation Status`: `manual`
+- `Related Baseline`: `E2E-ONB-003`, `E2E-ONB-REG-004`
+
+#### 18.8.3 자동화 범위 결정
+
+Playwright로 우선 자동화하는 범위:
+
+1. `E2E-ONB-REG-001`
+2. `E2E-ONB-REG-002`
+3. `E2E-ONB-REG-003`
+4. `E2E-ONB-REG-004`
+5. `E2E-ONB-REG-005`
+
+수동 검증으로 남기는 범위:
+
+1. `E2E-ONB-REG-006`
+2. `E2E-ONB-REG-007`
+3. `E2E-ONB-REG-008`
+
+수동으로 남기는 이유:
+
+- browser history/back-button은 mocked browser flow에서도 가능하지만 flake 가능성이 높다.
+- `user_active` direct deny는 unit router baseline이 이미 존재하고, current app의 screen-level normalization이 추가돼 route assertion만으로는 E2E 신호가 약하다.
+- relogin skip은 별도 계정/세션 fixture와 cleanup 비용이 커서 regression smoke 1차 범위를 넘는다.
+
+#### 18.8.4 실행 로그 기록 규칙
+
+- Playwright 실행 파일: `tests/e2e/onboarding-regression.spec.ts`
+- 권장 실행 명령: `pnpm exec playwright test tests/e2e/onboarding-regression.spec.ts`
+- 결과 기록 방식:
+  - pass한 자동화 시나리오 ID를 task summary와 verification log에 남긴다.
+  - 수동 시나리오는 route, exact surface, user action, expected result를 체크리스트로만 남기고 미실행이면 `manual pending`으로 표시한다.
+
+#### 18.8.5 실행 로그 (`2026-03-24`, PDT)
+
+- 실행 명령:
+  - `pnpm lint:check`
+  - `pnpm exec vitest run tests/unit/router-auth-guards.spec.ts tests/unit/onboarding-reentry.spec.ts`
+  - `pnpm exec playwright test tests/e2e/onboarding-regression.spec.ts`
+- 확인 결과:
+  - lint 통과
+  - unit 25 tests 통과 (`router-auth-guards`, `onboarding-reentry`)
+  - Playwright 5 scenarios 통과:
+    - `E2E-ONB-REG-001`
+    - `E2E-ONB-REG-002`
+    - `E2E-ONB-REG-003`
+    - `E2E-ONB-REG-004`
+    - `E2E-ONB-REG-005`
+  - `E2E-ONB-REG-006` ~ `E2E-ONB-REG-008`은 manual pending
+
+### 18.9 Phase 3 UI 기반 통합테스트 실행 세트 (Consolidated)
+
+본 subsection은 이미 정의된 `18.3`~`18.8`의 canonical/onboarding regression 시나리오를
+실행 관점으로 다시 묶은 Phase 3 통합 검증 runbook이다.
+목표는 `.shrimp-data/tasks.json`의 P3 완료 범위를 실제 화면 기준으로 한 번에 확인하는 것이다.
+
+이 subsection은 새로운 정답 소스를 만들지 않는다.
+세부 기대 결과는 기존 `E2E-ONB-*`, `E2E-ONB-REG-*`를 따르고, 여기서는
+"어떤 순서로 어떤 화면을 어떻게 검증하면 P3 전체 구현이 통과로 판단되는가"를 명확히 적는다.
+
+#### 18.9.1 커버리지 매핑
+
+| P3 범위                      | UI로 확인하는 핵심 증거                                                | 주 시나리오                                 |
+| :--------------------------- | :--------------------------------------------------------------------- | :------------------------------------------ |
+| `P3-1.1`, `P3-3.1`, `P3-3.2` | `/onboarding` forced entry, actor 제한, incomplete-only 접근           | `P3-UI-INT-001`, `004`, `005`, `006`        |
+| `P3-1.3`, `P3-1.4`           | `get/update/complete` 이후 step 전환, refresh resume, relogin skip     | `P3-UI-INT-001`, `002`, `007`               |
+| `P3-2.1`                     | `/onboarding` 헤더, 3단계 progress, CTA 문구, 완료 화면                | `P3-UI-INT-001`                             |
+| `P3-2.2`, `P3-2.4`, `P3-2.5` | Step 2 manual/excel 딥링크, onboarding banner, 복귀 CTA                | `P3-UI-INT-003`                             |
+| `P3-3.4`, `P3-3.5`           | full-flow happy path + refresh/direct-url/back-button 성격의 회귀 경계 | `P3-UI-INT-001`, `002`, `003`, `004`, `007` |
+
+#### 18.9.2 권장 actor / 계정 fixture
+
+| Actor                                  | 권장 계정                                      | 사용 목적                                           |
+| :------------------------------------- | :--------------------------------------------- | :-------------------------------------------------- |
+| `admin_active + incomplete onboarding` | `sindeaf@gmail.com` 또는 P3 incomplete fixture | full-flow, refresh, deep-link, direct URL 강제 진입 |
+| `admin_active + completed onboarding`  | 완료 조직에 연결된 admin fixture               | relogin skip, `/onboarding` 재진입 차단             |
+| `admin_pending`                        | `p3-admin-pending@example.com`                 | approval pending 우선 차단                          |
+| `user_active`                          | `p3-user-active@example.com`                   | non-admin deny                                      |
+
+주의:
+
+1. `admin_active + completed onboarding` 검증은 organization-scoped 완료 fixture가 필요하다.
+2. 동일 조직에 admin 2명을 준비할 수 있으면 organization-scoped ownership 회귀까지 함께 확인하는 편이 좋다.
+3. fixture가 없으면 Playwright mock 기반으로 route/API/store contract만 우선 고정하고, shared org 실데이터 변형은 피한다.
+
+#### 18.9.3 실행 순서
+
+아래 순서대로 실행하면 P3 구현 범위를 중복 없이 확인할 수 있다.
+
+#### P3-UI-INT-001 신규 admin 온보딩 전체 완료 플로우
+
+- `Target Route`: `/login` -> `/onboarding` -> 조직 정보 surface -> `/schedule/step3?...` -> 스케줄 시작 surface -> `/dashboard/admin`
+- `Exact UI Surface`:
+  - `/login` 로그인 폼
+  - `/onboarding` 헤더 `EveryShift 시작 준비를 함께 완료해볼까요?`
+  - 3단계 progress card
+  - Step 1 CTA `조직 정보 확인하기`
+  - Step 2 CTA `직원 등록하러 가기`, `엑셀 업로드로 시작`
+  - Step 3 CTA `첫 스케줄 요청 시작하기`
+  - 완료 카드의 `대시보드로 이동`
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='organization_info'`)
+- `User Action`:
+  1. `/login`에서 로그인한다.
+  2. `/onboarding` 강제 진입을 확인한다.
+  3. Step 1에서 시프트 1개 이상, 사이트 1개 이상을 준비한 뒤 `조직 정보 확인하기`를 클릭한다.
+  4. Step 2가 자동 확장되는지 확인한 뒤 `직원 등록하러 가기` 또는 `엑셀 업로드로 시작`으로 이동한다.
+  5. 직원 1명 이상을 저장하고 온보딩으로 복귀한다.
+  6. Step 3에서 `첫 스케줄 요청 시작하기`를 눌러 첫 스케줄 시작 흐름으로 이동한다.
+  7. 첫 persisted schedule request 시작 후 완료 카드가 나타나는지 확인한다.
+  8. `대시보드로 이동`을 클릭한다.
+- `Expected Result`:
+  - 로그인 직후 최종 route는 `/onboarding`이다.
+  - Step 1 완료 후 `조직 기본 설정이 준비되었습니다.` 메시지와 함께 Step 2가 current가 된다.
+  - Step 2 완료 후 `첫 직원 등록이 완료되었습니다.` 메시지와 함께 Step 3가 current가 된다.
+  - 최종 완료 시 `이제 EveryShift를 사용할 준비가 되었습니다!`가 보인다.
+  - `대시보드로 이동` 클릭 후 최종 route는 `/dashboard/admin`이다.
+- `Scope Boundary`:
+  - route guard 확인: `/login` 이후 forced entry
+  - screen-level 확인: `/onboarding` shell, step card, completion card
+  - in-screen action 확인: Step 1/2/3 CTA와 단계 전환
+- `Related Baseline`: `E2E-ONB-001`
+
+#### P3-UI-INT-002 새로고침 후 현재 단계 재개
+
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: Step 2 current card, `직원 등록하러 가기` CTA, Step 1 completed summary
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='employee_seed'`)
+- `User Action`:
+  1. `/onboarding`에서 Step 2가 current인 상태까지 진입한다.
+  2. 브라우저 새로고침을 실행한다.
+  3. 로딩 종료 후 현재 단계와 완료 단계 표시를 다시 확인한다.
+- `Expected Result`:
+  - refresh 전후 route는 `/onboarding`으로 유지된다.
+  - Step 1은 `완료` 상태로 유지된다.
+  - Step 2 CTA `직원 등록하러 가기`가 다시 보인다.
+  - Step 3는 disabled preview이며 current로 앞당겨지지 않는다.
+- `Scope Boundary`:
+  - route guard 확인: refresh 후에도 `/onboarding` 유지
+  - screen-level 확인: step status 복원
+  - in-screen action 확인: reload 이후 current CTA 보존
+- `Related Baseline`: `E2E-ONB-002`, `E2E-ONB-REG-002`
+
+#### P3-UI-INT-003 Step 2 딥링크와 온보딩 복귀 CTA
+
+- `Target Route`: `/onboarding` -> `/schedule/step3?source=onboarding&step=employee_seed&entry=excel`
+- `Exact UI Surface`:
+  - `/onboarding` Step 2 action area
+  - `/schedule/step3`의 `data-test='onboarding-banner'`
+  - `data-test='excel-upload-entry'`
+  - `data-test='onboarding-footer-return'`
+- `Actor`: `admin_active` + incomplete onboarding (`currentStepKey='employee_seed'`)
+- `User Action`:
+  1. `/onboarding` Step 2에서 `엑셀 업로드로 시작`을 클릭한다.
+  2. `/schedule/step3`의 onboarding banner와 excel entry surface를 확인한다.
+  3. 하단 `온보딩으로 돌아가기`를 클릭한다.
+- `Expected Result`:
+  - 클릭 직후 route는 `/schedule/step3?source=onboarding&step=employee_seed&entry=excel...`로 이동한다.
+  - Step3 화면 상단에 onboarding banner가 보인다.
+  - excel upload 안내 surface가 보인다.
+  - 하단 복귀 CTA 클릭 후 `/onboarding`으로 돌아간다.
+  - 복귀 후 Step 2 문맥이 유지된다.
+- `Scope Boundary`:
+  - route guard 확인: compatibility deep-link 허용
+  - screen-level 확인: Step3 banner/excel entry/return CTA
+  - in-screen action 확인: onboarding -> employee deep-link -> onboarding 복귀
+- `Related Baseline`: `E2E-ONB-REG-003`
+
+#### P3-UI-INT-004 완료된 admin의 `/onboarding` 재진입 차단
+
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: onboarding shell 부재, post-auth landing surface
+- `Actor`: `admin_active` + completed onboarding
+- `User Action`:
+  1. 완료 상태 admin으로 로그인한다.
+  2. 브라우저 주소창에 `/onboarding`을 직접 입력한다.
+- `Expected Result`:
+  - `/onboarding` 직접 진입은 허용되지 않는다.
+  - onboarding 헤더, step CTA, completion card는 보이지 않는다.
+  - 사용자는 normal post-auth route 또는 `/dashboard/admin` 계열 landing에 남는다.
+- `Scope Boundary`:
+  - route guard 확인: completed admin deny
+  - screen-level 확인: onboarding shell absence
+  - in-screen tab/content 검증은 없음
+- `Related Baseline`: `E2E-ONB-003`, `E2E-ONB-REG-004`
+
+#### P3-UI-INT-005 승인 대기 admin 우선 차단
+
+- `Target Route`: `/login` -> `/access/pending`, 그리고 `/onboarding`
+- `Exact UI Surface`: pending access state 화면만 노출
+- `Actor`: `admin_pending`
+- `User Action`:
+  1. pending admin으로 로그인한다.
+  2. 로그인 직후 landing을 확인한다.
+  3. 이어서 `/onboarding`을 직접 입력한다.
+- `Expected Result`:
+  - 로그인 직후와 직접 접근 모두 최종 route는 `/access/pending`이다.
+  - onboarding shell, step CTA, completion card는 보이지 않는다.
+  - pending 안내 화면만 보인다.
+- `Scope Boundary`:
+  - route guard 확인: approval pending precedence
+  - screen-level 확인: pending 화면만 보임
+  - in-screen onboarding 검증은 없음
+- `Related Baseline`: `E2E-ONB-004`, `E2E-ONB-REG-005`
+
+#### P3-UI-INT-006 일반 사용자 `/onboarding` 차단
+
+- `Target Route`: `/onboarding`
+- `Exact UI Surface`: onboarding shell 부재
+- `Actor`: `user_active`
+- `User Action`:
+  1. 일반 사용자로 로그인한다.
+  2. `/onboarding`을 직접 입력한다.
+  3. 필요하면 onboarding query가 붙은 deep-link도 동일하게 시도한다.
+- `Expected Result`:
+  - `/onboarding`은 허용되지 않는다.
+  - onboarding shell, 완료 카드, onboarding 복귀 배너는 보이지 않는다.
+  - 사용자는 normal post-auth route로 정리된다.
+- `Scope Boundary`:
+  - route guard 확인: non-admin deny
+  - screen-level 확인: onboarding shell absence
+  - in-screen onboarding 검증은 없음
+- `Related Baseline`: `E2E-ONB-006`, `E2E-ONB-REG-006`
+
+#### P3-UI-INT-007 완료 상태의 organization-scoped 재로그인 검증
+
+- `Target Route`: `/login` -> post-auth landing -> `/onboarding`
+- `Exact UI Surface`: 로그인 폼, post-auth landing, onboarding shell 부재
+- `Actor`: `admin_active` + completed onboarding
+- `User Action`:
+  1. 완료 상태 admin으로 로그인한다.
+  2. 로그아웃 후 다시 로그인한다.
+  3. 같은 세션에서 `/onboarding` 직접 접근을 시도한다.
+- `Expected Result`:
+  - 로그인 직후와 재로그인 직후 모두 onboarding이 아니라 completed organization용 landing으로 간다.
+  - `/onboarding` 직접 접근은 계속 거부된다.
+  - completion screen이 재노출되지 않는다.
+- `Scope Boundary`:
+  - route guard 확인: relogin skip
+  - screen-level 확인: onboarding shell absence
+  - in-screen onboarding 검증은 없음
+- `Related Baseline`: `E2E-ONB-003`, `E2E-ONB-REG-008`
+
+#### 18.9.4 최소 합격 기준
+
+다음 7개 시나리오 중 아래 기준을 만족하면 P3 UI 통합 검증을 통과로 판단한다.
+
+1. `P3-UI-INT-001`은 반드시 pass여야 한다.
+2. `P3-UI-INT-002`, `003`, `004`, `005`, `006`은 route와 exact UI surface가 모두 기대값과 일치해야 한다.
+3. `P3-UI-INT-007`은 relogin 후 onboarding 재진입 차단만 확인해도 합격으로 본다.
+4. 어느 시나리오에서도 다음 현상이 나오면 fail이다.
+   - `user_active` 또는 `admin_pending`가 onboarding shell을 본다.
+   - completed admin이 `/onboarding` completion card를 다시 본다.
+   - Step 2 deep-link에서 onboarding banner 또는 복귀 CTA가 누락된다.
+   - refresh 후 completed/current step 상태가 역전된다.
+
+#### 18.9.5 Playwright 전환 우선순위
+
+1. 1차 자동화:
+   - `P3-UI-INT-002`
+   - `P3-UI-INT-003`
+   - `P3-UI-INT-004`
+   - `P3-UI-INT-005`
+2. 2차 자동화:
+   - `P3-UI-INT-001`
+   - `P3-UI-INT-006`
+3. fixture 준비 후 확장:
+   - `P3-UI-INT-007`
+
+현재 저장소 기준의 직접 대응 자산:
+
+- `tests/e2e/onboarding-regression.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- `tests/unit/onboarding-reentry.spec.ts`
+- `tests/unit/onboarding-context.spec.ts`
+- `tests/unit/onboarding-view.spec.ts`
+
+## 19) P5-1.4 조직 관리 테스트 시나리오 (권한/테넌트 격리/필드 검증)
+
+본 섹션은 Task `10000000-0000-4000-8000-000000000090`의 산출물이다.
+대상 범위는 `/admin/organization` 페이지와 해당 페이지가 사용하는 `organizations`,
+`organization_settings` 읽기/저장 경계다.
+
+### 19.1 범위와 canonical 기준
+
+- canonical route: `/admin/organization`
+- route guard: `allowedAccessStates: ['super_active', 'admin_active']`
+- canonical client API:
+  - `loadOrganizationsForManagement(scope)`
+  - `loadOrganizationForManagement(scope, targetOrganizationId?)`
+  - `saveOrganizationForManagement(scope, orgData, targetOrganizationId?)`
+  - `loadSettingsForManagement(scope, targetOrganizationId?)`
+  - `saveSettingsForManagement(scope, settings, targetOrganizationId?)`
+- canonical scope resolver:
+  - `resolveOrganizationManagementOrganizationId(scope, targetOrganizationId?)`
+- canonical field contract:
+  - organization type 저장 허용값은 `hospital | fire | police`
+  - `organization_settings`는 `maxConsecutiveNightShifts`,
+    `minimumRestHours`, `workConstraints`만 저장 대상으로 본다.
+
+주의:
+
+- backlog 구현 가이드의 "403 확인" 문구는 현재 앱 계약에 맞게 아래 3종 판정으로 구체화한다.
+  - 라우트 레벨: `redirect`
+  - 클라이언트 scope 레벨: local error throw
+  - 서버/RLS 레벨: `DENY`, `EMPTY_SET`, `ERROR(permission denied)`
+- 본 문서 2장 스냅샷 기준 `organization_settings`는 아직 RLS 미적용 상태로 측정되었다.
+  본 섹션의 기대 결과는 **현재 현상값이 아니라 P5 목표 계약 기준의 pass condition**이다.
+
+### 19.2 공통 fixture 전제
+
+1. Org A, Org B가 각각 1개 이상 존재한다.
+2. 아래 actor가 준비되어 있다.
+   - `super_active`
+   - Org A `admin_active`
+   - Org A `admin_pending`
+   - Org A `admin_rejected`
+   - Org A `user_active`
+   - unauthenticated session
+3. Org A, Org B 모두 `organizations` row가 존재한다.
+4. `organization_settings`는 Org A/B 각각 row가 있거나, `null -> upsert` 흐름을 검증할 수 있도록 최소 한 조직에서 비어 있어야 한다.
+5. super actor는 조직 selector에서 Org A/B를 모두 선택할 수 있어야 한다.
+
+### 19.3 시나리오 인터페이스
+
+본 섹션은 아래 필드를 고정 사용한다.
+
+| Field                  | 설명                                                                    |
+| :--------------------- | :---------------------------------------------------------------------- |
+| `Scenario ID`          | 고유 식별자 (`ORG-MGMT-00N`)                                            |
+| `Layer`                | `ROUTE_UI`, `CLIENT_SCOPE`, `API_RLS`, `FIELD_VALIDATION`, `REGRESSION` |
+| `Actor`                | 실행 주체(access state 또는 DB actor)                                   |
+| `Target`               | 검증 대상 route, component, API helper, table                           |
+| `Precondition`         | 실행 전 준비 조건                                                       |
+| `Steps`                | 검증 절차                                                               |
+| `Expected Result`      | 허용/차단/리다이렉트/오류 메시지 기준                                   |
+| `Negative Variant`     | 반대 조건 또는 오용 경로                                                |
+| `Automation Candidate` | 추천 자동화 레이어 (`unit`, `component`, `router`, `playwright`, `sql`) |
+
+### 19.4 시나리오 목록
+
+### ORG-MGMT-001
+
+- `Scenario ID`: `ORG-MGMT-001`
+- `Layer`: `ROUTE_UI`
+- `Actor`: `super_active`
+- `Target`: `/admin/organization`, `OrganizationManagement.vue`
+- `Precondition`:
+  - super 계정으로 로그인되어 있다.
+  - Org A, Org B가 모두 존재한다.
+- `Steps`:
+  1. `/admin/organization`로 이동한다.
+  2. 상단 selector 또는 현재 조직 요약 영역을 확인한다.
+  3. Org A를 선택한 뒤 조직 정보/설정 탭 데이터를 로드한다.
+  4. Org B로 전환한 뒤 동일 화면을 다시 로드한다.
+- `Expected Result`:
+  - route 접근이 허용된다.
+  - super 전용 조직 선택 UI가 보인다.
+  - Org A/B 전환 시 선택 조직 기준으로 조회 컨텍스트가 바뀐다.
+  - organization list 조회는 전체 조직을 반환할 수 있다.
+- `Negative Variant`:
+  - 대상 조직을 선택하지 않은 상태에서 상세 조회/저장을 시도하면
+    `슈퍼 관리자는 대상 조직을 선택해야 합니다.` 오류가 발생하고 API 호출이 진행되지 않는다.
+- `Automation Candidate`: `router`, `component`, `unit`
+
+### ORG-MGMT-002
+
+- `Scenario ID`: `ORG-MGMT-002`
+- `Layer`: `ROUTE_UI`
+- `Actor`: `admin_active` (Org A)
+- `Target`: `/admin/organization`, `Sidebar.vue`, `OrganizationManagement.vue`
+- `Precondition`:
+  - actor의 `effectiveMembership.organizationId = <ORG_A_ID>`
+  - Org B도 별도로 존재한다.
+- `Steps`:
+  1. Org A admin으로 로그인한다.
+  2. 사이드바 메뉴를 확인한다.
+  3. `/admin/organization`로 이동한다.
+  4. 화면 상단에 조직 selector가 없는지 확인한다.
+  5. 조직 정보/설정 데이터를 조회한다.
+- `Expected Result`:
+  - 사이드바에 `조직 관리` 메뉴가 노출된다.
+  - route 접근이 허용된다.
+  - admin에게는 조직 selector가 보이지 않는다.
+  - 조회/수정 범위는 Org A 1개 조직으로 고정된다.
+- `Negative Variant`:
+  - route query, params, local state 변조로 Org B를 선택하려 해도 admin UI에서 조직 전환 수단이 노출되지 않는다.
+- `Automation Candidate`: `router`, `component`, `playwright`
+
+### ORG-MGMT-003
+
+- `Scenario ID`: `ORG-MGMT-003`
+- `Layer`: `ROUTE_UI`
+- `Actor`: `user_active`, `admin_pending`, `admin_rejected`, `unauthenticated`
+- `Target`: `/admin/organization`, router guard
+- `Precondition`: 각 access state별 세션 fixture가 준비되어 있다.
+- `Steps`:
+  1. 각 actor로 `/admin/organization` 직접 접근을 시도한다.
+  2. 최종 landing route를 확인한다.
+  3. 사이드바 메뉴 노출 여부를 확인한다.
+- `Expected Result`:
+  - `user_active` -> `/schedule/step1`로 리다이렉트
+  - `admin_pending` -> `/access/pending`으로 리다이렉트
+  - `admin_rejected` -> `/access/rejected`으로 리다이렉트
+  - `unauthenticated` -> `/login`으로 리다이렉트
+  - 위 actor들에게 `조직 관리` 메뉴는 노출되지 않는다.
+- `Negative Variant`:
+  - 브라우저 뒤로가기, 새로고침, 직접 URL 입력에서도 동일한 리다이렉트 규칙이 유지되어야 한다.
+- `Automation Candidate`: `router`, `playwright`
+
+### ORG-MGMT-004
+
+- `Scenario ID`: `ORG-MGMT-004`
+- `Layer`: `CLIENT_SCOPE`
+- `Actor`: `admin_active` (Org A)
+- `Target`: `resolveOrganizationManagementOrganizationId()`
+- `Precondition`:
+  - scope는 `{ accessState: 'admin_active', organizationId: '<ORG_A_ID>' }`
+  - Org B ID를 알고 있다.
+- `Steps`:
+  1. `loadOrganizationForManagement(scope, '<ORG_B_ID>')` 또는
+     `saveOrganizationForManagement(scope, payload, '<ORG_B_ID>')`를 호출한다.
+  2. 동일 조건으로 `loadSettingsForManagement`, `saveSettingsForManagement`도 호출한다.
+- `Expected Result`:
+  - 모두 네트워크 호출 전에 `다른 조직 데이터에는 접근할 수 없습니다.`를 throw 한다.
+  - `supabase.from(...)` 호출은 발생하지 않는다.
+- `Negative Variant`:
+  - `<ORG_A_ID>` 또는 target 미지정 호출은 정상적으로 통과해야 한다.
+- `Automation Candidate`: `unit`
+
+### ORG-MGMT-005
+
+- `Scenario ID`: `ORG-MGMT-005`
+- `Layer`: `FIELD_VALIDATION`
+- `Actor`: `super_active`, `admin_active`
+- `Target`: `saveOrganizationForManagement()`
+- `Precondition`:
+  - target organization이 유효하게 선택되어 있다.
+- `Steps`:
+  1. organization name만 수정하는 patch를 저장한다.
+  2. `type='hospital'`, `type='fire'`, `type='police'`로 각각 저장한다.
+  3. `type='logistics'` 또는 `type='production'` 저장을 시도한다.
+- `Expected Result`:
+  - name patch는 정상 저장된다.
+  - DB-safe type 3종은 정상 저장된다.
+  - `logistics`, `production` 저장 시
+    `조직 유형은 병원, 소방, 경찰만 저장할 수 있습니다.` 오류가 발생한다.
+- `Negative Variant`:
+  - type을 생략한 patch는 허용되지만, 지원하지 않는 type 문자열은 저장되면 안 된다.
+- `Automation Candidate`: `unit`, `integration`
+
+### ORG-MGMT-006
+
+- `Scenario ID`: `ORG-MGMT-006`
+- `Layer`: `FIELD_VALIDATION`
+- `Actor`: `super_active`, `admin_active`
+- `Target`: `saveSettingsForManagement()`, `organization_settings`
+- `Precondition`:
+  - target organization이 유효하게 resolve된다.
+  - Org A 또는 Org B에 settings row가 없을 수도 있다.
+- `Steps`:
+  1. `maxConsecutiveNightShifts`만 포함한 partial payload를 저장한다.
+  2. `minimumRestHours`만 포함한 partial payload를 저장한다.
+  3. `workConstraints`만 포함한 partial payload를 저장한다.
+  4. settings row가 없는 조직에 대해 저장을 호출한다.
+- `Expected Result`:
+  - partial payload 저장이 허용된다.
+  - 저장 후 반환값은 `organizationId`와 저장 필드가 target organization 기준으로 매핑된다.
+  - row가 없던 조직은 `upsert(..., { onConflict: 'organization_id' })` 계약으로 생성/갱신된다.
+  - 허용되지 않은 조직으로 저장 대상이 바뀌지 않는다.
+- `Negative Variant`:
+  - admin이 Org B를 target으로 넘긴 경우에는 `ORG-MGMT-004`와 동일하게 client scope에서 먼저 차단된다.
+- `Automation Candidate`: `unit`, `integration`
+
+### ORG-MGMT-007
+
+- `Scenario ID`: `ORG-MGMT-007`
+- `Layer`: `API_RLS`
+- `Actor`: DB actor `admin_active` (Org A)
+- `Target`: `organizations`, `organization_settings`
+- `Precondition`:
+  - P5 목표 RLS 정책이 적용되어 있다.
+  - Org B row가 존재한다.
+- `Steps`:
+  1. admin actor로 Org B `organizations` row를 직접 조회한다.
+  2. admin actor로 Org B `organizations` row를 직접 수정한다.
+  3. admin actor로 Org B `organization_settings` row를 직접 조회/업서트한다.
+- `Expected Result`:
+  - 타 조직 조회는 `EMPTY_SET`
+  - 타 조직 수정/업서트는 `DENY` 또는 `ERROR(permission denied)`
+  - UI helper를 우회한 직접 API/SQL 호출에서도 테넌트 침범이 허용되지 않는다.
+- `Negative Variant`:
+  - 동일 actor가 Org A row를 조회/수정할 때는 허용되어야 한다.
+- `Automation Candidate`: `sql`
+
+예시 검증 SQL:
+
+```sql
+begin;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', '<ORG_A_ADMIN_USER_ID>', true);
+set local role authenticated;
+
+select id, name
+from public.organizations
+where id = '<ORG_B_ID>';
+
+update public.organizations
+set name = 'forged-update'
+where id = '<ORG_B_ID>';
+
+insert into public.organization_settings (
+  organization_id,
+  minimum_rest_hours,
+  work_constraints
+)
+values (
+  '<ORG_B_ID>',
+  '{"D":24,"E":24,"N":36}'::jsonb,
+  '{"weeklyTargetHours":40,"weeklyMaxHours":52,"weeklyOffDays":2}'::jsonb
+)
+on conflict (organization_id) do update
+set work_constraints = excluded.work_constraints;
+
+rollback;
+```
+
+### ORG-MGMT-008
+
+- `Scenario ID`: `ORG-MGMT-008`
+- `Layer`: `API_RLS`
+- `Actor`: DB actor `user_active` (Org A)
+- `Target`: `organizations`, `organization_settings`
+- `Precondition`:
+  - `user_active`는 조직 관리 화면에 접근할 수 없어야 한다.
+  - target rows는 Org A/B 모두 존재한다.
+- `Steps`:
+  1. user actor로 Org A `organizations` / `organization_settings`를 직접 조회한다.
+  2. 동일 actor로 Org A/B row에 대해 update/upsert를 시도한다.
+- `Expected Result`:
+  - user actor는 route 접근이 차단될 뿐 아니라 direct data access도 허용되면 안 된다.
+  - 조회는 `EMPTY_SET`, 쓰기는 `DENY` 또는 `ERROR(permission denied)`가 되어야 한다.
+- `Negative Variant`:
+  - user가 query param 또는 body에 org id를 넣어도 권한 상승이 일어나지 않는다.
+- `Automation Candidate`: `sql`
+
+### ORG-MGMT-009
+
+- `Scenario ID`: `ORG-MGMT-009`
+- `Layer`: `REGRESSION`
+- `Actor`: `super_active`, `admin_active`
+- `Target`: `OrganizationManagement.vue`, `organization_settings`, legacy staffing tables
+- `Precondition`:
+  - organization management 화면에서 조직 정보/설정 저장을 실행할 수 있다.
+  - legacy `site_requirements` row와 service-native `site_staffing_requirements` row가 모두 준비되어 있다.
+- `Steps`:
+  1. 조직 정보 또는 조직 설정만 수정 저장한다.
+  2. 저장 전후 `site_requirements`, `site_staffing_requirements` 변경 여부를 비교한다.
+- `Expected Result`:
+  - 조직 관리 저장은 `organizations`, `organization_settings` 범위에만 영향을 준다.
+  - `site_requirements`는 건드리지 않는다.
+  - P5-1 범위에서는 staffing table dual-write가 발생하지 않는다.
+- `Negative Variant`:
+  - 설정 저장이 legacy scheduling wizard 데이터에 부수 효과를 만들면 실패다.
+- `Automation Candidate`: `integration`, `sql`
+
+### 19.5 권한 × 동작 매트릭스
+
+| 검증 항목                       | `super_active` | `admin_active`    | `user_active`              | `admin_pending`            | `admin_rejected`            | `unauthenticated` |
+| :------------------------------ | :------------- | :---------------- | :------------------------- | :------------------------- | :-------------------------- | :---------------- |
+| 사이드바 `조직 관리` 메뉴 노출  | Yes            | Yes               | No                         | No                         | No                          | No                |
+| `/admin/organization` 직접 접근 | Allow          | Allow             | Redirect `/schedule/step1` | Redirect `/access/pending` | Redirect `/access/rejected` | Redirect `/login` |
+| 조직 선택 selector 표시         | Yes            | No                | No                         | No                         | No                          | No                |
+| organization list 조회          | 전체           | 자기 조직 1건     | Blocked                    | Blocked                    | Blocked                     | Blocked           |
+| organization info/settings 수정 | 선택 조직      | 자기 조직만       | Blocked                    | Blocked                    | Blocked                     | Blocked           |
+| 다른 조직 target 전달           | Allow          | Client-scope deny | Not reachable              | Not reachable              | Not reachable               | Not reachable     |
+| UI 우회 direct DB access        | RLS allow      | 자기 조직만 allow | RLS deny                   | RLS deny                   | RLS deny                    | ACL/RLS deny      |
+
+### 19.6 리뷰 체크리스트
+
+1. super/admin/user/pending/rejected/unauthenticated의 direct route 결과가 모두 명시되어 있는가
+2. super 전용 조직 selector와 admin 고정 스코프 차이가 문서에 반영되어 있는가
+3. admin의 cross-tenant 시도가 client scope helper에서 먼저 차단되는가
+4. client helper를 우회한 direct API/SQL 시도도 RLS 기준으로 차단되는가
+5. organization type 저장 허용값이 `hospital|fire|police`로 제한된다는 검증이 포함되는가
+6. `organization_settings` partial upsert와 null row 생성 흐름이 포함되는가
+7. 조직 관리 저장이 `site_requirements`를 건드리지 않는다는 회귀 검증이 포함되는가
+8. "403" 요구사항이 현재 앱의 실제 판정값(`redirect`, local error, RLS deny)으로 치환되어 있는가
+
+### 19.7 권장 자동화 매핑
+
+1. unit
+   - `resolveOrganizationManagementOrganizationId()`
+   - `assertPersistedOrganizationType()`
+   - `saveOrganizationForManagement()` / `saveSettingsForManagement()`의 client-scope 차단
+2. router/component
+   - `Sidebar.vue` 메뉴 노출
+   - `/admin/organization` 접근 제어
+   - super selector 표시 여부
+3. playwright
+   - `ORG-MGMT-001`, `ORG-MGMT-002`, `ORG-MGMT-003`
+4. sql 또는 Supabase integration
+   - `ORG-MGMT-007`, `ORG-MGMT-008`, `ORG-MGMT-009`
+
 ## 20) P9-1.4 대시보드 지표 테스트 시나리오 (샘플 데이터 기반)
 
 본 섹션은 Task `10000000-0000-4000-8000-000000000138`의 산출물이다.  
