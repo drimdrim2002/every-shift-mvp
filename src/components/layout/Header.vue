@@ -19,9 +19,21 @@
 
 <script setup lang="ts">
 import { NButton } from 'naive-ui'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { showError, showSuccess } from '@/utils/message'
 
-function handleLogout() {
-  // TODO: 로그아웃 로직은 Auth Store 생성 후 구현
-  console.log('로그아웃')
+const router = useRouter()
+const authStore = useAuthStore()
+
+async function handleLogout() {
+  try {
+    await authStore.logout()
+    showSuccess('로그아웃되었습니다')
+    await router.push('/login')
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '로그아웃 중 오류가 발생했습니다'
+    showError(message)
+  }
 }
 </script>
