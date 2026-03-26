@@ -1,5 +1,10 @@
 # REFINED_PRD
 
+> **Status**: Superseded Exploration Doc
+>
+> This document captured broad service-expansion ideas before the current Phase2A / Phase2B split.
+> The current canonical product-direction document is `PHASE2_PRD_KR.md`. Keep this file only as historical reference for broader signup, dashboard, notification, and multi-domain ideas.
+
 # 1. Project Overview
 
 ## 1.1 Problem Definition

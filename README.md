@@ -11,7 +11,13 @@
 
 병원 등 24시간 운영 조직에서 간호사 등 근무자의 교대 근무 일정을 **자동으로 생성**하여, 기존 엑셀 수작업(4-8시간)을 **수 분으로 단축**합니다.
 
-**MVP 범위**: 4단계 워크플로우 (근무표 생성)만 구현
+**현재 상태**:
+
+- Phase1 근무표 생성 MVP 완료
+- 현재 기준 문서: `docs/prd/PHASE2_PRD_KR.md`
+- 현재 목표: `Phase2A - Go-Live Core` (배포 필수 신뢰성 레이어)
+
+**Phase1 구현 범위**: 4단계 워크플로우 (근무표 생성)
 
 - **Step 1**: 기본 정보 설정 (근무표 생성 월 선택)
 - **Step 2**: 사이트 정보 설정 (요일별 필요 인력 입력)
@@ -368,26 +374,39 @@ pnpm lint
 pnpm format
 ```
 
-## ⚠️ MVP 제약사항
+## ⚠️ 현재 상태와 범위
 
-이 프로젝트는 **MVP(Minimum Viable Product)**로, 다음 기능은 포함되지 않습니다:
+### Phase1 완료 범위
 
-### 미구현 기능
+- ✅ 4단계 근무표 생성 워크플로우
+- ✅ 30명 × 36일 그리드 기반 입력/수정
+- ✅ 로그인 및 관리자 중심 운영 흐름
+- ✅ Excel 내보내기
+- ✅ 개발용 AI Solver 연동 및 결과 확인
 
-- ❌ 회원가입 및 승인 프로세스
-- ❌ 조직/직원/시프트 CRUD (Seed 데이터만 사용)
-- ❌ 대시보드 및 분석 기능
-- ❌ 알림 시스템
-- ❌ 다국어 지원 (한국어만)
-- ❌ 모바일 반응형 (데스크톱 전용)
-- ❌ 실제 AI Solver (Mock 응답만)
+### Phase2A 진행 범위
 
-### 기술적 제약
+- ⏳ 하드 제약 충족 증명
+- ⏳ 생성 불가능 사유 설명
+- ⏳ 미반영 off 요청 사유 설명
+- ⏳ before/after 결과 비교 리포트
+- ⏳ off 요청 한도 정책
+- ⏳ rolling fairness ledger
 
-- 최대 30명까지만 지원 (Virtual scrolling 없음)
+### Phase2B 이후 범위
+
+- 계획된 셀프서브 회원가입/승인
+- 관리자/직원 대시보드
+- 알림 시스템
+- 조직/권한 고도화
+- 타 산업 확장
+
+### 현재 기술적 제약
+
+- 최대 30명 중심 최적화 (Virtual scrolling 없음)
 - 36일 고정 (전월 5일 + 당월 31일)
-- 단일 조직만 지원
-- 관리자 권한만 사용 가능
+- 일부 문서는 Seed 데이터 기반 Phase1 전제를 유지
+- 개발 환경에서는 Mock 또는 개발용 Solver 구성을 우선 사용
 
 ## 🐛 알려진 이슈
 
@@ -397,30 +416,34 @@ pnpm format
 
 ## 🗺️ 로드맵
 
-### Phase 1: MVP (현재)
+### Phase1: Scheduling MVP (완료)
 
 - ✅ 4단계 워크플로우 구현
 - ✅ TanStack Table 그리드
-- ✅ Mock AI Solver
+- ✅ 개발용 Solver 연동
 - ✅ Excel 내보내기
 
-### Phase 2: 실제 AI 통합 (예정)
+### Phase2A: Go-Live Core (현재)
 
-- [ ] OptaPlanner 연동
-- [ ] Google Cloud Run 배포
-- [ ] 실시간 폴링 개선
+- [ ] 하드 제약 충족 증명
+- [ ] 생성 불가능 사유 설명
+- [ ] 미반영 off 요청 사유 설명
+- [ ] before/after 결과 비교 리포트
+- [ ] rolling fairness ledger
 
-### Phase 3: 확장 기능 (예정)
+### Phase2B: Self-Serve & Scale (이후)
 
-- [ ] 직원/조직 관리 CRUD
-- [ ] 대시보드 및 분석
-- [ ] 모바일 지원
-- [ ] 다국어 지원
+- [ ] 회원가입 및 승인 플로우
+- [ ] 관리자/직원 대시보드
+- [ ] 알림 시스템
+- [ ] 조직/권한 고도화
+- [ ] 타 산업 확장
 
 ## 📖 문서
 
-- **PRD**: `docs/prd/01-overview-architecture.md`
-- **API 문서**: `docs/prd/03-features-components-api.md`
+- **현재 기준 문서**: `docs/prd/PHASE2_PRD_KR.md`
+- **Phase1 개요**: `docs/prd/01-overview-architecture.md`
+- **Phase1 기능/API 문서**: `docs/prd/03-features-components-api.md`
 - **Naive UI 가이드**: `docs/naive/00-quick-reference.md`
 - **Vben Admin 참고**: `docs/vben/en/guide/introduction/vben.md`
 

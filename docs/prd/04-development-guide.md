@@ -1,5 +1,10 @@
 # EveryShift MVP PRD - 개발 가이드
 
+> **문서 상태**: Phase1 Legacy Reference
+>
+> 이 문서는 초기 8주 MVP 개발 계획 기준으로 작성된 역사적 문서입니다.
+> 현재 우선순위 및 배포 판단은 `PHASE2_PRD_KR.md`를 기준으로 합니다.
+
 ## 문서 정보
 
 - **버전**: MVP 1.0
@@ -183,7 +188,7 @@ const router = createRouter({
 // 인증 가드
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore();
-  
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login');
   } else {
@@ -208,30 +213,30 @@ export const useAuthStore = defineStore('auth', {
     user: null as User | null,
     session: null as Session | null,
   }),
-  
+
   getters: {
     isAuthenticated: (state) => !!state.session,
   },
-  
+
   actions: {
     async login(email: string, password: string) {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
       if (error) throw error;
-      
+
       this.user = data.user;
       this.session = data.session;
     },
-    
+
     async logout() {
       await supabase.auth.signOut();
       this.user = null;
       this.session = null;
     },
-    
+
     async checkSession() {
       const { data } = await supabase.auth.getSession();
       this.session = data.session;
@@ -246,30 +251,18 @@ export const useAuthStore = defineStore('auth', {
 ```vue
 <!-- views/auth/Login.vue -->
 <template>
-  <div class="flex items-center justify-center min-h-screen bg-gray-100">
+  <div class="flex min-h-screen items-center justify-center bg-gray-100">
     <n-card title="EveryShift 로그인" style="width: 400px">
-      <n-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        @submit.prevent="handleLogin"
-      >
+      <n-form ref="formRef" :model="form" :rules="rules" @submit.prevent="handleLogin">
         <n-form-item label="이메일" path="email">
           <n-input v-model:value="form.email" type="email" />
         </n-form-item>
-        
+
         <n-form-item label="비밀번호" path="password">
           <n-input v-model:value="form.password" type="password" show-password-on="click" />
         </n-form-item>
-        
-        <n-button
-          type="primary"
-          block
-          :loading="loading"
-          @click="handleLogin"
-        >
-          로그인
-        </n-button>
+
+        <n-button type="primary" block :loading="loading" @click="handleLogin"> 로그인 </n-button>
       </n-form>
     </n-card>
   </div>
@@ -293,21 +286,23 @@ export const useOrganizationStore = defineStore('organization', {
     employees: [] as Employee[],
     shifts: [] as Shift[],
   }),
-  
+
   actions: {
     async loadOrganization(id: string) {
       const { data, error } = await supabase
         .from('organizations')
-        .select(`
+        .select(
+          `
           *,
           employees(*),
           shifts(*)
-        `)
+        `
+        )
         .eq('id', id)
         .single();
-      
+
       if (error) throw error;
-      
+
       this.current = data;
       this.employees = data.employees;
       this.shifts = data.shifts;
@@ -337,16 +332,13 @@ export const useOrganizationStore = defineStore('organization', {
 <template>
   <div class="p-8">
     <StepIndicator :current-step="1" :steps="steps" />
-    
+
     <n-card title="기본 정보 설정" class="mt-6">
       <!-- 계획 월 선택 -->
       <n-form-item label="계획 월">
-        <n-select
-          v-model:value="selectedMonth"
-          :options="monthOptions"
-        />
+        <n-select v-model:value="selectedMonth" :options="monthOptions" />
       </n-form-item>
-      
+
       <!-- 조직 정보 표시 -->
       <n-descriptions bordered :column="2" class="mt-4">
         <n-descriptions-item label="조직">
@@ -355,27 +347,20 @@ export const useOrganizationStore = defineStore('organization', {
         <n-descriptions-item label="유형">
           {{ organization?.type }}
         </n-descriptions-item>
-        <n-descriptions-item label="등록 직원">
-          {{ employees.length }}명
-        </n-descriptions-item>
+        <n-descriptions-item label="등록 직원"> {{ employees.length }}명 </n-descriptions-item>
       </n-descriptions>
-      
+
       <!-- 시프트 목록 -->
       <div class="mt-4">
-        <h3 class="font-semibold mb-2">등록된 시프트</h3>
-        <div v-for="shift in shifts" :key="shift.id" class="flex items-center gap-2 mb-1">
-          <div
-            class="w-4 h-4 rounded"
-            :style="{ backgroundColor: shift.colorCode }"
-          ></div>
+        <h3 class="mb-2 font-semibold">등록된 시프트</h3>
+        <div v-for="shift in shifts" :key="shift.id" class="mb-1 flex items-center gap-2">
+          <div class="h-4 w-4 rounded" :style="{ backgroundColor: shift.colorCode }"></div>
           <span>{{ shift.name }}</span>
-          <span class="text-gray-500 text-sm">
-            ({{ shift.startTime }} - {{ shift.endTime }})
-          </span>
+          <span class="text-sm text-gray-500"> ({{ shift.startTime }} - {{ shift.endTime }}) </span>
         </div>
       </div>
     </n-card>
-    
+
     <div class="mt-6 flex justify-end gap-4">
       <n-button @click="router.back()">취소</n-button>
       <n-button type="primary" @click="handleNext">다음 단계 →</n-button>
@@ -408,7 +393,7 @@ function handleNext() {
     organizationId: organization.value!.id,
     // ...
   });
-  
+
   router.push('/schedule/step2');
 }
 </script>
@@ -732,7 +717,6 @@ onUnmounted(() => {
 **라이선스**: MIT
 
 ---
-
 
 ---
 
