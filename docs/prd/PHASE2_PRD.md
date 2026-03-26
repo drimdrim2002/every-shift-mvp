@@ -8,6 +8,8 @@
 - Audience: Product planning, design, implementation, and pilot operations
 - Premise: The Phase1 shift-generation MVP has been completed, and Phase2 extends the deployment and operations layer of the existing product rather than introducing a new product.
 
+> Implementation companion: [PHASE2_ENGINEERING_SPEC.md](./PHASE2_ENGINEERING_SPEC.md)
+
 ---
 
 ## 1. Purpose of This Document
@@ -49,7 +51,7 @@ Phase1 can generate schedules, but the following elements are still missing for 
 - Proof that generated results satisfy hard constraints
 - Explanations for why generation is impossible
 - Explanations for why off requests were not reflected
-- Comparison of improvements versus an existing manual schedule
+- Comparison across candidate versions and a clear basis for selecting the final version
 - Fairness management from a cumulative perspective rather than a month-only view
 - Administrator-centered initial onboarding for actual deployment
 
@@ -93,8 +95,8 @@ These should be satisfied whenever possible, but only within the range that does
 
 These are constraints configured by the organization according to operating policy.
 
-- Monthly off-request limits by rank
-- Annual off-request limits by rank
+- Monthly off-request limits by organization-defined rank code
+- Annual off-request limits by organization-defined rank code
 - Whether specific shift types are allowed
 - Additional rules for specific wards or job functions
 
@@ -104,7 +106,7 @@ Users should not simply receive a result. They must also be able to get answers 
 
 - Is this result legally safe?
 - Why were some off requests not reflected?
-- Why is this result fairer than the existing schedule?
+- Why is this version more suitable than the other candidate versions?
 - If fairness is not perfect this month, how is it corrected from a cumulative perspective?
 
 ### 3.3 Deployment Principle
@@ -143,6 +145,17 @@ Principles:
 
 ### 4.3 Phase2A-1 - Trust Layer
 
+#### Trust Layer Implementation Lock-Ins
+
+- A single target month can have multiple candidate versions.
+- A materially changed set of off requests, locked assignments, policy inputs, or planning inputs is treated as a new version.
+- Within the same version, regeneration, manual edits, and rechecks are handled as revision increments.
+- An evaluation is stored as an immutable snapshot at the `version + revision` level.
+- The backend evaluator is the source of truth for hard-constraint proof, unreflected off-request explanations, and review-state calculation based on persisted assignments.
+- `review_blocked` means a result exists, but hard-constraint violations were found.
+- `infeasible` means no feasible schedule can be produced under the current input set.
+- `solve_failed` means a system, network, or integration failure.
+
 #### A. Proof of Hard-Constraint Compliance
 
 After generation is complete, the system must show the following outcomes.
@@ -157,7 +170,8 @@ Output principles:
 
 - If there are zero hard-constraint violations, display the status as `Satisfied`
 - If violations exist, block final confirmation of the result and provide a list of causes
-- Final confirmation must be based on the latest proof snapshot for the latest generated result
+- The proof snapshot must be stored for the selected version's current revision
+- Final confirmation must be allowed only against the latest passed evaluation produced for the selected version's current revision
 
 #### B. Explanation of Why Generation Is Impossible
 
@@ -176,6 +190,11 @@ Required output items:
 - Required headcount and feasible headcount
 - Main conflict causes
 
+Classification principle:
+
+- Use `infeasible` only when no feasible schedule can be produced for the current input set.
+- If a result exists but hard-constraint violations such as NOD, weekly-hours, minimum-rest, or staffing-shortfall violations are found, classify it as `review_blocked`, not `infeasible`.
+
 #### C. Explanation for Unreflected Off Requests
 
 Because off requests are a soft constraint, the system must provide a reason whenever a request is not reflected.
@@ -189,37 +208,40 @@ Required output items:
 - Reason it was not reflected
 - Summary of why no feasible alternative existed
 
-#### D. Before/After Comparison Report
+#### D. Candidate Version Comparison Report
 
-Under the same input conditions, compare the existing manual plan with the EveryShift result.
+Compare multiple candidate versions generated for the same target month and choose one as the finalization target.
 
 Comparison conditions:
 
-- Same month
-- Same staff population
-- Same required staffing
-- Same off requests
-- Same legal constraints
+- Same organization and ward
+- Same target month
+- The changed inputs for each version, such as off requests, locked assignments, policy inputs, and manual edits, must be recorded explicitly
+- The purpose of comparison is to choose one version for finalization
 
 Comparison metrics:
 
 - Number of hard-constraint violations
-- Time spent creating and editing
 - Off-request reflection rate
 - Night-shift variance
 - Weekend-shift variance
+- Rolling-fairness impact
 - Number of manual edits
+- Summary of input and result differences between versions
 
-Note:
+Notes:
 
-- In pilots, the product must support at least one of the following: manual-plan upload or direct entry of key baseline metrics.
+- Phase2A core compare does not assume manual-baseline entry as the default product behavior.
+- Comparison against a manual schedule can remain outside the core product flow as a pilot report or later extension.
 
 #### E. Finalization Gate
 
 - If at least one hard-constraint violation exists, final confirmation is blocked
 - If the result is infeasible, final confirmation is blocked
 - Unreflected off requests do not block final confirmation, but their reasons must always be inspectable
-- If an operator manually edits the result, the proof and explanation outputs must be refreshed
+- If an operator manually edits the selected version, its status must move to `review_pending`, and the proof and explanation outputs must be regenerated
+- Finalization is allowed only when the selected version's latest passed evaluation matches that version's current revision
+- Other unfinalized versions may remain available as comparison targets
 
 ### 4.4 Phase2A-2 - Go-Live Ops Layer
 
@@ -243,8 +265,13 @@ Notes:
 - Off-request input by employee
 - Monthly off-request limit management
 - Annual cumulative off-request limit management
-- Off-request limit policy settings by rank
+- Off-request limit policy settings by organization-defined rank code
 - Display of reflected versus unreflected requests
+
+Notes:
+
+- Rank is modeled as an organization-specific code and may be absent in some organizations.
+- Organizations without rank should still operate using an organization-level default policy.
 
 #### C. Rolling Fairness Ledger
 
@@ -254,6 +281,11 @@ Fairness should be managed on a cumulative basis rather than as a single-month m
 - Cumulative N/E/weekend shifts over the last 6 months
 - Cumulative N/E/weekend shifts over the last 12 months
 - Apply cumulative imbalance to the cost function when generating the next month
+
+Notes:
+
+- The rolling fairness ledger is written only from the finalized version.
+- Drafts, in-review versions, and comparison-only candidate versions must not pollute the ledger.
 
 #### D. Pilot Entry Guide
 
@@ -272,7 +304,7 @@ Notes:
 Trust Layer criteria:
 
 - Zero hard-constraint violations
-- Improved night and weekend variance compared with manual scheduling under the same inputs
+- Operators can compare candidate versions and understand why the selected version is the better choice
 - Explanations for unreflected off requests that operators find understandable and acceptable
 - Proof and explanation outputs can be reviewed before final confirmation
 
@@ -289,7 +321,7 @@ Trust Layer deliverables:
 - A hard-constraint compliance proof screen
 - An infeasibility explanation screen
 - An unreflected off-request explanation screen
-- A before/after comparison report
+- A candidate-version comparison report
 - A finalization gate
 
 Go-Live Ops Layer deliverables:
@@ -298,6 +330,48 @@ Go-Live Ops Layer deliverables:
 - Admin bootstrap and a pilot-entry guide
 - Off-request policy management UI
 - A cumulative fairness data structure based on rolling fairness
+
+### 4.7 Engineering-ready Implementation Rules
+
+#### A. Core Entities
+
+- One target month is managed as one schedule container.
+- Multiple candidate versions may exist under a single schedule container.
+- Each version may have multiple revisions.
+- An evaluation is an immutable review artifact stored at the `version + revision` level.
+
+#### B. Status Lifecycle
+
+```text
+draft
+-> solving
+-> review_ready | review_blocked | infeasible | solve_failed
+
+review_ready
+-> finalized
+
+review_ready
+-> review_pending
+-> review_ready | review_blocked
+```
+
+- `review_ready`: the latest evaluation for the current revision is passed
+- `review_blocked`: a result exists, but hard constraints are violated
+- `review_pending`: manual edits were made and re-evaluation is required
+- `infeasible`: no feasible schedule can be produced for the current input set
+- `solve_failed`: a system failure occurred
+
+#### C. Finalization Rule
+
+- Finalization happens at the selected-version level, not at the month-as-a-whole level.
+- Finalization is allowed only when `selected version + current revision + latest passed evaluation` all match.
+- Only the finalized version is treated as the operationally confirmed result, and only that version writes to the rolling fairness ledger.
+
+#### D. Compare Rule
+
+- The default compare unit is the candidate version, not a manual baseline.
+- The compare view must show both input differences and result differences between versions.
+- After comparison, the operator must choose one version to finalize.
 
 ---
 
@@ -359,14 +433,14 @@ Phase2B is important for product expansion, but it is not considered a blocker f
 
 ---
 
-## 6. Before/After Comparison Report Template
+## 6. Candidate Version Comparison Report Template
 
 The following report should be provided by default in real ward pilots.
 
 ### 6.1 Purpose of the Report
 
-- Explain why the EveryShift result is better than the existing manual plan
-- Compare fairness, time, and request reflection rates under the same conditions
+- Provide a clear basis for choosing which version to finalize among multiple candidate versions created for the same month
+- Compare fairness, request reflection, and hard-constraint status at the version level
 
 ### 6.2 Report Template
 
@@ -375,34 +449,41 @@ The following report should be provided by default in real ward pilots.
 - Target organization:
 - Target ward:
 - Target month:
-- Comparison baseline:
-  - Existing plan: Manual schedule or output from the current solution
-  - Improved plan: EveryShift-generated result
+- Comparison purpose:
+  - Compare candidate versions for the same month
+  - Select one version for finalization
+
+#### Candidate Summary
+
+| Version | Creation Method | Summary of Input Changes      | Review State   | Finalizable |
+| ------- | --------------- | ----------------------------- | -------------- | ----------- |
+| V1      | Initial solve   | Base off-request set          | review_ready   | Yes         |
+| V2      | Re-solve        | Some off requests adjusted    | review_ready   | Yes         |
+| V3      | Re-solve        | Staffing requirement adjusted | review_blocked | No          |
 
 #### Comparison Summary
 
-| Metric                      | Existing Plan | EveryShift | Difference           |
-| --------------------------- | ------------- | ---------- | -------------------- |
-| Hard-constraint violations  | 0             | 0          | Same                 |
-| Creation/editing time       | 6 hours       | 30 minutes | -5h 30m              |
-| Off-request reflection rate | 72%           | 81%        | +9 percentage points |
-| Night-shift min/max         | 0 / 7         | 4 / 5      | Reduced variance     |
-| Weekend-shift min/max       | 1 / 6         | 3 / 4      | Reduced variance     |
-| Manual edits                | 14            | 3          | -11                  |
+| Metric                      | V1    | V2    | V3    | Selected |
+| --------------------------- | ----- | ----- | ----- | -------- |
+| Hard-constraint violations  | 0     | 0     | 2     | V2       |
+| Off-request reflection rate | 72%   | 81%   | 79%   | V2       |
+| Night-shift min/max         | 0 / 7 | 4 / 5 | 3 / 6 | V2       |
+| Weekend-shift min/max       | 1 / 6 | 3 / 4 | 2 / 5 | V2       |
+| Manual edits                | 0     | 1     | 0     | V2       |
 
-#### Fairness Details
+#### Input Difference Details
 
-| Item                          | Existing Plan | EveryShift | Interpretation                          |
-| ----------------------------- | ------------- | ---------- | --------------------------------------- |
-| Night distribution            | 0~7           | 4~5        | Reduced concentration on specific staff |
-| Weekend distribution          | 1~6           | 3~4        | Lower weekend variance                  |
-| 3-month cumulative N variance | High          | Reduced    | Rolling fairness improved               |
+| Version | Changed Off Requests | Changed Policy | Changed Locked Assignments | Note                  |
+| ------- | -------------------- | -------------- | -------------------------- | --------------------- |
+| V1      | None                 | None           | None                       | Initial option        |
+| V2      | 2 adjusted           | None           | None                       | Request normalization |
+| V3      | None                 | 1 changed      | None                       | Staffing experiment   |
 
 #### Interpretation Summary
 
-- While satisfying all hard constraints, EveryShift reduced night and weekend variance compared with the existing manual plan.
-- Under the same conditions, the off-request reflection rate improved and the number of manual edits decreased significantly.
-- Operators can either finalize the result immediately or finalize it after only a small number of adjustments.
+- The operator compares both input differences and result differences before choosing one version to finalize.
+- A `review_blocked` version may remain visible for comparison, but it cannot be finalized.
+- The selected version can be finalized only against its latest passed evaluation.
 
 ---
 
@@ -461,7 +542,7 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 - Hard-constraint compliance proof
 - Explanation of why generation is impossible
 - Explanation for unreflected off requests
-- Before/after comparison report
+- Candidate-version comparison report
 - Finalization gate
 
 ### Priority 2
@@ -484,8 +565,8 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 ## 10. Open Issues
 
 - What formula should be used to calculate the rolling fairness score?
-- What input method should be standardized for the existing-plan baseline used in before/after comparison?
-- How should monthly and annual off-request limits be differentiated by rank?
+- Which input differences should be fixed as the default diff set in version compare?
+- How should monthly and annual off-request limits be operated using organization-defined rank codes?
 - For infeasible months, how many alternative schedules should be provided?
 - In a real ward pilot, which purchase or adoption metric should be fixed as the primary one?
 
