@@ -126,30 +126,24 @@ Phase2A is the minimum scope required for real ward deployment.
 - Secure result trustworthiness and explainability
 - Complete administrator-centered initial onboarding
 
-### 4.2 Required Feature Scope
+### 4.2 Internal Layer Split for Phase2A
 
-#### A. Administrator-Centered Initial Onboarding
+Phase2A should be designed not as one large bundle, but as two distinct layers.
 
-- Admin account creation and login
-- Input of core organization information
-- Input of ward or site information
-- Employee registration and Excel upload
-- Shift and constraint configuration
+- `Phase2A-1: Trust Layer`
+  The layer that allows head nurses to trust, explain, and finalize generated results
+- `Phase2A-2: Go-Live Ops Layer`
+  The minimum operational-preparation layer required to start a real pilot
 
-Notes:
+Principles:
 
-- The first deployment can operate without `general employee self-signup`.
-- If needed, an assisted pilot model is allowed in which an operator sets up the initial data directly.
+- The Trust Layer should be defined separately from the Go-Live Ops Layer.
+- First-pilot success depends more directly on Trust Layer completeness than on Go-Live Ops Layer completeness.
+- The Go-Live Ops Layer should ideally follow right after the Trust Layer, but the two should not be mixed into one oversized scope.
 
-#### B. Off-Request Policy Management
+### 4.3 Phase2A-1 - Trust Layer
 
-- Off-request input by employee
-- Monthly off-request limit management
-- Annual cumulative off-request limit management
-- Off-request limit policy settings by rank
-- Display of reflected versus unreflected requests
-
-#### C. Proof of Hard-Constraint Compliance
+#### A. Proof of Hard-Constraint Compliance
 
 After generation is complete, the system must show the following outcomes.
 
@@ -163,8 +157,9 @@ Output principles:
 
 - If there are zero hard-constraint violations, display the status as `Satisfied`
 - If violations exist, block final confirmation of the result and provide a list of causes
+- Final confirmation must be based on the latest proof snapshot for the latest generated result
 
-#### D. Explanation of Why Generation Is Impossible
+#### B. Explanation of Why Generation Is Impossible
 
 If no feasible solution exists, the system must explain the reason rather than simply failing.
 
@@ -181,7 +176,7 @@ Required output items:
 - Required headcount and feasible headcount
 - Main conflict causes
 
-#### E. Explanation for Unreflected Off Requests
+#### C. Explanation for Unreflected Off Requests
 
 Because off requests are a soft constraint, the system must provide a reason whenever a request is not reflected.
 
@@ -194,7 +189,7 @@ Required output items:
 - Reason it was not reflected
 - Summary of why no feasible alternative existed
 
-#### F. Before/After Comparison Report
+#### D. Before/After Comparison Report
 
 Under the same input conditions, compare the existing manual plan with the EveryShift result.
 
@@ -215,7 +210,43 @@ Comparison metrics:
 - Weekend-shift variance
 - Number of manual edits
 
-#### G. Rolling Fairness Ledger
+Note:
+
+- In pilots, the product must support at least one of the following: manual-plan upload or direct entry of key baseline metrics.
+
+#### E. Finalization Gate
+
+- If at least one hard-constraint violation exists, final confirmation is blocked
+- If the result is infeasible, final confirmation is blocked
+- Unreflected off requests do not block final confirmation, but their reasons must always be inspectable
+- If an operator manually edits the result, the proof and explanation outputs must be refreshed
+
+### 4.4 Phase2A-2 - Go-Live Ops Layer
+
+#### A. Admin Bootstrap and Initial Operational Setup
+
+- The operator or internal team must be able to provision the first admin account
+- Admin login
+- Input or confirmation of core organization information
+- Input of ward or site information
+- Employee registration and Excel upload
+- Shift and constraint configuration
+
+Notes:
+
+- The first deployment can operate without `general employee self-signup`
+- If needed, an assisted pilot model is allowed in which an operator sets up the initial data directly
+- This bootstrap scope is intentionally distinct from the self-serve signup and approval flow in Phase2B
+
+#### B. Off-Request Policy Management
+
+- Off-request input by employee
+- Monthly off-request limit management
+- Annual cumulative off-request limit management
+- Off-request limit policy settings by rank
+- Display of reflected versus unreflected requests
+
+#### C. Rolling Fairness Ledger
 
 Fairness should be managed on a cumulative basis rather than as a single-month metric.
 
@@ -224,21 +255,48 @@ Fairness should be managed on a cumulative basis rather than as a single-month m
 - Cumulative N/E/weekend shifts over the last 12 months
 - Apply cumulative imbalance to the cost function when generating the next month
 
-### 4.3 Phase2A Success Criteria
+#### D. Pilot Entry Guide
+
+- After first login, guide the operator through what to do and in what order
+- Confirm organization information
+- Guide employee registration
+- Guide the first scheduling request
+
+Notes:
+
+- In Phase2A, a guided checklist is sufficient
+- A polished self-serve onboarding wizard belongs to Phase2B
+
+### 4.5 Phase2A Success Criteria
+
+Trust Layer criteria:
 
 - Zero hard-constraint violations
-- A reduction in head-nurse schedule creation and editing time from 6 hours to around 30 minutes
 - Improved night and weekend variance compared with manual scheduling under the same inputs
 - Explanations for unreflected off requests that operators find understandable and acceptable
+- Proof and explanation outputs can be reviewed before final confirmation
+
+Go-Live Ops Layer criteria:
+
+- One or two admins can complete initial setup and reach the monthly scheduling flow
+- A reduction in head-nurse schedule creation and editing time from 6 hours to around 30 minutes
 - The ability to generate and finalize monthly schedules in a real ward pilot
 
-### 4.4 Phase2A Deliverables
+### 4.6 Phase2A Deliverables
 
-- A deployable version that can support ward operations
+Trust Layer deliverables:
+
 - A hard-constraint compliance proof screen
 - An infeasibility explanation screen
 - An unreflected off-request explanation screen
 - A before/after comparison report
+- A finalization gate
+
+Go-Live Ops Layer deliverables:
+
+- A deployable version that can support ward operations
+- Admin bootstrap and a pilot-entry guide
+- Off-request policy management UI
 - A cumulative fairness data structure based on rolling fairness
 
 ---
@@ -257,12 +315,12 @@ Phase2B is the service expansion stage.
 
 #### A. Sign-Up and Approval Flow
 
-- Admin signup
-- Employee signup
+- Admin self-signup
+- Employee self-signup
 - Organization selection and approval flow
 - Approval workflow by `super` / `admin` / `user` roles
 
-#### B. New Organization Onboarding
+#### B. New Organization Self-Serve Onboarding
 
 - Onboarding wizard on the admin's first login
 - Organization information confirmation
@@ -399,20 +457,25 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 
 ### Priority 1
 
+- Entire Trust Layer
 - Hard-constraint compliance proof
 - Explanation of why generation is impossible
 - Explanation for unreflected off requests
 - Before/after comparison report
-- Off-request limit policy
-- Rolling fairness ledger
+- Finalization gate
 
 ### Priority 2
 
-- Admin operations dashboard
-- Notifications
+- Entire Go-Live Ops Layer
+- Admin bootstrap and pilot-entry guide
+- Off-request limit policy
+- Rolling fairness ledger
 
 ### Later
 
+- Self-serve signup and approval flow
+- Admin operations dashboard
+- Notifications
 - More advanced organization and permission management
 - Expansion into other industries
 
@@ -421,6 +484,7 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 ## 10. Open Issues
 
 - What formula should be used to calculate the rolling fairness score?
+- What input method should be standardized for the existing-plan baseline used in before/after comparison?
 - How should monthly and annual off-request limits be differentiated by rank?
 - For infeasible months, how many alternative schedules should be provided?
 - In a real ward pilot, which purchase or adoption metric should be fixed as the primary one?
