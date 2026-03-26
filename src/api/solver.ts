@@ -16,12 +16,8 @@ function normalizeApiBaseUrl(url: string): string {
 }
 
 export function resolveApiBaseUrl(env: SolverRuntimeEnv = import.meta.env): string {
-  // In development, always use Vite proxy (/api) to avoid browser-side CORS issues.
-  if (env.DEV) {
-    return '';
-  }
-
-  return normalizeApiBaseUrl((env.VITE_API_BASE_URL || '').trim());
+  const configuredBaseUrl = (env.VITE_API_BASE_URL || '').trim();
+  return configuredBaseUrl ? normalizeApiBaseUrl(configuredBaseUrl) : '';
 }
 
 export function buildSolverApiUrl(path: string, env: SolverRuntimeEnv = import.meta.env): string {
@@ -30,9 +26,12 @@ export function buildSolverApiUrl(path: string, env: SolverRuntimeEnv = import.m
 }
 
 // 실제 API 호출: POST /api/solve
-export async function createSolverExecution(request: SolverRequest): Promise<string> {
-  const url = buildSolverApiUrl('/api/solve');
-  console.log('[createSolverExecution] API_BASE_URL:', resolveApiBaseUrl());
+export async function createSolverExecution(
+  request: SolverRequest,
+  env: SolverRuntimeEnv = import.meta.env,
+): Promise<string> {
+  const url = buildSolverApiUrl('/api/solve', env);
+  console.log('[createSolverExecution] API_BASE_URL:', resolveApiBaseUrl(env));
   console.log('[createSolverExecution] Full URL:', url);
   
   console.log('[createSolverExecution] Request Body:', JSON.stringify(request, null, 2));
@@ -62,8 +61,11 @@ export async function createSolverExecution(request: SolverRequest): Promise<str
 }
 
 // 실제 API 호출: GET /api/status/{id}
-export async function getSolverStatus(executionId: string): Promise<SolverStatusResponse> {
-  const response = await fetch(buildSolverApiUrl(`/api/status/${executionId}`));
+export async function getSolverStatus(
+  executionId: string,
+  env: SolverRuntimeEnv = import.meta.env,
+): Promise<SolverStatusResponse> {
+  const response = await fetch(buildSolverApiUrl(`/api/status/${executionId}`, env));
   
   if (!response.ok) {
     throw new Error('상태 조회 실패');

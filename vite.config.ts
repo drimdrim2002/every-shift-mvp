@@ -6,6 +6,8 @@ import { defineConfig, loadEnv } from 'vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+  const solverApiTarget =
+    env.VITE_API_BASE_URL || 'https://every-shift-api-service-554455861916.asia-northeast3.run.app'
 
   // 필수 환경 변수 체크
   const required = ['VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY']
@@ -26,7 +28,7 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         '/api': {
-          target: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
+          target: solverApiTarget,
           changeOrigin: true,
           secure: true,
           rewrite: (path) => path, // /api/solve -> /api/solve (그대로 유지)

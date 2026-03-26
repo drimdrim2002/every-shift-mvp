@@ -113,6 +113,11 @@ function createSolverResult(): SolverResult {
 }
 
 describe('solver api', () => {
+  const directApiEnv = {
+    DEV: true,
+    VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
+  };
+
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -132,12 +137,12 @@ describe('solver api', () => {
           }),
         );
 
-      const executionId = await createSolverExecution(createSolverRequest());
+      const executionId = await createSolverExecution(createSolverRequest(), directApiEnv);
 
       expect(executionId).toBe('exec-123');
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const [url, init] = fetchMock.mock.calls[0]!;
-      expect(url).toBe('/api/solve');
+      expect(url).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
       expect(init).toMatchObject({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +157,7 @@ describe('solver api', () => {
         }),
       );
 
-      await expect(createSolverExecution(createSolverRequest())).rejects.toThrow('validation failed');
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow('validation failed');
     });
 
     it('throws a fallback error message when non-json text is returned', async () => {
@@ -160,7 +165,7 @@ describe('solver api', () => {
         new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' }),
       );
 
-      await expect(createSolverExecution(createSolverRequest())).rejects.toThrow(
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow(
         'Solver 요청 실패: 502 Bad Gateway',
       );
     });

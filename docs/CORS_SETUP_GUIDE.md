@@ -2,10 +2,10 @@
 
 ## 문제 상황
 
-프론트엔드(`http://localhost:5173`, `http://localhost:5174`)에서 백엔드 API(`https://every-shift-api-service-554455861916.a.run.app`)를 호출할 때 다음과 같은 CORS 오류가 발생합니다:
+프론트엔드(`http://localhost:5173`, `http://localhost:5174`)에서 백엔드 API(`https://every-shift-api-service-554455861916.asia-northeast3.run.app`)를 호출할 때 다음과 같은 CORS 오류가 발생합니다:
 
 ```
-Access to fetch at 'https://every-shift-api-service-554455861916.a.run.app/api/solve'
+Access to fetch at 'https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve'
 from origin 'http://localhost:5174' has been blocked by CORS policy:
 Response to preflight request doesn't pass access control check:
 No 'Access-Control-Allow-Origin' header is present on the requested resource.
@@ -292,7 +292,7 @@ gcloud run deploy every-shift-api-service \
      -H "Access-Control-Request-Method: POST" \
      -H "Access-Control-Request-Headers: content-type" \
      -v \
-     https://every-shift-api-service-554455861916.a.run.app/api/solve
+     https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve
    ```
 
 4. **응답 헤더 확인**

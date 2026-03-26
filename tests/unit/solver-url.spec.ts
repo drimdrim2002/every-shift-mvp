@@ -2,10 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { buildSolverApiUrl, resolveApiBaseUrl } from '@/api/solver';
 
 describe('solver url resolution', () => {
-  it('uses vite proxy path in development mode', () => {
+  it('uses configured absolute base url in development mode when provided', () => {
     const env = {
       DEV: true,
       VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
+    };
+
+    expect(resolveApiBaseUrl(env)).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app');
+    expect(buildSolverApiUrl('/api/solve', env)).toBe(
+      'https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve',
+    );
+  });
+
+  it('falls back to vite proxy path in development mode when base url is empty', () => {
+    const env = {
+      DEV: true,
+      VITE_API_BASE_URL: '',
     };
 
     expect(resolveApiBaseUrl(env)).toBe('');

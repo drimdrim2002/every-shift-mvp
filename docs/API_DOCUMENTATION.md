@@ -5,11 +5,13 @@
 ## 1. API 기본 정보
 
 ### Base URL
+
 ```
-https://every-shift-api-service-554455861916.a.run.app
+https://every-shift-api-service-554455861916.asia-northeast3.run.app
 ```
 
 ### 인증
+
 현재 별도의 인증(Authorization Header)은 구현되지 않았습니다.
 
 ---
@@ -41,16 +43,19 @@ https://every-shift-api-service-554455861916.a.run.app
 ### [POST] 스케줄링 작업 실행
 
 **Endpoint**
+
 ```
 POST /api/solve
 ```
 
 **Request Headers**
+
 ```
 Content-Type: application/json
 ```
 
 **Request Body**
+
 ```json
 {
   "organization": {
@@ -120,23 +125,24 @@ Content-Type: application/json
 
 **필드 설명**
 
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| `organization` | Object | 병원/기관 정보 |
-| `organization.shifts` | Array | 근무조(Shift) 정의 (`D/E/N`만 전송, `O` 제외) |
-| `employees` | Array | 직원 목록 |
-| `employees[].available_shifts` | Array[String] | 근무 가능한 시프트 코드 목록 |
-| `employees[].skill_set` | Array[String] | 보유 기술 (`"ALL"`은 전체 가능) |
-| `history` | Array | 과거 근무 기록 (`firstDraftDate` 이전, `O` 제외) |
-| `history[].shift_id` | String(UUID) | 확정된 과거 시프트 ID (`D/E/N`) |
-| `history[].is_locked` | Boolean | `true`면 확정된 기록 (변경 불가) |
-| `undesirable` | Array | 근무 기피/희망 일자 (`firstDraftDate` 이상) |
-| `undesirable[].employee_id` | String(UUID) | 직원 ID |
-| `undesirable[].date` | String(`YYYY-MM-DD`) | 근무 기피/희망 날짜 |
-| `undesirable[].is_locked` | Boolean | 항상 `false` (soft constraint) |
-| `requirements` | Array | 일자별 필요 인원 수 |
+| 필드                           | 타입                 | 설명                                             |
+| ------------------------------ | -------------------- | ------------------------------------------------ |
+| `organization`                 | Object               | 병원/기관 정보                                   |
+| `organization.shifts`          | Array                | 근무조(Shift) 정의 (`D/E/N`만 전송, `O` 제외)    |
+| `employees`                    | Array                | 직원 목록                                        |
+| `employees[].available_shifts` | Array[String]        | 근무 가능한 시프트 코드 목록                     |
+| `employees[].skill_set`        | Array[String]        | 보유 기술 (`"ALL"`은 전체 가능)                  |
+| `history`                      | Array                | 과거 근무 기록 (`firstDraftDate` 이전, `O` 제외) |
+| `history[].shift_id`           | String(UUID)         | 확정된 과거 시프트 ID (`D/E/N`)                  |
+| `history[].is_locked`          | Boolean              | `true`면 확정된 기록 (변경 불가)                 |
+| `undesirable`                  | Array                | 근무 기피/희망 일자 (`firstDraftDate` 이상)      |
+| `undesirable[].employee_id`    | String(UUID)         | 직원 ID                                          |
+| `undesirable[].date`           | String(`YYYY-MM-DD`) | 근무 기피/희망 날짜                              |
+| `undesirable[].is_locked`      | Boolean              | 항상 `false` (soft constraint)                   |
+| `requirements`                 | Array                | 일자별 필요 인원 수                              |
 
 **Response** (성공 - 200 OK)
+
 ```json
 {
   "execution_id": "b6a0dc12-...",
@@ -146,6 +152,7 @@ Content-Type: application/json
 ```
 
 **Response** (검증 실패 - 400 Bad Request)
+
 ```json
 {
   "error": "validation error message"
@@ -157,6 +164,7 @@ Content-Type: application/json
 ### [GET] 작업 상태 조회
 
 **Endpoint**
+
 ```
 GET /api/status/{id}
 ```
@@ -167,6 +175,7 @@ GET /api/status/{id}
 | `id` | String | `execution_id` 값 |
 
 **Response** (성공 - 200 OK)
+
 ```json
 {
   "execution_id": "b6a0dc12-...",
@@ -187,14 +196,15 @@ GET /api/status/{id}
 
 **상태(status) 값**
 
-| 값 | 설명 |
-|----|------|
-| `PENDING` | 대기 중 (아직 시작되지 않음) |
-| `RUNNING` | Solver 실행 중 |
-| `COMPLETED` | 완료 (result 확인) |
-| `FAILED` | 실패 (error_message 확인) |
+| 값          | 설명                         |
+| ----------- | ---------------------------- |
+| `PENDING`   | 대기 중 (아직 시작되지 않음) |
+| `RUNNING`   | Solver 실행 중               |
+| `COMPLETED` | 완료 (result 확인)           |
+| `FAILED`    | 실패 (error_message 확인)    |
 
 **Score 설명**
+
 - `hard_score`: **0 이상**이어야 모든 필수 제약 조건을 만족 (음수면 제약 위반 있음)
 - `soft_score`: **0에 가까울수록** 권장 사항을 잘 지킨 스케줄
 
@@ -205,19 +215,19 @@ GET /api/status/{id}
 ### JavaScript/TypeScript 예시
 
 ```typescript
-const API_BASE_URL = "https://every-shift-api-service-554455861916.a.run.app";
+const API_BASE_URL = 'https://every-shift-api-service-554455861916.asia-northeast3.run.app';
 
 // 1. 스케줄 생성 요청
 async function createSchedule(requestData: any): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/api/solve`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestData)
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestData),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || "Failed to create schedule");
+    throw new Error(error.error || 'Failed to create schedule');
   }
 
   const data = await response.json();
@@ -234,18 +244,18 @@ async function pollScheduleStatus(executionId: string): Promise<any> {
     const data = await response.json();
 
     switch (data.status) {
-      case "PENDING":
-      case "RUNNING":
-        await new Promise(resolve => setTimeout(resolve, interval));
+      case 'PENDING':
+      case 'RUNNING':
+        await new Promise((resolve) => setTimeout(resolve, interval));
         break;
-      case "COMPLETED":
+      case 'COMPLETED':
         return data;
-      case "FAILED":
-        throw new Error(data.error_message || "Schedule generation failed");
+      case 'FAILED':
+        throw new Error(data.error_message || 'Schedule generation failed');
     }
   }
 
-  throw new Error("Timeout: Schedule generation took too long");
+  throw new Error('Timeout: Schedule generation took too long');
 }
 
 // 3. 전체 사용 예시
@@ -253,17 +263,16 @@ async function generateSchedule(requestData: any) {
   try {
     // 생성 요청
     const executionId = await createSchedule(requestData);
-    console.log("Execution ID:", executionId);
+    console.log('Execution ID:', executionId);
 
     // 상태 폴링 시작
     const result = await pollScheduleStatus(executionId);
-    console.log("Score:", result.score);
+    console.log('Score:', result.score);
 
     // 결과 렌더링
     return result;
-
   } catch (error) {
-    console.error("Error:", error);
+    console.error('Error:', error);
     throw error;
   }
 }
@@ -272,16 +281,16 @@ async function generateSchedule(requestData: any) {
 ### UI 상태 관리
 
 ```typescript
-type ScheduleState = "IDLE" | "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+type ScheduleState = 'IDLE' | 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 function useScheduleGenerator() {
-  const [state, setState] = useState<ScheduleState>("IDLE");
+  const [state, setState] = useState<ScheduleState>('IDLE');
   const [executionId, setExecutionId] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   const generate = async (requestData: any) => {
-    setState("PENDING");
+    setState('PENDING');
     setError(null);
 
     try {
@@ -292,7 +301,7 @@ function useScheduleGenerator() {
       pollAndUpdateStatus(id);
     } catch (e: any) {
       setError(e.message);
-      setState("FAILED");
+      setState('FAILED');
     }
   };
 
@@ -309,6 +318,7 @@ function useScheduleGenerator() {
 ## 5. 테스트용 샘플 데이터
 
 프로젝트 내에 포함된 샘플 데이터 파일:
+
 ```
 src/test/resources/json/sample.json
 ```
@@ -317,7 +327,7 @@ src/test/resources/json/sample.json
 
 ```bash
 # curl 테스트 예시
-curl -X POST https://every-shift-api-service-554455861916.a.run.app/api/solve \
+curl -X POST https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve \
   -H "Content-Type: application/json" \
   -d @src/test/resources/json/sample.json
 ```
