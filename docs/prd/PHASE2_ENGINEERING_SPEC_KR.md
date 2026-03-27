@@ -515,7 +515,9 @@ Phase2A에서는 기존 route를 최대한 유지한다.
 핵심 방침:
 
 - `Step5Result.vue`를 버리지 않고 review hub로 확장한다.
-- version 선택은 path 추가보다 query parameter가 migration diff를 줄인다.
+- `version` query parameter는 deep-link와 preview view state 용도로만 사용한다.
+- authoritative version selection state는 backend `selected_version_id`를 사용한다.
+- query parameter 변경만으로 finalization target이 바뀌면 안 된다.
 
 ### 8.2 Step5 Review Hub
 
@@ -523,21 +525,70 @@ Phase2A에서는 기존 route를 최대한 유지한다.
 
 ```text
 Review Hub
-  - Header: selected version, status badge, finalization gate
-  - Left panel: candidate version list
-  - Main tab 1: assignment grid
-  - Main tab 2: hard-constraint proof
-  - Main tab 3: unfulfilled off requests
-  - Main tab 4: version compare
-  - Footer actions: re-solve, save edit, recheck, finalize, export
+  - Header row 1:
+      - 현재 보고 있는 안 (Preview)
+      - 실제 확정 후보 (Selected)
+      - finalized badge
+  - Header row 2:
+      - Preview summary: version / revision / status
+      - Selected gate summary: selected version / finalization gate / blocking reasons
+  - Left panel: candidate version list with preview / selected / finalized markers
+  - Compare surface (always visible): compact version compare summary
+  - State-driven detail area for current preview version
+      - review_ready, finalized -> assignment grid first
+      - review_pending -> assignment grid + recheck blocker summary first
+      - review_blocked -> hard-constraint proof first
+      - infeasible -> infeasibility panel first
+      - solve_failed -> failure panel first
+  - Detail tabs for current preview version:
+      - assignment grid
+      - hard-constraint proof
+      - unfulfilled off requests
+  - Action area:
+      - one primary CTA based on current state
+      - secondary actions: re-solve, save edit, export
+```
+
+```text
++----------------------------------------------------------------------------------+
+| 현재 보고 있는 안 V3                         | 실제 확정 후보 V2                    |
+| preview: review_blocked / rev 4             | gate: 확정 불가 / 재검토 필요        |
++----------------------------------------------------------------------------------+
+| Compare Surface (always visible)                                                |
+| V1 [가능] 0위반 72% | V2 [가능][확정 후보] 0위반 81% | V3 [미리보기][불가] 2위반 79%     |
++----------------------------------------------------------------------------------+
+| Detail Area (preview 기준)                                                       |
+| default panel = proof                                                            |
+| tabs: grid | proof | off requests                                                |
++----------------------------------------------------------------------------------+
+| Primary CTA: 이 안을 확정 후보로 선택 / 재검토 실행 / 이 버전 확정              |
+| Secondary: 다시 생성 | 수정 저장 | 엑셀 내보내기                                 |
++----------------------------------------------------------------------------------+
 ```
 
 새 UI 규칙:
 
-- `review_pending`이면 `Finalize` 비활성화
-- `review_blocked`이면 `Finalize` 비활성화, 위반 상세 노출
-- `infeasible`이면 assignment grid 대신 infeasibility panel 우선 노출
-- `solve_failed`이면 retry CTA와 운영자용 trace id 노출
+- Header에는 `현재 보고 있는 안`과 `실제 확정 후보`를 동시에 표시한다.
+- version list는 필요 시 `미리보기`, `확정 후보`, `확정 완료` 마커를 함께 표시할 수 있다.
+- version click은 preview만 변경한다.
+- `selected_version_id` 변경은 명시적 CTA로만 수행한다.
+- detail area와 detail tabs의 내용은 항상 current preview version 기준이다.
+- finalization gate와 finalize CTA는 항상 selected version 기준이다.
+- compare surface는 Step5 상단에서 항상 보이며, failure state에서도 숨기지 않는다.
+- compare surface의 고정 항목은 `확정 가능 여부`, `하드 제약 상태`, `off 요청 반영률`, `야간/주말 분산 요약`, `입력 변경 한 줄 요약`이다.
+- 긴 diff, 전체 metric table, 전체 violation 목록은 compare surface가 아니라 detail area로 내린다.
+- `review_ready`는 assignment grid를 기본으로 연다.
+- `finalized`는 assignment grid를 읽기 전용으로 연다.
+- `review_pending`은 assignment grid와 `재검토 전 확정 불가` blocker summary를 함께 먼저 보여준다.
+- `review_blocked`는 proof summary와 상위 blocking reason을 먼저 보여주고, assignment grid는 detail tab에서 본다.
+- `infeasible`은 assignment grid 대신 infeasibility panel을 먼저 보여준다.
+- `solve_failed`는 한 줄 오류 설명, retry CTA, 운영자용 trace id를 먼저 보여준다.
+- action area에서 강하게 강조되는 primary CTA는 항상 1개만 둔다.
+- `preview != selected`이면 primary CTA는 `이 안을 확정 후보로 선택`이다.
+- `preview == selected`이고 상태가 `review_pending` 또는 `review_blocked`이면 primary CTA는 `재검토 실행`이다.
+- selected version의 finalization gate가 `allowed = true`이면 primary CTA는 `이 버전 확정`이다.
+- `solve_failed`이면 primary CTA는 `재시도`다.
+- `Finalize`가 비활성화될 때는 action area에서 blocking reason과 다음 행동을 즉시 읽을 수 있어야 한다.
 
 ### 8.3 Step4 변경
 
@@ -548,7 +599,7 @@ Step4는 더 이상 “월별 단일 schedule 생성”이 아니다.
 - `createSchedule()`는 container 확보용으로만 사용하거나 `ensure schedule` endpoint로 대체
 - 최초 진입 시 기본 version `V1`을 확보
 - off 요청 저장 대상은 `schedule_id`가 아니라 `schedule_version_id`
-- “다음 단계” 이동 시 `scheduleId + versionId`를 Step5로 넘김
+- “다음 단계” 이동 시 `scheduleId + preview용 versionId`를 Step5로 넘김
 
 ### 8.4 Step3 변경
 
@@ -566,10 +617,11 @@ Phase2A에서는 아래 규칙으로 바꾼다.
 
 ```ts
 selectedVersionId: string | null
+previewVersionId: string | null
 versions: ScheduleVersionSummary[]
 latestEvaluation: ScheduleEvaluation | null
 compareMatrix: ScheduleCompareResponse | null
-reviewTab: 'grid' | 'proof' | 'offRequests' | 'compare'
+reviewTab: 'grid' | 'proof' | 'offRequests'
 ```
 
 ## 9. Solver / Evaluator 통합

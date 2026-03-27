@@ -306,22 +306,51 @@ selected version
 
 출력:
 
-- version selector
-- input diff summary
-- comparison metrics
-- proof summary / violation details / off request results
-- finalize button gating
+- Header에 `현재 보고 있는 안(preview)`과 `실제 확정 후보(selected)`를 동시에 표시
+- version list에 `미리보기`, `확정 후보`, `확정 완료` marker 표시
+- compare를 탭이 아니라 상단 상시 decision surface로 배치
+- compare surface 고정 항목은 `확정 가능 여부`, `하드 제약 상태`, `off 요청 반영률`, `야간/주말 분산 요약`, `입력 변경 한 줄 요약`
+- detail area는 preview version 기준 `grid / proof / off requests`로 구성
+- 상태별 기본 상세 패널:
+  - `review_ready`, `finalized` -> grid
+  - `review_pending` -> grid + recheck blocker summary
+  - `review_blocked` -> proof
+  - `infeasible` -> infeasibility panel
+  - `solve_failed` -> failure panel
+- CTA는 상태별 단일 primary action 중심으로 구성
+- finalize disabled 이유는 CTA 인접 영역에서 즉시 설명
 
 검증:
 
-- 다른 version 선택 시 review pane 즉시 교체
+- 다른 version 선택 시 preview만 바뀌고 selected는 유지
+- explicit CTA로만 selected version이 변경
+- compare surface는 failure state에서도 유지
 - manual edit 후 `review_pending` 상태 반영
+- 상태 전이에 따라 primary CTA가 `select / recheck / finalize / retry`로 전환
 - recheck 전 finalize 불가
+- finalize disabled 이유가 버튼 근처에서 바로 읽힘
 
 주석:
 
 - 이번 eng review와 첫 구현 슬라이스는 Slice 1~3만 대상으로 한다.
 - `organization_rank_codes`, `off_request_policy_rules`, admin bootstrap, rolling fairness ledger는 다음 slice로 이월한다.
+
+```text
++----------------------------------------------------------------------------------+
+| 현재 보고 있는 안 V3                         | 실제 확정 후보 V2                    |
+| preview: review_blocked / rev 4             | gate: 확정 불가 / 재검토 필요        |
++----------------------------------------------------------------------------------+
+| Compare Surface (always visible)                                                |
+| V1 [가능] 0위반 72% | V2 [가능][확정 후보] 0위반 81% | V3 [미리보기][불가] 2위반 79%     |
++----------------------------------------------------------------------------------+
+| Detail Area (preview 기준)                                                       |
+| default panel = proof                                                            |
+| tabs: grid | proof | off requests                                                |
++----------------------------------------------------------------------------------+
+| Primary CTA: 이 안을 확정 후보로 선택 / 재검토 실행 / 이 버전 확정              |
+| Secondary: 다시 생성 | 수정 저장 | 엑셀 내보내기                                 |
++----------------------------------------------------------------------------------+
+```
 
 ## 8. 테스트 계획
 
@@ -344,14 +373,17 @@ selected version
 - Step5 version switching
 - review states rendering
 - manual edit -> review_pending -> recheck
-- finalize CTA disabled/enabled transitions
+- compare surface persistence across failure states
+- preview / selected 분리 렌더링
+- 상태별 primary CTA 전환
+- finalize CTA disabled/enabled transitions + blocking reason rendering
 
 ### 8.4 Failure modes
 
-- solver timeout -> `solve_failed`
-- infeasible response -> infeasibility panel
-- evaluator detects hard violations -> `review_blocked`
-- stale selected version while another tab edits data
+- solver timeout -> `solve_failed` -> compare surface 유지 + retry / trace id panel 우선 노출
+- infeasible response -> `infeasible` -> compare surface 유지 + infeasibility panel 우선 노출
+- evaluator detects hard violations -> `review_blocked` -> compare surface 유지 + proof panel 우선 노출
+- stale selected version while another tab edits data -> selected gate summary refresh + CTA 재계산
 
 ### 8.5 Deferred after Trust Layer
 

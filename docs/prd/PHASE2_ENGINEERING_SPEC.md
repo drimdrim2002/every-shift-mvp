@@ -515,7 +515,9 @@ Phase2A should keep existing routes where possible.
 Key migration rule:
 
 - Keep `Step5Result.vue` and expand it into the review hub.
-- Use query parameter version selection rather than introducing a new route tree.
+- Use the `version` query parameter only for deep-linking and preview view state.
+- Keep authoritative version selection state in backend `selected_version_id`.
+- Changing the query parameter alone must never change the finalization target.
 
 ### 8.2 Step5 Review Hub
 
@@ -523,21 +525,70 @@ Extend [Step5Result.vue](../../src/views/schedule/Step5Result.vue) into:
 
 ```text
 Review Hub
-  - Header: selected version, status badge, finalization gate
-  - Left panel: candidate version list
-  - Main tab 1: assignment grid
-  - Main tab 2: hard-constraint proof
-  - Main tab 3: unfulfilled off requests
-  - Main tab 4: version compare
-  - Footer actions: re-solve, save edit, recheck, finalize, export
+  - Header row 1:
+      - current preview version
+      - current selected version
+      - finalized badge
+  - Header row 2:
+      - Preview summary: version / revision / status
+      - Selected gate summary: selected version / finalization gate / blocking reasons
+  - Left panel: candidate version list with preview / selected / finalized markers
+  - Compare surface (always visible): compact version compare summary
+  - State-driven detail area for current preview version
+      - review_ready, finalized -> assignment grid first
+      - review_pending -> assignment grid + recheck blocker summary first
+      - review_blocked -> hard-constraint proof first
+      - infeasible -> infeasibility panel first
+      - solve_failed -> failure panel first
+  - Detail tabs for current preview version:
+      - assignment grid
+      - hard-constraint proof
+      - unfulfilled off requests
+  - Action area:
+      - one primary CTA based on current state
+      - secondary actions: re-solve, save edit, export
+```
+
+```text
++----------------------------------------------------------------------------------+
+| Preview V3                                    | Selected V2                         |
+| preview: review_blocked / rev 4              | gate: blocked / recheck required    |
++----------------------------------------------------------------------------------+
+| Compare Surface (always visible)                                                |
+| V1 [ok] 0 viol 72% | V2 [ok][selected] 0 viol 81% | V3 [preview][blocked] 2 viol 79% |
++----------------------------------------------------------------------------------+
+| Detail Area (preview-driven)                                                     |
+| default panel = proof                                                            |
+| tabs: grid | proof | off requests                                                |
++----------------------------------------------------------------------------------+
+| Primary CTA: Select as candidate / Recheck / Finalize version                    |
+| Secondary: Re-solve | Save edits | Export                                        |
++----------------------------------------------------------------------------------+
 ```
 
 New UI rules:
 
-- Disable `Finalize` when status is `review_pending`
-- Disable `Finalize` and show violation detail when status is `review_blocked`
-- Prioritize the infeasibility panel over the assignment grid when status is `infeasible`
-- Show retry CTA and operator-facing trace id for `solve_failed`
+- Show both the current preview version and the current selected version in the header at the same time.
+- The version list may show `preview`, `selected`, and `finalized` markers simultaneously when needed.
+- Clicking a version changes preview only.
+- Changing `selected_version_id` happens only through an explicit CTA.
+- The detail area and tabs always reflect the current preview version.
+- The finalization gate and finalize CTA always reflect the selected version.
+- Keep the compare surface visible at the top of Step5 for all states, including failures.
+- The compare surface is limited to `finalizable or not`, `hard-constraint status`, `off request reflection rate`, `night/weekend spread summary`, and `one-line input change summary`.
+- Long diffs, full metric tables, and full violation lists belong in the detail area, not the compare surface.
+- Default to the assignment grid for `review_ready`.
+- Default to a read-only assignment grid for `finalized`.
+- Default to assignment grid plus `cannot finalize before recheck` blocker summary for `review_pending`.
+- Default to proof summary plus top blocking reasons for `review_blocked`, with the assignment grid moved behind a detail tab.
+- Default to the infeasibility panel for `infeasible`.
+- Default to a lightweight failure panel with one-line error explanation, retry CTA, and operator-facing trace id for `solve_failed`.
+- Only one CTA should be visually primary at a time.
+- If `preview != selected`, the primary CTA is `Select this version as the finalization candidate`.
+- If `preview == selected` and status is `review_pending` or `review_blocked`, the primary CTA is `Run recheck`.
+- If the selected version gate reports `allowed = true`, the primary CTA is `Finalize this version`.
+- If status is `solve_failed`, the primary CTA is `Retry`.
+- When `Finalize` is disabled, the action area must explain the blocking reason and the next action immediately next to the CTA.
 
 ### 8.3 Step4 Changes
 
@@ -548,7 +599,7 @@ Changes:
 - Replace or wrap `createSchedule()` with `ensure schedule`
 - Ensure the default version `V1` on first entry
 - Save off requests against `schedule_version_id`, not only `schedule_id`
-- Route to Step5 with `scheduleId + versionId`
+- Route to Step5 with `scheduleId + preview versionId`
 
 ### 8.4 Step3 Changes
 
@@ -566,10 +617,11 @@ Add to `useScheduleStore`:
 
 ```ts
 selectedVersionId: string | null
+previewVersionId: string | null
 versions: ScheduleVersionSummary[]
 latestEvaluation: ScheduleEvaluation | null
 compareMatrix: ScheduleCompareResponse | null
-reviewTab: 'grid' | 'proof' | 'offRequests' | 'compare'
+reviewTab: 'grid' | 'proof' | 'offRequests'
 ```
 
 ## 9. Solver / Evaluator Integration
