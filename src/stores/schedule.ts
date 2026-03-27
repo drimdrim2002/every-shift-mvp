@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap, CommentMap } from '@/types/schedule';
+import type {
+  ScheduleBasicInfo,
+  SiteRequirementList,
+  AssignmentMap,
+  CommentMap,
+  ScheduleCompareResponse,
+  ScheduleEvaluation,
+  ScheduleReviewTab,
+  ScheduleVersionSummary,
+} from '@/types/schedule';
 import type { EmployeeInput } from '@/types/employee';
 
 export const useScheduleStore = defineStore('schedule', () => {
@@ -23,6 +32,14 @@ export const useScheduleStore = defineStore('schedule', () => {
   // 엑셀 업로드 모드 플래그
   const isExcelUpload = ref<boolean>(false);
 
+  // Trust Layer review state
+  const selectedVersionId = ref<string | null>(null);
+  const previewVersionId = ref<string | null>(null);
+  const versions = ref<ScheduleVersionSummary[]>([]);
+  const latestEvaluation = ref<ScheduleEvaluation | null>(null);
+  const compareMatrix = ref<ScheduleCompareResponse | null>(null);
+  const reviewTab = ref<ScheduleReviewTab>('grid');
+
   // 엑셀 업로드 모드 computed getter
   const isExcelUploadMode = computed(() => isExcelUpload.value);
 
@@ -36,6 +53,39 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   function setExcelUploadMode(mode: boolean) {
     isExcelUpload.value = mode;
+  }
+
+  function setSelectedVersionId(versionId: string | null) {
+    selectedVersionId.value = versionId;
+  }
+
+  function setPreviewVersionId(versionId: string | null) {
+    previewVersionId.value = versionId;
+  }
+
+  function setVersions(data: ScheduleVersionSummary[]) {
+    versions.value = data;
+  }
+
+  function setLatestEvaluation(evaluation: ScheduleEvaluation | null) {
+    latestEvaluation.value = evaluation;
+  }
+
+  function setCompareMatrix(matrix: ScheduleCompareResponse | null) {
+    compareMatrix.value = matrix;
+  }
+
+  function setReviewTab(tab: ScheduleReviewTab) {
+    reviewTab.value = tab;
+  }
+
+  function resetReviewState() {
+    selectedVersionId.value = null;
+    previewVersionId.value = null;
+    versions.value = [];
+    latestEvaluation.value = null;
+    compareMatrix.value = null;
+    reviewTab.value = 'grid';
   }
 
   function setSiteRequirements(reqs: SiteRequirementList) {
@@ -74,6 +124,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     comments.value = {};
     currentStep.value = 1;
     isExcelUpload.value = false;
+    resetReviewState();
   }
 
   return {
@@ -86,12 +137,25 @@ export const useScheduleStore = defineStore('schedule', () => {
     isExcelUpload,
     isExcelUploadMode,
     scheduleId,
+    selectedVersionId,
+    previewVersionId,
+    versions,
+    latestEvaluation,
+    compareMatrix,
+    reviewTab,
     setBasicInfo,
     setSiteRequirements,
     setEmployees,
     setAssignments,
     setComments,
     setExcelUploadMode,
+    setSelectedVersionId,
+    setPreviewVersionId,
+    setVersions,
+    setLatestEvaluation,
+    setCompareMatrix,
+    setReviewTab,
+    resetReviewState,
     nextStep,
     prevStep,
     reset,

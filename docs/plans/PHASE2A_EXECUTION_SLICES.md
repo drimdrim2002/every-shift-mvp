@@ -1,6 +1,6 @@
 # Phase2A Execution Slices
 
-> Status: Execution planning document
+> Status: Execution planning document (`Slice 1-2 completed`, `Slice 3` next)
 >
 > Scope lock: `Phase2A Trust Layer only`
 >
@@ -173,6 +173,25 @@ This document therefore splits the locked Phase2A Trust Layer scope into eight s
 **Definition of Done**
 
 - The type layer is stable enough that backend and Step5 work can target it without reshaping contracts later
+
+**Execution Status**
+
+- Completed on `2026-03-27`
+- Implemented in:
+  - `src/types/schedule.ts`
+  - `src/stores/schedule.ts`
+  - `tests/unit/schedule-store.spec.ts`
+- Closed in this slice:
+  - Trust Layer TS contract additions for version/review/compare/finalization vocabulary
+  - nullable pre-evaluation support for `ScheduleVersionSummary`
+  - `ScheduleVersionSourceType` literal union lock
+  - Pinia review-state bucket and explicit reset/setter actions
+  - regression tests for `resetReviewState()` vs `reset()`
+- Verification completed:
+  - targeted ESLint on modified files passed
+  - `pnpm test:unit` passed
+  - targeted type-check for Slice 2 files passed
+- Repository-wide `pnpm lint:check` and `pnpm build` still have unrelated pre-existing failures outside Slice 2, so those are not the gating signal for Slice 2 completion
 
 **Do Not Do in This Slice**
 
@@ -613,3 +632,11 @@ When implementation begins, the first execution target should be:
 2. Slice 2 - shared contracts/store groundwork
 
 No implementation should skip directly to Step5 UI before those two slices are closed.
+
+## 7. Current Execution Status
+
+- Completed:
+  - Slice 1 - schema foundation
+  - Slice 2 - shared contracts/store groundwork
+- Next recommended execution target:
+  - Slice 3 - backend read and selection boundary

@@ -41,6 +41,98 @@ export type CommentMap = Record<string, Record<string, string>>;
 
 export type PreferenceStatus = 'pending' | 'fulfilled' | 'unfulfilled';
 
+export type LegacyScheduleStatus = 'created' | 'running' | 'complete' | 'changed' | 'error';
+
+export type ScheduleVersionStatus =
+  | 'draft'
+  | 'solving'
+  | 'review_ready'
+  | 'review_blocked'
+  | 'review_pending'
+  | 'infeasible'
+  | 'solve_failed'
+  | 'finalized';
+
+export type ScheduleEvaluationResultStatus =
+  | 'passed'
+  | 'review_blocked'
+  | 'infeasible'
+  | 'solve_failed';
+
+export type ScheduleReviewTab = 'grid' | 'proof' | 'offRequests';
+
+export type SchedulePrimaryActionKind = 'select' | 'recheck' | 'finalize' | 'retry' | 'none';
+export type ScheduleVersionSourceType = 'initial_solve' | 're_solve' | 'manual_variant';
+
+export interface ScheduleBlockingReason {
+  code: string;
+  message: string;
+}
+
+export interface ScheduleFinalizationGate {
+  allowed: boolean;
+  blockingReasons: ScheduleBlockingReason[];
+}
+
+export interface ScheduleInputDiffSummary {
+  changedOffRequests: number;
+  changedLockedAssignments: number;
+  changedSiteRequirements: number;
+  note: string | null;
+}
+
+export interface ScheduleCompareMetrics {
+  offRequestReflectionRate: number | null;
+  nightShiftMin: number | null;
+  nightShiftMax: number | null;
+  weekendShiftMin: number | null;
+  weekendShiftMax: number | null;
+  manualEditCount: number;
+}
+
+export interface ScheduleProofSummary {
+  weeklyHoursViolations: number;
+  nnnViolations: number;
+  nodViolations: number;
+  minimumRestViolations: number;
+  staffingShortfalls: number;
+}
+
+export interface SchedulePrimaryAction {
+  kind: SchedulePrimaryActionKind;
+  targetVersionId: string | null;
+  label: string;
+  disabledReason: string | null;
+}
+
+export interface ScheduleViolationDetail {
+  code: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  affectedEmployeeIds: string[];
+  dates: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface ScheduleOffRequestResult {
+  employeeId: string;
+  date: string;
+  requestCode: ConstraintCode;
+  requestNote: string | null;
+  isSoft: boolean;
+  resolutionStatus: PreferenceStatus;
+  resolvedShiftId: string | null;
+  resolvedAt: string | null;
+  fulfilled: boolean;
+  reason: string | null;
+}
+
+export interface ScheduleInfeasibility {
+  summary: string;
+  reason: string;
+  details: Record<string, unknown>;
+}
+
 export interface SchedulePreference {
   id: string;
   schedule_id: string;
@@ -54,6 +146,61 @@ export interface SchedulePreference {
   resolved_at: string | null;
   created_at?: string;
   updated_at?: string;
+}
+
+// Version summary is used by ensure/compare/list responses and must work before evaluation exists.
+export interface ScheduleVersionSummary {
+  id: string;
+  scheduleId: string;
+  versionNo: number;
+  name: string | null;
+  sourceType: ScheduleVersionSourceType;
+  baseVersionId: string | null;
+  status: ScheduleVersionStatus;
+  currentRevision: number;
+  manualEditCount: number;
+  inputDiffSummary: ScheduleInputDiffSummary;
+  latestEvaluationId: string | null;
+  latestEvaluationResultStatus: ScheduleEvaluationResultStatus | null;
+  comparisonMetrics: ScheduleCompareMetrics | null;
+  finalizationGate: ScheduleFinalizationGate | null;
+  isSelected: boolean;
+  isFinalized: boolean;
+}
+
+export interface ScheduleEvaluation {
+  id: string;
+  scheduleId: string;
+  scheduleVersionId: string;
+  revisionNo: number;
+  resultStatus: ScheduleEvaluationResultStatus;
+  proofSummary: ScheduleProofSummary;
+  violationDetails: ScheduleViolationDetail[];
+  infeasibility: ScheduleInfeasibility | null;
+  offRequestResults: ScheduleOffRequestResult[];
+  comparisonMetrics: ScheduleCompareMetrics;
+  finalizationGate: ScheduleFinalizationGate;
+  assignmentHash: string;
+  solverExecutionId: string | null;
+  evaluatorVersion: string;
+  createdAt: string;
+}
+
+export interface ScheduleCompareResponse {
+  scheduleId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
+export interface ScheduleReviewResponse {
+  scheduleId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  version: ScheduleVersionSummary;
+  latestEvaluation: ScheduleEvaluation | null;
+  primaryAction: SchedulePrimaryAction;
+  defaultTab: ScheduleReviewTab;
 }
 
 // Off 사유 상수
