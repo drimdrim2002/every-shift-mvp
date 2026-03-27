@@ -7,6 +7,10 @@ import type {
   CommentMap,
   PreferenceStatus,
   SchedulePreference,
+  SchedulePrimaryAction,
+  ScheduleCompareResponse,
+  ScheduleReviewTab,
+  ScheduleReviewResponse,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
@@ -72,6 +76,162 @@ function normalizePreferenceCode(requestCode: string): ConstraintCode | null {
   if (requestCode === 'O') return 'O';
   if (requestCode === 'H' || requestCode === 'E' || requestCode === 'L') return 'O';
   return null;
+}
+
+function getPhase2ScheduleBaseUrl(): string {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!baseUrl) {
+    throw new Error('Missing VITE_SUPABASE_URL for phase 2 schedule API.');
+  }
+
+  return baseUrl.replace(/\/$/, '');
+}
+
+function getPhase2ScheduleAnonKey(): string {
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    throw new Error('Missing VITE_SUPABASE_ANON_KEY for phase 2 schedule API.');
+  }
+
+  return anonKey;
+}
+
+async function getPhase2ScheduleAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw error;
+  }
+
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('Authenticated session is required to call phase2-schedule');
+  }
+
+  return accessToken;
+}
+
+function buildPhase2ScheduleUrl(path: string): string {
+  return `${getPhase2ScheduleBaseUrl()}/functions/v1/phase2-schedule${path}`;
+}
+
+function createPhase2ScheduleError(payload: unknown, status: number): Error {
+  const fallbackMessage = `Phase 2 schedule request failed with status ${status}`;
+
+  if (payload !== null && typeof payload === 'object') {
+    const record = payload as { code?: unknown; message?: unknown };
+    const message = typeof record.message === 'string' && record.message.trim().length > 0
+      ? record.message
+      : fallbackMessage;
+    const error = new Error(message);
+    (error as Error & { status?: number }).status = status;
+
+    if (typeof record.code === 'string' && record.code.length > 0) {
+      (error as Error & { code?: string }).code = record.code;
+    }
+
+    return error;
+  }
+
+  return new Error(fallbackMessage);
+}
+
+async function callPhase2Schedule<T>(
+  path: string,
+  options: {
+    method: 'GET' | 'POST';
+    body?: unknown;
+  }
+): Promise<T> {
+  const accessToken = await getPhase2ScheduleAccessToken();
+  const headers: Record<string, string> = {
+    apikey: getPhase2ScheduleAnonKey(),
+    Authorization: `Bearer ${accessToken}`,
+  };
+
+  const requestInit: RequestInit = {
+    method: options.method,
+    headers,
+  };
+
+  if (options.body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+    requestInit.body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(buildPhase2ScheduleUrl(path), requestInit);
+  const responseText = await response.text();
+  const payload = responseText ? JSON.parse(responseText) : null;
+
+  if (!response.ok) {
+    throw createPhase2ScheduleError(payload, response.status);
+  }
+
+  return payload as T;
+}
+
+export interface Phase2ScheduleEnsureRequest {
+  organizationId: string;
+  month: string;
+}
+
+export interface Phase2ScheduleSelectResponse {
+  scheduleId: string;
+  selectedVersionId: string;
+}
+
+function createEmptyPrimaryAction(): SchedulePrimaryAction {
+  return {
+    kind: 'none',
+    targetVersionId: null,
+    label: 'No primary action',
+    disabledReason: null,
+  };
+}
+
+function normalizeReviewResponse(payload: ScheduleReviewResponse): ScheduleReviewResponse {
+  return {
+    ...payload,
+    primaryAction: payload.primaryAction ?? createEmptyPrimaryAction(),
+    defaultTab: (payload.defaultTab ?? 'grid') as ScheduleReviewTab,
+  };
+}
+
+export async function ensurePhase2Schedule(
+  request: Phase2ScheduleEnsureRequest
+): Promise<ScheduleCompareResponse> {
+  return callPhase2Schedule<ScheduleCompareResponse>('/schedules/ensure', {
+    method: 'POST',
+    body: request,
+  });
+}
+
+export async function getPhase2ScheduleCompare(scheduleId: string): Promise<ScheduleCompareResponse> {
+  return callPhase2Schedule<ScheduleCompareResponse>(`/schedules/${scheduleId}/compare`, {
+    method: 'GET',
+  });
+}
+
+export async function getPhase2ScheduleReview(versionId: string): Promise<ScheduleReviewResponse> {
+  const response = await callPhase2Schedule<ScheduleReviewResponse>(
+    `/schedule-versions/${versionId}/review`,
+    {
+      method: 'GET',
+    }
+  );
+
+  return normalizeReviewResponse(response);
+}
+
+export async function selectPhase2ScheduleVersion(
+  versionId: string
+): Promise<Phase2ScheduleSelectResponse> {
+  return callPhase2Schedule<Phase2ScheduleSelectResponse>(
+    `/schedule-versions/${versionId}/select`,
+    {
+      method: 'POST',
+    }
+  );
 }
 
 // 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
