@@ -4,6 +4,7 @@
 >
 > This document is the engineering companion to [PHASE2_PRD_KR.md](./PHASE2_PRD_KR.md) and [PHASE2_PRD.md](./PHASE2_PRD.md).
 > Scope is limited to `Phase2A`. `Phase2B` self-serve signup, dashboards, and broader scaling concerns are intentionally excluded.
+> The active implementation target in this revision is `Phase2A-1 Trust Layer` only; rank/policy/bootstrap/fairness ledger work is split into a deferred slice.
 
 ## 1. Purpose
 
@@ -26,8 +27,8 @@ This spec treats the following decisions as fixed:
 - Hard-constraint proof and unfulfilled off-request explanation are computed by the `backend evaluator`.
 - A result with hard-constraint violations is `review_blocked`, not `infeasible`.
 - `infeasible` and `solve_failed` must remain distinct product states.
-- Rank is an `organization-defined rank code`, not a global enum.
-- The `rolling fairness ledger` is written only from the `finalized version`.
+- Rank/policy/bootstrap work belongs to a deferred slice after the Trust Layer.
+- The `rolling fairness ledger` write path belongs to a deferred slice after the Trust Layer.
 - Phase2A does not support reopening a finalized month in product UI.
 
 ## 3. Current Implementation Baseline
@@ -55,17 +56,17 @@ Because of this baseline, Phase2A must shift from “overwriting a single workin
   -> schedule_evaluations (immutable review artifact)
   -> Step5 Review Hub
   -> finalize transaction
-  -> fairness_ledger_monthly
 ```
 
-The ops layer sits beside this flow:
+The ops layer is outside the active scope of this revision.
 
 ```text
-Supabase Auth
+Deferred after Trust Layer
   -> profiles
   -> setup checklist
   -> organization_rank_codes
   -> off_request_policy_rules
+  -> fairness_ledger_monthly
 ```
 
 ## 5. Data Model
@@ -124,12 +125,10 @@ Off requests must be version-scoped if candidate versions are to differ.
 
 Add / change:
 
-| Column                    | Type                                        | Purpose                 |
-| ------------------------- | ------------------------------------------- | ----------------------- |
-| `schedule_version_id`     | UUID NOT NULL                               | owning version          |
-| `request_source`          | VARCHAR(30) NOT NULL DEFAULT `employee_off` | source of request       |
-| `policy_check_status`     | VARCHAR(20) NOT NULL DEFAULT `pending`      | policy validation state |
-| `policy_rejection_reason` | TEXT NULL                                   | policy rejection reason |
+| Column                | Type                                        | Purpose           |
+| --------------------- | ------------------------------------------- | ----------------- |
+| `schedule_version_id` | UUID NOT NULL                               | owning version    |
+| `request_source`      | VARCHAR(30) NOT NULL DEFAULT `employee_off` | source of request |
 
 Constraints:
 
@@ -138,11 +137,9 @@ Constraints:
 
 #### D. `employees`
 
-Add:
+This Trust Layer revision does not add new columns to `employees`.
 
-| Column      | Type         | Purpose                        |
-| ----------- | ------------ | ------------------------------ |
-| `rank_code` | VARCHAR NULL | organization-defined rank code |
+- `rank_code` is deferred to a later slice.
 
 ### 5.3 New Tables
 
@@ -177,7 +174,6 @@ Minimum `input_snapshot`:
 {
   "off_request_count": 42,
   "locked_assignment_count": 155,
-  "policy_version": "2026-03-26T10:30:00Z",
   "site_requirement_hash": "sha256:...",
   "employee_roster_hash": "sha256:..."
 }
@@ -189,7 +185,6 @@ Minimum `input_diff_summary`:
 {
   "changed_off_requests": 2,
   "changed_locked_assignments": 0,
-  "changed_policy_rules": 1,
   "changed_site_requirements": 0,
   "note": "Adjusted 2 off requests"
 }
@@ -240,7 +235,6 @@ Example `comparison_metrics`:
   "night_shift_max": 5,
   "weekend_shift_min": 3,
   "weekend_shift_max": 4,
-  "rolling_fairness_impact_score": -0.12,
   "manual_edit_count": 1
 }
 ```
@@ -254,71 +248,14 @@ Example `finalization_gate`:
 }
 ```
 
-#### C. `organization_rank_codes`
+#### C. Deferred After Trust Layer
 
-Stores the rank-code dictionary per organization.
+The following models are not part of the active schema target in this revision.
 
-| Column            | Type                          | Purpose       |
-| ----------------- | ----------------------------- | ------------- |
-| `id`              | UUID PK                       | row id        |
-| `organization_id` | UUID FK                       | organization  |
-| `code`            | VARCHAR(50) NOT NULL          | rank code     |
-| `label`           | VARCHAR(100) NOT NULL         | display label |
-| `sort_order`      | INTEGER NOT NULL DEFAULT 0    | ordering      |
-| `is_active`       | BOOLEAN NOT NULL DEFAULT true | active flag   |
-
-#### D. `off_request_policy_rules`
-
-Defines off-request policy by rank code.
-
-| Column                | Type             | Purpose                |
-| --------------------- | ---------------- | ---------------------- |
-| `id`                  | UUID PK          | row id                 |
-| `organization_id`     | UUID FK          | organization           |
-| `rank_code`           | VARCHAR(50) NULL | NULL means org default |
-| `monthly_limit`       | INTEGER NULL     | monthly limit          |
-| `annual_limit`        | INTEGER NULL     | annual limit           |
-| `allowed_shift_codes` | JSONB NULL       | allowed shift list     |
-| `active_from`         | DATE NULL        | start date             |
-| `active_to`           | DATE NULL        | end date               |
-| `created_at`          | TIMESTAMPTZ      | created time           |
-| `updated_at`          | TIMESTAMPTZ      | updated time           |
-
-#### E. `fairness_ledger_monthly`
-
-Stores cumulative fairness at the employee-month grain.
-
-| Column                | Type                       | Purpose               |
-| --------------------- | -------------------------- | --------------------- |
-| `id`                  | UUID PK                    | row id                |
-| `organization_id`     | UUID FK                    | organization          |
-| `employee_id`         | UUID FK                    | employee              |
-| `month`               | VARCHAR(7) NOT NULL        | `YYYY-MM`             |
-| `schedule_id`         | UUID FK                    | month container       |
-| `schedule_version_id` | UUID FK                    | finalized version     |
-| `night_count`         | INTEGER NOT NULL DEFAULT 0 | monthly night count   |
-| `evening_count`       | INTEGER NOT NULL DEFAULT 0 | monthly evening count |
-| `weekend_count`       | INTEGER NOT NULL DEFAULT 0 | monthly weekend count |
-| `created_at`          | TIMESTAMPTZ                | created time          |
-
-Unique key:
-
-- `(organization_id, employee_id, month)`
-
-#### F. `profiles`
-
-Links auth users to organization roles for the Go-Live Ops Layer.
-
-| Column             | Type                                  | Purpose               |
-| ------------------ | ------------------------------------- | --------------------- |
-| `user_id`          | UUID PK                               | auth user id          |
-| `organization_id`  | UUID FK                               | organization          |
-| `role`             | VARCHAR(20) NOT NULL                  | `admin`, `operator`   |
-| `display_name`     | VARCHAR(100) NULL                     | display name          |
-| `status`           | VARCHAR(20) NOT NULL DEFAULT `active` | account state         |
-| `onboarding_state` | JSONB NOT NULL DEFAULT '{}'::jsonb    | setup checklist state |
-| `created_at`       | TIMESTAMPTZ                           | created time          |
-| `updated_at`       | TIMESTAMPTZ                           | updated time          |
+- `organization_rank_codes`
+- `off_request_policy_rules`
+- `fairness_ledger_monthly`
+- `profiles`
 
 ## 6. Status Lifecycle
 
@@ -353,32 +290,28 @@ State meanings:
 ### 7.1 Principles
 
 - Organization, employee, and shift lookup can remain direct Supabase reads.
-- Version, evaluation, finalization, and policy mutations should move to Edge Functions or backend endpoints.
+- Version, evaluation, and finalization mutations should move to Edge Functions or backend endpoints.
 - Any transaction-sensitive logic should not be implemented directly in the frontend.
 
 ### 7.2 Recommended Endpoints
 
-| Method  | Path                                                      | Purpose                                  |
-| ------- | --------------------------------------------------------- | ---------------------------------------- |
-| `POST`  | `/functions/v1/schedules/ensure`                          | ensure org+month container               |
-| `POST`  | `/functions/v1/schedules/:scheduleId/versions`            | create new candidate version             |
-| `PUT`   | `/functions/v1/schedule-versions/:versionId/preferences`  | save version-scoped off requests         |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/solve`        | start solver                             |
-| `PATCH` | `/functions/v1/schedule-versions/:versionId/assignments`  | save manual edits                        |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/recheck`      | run backend evaluator again              |
-| `GET`   | `/functions/v1/schedule-versions/:versionId/review`       | fetch proof/off request/gate             |
-| `GET`   | `/functions/v1/schedules/:scheduleId/compare`             | fetch version compare matrix             |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/finalize`     | finalize selected version                |
-| `PUT`   | `/functions/v1/organizations/:orgId/rank-codes`           | save rank codes                          |
-| `PUT`   | `/functions/v1/organizations/:orgId/off-request-policies` | save policy rules                        |
-| `POST`  | `/functions/v1/admin-bootstrap`                           | provision first admin for assisted pilot |
+| Method  | Path                                                     | Purpose                          |
+| ------- | -------------------------------------------------------- | -------------------------------- |
+| `POST`  | `/functions/v1/schedules/ensure`                         | ensure org+month container       |
+| `POST`  | `/functions/v1/schedules/:scheduleId/versions`           | create new candidate version     |
+| `PUT`   | `/functions/v1/schedule-versions/:versionId/preferences` | save version-scoped off requests |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/solve`       | start solver                     |
+| `PATCH` | `/functions/v1/schedule-versions/:versionId/assignments` | save manual edits                |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/recheck`     | run backend evaluator again      |
+| `GET`   | `/functions/v1/schedule-versions/:versionId/review`      | fetch proof/off request/gate     |
+| `GET`   | `/functions/v1/schedules/:scheduleId/compare`            | fetch version compare matrix     |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/finalize`    | finalize selected version        |
 
 Implementation note:
 
-- The actual Supabase Edge Function skeleton groups these logical endpoints into two deployed functions.
-- schedule/version/review/finalize routes live under `/functions/v1/phase2-schedule/...`
-- bootstrap/rank/policy routes live under `/functions/v1/phase2-ops/...`
-- The frontend wrapper in [phase2.ts](../../src/api/phase2.ts) calls these grouped paths.
+- This Trust Layer slice keeps schedule/version/review/finalize routes inside one active backend boundary.
+- The deployed boundary remains `/functions/v1/phase2-schedule/...`.
+- bootstrap/rank/policy routes are reopened only in the deferred slice.
 
 ### 7.3 Key Contracts
 
@@ -423,7 +356,7 @@ Request:
   "source_type": "re_solve",
   "input_diff_summary": {
     "changed_off_requests": 2,
-    "changed_policy_rules": 0,
+    "changed_locked_assignments": 0,
     "note": "Adjusted 2 off requests"
   }
 }
@@ -558,7 +491,6 @@ Transaction order:
 4. Validate `latest_evaluation.result_status == passed`
 5. Update `finalized_version_id`, `selected_version_id`, `finalized_at`, and `finalized_by` on the container
 6. Move version state to `finalized`
-7. Upsert into `fairness_ledger_monthly`
 
 Return `409` or `422` for:
 
@@ -572,15 +504,13 @@ Return `409` or `422` for:
 
 Phase2A should keep existing routes where possible.
 
-| Route                                            | Action                         |
-| ------------------------------------------------ | ------------------------------ |
-| `/schedule/step1`                                | keep                           |
-| `/schedule/step2`                                | keep                           |
-| `/schedule/step3`                                | keep                           |
-| `/schedule/step4`                                | keep                           |
-| `/schedule/step5/:scheduleId?version=:versionId` | expand into `Review Hub`       |
-| `/setup`                                         | new, admin bootstrap checklist |
-| `/settings/off-request-policy`                   | new, policy management         |
+| Route                                            | Action                   |
+| ------------------------------------------------ | ------------------------ |
+| `/schedule/step1`                                | keep                     |
+| `/schedule/step2`                                | keep                     |
+| `/schedule/step3`                                | keep                     |
+| `/schedule/step4`                                | keep                     |
+| `/schedule/step5/:scheduleId?version=:versionId` | expand into `Review Hub` |
 
 Key migration rule:
 
@@ -640,7 +570,6 @@ versions: ScheduleVersionSummary[]
 latestEvaluation: ScheduleEvaluation | null
 compareMatrix: ScheduleCompareResponse | null
 reviewTab: 'grid' | 'proof' | 'offRequests' | 'compare'
-setupChecklist: SetupChecklistState | null
 ```
 
 ## 9. Solver / Evaluator Integration
@@ -660,7 +589,7 @@ Phase2A additions:
 - Inputs always come from the `selected version`
 - Previous-month history remains `is_locked = true`
 - If current-month locked assignments exist, include them on re-solve via `history` or a separate `locked_assignments` section
-- Add optional `fairness_context` once the fairness ledger is implemented
+- Fairness context is reopened in the deferred slice
 
 Minimum required extension to solver response:
 
@@ -678,10 +607,8 @@ Evaluator input:
 - current version assignments
 - shifts
 - site requirements
-- employees + available shifts + rank code
+- employees + available shifts
 - schedule preferences
-- off-request policy rules
-- fairness ledger
 
 Evaluator output:
 
@@ -720,20 +647,18 @@ After finalization:
 
 - finalized version becomes read-only
 - other versions may remain in compare history, but Phase2A UI does not reactivate them
-- the fairness ledger is written only from finalized assignments
+- rolling fairness ledger write is reopened in the deferred slice
 
 ## 11. Failure Mode Registry
 
-| Failure Mode                                      | Classification    | Handling                             | Observability                             |
-| ------------------------------------------------- | ----------------- | ------------------------------------ | ----------------------------------------- |
-| solver timeout                                    | `solve_failed`    | allow retry, show status badge       | execution id, retry count, timeout metric |
-| solver 5xx                                        | `solve_failed`    | allow retry                          | error log, response trace                 |
-| infeasible month                                  | `infeasible`      | show infeasibility panel             | infeasible count metric                   |
-| stale evaluation finalization attempt             | business error    | block finalization                   | `409 stale_evaluation` log                |
-| manual edit without recheck                       | business error    | disable finalize                     | version status metric                     |
-| off-request policy violation at save time         | validation error  | block save or persist rejected state | policy rejection audit                    |
-| employee resave attempts to damage finalized data | business error    | block employee save                  | admin action audit                        |
-| duplicate fairness ledger write                   | consistency error | block with unique key                | finalize transaction error log            |
+| Failure Mode                                      | Classification | Handling                       | Observability                             |
+| ------------------------------------------------- | -------------- | ------------------------------ | ----------------------------------------- |
+| solver timeout                                    | `solve_failed` | allow retry, show status badge | execution id, retry count, timeout metric |
+| solver 5xx                                        | `solve_failed` | allow retry                    | error log, response trace                 |
+| infeasible month                                  | `infeasible`   | show infeasibility panel       | infeasible count metric                   |
+| stale evaluation finalization attempt             | business error | block finalization             | `409 stale_evaluation` log                |
+| manual edit without recheck                       | business error | disable finalize               | version status metric                     |
+| employee resave attempts to damage finalized data | business error | block employee save            | admin action audit                        |
 
 ## 12. Observability
 
@@ -765,7 +690,6 @@ Recommended events:
 
 - evaluator rule calculators
 - compare metric reducer
-- rank policy resolver
 - finalization gate function
 - version status mapper
 
@@ -775,8 +699,6 @@ Recommended events:
 - `manual edit -> review_pending -> recheck -> review_ready`
 - finalization blocked for `review_blocked`
 - `infeasible` persistence and retrieval
-- `finalize -> fairness ledger upsert`
-- `rank_code NULL -> organization default policy fallback`
 
 ### 13.3 E2E
 
@@ -784,7 +706,6 @@ Recommended events:
 - manual edit in Step5 disables finalize
 - successful recheck re-enables finalize
 - infeasible version shows explanation panel
-- setup checklist completion leads to policy screen
 
 ## 14. Implementation Order
 
@@ -794,7 +715,6 @@ Recommended events:
 - `schedule_evaluations`
 - `schedule_assignments.schedule_version_id`
 - `schedule_preferences.schedule_version_id`
-- `employees.rank_code`
 
 ### Phase 2. Review hub foundation
 
@@ -816,17 +736,14 @@ Recommended events:
 - compare table
 - input diff summary rendering
 
-### Phase 5. Go-Live Ops Layer
+### Deferred after Trust Layer
 
 - `profiles`
 - `/setup`
 - `organization_rank_codes`
 - `off_request_policy_rules`
-
-### Phase 6. Fairness ledger
-
-- finalize write path
-- optional solver `fairness_context`
+- finalize-triggered fairness ledger write
+- optional solver fairness context
 
 ## 15. Phase2A Cut Lines
 

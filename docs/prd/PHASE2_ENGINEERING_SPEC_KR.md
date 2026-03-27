@@ -4,6 +4,7 @@
 >
 > 이 문서는 [PHASE2_PRD_KR.md](./PHASE2_PRD_KR.md)와 [PHASE2_PRD.md](./PHASE2_PRD.md)의 구현 동반 문서다.
 > 범위는 `Phase2A`까지로 제한한다. `Phase2B`의 self-serve/signup/dashboard는 본 문서에 포함하지 않는다.
+> 이번 revision의 active implementation target은 `Phase2A-1 Trust Layer`만이며, rank/policy/bootstrap/fairness ledger는 deferred slice로 분리한다.
 
 ## 1. 목적
 
@@ -26,8 +27,8 @@
 - 하드 제약 증명과 미반영 off 요청 설명은 `backend evaluator`가 계산한다.
 - 하드 제약 위반이 있는 결과는 `review_blocked`이며 `infeasible`와 다르다.
 - `infeasible`와 `solve_failed`를 제품 상태로 구분한다.
-- rank는 고정 enum이 아니라 `조직별 rank code`다.
-- `rolling fairness ledger`는 `finalized version` 기준으로만 적재한다.
+- rank/policy/bootstrap 관련 구현은 Trust Layer 이후 deferred slice에서 다룬다.
+- `rolling fairness ledger` write path는 Trust Layer 이후 deferred slice에서 다룬다.
 - Phase2A에서는 finalized month reopen UI를 지원하지 않는다.
 
 ## 3. 현재 구현 기준점
@@ -55,17 +56,17 @@
   -> schedule_evaluations (immutable review artifact)
   -> Step5 Review Hub
   -> finalize transaction
-  -> fairness_ledger_monthly
 ```
 
-운영 준비 레이어는 별도로 붙는다.
+운영 준비 레이어는 이번 revision의 active scope 밖이다.
 
 ```text
-Supabase Auth
+Deferred after Trust Layer
   -> profiles
   -> setup checklist
   -> organization_rank_codes
   -> off_request_policy_rules
+  -> fairness_ledger_monthly
 ```
 
 ## 5. 데이터 모델
@@ -124,12 +125,10 @@ version compare를 하려면 off 요청도 version 단위여야 한다.
 
 추가/변경 컬럼:
 
-| Column                    | Type                                        | Purpose             |
-| ------------------------- | ------------------------------------------- | ------------------- |
-| `schedule_version_id`     | UUID NOT NULL                               | 요청이 속한 version |
-| `request_source`          | VARCHAR(30) NOT NULL DEFAULT `employee_off` | 요청 출처           |
-| `policy_check_status`     | VARCHAR(20) NOT NULL DEFAULT `pending`      | 정책 검사 상태      |
-| `policy_rejection_reason` | TEXT NULL                                   | 정책상 불가 사유    |
+| Column                | Type                                        | Purpose             |
+| --------------------- | ------------------------------------------- | ------------------- |
+| `schedule_version_id` | UUID NOT NULL                               | 요청이 속한 version |
+| `request_source`      | VARCHAR(30) NOT NULL DEFAULT `employee_off` | 요청 출처           |
 
 제약:
 
@@ -138,11 +137,9 @@ version compare를 하려면 off 요청도 version 단위여야 한다.
 
 #### D. `employees`
 
-추가 컬럼:
+이번 Trust Layer revision에서는 `employees`에 새로운 컬럼을 추가하지 않는다.
 
-| Column      | Type         | Purpose          |
-| ----------- | ------------ | ---------------- |
-| `rank_code` | VARCHAR NULL | 조직별 rank code |
+- `rank_code`는 deferred slice에서 다룬다.
 
 ### 5.3 신규 테이블
 
@@ -177,7 +174,6 @@ version compare를 하려면 off 요청도 version 단위여야 한다.
 {
   "off_request_count": 42,
   "locked_assignment_count": 155,
-  "policy_version": "2026-03-26T10:30:00Z",
   "site_requirement_hash": "sha256:...",
   "employee_roster_hash": "sha256:..."
 }
@@ -189,7 +185,6 @@ version compare를 하려면 off 요청도 version 단위여야 한다.
 {
   "changed_off_requests": 2,
   "changed_locked_assignments": 0,
-  "changed_policy_rules": 1,
   "changed_site_requirements": 0,
   "note": "2건의 off 요청 조정"
 }
@@ -240,7 +235,6 @@ review/finalization의 기준이 되는 불변 검토 기록이다.
   "night_shift_max": 5,
   "weekend_shift_min": 3,
   "weekend_shift_max": 4,
-  "rolling_fairness_impact_score": -0.12,
   "manual_edit_count": 1
 }
 ```
@@ -254,71 +248,14 @@ review/finalization의 기준이 되는 불변 검토 기록이다.
 }
 ```
 
-#### C. `organization_rank_codes`
+#### C. Deferred After Trust Layer
 
-조직별 rank code 사전을 저장한다.
+아래 모델은 이번 revision의 active schema target이 아니다.
 
-| Column            | Type                          | Purpose     |
-| ----------------- | ----------------------------- | ----------- |
-| `id`              | UUID PK                       | row id      |
-| `organization_id` | UUID FK                       | 조직        |
-| `code`            | VARCHAR(50) NOT NULL          | rank code   |
-| `label`           | VARCHAR(100) NOT NULL         | 화면 표시명 |
-| `sort_order`      | INTEGER NOT NULL DEFAULT 0    | 정렬        |
-| `is_active`       | BOOLEAN NOT NULL DEFAULT true | 사용 여부   |
-
-#### D. `off_request_policy_rules`
-
-off 요청 정책을 rank code 기준으로 정의한다.
-
-| Column                | Type             | Purpose                 |
-| --------------------- | ---------------- | ----------------------- |
-| `id`                  | UUID PK          | row id                  |
-| `organization_id`     | UUID FK          | 조직                    |
-| `rank_code`           | VARCHAR(50) NULL | NULL이면 조직 공통 정책 |
-| `monthly_limit`       | INTEGER NULL     | 월간 한도               |
-| `annual_limit`        | INTEGER NULL     | 연간 한도               |
-| `allowed_shift_codes` | JSONB NULL       | 허용 시프트 목록        |
-| `active_from`         | DATE NULL        | 시작일                  |
-| `active_to`           | DATE NULL        | 종료일                  |
-| `created_at`          | TIMESTAMPTZ      | 생성 시각               |
-| `updated_at`          | TIMESTAMPTZ      | 수정 시각               |
-
-#### E. `fairness_ledger_monthly`
-
-employee-month grain의 누적 공정성 기록이다.
-
-| Column                | Type                       | Purpose             |
-| --------------------- | -------------------------- | ------------------- |
-| `id`                  | UUID PK                    | row id              |
-| `organization_id`     | UUID FK                    | 조직                |
-| `employee_id`         | UUID FK                    | 직원                |
-| `month`               | VARCHAR(7) NOT NULL        | `YYYY-MM`           |
-| `schedule_id`         | UUID FK                    | month container     |
-| `schedule_version_id` | UUID FK                    | finalized version   |
-| `night_count`         | INTEGER NOT NULL DEFAULT 0 | 월간 N 횟수         |
-| `evening_count`       | INTEGER NOT NULL DEFAULT 0 | 월간 E 횟수         |
-| `weekend_count`       | INTEGER NOT NULL DEFAULT 0 | 월간 주말 근무 횟수 |
-| `created_at`          | TIMESTAMPTZ                | 생성 시각           |
-
-unique key:
-
-- `(organization_id, employee_id, month)`
-
-#### F. `profiles`
-
-Go-Live Ops Layer에서 auth user와 organization role을 연결한다.
-
-| Column             | Type                                  | Purpose                   |
-| ------------------ | ------------------------------------- | ------------------------- |
-| `user_id`          | UUID PK                               | auth user id              |
-| `organization_id`  | UUID FK                               | 조직                      |
-| `role`             | VARCHAR(20) NOT NULL                  | `admin`, `operator`       |
-| `display_name`     | VARCHAR(100) NULL                     | 표시 이름                 |
-| `status`           | VARCHAR(20) NOT NULL DEFAULT `active` | 계정 상태                 |
-| `onboarding_state` | JSONB NOT NULL DEFAULT '{}'::jsonb    | setup checklist 진행 상태 |
-| `created_at`       | TIMESTAMPTZ                           | 생성 시각                 |
-| `updated_at`       | TIMESTAMPTZ                           | 수정 시각                 |
+- `organization_rank_codes`
+- `off_request_policy_rules`
+- `fairness_ledger_monthly`
+- `profiles`
 
 ## 6. 상태 수명주기
 
@@ -353,32 +290,28 @@ review_ready
 ### 7.1 원칙
 
 - organization/employees/shifts/read-only lookup은 기존 Supabase direct read를 유지할 수 있다.
-- version/evaluation/finalize/policy mutation은 Edge Function 또는 backend endpoint로 이동한다.
+- version/evaluation/finalize mutation은 Edge Function 또는 backend endpoint로 이동한다.
 - transaction이 필요한 로직은 프론트엔드에서 직접 구현하지 않는다.
 
 ### 7.2 권장 엔드포인트
 
-| Method  | Path                                                      | Purpose                           |
-| ------- | --------------------------------------------------------- | --------------------------------- |
-| `POST`  | `/functions/v1/schedules/ensure`                          | org+month 기준 container 확보     |
-| `POST`  | `/functions/v1/schedules/:scheduleId/versions`            | 새 candidate version 생성         |
-| `PUT`   | `/functions/v1/schedule-versions/:versionId/preferences`  | version별 off 요청 저장           |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/solve`        | solver 실행 시작                  |
-| `PATCH` | `/functions/v1/schedule-versions/:versionId/assignments`  | 수동 수정 저장                    |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/recheck`      | backend evaluator 재실행          |
-| `GET`   | `/functions/v1/schedule-versions/:versionId/review`       | proof/off request/gate 조회       |
-| `GET`   | `/functions/v1/schedules/:scheduleId/compare`             | version compare matrix 조회       |
-| `POST`  | `/functions/v1/schedule-versions/:versionId/finalize`     | 확정 처리                         |
-| `PUT`   | `/functions/v1/organizations/:orgId/rank-codes`           | rank code 설정                    |
-| `PUT`   | `/functions/v1/organizations/:orgId/off-request-policies` | 정책 저장                         |
-| `POST`  | `/functions/v1/admin-bootstrap`                           | assisted pilot용 관리자 bootstrap |
+| Method  | Path                                                     | Purpose                       |
+| ------- | -------------------------------------------------------- | ----------------------------- |
+| `POST`  | `/functions/v1/schedules/ensure`                         | org+month 기준 container 확보 |
+| `POST`  | `/functions/v1/schedules/:scheduleId/versions`           | 새 candidate version 생성     |
+| `PUT`   | `/functions/v1/schedule-versions/:versionId/preferences` | version별 off 요청 저장       |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/solve`       | solver 실행 시작              |
+| `PATCH` | `/functions/v1/schedule-versions/:versionId/assignments` | 수동 수정 저장                |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/recheck`     | backend evaluator 재실행      |
+| `GET`   | `/functions/v1/schedule-versions/:versionId/review`      | proof/off request/gate 조회   |
+| `GET`   | `/functions/v1/schedules/:scheduleId/compare`            | version compare matrix 조회   |
+| `POST`  | `/functions/v1/schedule-versions/:versionId/finalize`    | 확정 처리                     |
 
 구현 메모:
 
-- 실제 Supabase Edge Function skeleton은 두 개의 function으로 그룹화한다.
-- schedule/version/review/finalize 계열은 `/functions/v1/phase2-schedule/...`
-- bootstrap/rank/policy 계열은 `/functions/v1/phase2-ops/...`
-- 프론트엔드 wrapper는 [phase2.ts](../../src/api/phase2.ts)에서 이 grouped path를 호출한다.
+- 이번 Trust Layer slice에서는 schedule/version/review/finalize 계열만 active backend boundary로 잠근다.
+- 배포 단위는 `/functions/v1/phase2-schedule/...` 한 경계로 유지한다.
+- bootstrap/rank/policy 계열은 deferred slice에서 다시 연다.
 
 ### 7.3 주요 계약
 
@@ -423,7 +356,7 @@ Request:
   "source_type": "re_solve",
   "input_diff_summary": {
     "changed_off_requests": 2,
-    "changed_policy_rules": 0,
+    "changed_locked_assignments": 0,
     "note": "2건의 off 요청 조정"
   }
 }
@@ -558,7 +491,6 @@ Response:
 4. `latest_evaluation.result_status == passed` 검증
 5. schedule container의 `finalized_version_id`, `selected_version_id`, `finalized_at`, `finalized_by` 갱신
 6. version 상태를 `finalized`로 변경
-7. `fairness_ledger_monthly` upsert
 
 실패 시 `409` 또는 `422` 반환:
 
@@ -572,15 +504,13 @@ Response:
 
 Phase2A에서는 기존 route를 최대한 유지한다.
 
-| Route                                            | Action                          |
-| ------------------------------------------------ | ------------------------------- |
-| `/schedule/step1`                                | 유지                            |
-| `/schedule/step2`                                | 유지                            |
-| `/schedule/step3`                                | 유지                            |
-| `/schedule/step4`                                | 유지                            |
-| `/schedule/step5/:scheduleId?version=:versionId` | `Review Hub`로 확장             |
-| `/setup`                                         | 신규, admin bootstrap checklist |
-| `/settings/off-request-policy`                   | 신규, 정책 관리                 |
+| Route                                            | Action              |
+| ------------------------------------------------ | ------------------- |
+| `/schedule/step1`                                | 유지                |
+| `/schedule/step2`                                | 유지                |
+| `/schedule/step3`                                | 유지                |
+| `/schedule/step4`                                | 유지                |
+| `/schedule/step5/:scheduleId?version=:versionId` | `Review Hub`로 확장 |
 
 핵심 방침:
 
@@ -640,7 +570,6 @@ versions: ScheduleVersionSummary[]
 latestEvaluation: ScheduleEvaluation | null
 compareMatrix: ScheduleCompareResponse | null
 reviewTab: 'grid' | 'proof' | 'offRequests' | 'compare'
-setupChecklist: SetupChecklistState | null
 ```
 
 ## 9. Solver / Evaluator 통합
@@ -660,7 +589,7 @@ Phase2A 추가 계약:
 - input source는 `selected version` 기준이다.
 - previous-month history는 `is_locked = true`로 유지한다.
 - current-month locked assignment가 생기면 same version re-solve 시 `history` 또는 별도 `locked_assignments`로 포함한다.
-- fairness ledger가 구현되면 optional `fairness_context`를 추가한다.
+- fairness context는 deferred slice에서 다시 연다.
 
 Phase2A에서 solver 응답에 반드시 필요한 추가 필드:
 
@@ -678,10 +607,8 @@ backend evaluator 입력:
 - current version assignments
 - shifts
 - site requirements
-- employees + available shifts + rank code
+- employees + available shifts
 - schedule preferences
-- off-request policy rules
-- fairness ledger
 
 backend evaluator 출력:
 
@@ -720,20 +647,18 @@ finalization 후 규칙:
 
 - finalized version은 읽기 전용
 - 다른 version은 compare history로 남길 수 있으나 Phase2A UI에서는 재활성화하지 않는다
-- fairness ledger는 finalized version assignment 기준으로만 적재한다
+- rolling fairness ledger write는 deferred slice에서 다시 연다
 
 ## 11. Failure Mode Registry
 
-| Failure Mode                                   | Classification    | Handling                          | Observability                             |
-| ---------------------------------------------- | ----------------- | --------------------------------- | ----------------------------------------- |
-| solver timeout                                 | `solve_failed`    | retry 허용, status badge 표시     | execution id, retry count, timeout metric |
-| solver 5xx                                     | `solve_failed`    | retry 허용                        | error log, response body trace            |
-| infeasible month                               | `infeasible`      | infeasibility panel 표시          | infeasible count metric                   |
-| stale evaluation finalize 시도                 | business error    | finalize 차단                     | `409 stale_evaluation` log                |
-| manual edit 후 미재검증                        | business error    | finalize disabled                 | version status metric                     |
-| off-request policy 위반 입력                   | validation error  | 저장 차단 또는 rejected 상태 저장 | policy rejection audit                    |
-| Step3 직원 재저장으로 finalized data 파손 시도 | business error    | 직원 저장 차단                    | admin action audit                        |
-| fairness ledger 중복 적재                      | consistency error | unique key로 차단                 | finalize transaction error log            |
+| Failure Mode                                   | Classification | Handling                      | Observability                             |
+| ---------------------------------------------- | -------------- | ----------------------------- | ----------------------------------------- |
+| solver timeout                                 | `solve_failed` | retry 허용, status badge 표시 | execution id, retry count, timeout metric |
+| solver 5xx                                     | `solve_failed` | retry 허용                    | error log, response body trace            |
+| infeasible month                               | `infeasible`   | infeasibility panel 표시      | infeasible count metric                   |
+| stale evaluation finalize 시도                 | business error | finalize 차단                 | `409 stale_evaluation` log                |
+| manual edit 후 미재검증                        | business error | finalize disabled             | version status metric                     |
+| Step3 직원 재저장으로 finalized data 파손 시도 | business error | 직원 저장 차단                | admin action audit                        |
 
 ## 12. Observability
 
@@ -765,7 +690,6 @@ finalization 후 규칙:
 
 - evaluator rule calculators
 - compare metric reducer
-- rank policy resolver
 - finalization gate function
 - version status mapper
 
@@ -775,8 +699,6 @@ finalization 후 규칙:
 - `manual edit -> review_pending -> recheck -> review_ready`
 - `review_blocked` version finalize 차단
 - `infeasible` 응답 저장 및 표시
-- `finalize -> fairness ledger upsert`
-- `rank_code NULL -> organization default policy fallback`
 
 ### 13.3 E2E
 
@@ -784,7 +706,6 @@ finalization 후 규칙:
 - Step5 수동 수정 후 finalize 버튼 비활성화
 - recheck 성공 후 finalize 가능
 - infeasible 버전에서 explanation panel 확인
-- setup checklist 완료 후 policy screen 진입
 
 ## 14. 구현 순서
 
@@ -794,7 +715,6 @@ finalization 후 규칙:
 - `schedule_evaluations`
 - `schedule_assignments.schedule_version_id`
 - `schedule_preferences.schedule_version_id`
-- `employees.rank_code`
 
 ### Phase 2. Review hub foundation
 
@@ -816,17 +736,14 @@ finalization 후 규칙:
 - compare table
 - input diff summary rendering
 
-### Phase 5. Go-Live Ops Layer
+### Deferred after Trust Layer
 
 - `profiles`
 - `/setup`
 - `organization_rank_codes`
 - `off_request_policy_rules`
-
-### Phase 6. Fairness ledger
-
-- finalize write path
-- optional solver fairness_context
+- finalize-triggered fairness ledger write
+- optional solver fairness context
 
 ## 15. Phase2A Cut Lines
 

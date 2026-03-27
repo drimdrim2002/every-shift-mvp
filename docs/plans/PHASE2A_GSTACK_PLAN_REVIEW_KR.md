@@ -30,6 +30,7 @@
 
 #### B. `/plan-eng-review`
 
+π
 이 단계의 결과물은 구현 관점의 execution spec이다.
 
 - [PHASE2_ENGINEERING_SPEC_KR.md](../prd/PHASE2_ENGINEERING_SPEC_KR.md)
@@ -39,19 +40,12 @@
 
 #### C. 구현 draft
 
-아래 산출물은 review 완료 전 미리 생성된 구현 초안이다.
+이 브랜치에는 이전 세션에서 migration / Edge Function / frontend API skeleton 초안이 한때 존재했지만, 현재는 rollback되어 working tree에 남아 있지 않다.
 
-- [007_phase2a_version_evaluation_foundation.sql](../../migrations/007_phase2a_version_evaluation_foundation.sql)
-- [phase2.ts](../../src/api/phase2.ts)
-- [phase2.ts](../../src/types/phase2.ts)
-- [phase2-schedule/index.ts](../../supabase/functions/phase2-schedule/index.ts)
-- [phase2-ops/index.ts](../../supabase/functions/phase2-ops/index.ts)
-- [http.ts](../../supabase/functions/_shared/http.ts)
-- [auth.ts](../../supabase/functions/_shared/auth.ts)
-- [routes.ts](../../supabase/functions/_shared/routes.ts)
-- [supabase.ts](../../supabase/functions/_shared/supabase.ts)
+이번 review에서는 이들을 historical draft artifact로만 취급한다.
 
-이들은 approved implementation이 아니라 draft implementation이다.
+- 현재 worktree에 존재하지 않아도 source of truth가 아니다.
+- 이후 구현 시에도 이 초안을 복원하는 것이 아니라, review에서 잠근 plan을 기준으로 slice별 재구현한다.
 
 ### 0.2 Canonical source of truth
 
@@ -80,12 +74,12 @@
 2. `/plan-ceo-review` 결과는 PRD의 scope/positioning 결정으로 본다.
 3. `/plan-eng-review`는 이 문서를 review target으로 삼아 architecture/tests/performance를 잠근다.
 4. eng review가 끝나기 전에는 migration과 TS skeleton을 진행 중 work가 아니라 frozen draft로 본다.
-5. eng review 종료 후 implementation은 아래 순서로 재개한다.
+5. eng review 종료 후 첫 implementation slice는 아래 순서로 재개한다.
    - schema foundation
    - backend read/write path
    - Step5 review hub
-   - ops write path
-   - finalize + fairness ledger
+   - trust-layer tests
+6. ops write path와 rolling fairness ledger는 다음 slice로 이월한다.
 
 ### 0.4-bis 이번 eng review의 확정 범위
 
@@ -155,7 +149,7 @@ Step 0 결정에 따라 이번 `/plan-eng-review`와 첫 구현 슬라이스는 
 
 ## 3. 목표
 
-Phase2A의 핵심 목표는 기존 Phase1 근무표 생성 흐름 위에 다음을 얹는 것이다.
+Phase2A의 전체 목표는 기존 Phase1 근무표 생성 흐름 위에 다음을 얹는 것이다.
 
 - 동일 월에 대해 여러 candidate version을 만들고 비교할 수 있다.
 - 선택된 version의 `latest passed evaluation` 기준으로만 finalization 할 수 있다.
@@ -163,6 +157,8 @@ Phase2A의 핵심 목표는 기존 Phase1 근무표 생성 흐름 위에 다음�
 - `review_blocked`, `infeasible`, `solve_failed`를 구분한다.
 - rank는 조직별 code 기반으로 운영한다.
 - rolling fairness ledger는 finalized version 기준으로만 적재한다.
+
+다만 이번 `/plan-eng-review`의 locking target은 위 전체 목표 중 Trust Layer에 직접 필요한 항목만이다.
 
 ## 4. 범위
 
@@ -235,8 +231,11 @@ Step1-4 inputs
   -> operator may edit assignments
   -> recheck creates new evaluation for bumped revision
   -> finalize selected version if latest evaluation passed
-  -> write fairness ledger from finalized version
 ```
+
+주석:
+
+- finalized version 이후 rolling fairness ledger 적재는 이번 review 범위에 포함하지 않는다.
 
 ### 6.2 Status lifecycle
 
@@ -284,7 +283,7 @@ selected version
 
 - legacy schedule 1건당 version 1건 backfill
 - version-scoped uniqueness 보장
-- finalization FK와 policy tables 생성 확인
+- finalization FK 무결성 확인
 
 ### Slice 2. Read/write API boundary
 
@@ -319,37 +318,10 @@ selected version
 - manual edit 후 `review_pending` 상태 반영
 - recheck 전 finalize 불가
 
-### Slice 4. Ops write path
-
-출력:
-
-- organization rank codes CRUD-lite
-- off request policy write path
-- admin bootstrap 최소 흐름
-
-검증:
-
-- rank 없는 조직도 default 정책으로 동작
-- rank code 유효성 체크
-- policy active range 충돌 처리
-
-### Slice 5. Fairness ledger and finalize transaction
-
-출력:
-
-- finalized version 기준 ledger upsert
-- schedule.finalized_version_id 갱신
-- immutable finalize audit fields
-
-검증:
-
-- non-finalized version에서는 ledger write 금지
-- finalized version 변경 없는 재요청은 idempotent 처리
-
 주석:
 
-- Slice 4와 Slice 5는 현재 review 범위 밖이다.
-- 이번 eng review는 Slice 1~3만 대상으로 한다.
+- 이번 eng review와 첫 구현 슬라이스는 Slice 1~3만 대상으로 한다.
+- `organization_rank_codes`, `off_request_policy_rules`, admin bootstrap, rolling fairness ledger는 다음 slice로 이월한다.
 
 ## 8. 테스트 계획
 
@@ -357,7 +329,6 @@ selected version
 
 - legacy backfill
 - unique key migration
-- `profiles` existing-table compatibility
 - selected/finalized version FK integrity
 
 ### 8.2 Backend integration
@@ -367,7 +338,6 @@ selected version
 - compare payload contains input diff + metrics
 - recheck creates immutable evaluation row
 - finalize blocks stale revision
-- finalize writes fairness ledger only once
 
 ### 8.3 Frontend
 
@@ -382,6 +352,12 @@ selected version
 - infeasible response -> infeasibility panel
 - evaluator detects hard violations -> `review_blocked`
 - stale selected version while another tab edits data
+
+### 8.5 Deferred after Trust Layer
+
+- rank code dictionary / policy write path
+- admin bootstrap / setup checklist
+- rolling fairness ledger write
 
 ## 9. Cut Lines
 
@@ -404,7 +380,7 @@ selected version
 1. migration을 한 번에 적용할지, foundation/backfill을 분리할지
 2. evaluator와 finalize transaction을 같은 function에 둘지, 분리할지
 3. Step5에 compare와 edit를 함께 둘지, pane을 분리할지
-4. selected version concurrency를 optimistic check만으로 충분히 막을지
+4. selected version concurrency를 optimistic check만으로 충분히 막을지, row lock을 포함할지
 5. API contract에서 proof/metrics JSON shape를 얼마나 고정할지
 
 ## 11. 이번 브랜치의 작업 원칙
