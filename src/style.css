@@ -28,8 +28,6 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
 }
@@ -63,10 +61,14 @@ button:focus-visible {
 }
 
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  /* max-width 제거 - ScheduleGrid의 넓은 테이블 지원 */
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Naive UI Layout max-width 오버라이드 */
+.n-layout-content {
+  max-width: none !important;
 }
 
 @media (prefers-color-scheme: light) {

@@ -1,0 +1,4 @@
+interface:
+  display_name: EveryShift Pinia Store Generator
+  short_description: Build setup-style Pinia stores for EveryShift
+  default_prompt: Generate a setup-style Pinia store with strict TS, reset action, and optional safe localStorage persistence.

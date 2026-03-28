@@ -1,5 +1,10 @@
 # EveryShift MVP PRD - 프로젝트 개요 및 기술 아키텍처
 
+> **문서 상태**: Phase1 Legacy Reference
+>
+> 이 문서는 Phase1 MVP의 프로젝트 개요와 기술 아키텍처를 설명하는 참고 문서입니다.
+> 현재 제품 단계 구분과 배포 기준은 `PHASE2_PRD_KR.md`를 우선 기준으로 사용합니다.
+
 ## 문서 정보
 
 - **버전**: MVP 1.0
@@ -101,33 +106,33 @@ Enhanced PRD의 완전 기능 대신 다음으로 단순화:
 
 ### Frontend
 
-|항목|기술|버전|용도|
-|---|---|---|---|
-|**Framework**|Vue 3|3.5.17|Composition API 기반|
-|**Language**|TypeScript|5.8.3|타입 안정성|
-|**Build Tool**|Vite|6.3.5|빠른 개발 경험|
-|**Styling**|Tailwind CSS|3.4.17|유틸리티 CSS|
-|**Admin Template**|Vben Admin|5.x|레이아웃 및 구조 참고|
-|**Grid**|TanStack Table|v8|스케줄링 그리드|
-|**State**|Pinia|2.x|상태 관리|
-|**Date**|Day.js|1.x|날짜 처리|
-|**UI Components**|Naive UI|2.42.0|폼, 모달, 버튼 등|
+| 항목               | 기술           | 버전   | 용도                  |
+| ------------------ | -------------- | ------ | --------------------- |
+| **Framework**      | Vue 3          | 3.5.17 | Composition API 기반  |
+| **Language**       | TypeScript     | 5.8.3  | 타입 안정성           |
+| **Build Tool**     | Vite           | 6.3.5  | 빠른 개발 경험        |
+| **Styling**        | Tailwind CSS   | 3.4.17 | 유틸리티 CSS          |
+| **Admin Template** | Vben Admin     | 5.x    | 레이아웃 및 구조 참고 |
+| **Grid**           | TanStack Table | v8     | 스케줄링 그리드       |
+| **State**          | Pinia          | 2.x    | 상태 관리             |
+| **Date**           | Day.js         | 1.x    | 날짜 처리             |
+| **UI Components**  | Naive UI       | 2.42.0 | 폼, 모달, 버튼 등     |
 
 ### Backend
 
-|항목|기술|용도|
-|---|---|---|
-|**Database**|Supabase PostgreSQL|데이터 저장|
-|**Auth**|Supabase Auth|이메일/비밀번호 인증|
-|**RLS**|Supabase RLS|행 단위 보안|
+| 항목         | 기술                | 용도                 |
+| ------------ | ------------------- | -------------------- |
+| **Database** | Supabase PostgreSQL | 데이터 저장          |
+| **Auth**     | Supabase Auth       | 이메일/비밀번호 인증 |
+| **RLS**      | Supabase RLS        | 행 단위 보안         |
 
 ### AI Solver (외부)
 
-|항목|기술|상태|
-|---|---|---|
-|**Platform**|Google Cloud Run|개발 완료|
-|**Engine**|OptaPlanner|Java 기반|
-|**연동**|REST API (추정)|MVP에서는 Mock|
+| 항목         | 기술             | 상태           |
+| ------------ | ---------------- | -------------- |
+| **Platform** | Google Cloud Run | 개발 완료      |
+| **Engine**   | OptaPlanner      | Java 기반      |
+| **연동**     | REST API (추정)  | MVP에서는 Mock |
 
 ## 2.2 Vben Admin 활용 전략
 
@@ -138,14 +143,14 @@ Vben Admin의 **부분 활용** - 전체 도입이 아닌 선택적 참고:
 #### ✅ 활용할 것
 
 1. **레이아웃 구조**
-    - DefaultLayout (Header + Sidebar + Content)
-    - 라우팅 구조
+   - DefaultLayout (Header + Sidebar + Content)
+   - 라우팅 구조
 2. **인증 패턴**
-    - 로그인 플로우
-    - 라우트 가드 (beforeEach)
+   - 로그인 플로우
+   - 라우트 가드 (beforeEach)
 3. **코드 스타일**
-    - Composable 패턴
-    - 폴더 구조
+   - Composable 패턴
+   - 폴더 구조
 
 #### ❌ 사용하지 않을 것
 
@@ -253,15 +258,15 @@ graph TD
 
 1. **Step 1-2**: Supabase에서 조직/직원 데이터 조회
 2. **Step 3**:
-    - 그리드에서 입력한 데이터를 Pinia 스토어에 저장
-    - "근무표 생성" 클릭 시 Supabase에 요청 레코드 생성
+   - 그리드에서 입력한 데이터를 Pinia 스토어에 저장
+   - "근무표 생성" 클릭 시 Supabase에 요청 레코드 생성
 3. **AI Solver 호출**:
-    - Supabase에서 데이터를 읽어 AI Solver API 호출
-    - 비동기 처리: status를 'running'으로 설정
-    - Polling으로 상태 확인 (5초마다)
+   - Supabase에서 데이터를 읽어 AI Solver API 호출
+   - 비동기 처리: status를 'running'으로 설정
+   - Polling으로 상태 확인 (5초마다)
 4. **Step 4**:
-    - 결과 조회 및 그리드 표시
-    - 수동 수정 시 schedule_assignments 업데이트
+   - 결과 조회 및 그리드 표시
+   - 수동 수정 시 schedule_assignments 업데이트
 
 ---
 

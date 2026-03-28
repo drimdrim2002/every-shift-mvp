@@ -1,0 +1,50 @@
+<template>
+  <section class="overflow-x-auto rounded-md border border-gray-200 bg-white">
+    <table class="min-w-full table-fixed text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="sticky left-0 z-10 border-b border-gray-200 bg-gray-50 px-3 py-2 text-left">이름</th>
+          <th
+            v-for="column in columns"
+            :key="column.key"
+            class="border-b border-gray-200 px-2 py-2 text-center"
+          >
+            {{ column.label }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="row in rows" :key="row.id" class="border-b border-gray-100">
+          <td class="sticky left-0 z-10 bg-white px-3 py-2 font-medium">{{ row.name }}</td>
+          <td v-for="column in columns" :key="`${row.id}-${column.key}`" class="px-2 py-2 text-center">
+            <slot name="cell" :row="row" :column="column">
+              {{ row.values[column.key] ?? '' }}
+            </slot>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</template>
+
+<script setup lang="ts">
+interface GridColumn {
+  key: string;
+  label: string;
+}
+
+interface GridRow {
+  id: string;
+  name: string;
+  values: Record<string, string | null>;
+}
+
+interface Props {
+  rows: GridRow[];
+  columns: GridColumn[];
+}
+
+defineProps<Props>();
+
+// Integrate TanStack Table in implementation-specific code paths when needed.
+</script>

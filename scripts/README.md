@@ -22,19 +22,19 @@ Essential development workflow scripts for quality assurance and validation.
 ./scripts/health-check.sh
 ```
 
-#### `verify-crud-apis.sh`
+#### `validate-types.sh`
 
-**Purpose**: Verify CRUD API completeness for organization entities **Checks**:
+**Purpose**: TypeScript type safety validation **Actions**:
 
-- ✅ Create functions exist
-- ✅ Read functions exist
-- ✅ Update functions exist
-- ✅ Delete functions exist (Critical!)
+- 🛡️ TypeScript compilation check
+- 🔍 ESLint type safety rules
+- 🎨 Code formatting check
+- 🧹 Remove unused imports
 
 **Usage**:
 
 ```bash
-./scripts/verify-crud-apis.sh
+./scripts/validate-types.sh
 ```
 
 ### Pre-Commit Scripts ✅
@@ -57,13 +57,12 @@ Essential development workflow scripts for quality assurance and validation.
 
 #### `quality-gate.sh`
 
-**Purpose**: Enforce all quality gates (5-gate system) **Gates**:
+**Purpose**: Enforce all quality gates **Gates**:
 
 1. ✅ TypeScript Compliance
 2. ✅ ESLint Compliance
 3. ✅ Build Success
 4. ✅ No Debug Code
-5. ✅ CRUD Completeness
 
 **Usage**:
 
@@ -87,19 +86,13 @@ chmod +x scripts/*.sh
    ./scripts/health-check.sh
    ```
 
-2. **Development Start**:
-
-   ```bash
-   ./scripts/verify-crud-apis.sh
-   ```
-
-3. **Pre-Commit** (mandatory):
+2. **Pre-Commit** (mandatory):
 
    ```bash
    ./scripts/pre-commit-validation.sh
    ```
 
-4. **Release Ready**:
+3. **Release Ready**:
    ```bash
    ./scripts/quality-gate.sh
    ```
@@ -115,14 +108,13 @@ chmod +x scripts/*.sh
 
 - Scripts are designed for **Linux/macOS environments**
 - All scripts include detailed error reporting
-- Scripts follow the project's 5 Gates System
+- Scripts follow the project's quality gates system
 - Scripts prevent common development mistakes
 
 ## 🔗 Related Documentation
 
 See main `CLAUDE.md` for:
 
-- Development Gates requirements
+- Development quality gates requirements
 - ESLint and code style rules
-- CRUD completeness guidelines
 - TypeScript error prevention

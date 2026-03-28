@@ -1,340 +1,497 @@
 {
   "tasks": [
     {
-      "id": "b3449519-413b-40ec-9cea-c8adc211e52e",
-      "name": "Vite 프로젝트 생성 및 TypeScript 설정 확인",
-      "description": "Vue 3 + TypeScript 템플릿으로 Vite 프로젝트를 생성하고, TypeScript 설정이 올바른지 확인. 프로젝트명은 'everyshift-mvp'로 설정.",
-      "status": "completed",
+      "id": "5874b091-b92e-473f-818c-4b9d73118b65",
+      "name": "타입 정의 수정 (excel.ts)",
+      "description": "엑셀 업로드 타입을 6개 시트에서 3개 시트 구조로 변경. OrganizationData 제거, SiteRequirementRow를 세로형(21행) 구조로 변경, ParsedExcelData에서 organization/shifts/currentMonthData 필드 제거.",
+      "notes": "기존 6개 시트(조직정보, 직원정보, 시프트정의, 요일별인력, 전월데이터, 당월데이터)에서 3개 시트(직원정보, 요일별인력, 전월데이터)로 축소",
+      "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T14:54:49.822Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": "package.json",
-          "type": "CREATE",
-          "description": "프로젝트 메타데이터 및 의존성 정보"
-        },
-        {
-          "path": "tsconfig.json",
-          "type": "CREATE",
-          "description": "TypeScript 컴파일러 설정"
-        },
-        {
-          "path": "vite.config.ts",
-          "type": "CREATE",
-          "description": "Vite 빌드 도구 설정"
-        },
-        {
-          "path": "src/main.ts",
-          "type": "CREATE",
-          "description": "애플리케이션 진입점"
-        },
-        {
-          "path": "src/App.vue",
-          "type": "CREATE",
-          "description": "루트 Vue 컴포넌트"
+          "path": "src/types/excel.ts",
+          "type": "TO_MODIFY",
+          "description": "엑셀 타입 정의"
         }
       ],
-      "implementationGuide": "1. 터미널에서 `npm create vite@latest everyshift-mvp -- --template vue-ts` 실행\n2. `cd everyshift-mvp && npm install` 실행\n3. `npm run dev` 실행하여 개발 서버가 정상 작동하는지 확인\n4. tsconfig.json 파일 확인 (strict 모드 활성화 여부)\n5. src/App.vue, src/main.ts 파일이 TypeScript로 작성되어 있는지 확인",
-      "verificationCriteria": "1. npm run dev 실행 시 브라우저에서 Vite + Vue 초기 화면 표시\n2. TypeScript 컴파일 에러 없음\n3. Hot Module Replacement 정상 작동",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "summary": "✅ Vite 6.3.5 + Vue 3.5.17 + TypeScript 5.8.3 프로젝트 생성 완료 (CLAUDE.md 스펙 준수)\n\n**완료 항목**:\n1. Vue 3 + TypeScript 템플릿으로 프로젝트 생성 완료\n2. 프로젝트명 'everyshift-mvp'로 정확히 설정\n3. package.json 버전을 CLAUDE.md 스펙에 맞게 조정 (Vue 3.5.17, TS 5.8.3, Vite 6.3.5)\n4. 의존성 설치 완료 (53 packages)\n5. tsconfig.app.json 검증: strict 모드 활성화, path alias 설정 추가 (@/ → ./src/)\n6. vite.config.ts 검증: Vue plugin 설정, path alias 설정 추가\n7. 개발 서버 정상 실행 확인 (http://localhost:5173, 379ms 준비 완료)\n8. TypeScript 컴파일 에러 없음\n9. Hot Module Replacement 정상 작동\n10. src/ 구조 생성 완료 (main.ts, App.vue, components/, assets/)\n\n**검증 기준 충족**:\n✅ npm run dev 실행 시 Vite + Vue 초기 화면 표시\n✅ TypeScript 컴파일 에러 없음\n✅ HMR 정상 작동\n\n**다음 단계 준비 완료**: Task 2~6 (Naive UI, Tailwind CSS, TanStack Table, Pinia, Supabase Client 설치 가능)",
-      "completedAt": "2025-11-13T14:54:49.816Z"
+      "implementationGuide": "1. src/types/excel.ts 파일 열기\n2. OrganizationData 인터페이스 제거\n3. SiteRequirementRow 인터페이스 수정:\n   interface SiteRequirementRow {\n     dayOfWeek: number;  // 0-6\n     dayName: string;    // 월요일, 화요일, ...\n     shiftCode: string;  // D, E, N\n     requiredCount: number;\n   }\n4. SiteRequirements 타입을 SiteRequirementRow[] 배열로 변경\n5. ParsedExcelData 인터페이스 수정:\n   - organization 필드 제거\n   - shifts 필드 제거\n   - currentMonthData 필드 제거\n   - siteRequirements를 SiteRequirementRow[] 타입으로 변경\n6. TypeScript strict mode 컴파일 확인",
+      "verificationCriteria": "1. OrganizationData 타입이 제거됨\n2. SiteRequirementRow가 세로형 구조(dayName, shiftCode, requiredCount)로 정의됨\n3. ParsedExcelData가 3개 필드만 포함(employees, siteRequirements, previousMonthData)\n4. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7",
-      "name": "UI 및 스타일링 패키지 설치 (Naive UI, Tailwind CSS)",
-      "description": "사용자 인터페이스 구축을 위한 Naive UI 컴포넌트 라이브러리와 Tailwind CSS 유틸리티 프레임워크를 설치하고 기본 설정을 수행.",
-      "status": "completed",
+      "id": "94c9b614-04b8-463e-bbff-5b6c7a2f023f",
+      "name": "Excel 파서 수정 (excelParser.ts) - 3개 시트 파싱",
+      "description": "엑셀 파서를 3개 시트 구조로 변경. extractOrganizationInfo, extractShifts, extractCurrentMonthData 함수 제거. extractSiteRequirements를 세로형(21행) 파싱으로 수정.",
+      "notes": "요일별 인력은 세로형 구조: 월요일-D(5명), 월요일-E(3명), 월요일-N(2명), 화요일-D(5명), ... 총 21행 (7일 × 3시프트)",
+      "status": "pending",
       "dependencies": [
         {
-          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
         }
       ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T15:03:55.450Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": "package.json",
+          "path": "src/utils/excelParser.ts",
           "type": "TO_MODIFY",
-          "description": "dependencies 섹션에 naive-ui, tailwindcss 추가"
+          "description": "엑셀 파싱 로직"
         },
         {
-          "path": "tailwind.config.js",
-          "type": "CREATE",
-          "description": "Tailwind CSS 설정 파일"
-        },
-        {
-          "path": "postcss.config.js",
-          "type": "CREATE",
-          "description": "PostCSS 설정 파일"
-        },
-        {
-          "path": "src/style.css",
-          "type": "TO_MODIFY",
-          "description": "Tailwind directives 추가"
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
         }
       ],
-      "implementationGuide": "1. Naive UI 설치: `npm install naive-ui`\n2. Tailwind CSS 설치: `npm install -D tailwindcss@3.4.17 postcss autoprefixer`\n3. Tailwind 초기화: `npx tailwindcss init -p`\n4. tailwind.config.js에서 content 경로 설정: [\"./index.html\", \"./src/**/*.{vue,js,ts,jsx,tsx}\"]\n5. src/style.css 파일에 Tailwind directives 추가: @tailwind base; @tailwind components; @tailwind utilities;\n6. main.ts에서 'naive-ui' import하여 테스트",
-      "verificationCriteria": "1. npm install 성공적으로 완료\n2. tailwind.config.js 생성 확인\n3. Tailwind 유틸리티 클래스 (예: text-blue-500) 적용 시 스타일 반영\n4. Naive UI 컴포넌트 (예: n-button) import 가능",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "summary": "UI 및 스타일링 패키지 설치 완료: Naive UI (v2.43.1)와 Tailwind CSS (v3.4.17)가 성공적으로 설치되고 설정됨. 모든 검증 기준 충족 - (1) npm install 성공, (2) tailwind.config.js 생성 및 content 경로 설정, (3) postcss.config.js 생성, (4) style.css에 @tailwind directives 추가, (5) main.ts에서 Naive UI 전역 등록, (6) App.vue에서 Tailwind 유틸리티 클래스(text-blue-600, bg-blue-100 등)와 Naive UI 컴포넌트(NButton, NSpace) 테스트 성공. 개발 서버(http://localhost:5174/)가 에러 없이 정상 실행 중.",
-      "completedAt": "2025-11-13T15:03:55.446Z"
+      "implementationGuide": "1. src/utils/excelParser.ts 파일 열기\n2. extractOrganizationInfo() 함수 제거\n3. extractShifts() 함수 제거\n4. extractCurrentMonthData() 함수 제거\n5. extractSiteRequirements() 함수 수정:\n   - 시트 이름: '요일별인력' 또는 '요일별 인력'\n   - 헤더: A1(요일명), B1(시프트유형), C1(필요인력수)\n   - 2행부터 22행까지 읽기 (21개 데이터 행)\n   - dayName을 dayOfWeek로 변환 (월요일→1, 화요일→2, ...)\n   - 각 행을 SiteRequirementRow 객체로 변환\n6. parseExcelFile() 함수 수정:\n   - 3개 시트만 확인: '직원정보', '요일별인력', '전월데이터'\n   - extractOrganizationInfo 호출 제거\n   - extractShifts 호출 제거\n   - extractCurrentMonthData 호출 제거\n   - ParsedExcelData 반환 시 3개 필드만 포함\n7. 에러 처리: 누락된 시트, 잘못된 형식에 대한 명확한 에러 메시지\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. parseExcelFile()이 3개 시트만 파싱\n2. extractSiteRequirements()가 21행 세로형 데이터를 정확히 파싱\n3. dayName을 dayOfWeek(0-6)로 정확히 변환\n4. 에러 발생 시 명확한 메시지 제공\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "57b08cdd-f193-4475-85e3-148f0af29c8c",
-      "name": "Tailwind CSS 커스텀 색상 설정 (시프트 색상)",
-      "description": "근무 시프트별 색상 코드를 Tailwind CSS theme에 추가. D(Day)=#92D050, E(Evening)=#FFC000, N(Night)=#4472C4, O(Off)=#D9D9D9.",
-      "status": "completed",
+      "id": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2",
+      "name": "Excel 검증기 수정 (excelValidator.ts) - 3개 시트 검증",
+      "description": "엑셀 검증기를 3개 시트 구조로 변경. validateOrganizationData, validateShiftData 함수 제거. validateSiteRequirements를 세로형 검증으로 수정. 시프트 코드 교차 검증 추가.",
+      "notes": "시프트 코드는 시스템에 등록된 시프트와 일치해야 함. 향후 Step1에서 설정한 시프트 정보를 매개변수로 받아 검증할 수 있도록 확장 가능하게 설계.",
+      "status": "pending",
       "dependencies": [
         {
-          "taskId": "a9fde6bf-3e9d-426a-ad89-3f07d29186b7"
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
         }
       ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T15:19:56.327Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": "tailwind.config.js",
+          "path": "src/utils/excelValidator.ts",
           "type": "TO_MODIFY",
-          "description": "theme.extend.colors에 시프트 색상 추가"
+          "description": "엑셀 검증 로직"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
         }
       ],
-      "implementationGuide": "1. tailwind.config.js 파일 열기\n2. theme.extend.colors 섹션에 커스텀 색상 추가:\n```javascript\nshift: {\n  day: '#92D050',\n  evening: '#FFC000',\n  night: '#4472C4',\n  off: '#D9D9D9',\n}\n```\n3. 테스트용 컴포넌트에서 bg-shift-day, text-shift-night 등 클래스 사용하여 색상 적용 확인",
-      "verificationCriteria": "1. bg-shift-day 클래스 적용 시 #92D050 색상 표시\n2. bg-shift-evening 클래스 적용 시 #FFC000 색상 표시\n3. bg-shift-night 클래스 적용 시 #4472C4 색상 표시\n4. bg-shift-off 클래스 적용 시 #D9D9D9 색상 표시",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "summary": "Tailwind CSS 커스텀 색상 설정 완료: tailwind.config.js의 theme.extend.colors에 4가지 시프트 색상(day: #92D050, evening: #FFC000, night: #4472C4, off: #D9D9D9)을 정확하게 추가. App.vue에서 bg-shift-day, bg-shift-evening, bg-shift-night, bg-shift-off 클래스를 사용한 시각적 테스트 UI를 구현하여 모든 검증 기준 충족. 개발 서버 실행 중이며 HMR을 통해 변경사항 자동 반영됨.",
-      "completedAt": "2025-11-13T15:19:56.323Z"
+      "implementationGuide": "1. src/utils/excelValidator.ts 파일 열기\n2. validateOrganizationData() 함수 제거\n3. validateShiftData() 함수 제거\n4. validateSiteRequirements() 함수 수정:\n   - 21개 행 검증 (7일 × 3시프트)\n   - dayOfWeek 범위 확인 (0-6)\n   - dayName 유효성 확인 (월요일~일요일)\n   - shiftCode 존재 확인 (빈 값 불허)\n   - requiredCount 양수 확인\n5. validateCrossSheetConsistency() 함수 수정:\n   - 전월 데이터의 시프트 코드가 요일별 인력의 시프트 코드와 일치하는지 검증\n   - 직원 정보의 가능 시프트가 요일별 인력의 시프트 코드와 일치하는지 검증\n6. validateExcelData() 함수 수정:\n   - validateOrganizationData 호출 제거\n   - validateShiftData 호출 제거\n   - 3개 시트 검증만 수행\n7. 에러 메시지에 시트명, 행번호, 해결 방법 포함\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. validateSiteRequirements()가 21행 검증 수행\n2. dayOfWeek와 dayName 유효성 검증\n3. 시프트 코드 교차 검증 수행\n4. 에러 메시지가 명확하고 해결 방법 포함\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "cc672606-607c-4315-8edb-8ba2d5ab0dbb",
-      "name": "그리드 및 상태 관리 패키지 설치 (TanStack Table, Pinia, Vue Router)",
-      "description": "근무표 그리드 구현을 위한 TanStack Table, 전역 상태 관리를 위한 Pinia, 라우팅을 위한 Vue Router를 설치.",
-      "status": "completed",
+      "id": "0efaa116-88a5-42ba-9aa3-5bda9e429167",
+      "name": "Excel 템플릿 생성기 수정 (excelTemplate.ts) - 3개 시트 템플릿",
+      "description": "엑셀 템플릿 생성기를 3개 시트 구조로 변경. createOrganizationSheet, createShiftsSheet 함수 제거. createSiteRequirementsSheet를 세로형 템플릿으로 수정. 시프트 정보를 매개변수로 받아 템플릿에 반영.",
+      "notes": "템플릿은 Step1에서 설정한 시프트 정보를 반영하여 생성. 사용자가 시프트를 추가/수정하면 템플릿도 동적으로 변경됨.",
+      "status": "pending",
       "dependencies": [
         {
-          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
         }
       ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T15:26:07.633Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": "package.json",
+          "path": "src/utils/excelTemplate.ts",
           "type": "TO_MODIFY",
-          "description": "dependencies에 @tanstack/vue-table, pinia, vue-router 추가"
+          "description": "템플릿 생성 로직"
         },
         {
-          "path": "src/main.ts",
-          "type": "TO_MODIFY",
-          "description": "Pinia, Router 플러그인 등록"
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
         }
       ],
-      "implementationGuide": "1. TanStack Table 설치: `npm install @tanstack/vue-table`\n2. Pinia 설치: `npm install pinia`\n3. Vue Router 설치: `npm install vue-router@4`\n4. main.ts에서 Pinia와 Vue Router 플러그인 등록:\n```typescript\nimport { createPinia } from 'pinia'\nimport { createRouter, createWebHistory } from 'vue-router'\nconst pinia = createPinia()\napp.use(pinia)\napp.use(router)\n```",
-      "verificationCriteria": "1. npm install 성공\n2. import { createPinia } from 'pinia' 에러 없음\n3. import { createRouter } from 'vue-router' 에러 없음\n4. import { useTable } from '@tanstack/vue-table' 에러 없음",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "summary": "모든 필수 패키지가 성공적으로 설치되었습니다: @tanstack/vue-table ^8.21.3, pinia ^3.0.4, vue-router ^4.6.3. src/router/index.ts에 기본 라우터 구성을 생성하고, src/main.ts에 Pinia와 Vue Router 플러그인을 올바른 순서(Pinia → Router → Naive UI)로 등록했습니다. 개발 서버가 에러 없이 성공적으로 실행되어 모든 import 구문이 정상 작동함을 확인했습니다. 모든 검증 기준을 충족했습니다.",
-      "completedAt": "2025-11-13T15:26:07.629Z"
+      "implementationGuide": "1. src/utils/excelTemplate.ts 파일 열기\n2. createOrganizationSheet() 함수 제거\n3. createShiftsSheet() 함수 제거\n4. createSiteRequirementsSheet() 함수 수정:\n   - 시프트 배열을 매개변수로 받음: createSiteRequirementsSheet(shifts: Shift[])\n   - 헤더: A1(요일명), B1(시프트유형), C1(필요인력수)\n   - 21개 데이터 행 생성: 월요일-D, 월요일-E, 월요일-N, ... (7일 × shifts.length)\n   - 요일명 열: 월요일, 화요일, ..., 일요일 (각 요일 3번 반복)\n   - 시프트유형 열: shifts 배열의 코드 반복 (D, E, N, ...)\n   - 필요인력수 열: 빈 셀 또는 샘플 값 (예: 5)\n   - 셀 주석: '시프트유형은 {설정된 시프트 코드} 중 하나'\n5. createEmployeesSheet() 함수 수정:\n   - 시프트 배열을 매개변수로 받음\n   - 가능한시프트 셀 주석: '{설정된 시프트 코드} 형식으로 입력 (예: D,E,N)'\n6. createScheduleDataSheet() 함수 수정:\n   - 당월 날짜 컬럼 제거\n   - 전월 5일만 포함\n7. generateBlankTemplate() 함수 수정:\n   - 시프트 배열을 매개변수로 받음: generateBlankTemplate(shifts: Shift[])\n   - 3개 시트만 생성\n   - 각 시트 생성 함수에 shifts 전달\n8. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. generateBlankTemplate()이 시프트 배열을 매개변수로 받음\n2. 3개 시트만 생성됨\n3. 요일별 인력 시트가 세로형 21행 구조\n4. 시프트 정보가 템플릿에 정확히 반영됨\n5. 셀 주석이 명확하게 표시됨\n6. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "cbab63dd-291c-49ba-af19-878efd0b063a",
-      "name": "백엔드 연동 패키지 설치 (Supabase JS Client)",
-      "description": "Supabase 데이터베이스 및 인증 시스템과 연동하기 위한 Supabase JavaScript 클라이언트 라이브러리를 설치.",
-      "status": "completed",
-      "dependencies": [
-        {
-          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
-        }
-      ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-13T15:57:57.796Z",
-      "relatedFiles": [
-        {
-          "path": "package.json",
-          "type": "TO_MODIFY",
-          "description": "dependencies에 @supabase/supabase-js 추가"
-        }
-      ],
-      "implementationGuide": "1. Supabase JS 설치: `npm install @supabase/supabase-js`\n2. 설치 확인: package.json에서 @supabase/supabase-js 버전 확인\n3. 간단한 import 테스트:\n```typescript\nimport { createClient } from '@supabase/supabase-js'\n```",
-      "verificationCriteria": "1. npm install 성공\n2. import { createClient } from '@supabase/supabase-js' TypeScript 에러 없음\n3. package.json에 @supabase/supabase-js 의존성 추가 확인",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "estimatedMinutes": 5,
-      "summary": "Supabase JS 클라이언트 라이브러리 설치 완료. npm install로 @supabase/supabase-js ^2.81.1 설치 성공, package.json에 정상 추가 확인, TypeScript import 테스트 통과 (에러 없음). 모든 검증 기준 충족.",
-      "completedAt": "2025-11-13T15:57:57.792Z"
-    },
-    {
-      "id": "b4729e4b-52b4-4536-a781-6f83387b603b",
-      "name": "유틸리티 패키지 설치 (Day.js, VueUse, XLSX)",
-      "description": "날짜 처리(Day.js), Vue 유틸리티(VueUse), 엑셀 내보내기(XLSX) 기능을 위한 패키지를 설치.",
-      "status": "completed",
-      "dependencies": [
-        {
-          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
-        }
-      ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-14T00:00:00.000Z",
-      "relatedFiles": [
-        {
-          "path": "package.json",
-          "type": "TO_MODIFY",
-          "description": "dependencies에 dayjs, @vueuse/core, xlsx 추가"
-        }
-      ],
-      "implementationGuide": "1. Day.js 설치: `npm install dayjs`\n2. VueUse 설치: `npm install @vueuse/core`\n3. XLSX 설치: `npm install xlsx`\n4. 각 패키지 import 테스트:\n```typescript\nimport dayjs from 'dayjs'\nimport { watchDebounced } from '@vueuse/core'\nimport * as XLSX from 'xlsx'\n```",
-      "verificationCriteria": "1. npm install 성공\n2. dayjs import 에러 없음\n3. @vueuse/core의 watchDebounced import 에러 없음\n4. xlsx import 에러 없음",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "estimatedMinutes": 5,
-      "summary": "유틸리티 패키지 설치 완료: Day.js (v1.11.19), VueUse Core (v14.0.0), XLSX (v0.18.5)를 성공적으로 설치. npm install로 14개의 패키지가 추가되었으며, package.json에 3개의 의존성이 정상 추가됨을 확인. TypeScript 타입 체크(vue-tsc --noEmit)를 통해 dayjs, watchDebounced, XLSX 모듈의 import가 에러 없이 정상 작동함을 검증. 모든 검증 기준 충족.",
-      "completedAt": "2025-11-14T00:00:00.000Z"
-    },
-    {
-      "id": "e6ade1e6-1f68-4bf5-9175-a97bae945462",
-      "name": "프로젝트 폴더 구조 생성",
-      "description": "Vue 3 Composition API 패턴에 맞는 프로젝트 폴더 구조를 생성. components, composables, stores, router, views, api, types, utils 디렉토리 생성.",
-      "status": "completed",
-      "dependencies": [
-        {
-          "taskId": "b3449519-413b-40ec-9cea-c8adc211e52e"
-        }
-      ],
-      "createdAt": "2025-11-13T11:42:27.631Z",
-      "updatedAt": "2025-11-14T23:15:00.000Z",
-      "relatedFiles": [
-        {
-          "path": "src/components/",
-          "type": "CREATE",
-          "description": "Vue 컴포넌트 디렉토리"
-        },
-        {
-          "path": "src/composables/",
-          "type": "CREATE",
-          "description": "Composition API 재사용 로직"
-        },
-        {
-          "path": "src/stores/",
-          "type": "CREATE",
-          "description": "Pinia stores"
-        },
-        {
-          "path": "src/router/",
-          "type": "CREATE",
-          "description": "Vue Router 설정"
-        },
-        {
-          "path": "src/views/",
-          "type": "CREATE",
-          "description": "페이지 레벨 컴포넌트"
-        },
-        {
-          "path": "src/api/",
-          "type": "CREATE",
-          "description": "API 클라이언트 함수"
-        },
-        {
-          "path": "src/types/",
-          "type": "CREATE",
-          "description": "TypeScript 타입 정의"
-        },
-        {
-          "path": "src/utils/",
-          "type": "CREATE",
-          "description": "유틸리티 함수"
-        }
-      ],
-      "implementationGuide": "1. 터미널에서 다음 명령어 실행:\n```bash\nmkdir -p src/components/layout\nmkdir -p src/components/schedule\nmkdir -p src/components/ui\nmkdir -p src/composables\nmkdir -p src/stores\nmkdir -p src/router\nmkdir -p src/views/auth\nmkdir -p src/views/schedule\nmkdir -p src/api\nmkdir -p src/types\nmkdir -p src/utils\n```\n2. 각 디렉토리가 생성되었는지 확인",
-      "verificationCriteria": "1. src/ 하위에 8개 주요 디렉토리 존재\n2. components/ 하위에 layout, schedule, ui 서브디렉토리 존재\n3. views/ 하위에 auth, schedule 서브디렉토리 존재",
-      "analysisResult": "EveryShift MVP - 간호사 근무표 생성 시스템 개발\n\n**프로젝트 목표**: 엑셀 근무표 작성 시간 90% 단축 (4-8시간 → 자동 생성)\n**기술 스택**: Vue 3 + TypeScript + Vite + Supabase + TanStack Table + Naive UI\n**개발 기간**: 8주\n**MVP 범위**: 4단계 워크플로우 (기본 정보 → 사이트 정보 → 초기 데이터 입력 → 결과 확인)\n\n**핵심 제약사항**:\n- 30명 직원 × 36일 (전월 5일 + 당월 31일) = 1,080개 셀 그리드\n- Step 3 ScheduleGrid가 80% 개발 노력 집중\n- MVP는 Out-of-Scope 항목 완전 제외 (회원가입, CRUD, 대시보드, 알림 등)\n- AI Solver는 Mock 구현 (실제 Google Cloud Run 연동은 MVP 이후)\n- 로컬 개발만, 배포 환경 미구성",
-      "summary": "✅ Vue 3 Composition API 패턴에 맞는 프로젝트 폴더 구조 생성 완료\n\n**완료 항목**:\n1. 8개 주요 디렉토리 생성: components, composables, stores, router, views, api, types, utils\n2. components/ 하위 3개 서브디렉토리 생성: layout, schedule, ui\n3. views/ 하위 2개 서브디렉토리 생성: auth, schedule\n4. 모든 빈 디렉토리에 .gitkeep 파일 생성 (Git 추적 보장)\n5. 구조 검증 완료 - 총 15개 디렉토리 생성 확인\n\n**검증 기준 충족**:\n✅ src/ 하위에 8개 주요 디렉토리 존재 (components, composables, stores, router, views, api, types, utils)\n✅ components/ 하위에 3개 서브디렉토리 존재 (layout, schedule, ui)\n✅ views/ 하위에 2개 서브디렉토리 존재 (auth, schedule)\n\n**다음 단계 준비 완료**: 각 디렉토리에 실제 파일 생성 가능 (컴포넌트, Pinia stores, API 클라이언트 등)",
-      "completedAt": "2025-11-14T23:15:00.000Z"
-    },
-    {
-      "id": "34398a7c-beda-4667-b06b-acb5fb9dc9f5",
-      "name": "ESLint 및 Prettier 설정",
-      "description": "코드 품질과 포맷팅 일관성을 위한 ESLint 및 Prettier 설정. Vue 3, TypeScript, Tailwind CSS 규칙 적용.",
-      "status": "completed",
+      "id": "87d015f6-bb51-4c75-8024-8424a42dfb0d",
+      "name": "시프트 API 생성 (shift.ts)",
+      "description": "시프트 CRUD API 함수를 새로 생성. 조직별 시프트 조회, 생성, 수정, 삭제 기능 구현.",
+      "notes": "시프트는 조직별로 관리됨. 동일 조직 내에서 시프트 코드는 유니크해야 함. RLS 정책 확인 필요.",
+      "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-14T14:37:23.114Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": ".eslintrc.cjs",
+          "path": "src/api/shift.ts",
           "type": "CREATE",
-          "description": "ESLint 설정"
+          "description": "시프트 API 함수"
         },
         {
-          "path": ".prettierrc.json",
-          "type": "CREATE",
-          "description": "Prettier 설정"
-        },
-        {
-          "path": ".eslintignore",
-          "type": "CREATE",
-          "description": "ESLint ignore 설정"
-        },
-        {
-          "path": ".prettierignore",
-          "type": "CREATE",
-          "description": "Prettier ignore 설정"
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Shift 타입 정의"
         }
       ],
-      "implementationGuide": "1. 패키지 설치:\n```bash\nnpm install -D eslint prettier eslint-plugin-vue @vue/eslint-config-typescript @vue/eslint-config-prettier eslint-plugin-tailwindcss\n```\n\n2. .eslintrc.cjs 생성:\n```javascript\n/* eslint-env node */\nmodule.exports = {\n  root: true,\n  env: {\n    browser: true,\n    es2021: true,\n    node: true,\n  },\n  extends: [\n    'plugin:vue/vue3-recommended',\n    '@vue/eslint-config-typescript',\n    '@vue/eslint-config-prettier',\n    'plugin:tailwindcss/recommended',\n  ],\n  parserOptions: {\n    ecmaVersion: 'latest',\n    sourceType: 'module',\n  },\n  rules: {\n    'vue/multi-word-component-names': 'off',\n    'vue/no-v-html': 'warn',\n    '@typescript-eslint/no-explicit-any': 'warn',\n    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],\n    'tailwindcss/no-custom-classname': 'off',\n  },\n};\n```\n\n3. .prettierrc.json 생성:\n```json\n{\n  \"semi\": true,\n  \"singleQuote\": true,\n  \"printWidth\": 100,\n  \"tabWidth\": 2,\n  \"trailingComma\": \"es5\",\n  \"arrowParens\": \"always\",\n  \"endOfLine\": \"lf\",\n  \"plugins\": [\"prettier-plugin-tailwindcss\"]\n}\n```\n\n4. .eslintignore 생성:\n```\ndist\nnode_modules\n.env.local\n*.config.js\n```\n\n5. .prettierignore 생성:\n```\ndist\nnode_modules\n.env.local\npnpm-lock.yaml\n```\n\n6. package.json에 스크립트 추가:\n```json\n{\n  \"scripts\": {\n    \"lint\": \"eslint . --ext .vue,.js,.ts,.tsx --fix\",\n    \"format\": \"prettier --write \"src/**/*.{vue,js,ts,tsx,json,css,md}\"\"\n  }\n}\n```\n\n7. VS Code 설정 (.vscode/settings.json):\n```json\n{\n  \"editor.formatOnSave\": true,\n  \"editor.codeActionsOnSave\": {\n    \"source.fixAll.eslint\": true\n  },\n  \"eslint.validate\": [\n    \"javascript\",\n    \"typescript\",\n    \"vue\"\n  ]\n}\n```\n\n8. 실행 및 검증:\n```bash\n# Lint 체크\nnpm run lint\n\n# 포맷팅\nnpm run format\n```",
-      "verificationCriteria": "1. ESLint 및 Prettier 설정 파일 생성\n2. npm run lint 실행 시 에러 없음\n3. npm run format 실행 시 코드 포맷팅 적용\n4. VS Code에서 저장 시 자동 포맷팅 동작\n5. Tailwind CSS 클래스 정렬 자동 적용",
-      "analysisResult": "ESLint/Prettier 설정. 코드 품질과 일관성을 유지하여 협업 및 유지보수를 용이하게 함.",
-      "summary": "ESLint 및 Prettier 설정이 성공적으로 완료되었습니다. ESLint 9의 flat config 형식(eslint.config.js)을 사용하여 Vue 3, TypeScript, Tailwind CSS를 지원하는 설정을 구성했습니다. npm run lint 및 npm run format 명령이 정상적으로 작동하며, VS Code 자동 포맷팅 설정도 완료되었습니다. Prettier의 tailwindcss 플러그인을 통해 Tailwind 클래스 자동 정렬도 지원합니다.",
-      "completedAt": "2025-11-14T14:37:23.111Z"
+      "implementationGuide": "1. src/api/shift.ts 파일 생성\n2. Supabase 클라이언트 import\n3. loadShifts(orgId: string): Promise<Shift[]>\n   - SELECT * FROM shifts WHERE organization_id = orgId ORDER BY code\n4. createShift(orgId: string, shiftData: Omit<Shift, 'id'>): Promise<Shift>\n   - INSERT INTO shifts (organization_id, code, name, color_code, start_time, end_time)\n   - 중복 코드 체크 (organization_id + code 유니크)\n5. updateShift(shiftId: string, shiftData: Partial<Shift>): Promise<void>\n   - UPDATE shifts SET ... WHERE id = shiftId\n6. deleteShift(shiftId: string): Promise<void>\n   - DELETE FROM shifts WHERE id = shiftId\n   - CASCADE 제약으로 관련 데이터 자동 삭제 확인\n7. 에러 처리: Supabase 에러를 사용자 친화적 메시지로 변환\n8. TypeScript 타입 정의\n9. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 4개 API 함수 모두 구현됨\n2. 에러 처리가 명확함\n3. TypeScript 타입이 정확함\n4. ESLint/Prettier 통과\n5. Supabase RLS 정책 준수",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "5bdb124f-fdd7-4d5a-8ee5-b44b2661c8c1",
-      "name": "Naive UI Global Config 설정 (main.ts)",
-      "description": "Naive UI의 message, dialog, notification 등을 전역에서 사용할 수 있도록 설정. window.$message 등으로 접근 가능하게 함.",
-      "status": "completed",
+      "id": "52250649-3112-4692-bf03-8bb6c313f33b",
+      "name": "조직 API 수정 (organization.ts) - CRUD 추가",
+      "description": "조직 API에 생성 및 수정 기능 추가. 기존 조회 기능 유지.",
+      "notes": "기존에는 seed data 읽기 전용이었으나, 사용자가 조직을 생성/수정할 수 있도록 변경.",
+      "status": "pending",
       "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-14T14:42:20.428Z",
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
       "relatedFiles": [
         {
-          "path": "src/main.ts",
+          "path": "src/api/organization.ts",
           "type": "TO_MODIFY",
-          "description": "Naive UI naive-ui 설정 추가"
+          "description": "조직 API 함수"
         },
         {
-          "path": "src/types/global.d.ts",
-          "type": "CREATE",
-          "description": "전역 타입 정의"
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Organization 타입"
         }
       ],
-      "implementationGuide": "1. src/main.ts 수정:\n```typescript\nimport { createApp } from 'vue';\nimport { createPinia } from 'pinia';\nimport naive from 'naive-ui';\nimport App from './App.vue';\nimport router from './router';\nimport './assets/index.css';\n\nconst app = createApp(App);\n\napp.use(createPinia());\napp.use(router);\napp.use(naive);\n\napp.mount('#app');\n\n// Naive UI meta 설정\nconst meta = document.createElement('meta');\nmeta.name = 'naive-ui-style';\ndocument.head.appendChild(meta);\n```\n\n2. src/types/global.d.ts 생성:\n```typescript\nimport type {\n  DialogApi,\n  LoadingBarApi,\n  MessageApi,\n  NotificationApi,\n} from 'naive-ui';\n\ndeclare global {\n  interface Window {\n    $message: MessageApi;\n    $dialog: DialogApi;\n    $notification: NotificationApi;\n    $loadingBar: LoadingBarApi;\n  }\n}\n\nexport {};\n```\n\n3. App.vue에서 global 설정:\n```vue\n<template>\n  <n-config-provider>\n    <n-message-provider>\n      <n-dialog-provider>\n        <n-notification-provider>\n          <n-loading-bar-provider>\n            <AppContent />\n          </n-loading-bar-provider>\n        </n-notification-provider>\n      </n-dialog-provider>\n    </n-message-provider>\n  </n-config-provider>\n</template>\n\n<script setup lang=\"ts\">\nimport {\n  NConfigProvider,\n  NMessageProvider,\n  NDialogProvider,\n  NNotificationProvider,\n  NLoadingBarProvider,\n  useMessage,\n  useDialog,\n  useNotification,\n  useLoadingBar,\n} from 'naive-ui';\nimport { onMounted } from 'vue';\nimport AppContent from './AppContent.vue';\n\nonMounted(() => {\n  window.$message = useMessage();\n  window.$dialog = useDialog();\n  window.$notification = useNotification();\n  window.$loadingBar = useLoadingBar();\n});\n</script>\n```\n\n4. AppContent.vue 생성 (실제 라우팅 컴포넌트):\n```vue\n<template>\n  <router-view />\n</template>\n\n<script setup lang=\"ts\">\n// 라우팅 컴포넌트\n</script>\n```\n\n5. 사용 예시:\n```typescript\n// 컴포넌트 내부\nwindow.$message.success('저장되었습니다!');\nwindow.$message.error('오류가 발생했습니다.');\nwindow.$message.warning('주의: 전월 데이터를 입력해주세요.');\nwindow.$message.info('정보: 근무표 생성 중입니다.');\n\nwindow.$dialog.warning({\n  title: '경고',\n  content: '전월 데이터가 입력되지 않았습니다.',\n  positiveText: '확인',\n  onPositiveClick: () => {\n    console.log('확인 클릭');\n  },\n});\n\nwindow.$notification.success({\n  title: '근무표 생성 완료',\n  content: '2025년 12월 근무표가 성공적으로 생성되었습니다.',\n  duration: 3000,\n});\n```\n\n6. tsconfig.json 업데이트:\n```json\n{\n  \"compilerOptions\": {\n    \"types\": [\"vite/client\", \"naive-ui/volar\"]\n  }\n}\n```",
-      "verificationCriteria": "1. src/types/global.d.ts 파일 생성\n2. App.vue에서 Naive UI Provider 설정\n3. window.$message, $dialog 등이 전역에서 사용 가능\n4. TypeScript 타입 에러 없음\n5. 컴포넌트에서 window.$message.success() 정상 동작",
-      "analysisResult": "Naive UI Global Config. 전역에서 일관된 방식으로 메시지, 다이얼로그를 사용하여 UX를 개선.",
-      "summary": "Naive UI Global Config 설정이 성공적으로 완료되었습니다.\n\n**구현 완료 사항:**\n\n1. ✅ **src/types/global.d.ts 생성** - Window 인터페이스에 Naive UI API 타입 정의 추가\n2. ✅ **App.vue Provider 설정** - NConfigProvider, NMessageProvider, NDialogProvider, NNotificationProvider, NLoadingBarProvider 적용\n3. ✅ **전역 API 바인딩** - onMounted에서 window.$message, $dialog, $notification, $loadingBar 설정\n4. ✅ **AppContent.vue 생성** - 기존 App.vue 콘텐츠를 분리하고 전역 메시지 테스트 버튼 추가\n5. ✅ **main.ts 업데이트** - Naive UI meta 태그 추가 및 코드 정리\n6. ✅ **tsconfig.app.json 업데이트** - \"naive-ui/volar\" 타입 추가\n7. ✅ **Lint 통과** - ESLint 및 Prettier 규칙 준수\n\n**테스트 가능:**\n- AppContent.vue에 추가된 4개의 버튼(Success, Error, Warning, Info)을 통해 window.$message API가 정상 동작하는지 확인 가능\n\n**주요 결정 사항:**\n- 기존 App.vue의 테스트 콘텐츠를 AppContent.vue로 분리하여 Provider 계층과 콘텐츠 계층을 명확히 구분\n- 전역 메시지 테스트를 위한 4개 버튼 추가로 즉시 검증 가능하도록 구성",
-      "completedAt": "2025-11-14T14:42:20.424Z"
+      "implementationGuide": "1. src/api/organization.ts 파일 열기\n2. createOrganization(orgData: Omit<Organization, 'id'>): Promise<Organization>\n   - INSERT INTO organizations (name, type)\n   - 생성된 조직 반환\n3. updateOrganization(orgId: string, orgData: Partial<Organization>): Promise<void>\n   - UPDATE organizations SET name = ?, type = ? WHERE id = orgId\n4. 기존 loadOrganization() 함수 유지\n5. 에러 처리 추가\n6. TypeScript 타입 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. createOrganization() 함수 추가됨\n2. updateOrganization() 함수 추가됨\n3. 기존 loadOrganization() 유지됨\n4. 에러 처리 명확함\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     },
     {
-      "id": "0725e1c4-f74d-4f5f-b1ab-9eb18b4410ec",
-      "name": "favicon 및 title 설정",
-      "description": "브라우저 탭 아이콘(favicon)과 제목(title)을 EveryShift에 맞게 설정. 브랜딩 강화.",
-      "status": "completed",
-      "dependencies": [],
-      "createdAt": "2025-11-13T13:51:54.911Z",
-      "updatedAt": "2025-11-15T02:24:05.619Z",
-      "relatedFiles": [
+      "id": "c09a09bd-5200-48f1-98ac-ad33d877064c",
+      "name": "조직 스토어 수정 (organization.ts) - CRUD 기능 추가",
+      "description": "조직 스토어에 생성, 수정, 시프트 관리 기능 추가. 기존 읽기 전용에서 CRUD 가능한 스토어로 변경.",
+      "notes": "기존 loadOrganization()은 유지하되, 생성/수정 기능 추가. 시프트 관리 기능도 동일 스토어에서 처리.",
+      "status": "pending",
+      "dependencies": [
         {
-          "path": "public/favicon.ico",
-          "type": "TO_MODIFY",
-          "description": "Favicon 파일"
+          "taskId": "87d015f6-bb51-4c75-8024-8424a42dfb0d"
         },
         {
-          "path": "index.html",
-          "type": "TO_MODIFY",
-          "description": "HTML title 및 meta 태그"
+          "taskId": "52250649-3112-4692-bf03-8bb6c313f33b"
         }
       ],
-      "implementationGuide": "1. Favicon 생성:\n\n**방법 1: 온라인 도구 사용**\n- [Favicon.io](https://favicon.io/) - 텍스트 또는 이미지에서 favicon 생성\n- [RealFaviconGenerator](https://realfavicongenerator.net/) - 다양한 플랫폼용 favicon 생성\n\n**방법 2: 기존 이미지 변환**\n```bash\n# ImageMagick으로 PNG → ICO 변환\nconvert logo.png -resize 32x32 public/favicon.ico\n```\n\n**권장 색상**:\n- 배경: #4472C4 (Night 시프트 파란색)\n- 텍스트: 흰색 \"ES\" (EveryShift)\n\n2. public/favicon.ico 교체:\n```bash\n# 기존 Vite favicon 제거\nrm public/favicon.ico\n\n# 새 favicon 추가\ncp path/to/everyshift-favicon.ico public/favicon.ico\n```\n\n3. index.html 수정:\n```html\n<!DOCTYPE html>\n<html lang=\"ko\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <link rel=\"icon\" type=\"image/x-icon\" href=\"/favicon.ico\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n\n    <!-- Primary Meta Tags -->\n    <title>EveryShift - 스마트 근무표 생성 시스템</title>\n    <meta name=\"title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta name=\"description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta name=\"keywords\" content=\"근무표, 스케줄링, 간호사, 병원, AI, 자동화\" />\n    <meta name=\"author\" content=\"EveryShift Team\" />\n\n    <!-- Open Graph / Facebook -->\n    <meta property=\"og:type\" content=\"website\" />\n    <meta property=\"og:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"og:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"og:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템. 엑셀 작성 시간 90% 단축.\" />\n    <meta property=\"og:image\" content=\"/og-image.png\" />\n\n    <!-- Twitter -->\n    <meta property=\"twitter:card\" content=\"summary_large_image\" />\n    <meta property=\"twitter:url\" content=\"https://everyshift.app/\" />\n    <meta property=\"twitter:title\" content=\"EveryShift - 스마트 근무표 생성 시스템\" />\n    <meta property=\"twitter:description\" content=\"AI 기반 간호사 근무표 자동 생성 시스템.\" />\n    <meta property=\"twitter:image\" content=\"/og-image.png\" />\n\n    <!-- Theme Color -->\n    <meta name=\"theme-color\" content=\"#4472C4\" />\n  </head>\n  <body>\n    <div id=\"app\"></div>\n    <script type=\"module\" src=\"/src/main.ts\"></script>\n  </body>\n</html>\n```\n\n4. (선택) Open Graph 이미지 생성:\n```bash\n# 1200x630 이미지 생성 (소셜 미디어 공유용)\n# Figma, Canva 등 디자인 도구 사용\n# public/og-image.png에 저장\n```\n\n5. 동적 title 설정 (router/index.ts):\n```typescript\nrouter.afterEach((to) => {\n  const baseTitle = 'EveryShift';\n  const pageTitle = to.meta.title as string;\n\n  document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;\n});\n```\n\n6. routes.ts에 title meta 추가:\n```typescript\nexport const routes = [\n  {\n    path: '/schedule/step1',\n    name: 'ScheduleStep1',\n    component: () => import('@/views/schedule/Step1BasicInfo.vue'),\n    meta: { title: '기본 정보 설정' },\n  },\n  // ...\n];\n```",
-      "verificationCriteria": "1. public/favicon.ico 파일 교체\n2. index.html의 title이 'EveryShift - 스마트 근무표 생성 시스템'으로 변경\n3. 브라우저 탭에서 favicon이 표시됨\n4. 각 페이지별로 동적 title이 변경됨\n5. meta 태그가 SEO에 적합하게 설정됨",
-      "analysisResult": "Favicon 및 title 설정. 브랜딩을 강화하고 사용자가 여러 탭을 열었을 때 쉽게 식별할 수 있도록 함.",
-      "summary": "favicon 및 title 설정 작업 완료. 1) public/favicon.ico (16x16, 파란색 배경 #4472C4, 흰색 \"ES\" 텍스트) 생성 완료, 2) public/favicon.svg (벡터 버전) 생성 완료, 3) index.html 업데이트 (title: \"EveryShift - 스마트 근무표 생성 시스템\", lang: \"ko\", SEO meta 태그, OG/Twitter 태그, theme-color 추가), 4) router/index.ts에 afterEach hook 추가하여 동적 title 설정 구현 (페이지별 title - EveryShift 형식), 5) Home route에 meta.title 예시 추가. 브랜딩 강화 및 SEO 최적화 완료.",
-      "completedAt": "2025-11-15T02:24:05.614Z"
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/stores/organization.ts",
+          "type": "TO_MODIFY",
+          "description": "조직 스토어"
+        },
+        {
+          "path": "src/api/organization.ts",
+          "type": "DEPENDENCY",
+          "description": "조직 API"
+        },
+        {
+          "path": "src/api/shift.ts",
+          "type": "DEPENDENCY",
+          "description": "시프트 API"
+        }
+      ],
+      "implementationGuide": "1. src/stores/organization.ts 파일 열기\n2. 시프트 API import: import * as shiftApi from '@/api/shift'\n3. 조직 API import: import { createOrganization, updateOrganization } from '@/api/organization'\n4. createOrganization(orgData) 액션 추가\n   - API 호출 후 current.value 업데이트\n5. updateCurrentOrganization(orgData) 액션 추가\n   - API 호출 후 current.value 업데이트\n6. loadShifts(orgId) 액션 추가\n   - shiftApi.loadShifts() 호출 후 shifts.value 업데이트\n7. addShift(orgId, shiftData) 액션 추가\n   - shiftApi.createShift() 호출 후 shifts 배열에 추가\n8. updateShift(shiftId, shiftData) 액션 추가\n   - shiftApi.updateShift() 호출 후 shifts 배열 업데이트\n9. deleteShift(shiftId) 액션 추가\n   - shiftApi.deleteShift() 호출 후 shifts 배열에서 제거\n10. return 문에 새 액션 추가\n11. TypeScript 컴파일 확인",
+      "verificationCriteria": "1. 조직 생성/수정 액션 추가됨\n2. 시프트 CRUD 액션 추가됨\n3. 기존 loadOrganization() 유지됨\n4. 모든 액션이 에러 처리 포함\n5. TypeScript 컴파일 에러 없음",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "1a5756c0-c7ce-47ab-9455-0d7595974402",
+      "name": "시프트 관리 모달 컴포넌트 생성 (ShiftManager.vue)",
+      "description": "시프트 추가/수정/삭제를 위한 모달 컴포넌트 생성. 시프트 코드, 이름, 색상, 시작시간, 종료시간을 입력받는 폼 구현.",
+      "notes": "시프트 코드는 자동으로 대문자로 변환. 색상 선택기는 HEX 형식만 허용.",
+      "status": "pending",
+      "dependencies": [],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "CREATE",
+          "description": "시프트 관리 모달"
+        },
+        {
+          "path": "src/types/schedule.ts",
+          "type": "REFERENCE",
+          "description": "Shift 타입"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ShiftManager.vue 파일 생성\n2. Props 정의:\n   - visible: boolean (모달 표시 여부)\n   - editingShift: Shift | null (수정 중인 시프트)\n3. Emits 정의:\n   - confirm: [shiftData] (저장 버튼 클릭)\n   - cancel: [] (취소 버튼 클릭)\n4. 폼 필드:\n   - 코드: n-input (1-2자, 필수, 대문자 변환)\n   - 이름: n-input (필수)\n   - 색상: n-color-picker (기본값: #3B82F6)\n   - 시작시간: n-time-picker (선택적)\n   - 종료시간: n-time-picker (선택적)\n5. 유효성 검증:\n   - 코드: 1-2자, 영문 대문자/숫자\n   - 이름: 1-50자\n   - 색상: #RRGGBB 형식\n6. 저장 버튼 클릭 시 shiftData emit\n7. 취소 버튼 클릭 시 폼 초기화 및 모달 닫기\n8. Naive UI 컴포넌트 사용 (NModal, NForm, NInput, NColorPicker, NTimePicker)\n9. TypeScript 컴파일 확인\n10. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 모달이 visible prop에 따라 표시/숨김\n2. 폼 필드가 정확히 입력됨\n3. 유효성 검증이 작동함\n4. 저장/취소 이벤트가 정확히 emit됨\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "78148d5a-1c17-46cc-9076-5d6e560ba2a4",
+      "name": "Step1BasicInfo.vue 대폭 개편 - 조직/시프트 설정 UI 추가",
+      "description": "Step1을 대폭 개편하여 조직 정보 입력, 시프트 관리, 엑셀 업로드를 하나의 화면에 통합. UploadModeSelector 제거하고 순차적 입력 플로우로 변경.",
+      "notes": "UploadModeSelector 제거로 인해 수동 입력 모드가 사라짐. 모든 사용자는 조직/시프트 설정 후 엑셀 업로드 플로우를 거침.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "94c9b614-04b8-463e-bbff-5b6c7a2f023f"
+        },
+        {
+          "taskId": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2"
+        },
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        },
+        {
+          "taskId": "1a5756c0-c7ce-47ab-9455-0d7595974402"
+        },
+        {
+          "taskId": "c09a09bd-5200-48f1-98ac-ad33d877064c"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Step1 뷰 대폭 개편"
+        },
+        {
+          "path": "src/components/schedule/ShiftManager.vue",
+          "type": "DEPENDENCY",
+          "description": "시프트 관리 모달"
+        },
+        {
+          "path": "src/components/schedule/ExcelUploadArea.vue",
+          "type": "TO_MODIFY",
+          "description": "시프트 정보 전달"
+        },
+        {
+          "path": "src/stores/organization.ts",
+          "type": "DEPENDENCY",
+          "description": "조직 스토어"
+        }
+      ],
+      "implementationGuide": "1. src/views/schedule/Step1BasicInfo.vue 파일 열기\n2. UploadModeSelector 제거\n3. Section 1: 조직 정보 입력 추가\n   - n-form으로 조직명(n-input), 조직유형(n-select), 계획월(n-select) 입력\n   - orgName, orgType, selectedMonth ref 추가\n4. Section 2: 시프트 관리 추가\n   - n-data-table로 시프트 목록 표시 (코드, 이름, 색상, 시간)\n   - 시프트 추가/수정/삭제 버튼\n   - ShiftManager 모달 연동\n   - handleAddShift(), handleEditShift(), handleDeleteShift() 함수\n5. Section 3: 엑셀 업로드\n   - canUpload computed: 조직명, 조직유형, 계획월, 시프트 1개 이상 설정 완료\n   - ExcelUploadArea에 shifts prop 전달\n   - 템플릿 다운로드 버튼에서 generateBlankTemplate(shifts) 호출\n6. handleExcelUpload() 수정\n   - 파싱 전 조직 정보 저장 (createOrganization 또는 updateOrganization)\n   - 시프트 정보 저장 (기존 시프트 삭제 후 새로 생성)\n   - 파싱 시 시프트 정보를 validateExcelData에 전달하여 교차 검증\n7. handlePreviewConfirm() 수정\n   - Step2로 이동 (Step3 아님)\n   - scheduleStore.nextStep()\n   - router.push('/schedule/step2')\n8. TypeScript 컴파일 확인\n9. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 조직 정보 입력 폼이 정상 작동\n2. 시프트 관리 테이블 및 CRUD 기능 작동\n3. canUpload이 정확히 계산됨\n4. 엑셀 업로드 시 조직/시프트 저장 후 파싱\n5. 미리보기 확인 후 Step2로 이동\n6. TypeScript 컴파일 에러 없음\n7. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "28c399dd-ccbf-49ea-99f6-a65d13c35248",
+      "name": "ExcelUploadArea.vue 수정 - 시프트 정보 전달",
+      "description": "ExcelUploadArea 컴포넌트에 시프트 정보를 props로 받아 템플릿 다운로드 시 반영.",
+      "notes": "템플릿은 현재 설정된 시프트 정보를 반영하여 생성됨. 시프트가 없으면 템플릿 다운로드 불가.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ExcelUploadArea.vue",
+          "type": "TO_MODIFY",
+          "description": "엑셀 업로드 영역"
+        },
+        {
+          "path": "src/utils/excelTemplate.ts",
+          "type": "DEPENDENCY",
+          "description": "템플릿 생성기"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ExcelUploadArea.vue 파일 열기\n2. Props 추가:\n   - shifts: Shift[] (필수)\n3. downloadTemplate() 함수 수정:\n   - generateBlankTemplate() 호출 시 shifts 전달\n   - generateBlankTemplate(props.shifts)\n4. 템플릿 다운로드 버튼 활성화 조건:\n   - shifts.length > 0\n5. 안내 메시지 추가:\n   - '시프트를 먼저 설정해주세요' (shifts.length === 0일 때)\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. shifts prop이 정의됨\n2. 템플릿 다운로드 시 시프트 정보가 반영됨\n3. 시프트가 없으면 다운로드 버튼 비활성화\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "ed44ad35-a29c-407b-8334-823e93aecbcb",
+      "name": "ExcelPreview.vue 수정 - 3개 탭으로 변경",
+      "description": "ExcelPreview 컴포넌트를 3개 탭(직원정보, 요일별인력, 전월데이터)으로 변경. 조직정보, 시프트정의 탭 제거.",
+      "notes": "조직 정보와 시프트 정의는 Step1에서 이미 설정했으므로 미리보기에서 제외.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/ExcelPreview.vue",
+          "type": "TO_MODIFY",
+          "description": "엑셀 미리보기 모달"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/ExcelPreview.vue 파일 열기\n2. n-tabs 수정:\n   - Tab 1: 직원정보 (기존 유지)\n   - Tab 2: 요일별인력 (세로형 21행 표시)\n   - Tab 3: 전월데이터 (기존 유지)\n   - 조직정보 탭 제거\n   - 시프트정의 탭 제거\n3. 요일별인력 탭 수정:\n   - requirementColumns: 요일명, 시프트유형, 필요인력수\n   - 21행 데이터 테이블로 표시\n4. getOrganizationType() 함수 제거 (조직정보 탭 제거로 불필요)\n5. TypeScript 컴파일 확인\n6. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 3개 탭만 표시됨\n2. 요일별인력 탭이 21행 세로형으로 표시됨\n3. 조직정보/시프트정의 탭이 제거됨\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "065c9d6f-a248-49c3-bcef-3e47b475e18b",
+      "name": "Step2SiteInfo.vue 수정 - 엑셀 데이터 표시 및 수정",
+      "description": "Step2를 수정하여 엑셀에서 불러온 요일별 인력 데이터를 표시하고 수정할 수 있도록 변경. 세로형 데이터를 가로형 UI로 변환.",
+      "notes": "엑셀에서 불러온 세로형 데이터를 가로형 테이블로 변환하여 표시. 사용자가 수정 후 저장하면 다시 세로형으로 변환하여 저장.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "Step2 뷰"
+        },
+        {
+          "path": "src/stores/schedule.ts",
+          "type": "REFERENCE",
+          "description": "스케줄 스토어"
+        },
+        {
+          "path": "src/api/employee.ts",
+          "type": "REFERENCE",
+          "description": "replaceSiteRequirements API"
+        }
+      ],
+      "implementationGuide": "1. src/views/schedule/Step2SiteInfo.vue 파일 열기\n2. 데이터 변환 로직 추가:\n   - convertToHorizontal(siteRequirements: SiteRequirementRow[]): 가로형 데이터 구조\n   - 세로형 21행 → 가로형 7행 (각 요일별로 시프트 컬럼)\n3. UI 수정:\n   - n-alert 추가: '엑셀에서 불러온 데이터입니다. 수정 후 다음 단계로 진행하세요.'\n   - n-data-table로 가로형 데이터 표시\n   - 각 셀 편집 가능 (n-input-number)\n4. 저장 로직:\n   - convertToVertical(horizontalData): 가로형 → 세로형 21행 변환\n   - scheduleStore.setSiteRequirements() 호출\n   - replaceSiteRequirements() API 호출\n5. 이전/다음 버튼:\n   - 이전: Step1으로 (경고 메시지 표시)\n   - 다음: Step3으로\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. 엑셀 데이터가 가로형 테이블로 표시됨\n2. 각 셀이 편집 가능함\n3. 저장 시 세로형으로 변환되어 저장됨\n4. 이전/다음 버튼이 정상 작동\n5. TypeScript 컴파일 에러 없음\n6. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "f2cbb143-7e1d-4a3e-b6ae-afa326abdfcf",
+      "name": "UploadModeSelector.vue 제거",
+      "description": "UploadModeSelector 컴포넌트를 제거하고 관련 import도 모두 제거. 이제 모든 사용자는 조직/시프트 설정 후 엑셀 업로드 플로우를 거침.",
+      "notes": "수동 입력 모드가 완전히 제거됨. 모든 데이터는 엑셀 업로드를 통해서만 입력 가능.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "78148d5a-1c17-46cc-9076-5d6e560ba2a4"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/components/schedule/UploadModeSelector.vue",
+          "type": "TO_MODIFY",
+          "description": "삭제 대상 파일"
+        },
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "TO_MODIFY",
+          "description": "import 제거"
+        }
+      ],
+      "implementationGuide": "1. src/components/schedule/UploadModeSelector.vue 파일 삭제\n2. Step1BasicInfo.vue에서 UploadModeSelector import 제거\n3. inputMode ref 제거 (더 이상 수동/엑셀 모드 구분 없음)\n4. v-if=\"inputMode === 'manual'\" 조건부 렌더링 제거\n5. 모든 사용자가 동일한 플로우를 거치도록 UI 단순화\n6. TypeScript 컴파일 확인\n7. ESLint/Prettier 검사",
+      "verificationCriteria": "1. UploadModeSelector.vue 파일이 삭제됨\n2. Step1BasicInfo.vue에서 관련 import 제거됨\n3. inputMode ref 및 조건부 렌더링 제거됨\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "113832fc-9413-4a75-b8de-3bf810e3abbb",
+      "name": "Employee API 수정 (employee.ts) - replaceSiteRequirements 세로형 대응",
+      "description": "replaceSiteRequirements API를 세로형 데이터 구조에 맞게 수정. 21개 행을 처리하도록 변경.",
+      "notes": "세로형 21행 데이터를 site_requirements 테이블에 저장. 각 행은 (organization_id, day_of_week, shift_id, required_count) 레코드로 변환됨.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/api/employee.ts",
+          "type": "TO_MODIFY",
+          "description": "직원 API"
+        },
+        {
+          "path": "src/types/excel.ts",
+          "type": "DEPENDENCY",
+          "description": "타입 정의"
+        }
+      ],
+      "implementationGuide": "1. src/api/employee.ts 파일 열기\n2. replaceSiteRequirements() 함수 수정:\n   - 매개변수: orgId, siteRequirements: SiteRequirementRow[]\n   - 기존 site_requirements 삭제 (organization_id = orgId)\n   - 각 SiteRequirementRow를 순회하며 INSERT\n   - dayOfWeek, shiftCode를 사용하여 shift_id 조회\n   - 정규화된 레코드 생성: { organization_id, day_of_week, shift_id, required_count }\n3. 에러 처리: 시프트 코드가 존재하지 않으면 명확한 에러 메시지\n4. TypeScript 타입 확인\n5. ESLint/Prettier 검사",
+      "verificationCriteria": "1. replaceSiteRequirements()가 세로형 데이터를 처리함\n2. 21개 행이 정확히 저장됨\n3. 시프트 코드가 존재하지 않으면 에러 발생\n4. TypeScript 컴파일 에러 없음\n5. ESLint/Prettier 통과",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
+    },
+    {
+      "id": "d25e01e9-b592-409c-8af1-4fe590f7a5b8",
+      "name": "통합 테스트 및 검증",
+      "description": "전체 엑셀 업로드 플로우를 E2E 테스트하고 모든 변경사항이 정상 작동하는지 검증.",
+      "notes": "모든 변경사항이 통합되어 정상 작동하는지 최종 검증. 이전 작업들이 모두 완료되어야 함.",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5874b091-b92e-473f-818c-4b9d73118b65"
+        },
+        {
+          "taskId": "94c9b614-04b8-463e-bbff-5b6c7a2f023f"
+        },
+        {
+          "taskId": "88b6dfe4-cf19-4717-ab51-a8f57f1bf9a2"
+        },
+        {
+          "taskId": "0efaa116-88a5-42ba-9aa3-5bda9e429167"
+        },
+        {
+          "taskId": "87d015f6-bb51-4c75-8024-8424a42dfb0d"
+        },
+        {
+          "taskId": "52250649-3112-4692-bf03-8bb6c313f33b"
+        },
+        {
+          "taskId": "c09a09bd-5200-48f1-98ac-ad33d877064c"
+        },
+        {
+          "taskId": "1a5756c0-c7ce-47ab-9455-0d7595974402"
+        },
+        {
+          "taskId": "78148d5a-1c17-46cc-9076-5d6e560ba2a4"
+        },
+        {
+          "taskId": "28c399dd-ccbf-49ea-99f6-a65d13c35248"
+        },
+        {
+          "taskId": "ed44ad35-a29c-407b-8334-823e93aecbcb"
+        },
+        {
+          "taskId": "065c9d6f-a248-49c3-bcef-3e47b475e18b"
+        },
+        {
+          "taskId": "f2cbb143-7e1d-4a3e-b6ae-afa326abdfcf"
+        },
+        {
+          "taskId": "113832fc-9413-4a75-b8de-3bf810e3abbb"
+        }
+      ],
+      "createdAt": "2025-11-21T14:36:53.735Z",
+      "updatedAt": "2025-11-21T14:36:53.735Z",
+      "relatedFiles": [
+        {
+          "path": "src/views/schedule/Step1BasicInfo.vue",
+          "type": "REFERENCE",
+          "description": "Step1 테스트"
+        },
+        {
+          "path": "src/views/schedule/Step2SiteInfo.vue",
+          "type": "REFERENCE",
+          "description": "Step2 테스트"
+        },
+        {
+          "path": "src/views/schedule/Step3InitialData.vue",
+          "type": "REFERENCE",
+          "description": "Step3 테스트"
+        }
+      ],
+      "implementationGuide": "1. 개발 서버 실행: pnpm run dev\n2. Step1 테스트:\n   - 조직 정보 입력 (조직명, 유형, 계획월)\n   - 시프트 추가/수정/삭제 (최소 3개: D, E, N)\n   - 템플릿 다운로드 (시프트 정보 반영 확인)\n3. 엑셀 파일 준비:\n   - 다운로드한 템플릿에 데이터 입력\n   - 직원 정보 (최소 5명)\n   - 요일별 인력 (21행)\n   - 전월 데이터 (5일)\n4. 엑셀 업로드 테스트:\n   - 파일 선택 → 파싱 → 검증 → 미리보기\n   - 3개 탭 모두 데이터 확인\n   - 에러가 있으면 에러 목록 표시 확인\n5. Step2 테스트:\n   - 요일별 인력 데이터 표시 확인\n   - 데이터 수정 후 저장\n6. Step3 테스트:\n   - 전월 5일 데이터가 그리드에 표시되는지 확인\n   - 당월은 비어있는지 확인\n7. 브라우저 콘솔 에러 확인\n8. TypeScript 컴파일 에러 확인: npx vue-tsc --noEmit\n9. ESLint/Prettier 검사: pnpm lint\n10. 엣지 케이스 테스트:\n    - 시프트 없이 템플릿 다운로드 시도\n    - 잘못된 시프트 코드가 포함된 엑셀 업로드\n    - 21행이 아닌 요일별 인력 데이터\n    - 전월 데이터 누락",
+      "verificationCriteria": "1. Step1에서 조직/시프트 설정 정상 작동\n2. 템플릿 다운로드 시 시프트 정보 반영\n3. 엑셀 업로드 → 파싱 → 검증 → 미리보기 정상 작동\n4. Step2에서 요일별 인력 표시/수정 정상 작동\n5. Step3에서 전월 데이터만 표시됨\n6. 브라우저 콘솔 에러 없음\n7. TypeScript 컴파일 에러 없음\n8. ESLint/Prettier 통과\n9. 엣지 케이스 모두 처리됨",
+      "analysisResult": "엑셀 업로드 템플릿을 6개 시트에서 3개 시트로 축소하고, 조직 정보와 시프트 정의를 UI에서 관리하도록 변경. 사용자가 Step1에서 조직명, 조직 유형, 계획월, 시프트를 설정한 후 엑셀 템플릿을 다운로드하여 직원 정보, 요일별 인력, 전월 데이터만 입력. 업로드 후 Step1→Step2→Step3 플로우로 진행하며, Step2에서 요일별 인력을 확인/수정."
     }
   ]
 }

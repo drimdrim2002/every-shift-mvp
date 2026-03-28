@@ -1,0 +1,93 @@
+import { computed, onUnmounted, ref } from 'vue';
+
+type PollStatus = 'idle' | 'running' | 'complete' | 'error';
+
+interface PollResponse<T> {
+  status: PollStatus;
+  data?: T;
+  errorMessage?: string;
+}
+
+export function usePollingTask<T>() {
+  const status = ref<PollStatus>('idle');
+  const progress = ref(0);
+  const result = ref<T | null>(null);
+  const errorMessage = ref<string | null>(null);
+
+  const intervalMs = 10_000;
+  const maxAttempts = 120;
+
+  let timer: number | null = null;
+  let attempts = 0;
+
+  const isRunning = computed(() => status.value === 'running');
+
+  function stop(): void {
+    if (timer !== null) {
+      window.clearInterval(timer);
+      timer = null;
+    }
+  }
+
+  function reset(): void {
+    stop();
+    status.value = 'idle';
+    progress.value = 0;
+    result.value = null;
+    errorMessage.value = null;
+    attempts = 0;
+  }
+
+  function start(fetchStatus: () => Promise<PollResponse<T>>): void {
+    reset();
+    status.value = 'running';
+
+    timer = window.setInterval(async () => {
+      attempts += 1;
+
+      if (attempts > maxAttempts) {
+        stop();
+        status.value = 'error';
+        errorMessage.value = 'Timeout: 작업 시간이 10분을 초과했습니다.';
+        return;
+      }
+
+      try {
+        const response = await fetchStatus();
+        status.value = response.status;
+
+        if (response.status === 'complete') {
+          stop();
+          progress.value = 100;
+          result.value = response.data ?? null;
+          return;
+        }
+
+        if (response.status === 'error') {
+          stop();
+          errorMessage.value = response.errorMessage ?? '작업 처리 중 오류가 발생했습니다.';
+          return;
+        }
+
+        progress.value = Math.min(progress.value + 5, 95);
+      } catch (error: unknown) {
+        console.error('[usePollingTask] transient polling error', error);
+      }
+    }, intervalMs);
+  }
+
+  onUnmounted(() => {
+    stop();
+  });
+
+  return {
+    status,
+    progress,
+    result,
+    errorMessage,
+    isRunning,
+    start,
+    stop,
+    reset,
+  };
+}

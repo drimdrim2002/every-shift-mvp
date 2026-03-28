@@ -1,0 +1,4 @@
+interface:
+  display_name: EveryShift Component Generator
+  short_description: Scaffold strict Vue components for EveryShift
+  default_prompt: Create a Vue 3 component skeleton for EveryShift MVP with strict TS, Tailwind-first classes, and project-safe emits/props.

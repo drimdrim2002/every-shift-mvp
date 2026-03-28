@@ -1,0 +1,78 @@
+import { defineStore } from 'pinia';
+import { computed, ref, watch } from 'vue';
+
+interface ExampleItem {
+  id: string;
+  name: string;
+}
+
+const STORAGE_KEY = 'everyshift_example_store';
+
+export const useExampleStore = defineStore('example', () => {
+  const items = ref<ExampleItem[]>([]);
+  const selectedId = ref<string | null>(null);
+
+  const itemCount = computed(() => items.value.length);
+  const selectedItem = computed(() => items.value.find((item) => item.id === selectedId.value) ?? null);
+
+  function setItems(nextItems: ExampleItem[]): void {
+    items.value = nextItems;
+  }
+
+  function selectItem(id: string | null): void {
+    selectedId.value = id;
+  }
+
+  function reset(): void {
+    items.value = [];
+    selectedId.value = null;
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function loadFromStorage(): void {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        'items' in parsed &&
+        'selectedId' in parsed
+      ) {
+        const data = parsed as { items: ExampleItem[]; selectedId: string | null };
+        items.value = Array.isArray(data.items) ? data.items : [];
+        selectedId.value = typeof data.selectedId === 'string' || data.selectedId === null ? data.selectedId : null;
+      }
+    } catch (error: unknown) {
+      console.error('[useExampleStore] failed to parse persisted state', error);
+    }
+  }
+
+  function saveToStorage(): void {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        items: items.value,
+        selectedId: selectedId.value,
+      })
+    );
+  }
+
+  // Keep deep watchers scoped to nested structures that truly require it.
+  watch([items, selectedId], saveToStorage, { deep: true });
+
+  return {
+    items,
+    selectedId,
+    itemCount,
+    selectedItem,
+    setItems,
+    selectItem,
+    reset,
+    loadFromStorage,
+  };
+});

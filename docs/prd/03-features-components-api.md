@@ -1,5 +1,10 @@
 # EveryShift MVP PRD - 기능 명세, 컴포넌트 설계, API 설계
 
+> **문서 상태**: Phase1 Legacy Reference
+>
+> 이 문서는 4단계 근무표 생성 MVP의 상세 기능 및 구현 참고 문서입니다.
+> 현재 제품 범위 판단은 `PHASE2_PRD_KR.md`, Phase1의 실제 구현 이해는 본 문서를 참고합니다.
+
 ## 문서 정보
 
 - **버전**: MVP 1.0
@@ -73,10 +78,10 @@
 - Supabase에서 organizations 조회
 - 읽기 전용 (수정 불가)
 - 표시 항목:
-    - 조직명
-    - 조직 유형
-    - 등록 직원 수
-    - 시프트 정의 (shifts 테이블 조회)
+  - 조직명
+  - 조직 유형
+  - 등록 직원 수
+  - 시프트 정의 (shifts 테이블 조회)
 
 #### FR-1.3: 네비게이션
 
@@ -88,8 +93,8 @@
 ```typescript
 // types/schedule.ts
 export interface ScheduleBasicInfo {
-  month: string;           // "2025-12"
-  organizationId: string;  // UUID
+  month: string; // "2025-12"
+  organizationId: string; // UUID
   organizationName: string;
   organizationType: string;
   employeeCount: number;
@@ -98,11 +103,11 @@ export interface ScheduleBasicInfo {
 
 export interface Shift {
   id: string;
-  code: string;      // "D", "E", "N", "O"
-  name: string;      // "Day", "Evening", ...
+  code: string; // "D", "E", "N", "O"
+  name: string; // "Day", "Evening", ...
   colorCode: string; // "#92D050"
-  startTime: string | null;  // "08:00:00"
-  endTime: string | null;    // "16:00:00"
+  startTime: string | null; // "08:00:00"
+  endTime: string | null; // "16:00:00"
 }
 ```
 
@@ -151,24 +156,26 @@ export const useScheduleStore = defineStore('schedule', {
     basicInfo: null as ScheduleBasicInfo | null,
     currentStep: 1,
   }),
-  
+
   actions: {
     setBasicInfo(info: ScheduleBasicInfo) {
       this.basicInfo = info;
     },
-    
+
     async loadOrganization(orgId: string) {
       // Supabase 조회
       const { data } = await supabase
         .from('organizations')
-        .select(`
+        .select(
+          `
           *,
           employees(count),
           shifts(*)
-        `)
+        `
+        )
         .eq('id', orgId)
         .single();
-      
+
       this.setBasicInfo({
         month: getNextMonth(),
         organizationId: data.id,
@@ -194,9 +201,9 @@ export function getNextMonth(): string {
 
 export function getAvailableMonths(): string[] {
   return [
-    dayjs().format('YYYY-MM'),        // 이번 달
-    dayjs().add(1, 'month').format('YYYY-MM'),  // 다음 달
-    dayjs().add(2, 'month').format('YYYY-MM'),  // 다다음 달
+    dayjs().format('YYYY-MM'), // 이번 달
+    dayjs().add(1, 'month').format('YYYY-MM'), // 다음 달
+    dayjs().add(2, 'month').format('YYYY-MM'), // 다다음 달
   ];
 }
 ```
@@ -272,7 +279,7 @@ export function getAvailableMonths(): string[] {
 ```typescript
 // types/schedule.ts
 export interface SiteRequirements {
-  [date: string]: DailyRequirement;  // "2025-12-01": { D: 3, E: 4, ... }
+  [date: string]: DailyRequirement; // "2025-12-01": { D: 3, E: 4, ... }
 }
 
 export interface DailyRequirement {
@@ -309,23 +316,23 @@ import dayjs from 'dayjs';
 export function getDaysInMonth(month: string): DayInfo[] {
   const start = dayjs(month + '-01');
   const daysCount = start.daysInMonth();
-  
+
   return Array.from({ length: daysCount }, (_, i) => {
     const date = start.add(i, 'day');
     return {
       date: date.format('YYYY-MM-DD'),
       day: date.date(),
-      dayOfWeek: date.day(),  // 0(일) ~ 6(토)
-      dayName: date.format('ddd'),  // 일, 월, 화, ...
+      dayOfWeek: date.day(), // 0(일) ~ 6(토)
+      dayName: date.format('ddd'), // 일, 월, 화, ...
     };
   });
 }
 
 export interface DayInfo {
-  date: string;      // "2025-12-01"
-  day: number;       // 1
+  date: string; // "2025-12-01"
+  day: number; // 1
   dayOfWeek: number; // 0
-  dayName: string;   // "일"
+  dayName: string; // "일"
 }
 ```
 
@@ -335,32 +342,32 @@ export interface DayInfo {
 // composables/useSiteRequirements.ts
 export function useSiteRequirements(month: string) {
   const requirements = ref<SiteRequirements>({});
-  
+
   async function loadRequirements() {
     // 1. site_requirements 테이블 조회 (요일별)
     const { data: weeklyReqs } = await supabase
       .from('site_requirements')
       .select('day_of_week, shift_id, required_count, shifts(code)')
       .eq('organization_id', orgId);
-    
+
     // 2. 월의 각 날짜에 매핑
     const days = getDaysInMonth(month);
-    
-    days.forEach(day => {
+
+    days.forEach((day) => {
       const dailyReq: DailyRequirement = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-      
+
       weeklyReqs
-        .filter(r => r.day_of_week === day.dayOfWeek)
-        .forEach(r => {
+        .filter((r) => r.day_of_week === day.dayOfWeek)
+        .forEach((r) => {
           const shiftCode = r.shifts.code;
           dailyReq[shiftCode] = r.required_count;
         });
-      
+
       dailyReq.total = dailyReq.D + dailyReq.E + dailyReq.N + dailyReq.O;
       requirements.value[day.date] = dailyReq;
     });
   }
-  
+
   return { requirements, loadRequirements };
 }
 ```
@@ -460,11 +467,11 @@ export function useSiteRequirements(month: string) {
 #### FR-3.5: 통계 (하단 및 우측)
 
 - **하단 통계 (열별)**:
-    - Total: 해당 일의 총 배정 근무자
-    - D/E/N: 각 시프트별 배정 근무자
+  - Total: 해당 일의 총 배정 근무자
+  - D/E/N: 각 시프트별 배정 근무자
 - **우측 통계 (행별)**:
-    - D/E/N: 각 근무자의 시프트별 합계
-    - Total: 전체 근무일 수
+  - D/E/N: 각 근무자의 시프트별 합계
+  - Total: 전체 근무일 수
 
 #### FR-3.6: 임시 저장
 
@@ -478,22 +485,22 @@ export function useSiteRequirements(month: string) {
 export interface ScheduleGridData {
   employees: Employee[];
   columns: GridColumn[];
-  assignments: AssignmentMap;  // { employeeId: { date: shiftCode } }
+  assignments: AssignmentMap; // { employeeId: { date: shiftCode } }
   statistics: GridStatistics;
 }
 
 export interface Employee {
   id: string;
-  employeeId: string;  // 직번
+  employeeId: string; // 직번
   name: string;
-  availableShifts: string[];  // ["D", "E", "N", "O"]
+  availableShifts: string[]; // ["D", "E", "N", "O"]
 }
 
 export interface GridColumn {
-  date: string;         // "2025-11-27"
-  day: number;          // 27
-  dayOfWeek: number;    // 0-6
-  dayName: string;      // "일", "월", ...
+  date: string; // "2025-11-27"
+  day: number; // 27
+  dayOfWeek: number; // 0-6
+  dayName: string; // "일", "월", ...
   isLastMonth: boolean; // true/false
 }
 
@@ -501,8 +508,8 @@ export type AssignmentMap = Record<string, Record<string, string>>;
 // { "employee-1": { "2025-11-27": "D", "2025-11-28": "E" } }
 
 export interface GridStatistics {
-  rowStats: Record<string, RowStat>;    // 근무자별
-  columnStats: Record<string, ColumnStat>;  // 날짜별
+  rowStats: Record<string, RowStat>; // 근무자별
+  columnStats: Record<string, ColumnStat>; // 날짜별
 }
 
 export interface RowStat {
@@ -543,16 +550,16 @@ export function useScheduleGridColumns(dates: GridColumn[]) {
       size: 150,
       enableSorting: false,
       meta: {
-        sticky: 'left',  // 고정
+        sticky: 'left', // 고정
       },
     }),
-    
+
     // 날짜 컬럼 (36개)
-    ...dates.map((date) => 
+    ...dates.map((date) =>
       columnHelper.display({
         id: date.date,
         header: () => date.day,
-        cell: (info) => ShiftSelector,  // 컴포넌트
+        cell: (info) => ShiftSelector, // 컴포넌트
         size: 120,
         meta: {
           date: date.date,
@@ -560,7 +567,7 @@ export function useScheduleGridColumns(dates: GridColumn[]) {
         },
       })
     ),
-    
+
     // 통계 컬럼 (4개)
     columnHelper.display({
       id: 'stat-D',
@@ -570,7 +577,7 @@ export function useScheduleGridColumns(dates: GridColumn[]) {
     }),
     // E, N, Total 동일...
   ];
-  
+
   return columns;
 }
 ```
@@ -580,16 +587,19 @@ export function useScheduleGridColumns(dates: GridColumn[]) {
 ```typescript
 export function useScheduleGridHeaders(dates: GridColumn[]) {
   // Level 1: Last Month / This Month
-  const level1 = dates.reduce((acc, date) => {
-    const key = date.isLastMonth ? 'Last Month' : 'This Month';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(date);
-    return acc;
-  }, {} as Record<string, GridColumn[]>);
-  
+  const level1 = dates.reduce(
+    (acc, date) => {
+      const key = date.isLastMonth ? 'Last Month' : 'This Month';
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(date);
+      return acc;
+    },
+    {} as Record<string, GridColumn[]>
+  );
+
   // Level 2: 월 이름 (11월, 12월)
   // Level 3: 요일 (일, 월, 화, ...)
-  
+
   return {
     headerGroups: [
       { level: 1, groups: level1 },
@@ -605,31 +615,28 @@ export function useScheduleGridHeaders(dates: GridColumn[]) {
 export function useScheduleGridData() {
   const employees = ref<Employee[]>([]);
   const assignments = ref<AssignmentMap>({});
-  
+
   async function loadEmployees() {
-    const { data } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('organization_id', orgId);
-    
+    const { data } = await supabase.from('employees').select('*').eq('organization_id', orgId);
+
     employees.value = data;
-    
+
     // 초기 assignments 객체 생성
-    data.forEach(emp => {
+    data.forEach((emp) => {
       assignments.value[emp.id] = {};
     });
   }
-  
+
   function setAssignment(employeeId: string, date: string, shiftCode: string) {
     if (!assignments.value[employeeId]) {
       assignments.value[employeeId] = {};
     }
     assignments.value[employeeId][date] = shiftCode;
-    
+
     // 통계 재계산
     updateStatistics();
   }
-  
+
   return { employees, assignments, loadEmployees, setAssignment };
 }
 ```
@@ -640,36 +647,36 @@ export function useScheduleGridData() {
 function updateStatistics() {
   const rowStats: Record<string, RowStat> = {};
   const columnStats: Record<string, ColumnStat> = {};
-  
+
   // 행 통계 (근무자별)
   Object.entries(assignments.value).forEach(([employeeId, empAssignments]) => {
     const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
-    
-    Object.values(empAssignments).forEach(shiftCode => {
+
+    Object.values(empAssignments).forEach((shiftCode) => {
       if (shiftCode === 'D') stat.D++;
       if (shiftCode === 'E') stat.E++;
       if (shiftCode === 'N') stat.N++;
       if (shiftCode !== 'O') stat.total++;
     });
-    
+
     rowStats[employeeId] = stat;
   });
-  
+
   // 열 통계 (날짜별)
-  dates.forEach(date => {
+  dates.forEach((date) => {
     const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };
-    
-    Object.values(assignments.value).forEach(empAssignments => {
+
+    Object.values(assignments.value).forEach((empAssignments) => {
       const shiftCode = empAssignments[date.date];
       if (shiftCode === 'D') stat.D++;
       if (shiftCode === 'E') stat.E++;
       if (shiftCode === 'N') stat.N++;
       if (shiftCode && shiftCode !== 'O') stat.total++;
     });
-    
+
     columnStats[date.date] = stat;
   });
-  
+
   statistics.value = { rowStats, columnStats };
 }
 ```
@@ -686,7 +693,7 @@ function updateStatistics() {
 interface ShiftSelectorProps {
   employeeId: string;
   date: string;
-  availableShifts: string[];  // ["D", "E", "N", "O"]
+  availableShifts: string[]; // ["D", "E", "N", "O"]
   currentShift: string | null;
   onSelect: (shiftCode: string) => void;
 }
@@ -714,24 +721,24 @@ const props = defineProps<ShiftSelectorProps>();
 function getShiftButtonClass(shiftCode: string) {
   const isSelected = props.currentShift === shiftCode;
   const baseClass = 'w-8 h-8 rounded text-xs font-semibold border-2';
-  
+
   const colorMap = {
     D: 'border-lime-400 text-lime-700',
     E: 'border-orange-400 text-orange-700',
     N: 'border-blue-600 text-blue-700',
     O: 'border-gray-400 text-gray-700',
   };
-  
+
   const selectedColorMap = {
     D: 'bg-lime-400 text-white',
     E: 'bg-orange-400 text-white',
     N: 'bg-blue-600 text-white',
     O: 'bg-gray-400 text-white',
   };
-  
+
   const color = isSelected ? selectedColorMap[shiftCode] : colorMap[shiftCode];
   const opacity = isSelected ? 'opacity-100' : 'opacity-40';
-  
+
   return `${baseClass} ${color} ${opacity} hover:opacity-80 transition-opacity`;
 }
 </script>
@@ -750,15 +757,15 @@ Tailwind CSS의 `sticky` 유틸리티 사용:
     <tbody>
       <tr v-for="employee in employees" :key="employee.id">
         <!-- 고정 컬럼 -->
-        <td class="sticky left-0 bg-white z-10 border-r-2">
+        <td class="sticky left-0 z-10 border-r-2 bg-white">
           {{ employee.name }} ({{ employee.employeeId }})
         </td>
-        
+
         <!-- 날짜 컬럼 -->
         <td v-for="date in dates" :key="date.date">
           <ShiftSelector ... />
         </td>
-        
+
         <!-- 통계 컬럼 -->
         <td>{{ statistics.rowStats[employee.id]?.D }}</td>
         <!-- ... -->
@@ -772,8 +779,8 @@ Tailwind CSS의 `sticky` 유틸리티 사용:
 
 ```typescript
 function validateLastMonthData(): boolean {
-  const lastMonthDates = dates.filter(d => d.isLastMonth).map(d => d.date);
-  
+  const lastMonthDates = dates.filter((d) => d.isLastMonth).map((d) => d.date);
+
   for (const employee of employees.value) {
     for (const date of lastMonthDates) {
       const shift = assignments.value[employee.id]?.[date];
@@ -784,7 +791,7 @@ function validateLastMonthData(): boolean {
       }
     }
   }
-  
+
   return true;
 }
 ```
@@ -797,7 +804,7 @@ import { watchDebounced } from '@vueuse/core';
 
 export function useScheduleGrid() {
   const STORAGE_KEY = 'schedule-grid-draft';
-  
+
   // assignments가 변경될 때마다 저장 (2초 디바운스)
   watchDebounced(
     assignments,
@@ -806,7 +813,7 @@ export function useScheduleGrid() {
     },
     { debounce: 2000, deep: true }
   );
-  
+
   // 초기 로드 시 복원
   function restoreFromStorage() {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -815,7 +822,7 @@ export function useScheduleGrid() {
       updateStatistics();
     }
   }
-  
+
   return { restoreFromStorage };
 }
 ```
@@ -858,12 +865,12 @@ AI Solver가 생성한 근무표 결과를 확인하고, 필요시 수동 수정
 #### FR-4.1: 상태 표시
 
 - **Status Badge**:
-    - Running: 파란색, 애니메이션
-    - Complete: 초록색
-    - Error: 빨간색
+  - Running: 파란색, 애니메이션
+  - Complete: 초록색
+  - Error: 빨간색
 - **스코어 표시**:
-    - Hard Score: 필수 제약 위반 (0이 목표)
-    - Soft Score: 선호도 점수 (높을수록 좋음)
+  - Hard Score: 필수 제약 위반 (0이 목표)
+  - Soft Score: 선호도 점수 (높을수록 좋음)
 - **진행률**: Running 상태일 때만 표시
 
 #### FR-4.2: Polling
@@ -900,10 +907,10 @@ export async function requestAISolver(
   //   headers: { 'Content-Type': 'application/json' },
   //   body: JSON.stringify(payload),
   // });
-  
+
   // Mock: 5초 후 완료
-  await new Promise(resolve => setTimeout(resolve, 5000));
-  
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
   return {
     scheduleId,
     status: 'complete',
@@ -918,7 +925,7 @@ interface SolverPayload {
   employees: Employee[];
   requirements: SiteRequirements;
   lastMonthAssignments: AssignmentMap;
-  thisMonthAssignments: AssignmentMap;  // 부분 입력된 데이터
+  thisMonthAssignments: AssignmentMap; // 부분 입력된 데이터
 }
 
 interface SolverResponse {
@@ -926,7 +933,7 @@ interface SolverResponse {
   status: 'complete' | 'error';
   hardScore: number;
   softScore: number;
-  assignments: AssignmentMap;  // 전체 결과
+  assignments: AssignmentMap; // 전체 결과
 }
 ```
 
@@ -936,19 +943,19 @@ interface SolverResponse {
 function generateMockAssignments(): AssignmentMap {
   const assignments: AssignmentMap = {};
   const shifts = ['D', 'E', 'N', 'O'];
-  
-  employees.value.forEach(emp => {
+
+  employees.value.forEach((emp) => {
     assignments[emp.id] = {};
-    
+
     dates
-      .filter(d => !d.isLastMonth)  // 당월만
-      .forEach(date => {
+      .filter((d) => !d.isLastMonth) // 당월만
+      .forEach((date) => {
         // 랜덤 시프트 배정 (실제로는 최적화 결과)
         const randomShift = shifts[Math.floor(Math.random() * shifts.length)];
         assignments[emp.id][date.date] = randomShift;
       });
   });
-  
+
   return assignments;
 }
 ```
@@ -961,35 +968,29 @@ export function useAISolver() {
   const status = ref<string>('created');
   const hardScore = ref<number>(0);
   const softScore = ref<number>(0);
-  
+
   let pollingInterval: number | null = null;
-  
+
   async function startSolver(scheduleId: string, payload: SolverPayload) {
     // 1. Status를 'running'으로 변경
-    await supabase
-      .from('schedules')
-      .update({ status: 'running' })
-      .eq('id', scheduleId);
-    
+    await supabase.from('schedules').update({ status: 'running' }).eq('id', scheduleId);
+
     status.value = 'running';
-    
+
     // 2. AI Solver 호출 (비동기)
     requestAISolver(scheduleId, payload)
-      .then(result => {
+      .then((result) => {
         // 결과를 Supabase에 저장
         saveResult(scheduleId, result);
       })
-      .catch(error => {
-        supabase
-          .from('schedules')
-          .update({ status: 'error' })
-          .eq('id', scheduleId);
+      .catch((error) => {
+        supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
       });
-    
+
     // 3. Polling 시작
     startPolling(scheduleId);
   }
-  
+
   function startPolling(scheduleId: string) {
     pollingInterval = setInterval(async () => {
       const { data } = await supabase
@@ -997,24 +998,24 @@ export function useAISolver() {
         .select('status, hard_score, soft_score')
         .eq('id', scheduleId)
         .single();
-      
+
       status.value = data.status;
       hardScore.value = data.hard_score;
       softScore.value = data.soft_score;
-      
+
       if (data.status !== 'running') {
         stopPolling();
       }
-    }, 5000);  // 5초마다
+    }, 5000); // 5초마다
   }
-  
+
   function stopPolling() {
     if (pollingInterval) {
       clearInterval(pollingInterval);
       pollingInterval = null;
     }
   }
-  
+
   return { status, hardScore, softScore, startSolver, stopPolling };
 }
 ```
@@ -1028,16 +1029,16 @@ async function loadResult(scheduleId: string) {
     .from('schedule_assignments')
     .select('employee_id, date, shifts(code)')
     .eq('schedule_id', scheduleId);
-  
+
   // AssignmentMap 형식으로 변환
   const assignments: AssignmentMap = {};
-  data.forEach(row => {
+  data.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
     }
     assignments[row.employee_id][row.date] = row.shifts.code;
   });
-  
+
   return assignments;
 }
 ```
@@ -1063,27 +1064,27 @@ export function exportToExcel(
   filename: string
 ) {
   // 1. 데이터 변환
-  const rows = employees.map(emp => {
+  const rows = employees.map((emp) => {
     const row: any = {
-      '직번': emp.employeeId,
-      '이름': emp.name,
+      직번: emp.employeeId,
+      이름: emp.name,
     };
-    
-    dates.forEach(date => {
+
+    dates.forEach((date) => {
       const shift = assignments[emp.id]?.[date.date] || '';
       row[`${date.day}일`] = shift;
     });
-    
+
     return row;
   });
-  
+
   // 2. 워크시트 생성
   const ws = XLSX.utils.json_to_sheet(rows);
-  
+
   // 3. 워크북 생성
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '근무표');
-  
+
   // 4. 다운로드
   XLSX.writeFile(wb, filename);
 }
@@ -1106,7 +1107,7 @@ interface ScheduleGridProps {
   employees: Employee[];
   dates: GridColumn[];
   assignments: AssignmentMap;
-  readonly?: boolean;  // Step 4에서는 수정 가능
+  readonly?: boolean; // Step 4에서는 수정 가능
   showLastMonth?: boolean;
 }
 ```
@@ -1115,11 +1116,14 @@ interface ScheduleGridProps {
 
 ```typescript
 interface ScheduleGridEmits {
-  (e: 'update:assignment', payload: {
-    employeeId: string;
-    date: string;
-    shiftCode: string;
-  }): void;
+  (
+    e: 'update:assignment',
+    payload: {
+      employeeId: string;
+      date: string;
+      shiftCode: string;
+    }
+  ): void;
 }
 ```
 
@@ -1128,59 +1132,40 @@ interface ScheduleGridEmits {
 ```vue
 <template>
   <div class="schedule-grid-container overflow-x-auto">
-    <table class="schedule-grid border-collapse w-full">
+    <table class="schedule-grid w-full border-collapse">
       <!-- 3-level 헤더 -->
       <thead>
         <tr>
           <th rowspan="3" class="sticky-column">근무자</th>
-          <th
-            v-for="group in headerLevel1"
-            :colspan="group.count"
-            class="header-level-1"
-          >
+          <th v-for="group in headerLevel1" :colspan="group.count" class="header-level-1">
             {{ group.label }}
           </th>
           <th rowspan="3" colspan="4" class="header-stats">통계</th>
         </tr>
         <tr>
-          <th
-            v-for="group in headerLevel2"
-            :colspan="group.count"
-            class="header-level-2"
-          >
+          <th v-for="group in headerLevel2" :colspan="group.count" class="header-level-2">
             {{ group.label }}
           </th>
         </tr>
         <tr>
-          <th
-            v-for="date in dates"
-            class="header-level-3"
-          >
+          <th v-for="date in dates" class="header-level-3">
             {{ date.day }}일<br />
             <span class="text-xs">{{ date.dayName }}</span>
           </th>
         </tr>
       </thead>
-      
+
       <!-- 데이터 행 -->
       <tbody>
-        <tr
-          v-for="employee in employees"
-          :key="employee.id"
-          class="data-row"
-        >
+        <tr v-for="employee in employees" :key="employee.id" class="data-row">
           <!-- 고정 컬럼 -->
           <td class="sticky-column employee-cell">
             <div class="font-semibold">{{ employee.name }}</div>
             <div class="text-xs text-gray-500">{{ employee.employeeId }}</div>
           </td>
-          
+
           <!-- 날짜 셀 -->
-          <td
-            v-for="date in dates"
-            :key="date.date"
-            :class="getCellClass(date)"
-          >
+          <td v-for="date in dates" :key="date.date" :class="getCellClass(date)">
             <ShiftSelector
               :employee-id="employee.id"
               :date="date.date"
@@ -1190,7 +1175,7 @@ interface ScheduleGridEmits {
               @select="handleShiftSelect(employee.id, date.date, $event)"
             />
           </td>
-          
+
           <!-- 통계 셀 -->
           <td class="stat-cell">{{ statistics.rowStats[employee.id]?.D || 0 }}</td>
           <td class="stat-cell">{{ statistics.rowStats[employee.id]?.E || 0 }}</td>
@@ -1198,27 +1183,19 @@ interface ScheduleGridEmits {
           <td class="stat-cell font-bold">{{ statistics.rowStats[employee.id]?.total || 0 }}</td>
         </tr>
       </tbody>
-      
+
       <!-- 통계 행 -->
       <tfoot>
         <tr class="stat-row">
           <td class="sticky-column font-bold">Total</td>
-          <td
-            v-for="date in dates"
-            :key="date.date"
-            class="stat-cell"
-          >
+          <td v-for="date in dates" :key="date.date" class="stat-cell">
             {{ statistics.columnStats[date.date]?.total || 0 }}
           </td>
           <td colspan="4"></td>
         </tr>
         <tr class="stat-row">
           <td class="sticky-column font-bold">D</td>
-          <td
-            v-for="date in dates"
-            :key="date.date"
-            class="stat-cell"
-          >
+          <td v-for="date in dates" :key="date.date" class="stat-cell">
             {{ statistics.columnStats[date.date]?.D || 0 }}
           </td>
           <td colspan="4"></td>
@@ -1259,15 +1236,15 @@ function handleShiftSelect(employeeId: string, date: string, shiftCode: string) 
 
 // 헤더 그룹 계산
 const headerLevel1 = computed(() => {
-  const lastMonthCount = props.dates.filter(d => d.isLastMonth).length;
-  const thisMonthCount = props.dates.filter(d => !d.isLastMonth).length;
-  
+  const lastMonthCount = props.dates.filter((d) => d.isLastMonth).length;
+  const thisMonthCount = props.dates.filter((d) => !d.isLastMonth).length;
+
   const groups = [];
   if (props.showLastMonth && lastMonthCount > 0) {
     groups.push({ label: 'Last Month', count: lastMonthCount });
   }
   groups.push({ label: 'This Month', count: thisMonthCount });
-  
+
   return groups;
 });
 
@@ -1276,10 +1253,10 @@ const headerLevel2 = computed(() => {
   const groups: any[] = [];
   let currentMonth = '';
   let count = 0;
-  
+
   props.dates.forEach((date, index) => {
     const month = date.date.substring(5, 7) + '월';
-    
+
     if (month !== currentMonth) {
       if (count > 0) {
         groups.push({ label: currentMonth, count });
@@ -1289,12 +1266,12 @@ const headerLevel2 = computed(() => {
     } else {
       count++;
     }
-    
+
     if (index === props.dates.length - 1) {
       groups.push({ label: currentMonth, count });
     }
   });
-  
+
   return groups;
 });
 </script>
@@ -1379,7 +1356,7 @@ thead tr {
 
 ```typescript
 interface StepIndicatorProps {
-  currentStep: number;  // 1, 2, 3, 4
+  currentStep: number; // 1, 2, 3, 4
   steps: StepInfo[];
 }
 
@@ -1394,26 +1371,20 @@ interface StepInfo {
 ```vue
 <template>
   <div class="flex items-center justify-center gap-8 py-6">
-    <div
-      v-for="step in steps"
-      :key="step.number"
-      class="flex items-center"
-    >
+    <div v-for="step in steps" :key="step.number" class="flex items-center">
       <div class="flex flex-col items-center">
-        <div
-          :class="getStepCircleClass(step.number)"
-        >
+        <div :class="getStepCircleClass(step.number)">
           {{ step.number }}
         </div>
-        <div class="text-sm mt-2" :class="getStepLabelClass(step.number)">
+        <div class="mt-2 text-sm" :class="getStepLabelClass(step.number)">
           {{ step.label }}
         </div>
       </div>
-      
+
       <div
         v-if="step.number < steps.length"
         :class="getStepLineClass(step.number)"
-        class="w-16 h-1 mx-4"
+        class="mx-4 h-1 w-16"
       ></div>
     </div>
   </div>
@@ -1425,9 +1396,9 @@ const props = defineProps<StepIndicatorProps>();
 function getStepCircleClass(stepNumber: number) {
   const isActive = stepNumber === props.currentStep;
   const isCompleted = stepNumber < props.currentStep;
-  
+
   const base = 'w-10 h-10 rounded-full flex items-center justify-center font-bold';
-  
+
   if (isActive) {
     return `${base} bg-blue-600 text-white`;
   } else if (isCompleted) {
@@ -1493,29 +1464,24 @@ export async function createSchedule(data: CreateScheduleData) {
     })
     .select()
     .single();
-  
+
   if (error) throw error;
   return schedule;
 }
 
 // 초기 데이터 저장 (전월 + 당월 부분 입력)
-export async function saveInitialAssignments(
-  scheduleId: string,
-  assignments: AssignmentMap
-) {
+export async function saveInitialAssignments(scheduleId: string, assignments: AssignmentMap) {
   const rows = Object.entries(assignments).flatMap(([employeeId, empAssignments]) =>
     Object.entries(empAssignments).map(([date, shiftCode]) => ({
       schedule_id: scheduleId,
       employee_id: employeeId,
       date,
-      shift_id: getShiftIdByCode(shiftCode),  // helper 함수
+      shift_id: getShiftIdByCode(shiftCode), // helper 함수
     }))
   );
-  
-  const { error } = await supabase
-    .from('schedule_assignments')
-    .insert(rows);
-  
+
+  const { error } = await supabase.from('schedule_assignments').insert(rows);
+
   if (error) throw error;
 }
 
@@ -1526,7 +1492,7 @@ export async function getScheduleStatus(scheduleId: string) {
     .select('status, hard_score, soft_score')
     .eq('id', scheduleId)
     .single();
-  
+
   if (error) throw error;
   return data;
 }
@@ -1535,24 +1501,26 @@ export async function getScheduleStatus(scheduleId: string) {
 export async function getScheduleAssignments(scheduleId: string) {
   const { data, error } = await supabase
     .from('schedule_assignments')
-    .select(`
+    .select(
+      `
       employee_id,
       date,
       shifts (code, name, color_code)
-    `)
+    `
+    )
     .eq('schedule_id', scheduleId);
-  
+
   if (error) throw error;
-  
+
   // AssignmentMap 형식으로 변환
   const assignments: AssignmentMap = {};
-  data.forEach(row => {
+  data.forEach((row) => {
     if (!assignments[row.employee_id]) {
       assignments[row.employee_id] = {};
     }
     assignments[row.employee_id][row.date] = row.shifts.code;
   });
-  
+
   return assignments;
 }
 
@@ -1563,23 +1531,18 @@ export async function updateAssignment(
   date: string,
   shiftCode: string
 ) {
-  const { error } = await supabase
-    .from('schedule_assignments')
-    .upsert({
-      schedule_id: scheduleId,
-      employee_id: employeeId,
-      date,
-      shift_id: getShiftIdByCode(shiftCode),
-      updated_at: new Date().toISOString(),
-    });
-  
+  const { error } = await supabase.from('schedule_assignments').upsert({
+    schedule_id: scheduleId,
+    employee_id: employeeId,
+    date,
+    shift_id: getShiftIdByCode(shiftCode),
+    updated_at: new Date().toISOString(),
+  });
+
   if (error) throw error;
-  
+
   // Schedule 상태를 'changed'로 변경
-  await supabase
-    .from('schedules')
-    .update({ status: 'changed' })
-    .eq('id', scheduleId);
+  await supabase.from('schedules').update({ status: 'changed' }).eq('id', scheduleId);
 }
 ```
 
@@ -1591,9 +1554,9 @@ export async function requestAISolver(payload: SolverPayload): Promise<void> {
   // MVP에서는 Mock 응답
   // 실제 환경에서는:
   // const response = await fetch(CLOUD_RUN_URL, { ... });
-  
+
   console.log('[Mock] AI Solver 호출:', payload);
-  
+
   // 5초 후 Mock 결과 생성
   setTimeout(async () => {
     const mockAssignments = generateMockAssignments(payload);
@@ -1605,12 +1568,12 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
   // 단순 로직: D, E, N을 번갈아 배정
   const shifts = ['D', 'E', 'N', 'O'];
   const assignments: AssignmentMap = {};
-  
+
   payload.employees.forEach((emp, empIndex) => {
     assignments[emp.id] = { ...payload.lastMonthAssignments[emp.id] };
-    
+
     payload.dates
-      .filter(d => !d.isLastMonth)
+      .filter((d) => !d.isLastMonth)
       .forEach((date, dateIndex) => {
         // 기존 입력 데이터 유지
         if (payload.thisMonthAssignments[emp.id]?.[date.date]) {
@@ -1622,14 +1585,14 @@ function generateMockAssignments(payload: SolverPayload): AssignmentMap {
         }
       });
   });
-  
+
   return assignments;
 }
 
 async function saveSolverResult(scheduleId: string, assignments: AssignmentMap) {
   // schedule_assignments에 저장
   await saveInitialAssignments(scheduleId, assignments);
-  
+
   // Schedule 상태를 'complete'로 변경
   await supabase
     .from('schedules')

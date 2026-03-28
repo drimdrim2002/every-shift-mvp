@@ -1,0 +1,60 @@
+<template>
+  <n-form ref="formRef" :model="formValue" :rules="rules" class="space-y-4">
+    <n-form-item label="이름" path="name">
+      <n-input v-model:value="formValue.name" placeholder="이름을 입력하세요" />
+    </n-form-item>
+
+    <n-space>
+      <n-button type="primary" @click="handleSubmit">저장</n-button>
+      <n-button @click="emit('cancel')">취소</n-button>
+    </n-space>
+  </n-form>
+</template>
+
+<script setup lang="ts">
+import { reactive, ref } from 'vue';
+import { NButton, NForm, NFormItem, NInput, NSpace, type FormInst, type FormRules } from 'naive-ui';
+import { showError, showSuccess } from '@/utils/message';
+
+interface FormModel {
+  name: string;
+}
+
+interface Props {
+  initialValue?: Partial<FormModel>;
+}
+
+interface Emits {
+  (e: 'submit', value: FormModel): void;
+  (e: 'cancel'): void;
+}
+
+const props = defineProps<Props>();
+const emit = defineEmits<Emits>();
+
+const formRef = ref<FormInst | null>(null);
+const formValue = reactive<FormModel>({
+  name: props.initialValue?.name ?? '',
+});
+
+const rules: FormRules = {
+  name: [
+    {
+      required: true,
+      message: '이름을 입력해주세요.',
+      trigger: ['blur', 'input'],
+    },
+  ],
+};
+
+async function handleSubmit(): Promise<void> {
+  try {
+    await formRef.value?.validate();
+    emit('submit', { ...formValue });
+    showSuccess('저장되었습니다.');
+  } catch (error: unknown) {
+    console.error('[FormComponentTemplate] validation failed', error);
+    showError('입력값을 확인해주세요.');
+  }
+}
+</script>

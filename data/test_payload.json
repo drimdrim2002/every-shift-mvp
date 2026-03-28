@@ -1,0 +1,37 @@
+{
+  "organization": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "name": "Test Org",
+    "type": "hospital",
+    "shifts": [
+      {
+        "id": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",
+        "code": "D",
+        "name": "Day",
+        "start_time": "08:00",
+        "end_time": "16:00"
+      }
+    ],
+    "lastHistoricalDate": "2025-11-30",
+    "firstDraftDate": "2025-12-01",
+    "publishLength": 1,
+    "draftLength": 1
+  },
+  "employees": [
+    {
+      "employee_id": "3515886c-6359-4919-9c02-682565bb93c7",
+      "name": "Test Emp",
+      "available_shifts": ["D"],
+      "skill_set": ["ALL"]
+    }
+  ],
+  "history": [],
+  "undesirable": [],
+  "requirements": [
+    {
+      "shiftId": "a5bcb7c0-b9b1-408d-9add-fd08c13b951c",
+      "dayIndex": 0,
+      "employeeCount": 1
+    }
+  ]
+}

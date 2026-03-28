@@ -7,8 +7,18 @@
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext .vue,.js,.ts,.tsx --fix",
-    "format": "prettier --write \"src/**/*.{vue,js,ts,tsx,json,css,md}\""
+    "check-env": "node scripts/check-env.js",
+    "lint": "pnpm lint:check",
+    "lint:check": "eslint src supabase tests --ext .vue,.js,.ts,.tsx --max-warnings=9999",
+    "lint:fix": "eslint src supabase tests --ext .vue,.js,.ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{vue,js,ts,tsx,json,css,md}\"",
+    "prepare": "husky",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.81.1",
@@ -22,21 +32,39 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/mcp": "^0.0.47",
+    "@playwright/test": "^1.56.1",
     "@types/node": "^24.10.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.6.0",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.8.1",
     "autoprefixer": "^10.4.22",
+    "baseline-browser-mapping": "^2.9.19",
     "eslint": "^9.39.1",
     "eslint-plugin-tailwindcss": "^3.18.2",
     "eslint-plugin-vue": "^10.5.1",
+    "happy-dom": "^20.0.10",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
+    "playwright": "^1.56.1",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",
     "tailwindcss": "^3.4.17",
     "typescript": "5.8.3",
     "vite": "6.3.5",
+    "vitest": "^4.0.12",
     "vue-tsc": "^2.1.10"
-  }
+  },
+  "lint-staged": {
+    "*.{vue,js,ts,tsx}": [
+      "eslint --fix --max-warnings=9999"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
+  },
+  "packageManager": "pnpm@10.24.0+sha512.01ff8ae71b4419903b65c60fb2dc9d34cf8bb6e06d03bde112ef38f7a34d6904c424ba66bea5cdcf12890230bf39f9580473140ed9c946fef328b6e5238a345a"
 }

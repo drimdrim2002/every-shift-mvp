@@ -2,12 +2,8 @@
   "mcpServers": {
     "supabase": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--read-only"],
-      "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_fc17916cd4bf8f4b163ba51aa0dd2102ea0ec655",
-        "SUPABASE_PROJECT_REF": "vjmerqaxguovnojinxfq"
-      }
+      "command": "bash",
+      "args": ["scripts/mcp/supabase.sh"]
     },
     "shrimp-task-manager": {
       "type": "stdio",
@@ -23,6 +19,33 @@
       "type": "stdio",
       "command": "bash",
       "args": ["scripts/mcp/sequential-thinking.sh"]
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {
+        "PLAYWRIGHT_BROWSER": "chromium",
+        "PLAYWRIGHT_HEADLESS": "true"
+      }
+    },
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/oraios/serena", "serena", "start-mcp-server"],
+      "env": {
+        "SERENA_AUTO_OPEN_BROWSER": "false"
+      }
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/brown/projects"]
+    },
+    "git": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "/home/brown/projects/every-shift-mvp"]
     }
   }
 }
