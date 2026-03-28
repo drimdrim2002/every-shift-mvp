@@ -47,7 +47,7 @@
         type="warning"
         class="mb-6"
       >
-        선택된 버전만 편집할 수 있습니다. 현재는 미리보기 버전을 보고 있어 읽기 전용입니다.
+        현재 미리보기 버전 상태에서는 편집할 수 없습니다. (생성 중 또는 확정됨)
       </n-alert>
 
       <n-alert
@@ -177,13 +177,14 @@ import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
+  createPhase2ScheduleVersion,
   getPhase2ScheduleCompare,
+  patchPhase2ScheduleVersionAssignments,
   getScheduleStatus,
   getScheduleVersionAssignments,
   getScheduleVersionPreferences,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
-  updateScheduleVersionAssignment,
   deleteThisMonthVersionAssignments,
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
@@ -193,8 +194,7 @@ import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
-import { supabase } from '@/api/supabase';
-import type { AssignmentMap, ConstraintMap, CommentMap } from '@/types/schedule';
+import type { AssignmentMap, ConstraintMap, CommentMap, ScheduleVersionStatus } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -208,8 +208,8 @@ const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
 const scheduleId = computed(() => route.params.id as string);
-const selectedVersionId = computed(() => scheduleStore.selectedVersionId);
 const previewVersionId = computed(() => scheduleStore.previewVersionId);
+const compareVersions = ref<Array<{ id: string; status: ScheduleVersionStatus }>>([]);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -235,6 +235,28 @@ function getRequestedPreviewVersionId(): string | null {
     : null;
 }
 
+async function syncVersionStateFromCompare() {
+  const compareResponse = await getPhase2ScheduleCompare(scheduleId.value);
+  const resolvedState = resolveStep5VersionState(
+    compareResponse,
+    getRequestedPreviewVersionId()
+  );
+
+  compareVersions.value = resolvedState.versions.map((version) => ({
+    id: version.id,
+    status: version.status,
+  }));
+
+  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+  if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
+    await router.replace(buildStep5Route(scheduleId.value, resolvedState.previewVersionId));
+  }
+
+  return resolvedState;
+}
+
 interface ScheduleStatusRow {
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
   hard_score: number | null;
@@ -245,11 +267,16 @@ interface ScheduleStatusRow {
 const isRunning = computed(() => solver.status.value === 'running');
 const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
-const canMutateSelectedVersion = computed(() => {
-  return !!selectedVersionId.value && !!previewVersionId.value && selectedVersionId.value === previewVersionId.value;
+const previewVersionStatus = computed<ScheduleVersionStatus>(() => {
+  if (!previewVersionId.value) return 'draft';
+  return compareVersions.value.find((version) => version.id === previewVersionId.value)?.status ?? 'draft';
 });
 const isVersionReadOnly = computed(() => {
-  return !!previewVersionId.value && !!selectedVersionId.value && previewVersionId.value !== selectedVersionId.value;
+  if (!previewVersionId.value) return true;
+  return previewVersionStatus.value === 'solving' || previewVersionStatus.value === 'finalized';
+});
+const canMutatePreviewVersion = computed(() => {
+  return !!previewVersionId.value && !isVersionReadOnly.value;
 });
 const previousMonthPrefix = computed(() => {
   if (!scheduleStore.basicInfo?.month) return '';
@@ -279,7 +306,7 @@ const statusType = computed(() => {
 });
 
 const isReadonlyGrid = computed(() => {
-  return !isFinished.value || !canMutateSelectedVersion.value;
+  return !isFinished.value || !canMutatePreviewVersion.value;
 });
 const preferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
   return isPreRun.value ? 'pre-run' : 'post-run';
@@ -574,9 +601,41 @@ function applyIntermediateAssignments(intermediateAssignments: AssignmentMap): n
 }
 
 function applyScheduleStatus(schedule: ScheduleStatusRow) {
-  solver.status.value = schedule.status;
   solver.hardScore.value = schedule.hard_score || 0;
   solver.softScore.value = schedule.soft_score || 0;
+}
+
+function readErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
+    return candidate.code;
+  }
+  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
+    return candidate.message;
+  }
+  return null;
+}
+
+function mapVersionStatusToSolverStatus(status: ScheduleVersionStatus): 'created' | 'complete' | 'changed' | 'error' {
+  switch (status) {
+    case 'solve_failed':
+      return 'error';
+    case 'review_pending':
+      return 'changed';
+    case 'review_ready':
+    case 'review_blocked':
+    case 'infeasible':
+    case 'finalized':
+      return 'complete';
+    case 'solving':
+    case 'draft':
+    default:
+      return 'created';
+  }
 }
 
 async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearChanges?: boolean; forceAssignmentSync?: boolean } = {}) {
@@ -707,12 +766,12 @@ function buildDateBasedRequirements(siteRequirements: Array<{ dayOfWeek: number;
 
 async function buildSolverRequest() {
   const basicInfo = scheduleStore.basicInfo;
-  const versionId = selectedVersionId.value;
+  const versionId = previewVersionId.value;
   if (!basicInfo) {
     throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
   }
   if (!versionId) {
-    throw new Error('선택된 버전 정보가 없습니다. 다시 진입해주세요.');
+    throw new Error('미리보기 버전 정보가 없습니다. 다시 진입해주세요.');
   }
 
   if (organizationStore.shifts.length === 0) {
@@ -750,8 +809,8 @@ async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
-  if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
-    showInfo('선택된 버전만 편집할 수 있습니다.');
+  if (!canMutatePreviewVersion.value || !previewVersionId.value) {
+    showInfo('현재 미리보기 버전 상태에서는 생성/편집을 진행할 수 없습니다.');
     return;
   }
 
@@ -759,47 +818,54 @@ async function handleStartSolver() {
 
   try {
     await loadPreferencesForDisplay();
-    await resetPreferenceResolutionByVersion(selectedVersionId.value);
+    await resetPreferenceResolutionByVersion(previewVersionId.value);
 
     const solverRequest = await buildSolverRequest();
-    const executionId = await solver.startSolver(
-      scheduleId.value,
-      selectedVersionId.value,
-      solverRequest
-    );
-    if (!executionId) {
-      showError('근무표 생성 시작에 실패했습니다.');
-      return;
-    }
+    await solver.startSolver(previewVersionId.value, solverRequest);
 
     resetRealtimeState();
     startAssignmentsRefresh();
     showSuccess('근무표 생성을 시작했습니다.');
   } catch (error) {
     console.warn('근무표 생성 시작 중 오류:', error);
+    if (readErrorCode(error) === 'another_version_solving') {
+      showError('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.');
+      try {
+        const resolvedState = await syncVersionStateFromCompare();
+        if (resolvedState.activeSolvingVersionId !== previewVersionId.value) {
+          const previewStatus =
+            resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)
+              ?.status ?? 'draft';
+          solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
+        }
+        await loadCurrentAssignments({
+          syncOriginal: true,
+          clearChanges: true,
+          forceAssignmentSync: true,
+        });
+      } catch (syncError) {
+        console.warn('충돌 후 상태 재동기화 중 오류:', syncError);
+      }
+      return;
+    }
+
     showError(error instanceof Error ? error.message : '근무표 생성 시작 중 오류가 발생했습니다.');
   } finally {
     isStartingSolver.value = false;
   }
 }
 
-async function resumePollingFromSchedule(schedule: ScheduleStatusRow) {
-  if (!schedule.solver_execution_id) {
-    showError('진행 중 작업 정보를 찾을 수 없습니다. 근무표 생성을 다시 시작해주세요.');
-    solver.status.value = 'error';
-    return;
-  }
-  if (!selectedVersionId.value) {
-    showError('선택된 버전 정보를 찾을 수 없습니다. 다시 진입해주세요.');
-    solver.status.value = 'error';
-    return;
+async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<boolean> {
+  if (!schedule.solver_execution_id || !previewVersionId.value) {
+    return false;
   }
 
   solver.status.value = 'running';
   resetRealtimeState();
   solver.intermediateResults.value = null;
-  solver.startPolling(schedule.solver_execution_id, scheduleId.value, selectedVersionId.value);
+  solver.startPolling(schedule.solver_execution_id, previewVersionId.value);
   startAssignmentsRefresh();
+  return true;
 }
 
 onMounted(async () => {
@@ -809,18 +875,7 @@ onMounted(async () => {
   }
 
   try {
-    const compareResponse = await getPhase2ScheduleCompare(scheduleId.value);
-    const resolvedState = resolveStep5VersionState(
-      compareResponse,
-      getRequestedPreviewVersionId()
-    );
-
-    scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-    scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-
-    if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
-      await router.replace(buildStep5Route(scheduleId.value, resolvedState.previewVersionId));
-    }
+    const resolvedState = await syncVersionStateFromCompare();
 
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
@@ -830,27 +885,39 @@ onMounted(async () => {
     const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
     applyScheduleStatus(schedule);
 
+    const previewStatus =
+      resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)?.status ??
+      'draft';
+    const shouldResumePolling =
+      resolvedState.activeSolvingVersionId !== null &&
+      resolvedState.activeSolvingVersionId === previewVersionId.value &&
+      Boolean(schedule.solver_execution_id);
+
+    if (shouldResumePolling) {
+      await loadCurrentAssignments({
+        syncOriginal: false,
+        clearChanges: false,
+      });
+      const resumed = await resumePollingFromSchedule(schedule);
+      if (resumed) {
+        return;
+      }
+    }
+
+    solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
+
     if (
-      (schedule.status === 'complete' || schedule.status === 'changed')
-      && canMutateSelectedVersion.value
-      && selectedVersionId.value
+      (solver.status.value === 'complete' || solver.status.value === 'changed')
+      && canMutatePreviewVersion.value
+      && previewVersionId.value
     ) {
-      await refreshPreferenceResolutionByVersion(selectedVersionId.value);
+      await refreshPreferenceResolutionByVersion(previewVersionId.value);
     }
 
     await loadCurrentAssignments({
-      syncOriginal: schedule.status !== 'running',
-      clearChanges: schedule.status !== 'running',
+      syncOriginal: true,
+      clearChanges: true,
     });
-
-    if (schedule.status === 'running') {
-      await resumePollingFromSchedule(schedule);
-      return;
-    }
-
-    if (schedule.status === 'created' && schedule.solver_execution_id) {
-      await resumePollingFromSchedule(schedule);
-    }
   } catch (error) {
     console.warn('데이터 로드 중 오류:', error);
     showError('데이터 로드 중 오류가 발생했습니다.');
@@ -940,8 +1007,8 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 }
 
 function handleReset() {
-  if (!canMutateSelectedVersion.value) {
-    showInfo('선택된 버전만 편집할 수 있습니다.');
+  if (!canMutatePreviewVersion.value) {
+    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
     return;
   }
 
@@ -967,12 +1034,37 @@ function handleReset() {
 }
 
 async function handleRegenerate() {
-  if (!canMutateSelectedVersion.value) {
-    showInfo('선택된 버전만 편집할 수 있습니다.');
+  if (!canMutatePreviewVersion.value || !previewVersionId.value) {
+    showInfo('현재 미리보기 버전 상태에서는 생성할 수 없습니다.');
     return;
   }
 
-  await handleStartSolver();
+  try {
+    const createResponse = await createPhase2ScheduleVersion(scheduleId.value, {
+      baseVersionId: previewVersionId.value,
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    });
+
+    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+    compareVersions.value = createResponse.versions.map((version) => ({
+      id: version.id,
+      status: version.status,
+    }));
+    await router.replace(buildStep5Route(scheduleId.value, createResponse.createdVersionId));
+
+    await handleStartSolver();
+  } catch (error) {
+    console.warn('후보 버전 생성 중 오류:', error);
+    showError(error instanceof Error ? error.message : '후보 버전 생성 중 오류가 발생했습니다.');
+  }
 }
 
 function handleExport() {
@@ -998,10 +1090,11 @@ function handleExport() {
 }
 
 function handleSave() {
-  if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
-    showInfo('선택된 버전만 편집할 수 있습니다.');
+  if (!canMutatePreviewVersion.value || !previewVersionId.value) {
+    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
     return;
   }
+  const targetVersionId = previewVersionId.value;
 
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
@@ -1021,6 +1114,8 @@ function handleSave() {
           return;
         }
 
+        const changes: Array<{ employeeId: string; date: string; shiftId: string | null }> = [];
+
         for (const cellKey of changedCells.value) {
           const [employeeId, date] = cellKey.split('_');
 
@@ -1028,7 +1123,14 @@ function handleSave() {
 
           const shiftCode = currentScheduleAssignments.value[employeeId]?.[date];
 
-          if (!shiftCode) continue;
+          if (!shiftCode) {
+            changes.push({
+              employeeId,
+              date,
+              shiftId: null,
+            });
+            continue;
+          }
 
           const shift = organizationStore.shifts.find((s) => s.code === shiftCode);
           if (!shift) {
@@ -1036,24 +1138,31 @@ function handleSave() {
             continue;
           }
 
-          await updateScheduleVersionAssignment(
-            scheduleId.value,
-            selectedVersionId.value,
+          changes.push({
             employeeId,
             date,
-            shift.id
-          );
+            shiftId: shift.id,
+          });
         }
 
-        await supabase
-          .from('schedules')
-          .update({ status: 'changed' })
-          .eq('id', scheduleId.value);
+        if (changes.length === 0) {
+          showInfo('저장할 변경사항이 없습니다.');
+          return;
+        }
 
-        await refreshPreferenceResolutionByVersion(selectedVersionId.value);
+        await patchPhase2ScheduleVersionAssignments(targetVersionId, {
+          changes,
+        });
+
+        await syncVersionStateFromCompare();
+        await loadPreferencesForDisplay();
+        await loadCurrentAssignments({
+          syncOriginal: true,
+          clearChanges: true,
+          forceAssignmentSync: true,
+        });
 
         showSuccess('저장되었습니다');
-        changedCells.value.clear();
         router.push('/');
       } catch (error) {
         console.warn('저장 중 오류:', error);
@@ -1076,14 +1185,14 @@ async function handleCancelSchedule() {
           showError('현재 월 정보를 찾을 수 없습니다');
           return;
         }
-        if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
-          showInfo('선택된 버전만 편집할 수 있습니다.');
+        if (!canMutatePreviewVersion.value || !previewVersionId.value) {
+          showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
           return;
         }
 
         await deleteThisMonthVersionAssignments(
           scheduleId.value,
-          selectedVersionId.value,
+          previewVersionId.value,
           currentMonth
         );
 

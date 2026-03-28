@@ -1,16 +1,73 @@
-import { 
-  createSolverExecution, 
-  getSolverStatus, 
-  parseSolverResult, 
-  mapApiStatusToAppStatus 
+import {
+  createSolverExecution,
+  getSolverStatus,
+  mapApiStatusToAppStatus,
+  parseSolverResult,
 } from '@/api/solver';
-import { refreshPreferenceResolutionByVersion } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
-import type { SolverRequest, AssignmentMap } from '@/types/schedule';
+import {
+  refreshPreferenceResolutionByVersion,
+  solvePhase2ScheduleVersion,
+  submitPhase2ScheduleVersionSolverResult,
+} from '@/api/schedule';
+import type { AssignmentMap, SolverRequest } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
 
+type SolverLocalStatus = 'created' | 'running' | 'complete' | 'error' | 'changed';
+
+function toSolverWriteRows(assignments: AssignmentMap) {
+  const rows: Array<{
+    employeeId: string;
+    date: string;
+    shiftId: string;
+    isLocked: boolean;
+    comment: null;
+    offReason: null;
+  }> = [];
+
+  for (const [employeeId, dateMap] of Object.entries(assignments)) {
+    for (const [date, shiftId] of Object.entries(dateMap || {})) {
+      if (!shiftId) continue;
+      rows.push({
+        employeeId,
+        date,
+        shiftId,
+        isLocked: false,
+        comment: null,
+        offReason: null,
+      });
+    }
+  }
+
+  return rows;
+}
+
+function readErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
+    return candidate.code;
+  }
+  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
+    return candidate.message;
+  }
+  return null;
+}
+
+function isStaleSolverCallbackError(error: unknown): boolean {
+  return readErrorCode(error) === 'stale_solver_callback';
+}
+
+function toErrorMessage(error: unknown, fallbackMessage: string): string {
+  return error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : fallbackMessage;
+}
+
 export function useAISolver() {
-  const status = ref<'created' | 'running' | 'complete' | 'error' | 'changed'>('created');
+  const status = ref<SolverLocalStatus>('created');
   const hardScore = ref<number>(0);
   const softScore = ref<number>(0);
   const progress = ref<number>(0);
@@ -19,15 +76,40 @@ export function useAISolver() {
   // Intermediate polling result uses shift UUIDs (not shift codes). UI must map before rendering.
   const intermediateResults = ref<AssignmentMap | null>(null);
 
-  const maxPollingAttempts = 120; // 10 minutes (5s * 120)
+  const maxPollingAttempts = 120; // 20 minutes (10s * 120)
   let pollingAttempts = 0;
   let pollingInterval: number | null = null;
 
+  async function markSolveFailedIfCurrent(
+    scheduleVersionId: string,
+    executionId: string,
+    score?: { hard_score: number; soft_score: number },
+    failureReason?: string | null
+  ): Promise<void> {
+    try {
+      await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
+        status: 'failed',
+        solverExecutionId: executionId,
+        assignments: [],
+        score: score
+          ? {
+            hardScore: score.hard_score,
+            softScore: score.soft_score,
+          }
+          : null,
+        failureReason: failureReason ?? null,
+      });
+    } catch (applyError) {
+      if (!isStaleSolverCallbackError(applyError)) {
+        console.warn('[useAISolver] Failed to mark solve_failed state:', applyError);
+      }
+    }
+  }
+
   async function startSolver(
-    scheduleId: string,
     scheduleVersionId: string,
     request: SolverRequest
-  ): Promise<string | null> {
+  ): Promise<string> {
     // Reset state
     status.value = 'running';
     error.value = null;
@@ -39,40 +121,24 @@ export function useAISolver() {
     intermediateResults.value = null;
 
     try {
-      // 1. Update Supabase status to running
-      await supabase
-        .from('schedules')
-        .update({ status: 'running', solver_execution_id: null })
-        .eq('id', scheduleId);
-
-      // 2. Call API
       const executionId = await createSolverExecution(request);
+      await solvePhase2ScheduleVersion(scheduleVersionId, {
+        solverExecutionId: executionId,
+      });
       executionIdRef.value = executionId;
       console.log('[useAISolver] Solver started, executionId:', executionId);
 
-      // 3. Persist execution id for resume/reconnect
-      await supabase
-        .from('schedules')
-        .update({ solver_execution_id: executionId })
-        .eq('id', scheduleId);
-
-      // 3. Start Polling
-      startPolling(executionId, scheduleId, scheduleVersionId);
+      startPolling(executionId, scheduleVersionId);
       return executionId;
-
-    } catch (e: unknown) {
-      console.error('[useAISolver] Failed to start solver:', e);
-      error.value = e instanceof Error ? e.message : 'Failed to start solver';
+    } catch (startError: unknown) {
+      console.error('[useAISolver] Failed to start solver:', startError);
+      error.value = toErrorMessage(startError, 'Failed to start solver');
       status.value = 'error';
-      await supabase
-        .from('schedules')
-        .update({ status: 'error', solver_execution_id: null })
-        .eq('id', scheduleId);
-      return null;
+      throw startError;
     }
   }
 
-  function startPolling(executionId: string, scheduleId: string, scheduleVersionId: string) {
+  function startPolling(executionId: string, scheduleVersionId: string) {
     if (pollingInterval) clearInterval(pollingInterval);
     executionIdRef.value = executionId;
     pollingAttempts = 0;
@@ -83,7 +149,7 @@ export function useAISolver() {
         stopPolling();
         error.value = 'Timeout: 근무표 생성이 10분을 초과했습니다.';
         status.value = 'error';
-        await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
+        await markSolveFailedIfCurrent(scheduleVersionId, executionId);
         return;
       }
 
@@ -97,140 +163,81 @@ export function useAISolver() {
         }
 
         if (appStatus === 'running') {
-            status.value = 'running';
-            // Fake progress if needed
-            if (progress.value < 90) progress.value += 2;
-            
-            // Save intermediate results if available
-            if (response.result) {
-                const assignments = parseSolverResult(response.result);
-                intermediateResults.value = assignments;
-                await saveIntermediateResult(scheduleId, scheduleVersionId, assignments, response.score);
-            }
-        } else if (appStatus === 'complete') {
-            stopPolling();
-            try {
-                if (!response.result) {
-                    throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
-                }
+          status.value = 'running';
+          if (progress.value < 90) progress.value += 2;
 
-                const assignments = parseSolverResult(response.result);
-                await saveResult(scheduleId, scheduleVersionId, assignments, response.score);
-                progress.value = 100;
-                status.value = 'complete';
-            } catch (e: unknown) {
-                console.error('[useAISolver] Failed to save final solver result:', e);
-                error.value = e instanceof Error ? e.message : '최종 결과 저장 중 오류가 발생했습니다.';
-                status.value = 'error';
-                await supabase
-                  .from('schedules')
-                  .update({ status: 'error', solver_execution_id: null })
-                  .eq('id', scheduleId);
-            }
-        } else if (appStatus === 'error') {
-            stopPolling();
-            error.value = response.error_message || 'AI Solver 오류';
-            status.value = 'error';
-            await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
-        } else {
-            status.value = appStatus;
+          if (response.result) {
+            const assignments = parseSolverResult(response.result);
+            intermediateResults.value = assignments;
+          }
+
+          return;
         }
 
-      } catch (e) {
-          console.error('Polling error:', e);
-          // Don't stop immediately on network error, just retry
+        if (appStatus === 'complete') {
+          stopPolling();
+
+          if (!response.result) {
+            throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
+          }
+
+          const assignments = parseSolverResult(response.result);
+          await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
+            status: 'completed',
+            solverExecutionId: executionId,
+            assignments: toSolverWriteRows(assignments),
+            score: response.score
+              ? {
+                hardScore: response.score.hard_score,
+                softScore: response.score.soft_score,
+              }
+              : null,
+            failureReason: null,
+          });
+          await refreshPreferenceResolutionByVersion(scheduleVersionId);
+
+          progress.value = 100;
+          status.value = 'complete';
+          return;
+        }
+
+        if (appStatus === 'error') {
+          stopPolling();
+          error.value = response.error_message || 'AI Solver 오류';
+          status.value = 'error';
+          await markSolveFailedIfCurrent(
+            scheduleVersionId,
+            executionId,
+            response.score,
+            response.error_message ?? null
+          );
+          return;
+        }
+
+        status.value = appStatus;
+      } catch (pollingError) {
+        if (isStaleSolverCallbackError(pollingError)) {
+          stopPolling();
+          status.value = 'created';
+          error.value = '최신 버전 상태가 변경되어 이전 실행 결과를 무시했습니다.';
+          return;
+        }
+
+        console.error('Polling error:', pollingError);
+        // Network/transient failures are retried by the next interval tick.
       }
-    }, 10000); // Changed from 5000 to 10000 (10 seconds)
+    }, 10000);
   }
 
   function stopPolling() {
-      if (pollingInterval) {
-          clearInterval(pollingInterval);
-          pollingInterval = null;
-      }
-  }
-
-  async function saveIntermediateResult(
-    scheduleId: string,
-    scheduleVersionId: string,
-    assignments: AssignmentMap,
-    score?: { hard_score: number, soft_score: number }
-  ) {
-      console.log('[saveIntermediateResult] Saving intermediate results to database...');
-      // Update schedule with intermediate score (don't change status)
-      await supabase.from('schedules').update({
-          hard_score: score?.hard_score || 0,
-          soft_score: score?.soft_score || 0
-      }).eq('id', scheduleId);
-
-      // Save assignments to DB
-      await saveAssignmentsToDb(scheduleId, scheduleVersionId, assignments);
-      console.log('[saveIntermediateResult] Saved intermediate results.');
-  }
-
-  async function saveResult(
-    scheduleId: string,
-    scheduleVersionId: string,
-    assignments: AssignmentMap,
-    score?: { hard_score: number, soft_score: number }
-  ) {
-      console.log('[saveResult] Saving final results to database...');
-      // Save assignments to DB first, then publish complete status as the final commit signal.
-      await saveAssignmentsToDb(scheduleId, scheduleVersionId, assignments);
-      await refreshPreferenceResolutionByVersion(scheduleVersionId);
-      await supabase.from('schedules').update({
-          status: 'complete',
-          hard_score: score?.hard_score || 0,
-          soft_score: score?.soft_score || 0
-      }).eq('id', scheduleId);
-      console.log('[saveResult] Saved final results.');
-  }
-
-  async function saveAssignmentsToDb(
-    scheduleId: string,
-    scheduleVersionId: string,
-    assignments: AssignmentMap
-  ) {
-
-      // Transform AssignmentMap to DB rows
-      const rows = [];
-      for (const [employeeId, dateMap] of Object.entries(assignments)) {
-          for (const [date, shiftId] of Object.entries(dateMap)) {
-              if (shiftId) { // shiftId is UUID from parseSolverResult
-                  rows.push({
-                      schedule_id: scheduleId,
-                      schedule_version_id: scheduleVersionId,
-                      employee_id: employeeId,
-                      shift_id: shiftId,
-                      date: date,
-                      is_locked: false
-                  });
-              }
-          }
-      }
-
-      // Bulk replace
-      const { error: deleteError } = await supabase
-        .from('schedule_assignments')
-        .delete()
-        .eq('schedule_version_id', scheduleVersionId);
-      if (deleteError) {
-          console.error('Failed to delete old assignments:', deleteError);
-          throw deleteError;
-      }
-
-      if (rows.length > 0) {
-          const { error } = await supabase.from('schedule_assignments').insert(rows);
-          if (error) {
-              console.error('Failed to insert new assignments:', error);
-              throw error;
-          }
-      }
-      console.log('[saveAssignmentsToDb] Saved', rows.length, 'assignments.');
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
   }
 
   onUnmounted(() => {
-      stopPolling();
+    stopPolling();
   });
 
   return {

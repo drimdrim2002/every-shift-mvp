@@ -16,9 +16,10 @@ const {
   getScheduleStatusMock,
   getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
+  createPhase2ScheduleVersionMock,
+  patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersionMock,
-  updateScheduleVersionAssignmentMock,
   deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
@@ -32,9 +33,10 @@ const {
   getScheduleStatusMock: vi.fn(),
   getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
+  createPhase2ScheduleVersionMock: vi.fn(),
+  patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
   resetPreferenceResolutionByVersionMock: vi.fn(),
-  updateScheduleVersionAssignmentMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
@@ -52,13 +54,14 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/api/schedule', () => ({
+  createPhase2ScheduleVersion: createPhase2ScheduleVersionMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
+  patchPhase2ScheduleVersionAssignments: patchPhase2ScheduleVersionAssignmentsMock,
   getScheduleStatus: getScheduleStatusMock,
   getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
-  updateScheduleVersionAssignment: updateScheduleVersionAssignmentMock,
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
   getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
@@ -69,7 +72,7 @@ vi.mock('@/api/employee', () => ({
 }))
 
 vi.mock('@/utils/solverMapper', () => ({
-  mapToSolverRequest: vi.fn(),
+  mapToSolverRequest: vi.fn(() => ({})),
 }))
 
 vi.mock('@/utils/excel', () => ({
@@ -175,7 +178,10 @@ vi.mock('@/components/schedule/StepIndicator.vue', () => ({
 }))
 
 vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
-  default: { template: '<div />' },
+  default: {
+    emits: ['update:assignment'],
+    template: `<button data-test="grid-edit" @click="$emit('update:assignment', { employeeId: 'emp-1', date: '2025-12-01', shiftCode: 'D' })">grid-edit</button>`,
+  },
 }))
 
 import Step5Result from '@/views/schedule/Step5Result.vue'
@@ -211,11 +217,22 @@ describe('Step5Result', () => {
     }
     scheduleStoreMock.selectedVersionId = null
     scheduleStoreMock.previewVersionId = null
+    solverMock.status.value = 'created'
+    solverMock.hardScore.value = 0
+    solverMock.softScore.value = 0
+    solverMock.progress.value = 0
+    solverMock.intermediateResults.value = null
+    solverMock.startSolver.mockResolvedValue('exec-1')
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: vi.fn(),
+      warning: vi.fn(),
+    }
 
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         {
           id: 'version-1',
@@ -283,7 +300,33 @@ describe('Step5Result', () => {
     })
     refreshPreferenceResolutionByVersionMock.mockResolvedValue([])
     resetPreferenceResolutionByVersionMock.mockResolvedValue(undefined)
-    updateScheduleVersionAssignmentMock.mockResolvedValue(undefined)
+    createPhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      createdVersionId: 'version-3',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          status: 'draft',
+        },
+        {
+          id: 'version-2',
+          status: 'review_ready',
+        },
+        {
+          id: 'version-3',
+          status: 'draft',
+        },
+      ],
+    })
+    patchPhase2ScheduleVersionAssignmentsMock.mockResolvedValue({
+      scheduleVersionId: 'version-2',
+      status: 'review_pending',
+      currentRevision: 3,
+      manualEditCount: 2,
+      changedCells: 1,
+    })
     deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
     getPlanningEmployeesMock.mockResolvedValue([])
     getPlanningAssignmentsForVersionMock.mockResolvedValue([])
@@ -318,7 +361,7 @@ describe('Step5Result', () => {
     })
   })
 
-  it('loads preview data by previewVersionId and blocks mutation controls when preview is not selected', async () => {
+  it('loads preview data by previewVersionId and allows mutation when preview status is editable', async () => {
     routeMock.query = {
       version: 'version-1',
     }
@@ -333,6 +376,264 @@ describe('Step5Result', () => {
       .find((button) => button.text().includes('근무표 생성 (AI)'))
 
     expect(startSolverButton).toBeTruthy()
+    expect(startSolverButton?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('locks mutation controls when preview version status is solving', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-1',
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'solving',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 1,
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'selected',
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const startSolverButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('근무표 생성 (AI)'))
+
+    expect(startSolverButton).toBeTruthy()
     expect(startSolverButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('does not resume polling when compare has no activeSolvingVersionId even if legacy schedule.status is running', async () => {
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'running',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: 'legacy-exec-1',
+    })
+
+    createWrapper()
+    await flushPromises()
+
+    expect(solverMock.startPolling).not.toHaveBeenCalled()
+    expect(solverMock.status.value).toBe('complete')
+  })
+
+  it('shows another_version_solving guidance and refreshes compare after conflict', async () => {
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'draft',
+          currentRevision: 2,
+          manualEditCount: 1,
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'selected',
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    solverMock.startSolver.mockRejectedValue({
+      code: 'another_version_solving',
+      message: 'another_version_solving',
+      status: 409,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const startSolverButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('근무표 생성 (AI)'))
+    expect(startSolverButton).toBeTruthy()
+
+    await startSolverButton!.trigger('click')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('re-solve creates a new preview candidate without changing selected version', async () => {
+    solverMock.status.value = 'complete'
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const regenerateButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('더 개선하기'))
+    expect(regenerateButton).toBeTruthy()
+
+    await regenerateButton!.trigger('click')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
+      baseVersionId: 'version-2',
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    })
+    expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-3')
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-3',
+      expect.any(Object)
+    )
+  })
+
+  it('saves manual changes through preview-version patch route', async () => {
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+
+    const dialogInfoMock = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
+      options.onPositiveClick?.()
+    })
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: dialogInfoMock,
+      warning: vi.fn(),
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledTimes(1)
+    expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledWith(
+      'version-2',
+      {
+        changes: [
+          {
+            employeeId: 'emp-1',
+            date: '2025-12-01',
+            shiftId: 'shift-1',
+          },
+        ],
+      }
+    )
+    expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
   })
 })

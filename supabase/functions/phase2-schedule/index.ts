@@ -3,24 +3,50 @@ import { resolveAuthContext } from './auth.ts';
 import {
   allowedMethods,
   ContractError,
+  parseCreateVersionRequest,
   type ErrorEnvelope,
   type HttpMethod,
   matchRoute,
   normalizePathSegments,
+  parsePatchScheduleVersionAssignmentsRequest,
   parseEnsureRequest,
   parseJsonBody,
   parseUuidParam,
+  parseScheduleVersionSolveRequest,
+  parseScheduleVersionSolverResultRequest,
 } from './contracts.ts';
 import { createCorsHeaders } from './cors.ts';
 import {
   compare as compareVersion,
+  createVersion,
   ensure as ensureSchedule,
+  markVersionSolving,
+  patchVersionAssignments,
   review as reviewVersion,
   select as selectVersion,
+  syncVersionSolverResult,
 } from './repository.ts';
-import type { CompareResponse, EnsureResponse, ReviewResponse, SelectResponse } from './contracts.ts';
+import type {
+  CompareResponse,
+  CreateVersionResponse,
+  EnsureResponse,
+  PatchAssignmentsResponse,
+  ReviewResponse,
+  SelectResponse,
+  SolveResponse,
+  SolverResultResponse,
+} from './contracts.ts';
 
-type ApiResponseBody = CompareResponse | EnsureResponse | ReviewResponse | SelectResponse | ErrorEnvelope;
+type ApiResponseBody =
+  | CompareResponse
+  | CreateVersionResponse
+  | EnsureResponse
+  | PatchAssignmentsResponse
+  | ReviewResponse
+  | SelectResponse
+  | SolveResponse
+  | SolverResultResponse
+  | ErrorEnvelope;
 
 function withCorsHeaders(request: Request, init: ResponseInit = {}): ResponseInit {
   return {
@@ -50,6 +76,9 @@ function mapErrorToStatus(code: string): number {
       return 403;
     case 'already_finalized':
     case 'invalid_selection_state':
+    case 'solver_execution_mismatch':
+    case 'stale_solver_callback':
+    case 'another_version_solving':
     case 'conflict':
       return 409;
     case 'not_found':
@@ -186,10 +215,64 @@ Deno.serve(async (request) => {
       return createResponse(request, result, 200);
     }
 
+    if (route.route === 'createVersion') {
+      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
+      const payload = await parseJsonBody(request);
+      const createVersionInput = parseCreateVersionRequest(payload);
+      const result: CreateVersionResponse = await createVersion(
+        repositoryClient,
+        auth,
+        scheduleId,
+        createVersionInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'solve') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const solveInput = parseScheduleVersionSolveRequest(payload);
+      const result: SolveResponse = await markVersionSolving(
+        repositoryClient,
+        auth,
+        versionId,
+        solveInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'solverResult') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const solverResultInput = parseScheduleVersionSolverResultRequest(payload);
+      const result: SolverResultResponse = await syncVersionSolverResult(
+        repositoryClient,
+        auth,
+        versionId,
+        solverResultInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'patchAssignments') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const patchInput = parsePatchScheduleVersionAssignmentsRequest(payload);
+      const result: PatchAssignmentsResponse = await patchVersionAssignments(
+        repositoryClient,
+        auth,
+        versionId,
+        patchInput
+      );
+      return createResponse(request, result, 200);
+    }
+
     throw new ContractError('not_found', 'Route handler not implemented', 404);
   } catch (error: unknown) {
     const envelope = errorEnvelopeFromUnknown(error);
-    const status = mapErrorToStatus(envelope.code);
+    const status = error instanceof ContractError
+      ? error.status
+      : mapErrorToStatus(envelope.code);
     return createResponse(request, envelope, status);
   }
 });

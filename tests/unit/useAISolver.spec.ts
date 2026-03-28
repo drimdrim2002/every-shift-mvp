@@ -17,40 +17,47 @@ vi.mock('@/api/solver', () => ({
 
 vi.mock('@/api/schedule', () => ({
   refreshPreferenceResolutionByVersion: vi.fn(),
-}));
-
-vi.mock('@/api/supabase', () => ({
-  supabase: {
-    from: vi.fn(),
-  },
+  solvePhase2ScheduleVersion: vi.fn(),
+  submitPhase2ScheduleVersionSolverResult: vi.fn(),
 }));
 
 import { useAISolver } from '@/composables/useAISolver';
-import { getSolverStatus, mapApiStatusToAppStatus, parseSolverResult } from '@/api/solver';
-import { refreshPreferenceResolutionByVersion } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
-import type { SolverStatusResponse } from '@/types/schedule';
-
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason?: unknown) => void;
-}
-
-function createDeferred<T>(): Deferred<T> {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
+import {
+  createSolverExecution,
+  getSolverStatus,
+  mapApiStatusToAppStatus,
+  parseSolverResult,
+} from '@/api/solver';
+import {
+  refreshPreferenceResolutionByVersion,
+  solvePhase2ScheduleVersion,
+  submitPhase2ScheduleVersionSolverResult,
+} from '@/api/schedule';
+import type { SolverRequest, SolverStatusResponse } from '@/types/schedule';
 
 async function flushPromises(times = 4) {
   for (let i = 0; i < times; i++) {
     await Promise.resolve();
   }
+}
+
+function createSolverRequest(): SolverRequest {
+  return {
+    organization: {
+      id: 'org-1',
+      name: '테스트병원',
+      type: 'hospital',
+      shifts: [],
+      lastHistoricalDate: '2025-11-26',
+      firstDraftDate: '2025-12-01',
+      publishLength: 4,
+      draftLength: 31,
+    },
+    employees: [],
+    history: [],
+    undesirable: [],
+    requirements: [],
+  };
 }
 
 function createCompletedStatusResponse(executionId: string): SolverStatusResponse {
@@ -62,61 +69,16 @@ function createCompletedStatusResponse(executionId: string): SolverStatusRespons
       employeeList: [],
       shiftList: [],
       score: {
-        hard_score: 0,
-        soft_score: 0,
+        hard_score: 10,
+        soft_score: 20,
       },
       scheduleState: {},
     },
+    score: {
+      hard_score: 10,
+      soft_score: 20,
+    },
   };
-}
-
-function setupSupabaseMock(options?: {
-  insertDeferred?: Deferred<{ error: null }>;
-  insertReject?: Error;
-  callOrder?: string[];
-  deleteEqArgs?: Array<[string, string]>;
-  insertRows?: Array<Record<string, unknown>[]>;
-}) {
-  const fromMock = vi.mocked(supabase.from);
-
-  fromMock.mockImplementation((table: string) => {
-    if (table === 'schedule_assignments') {
-      return {
-        delete: () => ({
-          eq: vi.fn(async (column: string, value: string) => {
-            options?.callOrder?.push('assignments-delete');
-            options?.deleteEqArgs?.push([column, value]);
-            return { error: null };
-          }),
-        }),
-        insert: vi.fn(async (rows: Record<string, unknown>[]) => {
-          options?.callOrder?.push('assignments-insert');
-          options?.insertRows?.push(rows);
-          if (options?.insertReject) {
-            return { error: options.insertReject };
-          }
-          if (options?.insertDeferred) {
-            return options.insertDeferred.promise;
-          }
-          return { error: null };
-        }),
-      } as unknown as ReturnType<typeof supabase.from>;
-    }
-
-    if (table === 'schedules') {
-      return {
-        update: vi.fn((payload: { status?: string }) => ({
-          eq: vi.fn(async () => {
-            if (payload.status === 'complete') options?.callOrder?.push('schedule-complete');
-            if (payload.status === 'error') options?.callOrder?.push('schedule-error');
-            return { error: null };
-          }),
-        })),
-      } as unknown as ReturnType<typeof supabase.from>;
-    }
-
-    throw new Error(`Unexpected table mock request: ${table}`);
-  });
 }
 
 describe('useAISolver', () => {
@@ -130,94 +92,97 @@ describe('useAISolver', () => {
     vi.useRealTimers();
   });
 
-  it('sets complete only after final DB save is finished', async () => {
-    const insertDeferred = createDeferred<{ error: null }>();
-    setupSupabaseMock({ insertDeferred });
-    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-1'));
+  it('propagates another_version_solving from startSolver instead of swallowing it', async () => {
+    vi.mocked(createSolverExecution).mockResolvedValue('exec-1');
+    vi.mocked(solvePhase2ScheduleVersion).mockRejectedValue({
+      code: 'another_version_solving',
+      message: 'another_version_solving',
+      status: 409,
+    });
+
+    const solver = useAISolver();
+
+    await expect(
+      solver.startSolver('version-1', createSolverRequest())
+    ).rejects.toMatchObject({
+      code: 'another_version_solving',
+      status: 409,
+    });
+
+    expect(solvePhase2ScheduleVersion).toHaveBeenCalledWith('version-1', {
+      solverExecutionId: 'exec-1',
+    });
+    expect(solver.status.value).toBe('error');
+    expect(solver.executionIdRef.value).toBeNull();
+  });
+
+  it('does not move to complete when final callback is rejected as stale', async () => {
+    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-stale'));
     vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
     vi.mocked(parseSolverResult).mockReturnValue({
       'emp-1': { '2025-12-01': 'shift-d' },
+    });
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockRejectedValue({
+      code: 'stale_solver_callback',
+      message: 'stale_solver_callback',
+      status: 409,
+    });
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-stale', 'version-2');
+
+    await vi.advanceTimersByTimeAsync(10000);
+    await flushPromises();
+
+    expect(solver.status.value).toBe('created');
+    expect(refreshPreferenceResolutionByVersion).not.toHaveBeenCalled();
+  });
+
+  it('final commit writes through guarded RPC with final execution metadata', async () => {
+    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-final'));
+    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
+    vi.mocked(parseSolverResult).mockReturnValue({
+      'emp-1': { '2025-12-01': 'shift-d' },
+    });
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-3',
+      status: 'review_pending',
+      solverExecutionId: null,
+      hardScore: 10,
+      softScore: 20,
+      failureReason: null,
     });
     vi.mocked(refreshPreferenceResolutionByVersion).mockResolvedValue([]);
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-1', 'schedule-1', 'version-1');
+    solver.startPolling('exec-final', 'version-3');
 
-    vi.advanceTimersByTime(10000);
+    await vi.advanceTimersByTimeAsync(10000);
     await flushPromises();
 
-    expect(getSolverStatus).toHaveBeenCalledTimes(1);
-    expect(solver.status.value).toBe('running');
-
-    insertDeferred.resolve({ error: null });
-    for (let i = 0; i < 20 && solver.status.value !== 'complete'; i++) {
-      await flushPromises(1);
-    }
-
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-3', {
+      status: 'completed',
+      solverExecutionId: 'exec-final',
+      assignments: [
+        {
+          employeeId: 'emp-1',
+          date: '2025-12-01',
+          shiftId: 'shift-d',
+          isLocked: false,
+          comment: null,
+          offReason: null,
+        },
+      ],
+      score: {
+        hardScore: 10,
+        softScore: 20,
+      },
+      failureReason: null,
+    });
+    expect(refreshPreferenceResolutionByVersion).toHaveBeenCalledWith('version-3');
     expect(solver.status.value).toBe('complete');
     expect(solver.progress.value).toBe(100);
-  });
-
-  it('moves to error when final result save fails', async () => {
-    setupSupabaseMock({ insertReject: new Error('db insert failed') });
-    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-2'));
-    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
-    vi.mocked(parseSolverResult).mockReturnValue({
-      'emp-1': { '2025-12-01': 'shift-d' },
-    });
-    vi.mocked(refreshPreferenceResolutionByVersion).mockResolvedValue([]);
-
-    const solver = useAISolver();
-    solver.status.value = 'running';
-    solver.startPolling('exec-2', 'schedule-2', 'version-2');
-
-    await vi.advanceTimersByTimeAsync(10000);
-    await flushPromises();
-
-    expect(solver.status.value).toBe('error');
-    expect(solver.error.value).toContain('db insert failed');
-  });
-
-  it('persists final data in order: assignments -> preferences -> schedule complete', async () => {
-    const callOrder: string[] = [];
-    const deleteEqArgs: Array<[string, string]> = [];
-    const insertRows: Array<Record<string, unknown>[]> = [];
-    setupSupabaseMock({ callOrder, deleteEqArgs, insertRows });
-    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-3'));
-    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
-    vi.mocked(parseSolverResult).mockReturnValue({
-      'emp-1': { '2025-12-01': 'shift-d' },
-    });
-    vi.mocked(refreshPreferenceResolutionByVersion).mockImplementation(async () => {
-      callOrder.push('preferences-refresh');
-      return [];
-    });
-
-    const solver = useAISolver();
-    solver.status.value = 'running';
-    solver.startPolling('exec-3', 'schedule-3', 'version-3');
-
-    await vi.advanceTimersByTimeAsync(10000);
-    await flushPromises();
-
-    expect(callOrder).toEqual([
-      'assignments-delete',
-      'assignments-insert',
-      'preferences-refresh',
-      'schedule-complete',
-    ]);
-    expect(deleteEqArgs).toEqual([['schedule_version_id', 'version-3']]);
-    expect(insertRows).toEqual([[
-      {
-        schedule_id: 'schedule-3',
-        schedule_version_id: 'version-3',
-        employee_id: 'emp-1',
-        shift_id: 'shift-d',
-        date: '2025-12-01',
-        is_locked: false,
-      },
-    ]]);
-    expect(solver.status.value).toBe('complete');
   });
 });

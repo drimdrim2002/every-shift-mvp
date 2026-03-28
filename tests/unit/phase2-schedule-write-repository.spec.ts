@@ -373,6 +373,7 @@ describe('phase2 schedule write repository', () => {
       createdVersionId: 'version-2',
       selectedVersionId: 'version-1',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         expect.objectContaining({ id: 'version-1', versionNo: 1 }),
         expect.objectContaining({ id: 'version-2', versionNo: 2 }),
