@@ -60,6 +60,12 @@ interface RawSchedulePreference {
   updated_at?: string;
 }
 
+type PreferenceScopeColumn = 'schedule_id' | 'schedule_version_id';
+
+interface RawScopedSchedulePreference extends RawSchedulePreference {
+  schedule_version_id?: string;
+}
+
 export interface ScheduleSummary {
   id: string;
   organization_id: string;
@@ -308,12 +314,15 @@ export async function getLatestScheduleByOrganizationMonth(
 }
 
 // Step4 근무 불가 요청 조회
-export async function getSchedulePreferences(scheduleId: string): Promise<{
+async function loadSchedulePreferences(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string
+): Promise<{
   constraints: ConstraintMap;
   notes: CommentMap;
   preferences: SchedulePreference[];
 }> {
-  const rawPreferences: RawSchedulePreference[] = [];
+  const rawPreferences: RawScopedSchedulePreference[] = [];
   let from = 0;
   const pageSize = 1000;
   let hasMore = true;
@@ -322,9 +331,9 @@ export async function getSchedulePreferences(scheduleId: string): Promise<{
     const { data, error } = await supabase
       .from('schedule_preferences')
       .select(
-        'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+        'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
       )
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .order('date', { ascending: true })
       .order('employee_id', { ascending: true })
       .range(from, from + pageSize - 1);
@@ -368,14 +377,35 @@ export async function getSchedulePreferences(scheduleId: string): Promise<{
   return { constraints, notes, preferences };
 }
 
+export async function getSchedulePreferences(scheduleId: string): Promise<{
+  constraints: ConstraintMap;
+  notes: CommentMap;
+  preferences: SchedulePreference[];
+}> {
+  return loadSchedulePreferences('schedule_id', scheduleId);
+}
+
+export async function getScheduleVersionPreferences(
+  scheduleVersionId: string
+): Promise<{
+  constraints: ConstraintMap;
+  notes: CommentMap;
+  preferences: SchedulePreference[];
+}> {
+  return loadSchedulePreferences('schedule_version_id', scheduleVersionId);
+}
+
 // Step4 근무 불가 요청 저장 (전체 교체)
-export async function saveSchedulePreferences(
-  scheduleId: string,
+async function saveSchedulePreferencesByScope(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string,
   constraints: ConstraintMap,
-  notes?: CommentMap
+  notes?: CommentMap,
+  scheduleId?: string
 ): Promise<void> {
   const rows: Array<{
-    schedule_id: string;
+    schedule_id?: string;
+    schedule_version_id?: string;
     employee_id: string;
     date: string;
     request_code: ConstraintCode;
@@ -394,7 +424,8 @@ export async function saveSchedulePreferences(
 
       const requestNote = notes?.[employeeId]?.[date];
       rows.push({
-        schedule_id: scheduleId,
+        ...(scheduleId ? { schedule_id: scheduleId } : {}),
+        [scopeColumn]: scopeId,
         employee_id: employeeId,
         date,
         request_code: requestCode,
@@ -410,7 +441,7 @@ export async function saveSchedulePreferences(
   const { error: deleteError } = await supabase
     .from('schedule_preferences')
     .delete()
-    .eq('schedule_id', scheduleId);
+    .eq(scopeColumn, scopeId);
 
   if (deleteError) {
     throw new Error(`기존 요청 삭제 실패: ${deleteError.message}`);
@@ -422,6 +453,49 @@ export async function saveSchedulePreferences(
   if (insertError) {
     throw new Error(`요청 저장 실패: ${insertError.message}`);
   }
+}
+
+export async function saveSchedulePreferences(
+  scheduleId: string,
+  constraints: ConstraintMap,
+  notes?: CommentMap
+): Promise<void> {
+  return saveSchedulePreferencesByScope('schedule_id', scheduleId, constraints, notes, scheduleId);
+}
+
+async function getScheduleIdForVersion(scheduleVersionId: string): Promise<string> {
+  const { data, error } = await supabase
+    .from('schedule_versions')
+    .select('schedule_id')
+    .eq('id', scheduleVersionId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`버전 소유 schedule 조회 실패: ${error.message}`);
+  }
+
+  const scheduleId = data?.schedule_id;
+  if (!scheduleId) {
+    throw new Error('버전 소유 schedule을 찾을 수 없습니다.');
+  }
+
+  return scheduleId;
+}
+
+export async function saveScheduleVersionPreferences(
+  scheduleVersionId: string,
+  constraints: ConstraintMap,
+  notes?: CommentMap
+): Promise<void> {
+  const scheduleId = await getScheduleIdForVersion(scheduleVersionId);
+
+  return saveSchedulePreferencesByScope(
+    'schedule_version_id',
+    scheduleVersionId,
+    constraints,
+    notes,
+    scheduleId
+  );
 }
 
 // 요청 반영 상태 초기화

@@ -15,6 +15,72 @@ vi.mock('@/api/supabase', () => ({
 describe('phase2 schedule api helpers', () => {
   const fetchMock = vi.fn();
 
+  function createPreferenceQueryMocks(
+    rows: unknown[],
+    options?: {
+      scheduleVersionRow?: { schedule_id: string } | null;
+      scheduleVersionError?: { message: string };
+    }
+  ) {
+    const range = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const order = vi.fn();
+    const eq = vi.fn();
+    const select = vi.fn();
+    const deleteEq = vi.fn().mockResolvedValue({ error: null });
+    const deleteRows = vi.fn();
+    const insert = vi.fn().mockResolvedValue({ error: null });
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: options?.scheduleVersionRow ?? null,
+      error: options?.scheduleVersionError ?? null,
+    });
+    const versionEq = vi.fn().mockReturnValue({ maybeSingle });
+    const versionSelect = vi.fn().mockReturnValue({ eq: versionEq });
+
+    order.mockReturnValue({ order, range });
+    eq.mockReturnValue({ order, range });
+    select.mockReturnValue({ eq, order, range });
+    deleteRows.mockReturnValue({ eq: deleteEq });
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'schedule_preferences') {
+        return {
+          select,
+          delete: deleteRows,
+          insert,
+        };
+      }
+
+      if (table === 'schedule_versions') {
+        return {
+          select: versionSelect,
+        };
+      }
+
+      if (table !== 'schedule_preferences') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+
+      return {
+        select,
+        delete: deleteRows,
+        insert,
+      };
+    });
+
+    return {
+      select,
+      eq,
+      order,
+      range,
+      deleteRows,
+      deleteEq,
+      insert,
+      versionSelect,
+      versionEq,
+      maybeSingle,
+    };
+  }
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -178,5 +244,213 @@ describe('phase2 schedule api helpers', () => {
       })
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
+  });
+
+  it('reads version-scoped preferences by schedule_version_id', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-abc',
+        },
+      },
+      error: null,
+    });
+
+    const queryMocks = createPreferenceQueryMocks([
+      {
+        id: 'pref-1',
+        schedule_id: 'schedule-legacy',
+        schedule_version_id: 'version-1',
+        employee_id: 'employee-1',
+        date: '2026-04-01',
+        request_code: 'O',
+        request_note: 'night shift',
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      },
+      {
+        id: 'pref-2',
+        schedule_id: 'schedule-legacy',
+        schedule_version_id: 'version-1',
+        employee_id: 'employee-1',
+        date: '2026-04-02',
+        request_code: 'H',
+        request_note: null,
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      },
+    ]);
+
+    const { getScheduleVersionPreferences } = await import('@/api/schedule');
+
+    const result = await getScheduleVersionPreferences('version-1');
+
+    expect(queryMocks.eq).toHaveBeenCalledWith('schedule_version_id', 'version-1');
+    expect(result.constraints).toEqual({
+      'employee-1': {
+        '2026-04-01': 'O',
+        '2026-04-02': 'O',
+      },
+    });
+    expect(result.notes).toEqual({
+      'employee-1': {
+        '2026-04-01': 'night shift',
+      },
+    });
+    expect(result.preferences).toHaveLength(2);
+  });
+
+  it('reads legacy preferences by schedule_id', async () => {
+    const queryMocks = createPreferenceQueryMocks([
+      {
+        id: 'pref-legacy-1',
+        schedule_id: 'schedule-legacy',
+        schedule_version_id: 'version-legacy',
+        employee_id: 'employee-1',
+        date: '2026-04-03',
+        request_code: 'O',
+        request_note: 'legacy note',
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      },
+    ]);
+
+    const { getSchedulePreferences } = await import('@/api/schedule');
+
+    const result = await getSchedulePreferences('schedule-legacy');
+
+    expect(queryMocks.eq).toHaveBeenCalledWith('schedule_id', 'schedule-legacy');
+    expect(result.constraints).toEqual({
+      'employee-1': {
+        '2026-04-03': 'O',
+      },
+    });
+    expect(result.notes).toEqual({
+      'employee-1': {
+        '2026-04-03': 'legacy note',
+      },
+    });
+    expect(result.preferences).toHaveLength(1);
+  });
+
+  it('saves version-scoped preferences by schedule_version_id', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-def',
+        },
+      },
+      error: null,
+    });
+
+    const queryMocks = createPreferenceQueryMocks([], {
+      scheduleVersionRow: { schedule_id: 'schedule-2' },
+    });
+
+    const { saveScheduleVersionPreferences } = await import('@/api/schedule');
+
+    await saveScheduleVersionPreferences(
+      'version-2',
+      {
+        employee_1: {
+          '2026-04-01': 'O',
+        },
+      },
+      {
+        employee_1: {
+          '2026-04-01': 'personal note',
+        },
+      }
+    );
+
+    expect(queryMocks.deleteEq).toHaveBeenCalledWith('schedule_version_id', 'version-2');
+    expect(queryMocks.versionEq).toHaveBeenCalledWith('id', 'version-2');
+    expect(queryMocks.insert).toHaveBeenCalledWith([
+      {
+        schedule_id: 'schedule-2',
+        schedule_version_id: 'version-2',
+        employee_id: 'employee_1',
+        date: '2026-04-01',
+        request_code: 'O',
+        request_note: 'personal note',
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      },
+    ]);
+  });
+
+  it('saves legacy preferences by schedule_id', async () => {
+    const queryMocks = createPreferenceQueryMocks([]);
+
+    const { saveSchedulePreferences } = await import('@/api/schedule');
+
+    await saveSchedulePreferences(
+      'schedule-legacy',
+      {
+        employee_1: {
+          '2026-04-01': 'O',
+        },
+      },
+      {
+        employee_1: {
+          '2026-04-01': 'legacy note',
+        },
+      }
+    );
+
+    expect(queryMocks.deleteEq).toHaveBeenCalledWith('schedule_id', 'schedule-legacy');
+    expect(queryMocks.insert).toHaveBeenCalledWith([
+      {
+        schedule_id: 'schedule-legacy',
+        employee_id: 'employee_1',
+        date: '2026-04-01',
+        request_code: 'O',
+        request_note: 'legacy note',
+        is_soft: true,
+        resolution_status: 'pending',
+        resolved_shift_id: null,
+        resolved_at: null,
+      },
+    ]);
+  });
+
+  it('throws a specific error when version ownership lookup fails', async () => {
+    createPreferenceQueryMocks([], {
+      scheduleVersionError: { message: 'lookup failed' },
+    });
+
+    const { saveScheduleVersionPreferences } = await import('@/api/schedule');
+
+    await expect(
+      saveScheduleVersionPreferences('version-lookup-fail', {
+        employee_1: {
+          '2026-04-01': 'O',
+        },
+      })
+    ).rejects.toThrow('버전 소유 schedule 조회 실패: lookup failed');
+  });
+
+  it('throws a specific error when version ownership is missing', async () => {
+    createPreferenceQueryMocks([], {
+      scheduleVersionRow: null,
+    });
+
+    const { saveScheduleVersionPreferences } = await import('@/api/schedule');
+
+    await expect(
+      saveScheduleVersionPreferences('version-missing-owner', {
+        employee_1: {
+          '2026-04-01': 'O',
+        },
+      })
+    ).rejects.toThrow('버전 소유 schedule을 찾을 수 없습니다.');
   });
 });

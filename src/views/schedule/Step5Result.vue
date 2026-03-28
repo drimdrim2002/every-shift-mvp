@@ -28,7 +28,9 @@
         class="mb-6"
       >
         <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-700">전월 데이터 표시 일수</h3>
+          <h3 class="text-sm font-semibold text-gray-700">
+            전월 데이터 표시 일수
+          </h3>
           <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
         </div>
         <n-slider
@@ -163,6 +165,7 @@ import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
+  getPhase2ScheduleCompare,
   getScheduleStatus,
   getScheduleAssignments,
   getSchedulePreferences,
@@ -177,6 +180,7 @@ import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
+import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import { supabase } from '@/api/supabase';
 import type { AssignmentMap, ConstraintMap, CommentMap } from '@/types/schedule';
 
@@ -209,6 +213,13 @@ const previousMonthAssignments = ref<AssignmentMap>({});
 const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
+
+function getRequestedPreviewVersionId(): string | null {
+  const routeQueryVersion = route.query.version;
+  return typeof routeQueryVersion === 'string' && routeQueryVersion.length > 0
+    ? routeQueryVersion
+    : null;
+}
 
 interface ScheduleStatusRow {
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -747,6 +758,19 @@ onMounted(async () => {
   }
 
   try {
+    const compareResponse = await getPhase2ScheduleCompare(scheduleId.value);
+    const resolvedState = resolveStep5VersionState(
+      compareResponse,
+      getRequestedPreviewVersionId()
+    );
+
+    scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+    scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+    if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
+      await router.replace(buildStep5Route(scheduleId.value, resolvedState.previewVersionId));
+    }
+
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);

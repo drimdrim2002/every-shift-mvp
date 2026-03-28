@@ -1,6 +1,9 @@
 <template>
   <div class="mx-auto flex h-full max-w-full flex-col px-4">
-    <StepIndicator :current-step="4" class="mb-4" />
+    <StepIndicator
+      :current-step="4"
+      class="mb-4"
+    />
 
     <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
@@ -27,7 +30,10 @@
         </div>
 
         <div class="relative flex-1 overflow-hidden">
-          <n-spin :show="grid.loading.value" class="h-full">
+          <n-spin
+            :show="grid.loading.value"
+            class="h-full"
+          >
             <div class="absolute inset-0 overflow-hidden">
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
@@ -58,10 +64,20 @@
 
     <!-- Bottom Actions -->
     <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
-      <n-button size="large" @click="handlePrev"> ← 이전 단계 </n-button>
+      <n-button
+        size="large"
+        @click="handlePrev"
+      >
+        ← 이전 단계
+      </n-button>
 
       <div class="flex gap-3">
-        <n-button size="large" @click="handleSave"> 임시 저장 </n-button>
+        <n-button
+          size="large"
+          @click="handleSave"
+        >
+          임시 저장
+        </n-button>
         <n-button
           type="primary"
           size="large"
@@ -101,18 +117,18 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
-  createSchedule,
+  ensurePhase2Schedule,
   deleteThisMonthAssignments,
-  getSchedulePreferences,
-  saveSchedulePreferences,
+  getScheduleVersionPreferences,
+  saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
 import { NButton, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
+import { buildStep5Route, resolveStep4VersionState } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
 import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
 
@@ -259,6 +275,40 @@ watchDebounced(
   { debounce: 2000 }
 );
 
+async function ensureBaselineVersion(): Promise<{
+  scheduleId: string;
+  previewVersionId: string;
+  selectedVersionId: string | null;
+}> {
+  if (!scheduleStore.basicInfo) {
+    throw new Error('기본 스케줄 정보가 없습니다.');
+  }
+
+  const compareResponse = await ensurePhase2Schedule({
+    organizationId: scheduleStore.basicInfo.organizationId,
+    month: scheduleStore.basicInfo.month,
+  });
+
+  const resolvedState = resolveStep4VersionState(compareResponse);
+
+  if (!resolvedState.previewVersionId) {
+    throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
+  }
+
+  scheduleStore.setBasicInfo({
+    ...scheduleStore.basicInfo,
+    scheduleId: compareResponse.scheduleId,
+  });
+  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+  return {
+    scheduleId: compareResponse.scheduleId,
+    previewVersionId: resolvedState.previewVersionId,
+    selectedVersionId: resolvedState.selectedVersionId,
+  };
+}
+
 // Lifecycle
 onMounted(async () => {
   console.time('[Step4] Total Load Time');
@@ -291,26 +341,14 @@ onMounted(async () => {
 });
 
 async function restoreData() {
-  // 1. Supabase
   try {
-    const { data: existingSchedules } = await supabase
-      .from('schedules')
-      .select('id, status')
-      .eq('organization_id', scheduleStore.basicInfo!.organizationId)
-      .eq('month', scheduleStore.basicInfo!.month)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const { previewVersionId } = await ensureBaselineVersion();
+    const preferenceData = await getScheduleVersionPreferences(previewVersionId);
 
-    if (existingSchedules && existingSchedules.length > 0) {
-      const schedule = existingSchedules[0];
-      if (!schedule) return;
-
-      const preferenceData = await getSchedulePreferences(schedule.id);
-      if (preferenceData.preferences.length > 0) {
-        mergeConstraintMap(preferenceData.constraints);
-        mergeCommentMap(preferenceData.notes);
-        showInfo('저장된 요청 데이터를 불러왔습니다.');
-      }
+    if (preferenceData.preferences.length > 0) {
+      mergeConstraintMap(preferenceData.constraints);
+      mergeCommentMap(preferenceData.notes);
+      showInfo('저장된 요청 데이터를 불러왔습니다.');
     }
   } catch (e) {
     console.error('Failed to load from Supabase', e);
@@ -325,22 +363,19 @@ function handlePrev() {
   router.push('/schedule/step3');
 }
 
-async function handleSave(): Promise<string | undefined> {
+async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
 
   try {
     scheduleStore.setAssignments(constraints.value);
     scheduleStore.setComments(constraintNotes.value);
 
-    const schedule = await createSchedule(
-      scheduleStore.basicInfo.organizationId,
-      scheduleStore.basicInfo.month
-    );
+    const { scheduleId, previewVersionId } = await ensureBaselineVersion();
 
-    await saveSchedulePreferences(schedule.id, constraints.value, constraintNotes.value);
+    await saveScheduleVersionPreferences(previewVersionId, constraints.value, constraintNotes.value);
 
     showSuccess('임시 저장되었습니다.');
-    return schedule.id;
+    return { scheduleId, previewVersionId };
   } catch (e) {
     showError('저장 실패: ' + (e instanceof Error ? e.message : String(e)));
   }
@@ -351,12 +386,12 @@ async function handleNext() {
   isSubmitting.value = true;
 
   try {
-    const scheduleId = await handleSave();
-    if (!scheduleId) throw new Error('임시 저장에 실패했습니다.');
+    const saved = await handleSave();
+    if (!saved) throw new Error('임시 저장에 실패했습니다.');
 
-    await deleteThisMonthAssignments(scheduleId, scheduleStore.basicInfo!.month);
+    await deleteThisMonthAssignments(saved.scheduleId, scheduleStore.basicInfo!.month);
     scheduleStore.currentStep = 5;
-    router.push(`/schedule/step5/${scheduleId}`);
+    router.push(buildStep5Route(saved.scheduleId, saved.previewVersionId));
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');

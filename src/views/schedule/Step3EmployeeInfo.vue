@@ -100,8 +100,9 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
-import { getScheduleStatus } from '@/api/schedule';
+import { getPhase2ScheduleCompare, getScheduleStatus } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
+import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
@@ -371,6 +372,22 @@ async function handleNext() {
         scheduleId: targetSchedule.id,
       });
     }
+    try {
+      const compareResponse = await getPhase2ScheduleCompare(targetSchedule.id);
+      const resolvedState = resolveStep5VersionState(
+        compareResponse,
+        scheduleStore.previewVersionId
+      );
+
+      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+      scheduleStore.currentStep = 5;
+      router.push(buildStep5Route(targetSchedule.id, resolvedState.previewVersionId));
+      return;
+    } catch (error) {
+      console.warn('[Step3] Failed to resolve Step5 preview version:', error);
+    }
+
     scheduleStore.currentStep = 5;
     router.push(`/schedule/step5/${targetSchedule.id}`);
     return;
@@ -380,5 +397,4 @@ async function handleNext() {
   router.push('/schedule/step4');
 }
 </script>
-
 

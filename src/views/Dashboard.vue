@@ -139,10 +139,11 @@ import { useRouter } from 'vue-router';
 import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleStore } from '@/stores/schedule';
-import { getScheduleList } from '@/api/schedule';
+import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
 import { getAvailableMonths } from '@/utils/date';
+import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import dayjs from 'dayjs';
 
 interface Schedule {
@@ -254,7 +255,7 @@ async function handleMonthConfirm() {
   }
 }
 
-function handleViewSchedule(schedule: Schedule) {
+async function handleViewSchedule(schedule: Schedule) {
   // scheduleStore에 기본 정보 로드
   scheduleStore.reset();
   scheduleStore.setBasicInfo({
@@ -268,8 +269,32 @@ function handleViewSchedule(schedule: Schedule) {
   });
   
   if (schedule.status === 'complete' || schedule.status === 'changed') {
+    try {
+      const compareResponse = await getPhase2ScheduleCompare(schedule.id);
+      const resolvedState = resolveStep5VersionState(compareResponse, null);
+
+      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+      router.push(buildStep5Route(schedule.id, resolvedState.previewVersionId));
+      return;
+    } catch (error) {
+      console.warn('Step5 preview version resolve 실패:', error);
+    }
+
     router.push(`/schedule/step5/${schedule.id}`);
   } else if (schedule.status === 'created' || schedule.status === 'running') {
+    try {
+      const compareResponse = await getPhase2ScheduleCompare(schedule.id);
+      const resolvedState = resolveStep5VersionState(compareResponse, null);
+
+      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+      router.push(buildStep5Route(schedule.id, resolvedState.previewVersionId));
+      return;
+    } catch (error) {
+      console.warn('Step5 preview version resolve 실패:', error);
+    }
+
     router.push(`/schedule/step5/${schedule.id}`);
   } else {
     window.$message?.info('해당 근무표를 조회할 수 없습니다');

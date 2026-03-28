@@ -1,0 +1,377 @@
+import { mount, flushPromises } from '@vue/test-utils'
+import { reactive, ref } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const {
+  pushMock,
+  ensurePhase2ScheduleMock,
+  getScheduleVersionPreferencesMock,
+  saveScheduleVersionPreferencesMock,
+  deleteThisMonthAssignmentsMock,
+  showSuccessMock,
+  showInfoMock,
+  showErrorMock,
+} = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  ensurePhase2ScheduleMock: vi.fn(),
+  getScheduleVersionPreferencesMock: vi.fn(),
+  saveScheduleVersionPreferencesMock: vi.fn(),
+  deleteThisMonthAssignmentsMock: vi.fn(),
+  showSuccessMock: vi.fn(),
+  showInfoMock: vi.fn(),
+  showErrorMock: vi.fn(),
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({
+    push: pushMock,
+  }),
+}))
+
+vi.mock('@/api/schedule', () => ({
+  ensurePhase2Schedule: ensurePhase2ScheduleMock,
+  getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
+  saveScheduleVersionPreferences: saveScheduleVersionPreferencesMock,
+  deleteThisMonthAssignments: deleteThisMonthAssignmentsMock,
+}))
+
+vi.mock('@/api/supabase', () => ({
+  supabase: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+    })),
+  },
+}))
+
+vi.mock('@/utils/message', () => ({
+  showSuccess: showSuccessMock,
+  showInfo: showInfoMock,
+  showError: showErrorMock,
+}))
+
+const scheduleStoreMock = reactive({
+  basicInfo: {
+    scheduleId: undefined as string | undefined,
+    month: '2025-12',
+    organizationId: 'org-1',
+    organizationName: '서울병원',
+    organizationType: 'hospital',
+    employeeCount: 2,
+    shifts: [],
+  },
+  currentStep: 4,
+  assignments: {},
+  comments: {},
+  selectedVersionId: null as string | null,
+  previewVersionId: null as string | null,
+  setAssignments: vi.fn((data) => {
+    scheduleStoreMock.assignments = data
+  }),
+  setComments: vi.fn((data) => {
+    scheduleStoreMock.comments = data
+  }),
+  setBasicInfo: vi.fn((data) => {
+    scheduleStoreMock.basicInfo = data
+  }),
+  setSelectedVersionId: vi.fn((versionId: string | null) => {
+    scheduleStoreMock.selectedVersionId = versionId
+  }),
+  setPreviewVersionId: vi.fn((versionId: string | null) => {
+    scheduleStoreMock.previewVersionId = versionId
+  }),
+  prevStep: vi.fn(() => {
+    scheduleStoreMock.currentStep -= 1
+  }),
+})
+
+const organizationStoreMock = reactive({
+  current: {
+    id: 'org-1',
+    name: '서울병원',
+    type: 'hospital',
+  },
+  employees: [
+    {
+      id: 'emp-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+    },
+    {
+      id: 'emp-2',
+      organizationId: 'org-1',
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+    },
+  ],
+  loadOrganization: vi.fn(),
+})
+
+const gridMock = {
+  employees: ref<typeof organizationStoreMock.employees>([]),
+  dates: ref([{ date: '2025-12-01' }]),
+  loading: ref(false),
+  generateDates: vi.fn(),
+}
+
+vi.mock('@/stores/schedule', () => ({
+  useScheduleStore: () => scheduleStoreMock,
+}))
+
+vi.mock('@/stores/organization', () => ({
+  useOrganizationStore: () => organizationStoreMock,
+}))
+
+vi.mock('@/composables/useScheduleGrid', () => ({
+  useScheduleGrid: () => gridMock,
+}))
+
+vi.mock('@/components/schedule/StepIndicator.vue', () => ({
+  default: { template: '<div />' },
+}))
+
+vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
+  default: { template: '<div />' },
+}))
+
+vi.mock('@/components/schedule/CommentModal.vue', () => ({
+  default: { template: '<div />' },
+}))
+
+vi.mock('@/components/schedule/DaySummaryModal.vue', () => ({
+  default: { template: '<div />' },
+}))
+
+import Step4InitialData from '@/views/schedule/Step4InitialData.vue'
+
+function createWrapper() {
+  return mount(Step4InitialData, {
+    global: {
+      stubs: {
+        NButton: {
+          template: '<button @click="$emit(\'click\')"><slot /></button>',
+        },
+        NSpin: {
+          template: '<div><slot /></div>',
+        },
+      },
+    },
+  })
+}
+
+describe('Step4InitialData', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+
+    scheduleStoreMock.basicInfo = {
+      scheduleId: undefined,
+      month: '2025-12',
+      organizationId: 'org-1',
+      organizationName: '서울병원',
+      organizationType: 'hospital',
+      employeeCount: 2,
+      shifts: [],
+    }
+    scheduleStoreMock.currentStep = 4
+    scheduleStoreMock.assignments = {}
+    scheduleStoreMock.comments = {}
+    scheduleStoreMock.selectedVersionId = null
+    scheduleStoreMock.previewVersionId = null
+
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    }
+    organizationStoreMock.employees = [
+      {
+        id: 'emp-1',
+        organizationId: 'org-1',
+        employeeId: 'E001',
+        name: 'Kim',
+        availableShifts: ['D'],
+      },
+      {
+        id: 'emp-2',
+        organizationId: 'org-1',
+        employeeId: 'E002',
+        name: 'Lee',
+        availableShifts: ['D'],
+      },
+    ]
+
+    gridMock.employees.value = []
+    gridMock.dates.value = [{ date: '2025-12-01' }]
+    gridMock.loading.value = false
+
+    ensurePhase2ScheduleMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
+    })
+    saveScheduleVersionPreferencesMock.mockResolvedValue(undefined)
+    deleteThisMonthAssignmentsMock.mockResolvedValue(undefined)
+  })
+
+  it('keeps selected authoritative while restoring Step4 preview from canonical V1', async () => {
+    createWrapper()
+    await flushPromises()
+
+    expect(ensurePhase2ScheduleMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+    })
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setBasicInfo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: 'schedule-1',
+      })
+    )
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+  })
+
+  it('uses canonical V1 preview for saves even when selected points at another candidate', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await wrapper.findAll('button')[1]?.trigger('click')
+    await flushPromises()
+
+    expect(ensurePhase2ScheduleMock).toHaveBeenCalledBefore(saveScheduleVersionPreferencesMock)
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'version-1',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
+  })
+
+  it('navigates to Step5 with the preview version in query params on next', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button')[2]?.trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-1',
+      },
+    })
+  })
+
+  it('keeps selected unset and restores preview from the single available V1 when selection is missing', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-2',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      versions: [
+        {
+          id: 'version-v1',
+          scheduleId: 'schedule-2',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    createWrapper()
+    await flushPromises()
+
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith(null)
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-v1')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-v1')
+  })
+})

@@ -125,7 +125,6 @@ import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { createShift, updateShift, deleteShift } from '@/api/shift';
-import { createSchedule } from '@/api/schedule';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
@@ -370,23 +369,17 @@ async function handleNext() {
 
   try {
     const orgId = orgStore.current.id;
-    const existingScheduleId = scheduleStore.basicInfo?.scheduleId;
-    let targetScheduleId = existingScheduleId || '';
-
-    // 신규 생성일 때만 schedule 레코드 생성
-    if (!existingScheduleId) {
-      const schedule = await createSchedule(orgId, scheduleStore.basicInfo?.month || '');
-      targetScheduleId = schedule.id;
-    }
+    const basicInfo = scheduleStore.basicInfo;
+    const existingScheduleId = basicInfo?.scheduleId;
 
     // Pinia schedule store 업데이트 (시간 정보가 있는 시프트만)
     scheduleStore.setBasicInfo({
-      scheduleId: targetScheduleId,
-      month: scheduleStore.basicInfo?.month || '',
+      ...(existingScheduleId ? { scheduleId: existingScheduleId } : {}),
+      month: basicInfo?.month || '',
       organizationId: orgId,
       organizationName: orgStore.current.name,
       organizationType: orgStore.current.type,
-      employeeCount: scheduleStore.basicInfo?.employeeCount || 0,
+      employeeCount: basicInfo?.employeeCount || 0,
       shifts: shiftsWithTime.value,
     });
 
