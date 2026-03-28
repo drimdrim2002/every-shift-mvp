@@ -13,6 +13,8 @@ export default [
       '**/dist/**',
       '**/node_modules/**',
       '**/.env.local',
+      '**/.agents/**',
+      '**/.worktrees/**',
       '**/*.config.js',
       '**/scripts/**',
     ],
