@@ -10,6 +10,7 @@ const {
   setBasicInfoMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
+  showErrorMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   getScheduleListMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   setBasicInfoMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
+  showErrorMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -39,7 +41,7 @@ vi.mock('@/api/supabase', () => ({
 
 vi.mock('@/utils/message', () => ({
   showSuccess: vi.fn(),
-  showError: vi.fn(),
+  showError: showErrorMock,
 }))
 
 const organizationStoreMock = reactive({
@@ -209,6 +211,36 @@ describe('Dashboard', () => {
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-123',
+      query: {
+        version: 'version-2',
+      },
+    })
+  })
+
+  it('blocks navigation and shows an error when compare fails', async () => {
+    getPhase2ScheduleCompareMock.mockRejectedValue(new Error('compare failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
+      .handleViewSchedule({
+        id: 'schedule-123',
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/schedule-123')
+    expect(pushMock).not.toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-123',
       query: {
         version: 'version-2',

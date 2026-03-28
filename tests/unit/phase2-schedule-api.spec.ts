@@ -81,6 +81,48 @@ describe('phase2 schedule api helpers', () => {
     };
   }
 
+  function createAssignmentQueryMocks(rows: unknown[]) {
+    const range = vi.fn().mockResolvedValue({ data: rows, error: null });
+    const eq = vi.fn().mockReturnValue({ range });
+    const select = vi.fn().mockReturnValue({ eq, range });
+    const upsert = vi.fn().mockResolvedValue({ error: null });
+    const scheduleEq = vi.fn().mockResolvedValue({ error: null });
+    const scheduleUpdate = vi.fn().mockReturnValue({ eq: scheduleEq });
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'schedule_assignments') {
+        return {
+          select,
+          upsert,
+        };
+      }
+
+      if (table === 'schedules') {
+        return {
+          update: scheduleUpdate,
+        };
+      }
+
+      if (table !== 'schedule_assignments') {
+        throw new Error(`Unexpected table: ${table}`);
+      }
+
+      return {
+        select,
+        upsert,
+      };
+    });
+
+    return {
+      select,
+      eq,
+      range,
+      upsert,
+      scheduleUpdate,
+      scheduleEq,
+    };
+  }
+
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -475,5 +517,62 @@ describe('phase2 schedule api helpers', () => {
         },
       })
     ).rejects.toThrow('버전 소유 schedule을 찾을 수 없습니다.');
+  });
+
+  it('reads version-scoped assignments by schedule_version_id', async () => {
+    const queryMocks = createAssignmentQueryMocks([
+      {
+        employee_id: 'employee-1',
+        date: '2026-04-01',
+        shifts: { code: 'D' },
+        off_reason: null,
+        comment: 'memo',
+      },
+    ]);
+
+    const { getScheduleVersionAssignments } = await import('@/api/schedule');
+
+    const result = await getScheduleVersionAssignments('version-7');
+
+    expect(queryMocks.eq).toHaveBeenCalledWith('schedule_version_id', 'version-7');
+    expect(result.assignments).toEqual({
+      'employee-1': {
+        '2026-04-01': 'D',
+      },
+    });
+    expect(result.comments).toEqual({
+      'employee-1': {
+        '2026-04-01': 'memo',
+      },
+    });
+  });
+
+  it('updates assignments by schedule_version_id while preserving the container schedule_id', async () => {
+    const queryMocks = createAssignmentQueryMocks([]);
+
+    const { updateScheduleVersionAssignment } = await import('@/api/schedule');
+
+    await updateScheduleVersionAssignment(
+      'schedule-9',
+      'version-9',
+      'employee-9',
+      '2026-04-09',
+      'shift-9',
+      'manual'
+    );
+
+    expect(queryMocks.upsert).toHaveBeenCalledWith(
+      {
+        schedule_id: 'schedule-9',
+        schedule_version_id: 'version-9',
+        employee_id: 'employee-9',
+        shift_id: 'shift-9',
+        date: '2026-04-09',
+        comment: 'manual',
+      },
+      {
+        onConflict: 'schedule_version_id,employee_id,date',
+      }
+    );
   });
 });

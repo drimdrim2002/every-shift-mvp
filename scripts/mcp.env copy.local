@@ -3,7 +3,7 @@
 #   source scripts/mcp.env.local
 
 # Supabase MCP (required)
-export SUPABASE_PROJECT_REF="kkxchntkzopfrpnvzzth"
+export SUPABASE_PROJECT_REF="vjmerqaxguovnojinxfq"
 export SUPABASE_ACCESS_TOKEN="sbp_04d075c7d2f273719ec1f5fedcf380227432a0df"
 
 # Shrimp Task Manager MCP (built locally)
@@ -14,4 +14,3 @@ export MCP_CONTEXT7_ENTRY="/home/brown/mcp-servers/node_modules/@upstash/context
 
 # Sequential Thinking MCP (already available under /home/brown/mcp-servers)
 export MCP_SEQUENTIAL_THINKING_ENTRY="/home/brown/mcp-servers/node_modules/@modelcontextprotocol/server-sequential-thinking/dist/index.js"
-

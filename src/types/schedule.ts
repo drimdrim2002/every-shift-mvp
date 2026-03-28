@@ -136,6 +136,7 @@ export interface ScheduleInfeasibility {
 export interface SchedulePreference {
   id: string;
   schedule_id: string;
+  schedule_version_id?: string;
   employee_id: string;
   date: string;
   request_code: ConstraintCode;

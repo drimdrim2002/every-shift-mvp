@@ -13,6 +13,7 @@ const {
   setBasicInfoMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
+  showErrorMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   getScheduleStatusMock: vi.fn(),
@@ -29,6 +30,7 @@ const {
   setBasicInfoMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
+  showErrorMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -51,6 +53,10 @@ vi.mock('@/api/supabase', () => ({
   supabase: {
     from: supabaseFromMock,
   },
+}))
+
+vi.mock('@/utils/message', () => ({
+  showError: showErrorMock,
 }))
 
 const scheduleStoreMock = reactive({
@@ -232,5 +238,19 @@ describe('Step3EmployeeInfo', () => {
         version: 'version-2',
       },
     })
+  })
+
+  it('blocks Step5 entry and shows an error when compare fails', async () => {
+    getPhase2ScheduleCompareMock.mockRejectedValue(new Error('compare failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))?.trigger('click')
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/schedule-123')
   })
 })

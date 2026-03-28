@@ -43,6 +43,14 @@
       </div>
 
       <n-alert
+        v-if="isVersionReadOnly"
+        type="warning"
+        class="mb-6"
+      >
+        선택된 버전만 편집할 수 있습니다. 현재는 미리보기 버전을 보고 있어 읽기 전용입니다.
+      </n-alert>
+
+      <n-alert
         v-if="showIntermediateWaitingHint"
         type="info"
         class="mb-6"
@@ -98,6 +106,7 @@
           v-if="canCancel"
           size="medium"
           type="error"
+          :disabled="isVersionReadOnly"
           @click="handleCancelSchedule"
         >
           근무표 취소
@@ -109,7 +118,7 @@
             type="primary"
             size="medium"
             :loading="isStartingSolver"
-            :disabled="isStartingSolver"
+            :disabled="isStartingSolver || isVersionReadOnly"
             @click="handleStartSolver"
           >
             근무표 생성 (AI)
@@ -118,6 +127,7 @@
           <n-button
             v-if="isFinished && changedCells.size > 0"
             size="medium"
+            :disabled="isVersionReadOnly"
             @click="handleReset"
           >
             변경 사항 취소
@@ -126,6 +136,7 @@
           <n-button
             v-if="isFinished"
             size="medium"
+            :disabled="isVersionReadOnly"
             @click="handleRegenerate"
           >
             더 개선하기
@@ -143,6 +154,7 @@
             v-if="isFinished"
             type="primary"
             size="medium"
+            :disabled="isVersionReadOnly"
             @click="handleSave"
           >
             저장
@@ -167,14 +179,14 @@ import { useOrganizationStore } from '@/stores/organization';
 import {
   getPhase2ScheduleCompare,
   getScheduleStatus,
-  getScheduleAssignments,
-  getSchedulePreferences,
-  refreshPreferenceResolution,
-  resetPreferenceResolution,
-  updateAssignment,
-  deleteThisMonthAssignments,
+  getScheduleVersionAssignments,
+  getScheduleVersionPreferences,
+  refreshPreferenceResolutionByVersion,
+  resetPreferenceResolutionByVersion,
+  updateScheduleVersionAssignment,
+  deleteThisMonthVersionAssignments,
   getPlanningEmployees,
-  getPlanningAssignments,
+  getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
@@ -196,6 +208,8 @@ const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
 const scheduleId = computed(() => route.params.id as string);
+const selectedVersionId = computed(() => scheduleStore.selectedVersionId);
+const previewVersionId = computed(() => scheduleStore.previewVersionId);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -231,6 +245,12 @@ interface ScheduleStatusRow {
 const isRunning = computed(() => solver.status.value === 'running');
 const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
+const canMutateSelectedVersion = computed(() => {
+  return !!selectedVersionId.value && !!previewVersionId.value && selectedVersionId.value === previewVersionId.value;
+});
+const isVersionReadOnly = computed(() => {
+  return !!previewVersionId.value && !!selectedVersionId.value && previewVersionId.value !== selectedVersionId.value;
+});
 const previousMonthPrefix = computed(() => {
   if (!scheduleStore.basicInfo?.month) return '';
   return dayjs(`${scheduleStore.basicInfo.month}-01`).subtract(1, 'month').format('YYYY-MM');
@@ -259,7 +279,7 @@ const statusType = computed(() => {
 });
 
 const isReadonlyGrid = computed(() => {
-  return !isFinished.value;
+  return !isFinished.value || !canMutateSelectedVersion.value;
 });
 const preferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
   return isPreRun.value ? 'pre-run' : 'post-run';
@@ -388,14 +408,15 @@ async function loadPreferencesForDisplay() {
   const emptyConstraints = createEmptyConstraintMapForEmployees();
   const emptyNotes = createEmptyCommentMapForEmployees();
   const currentMonth = scheduleStore.basicInfo?.month || '';
+  const versionId = previewVersionId.value;
 
-  if (!currentMonth) {
+  if (!currentMonth || !versionId) {
     offRequestsCurrentMonth.value = emptyConstraints;
     offRequestNotesCurrentMonth.value = emptyNotes;
     return;
   }
 
-  const { constraints, notes } = await getSchedulePreferences(scheduleId.value);
+  const { constraints, notes } = await getScheduleVersionPreferences(versionId);
 
   const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
   const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
@@ -560,7 +581,20 @@ function applyScheduleStatus(schedule: ScheduleStatusRow) {
 
 async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearChanges?: boolean; forceAssignmentSync?: boolean } = {}) {
   const { syncOriginal = false, clearChanges = false, forceAssignmentSync = false } = options;
-  const data = await getScheduleAssignments(scheduleId.value);
+  const versionId = previewVersionId.value;
+
+  if (!versionId) {
+    currentScheduleAssignments.value = {};
+    previousMonthAssignments.value = {};
+    grid.assignments.value = {};
+    grid.offReasons.value = {};
+    if (clearChanges) {
+      changedCells.value.clear();
+    }
+    return;
+  }
+
+  const data = await getScheduleVersionAssignments(versionId);
   const { currentAssignments, previousAssignments, previousDates } = splitAssignmentsByMonth(
     data.assignments
   );
@@ -673,17 +707,21 @@ function buildDateBasedRequirements(siteRequirements: Array<{ dayOfWeek: number;
 
 async function buildSolverRequest() {
   const basicInfo = scheduleStore.basicInfo;
+  const versionId = selectedVersionId.value;
   if (!basicInfo) {
     throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
+  }
+  if (!versionId) {
+    throw new Error('선택된 버전 정보가 없습니다. 다시 진입해주세요.');
   }
 
   if (organizationStore.shifts.length === 0) {
     throw new Error('시프트 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  const { constraints } = await getSchedulePreferences(scheduleId.value);
+  const { constraints } = await getScheduleVersionPreferences(versionId);
   const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
-  const planningAssignments = await getPlanningAssignments(scheduleId.value);
+  const planningAssignments = await getPlanningAssignmentsForVersion(versionId);
 
   let siteRequirements = scheduleStore.siteRequirements;
   if (!siteRequirements || siteRequirements.length === 0) {
@@ -712,15 +750,23 @@ async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
+  if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
+    showInfo('선택된 버전만 편집할 수 있습니다.');
+    return;
+  }
 
   isStartingSolver.value = true;
 
   try {
     await loadPreferencesForDisplay();
-    await resetPreferenceResolution(scheduleId.value);
+    await resetPreferenceResolutionByVersion(selectedVersionId.value);
 
     const solverRequest = await buildSolverRequest();
-    const executionId = await solver.startSolver(scheduleId.value, solverRequest);
+    const executionId = await solver.startSolver(
+      scheduleId.value,
+      selectedVersionId.value,
+      solverRequest
+    );
     if (!executionId) {
       showError('근무표 생성 시작에 실패했습니다.');
       return;
@@ -743,11 +789,16 @@ async function resumePollingFromSchedule(schedule: ScheduleStatusRow) {
     solver.status.value = 'error';
     return;
   }
+  if (!selectedVersionId.value) {
+    showError('선택된 버전 정보를 찾을 수 없습니다. 다시 진입해주세요.');
+    solver.status.value = 'error';
+    return;
+  }
 
   solver.status.value = 'running';
   resetRealtimeState();
   solver.intermediateResults.value = null;
-  solver.startPolling(schedule.solver_execution_id, scheduleId.value);
+  solver.startPolling(schedule.solver_execution_id, scheduleId.value, selectedVersionId.value);
   startAssignmentsRefresh();
 }
 
@@ -779,8 +830,12 @@ onMounted(async () => {
     const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
     applyScheduleStatus(schedule);
 
-    if (schedule.status === 'complete' || schedule.status === 'changed') {
-      await refreshPreferenceResolution(scheduleId.value);
+    if (
+      (schedule.status === 'complete' || schedule.status === 'changed')
+      && canMutateSelectedVersion.value
+      && selectedVersionId.value
+    ) {
+      await refreshPreferenceResolutionByVersion(selectedVersionId.value);
     }
 
     await loadCurrentAssignments({
@@ -885,6 +940,11 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 }
 
 function handleReset() {
+  if (!canMutateSelectedVersion.value) {
+    showInfo('선택된 버전만 편집할 수 있습니다.');
+    return;
+  }
+
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
     return;
@@ -907,6 +967,11 @@ function handleReset() {
 }
 
 async function handleRegenerate() {
+  if (!canMutateSelectedVersion.value) {
+    showInfo('선택된 버전만 편집할 수 있습니다.');
+    return;
+  }
+
   await handleStartSolver();
 }
 
@@ -933,6 +998,11 @@ function handleExport() {
 }
 
 function handleSave() {
+  if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
+    showInfo('선택된 버전만 편집할 수 있습니다.');
+    return;
+  }
+
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
     router.push('/');
@@ -966,7 +1036,13 @@ function handleSave() {
             continue;
           }
 
-          await updateAssignment(scheduleId.value, employeeId, date, shift.id);
+          await updateScheduleVersionAssignment(
+            scheduleId.value,
+            selectedVersionId.value,
+            employeeId,
+            date,
+            shift.id
+          );
         }
 
         await supabase
@@ -974,7 +1050,7 @@ function handleSave() {
           .update({ status: 'changed' })
           .eq('id', scheduleId.value);
 
-        await refreshPreferenceResolution(scheduleId.value);
+        await refreshPreferenceResolutionByVersion(selectedVersionId.value);
 
         showSuccess('저장되었습니다');
         changedCells.value.clear();
@@ -1000,8 +1076,16 @@ async function handleCancelSchedule() {
           showError('현재 월 정보를 찾을 수 없습니다');
           return;
         }
+        if (!canMutateSelectedVersion.value || !selectedVersionId.value) {
+          showInfo('선택된 버전만 편집할 수 있습니다.');
+          return;
+        }
 
-        await deleteThisMonthAssignments(scheduleId.value, currentMonth);
+        await deleteThisMonthVersionAssignments(
+          scheduleId.value,
+          selectedVersionId.value,
+          currentMonth
+        );
 
         solver.stopPolling();
         stopAssignmentsRefresh();

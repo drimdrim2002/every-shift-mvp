@@ -282,9 +282,9 @@ async function handleViewSchedule(schedule: Schedule) {
       return;
     } catch (error) {
       console.warn('Step5 preview version resolve 실패:', error);
+      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return;
     }
-
-    router.push(`/schedule/step5/${schedule.id}`);
   } else if (schedule.status === 'created' || schedule.status === 'running') {
     try {
       const compareResponse = await getPhase2ScheduleCompare(schedule.id);
@@ -296,9 +296,9 @@ async function handleViewSchedule(schedule: Schedule) {
       return;
     } catch (error) {
       console.warn('Step5 preview version resolve 실패:', error);
+      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return;
     }
-
-    router.push(`/schedule/step5/${schedule.id}`);
   } else {
     window.$message?.info('해당 근무표를 조회할 수 없습니다');
   }

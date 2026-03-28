@@ -14,14 +14,14 @@ const {
   replaceMock,
   getPhase2ScheduleCompareMock,
   getScheduleStatusMock,
-  getScheduleAssignmentsMock,
-  getSchedulePreferencesMock,
-  refreshPreferenceResolutionMock,
-  resetPreferenceResolutionMock,
-  updateAssignmentMock,
-  deleteThisMonthAssignmentsMock,
+  getScheduleVersionAssignmentsMock,
+  getScheduleVersionPreferencesMock,
+  refreshPreferenceResolutionByVersionMock,
+  resetPreferenceResolutionByVersionMock,
+  updateScheduleVersionAssignmentMock,
+  deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
-  getPlanningAssignmentsMock,
+  getPlanningAssignmentsForVersionMock,
   showSuccessMock,
   showErrorMock,
   showInfoMock,
@@ -30,14 +30,14 @@ const {
   replaceMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
   getScheduleStatusMock: vi.fn(),
-  getScheduleAssignmentsMock: vi.fn(),
-  getSchedulePreferencesMock: vi.fn(),
-  refreshPreferenceResolutionMock: vi.fn(),
-  resetPreferenceResolutionMock: vi.fn(),
-  updateAssignmentMock: vi.fn(),
-  deleteThisMonthAssignmentsMock: vi.fn(),
+  getScheduleVersionAssignmentsMock: vi.fn(),
+  getScheduleVersionPreferencesMock: vi.fn(),
+  refreshPreferenceResolutionByVersionMock: vi.fn(),
+  resetPreferenceResolutionByVersionMock: vi.fn(),
+  updateScheduleVersionAssignmentMock: vi.fn(),
+  deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
-  getPlanningAssignmentsMock: vi.fn(),
+  getPlanningAssignmentsForVersionMock: vi.fn(),
   showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
   showInfoMock: vi.fn(),
@@ -54,14 +54,14 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
   getScheduleStatus: getScheduleStatusMock,
-  getScheduleAssignments: getScheduleAssignmentsMock,
-  getSchedulePreferences: getSchedulePreferencesMock,
-  refreshPreferenceResolution: refreshPreferenceResolutionMock,
-  resetPreferenceResolution: resetPreferenceResolutionMock,
-  updateAssignment: updateAssignmentMock,
-  deleteThisMonthAssignments: deleteThisMonthAssignmentsMock,
+  getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
+  getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
+  refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
+  resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
+  updateScheduleVersionAssignment: updateScheduleVersionAssignmentMock,
+  deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
-  getPlanningAssignments: getPlanningAssignmentsMock,
+  getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
 }))
 
 vi.mock('@/api/employee', () => ({
@@ -102,9 +102,15 @@ const scheduleStoreMock = reactive({
     shifts: [],
   },
   siteRequirements: [],
+  selectedVersionId: null as string | null,
+  previewVersionId: null as string | null,
   setSiteRequirements: vi.fn(),
-  setSelectedVersionId: vi.fn(),
-  setPreviewVersionId: vi.fn(),
+  setSelectedVersionId: vi.fn((value: string | null) => {
+    scheduleStoreMock.selectedVersionId = value
+  }),
+  setPreviewVersionId: vi.fn((value: string | null) => {
+    scheduleStoreMock.previewVersionId = value
+  }),
 })
 
 const organizationStoreMock = reactive({
@@ -179,7 +185,7 @@ function createWrapper() {
     global: {
       stubs: {
         NCard: { template: '<div><slot /></div>' },
-        NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
+        NButton: { props: ['disabled'], template: '<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>' },
         NBadge: { template: '<div />' },
         NProgress: { template: '<div />' },
         NAlert: { template: '<div><slot /></div>' },
@@ -203,6 +209,8 @@ describe('Step5Result', () => {
       employeeCount: 1,
       shifts: [],
     }
+    scheduleStoreMock.selectedVersionId = null
+    scheduleStoreMock.previewVersionId = null
 
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
@@ -263,22 +271,22 @@ describe('Step5Result', () => {
       soft_score: null,
       solver_execution_id: null,
     })
-    getScheduleAssignmentsMock.mockResolvedValue({
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
       assignments: {},
       offReasons: {},
       comments: {},
     })
-    getSchedulePreferencesMock.mockResolvedValue({
+    getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {},
       notes: {},
       preferences: [],
     })
-    refreshPreferenceResolutionMock.mockResolvedValue([])
-    resetPreferenceResolutionMock.mockResolvedValue(undefined)
-    updateAssignmentMock.mockResolvedValue(undefined)
-    deleteThisMonthAssignmentsMock.mockResolvedValue(undefined)
+    refreshPreferenceResolutionByVersionMock.mockResolvedValue([])
+    resetPreferenceResolutionByVersionMock.mockResolvedValue(undefined)
+    updateScheduleVersionAssignmentMock.mockResolvedValue(undefined)
+    deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
     getPlanningEmployeesMock.mockResolvedValue([])
-    getPlanningAssignmentsMock.mockResolvedValue([])
+    getPlanningAssignmentsForVersionMock.mockResolvedValue([])
   })
 
   it('hydrates selected and preview from compare while preserving a valid deep-linked preview', async () => {
@@ -308,5 +316,23 @@ describe('Step5Result', () => {
         version: 'version-2',
       },
     })
+  })
+
+  it('loads preview data by previewVersionId and blocks mutation controls when preview is not selected', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-1')
+
+    const startSolverButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('근무표 생성 (AI)'))
+
+    expect(startSolverButton).toBeTruthy()
+    expect(startSolverButton?.attributes('disabled')).toBeDefined()
   })
 })

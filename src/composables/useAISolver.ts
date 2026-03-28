@@ -4,7 +4,7 @@ import {
   parseSolverResult, 
   mapApiStatusToAppStatus 
 } from '@/api/solver';
-import { refreshPreferenceResolution } from '@/api/schedule';
+import { refreshPreferenceResolutionByVersion } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import type { SolverRequest, AssignmentMap } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
@@ -23,7 +23,11 @@ export function useAISolver() {
   let pollingAttempts = 0;
   let pollingInterval: number | null = null;
 
-  async function startSolver(scheduleId: string, request: SolverRequest): Promise<string | null> {
+  async function startSolver(
+    scheduleId: string,
+    scheduleVersionId: string,
+    request: SolverRequest
+  ): Promise<string | null> {
     // Reset state
     status.value = 'running';
     error.value = null;
@@ -53,7 +57,7 @@ export function useAISolver() {
         .eq('id', scheduleId);
 
       // 3. Start Polling
-      startPolling(executionId, scheduleId);
+      startPolling(executionId, scheduleId, scheduleVersionId);
       return executionId;
 
     } catch (e: unknown) {
@@ -68,7 +72,7 @@ export function useAISolver() {
     }
   }
 
-  function startPolling(executionId: string, scheduleId: string) {
+  function startPolling(executionId: string, scheduleId: string, scheduleVersionId: string) {
     if (pollingInterval) clearInterval(pollingInterval);
     executionIdRef.value = executionId;
     pollingAttempts = 0;
@@ -101,7 +105,7 @@ export function useAISolver() {
             if (response.result) {
                 const assignments = parseSolverResult(response.result);
                 intermediateResults.value = assignments;
-                await saveIntermediateResult(scheduleId, assignments, response.score);
+                await saveIntermediateResult(scheduleId, scheduleVersionId, assignments, response.score);
             }
         } else if (appStatus === 'complete') {
             stopPolling();
@@ -111,7 +115,7 @@ export function useAISolver() {
                 }
 
                 const assignments = parseSolverResult(response.result);
-                await saveResult(scheduleId, assignments, response.score);
+                await saveResult(scheduleId, scheduleVersionId, assignments, response.score);
                 progress.value = 100;
                 status.value = 'complete';
             } catch (e: unknown) {
@@ -146,7 +150,12 @@ export function useAISolver() {
       }
   }
 
-  async function saveIntermediateResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
+  async function saveIntermediateResult(
+    scheduleId: string,
+    scheduleVersionId: string,
+    assignments: AssignmentMap,
+    score?: { hard_score: number, soft_score: number }
+  ) {
       console.log('[saveIntermediateResult] Saving intermediate results to database...');
       // Update schedule with intermediate score (don't change status)
       await supabase.from('schedules').update({
@@ -155,15 +164,20 @@ export function useAISolver() {
       }).eq('id', scheduleId);
 
       // Save assignments to DB
-      await saveAssignmentsToDb(scheduleId, assignments);
+      await saveAssignmentsToDb(scheduleId, scheduleVersionId, assignments);
       console.log('[saveIntermediateResult] Saved intermediate results.');
   }
 
-  async function saveResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
+  async function saveResult(
+    scheduleId: string,
+    scheduleVersionId: string,
+    assignments: AssignmentMap,
+    score?: { hard_score: number, soft_score: number }
+  ) {
       console.log('[saveResult] Saving final results to database...');
       // Save assignments to DB first, then publish complete status as the final commit signal.
-      await saveAssignmentsToDb(scheduleId, assignments);
-      await refreshPreferenceResolution(scheduleId);
+      await saveAssignmentsToDb(scheduleId, scheduleVersionId, assignments);
+      await refreshPreferenceResolutionByVersion(scheduleVersionId);
       await supabase.from('schedules').update({
           status: 'complete',
           hard_score: score?.hard_score || 0,
@@ -172,7 +186,11 @@ export function useAISolver() {
       console.log('[saveResult] Saved final results.');
   }
 
-  async function saveAssignmentsToDb(scheduleId: string, assignments: AssignmentMap) {
+  async function saveAssignmentsToDb(
+    scheduleId: string,
+    scheduleVersionId: string,
+    assignments: AssignmentMap
+  ) {
 
       // Transform AssignmentMap to DB rows
       const rows = [];
@@ -181,6 +199,7 @@ export function useAISolver() {
               if (shiftId) { // shiftId is UUID from parseSolverResult
                   rows.push({
                       schedule_id: scheduleId,
+                      schedule_version_id: scheduleVersionId,
                       employee_id: employeeId,
                       shift_id: shiftId,
                       date: date,
@@ -191,7 +210,10 @@ export function useAISolver() {
       }
 
       // Bulk replace
-      const { error: deleteError } = await supabase.from('schedule_assignments').delete().eq('schedule_id', scheduleId);
+      const { error: deleteError } = await supabase
+        .from('schedule_assignments')
+        .delete()
+        .eq('schedule_version_id', scheduleVersionId);
       if (deleteError) {
           console.error('Failed to delete old assignments:', deleteError);
           throw deleteError;

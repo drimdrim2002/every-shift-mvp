@@ -103,6 +103,7 @@ import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employe
 import { getPhase2ScheduleCompare, getScheduleStatus } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
+import { showError } from '@/utils/message';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
@@ -386,15 +387,12 @@ async function handleNext() {
       return;
     } catch (error) {
       console.warn('[Step3] Failed to resolve Step5 preview version:', error);
+      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return;
     }
-
-    scheduleStore.currentStep = 5;
-    router.push(`/schedule/step5/${targetSchedule.id}`);
-    return;
   }
 
   scheduleStore.nextStep();
   router.push('/schedule/step4');
 }
 </script>
-

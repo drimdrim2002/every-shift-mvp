@@ -39,6 +39,8 @@ interface AssignmentQueryResult {
 }
 
 interface AssignmentWithShiftId {
+  schedule_id?: string;
+  schedule_version_id?: string;
   employee_id: string;
   shift_id: string;
   date: string;
@@ -61,6 +63,7 @@ interface RawSchedulePreference {
 }
 
 type PreferenceScopeColumn = 'schedule_id' | 'schedule_version_id';
+type AssignmentScopeColumn = 'schedule_id' | 'schedule_version_id';
 
 interface RawScopedSchedulePreference extends RawSchedulePreference {
   schedule_version_id?: string;
@@ -528,6 +531,17 @@ export async function saveScheduleVersionPreferences(
 
 // 요청 반영 상태 초기화
 export async function resetPreferenceResolution(scheduleId: string): Promise<void> {
+  return resetPreferenceResolutionByScope('schedule_id', scheduleId);
+}
+
+export async function resetPreferenceResolutionByVersion(scheduleVersionId: string): Promise<void> {
+  return resetPreferenceResolutionByScope('schedule_version_id', scheduleVersionId);
+}
+
+async function resetPreferenceResolutionByScope(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string
+): Promise<void> {
   const { error } = await supabase
     .from('schedule_preferences')
     .update({
@@ -535,7 +549,7 @@ export async function resetPreferenceResolution(scheduleId: string): Promise<voi
       resolved_shift_id: null,
       resolved_at: null,
     })
-    .eq('schedule_id', scheduleId);
+    .eq(scopeColumn, scopeId);
 
   if (error) {
     throw new Error(`요청 상태 초기화 실패: ${error.message}`);
@@ -544,7 +558,22 @@ export async function resetPreferenceResolution(scheduleId: string): Promise<voi
 
 // schedule_assignments 결과 기준으로 요청 반영 상태 갱신
 export async function refreshPreferenceResolution(scheduleId: string): Promise<SchedulePreference[]> {
-  const { preferences } = await getSchedulePreferences(scheduleId);
+  return refreshPreferenceResolutionByScope('schedule_id', scheduleId);
+}
+
+export async function refreshPreferenceResolutionByVersion(
+  scheduleVersionId: string
+): Promise<SchedulePreference[]> {
+  return refreshPreferenceResolutionByScope('schedule_version_id', scheduleVersionId);
+}
+
+async function refreshPreferenceResolutionByScope(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string
+): Promise<SchedulePreference[]> {
+  const { preferences } = scopeColumn === 'schedule_version_id'
+    ? await getScheduleVersionPreferences(scopeId)
+    : await getSchedulePreferences(scopeId);
   if (preferences.length === 0) return [];
 
   const assignmentRows: AssignmentWithShiftId[] = [];
@@ -555,8 +584,8 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
   while (hasMore) {
     const { data, error } = await supabase
       .from('schedule_assignments')
-      .select('employee_id, shift_id, date, shifts(code)')
-      .eq('schedule_id', scheduleId)
+      .select('schedule_id, schedule_version_id, employee_id, shift_id, date, shifts(code)')
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) {
@@ -592,6 +621,7 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
     return {
       id: pref.id,
       schedule_id: pref.schedule_id,
+      ...(pref.schedule_version_id ? { schedule_version_id: pref.schedule_version_id } : {}),
       employee_id: pref.employee_id,
       date: pref.date,
       request_code: pref.request_code,
@@ -607,7 +637,7 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
     .from('schedule_preferences')
     .upsert(updates, { onConflict: 'id' })
     .select(
-      'id, schedule_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
     );
 
   if (error) {
@@ -619,6 +649,22 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
 
 // 근무표 배정 조회 (assignments와 offReasons, comments 함께 반환)
 export async function getScheduleAssignments(scheduleId: string): Promise<{
+  assignments: AssignmentMap;
+  offReasons: OffReasonMap;
+  comments: CommentMap;
+}> {
+  return getScheduleAssignmentsByScope('schedule_id', scheduleId);
+}
+
+export async function getScheduleVersionAssignments(scheduleVersionId: string): Promise<{
+  assignments: AssignmentMap;
+  offReasons: OffReasonMap;
+  comments: CommentMap;
+}> {
+  return getScheduleAssignmentsByScope('schedule_version_id', scheduleVersionId);
+}
+
+async function getScheduleAssignmentsByScope(scopeColumn: AssignmentScopeColumn, scopeId: string): Promise<{
   assignments: AssignmentMap;
   offReasons: OffReasonMap;
   comments: CommentMap;
@@ -636,7 +682,7 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
     const { data, error } = await supabase
       .from('schedule_assignments')
       .select('employee_id, date, shifts(code), off_reason, comment')
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
@@ -726,6 +772,37 @@ export async function updateAssignment(
   await supabase.from('schedules').update({ status: 'changed' }).eq('id', scheduleId);
 }
 
+export async function updateScheduleVersionAssignment(
+  scheduleId: string,
+  scheduleVersionId: string,
+  employeeId: string,
+  date: string,
+  shiftId: string,
+  comment?: string
+) {
+  const updateData: any = {
+    schedule_id: scheduleId,
+    schedule_version_id: scheduleVersionId,
+    employee_id: employeeId,
+    shift_id: shiftId,
+    date,
+  };
+
+  if (comment !== undefined) {
+    updateData.comment = comment;
+  }
+
+  const { error } = await supabase
+    .from('schedule_assignments')
+    .upsert(updateData, {
+      onConflict: 'schedule_version_id,employee_id,date',
+    });
+
+  if (error) throw error;
+
+  await supabase.from('schedules').update({ status: 'changed' }).eq('id', scheduleId);
+}
+
 // 근무표 완료 처리
 export async function completeSchedule(scheduleId: string) {
   const { error } = await supabase.from('schedules').update({ status: 'complete' }).eq('id', scheduleId);
@@ -735,6 +812,28 @@ export async function completeSchedule(scheduleId: string) {
 
 // 이번달 근무표만 삭제 (지난달 데이터 보존)
 export async function deleteThisMonthAssignments(scheduleId: string, month: string) {
+  return deleteThisMonthAssignmentsByScope('schedule_id', scheduleId, scheduleId, month);
+}
+
+export async function deleteThisMonthVersionAssignments(
+  scheduleId: string,
+  scheduleVersionId: string,
+  month: string
+) {
+  return deleteThisMonthAssignmentsByScope(
+    'schedule_version_id',
+    scheduleVersionId,
+    scheduleId,
+    month
+  );
+}
+
+async function deleteThisMonthAssignmentsByScope(
+  scopeColumn: AssignmentScopeColumn,
+  scopeId: string,
+  scheduleId: string,
+  month: string
+) {
   // Calculate date range for current month
   const [year, monthPart] = month.split('-');
   const startDate = `${month}-01`;
@@ -750,7 +849,7 @@ export async function deleteThisMonthAssignments(scheduleId: string, month: stri
   const { error: deleteError } = await supabase
     .from('schedule_assignments')
     .delete()
-    .eq('schedule_id', scheduleId)
+    .eq(scopeColumn, scopeId)
     .gte('date', startDate)
     .lte('date', endDate);
     
@@ -929,6 +1028,19 @@ export async function getPlanningEmployees(organizationId: string): Promise<Plan
 
 // 스케줄 배정 정보 조회 (Planning용)
 export async function getPlanningAssignments(scheduleId: string): Promise<PlanningAssignment[]> {
+  return getPlanningAssignmentsByScope('schedule_id', scheduleId);
+}
+
+export async function getPlanningAssignmentsForVersion(
+  scheduleVersionId: string
+): Promise<PlanningAssignment[]> {
+  return getPlanningAssignmentsByScope('schedule_version_id', scheduleVersionId);
+}
+
+async function getPlanningAssignmentsByScope(
+  scopeColumn: AssignmentScopeColumn,
+  scopeId: string
+): Promise<PlanningAssignment[]> {
   const allData: PlanningAssignment[] = [];
   let from = 0;
   const pageSize = 1000;
@@ -939,7 +1051,7 @@ export async function getPlanningAssignments(scheduleId: string): Promise<Planni
     const { data, error } = await supabase
       .from('schedule_assignments')
       .select('employee_id, shift_id, date, is_locked')
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) throw new Error(`배정 정보 조회 실패: ${error.message}`);

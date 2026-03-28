@@ -16,7 +16,7 @@ vi.mock('@/api/solver', () => ({
 }));
 
 vi.mock('@/api/schedule', () => ({
-  refreshPreferenceResolution: vi.fn(),
+  refreshPreferenceResolutionByVersion: vi.fn(),
 }));
 
 vi.mock('@/api/supabase', () => ({
@@ -27,7 +27,7 @@ vi.mock('@/api/supabase', () => ({
 
 import { useAISolver } from '@/composables/useAISolver';
 import { getSolverStatus, mapApiStatusToAppStatus, parseSolverResult } from '@/api/solver';
-import { refreshPreferenceResolution } from '@/api/schedule';
+import { refreshPreferenceResolutionByVersion } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import type { SolverStatusResponse } from '@/types/schedule';
 
@@ -74,6 +74,8 @@ function setupSupabaseMock(options?: {
   insertDeferred?: Deferred<{ error: null }>;
   insertReject?: Error;
   callOrder?: string[];
+  deleteEqArgs?: Array<[string, string]>;
+  insertRows?: Array<Record<string, unknown>[]>;
 }) {
   const fromMock = vi.mocked(supabase.from);
 
@@ -81,13 +83,15 @@ function setupSupabaseMock(options?: {
     if (table === 'schedule_assignments') {
       return {
         delete: () => ({
-          eq: vi.fn(async () => {
+          eq: vi.fn(async (column: string, value: string) => {
             options?.callOrder?.push('assignments-delete');
+            options?.deleteEqArgs?.push([column, value]);
             return { error: null };
           }),
         }),
-        insert: vi.fn(async () => {
+        insert: vi.fn(async (rows: Record<string, unknown>[]) => {
           options?.callOrder?.push('assignments-insert');
+          options?.insertRows?.push(rows);
           if (options?.insertReject) {
             return { error: options.insertReject };
           }
@@ -134,11 +138,11 @@ describe('useAISolver', () => {
     vi.mocked(parseSolverResult).mockReturnValue({
       'emp-1': { '2025-12-01': 'shift-d' },
     });
-    vi.mocked(refreshPreferenceResolution).mockResolvedValue([]);
+    vi.mocked(refreshPreferenceResolutionByVersion).mockResolvedValue([]);
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-1', 'schedule-1');
+    solver.startPolling('exec-1', 'schedule-1', 'version-1');
 
     vi.advanceTimersByTime(10000);
     await flushPromises();
@@ -162,11 +166,11 @@ describe('useAISolver', () => {
     vi.mocked(parseSolverResult).mockReturnValue({
       'emp-1': { '2025-12-01': 'shift-d' },
     });
-    vi.mocked(refreshPreferenceResolution).mockResolvedValue([]);
+    vi.mocked(refreshPreferenceResolutionByVersion).mockResolvedValue([]);
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-2', 'schedule-2');
+    solver.startPolling('exec-2', 'schedule-2', 'version-2');
 
     await vi.advanceTimersByTimeAsync(10000);
     await flushPromises();
@@ -177,20 +181,22 @@ describe('useAISolver', () => {
 
   it('persists final data in order: assignments -> preferences -> schedule complete', async () => {
     const callOrder: string[] = [];
-    setupSupabaseMock({ callOrder });
+    const deleteEqArgs: Array<[string, string]> = [];
+    const insertRows: Array<Record<string, unknown>[]> = [];
+    setupSupabaseMock({ callOrder, deleteEqArgs, insertRows });
     vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-3'));
     vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
     vi.mocked(parseSolverResult).mockReturnValue({
       'emp-1': { '2025-12-01': 'shift-d' },
     });
-    vi.mocked(refreshPreferenceResolution).mockImplementation(async () => {
+    vi.mocked(refreshPreferenceResolutionByVersion).mockImplementation(async () => {
       callOrder.push('preferences-refresh');
       return [];
     });
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-3', 'schedule-3');
+    solver.startPolling('exec-3', 'schedule-3', 'version-3');
 
     await vi.advanceTimersByTimeAsync(10000);
     await flushPromises();
@@ -201,6 +207,17 @@ describe('useAISolver', () => {
       'preferences-refresh',
       'schedule-complete',
     ]);
+    expect(deleteEqArgs).toEqual([['schedule_version_id', 'version-3']]);
+    expect(insertRows).toEqual([[
+      {
+        schedule_id: 'schedule-3',
+        schedule_version_id: 'version-3',
+        employee_id: 'emp-1',
+        shift_id: 'shift-d',
+        date: '2025-12-01',
+        is_locked: false,
+      },
+    ]]);
     expect(solver.status.value).toBe('complete');
   });
 });
