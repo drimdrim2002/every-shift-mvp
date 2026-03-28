@@ -4,10 +4,33 @@ import {
   parseSolverResult, 
   mapApiStatusToAppStatus 
 } from '@/api/solver';
-import { refreshPreferenceResolution } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
-import type { SolverRequest, AssignmentMap } from '@/types/schedule';
+import {
+  markPhase2ScheduleVersionSolving,
+  syncPhase2ScheduleVersionSolverResult,
+} from '@/api/schedule';
+import type {
+  SolverRequest,
+  AssignmentMap,
+  ScheduleVersionAssignmentChange,
+  ScheduleVersionScore,
+} from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
+
+interface SolverStartParams {
+  versionId: string;
+  month: string;
+  solverRequest: SolverRequest;
+}
+
+interface SolverPollingContext {
+  versionId: string;
+  month: string;
+}
+
+interface Phase2ScheduleConflictError extends Error {
+  code?: string;
+  status?: number;
+}
 
 export function useAISolver() {
   const status = ref<'created' | 'running' | 'complete' | 'error' | 'changed'>('created');
@@ -23,7 +46,75 @@ export function useAISolver() {
   let pollingAttempts = 0;
   let pollingInterval: number | null = null;
 
-  async function startSolver(scheduleId: string, request: SolverRequest): Promise<string | null> {
+  function toAssignmentChanges(assignments: AssignmentMap): ScheduleVersionAssignmentChange[] {
+    const changes: ScheduleVersionAssignmentChange[] = [];
+
+    for (const [employeeId, dateMap] of Object.entries(assignments)) {
+      for (const [date, shiftId] of Object.entries(dateMap)) {
+        if (!shiftId) continue;
+        changes.push({
+          employeeId,
+          date,
+          shiftId,
+          isLocked: false,
+        });
+      }
+    }
+
+    return changes;
+  }
+
+  function toVersionScore(score?: { hard_score: number; soft_score: number }): ScheduleVersionScore | undefined {
+    if (!score) {
+      return undefined;
+    }
+
+  return {
+      hardScore: score.hard_score,
+      softScore: score.soft_score,
+    };
+  }
+
+  async function markVersionFailed(
+    context: SolverPollingContext,
+    solverExecutionId: string,
+    failureReason: string
+  ) {
+    await syncPhase2ScheduleVersionSolverResult(context.versionId, {
+      status: 'failed',
+      solverExecutionId,
+      failureReason,
+    });
+  }
+
+  function isStaleLocalSessionError(error: unknown): error is Phase2ScheduleConflictError {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const candidate = error as Phase2ScheduleConflictError;
+    return candidate.status === 409
+      && (candidate.code === 'solver_execution_mismatch' || candidate.code === 'stale_solver_callback');
+  }
+
+  function isAnotherVersionSolvingError(error: unknown): error is Phase2ScheduleConflictError {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+
+    const candidate = error as Phase2ScheduleConflictError;
+    return candidate.status === 409 && candidate.code === 'another_version_solving';
+  }
+
+  function handleStaleLocalSession(errorCode?: string) {
+    stopPolling();
+    status.value = 'error';
+    error.value = errorCode === 'solver_execution_mismatch'
+      ? '다른 세션에서 이미 새 실행으로 전환되었습니다. 화면을 새로고침해주세요.'
+      : '다른 세션에서 이미 처리된 실행입니다. 화면을 새로고침해주세요.';
+  }
+
+  async function startSolver(params: SolverStartParams): Promise<string | null> {
     // Reset state
     status.value = 'running';
     error.value = null;
@@ -35,40 +126,33 @@ export function useAISolver() {
     intermediateResults.value = null;
 
     try {
-      // 1. Update Supabase status to running
-      await supabase
-        .from('schedules')
-        .update({ status: 'running', solver_execution_id: null })
-        .eq('id', scheduleId);
-
-      // 2. Call API
-      const executionId = await createSolverExecution(request);
+      const executionId = await createSolverExecution(params.solverRequest);
       executionIdRef.value = executionId;
       console.log('[useAISolver] Solver started, executionId:', executionId);
 
-      // 3. Persist execution id for resume/reconnect
-      await supabase
-        .from('schedules')
-        .update({ solver_execution_id: executionId })
-        .eq('id', scheduleId);
+      await markPhase2ScheduleVersionSolving(params.versionId, {
+        solverExecutionId: executionId,
+      });
 
-      // 3. Start Polling
-      startPolling(executionId, scheduleId);
+      startPolling(executionId, {
+        versionId: params.versionId,
+        month: params.month,
+      });
       return executionId;
 
     } catch (e: unknown) {
       console.error('[useAISolver] Failed to start solver:', e);
-      error.value = e instanceof Error ? e.message : 'Failed to start solver';
+      error.value = isAnotherVersionSolvingError(e)
+        ? '이미 다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.'
+        : e instanceof Error
+          ? e.message
+          : 'Failed to start solver';
       status.value = 'error';
-      await supabase
-        .from('schedules')
-        .update({ status: 'error', solver_execution_id: null })
-        .eq('id', scheduleId);
       return null;
     }
   }
 
-  function startPolling(executionId: string, scheduleId: string) {
+  function startPolling(executionId: string, context: SolverPollingContext) {
     if (pollingInterval) clearInterval(pollingInterval);
     executionIdRef.value = executionId;
     pollingAttempts = 0;
@@ -77,9 +161,19 @@ export function useAISolver() {
       pollingAttempts++;
       if (pollingAttempts > maxPollingAttempts) {
         stopPolling();
-        error.value = 'Timeout: 근무표 생성이 10분을 초과했습니다.';
+        const failureReason = 'Timeout: 근무표 생성이 10분을 초과했습니다.';
+        error.value = failureReason;
         status.value = 'error';
-        await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
+        try {
+          await markVersionFailed(context, executionId, failureReason);
+        } catch (e: unknown) {
+          if (isStaleLocalSessionError(e)) {
+            handleStaleLocalSession(e.code);
+            return;
+          }
+
+          throw e;
+        }
         return;
       }
 
@@ -97,11 +191,8 @@ export function useAISolver() {
             // Fake progress if needed
             if (progress.value < 90) progress.value += 2;
             
-            // Save intermediate results if available
             if (response.result) {
-                const assignments = parseSolverResult(response.result);
-                intermediateResults.value = assignments;
-                await saveIntermediateResult(scheduleId, assignments, response.score);
+                intermediateResults.value = parseSolverResult(response.result);
             }
         } else if (appStatus === 'complete') {
             stopPolling();
@@ -111,23 +202,38 @@ export function useAISolver() {
                 }
 
                 const assignments = parseSolverResult(response.result);
-                await saveResult(scheduleId, assignments, response.score);
+                await syncPhase2ScheduleVersionSolverResult(context.versionId, {
+                  status: 'completed',
+                  solverExecutionId: executionId,
+                  assignments: toAssignmentChanges(assignments),
+                  score: toVersionScore(response.score),
+                });
                 progress.value = 100;
                 status.value = 'complete';
             } catch (e: unknown) {
+                if (isStaleLocalSessionError(e)) {
+                    handleStaleLocalSession(e.code);
+                    return;
+                }
+
                 console.error('[useAISolver] Failed to save final solver result:', e);
                 error.value = e instanceof Error ? e.message : '최종 결과 저장 중 오류가 발생했습니다.';
                 status.value = 'error';
-                await supabase
-                  .from('schedules')
-                  .update({ status: 'error', solver_execution_id: null })
-                  .eq('id', scheduleId);
             }
         } else if (appStatus === 'error') {
             stopPolling();
             error.value = response.error_message || 'AI Solver 오류';
+            try {
+              await markVersionFailed(context, executionId, error.value);
+            } catch (e: unknown) {
+              if (isStaleLocalSessionError(e)) {
+                handleStaleLocalSession(e.code);
+                return;
+              }
+
+              throw e;
+            }
             status.value = 'error';
-            await supabase.from('schedules').update({ status: 'error' }).eq('id', scheduleId);
         } else {
             status.value = appStatus;
         }
@@ -144,67 +250,6 @@ export function useAISolver() {
           clearInterval(pollingInterval);
           pollingInterval = null;
       }
-  }
-
-  async function saveIntermediateResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
-      console.log('[saveIntermediateResult] Saving intermediate results to database...');
-      // Update schedule with intermediate score (don't change status)
-      await supabase.from('schedules').update({
-          hard_score: score?.hard_score || 0,
-          soft_score: score?.soft_score || 0
-      }).eq('id', scheduleId);
-
-      // Save assignments to DB
-      await saveAssignmentsToDb(scheduleId, assignments);
-      console.log('[saveIntermediateResult] Saved intermediate results.');
-  }
-
-  async function saveResult(scheduleId: string, assignments: AssignmentMap, score?: { hard_score: number, soft_score: number }) {
-      console.log('[saveResult] Saving final results to database...');
-      // Save assignments to DB first, then publish complete status as the final commit signal.
-      await saveAssignmentsToDb(scheduleId, assignments);
-      await refreshPreferenceResolution(scheduleId);
-      await supabase.from('schedules').update({
-          status: 'complete',
-          hard_score: score?.hard_score || 0,
-          soft_score: score?.soft_score || 0
-      }).eq('id', scheduleId);
-      console.log('[saveResult] Saved final results.');
-  }
-
-  async function saveAssignmentsToDb(scheduleId: string, assignments: AssignmentMap) {
-
-      // Transform AssignmentMap to DB rows
-      const rows = [];
-      for (const [employeeId, dateMap] of Object.entries(assignments)) {
-          for (const [date, shiftId] of Object.entries(dateMap)) {
-              if (shiftId) { // shiftId is UUID from parseSolverResult
-                  rows.push({
-                      schedule_id: scheduleId,
-                      employee_id: employeeId,
-                      shift_id: shiftId,
-                      date: date,
-                      is_locked: false
-                  });
-              }
-          }
-      }
-
-      // Bulk replace
-      const { error: deleteError } = await supabase.from('schedule_assignments').delete().eq('schedule_id', scheduleId);
-      if (deleteError) {
-          console.error('Failed to delete old assignments:', deleteError);
-          throw deleteError;
-      }
-
-      if (rows.length > 0) {
-          const { error } = await supabase.from('schedule_assignments').insert(rows);
-          if (error) {
-              console.error('Failed to insert new assignments:', error);
-              throw error;
-          }
-      }
-      console.log('[saveAssignmentsToDb] Saved', rows.length, 'assignments.');
   }
 
   onUnmounted(() => {

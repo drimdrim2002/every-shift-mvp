@@ -4,6 +4,7 @@ import {
   buildStep5Route,
   getDefaultScheduleVersionId,
   resolveStep4VersionState,
+  resolveStep5RunningVersion,
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver'
 
@@ -32,6 +33,7 @@ const compareResponse = {
       latestEvaluationResultStatus: null,
       comparisonMetrics: null,
       finalizationGate: null,
+      activeSolverExecutionId: null,
       isSelected: false,
       isFinalized: false,
     },
@@ -55,6 +57,7 @@ const compareResponse = {
       latestEvaluationResultStatus: null,
       comparisonMetrics: null,
       finalizationGate: null,
+      activeSolverExecutionId: null,
       isSelected: true,
       isFinalized: false,
     },
@@ -121,6 +124,50 @@ describe('scheduleVersionResolver', () => {
       query: {
         version: 'version-2',
       },
+    })
+  })
+
+  it('finds the single authoritative running version for Step5 resume', () => {
+    expect(
+      resolveStep5RunningVersion({
+        ...compareResponse,
+        versions: [
+          compareResponse.versions[0],
+          {
+            ...compareResponse.versions[1],
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
+          },
+        ],
+      })
+    ).toEqual({
+      issue: null,
+      runningVersionId: 'version-2',
+      runningExecutionId: 'exec-1',
+    })
+  })
+
+  it('fails fast when compare exposes multiple running versions', () => {
+    expect(
+      resolveStep5RunningVersion({
+        ...compareResponse,
+        versions: [
+          {
+            ...compareResponse.versions[0],
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
+          },
+          {
+            ...compareResponse.versions[1],
+            status: 'solving',
+            activeSolverExecutionId: 'exec-2',
+          },
+        ],
+      })
+    ).toEqual({
+      issue: 'multiple',
+      runningVersionId: null,
+      runningExecutionId: null,
     })
   })
 })

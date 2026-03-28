@@ -11,6 +11,14 @@ import type {
   ScheduleCompareResponse,
   ScheduleReviewTab,
   ScheduleReviewResponse,
+  CreateScheduleVersionRequest,
+  CreateScheduleVersionResponse,
+  ScheduleVersionSolveRequest,
+  ScheduleVersionSolveResponse,
+  ScheduleVersionSolverResultRequest,
+  ScheduleVersionSolverResultResponse,
+  PatchScheduleVersionAssignmentsRequest,
+  PatchScheduleVersionAssignmentsResponse,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
@@ -61,6 +69,7 @@ interface RawSchedulePreference {
 }
 
 type PreferenceScopeColumn = 'schedule_id' | 'schedule_version_id';
+type AssignmentScopeColumn = 'schedule_id' | 'schedule_version_id';
 
 interface RawScopedSchedulePreference extends RawSchedulePreference {
   schedule_version_id?: string;
@@ -145,7 +154,7 @@ function createPhase2ScheduleError(payload: unknown, status: number): Error {
 async function callPhase2Schedule<T>(
   path: string,
   options: {
-    method: 'GET' | 'POST';
+    method: 'GET' | 'POST' | 'PATCH';
     body?: unknown;
   }
 ): Promise<T> {
@@ -236,6 +245,55 @@ export async function selectPhase2ScheduleVersion(
     `/schedule-versions/${versionId}/select`,
     {
       method: 'POST',
+    }
+  );
+}
+
+export async function createPhase2ScheduleVersion(
+  scheduleId: string,
+  request: CreateScheduleVersionRequest
+): Promise<CreateScheduleVersionResponse> {
+  return callPhase2Schedule<CreateScheduleVersionResponse>(`/schedules/${scheduleId}/versions`, {
+    method: 'POST',
+    body: request,
+  });
+}
+
+export async function markPhase2ScheduleVersionSolving(
+  versionId: string,
+  request: ScheduleVersionSolveRequest
+): Promise<ScheduleVersionSolveResponse> {
+  return callPhase2Schedule<ScheduleVersionSolveResponse>(
+    `/schedule-versions/${versionId}/solve`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
+export async function syncPhase2ScheduleVersionSolverResult(
+  versionId: string,
+  request: ScheduleVersionSolverResultRequest
+): Promise<ScheduleVersionSolverResultResponse> {
+  return callPhase2Schedule<ScheduleVersionSolverResultResponse>(
+    `/schedule-versions/${versionId}/solver-result`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
+export async function patchPhase2ScheduleVersionAssignments(
+  versionId: string,
+  request: PatchScheduleVersionAssignmentsRequest
+): Promise<PatchScheduleVersionAssignmentsResponse> {
+  return callPhase2Schedule<PatchScheduleVersionAssignmentsResponse>(
+    `/schedule-versions/${versionId}/assignments`,
+    {
+      method: 'PATCH',
+      body: request,
     }
   );
 }
@@ -499,7 +557,10 @@ export async function saveScheduleVersionPreferences(
 }
 
 // 요청 반영 상태 초기화
-export async function resetPreferenceResolution(scheduleId: string): Promise<void> {
+async function resetPreferenceResolutionByScope(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string
+): Promise<void> {
   const { error } = await supabase
     .from('schedule_preferences')
     .update({
@@ -507,16 +568,31 @@ export async function resetPreferenceResolution(scheduleId: string): Promise<voi
       resolved_shift_id: null,
       resolved_at: null,
     })
-    .eq('schedule_id', scheduleId);
+    .eq(scopeColumn, scopeId);
 
   if (error) {
     throw new Error(`요청 상태 초기화 실패: ${error.message}`);
   }
 }
 
+export async function resetPreferenceResolution(scheduleId: string): Promise<void> {
+  return resetPreferenceResolutionByScope('schedule_id', scheduleId);
+}
+
+export async function resetScheduleVersionPreferenceResolution(
+  scheduleVersionId: string
+): Promise<void> {
+  return resetPreferenceResolutionByScope('schedule_version_id', scheduleVersionId);
+}
+
 // schedule_assignments 결과 기준으로 요청 반영 상태 갱신
-export async function refreshPreferenceResolution(scheduleId: string): Promise<SchedulePreference[]> {
-  const { preferences } = await getSchedulePreferences(scheduleId);
+async function refreshPreferenceResolutionByScope(
+  scopeColumn: PreferenceScopeColumn,
+  scopeId: string
+): Promise<SchedulePreference[]> {
+  const { preferences } = scopeColumn === 'schedule_version_id'
+    ? await getScheduleVersionPreferences(scopeId)
+    : await getSchedulePreferences(scopeId);
   if (preferences.length === 0) return [];
 
   const assignmentRows: AssignmentWithShiftId[] = [];
@@ -528,7 +604,7 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
     const { data, error } = await supabase
       .from('schedule_assignments')
       .select('employee_id, shift_id, date, shifts(code)')
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) {
@@ -589,8 +665,21 @@ export async function refreshPreferenceResolution(scheduleId: string): Promise<S
   return (data || []) as SchedulePreference[];
 }
 
+export async function refreshPreferenceResolution(scheduleId: string): Promise<SchedulePreference[]> {
+  return refreshPreferenceResolutionByScope('schedule_id', scheduleId);
+}
+
+export async function refreshScheduleVersionPreferenceResolution(
+  scheduleVersionId: string
+): Promise<SchedulePreference[]> {
+  return refreshPreferenceResolutionByScope('schedule_version_id', scheduleVersionId);
+}
+
 // 근무표 배정 조회 (assignments와 offReasons, comments 함께 반환)
-export async function getScheduleAssignments(scheduleId: string): Promise<{
+async function getScheduleAssignmentsByScope(
+  scopeColumn: AssignmentScopeColumn,
+  scopeId: string
+): Promise<{
   assignments: AssignmentMap;
   offReasons: OffReasonMap;
   comments: CommentMap;
@@ -608,7 +697,7 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
     const { data, error } = await supabase
       .from('schedule_assignments')
       .select('employee_id, date, shifts(code), off_reason, comment')
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
@@ -664,6 +753,22 @@ export async function getScheduleAssignments(scheduleId: string): Promise<{
   console.log('[getScheduleAssignments] Comment keys count:', Object.keys(comments).length);
 
   return { assignments, offReasons, comments };
+}
+
+export async function getScheduleAssignments(scheduleId: string): Promise<{
+  assignments: AssignmentMap;
+  offReasons: OffReasonMap;
+  comments: CommentMap;
+}> {
+  return getScheduleAssignmentsByScope('schedule_id', scheduleId);
+}
+
+export async function getScheduleVersionAssignments(scheduleVersionId: string): Promise<{
+  assignments: AssignmentMap;
+  offReasons: OffReasonMap;
+  comments: CommentMap;
+}> {
+  return getScheduleAssignmentsByScope('schedule_version_id', scheduleVersionId);
 }
 
 // 배정 수정
@@ -900,7 +1005,10 @@ export async function getPlanningEmployees(organizationId: string): Promise<Plan
 }
 
 // 스케줄 배정 정보 조회 (Planning용)
-export async function getPlanningAssignments(scheduleId: string): Promise<PlanningAssignment[]> {
+async function getPlanningAssignmentsByScope(
+  scopeColumn: AssignmentScopeColumn,
+  scopeId: string
+): Promise<PlanningAssignment[]> {
   const allData: PlanningAssignment[] = [];
   let from = 0;
   const pageSize = 1000;
@@ -911,7 +1019,7 @@ export async function getPlanningAssignments(scheduleId: string): Promise<Planni
     const { data, error } = await supabase
       .from('schedule_assignments')
       .select('employee_id, shift_id, date, is_locked')
-      .eq('schedule_id', scheduleId)
+      .eq(scopeColumn, scopeId)
       .range(from, from + pageSize - 1);
 
     if (error) throw new Error(`배정 정보 조회 실패: ${error.message}`);
@@ -931,4 +1039,14 @@ export async function getPlanningAssignments(scheduleId: string): Promise<Planni
   }
 
   return allData;
+}
+
+export async function getPlanningAssignments(scheduleId: string): Promise<PlanningAssignment[]> {
+  return getPlanningAssignmentsByScope('schedule_id', scheduleId);
+}
+
+export async function getPlanningAssignmentsForVersion(
+  scheduleVersionId: string
+): Promise<PlanningAssignment[]> {
+  return getPlanningAssignmentsByScope('schedule_version_id', scheduleVersionId);
 }

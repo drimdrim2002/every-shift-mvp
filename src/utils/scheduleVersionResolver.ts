@@ -51,6 +51,31 @@ export function resolveStep5VersionState(
   };
 }
 
+export function resolveStep5RunningVersion(compare: ScheduleCompareResponse): {
+  issue: 'missing' | 'multiple' | null;
+  runningVersionId: string | null;
+  runningExecutionId: string | null;
+} {
+  const runningVersions = compare.versions.filter((version) => {
+    return version.status === 'solving' && version.activeSolverExecutionId !== null;
+  });
+
+  if (runningVersions.length === 1) {
+    const [runningVersion] = runningVersions;
+    return {
+      issue: null,
+      runningVersionId: runningVersion?.id ?? null,
+      runningExecutionId: runningVersion?.activeSolverExecutionId ?? null,
+    };
+  }
+
+  return {
+    issue: runningVersions.length === 0 ? 'missing' : 'multiple',
+    runningVersionId: null,
+    runningExecutionId: null,
+  };
+}
+
 export function buildStep5Route(scheduleId: string, previewVersionId: string | null) {
   if (!previewVersionId) {
     return {

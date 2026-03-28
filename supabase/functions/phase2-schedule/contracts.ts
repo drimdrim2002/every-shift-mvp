@@ -1,5 +1,13 @@
-export type HttpMethod = 'GET' | 'POST' | 'OPTIONS';
-export type RouteName = 'ensure' | 'compare' | 'review' | 'select';
+export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'OPTIONS';
+export type RouteName =
+  | 'ensure'
+  | 'compare'
+  | 'review'
+  | 'select'
+  | 'createVersion'
+  | 'solve'
+  | 'solverResult'
+  | 'patchAssignments';
 export type ScheduleVersionStatus =
   | 'draft'
   | 'solving'
@@ -112,6 +120,7 @@ export interface ScheduleVersionSummary {
   latestEvaluationResultStatus: ScheduleEvaluationResultStatus | null;
   comparisonMetrics: ScheduleCompareMetrics | null;
   finalizationGate: ScheduleFinalizationGate | null;
+  activeSolverExecutionId: string | null;
   isSelected: boolean;
   isFinalized: boolean;
 }
@@ -168,6 +177,74 @@ export interface SelectResponse {
   selectedVersionId: string;
 }
 
+export interface CreateVersionRequest {
+  baseVersionId: string;
+  name: string | null;
+  sourceType: ScheduleVersionSourceType;
+  inputDiffSummary: ScheduleInputDiffSummary;
+}
+
+export interface CreateVersionResponse {
+  scheduleId: string;
+  createdVersionId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
+export interface SolveRequest {
+  solverExecutionId: string;
+}
+
+export interface SolveResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  solverExecutionId: string;
+}
+
+export interface ScheduleVersionScore {
+  hardScore: number;
+  softScore: number;
+}
+
+export interface ScheduleVersionAssignmentChange {
+  employeeId: string;
+  date: string;
+  shiftId: string | null;
+  comment: string | null;
+  offReason: string | null;
+  isLocked: boolean;
+}
+
+export interface SolverResultRequest {
+  status: 'completed' | 'failed';
+  assignments: ScheduleVersionAssignmentChange[];
+  score: ScheduleVersionScore | null;
+  failureReason: string | null;
+  solverExecutionId: string;
+}
+
+export interface SolverResultResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  solverExecutionId: string | null;
+  hardScore: number | null;
+  softScore: number | null;
+  failureReason: string | null;
+}
+
+export interface PatchAssignmentsRequest {
+  changes: ScheduleVersionAssignmentChange[];
+}
+
+export interface PatchAssignmentsResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  currentRevision: number;
+  manualEditCount: number;
+  changedCells: number;
+}
+
 export class ContractError extends Error {
   constructor(
     public readonly code: string,
@@ -202,6 +279,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     segments: ['schedules', ':scheduleId', 'compare'],
   },
   {
+    name: 'createVersion',
+    methods: ['POST'],
+    segments: ['schedules', ':scheduleId', 'versions'],
+  },
+  {
     name: 'review',
     methods: ['GET'],
     segments: ['schedule-versions', ':versionId', 'review'],
@@ -210,6 +292,21 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'select',
     methods: ['POST'],
     segments: ['schedule-versions', ':versionId', 'select'],
+  },
+  {
+    name: 'solve',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'solve'],
+  },
+  {
+    name: 'solverResult',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'solver-result'],
+  },
+  {
+    name: 'patchAssignments',
+    methods: ['PATCH'],
+    segments: ['schedule-versions', ':versionId', 'assignments'],
   },
 ];
 
@@ -221,6 +318,10 @@ export function isValidUuid(value: string): boolean {
 
 export function isValidMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+export function isValidDate(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(value);
 }
 
 export function parseUuidParam(name: string, value: string): string {
@@ -315,4 +416,230 @@ export function parseEnsureRequest(payload: unknown): EnsureRequest {
   }
 
   return { organizationId, month };
+}
+
+function parseInputDiffSummary(value: unknown): ScheduleInputDiffSummary {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'inputDiffSummary must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const changedOffRequests = record.changedOffRequests;
+  const changedLockedAssignments = record.changedLockedAssignments;
+  const changedSiteRequirements = record.changedSiteRequirements;
+  const note = record.note;
+
+  if (typeof changedOffRequests !== 'number' || changedOffRequests < 0) {
+    throw new ContractError('bad_request', 'changedOffRequests must be a non-negative number', 400);
+  }
+
+  if (
+    typeof changedLockedAssignments !== 'number'
+    || changedLockedAssignments < 0
+  ) {
+    throw new ContractError(
+      'bad_request',
+      'changedLockedAssignments must be a non-negative number',
+      400
+    );
+  }
+
+  if (
+    typeof changedSiteRequirements !== 'number'
+    || changedSiteRequirements < 0
+  ) {
+    throw new ContractError(
+      'bad_request',
+      'changedSiteRequirements must be a non-negative number',
+      400
+    );
+  }
+
+  if (note !== null && note !== undefined && typeof note !== 'string') {
+    throw new ContractError('bad_request', 'note must be a string or null', 400);
+  }
+
+  return {
+    changedOffRequests,
+    changedLockedAssignments,
+    changedSiteRequirements,
+    note: typeof note === 'string' ? note : null,
+  };
+}
+
+function parseScheduleVersionAssignmentChange(
+  payload: unknown
+): ScheduleVersionAssignmentChange {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'assignment change must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const employeeId = typeof record.employeeId === 'string' ? record.employeeId : '';
+  const date = typeof record.date === 'string' ? record.date : '';
+  const shiftId = record.shiftId;
+  const comment = record.comment;
+  const offReason = record.offReason;
+  const isLocked = record.isLocked;
+
+  if (!employeeId || !isValidUuid(employeeId)) {
+    throw new ContractError('bad_request', 'employeeId must be a valid UUID', 400);
+  }
+
+  if (!isValidDate(date)) {
+    throw new ContractError('bad_request', 'date must be in YYYY-MM-DD format', 400);
+  }
+
+  if (shiftId !== null && shiftId !== undefined && (typeof shiftId !== 'string' || !isValidUuid(shiftId))) {
+    throw new ContractError('bad_request', 'shiftId must be a valid UUID or null', 400);
+  }
+
+  if (comment !== null && comment !== undefined && typeof comment !== 'string') {
+    throw new ContractError('bad_request', 'comment must be a string or null', 400);
+  }
+
+  if (offReason !== null && offReason !== undefined && typeof offReason !== 'string') {
+    throw new ContractError('bad_request', 'offReason must be a string or null', 400);
+  }
+
+  if (isLocked !== undefined && typeof isLocked !== 'boolean') {
+    throw new ContractError('bad_request', 'isLocked must be a boolean when provided', 400);
+  }
+
+  return {
+    employeeId,
+    date,
+    shiftId: typeof shiftId === 'string' ? shiftId : null,
+    comment: typeof comment === 'string' ? comment : null,
+    offReason: typeof offReason === 'string' ? offReason : null,
+    isLocked: typeof isLocked === 'boolean' ? isLocked : false,
+  };
+}
+
+function parseScheduleVersionScore(payload: unknown): ScheduleVersionScore {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'score must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const hardScore = record.hardScore;
+  const softScore = record.softScore;
+
+  if (typeof hardScore !== 'number') {
+    throw new ContractError('bad_request', 'hardScore must be a number', 400);
+  }
+
+  if (typeof softScore !== 'number') {
+    throw new ContractError('bad_request', 'softScore must be a number', 400);
+  }
+
+  return {
+    hardScore,
+    softScore,
+  };
+}
+
+export function parseCreateVersionRequest(payload: unknown): CreateVersionRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'create version request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const baseVersionId = typeof record.baseVersionId === 'string' ? record.baseVersionId : '';
+  const name = record.name;
+  const sourceType = record.sourceType;
+
+  if (!baseVersionId || !isValidUuid(baseVersionId)) {
+    throw new ContractError('bad_request', 'baseVersionId must be a valid UUID', 400);
+  }
+
+  if (name !== null && name !== undefined && typeof name !== 'string') {
+    throw new ContractError('bad_request', 'name must be a string or null', 400);
+  }
+
+  if (
+    sourceType !== 'initial_solve'
+    && sourceType !== 're_solve'
+    && sourceType !== 'manual_variant'
+  ) {
+    throw new ContractError('bad_request', 'sourceType is invalid', 400);
+  }
+
+  return {
+    baseVersionId,
+    name: typeof name === 'string' ? name : null,
+    sourceType,
+    inputDiffSummary: parseInputDiffSummary(record.inputDiffSummary),
+  };
+}
+
+export function parseScheduleVersionSolveRequest(payload: unknown): SolveRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'solve request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const solverExecutionId =
+    typeof record.solverExecutionId === 'string' ? record.solverExecutionId.trim() : '';
+
+  if (!solverExecutionId) {
+    throw new ContractError('bad_request', 'solverExecutionId is required', 400);
+  }
+
+  return { solverExecutionId };
+}
+
+export function parseScheduleVersionSolverResultRequest(payload: unknown): SolverResultRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'solver result request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const status = record.status;
+  const failureReason = record.failureReason;
+
+  if (status !== 'completed' && status !== 'failed') {
+    throw new ContractError('bad_request', 'status must be completed or failed', 400);
+  }
+
+  if (
+    failureReason !== null
+    && failureReason !== undefined
+    && typeof failureReason !== 'string'
+  ) {
+    throw new ContractError('bad_request', 'failureReason must be a string or null', 400);
+  }
+
+  const solveRequest = parseScheduleVersionSolveRequest(payload);
+  const assignments = Array.isArray(record.assignments)
+    ? record.assignments.map((item) => parseScheduleVersionAssignmentChange(item))
+    : [];
+  const score = record.score == null ? null : parseScheduleVersionScore(record.score);
+
+  return {
+    status,
+    solverExecutionId: solveRequest.solverExecutionId,
+    assignments,
+    score,
+    failureReason: typeof failureReason === 'string' ? failureReason : null,
+  };
+}
+
+export function parsePatchScheduleVersionAssignmentsRequest(
+  payload: unknown
+): PatchAssignmentsRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'patch assignments request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const changes = record.changes;
+
+  if (!Array.isArray(changes)) {
+    throw new ContractError('bad_request', 'changes must be an array', 400);
+  }
+
+  return {
+    changes: changes.map((change) => parseScheduleVersionAssignmentChange(change)),
+  };
 }

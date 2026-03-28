@@ -179,6 +179,61 @@ describe('phase2 schedule api helpers', () => {
     });
   });
 
+  it('preserves compare payload fields for authoritative running-version resume', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-compare',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-1',
+          selectedVersionId: 'version-2',
+          finalizedVersionId: null,
+          versions: [
+            {
+              id: 'version-2',
+              scheduleId: 'schedule-1',
+              versionNo: 2,
+              name: 'V2',
+              sourceType: 're_solve',
+              baseVersionId: 'version-1',
+              status: 'solving',
+              currentRevision: 3,
+              manualEditCount: 4,
+              inputDiffSummary: {
+                changedOffRequests: 1,
+                changedLockedAssignments: 0,
+                changedSiteRequirements: 0,
+                note: null,
+              },
+              latestEvaluationId: null,
+              latestEvaluationResultStatus: null,
+              comparisonMetrics: null,
+              finalizationGate: null,
+              activeSolverExecutionId: 'exec-compare',
+              isSelected: true,
+              isFinalized: false,
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { getPhase2ScheduleCompare } = await import('@/api/schedule');
+    const response = await getPhase2ScheduleCompare('schedule-1');
+
+    expect(response.versions[0]?.activeSolverExecutionId).toBe('exec-compare');
+  });
+
   it('uses GET for read helpers and does not send a mutation body', async () => {
     getSessionMock.mockResolvedValue({
       data: {
@@ -244,6 +299,280 @@ describe('phase2 schedule api helpers', () => {
       })
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
+  });
+
+  it('calls Slice 5 mutation helpers with the new version-scoped endpoints', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-slice5',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-1',
+            createdVersionId: 'version-2',
+            selectedVersionId: 'version-1',
+            finalizedVersionId: null,
+            versions: [],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-2',
+            status: 'solving',
+            solverExecutionId: 'exec-1',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-2',
+            status: 'review_pending',
+            solverExecutionId: 'exec-1',
+            hardScore: 10,
+            softScore: 20,
+            failureReason: null,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-2',
+            status: 'review_pending',
+            currentRevision: 3,
+            manualEditCount: 2,
+            changedCells: 2,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const {
+      createPhase2ScheduleVersion,
+      markPhase2ScheduleVersionSolving,
+      syncPhase2ScheduleVersionSolverResult,
+      patchPhase2ScheduleVersionAssignments,
+    } = await import('@/api/schedule');
+
+    await createPhase2ScheduleVersion('11111111-1111-4111-8111-111111111111', {
+      baseVersionId: '22222222-2222-4222-8222-222222222222',
+      name: 'V2',
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 1,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: 'retry',
+      },
+    });
+    await markPhase2ScheduleVersionSolving('33333333-3333-4333-8333-333333333333', {
+      solverExecutionId: 'exec-1',
+    });
+    await syncPhase2ScheduleVersionSolverResult('33333333-3333-4333-8333-333333333333', {
+      status: 'completed',
+      solverExecutionId: 'exec-1',
+      assignments: [
+        {
+          employeeId: '44444444-4444-4444-8444-444444444444',
+          date: '2026-04-01',
+          shiftId: '55555555-5555-4555-8555-555555555555',
+          isLocked: false,
+        },
+      ],
+      score: {
+        hardScore: 10,
+        softScore: 20,
+      },
+    });
+    await patchPhase2ScheduleVersionAssignments('33333333-3333-4333-8333-333333333333', {
+      changes: [
+        {
+          employeeId: '44444444-4444-4444-8444-444444444444',
+          date: '2026-04-02',
+          shiftId: '55555555-5555-4555-8555-555555555555',
+          comment: 'manual move',
+          isLocked: false,
+        },
+        {
+          employeeId: '44444444-4444-4444-8444-444444444444',
+          date: '2026-04-03',
+          shiftId: null,
+          offReason: null,
+          isLocked: false,
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/11111111-1111-4111-8111-111111111111/versions',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          baseVersionId: '22222222-2222-4222-8222-222222222222',
+          name: 'V2',
+          sourceType: 're_solve',
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'retry',
+          },
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/33333333-3333-4333-8333-333333333333/solve',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          solverExecutionId: 'exec-1',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/33333333-3333-4333-8333-333333333333/solver-result',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          status: 'completed',
+          solverExecutionId: 'exec-1',
+          assignments: [
+            {
+              employeeId: '44444444-4444-4444-8444-444444444444',
+              date: '2026-04-01',
+              shiftId: '55555555-5555-4555-8555-555555555555',
+              isLocked: false,
+            },
+          ],
+          score: {
+            hardScore: 10,
+            softScore: 20,
+          },
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/33333333-3333-4333-8333-333333333333/assignments',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          changes: [
+            {
+              employeeId: '44444444-4444-4444-8444-444444444444',
+              date: '2026-04-02',
+              shiftId: '55555555-5555-4555-8555-555555555555',
+              comment: 'manual move',
+              isLocked: false,
+            },
+            {
+              employeeId: '44444444-4444-4444-8444-444444444444',
+              date: '2026-04-03',
+              shiftId: null,
+              offReason: null,
+              isLocked: false,
+            },
+          ],
+        }),
+      })
+    );
+  });
+
+  it('propagates 409 solver-result conflict envelopes for stale local sessions', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-conflict',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'solver_execution_mismatch',
+          message: 'Solver execution no longer matches the active version run',
+        }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { syncPhase2ScheduleVersionSolverResult } = await import('@/api/schedule');
+
+    await expect(
+      syncPhase2ScheduleVersionSolverResult('33333333-3333-4333-8333-333333333333', {
+        status: 'completed',
+        solverExecutionId: 'exec-1',
+        assignments: [],
+      })
+    ).rejects.toMatchObject({
+      code: 'solver_execution_mismatch',
+      status: 409,
+    });
+  });
+
+  it('propagates 409 solve-start conflict envelopes for another running version', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-conflict',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'another_version_solving',
+          message: 'Another version is already solving for this schedule',
+        }),
+        {
+          status: 409,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { markPhase2ScheduleVersionSolving } = await import('@/api/schedule');
+
+    await expect(
+      markPhase2ScheduleVersionSolving('33333333-3333-4333-8333-333333333333', {
+        solverExecutionId: 'exec-1',
+      })
+    ).rejects.toMatchObject({
+      code: 'another_version_solving',
+      status: 409,
+    });
   });
 
   it('reads version-scoped preferences by schedule_version_id', async () => {

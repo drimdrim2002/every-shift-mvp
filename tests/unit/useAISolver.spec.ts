@@ -16,20 +16,22 @@ vi.mock('@/api/solver', () => ({
 }));
 
 vi.mock('@/api/schedule', () => ({
-  refreshPreferenceResolution: vi.fn(),
-}));
-
-vi.mock('@/api/supabase', () => ({
-  supabase: {
-    from: vi.fn(),
-  },
+  markPhase2ScheduleVersionSolving: vi.fn(),
+  syncPhase2ScheduleVersionSolverResult: vi.fn(),
 }));
 
 import { useAISolver } from '@/composables/useAISolver';
-import { getSolverStatus, mapApiStatusToAppStatus, parseSolverResult } from '@/api/solver';
-import { refreshPreferenceResolution } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
-import type { SolverStatusResponse } from '@/types/schedule';
+import {
+  createSolverExecution,
+  getSolverStatus,
+  mapApiStatusToAppStatus,
+  parseSolverResult,
+} from '@/api/solver';
+import {
+  markPhase2ScheduleVersionSolving,
+  syncPhase2ScheduleVersionSolverResult,
+} from '@/api/schedule';
+import type { SolverRequest, SolverStatusResponse } from '@/types/schedule';
 
 interface Deferred<T> {
   promise: Promise<T>;
@@ -57,6 +59,10 @@ function createCompletedStatusResponse(executionId: string): SolverStatusRespons
   return {
     execution_id: executionId,
     status: 'COMPLETED',
+    score: {
+      hard_score: 0,
+      soft_score: 0,
+    },
     result: {
       availabilityList: [],
       employeeList: [],
@@ -70,49 +76,23 @@ function createCompletedStatusResponse(executionId: string): SolverStatusRespons
   };
 }
 
-function setupSupabaseMock(options?: {
-  insertDeferred?: Deferred<{ error: null }>;
-  insertReject?: Error;
-  callOrder?: string[];
-}) {
-  const fromMock = vi.mocked(supabase.from);
-
-  fromMock.mockImplementation((table: string) => {
-    if (table === 'schedule_assignments') {
-      return {
-        delete: () => ({
-          eq: vi.fn(async () => {
-            options?.callOrder?.push('assignments-delete');
-            return { error: null };
-          }),
-        }),
-        insert: vi.fn(async () => {
-          options?.callOrder?.push('assignments-insert');
-          if (options?.insertReject) {
-            return { error: options.insertReject };
-          }
-          if (options?.insertDeferred) {
-            return options.insertDeferred.promise;
-          }
-          return { error: null };
-        }),
-      } as unknown as ReturnType<typeof supabase.from>;
-    }
-
-    if (table === 'schedules') {
-      return {
-        update: vi.fn((payload: { status?: string }) => ({
-          eq: vi.fn(async () => {
-            if (payload.status === 'complete') options?.callOrder?.push('schedule-complete');
-            if (payload.status === 'error') options?.callOrder?.push('schedule-error');
-            return { error: null };
-          }),
-        })),
-      } as unknown as ReturnType<typeof supabase.from>;
-    }
-
-    throw new Error(`Unexpected table mock request: ${table}`);
-  });
+function createSolverRequest(): SolverRequest {
+  return {
+    organization: {
+      id: 'org-1',
+      name: 'Hospital',
+      type: 'hospital',
+      shifts: [],
+      lastHistoricalDate: '2025-11-30',
+      firstDraftDate: '2025-12-01',
+      publishLength: 5,
+      draftLength: 31,
+    },
+    employees: [],
+    history: [],
+    undesirable: [],
+    requirements: [],
+  };
 }
 
 describe('useAISolver', () => {
@@ -126,19 +106,79 @@ describe('useAISolver', () => {
     vi.useRealTimers();
   });
 
-  it('sets complete only after final DB save is finished', async () => {
-    const insertDeferred = createDeferred<{ error: null }>();
-    setupSupabaseMock({ insertDeferred });
+  it('marks the target version solving immediately after creating the solver execution', async () => {
+    const callOrder: string[] = [];
+    vi.mocked(createSolverExecution).mockImplementation(async () => {
+      callOrder.push('solver-execution-created');
+      return 'exec-1';
+    });
+    vi.mocked(markPhase2ScheduleVersionSolving).mockImplementation(async () => {
+      callOrder.push('version-solving');
+      return {
+        scheduleVersionId: 'version-2',
+        status: 'solving',
+        solverExecutionId: 'exec-1',
+      };
+    });
+
+    const solver = useAISolver();
+    const executionId = await solver.startSolver({
+      versionId: 'version-2',
+      month: '2025-12',
+      solverRequest: createSolverRequest(),
+    });
+
+    expect(executionId).toBe('exec-1');
+    expect(markPhase2ScheduleVersionSolving).toHaveBeenCalledWith('version-2', {
+      solverExecutionId: 'exec-1',
+    });
+    expect(callOrder).toEqual(['solver-execution-created', 'version-solving']);
+    expect(solver.status.value).toBe('running');
+  });
+
+  it('keeps local state fail-closed when solve-start returns another_version_solving', async () => {
+    vi.mocked(createSolverExecution).mockResolvedValue('exec-conflict');
+    vi.mocked(markPhase2ScheduleVersionSolving).mockRejectedValue(
+      Object.assign(new Error('Another version is already solving for this schedule'), {
+        code: 'another_version_solving',
+        status: 409,
+      })
+    );
+
+    const solver = useAISolver();
+    const executionId = await solver.startSolver({
+      versionId: 'version-2',
+      month: '2025-12',
+      solverRequest: createSolverRequest(),
+    });
+
+    expect(executionId).toBeNull();
+    expect(solver.status.value).toBe('error');
+    expect(solver.error.value).toBe('이미 다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.');
+  });
+
+  it('sets complete only after backend solver-result sync finishes', async () => {
+    const syncDeferred = createDeferred<{
+      scheduleVersionId: string;
+      status: 'review_pending';
+      solverExecutionId: null;
+      hardScore: number;
+      softScore: number;
+      failureReason: null;
+    }>();
     vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-1'));
     vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
     vi.mocked(parseSolverResult).mockReturnValue({
-      'emp-1': { '2025-12-01': 'shift-d' },
+      'emp-1': { '2025-12-01': 'shift-1' },
     });
-    vi.mocked(refreshPreferenceResolution).mockResolvedValue([]);
+    vi.mocked(syncPhase2ScheduleVersionSolverResult).mockReturnValue(syncDeferred.promise);
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-1', 'schedule-1');
+    solver.startPolling('exec-1', {
+      versionId: 'version-2',
+      month: '2025-12',
+    });
 
     vi.advanceTimersByTime(10000);
     await flushPromises();
@@ -146,61 +186,104 @@ describe('useAISolver', () => {
     expect(getSolverStatus).toHaveBeenCalledTimes(1);
     expect(solver.status.value).toBe('running');
 
-    insertDeferred.resolve({ error: null });
+    syncDeferred.resolve({
+      scheduleVersionId: 'version-2',
+      status: 'review_pending',
+      solverExecutionId: null,
+      hardScore: 0,
+      softScore: 0,
+      failureReason: null,
+    });
     for (let i = 0; i < 20 && solver.status.value !== 'complete'; i++) {
       await flushPromises(1);
     }
 
+    expect(syncPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-2', {
+      status: 'completed',
+      solverExecutionId: 'exec-1',
+      assignments: [
+        {
+          employeeId: 'emp-1',
+          date: '2025-12-01',
+          shiftId: 'shift-1',
+          isLocked: false,
+        },
+      ],
+      score: {
+        hardScore: 0,
+        softScore: 0,
+      },
+    });
     expect(solver.status.value).toBe('complete');
     expect(solver.progress.value).toBe(100);
   });
 
-  it('moves to error when final result save fails', async () => {
-    setupSupabaseMock({ insertReject: new Error('db insert failed') });
-    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-2'));
-    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
-    vi.mocked(parseSolverResult).mockReturnValue({
-      'emp-1': { '2025-12-01': 'shift-d' },
-    });
-    vi.mocked(refreshPreferenceResolution).mockResolvedValue([]);
-
-    const solver = useAISolver();
-    solver.status.value = 'running';
-    solver.startPolling('exec-2', 'schedule-2');
-
-    await vi.advanceTimersByTimeAsync(10000);
-    await flushPromises();
-
-    expect(solver.status.value).toBe('error');
-    expect(solver.error.value).toContain('db insert failed');
-  });
-
-  it('persists final data in order: assignments -> preferences -> schedule complete', async () => {
+  it('marks only the target version solve_failed before surfacing the error locally', async () => {
     const callOrder: string[] = [];
-    setupSupabaseMock({ callOrder });
-    vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-3'));
-    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
-    vi.mocked(parseSolverResult).mockReturnValue({
-      'emp-1': { '2025-12-01': 'shift-d' },
+    vi.mocked(getSolverStatus).mockResolvedValue({
+      execution_id: 'exec-2',
+      status: 'FAILED',
+      error_message: 'solver timeout',
     });
-    vi.mocked(refreshPreferenceResolution).mockImplementation(async () => {
-      callOrder.push('preferences-refresh');
-      return [];
+    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('error');
+    vi.mocked(syncPhase2ScheduleVersionSolverResult).mockImplementation(async () => {
+      callOrder.push('version-failed');
+      return {
+        scheduleVersionId: 'version-2',
+        status: 'solve_failed',
+        solverExecutionId: null,
+        hardScore: null,
+        softScore: null,
+        failureReason: 'solver timeout',
+      };
     });
 
     const solver = useAISolver();
     solver.status.value = 'running';
-    solver.startPolling('exec-3', 'schedule-3');
+    solver.startPolling('exec-2', {
+      versionId: 'version-2',
+      month: '2025-12',
+    });
 
     await vi.advanceTimersByTimeAsync(10000);
     await flushPromises();
 
-    expect(callOrder).toEqual([
-      'assignments-delete',
-      'assignments-insert',
-      'preferences-refresh',
-      'schedule-complete',
-    ]);
-    expect(solver.status.value).toBe('complete');
+    expect(callOrder).toEqual(['version-failed']);
+    expect(syncPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-2', {
+      status: 'failed',
+      solverExecutionId: 'exec-2',
+      failureReason: 'solver timeout',
+    });
+    expect(solver.status.value).toBe('error');
   });
+
+  it.each(['solver_execution_mismatch', 'stale_solver_callback'])(
+    'stops local polling without mutating the legacy mirror when solver-result sync returns %s',
+    async (code) => {
+      vi.mocked(getSolverStatus).mockResolvedValue(createCompletedStatusResponse('exec-3'));
+      vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
+      vi.mocked(parseSolverResult).mockReturnValue({
+        'emp-1': { '2025-12-01': 'shift-1' },
+      });
+      vi.mocked(syncPhase2ScheduleVersionSolverResult).mockRejectedValue(
+        Object.assign(new Error(code), {
+          code,
+          status: 409,
+        })
+      );
+
+      const solver = useAISolver();
+      solver.status.value = 'running';
+      solver.startPolling('exec-3', {
+        versionId: 'version-3',
+        month: '2025-12',
+      });
+
+      await vi.advanceTimersByTimeAsync(10000);
+      await flushPromises();
+
+      expect(solver.status.value).toBe('error');
+      expect(solver.error.value).toContain('다른 세션');
+    }
+  );
 });

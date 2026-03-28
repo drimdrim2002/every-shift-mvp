@@ -3,6 +3,10 @@ import { resolveAuthContext } from './auth.ts';
 import {
   allowedMethods,
   ContractError,
+  parseCreateVersionRequest,
+  parsePatchScheduleVersionAssignmentsRequest,
+  parseScheduleVersionSolveRequest,
+  parseScheduleVersionSolverResultRequest,
   type ErrorEnvelope,
   type HttpMethod,
   matchRoute,
@@ -13,18 +17,40 @@ import {
 } from './contracts.ts';
 import {
   compare as compareVersion,
+  createVersion,
   ensure as ensureSchedule,
+  markVersionSolving,
+  patchVersionAssignments,
   review as reviewVersion,
   select as selectVersion,
+  syncVersionSolverResult,
 } from './repository.ts';
-import type { CompareResponse, EnsureResponse, ReviewResponse, SelectResponse } from './contracts.ts';
+import type {
+  CompareResponse,
+  CreateVersionResponse,
+  EnsureResponse,
+  PatchAssignmentsResponse,
+  ReviewResponse,
+  SelectResponse,
+  SolveResponse,
+  SolverResultResponse,
+} from './contracts.ts';
 
-type ApiResponseBody = CompareResponse | EnsureResponse | ReviewResponse | SelectResponse | ErrorEnvelope;
+type ApiResponseBody =
+  | CompareResponse
+  | CreateVersionResponse
+  | EnsureResponse
+  | PatchAssignmentsResponse
+  | ReviewResponse
+  | SelectResponse
+  | SolveResponse
+  | SolverResultResponse
+  | ErrorEnvelope;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, content-type, apikey',
-  'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
   'Access-Control-Allow-Credentials': 'true',
 };
 
@@ -57,6 +83,9 @@ function mapErrorToStatus(code: string): number {
     case 'already_finalized':
     case 'invalid_selection_state':
     case 'conflict':
+    case 'another_version_solving':
+    case 'solver_execution_mismatch':
+    case 'stale_solver_callback':
       return 409;
     case 'not_found':
     case 'schedule_not_found':
@@ -180,6 +209,19 @@ Deno.serve(async (request) => {
       return createResponse(result, 200);
     }
 
+    if (route.route === 'createVersion') {
+      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
+      const payload = await parseJsonBody(request);
+      const createVersionInput = parseCreateVersionRequest(payload);
+      const result: CreateVersionResponse = await createVersion(
+        repositoryClient,
+        auth,
+        scheduleId,
+        createVersionInput
+      );
+      return createResponse(result, 200);
+    }
+
     if (route.route === 'review') {
       const versionId = parseUuidParam('versionId', route.params.versionId);
       const result: ReviewResponse = await reviewVersion(repositoryClient, auth, versionId);
@@ -189,6 +231,45 @@ Deno.serve(async (request) => {
     if (route.route === 'select') {
       const versionId = parseUuidParam('versionId', route.params.versionId);
       const result: SelectResponse = await selectVersion(repositoryClient, auth, versionId);
+      return createResponse(result, 200);
+    }
+
+    if (route.route === 'solve') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const solveInput = parseScheduleVersionSolveRequest(payload);
+      const result: SolveResponse = await markVersionSolving(
+        repositoryClient,
+        auth,
+        versionId,
+        solveInput
+      );
+      return createResponse(result, 200);
+    }
+
+    if (route.route === 'solverResult') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const solverResultInput = parseScheduleVersionSolverResultRequest(payload);
+      const result: SolverResultResponse = await syncVersionSolverResult(
+        repositoryClient,
+        auth,
+        versionId,
+        solverResultInput
+      );
+      return createResponse(result, 200);
+    }
+
+    if (route.route === 'patchAssignments') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const patchAssignmentsInput = parsePatchScheduleVersionAssignmentsRequest(payload);
+      const result: PatchAssignmentsResponse = await patchVersionAssignments(
+        repositoryClient,
+        auth,
+        versionId,
+        patchAssignmentsInput
+      );
       return createResponse(result, 200);
     }
 
