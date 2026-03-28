@@ -18,4 +18,10 @@ Gemini should treat `AGENTS.md` as the canonical repository guidance.
 3. Recommendation or next step
 4. Evidence if needed
 
+If the user specifies an output shape, follow it exactly.
+
+- Answer the exact request first, concisely.
+- Do not add background, rationale, verification, or broader context unless explicitly requested.
+- Offer extra detail only after the direct answer.
+
 Keep this file thin. Do not duplicate setup instructions, architecture summaries, or long documentation indexes here. See `AGENTS.md`, `README.md`, and `docs/prd/*`.

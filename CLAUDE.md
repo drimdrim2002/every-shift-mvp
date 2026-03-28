@@ -21,6 +21,12 @@ Default shape:
 
 Use file references only as supporting detail after the explanation.
 
+If the user specifies an output shape, follow it exactly.
+
+- Answer the exact request first, concisely.
+- Do not add background, rationale, verification, or broader context unless explicitly requested.
+- Offer extra detail only after the direct answer.
+
 ## Clarification Format
 
 ```text

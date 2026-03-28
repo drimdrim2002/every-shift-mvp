@@ -35,6 +35,14 @@ Optimize for immediate comprehension.
 3. Recommendation or next step
 4. Supporting evidence if needed
 
+### Requested Output Shape Rule
+
+When the user specifies an output shape, follow it exactly.
+
+- Answer the exact request first, concisely.
+- Do not add background, rationale, verification, or broader context unless explicitly requested.
+- If additional detail may help, offer it only after the direct answer.
+
 ### Clarification Rule
 
 Ask questions only when ambiguity creates real implementation risk, multiple materially different approaches exist, important constraints are unclear, or the requested impact is broad enough to need confirmation.
