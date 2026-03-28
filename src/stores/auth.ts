@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import type { User } from '@supabase/supabase-js'
+import { useScheduleStore } from '@/stores/schedule'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -21,6 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
       if (error) throw error
 
       user.value = data.user
+      useScheduleStore().syncWithAuthUser(user.value)
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -36,6 +38,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     await supabase.auth.signOut()
     user.value = null
+    useScheduleStore().syncWithAuthUser(null)
   }
 
   /**
@@ -44,6 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function checkSession() {
     const { data } = await supabase.auth.getSession()
     user.value = data.session?.user ?? null
+    useScheduleStore().syncWithAuthUser(user.value)
   }
 
   return {

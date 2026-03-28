@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useScheduleStore } from '@/stores/schedule';
+import type { User } from '@supabase/supabase-js';
 import type {
   ScheduleCompareResponse,
   ScheduleEvaluation,
@@ -17,6 +18,8 @@ const allowedSourceTypes: ScheduleVersionSourceType[] = [
   're_solve',
   'manual_variant',
 ];
+const LEGACY_STORAGE_KEY = 'everyshift_wizard_context_v1';
+const USER_SCOPED_STORAGE_KEY = 'everyshift_wizard_context_v2:user-1';
 
 function createVersionSummary(
   overrides: Partial<ScheduleVersionSummary> = {}
@@ -94,6 +97,25 @@ function createCompareMatrix(
     versions: [createVersionSummary()],
     ...overrides,
   };
+}
+
+function createAuthUser(
+  overrides: Partial<User> & {
+    id?: string;
+    app_metadata?: Record<string, unknown>;
+    user_metadata?: Record<string, unknown>;
+  } = {}
+): User {
+  return {
+    id: overrides.id ?? 'user-1',
+    app_metadata: overrides.app_metadata ?? {
+      organization_id: 'org-1',
+    },
+    user_metadata: overrides.user_metadata ?? {},
+    aud: 'authenticated',
+    created_at: '2026-03-28T00:00:00Z',
+    ...overrides,
+  } as User;
 }
 
 describe('useScheduleStore', () => {
@@ -268,9 +290,10 @@ describe('useScheduleStore', () => {
     expect(store.reviewTab).toBe('grid');
   });
 
-  it('persists wizard context needed for Step4/Step5 reload', async () => {
+  it('persists wizard context needed for Step4/Step5 reload only after auth sync', async () => {
     const store = useScheduleStore();
 
+    store.syncWithAuthUser(createAuthUser());
     store.setBasicInfo({
       scheduleId: 'schedule-1',
       month: '2026-04',
@@ -286,46 +309,70 @@ describe('useScheduleStore', () => {
 
     await Promise.resolve();
 
-    const raw = localStorage.getItem('everyshift_wizard_context_v1');
+    const raw = localStorage.getItem(USER_SCOPED_STORAGE_KEY);
     expect(raw).toBeTruthy();
     expect(JSON.parse(raw || '{}')).toEqual({
-      basicInfo: {
-        scheduleId: 'schedule-1',
-        month: '2026-04',
-        organizationId: 'org-1',
-        organizationName: 'Test Hospital',
-        organizationType: 'hospital',
-        employeeCount: 12,
-        shifts: [],
+      schemaVersion: 2,
+      ownerUserId: 'user-1',
+      ownerOrganizationId: 'org-1',
+      context: {
+        basicInfo: {
+          scheduleId: 'schedule-1',
+          month: '2026-04',
+          organizationId: 'org-1',
+          organizationName: 'Test Hospital',
+          organizationType: 'hospital',
+          employeeCount: 12,
+          shifts: [],
+        },
+        selectedVersionId: 'version-2',
+        previewVersionId: 'version-1',
+        currentStep: 4,
       },
-      selectedVersionId: 'version-2',
-      previewVersionId: 'version-1',
-      currentStep: 4,
     });
   });
 
-  it('hydrates persisted wizard context when store is recreated', () => {
+  it('does not hydrate persisted wizard context until auth scope is synced', () => {
     localStorage.setItem(
-      'everyshift_wizard_context_v1',
+      USER_SCOPED_STORAGE_KEY,
       JSON.stringify({
-        basicInfo: {
-          scheduleId: 'schedule-restored',
-          month: '2026-05',
-          organizationId: 'org-restore',
-          organizationName: 'Restore Hospital',
-          organizationType: 'hospital',
-          employeeCount: 8,
-          shifts: [],
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-restore',
+        context: {
+          basicInfo: {
+            scheduleId: 'schedule-restored',
+            month: '2026-05',
+            organizationId: 'org-restore',
+            organizationName: 'Restore Hospital',
+            organizationType: 'hospital',
+            employeeCount: 8,
+            shifts: [],
+          },
+          selectedVersionId: 'version-selected',
+          previewVersionId: 'version-preview',
+          currentStep: 4,
         },
-        selectedVersionId: 'version-selected',
-        previewVersionId: 'version-preview',
-        currentStep: 4,
       })
     );
 
     setActivePinia(createPinia());
 
     const store = useScheduleStore();
+
+    expect(store.basicInfo).toBeNull();
+    expect(store.selectedVersionId).toBeNull();
+    expect(store.previewVersionId).toBeNull();
+    expect(store.currentStep).toBe(1);
+
+    store.syncWithAuthUser(
+      createAuthUser({
+        id: 'user-1',
+        app_metadata: {
+          organization_id: 'org-restore',
+        },
+      })
+    );
 
     expect(store.basicInfo).toEqual({
       scheduleId: 'schedule-restored',
@@ -339,5 +386,106 @@ describe('useScheduleStore', () => {
     expect(store.selectedVersionId).toBe('version-selected');
     expect(store.previewVersionId).toBe('version-preview');
     expect(store.currentStep).toBe(4);
+  });
+
+  it('rejects persisted wizard context when the authenticated organization scope differs', () => {
+    localStorage.setItem(
+      USER_SCOPED_STORAGE_KEY,
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-1',
+        context: {
+          basicInfo: {
+            scheduleId: 'schedule-restored',
+            month: '2026-05',
+            organizationId: 'org-1',
+            organizationName: 'Restore Hospital',
+            organizationType: 'hospital',
+            employeeCount: 8,
+            shifts: [],
+          },
+          selectedVersionId: 'version-selected',
+          previewVersionId: 'version-preview',
+          currentStep: 4,
+        },
+      })
+    );
+
+    const store = useScheduleStore();
+
+    store.syncWithAuthUser(
+      createAuthUser({
+        app_metadata: {
+          organization_id: 'org-2',
+        },
+      })
+    );
+
+    expect(store.basicInfo).toBeNull();
+    expect(store.selectedVersionId).toBeNull();
+    expect(store.previewVersionId).toBeNull();
+    expect(store.currentStep).toBe(1);
+    expect(localStorage.getItem(USER_SCOPED_STORAGE_KEY)).toBeNull();
+  });
+
+  it('clears in-memory and persisted wizard context on logout sync', async () => {
+    const store = useScheduleStore();
+
+    store.syncWithAuthUser(createAuthUser());
+    store.setBasicInfo({
+      scheduleId: 'schedule-1',
+      month: '2026-04',
+      organizationId: 'org-1',
+      organizationName: 'Test Hospital',
+      organizationType: 'hospital',
+      employeeCount: 12,
+      shifts: [],
+    });
+    store.setSelectedVersionId('version-2');
+    store.setPreviewVersionId('version-1');
+    store.currentStep = 4;
+
+    await Promise.resolve();
+
+    expect(localStorage.getItem(USER_SCOPED_STORAGE_KEY)).toBeTruthy();
+
+    store.syncWithAuthUser(null);
+
+    expect(store.basicInfo).toBeNull();
+    expect(store.selectedVersionId).toBeNull();
+    expect(store.previewVersionId).toBeNull();
+    expect(store.currentStep).toBe(1);
+    expect(localStorage.getItem(USER_SCOPED_STORAGE_KEY)).toBeNull();
+  });
+
+  it('removes the legacy global wizard key instead of hydrating it', () => {
+    localStorage.setItem(
+      LEGACY_STORAGE_KEY,
+      JSON.stringify({
+        basicInfo: {
+          scheduleId: 'schedule-legacy',
+          month: '2026-05',
+          organizationId: 'org-legacy',
+          organizationName: 'Legacy Hospital',
+          organizationType: 'hospital',
+          employeeCount: 8,
+          shifts: [],
+        },
+        selectedVersionId: 'version-selected',
+        previewVersionId: 'version-preview',
+        currentStep: 4,
+      })
+    );
+
+    const store = useScheduleStore();
+
+    store.syncWithAuthUser(createAuthUser());
+
+    expect(store.basicInfo).toBeNull();
+    expect(store.selectedVersionId).toBeNull();
+    expect(store.previewVersionId).toBeNull();
+    expect(store.currentStep).toBe(1);
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull();
   });
 });
