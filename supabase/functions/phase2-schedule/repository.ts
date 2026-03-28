@@ -93,6 +93,11 @@ interface PatchScheduleVersionAssignmentsAtomicRow {
   changed_cells: number;
 }
 
+interface SelectScheduleVersionAtomicRow {
+  schedule_id: string;
+  selected_version_id: string;
+}
+
 interface SchedulePreferenceRow {
   id?: string;
   schedule_id: string;
@@ -519,6 +524,20 @@ function remapSlice5RpcConflict(error: unknown): never {
   throw error;
 }
 
+function remapSelectRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    if (error.dbError.message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
+
+    if (error.dbError.message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+  }
+
+  throw error;
+}
+
 function assertOrganizationAccess(
   auth: Phase2ScheduleAuthContext,
   schedule: ScheduleRow
@@ -814,11 +833,21 @@ async function buildCompareResponse(
   schedule: ScheduleRow
 ): Promise<CompareResponse> {
   const versions = await loadVersionRows(client, schedule.id);
+  const solvingVersions = versions.filter((version) => version.status === 'solving');
+
+  if (solvingVersions.length > 1) {
+    throw new ContractError(
+      'invalid_selection_state',
+      'Expected at most one active solving version for this schedule',
+      409
+    );
+  }
 
   return {
     scheduleId: schedule.id,
     selectedVersionId: schedule.selected_version_id,
     finalizedVersionId: schedule.finalized_version_id,
+    activeSolvingVersionId: solvingVersions[0]?.id ?? null,
     versions: await mapVersionSummaries(client, schedule, versions),
   };
 }
@@ -1079,31 +1108,22 @@ export async function select(
   auth: Phase2ScheduleAuthContext,
   versionId: string
 ): Promise<SelectResponse> {
-  const version = await loadVersionById(client, versionId);
+  const { version } = await loadAuthorizedVersionContext(client, auth, versionId);
 
-  if (!version) {
-    throw new ContractError('version_not_found', 'Version not found', 404);
-  }
-
-  const schedule = await loadAuthorizedSchedule(client, auth, version.schedule_id);
-
-  if (schedule.finalized_version_id) {
-    throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
-  }
-
-  if (schedule.selected_version_id !== version.id) {
-    await run(
-      client
-        .from('schedules')
-        .update({
-          selected_version_id: version.id,
-        })
-        .eq('id', schedule.id)
+  try {
+    const row = await rpcSingle<SelectScheduleVersionAtomicRow>(
+      client,
+      'select_schedule_version_atomic',
+      {
+        p_version_id: version.id,
+      }
     );
-  }
 
-  return {
-    scheduleId: schedule.id,
-    selectedVersionId: version.id,
-  };
+    return {
+      scheduleId: row.schedule_id,
+      selectedVersionId: row.selected_version_id,
+    };
+  } catch (error: unknown) {
+    remapSelectRpcConflict(error);
+  }
 }

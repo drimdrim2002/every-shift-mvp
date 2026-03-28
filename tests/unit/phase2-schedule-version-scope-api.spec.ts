@@ -108,8 +108,8 @@ describe('phase2 schedule version-scoped api helpers', () => {
       return { update };
     });
 
-    const { resetScheduleVersionPreferenceResolution } = await import('@/api/schedule');
-    await resetScheduleVersionPreferenceResolution('version-3');
+    const { resetPreferenceResolutionByVersion } = await import('@/api/schedule');
+    await resetPreferenceResolutionByVersion('version-3');
 
     expect(update).toHaveBeenCalledWith({
       resolution_status: 'pending',
@@ -192,8 +192,8 @@ describe('phase2 schedule version-scoped api helpers', () => {
       throw new Error(`Unexpected table: ${table}`);
     });
 
-    const { refreshScheduleVersionPreferenceResolution } = await import('@/api/schedule');
-    const result = await refreshScheduleVersionPreferenceResolution('version-4');
+    const { refreshPreferenceResolutionByVersion } = await import('@/api/schedule');
+    const result = await refreshPreferenceResolutionByVersion('version-4');
 
     expect(preferenceEq).toHaveBeenCalledWith('schedule_version_id', 'version-4');
     expect(assignmentEq).toHaveBeenCalledWith('schedule_version_id', 'version-4');

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
 const supabaseFromMock = vi.fn();
+const supabaseRpcMock = vi.fn();
 
 vi.mock('@/api/supabase', () => ({
   supabase: {
@@ -9,19 +10,14 @@ vi.mock('@/api/supabase', () => ({
       getSession: getSessionMock,
     },
     from: supabaseFromMock,
+    rpc: supabaseRpcMock,
   },
 }));
 
 describe('phase2 schedule api helpers', () => {
   const fetchMock = vi.fn();
 
-  function createPreferenceQueryMocks(
-    rows: unknown[],
-    options?: {
-      scheduleVersionRow?: { schedule_id: string } | null;
-      scheduleVersionError?: { message: string };
-    }
-  ) {
+  function createPreferenceQueryMocks(rows: unknown[]) {
     const range = vi.fn().mockResolvedValue({ data: rows, error: null });
     const order = vi.fn();
     const eq = vi.fn();
@@ -29,12 +25,6 @@ describe('phase2 schedule api helpers', () => {
     const deleteEq = vi.fn().mockResolvedValue({ error: null });
     const deleteRows = vi.fn();
     const insert = vi.fn().mockResolvedValue({ error: null });
-    const maybeSingle = vi.fn().mockResolvedValue({
-      data: options?.scheduleVersionRow ?? null,
-      error: options?.scheduleVersionError ?? null,
-    });
-    const versionEq = vi.fn().mockReturnValue({ maybeSingle });
-    const versionSelect = vi.fn().mockReturnValue({ eq: versionEq });
 
     order.mockReturnValue({ order, range });
     eq.mockReturnValue({ order, range });
@@ -47,12 +37,6 @@ describe('phase2 schedule api helpers', () => {
           select,
           delete: deleteRows,
           insert,
-        };
-      }
-
-      if (table === 'schedule_versions') {
-        return {
-          select: versionSelect,
         };
       }
 
@@ -75,9 +59,6 @@ describe('phase2 schedule api helpers', () => {
       deleteRows,
       deleteEq,
       insert,
-      versionSelect,
-      versionEq,
-      maybeSingle,
     };
   }
 
@@ -146,6 +127,7 @@ describe('phase2 schedule api helpers', () => {
           scheduleId: 'schedule-1',
           selectedVersionId: 'version-1',
           finalizedVersionId: null,
+          activeSolvingVersionId: null,
           versions: [],
         }),
         {
@@ -238,6 +220,7 @@ describe('phase2 schedule api helpers', () => {
           scheduleId: 'schedule-2',
           selectedVersionId: 'version-2',
           finalizedVersionId: null,
+          activeSolvingVersionId: null,
           versions: [],
           version: {
             id: 'version-2',
@@ -414,13 +397,12 @@ describe('phase2 schedule api helpers', () => {
       error: null,
     });
 
-    const queryMocks = createPreferenceQueryMocks([], {
-      scheduleVersionRow: { schedule_id: 'schedule-2' },
-    });
+    const queryMocks = createPreferenceQueryMocks([]);
 
     const { saveScheduleVersionPreferences } = await import('@/api/schedule');
 
     await saveScheduleVersionPreferences(
+      'schedule-2',
       'version-2',
       {
         employee_1: {
@@ -435,7 +417,6 @@ describe('phase2 schedule api helpers', () => {
     );
 
     expect(queryMocks.deleteEq).toHaveBeenCalledWith('schedule_version_id', 'version-2');
-    expect(queryMocks.versionEq).toHaveBeenCalledWith('id', 'version-2');
     expect(queryMocks.insert).toHaveBeenCalledWith([
       {
         schedule_id: 'schedule-2',
@@ -450,6 +431,9 @@ describe('phase2 schedule api helpers', () => {
         resolved_at: null,
       },
     ]);
+    expect(
+      supabaseFromMock.mock.calls.some((call) => call[0] === 'schedule_versions')
+    ).toBe(false);
   });
 
   it('saves legacy preferences by schedule_id', async () => {
@@ -485,38 +469,6 @@ describe('phase2 schedule api helpers', () => {
         resolved_at: null,
       },
     ]);
-  });
-
-  it('throws a specific error when version ownership lookup fails', async () => {
-    createPreferenceQueryMocks([], {
-      scheduleVersionError: { message: 'lookup failed' },
-    });
-
-    const { saveScheduleVersionPreferences } = await import('@/api/schedule');
-
-    await expect(
-      saveScheduleVersionPreferences('version-lookup-fail', {
-        employee_1: {
-          '2026-04-01': 'O',
-        },
-      })
-    ).rejects.toThrow('버전 소유 schedule 조회 실패: lookup failed');
-  });
-
-  it('throws a specific error when version ownership is missing', async () => {
-    createPreferenceQueryMocks([], {
-      scheduleVersionRow: null,
-    });
-
-    const { saveScheduleVersionPreferences } = await import('@/api/schedule');
-
-    await expect(
-      saveScheduleVersionPreferences('version-missing-owner', {
-        employee_1: {
-          '2026-04-01': 'O',
-        },
-      })
-    ).rejects.toThrow('버전 소유 schedule을 찾을 수 없습니다.');
   });
 
   it('reads version-scoped assignments by schedule_version_id', async () => {
@@ -573,6 +525,157 @@ describe('phase2 schedule api helpers', () => {
       {
         onConflict: 'schedule_version_id,employee_id,date',
       }
+    );
+  });
+
+  it('calls create/solve/solver-result mutation routes through phase2-schedule edge function', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-mutation',
+        },
+      },
+      error: null,
+    });
+
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-11',
+            createdVersionId: 'version-12',
+            selectedVersionId: 'version-11',
+            finalizedVersionId: null,
+            versions: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-12',
+            status: 'solving',
+            solverExecutionId: 'exec-12',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-12',
+            status: 'review_pending',
+            solverExecutionId: null,
+            hardScore: 10,
+            softScore: 20,
+            failureReason: null,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const {
+      createPhase2ScheduleVersion,
+      solvePhase2ScheduleVersion,
+      submitPhase2ScheduleVersionSolverResult,
+    } = await import('@/api/schedule');
+
+    await createPhase2ScheduleVersion('schedule-11', {
+      baseVersionId: 'version-11',
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    });
+
+    await solvePhase2ScheduleVersion('version-12', {
+      solverExecutionId: 'exec-12',
+    });
+
+    await submitPhase2ScheduleVersionSolverResult('version-12', {
+      status: 'completed',
+      solverExecutionId: 'exec-12',
+      assignments: [],
+      score: null,
+      failureReason: null,
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-11/versions',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-12/solve',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-12/solver-result',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
+
+  it('sends manual save changes through PATCH assignments route', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-patch',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleVersionId: 'version-11',
+          status: 'review_pending',
+          currentRevision: 3,
+          manualEditCount: 2,
+          changedCells: 2,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { patchPhase2ScheduleVersionAssignments } = await import('@/api/schedule');
+
+    await patchPhase2ScheduleVersionAssignments('version-11', {
+      changes: [
+        {
+          employeeId: 'employee-11',
+          date: '2026-04-11',
+          shiftId: null,
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-11/assignments',
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          changes: [
+            {
+              employeeId: 'employee-11',
+              date: '2026-04-11',
+              shiftId: null,
+            },
+          ],
+        }),
+      })
     );
   });
 });

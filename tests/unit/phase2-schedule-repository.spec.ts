@@ -99,11 +99,22 @@ function createClient(results: Record<string, Array<QueryResult<any>>>) {
     };
   });
 
-  const client = { from } as unknown as Phase2ScheduleRepositoryClient;
+  const rpc = vi.fn((fn: string) => {
+    const queue = results[`rpc:${fn}`];
+
+    if (!queue || queue.length === 0) {
+      throw new Error(`Unexpected rpc call for ${fn}`);
+    }
+
+    return Promise.resolve(queue.shift()!);
+  });
+
+  const client = { from, rpc } as unknown as Phase2ScheduleRepositoryClient;
 
   return {
     client,
     from,
+    rpc,
     updateSpies,
     insertSpies,
   };
@@ -201,6 +212,7 @@ describe('phase2 schedule repository', () => {
       scheduleId: '11111111-1111-4111-8111-111111111111',
       selectedVersionId: '22222222-2222-4222-8222-222222222222',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         expect.objectContaining({
           id: '22222222-2222-4222-8222-222222222222',
@@ -554,6 +566,171 @@ describe('phase2 schedule repository', () => {
     );
   });
 
+  it('returns activeSolvingVersionId as null when no version is solving', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '10101010-1010-4010-8010-101010101010',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '20202020-2020-4020-8020-202020202020',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [
+            {
+              id: '20202020-2020-4020-8020-202020202020',
+              schedule_id: '10101010-1010-4010-8010-101010101010',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'review_pending',
+              current_revision: 1,
+              manual_edit_count: 2,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await compare(client, AUTH_CONTEXT, '10101010-1010-4010-8010-101010101010');
+    expect(result.activeSolvingVersionId).toBeNull();
+  });
+
+  it('returns activeSolvingVersionId when exactly one version is solving', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '30303030-3030-4030-8030-303030303030',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'running',
+            solver_execution_id: 'solver-3030',
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '40404040-4040-4040-8040-404040404040',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [
+            {
+              id: '40404040-4040-4040-8040-404040404040',
+              schedule_id: '30303030-3030-4030-8030-303030303030',
+              version_no: 2,
+              name: 'V2',
+              source_type: 're_solve',
+              base_version_id: '50505050-5050-4050-8050-505050505050',
+              status: 'solving',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+            },
+            {
+              id: '50505050-5050-4050-8050-505050505050',
+              schedule_id: '30303030-3030-4030-8030-303030303030',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'review_pending',
+              current_revision: 3,
+              manual_edit_count: 5,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await compare(client, AUTH_CONTEXT, '30303030-3030-4030-8030-303030303030');
+    expect(result.activeSolvingVersionId).toBe('40404040-4040-4040-8040-404040404040');
+  });
+
+  it('fails compare with invalid_selection_state when two versions are solving', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '60606060-6060-4060-8060-606060606060',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'running',
+            solver_execution_id: 'solver-6060',
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '70707070-7070-4070-8070-707070707070',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [
+            {
+              id: '70707070-7070-4070-8070-707070707070',
+              schedule_id: '60606060-6060-4060-8060-606060606060',
+              version_no: 2,
+              name: 'V2',
+              source_type: 're_solve',
+              base_version_id: '80808080-8080-4080-8080-808080808080',
+              status: 'solving',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+            },
+            {
+              id: '80808080-8080-4080-8080-808080808080',
+              schedule_id: '60606060-6060-4060-8060-606060606060',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'solving',
+              current_revision: 2,
+              manual_edit_count: 1,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    await expect(
+      compare(client, AUTH_CONTEXT, '60606060-6060-4060-8060-606060606060')
+    ).rejects.toMatchObject({
+      code: 'invalid_selection_state',
+      status: 409,
+    });
+  });
+
   it('denies compare requests that target another organization', async () => {
     const { client } = createClient({
       schedules: [
@@ -636,8 +813,8 @@ describe('phase2 schedule repository', () => {
     expect(result.defaultTab).toBe('grid');
   });
 
-  it('updates only selected_version_id during select and leaves version rows untouched', async () => {
-    const { client, updateSpies } = createClient({
+  it('updates selection through the atomic RPC boundary and leaves direct table writes untouched', async () => {
+    const { client, rpc, updateSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -663,11 +840,12 @@ describe('phase2 schedule repository', () => {
           },
           error: null,
         },
+      ],
+      'rpc:select_schedule_version_atomic': [
         {
           data: {
-            id: '77777777-7777-4777-8777-777777777777',
+            schedule_id: '77777777-7777-4777-8777-777777777777',
             selected_version_id: '66666666-6666-4666-8666-666666666666',
-            finalized_version_id: null,
           },
           error: null,
         },
@@ -680,10 +858,57 @@ describe('phase2 schedule repository', () => {
       scheduleId: '77777777-7777-4777-8777-777777777777',
       selectedVersionId: '66666666-6666-4666-8666-666666666666',
     });
-    expect(updateSpies.schedules).toHaveBeenCalledWith({
-      selected_version_id: '66666666-6666-4666-8666-666666666666',
+    expect(rpc).toHaveBeenCalledWith('select_schedule_version_atomic', {
+      p_version_id: '66666666-6666-4666-8666-666666666666',
     });
+    expect(updateSpies.schedules).not.toHaveBeenCalled();
     expect(updateSpies.schedule_versions).not.toHaveBeenCalled();
     expect(updateSpies.schedule_evaluations).toBeUndefined();
+  });
+
+  it('returns already_finalized conflict when atomic selection boundary rejects the mutation', async () => {
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: '66666666-6666-4666-8666-666666666666',
+            schedule_id: '77777777-7777-4777-8777-777777777777',
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: '77777777-7777-4777-8777-777777777777',
+            organization_id: '33333333-3333-4333-8333-333333333333',
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '22222222-2222-4222-8222-222222222222',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      'rpc:select_schedule_version_atomic': [
+        {
+          data: null,
+          error: {
+            message: 'already_finalized',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      select(client, AUTH_CONTEXT, '66666666-6666-4666-8666-666666666666')
+    ).rejects.toMatchObject({
+      code: 'already_finalized',
+      status: 409,
+    });
   });
 });

@@ -7,7 +7,7 @@ const {
   ensurePhase2ScheduleMock,
   getScheduleVersionPreferencesMock,
   saveScheduleVersionPreferencesMock,
-  deleteThisMonthAssignmentsMock,
+  deleteThisMonthVersionAssignmentsMock,
   showSuccessMock,
   showInfoMock,
   showErrorMock,
@@ -16,7 +16,7 @@ const {
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   saveScheduleVersionPreferencesMock: vi.fn(),
-  deleteThisMonthAssignmentsMock: vi.fn(),
+  deleteThisMonthVersionAssignmentsMock: vi.fn(),
   showSuccessMock: vi.fn(),
   showInfoMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -32,7 +32,7 @@ vi.mock('@/api/schedule', () => ({
   ensurePhase2Schedule: ensurePhase2ScheduleMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   saveScheduleVersionPreferences: saveScheduleVersionPreferencesMock,
-  deleteThisMonthAssignments: deleteThisMonthAssignmentsMock,
+  deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
 }))
 
 vi.mock('@/api/supabase', () => ({
@@ -223,6 +223,7 @@ describe('Step4InitialData', () => {
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         {
           id: 'version-1',
@@ -278,7 +279,7 @@ describe('Step4InitialData', () => {
       preferences: [],
     })
     saveScheduleVersionPreferencesMock.mockResolvedValue(undefined)
-    deleteThisMonthAssignmentsMock.mockResolvedValue(undefined)
+    deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
   })
 
   it('keeps selected authoritative while restoring Step4 preview from canonical V1', async () => {
@@ -315,6 +316,7 @@ describe('Step4InitialData', () => {
 
     expect(ensurePhase2ScheduleMock).toHaveBeenCalledBefore(saveScheduleVersionPreferencesMock)
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
       'version-1',
       {
         'emp-1': {
@@ -336,6 +338,11 @@ describe('Step4InitialData', () => {
     await clickButtonByText(wrapper, '다음 단계')
     await flushPromises()
 
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      '2025-12'
+    )
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {
@@ -349,6 +356,7 @@ describe('Step4InitialData', () => {
       scheduleId: 'schedule-2',
       selectedVersionId: null,
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         {
           id: 'version-v1',

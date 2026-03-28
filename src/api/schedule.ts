@@ -1,16 +1,25 @@
 import { supabase } from './supabase';
 import type {
   AssignmentMap,
+  CreateScheduleVersionRequest,
+  CreateScheduleVersionResponse,
   ConstraintCode,
   ConstraintMap,
   OffReasonMap,
   CommentMap,
+  PatchScheduleVersionAssignmentsRequest,
+  PatchScheduleVersionAssignmentsResponse,
   PreferenceStatus,
   SchedulePreference,
   SchedulePrimaryAction,
   ScheduleCompareResponse,
+  ScheduleVersionAssignmentChange,
   ScheduleReviewTab,
   ScheduleReviewResponse,
+  ScheduleVersionSolveRequest,
+  ScheduleVersionSolveResponse,
+  ScheduleVersionSolverResultRequest,
+  ScheduleVersionSolverResultResponse,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
@@ -154,7 +163,7 @@ function createPhase2ScheduleError(payload: unknown, status: number): Error {
 async function callPhase2Schedule<T>(
   path: string,
   options: {
-    method: 'GET' | 'POST';
+    method: 'GET' | 'POST' | 'PATCH';
     body?: unknown;
   }
 ): Promise<T> {
@@ -269,6 +278,65 @@ export async function selectPhase2ScheduleVersion(
       method: 'POST',
     }
   );
+}
+
+export async function createPhase2ScheduleVersion(
+  scheduleId: string,
+  request: CreateScheduleVersionRequest
+): Promise<CreateScheduleVersionResponse> {
+  return callPhase2Schedule<CreateScheduleVersionResponse>(
+    `/schedules/${scheduleId}/versions`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
+export async function solvePhase2ScheduleVersion(
+  versionId: string,
+  request: ScheduleVersionSolveRequest
+): Promise<ScheduleVersionSolveResponse> {
+  return callPhase2Schedule<ScheduleVersionSolveResponse>(
+    `/schedule-versions/${versionId}/solve`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
+export async function submitPhase2ScheduleVersionSolverResult(
+  versionId: string,
+  request: ScheduleVersionSolverResultRequest
+): Promise<ScheduleVersionSolverResultResponse> {
+  return callPhase2Schedule<ScheduleVersionSolverResultResponse>(
+    `/schedule-versions/${versionId}/solver-result`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
+export async function patchPhase2ScheduleVersionAssignments(
+  versionId: string,
+  request: PatchScheduleVersionAssignmentsRequest
+): Promise<PatchScheduleVersionAssignmentsResponse> {
+  return callPhase2Schedule<PatchScheduleVersionAssignmentsResponse>(
+    `/schedule-versions/${versionId}/assignments`,
+    {
+      method: 'PATCH',
+      body: request,
+    }
+  );
+}
+
+export async function patchScheduleVersionAssignmentsAtomic(
+  scheduleVersionId: string,
+  changes: ScheduleVersionAssignmentChange[]
+): Promise<PatchScheduleVersionAssignmentsResponse> {
+  return patchPhase2ScheduleVersionAssignments(scheduleVersionId, { changes });
 }
 
 // 근무표 생성 (기존 schedule 확인 후 재사용 또는 생성)
@@ -494,32 +562,12 @@ export async function saveSchedulePreferences(
   return saveSchedulePreferencesByScope('schedule_id', scheduleId, constraints, notes, scheduleId);
 }
 
-async function getScheduleIdForVersion(scheduleVersionId: string): Promise<string> {
-  const { data, error } = await supabase
-    .from('schedule_versions')
-    .select('schedule_id')
-    .eq('id', scheduleVersionId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`버전 소유 schedule 조회 실패: ${error.message}`);
-  }
-
-  const scheduleId = data?.schedule_id;
-  if (!scheduleId) {
-    throw new Error('버전 소유 schedule을 찾을 수 없습니다.');
-  }
-
-  return scheduleId;
-}
-
 export async function saveScheduleVersionPreferences(
+  scheduleId: string,
   scheduleVersionId: string,
   constraints: ConstraintMap,
   notes?: CommentMap
 ): Promise<void> {
-  const scheduleId = await getScheduleIdForVersion(scheduleVersionId);
-
   return saveSchedulePreferencesByScope(
     'schedule_version_id',
     scheduleVersionId,

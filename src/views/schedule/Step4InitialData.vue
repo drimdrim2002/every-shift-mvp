@@ -141,7 +141,7 @@ import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
   ensurePhase2Schedule,
-  deleteThisMonthAssignments,
+  deleteThisMonthVersionAssignments,
   getScheduleVersionPreferences,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
@@ -423,7 +423,12 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
 
     const { scheduleId, previewVersionId } = await ensureBaselineVersion();
 
-    await saveScheduleVersionPreferences(previewVersionId, constraints.value, constraintNotes.value);
+    await saveScheduleVersionPreferences(
+      scheduleId,
+      previewVersionId,
+      constraints.value,
+      constraintNotes.value
+    );
 
     showSuccess('임시 저장되었습니다.');
     return { scheduleId, previewVersionId };
@@ -440,7 +445,15 @@ async function handleNext() {
     const saved = await handleSave();
     if (!saved) throw new Error('임시 저장에 실패했습니다.');
 
-    await deleteThisMonthAssignments(saved.scheduleId, scheduleStore.basicInfo!.month);
+    if (!saved.previewVersionId) {
+      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    }
+
+    await deleteThisMonthVersionAssignments(
+      saved.scheduleId,
+      saved.previewVersionId,
+      scheduleStore.basicInfo!.month
+    );
     scheduleStore.currentStep = 5;
     router.push(buildStep5Route(saved.scheduleId, saved.previewVersionId));
   } catch (error) {
