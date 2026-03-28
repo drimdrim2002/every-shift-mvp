@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { normalizeSiteRequirementList } from '@/utils/siteRequirementQuery';
 import type { EmployeeData, SiteRequirementRow } from '@/types/excel';
 
 /**
@@ -140,8 +141,6 @@ export async function replaceSiteRequirements(
  * @returns 세로형 요구사항 배열
  */
 export async function loadSiteRequirements(orgId: string): Promise<SiteRequirementRow[]> {
-  const DAY_NAMES = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
-
   // site_requirements와 shifts 조인
   const { data, error } = await supabase
     .from('site_requirements')
@@ -165,11 +164,5 @@ export async function loadSiteRequirements(orgId: string): Promise<SiteRequireme
     return [];
   }
 
-  // 세로형 데이터로 변환
-  return data.map((row) => ({
-    dayOfWeek: row.day_of_week,
-    dayName: DAY_NAMES[row.day_of_week],
-    shiftCode: (row.shifts as { code: string }).code,
-    requiredCount: row.required_count,
-  }));
+  return normalizeSiteRequirementList(data);
 }

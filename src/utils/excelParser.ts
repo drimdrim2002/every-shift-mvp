@@ -18,6 +18,21 @@ const SHEET_NAMES = {
 // 요일별 인력 시트 대체 이름 (공백 포함/미포함)
 const SITE_REQUIREMENTS_ALT_NAMES = ['요일별인력', '요일별 인력'];
 
+function getWorkbookSheet(workbook: XLSX.WorkBook, sheetName: string): XLSX.WorkSheet {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) {
+    throw new Error(`시트를 찾을 수 없습니다: ${sheetName}`);
+  }
+  return sheet;
+}
+
+function readWorksheetRows(sheet: XLSX.WorkSheet): unknown[][] {
+  return XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: '',
+  });
+}
+
 /**
  * 엑셀 파일을 파싱하여 ParsedExcelData 형식으로 변환
  * @param file - 업로드된 엑셀 파일
@@ -40,9 +55,9 @@ export async function parseExcelFile(
     validateRequiredSheets(workbook);
 
     // 4. 각 시트 추출
-    const empSheet = workbook.Sheets[SHEET_NAMES.EMPLOYEES];
+    const empSheet = getWorkbookSheet(workbook, SHEET_NAMES.EMPLOYEES);
     const reqSheet = findSiteRequirementsSheet(workbook);
-    const prevSheet = workbook.Sheets[SHEET_NAMES.PREVIOUS_MONTH];
+    const prevSheet = getWorkbookSheet(workbook, SHEET_NAMES.PREVIOUS_MONTH);
 
     // 5. 각 시트 데이터 추출
     const employees = extractEmployees(empSheet);
@@ -111,7 +126,7 @@ function validateRequiredSheets(workbook: XLSX.WorkBook): void {
 function findSiteRequirementsSheet(workbook: XLSX.WorkBook): XLSX.WorkSheet {
   for (const name of SITE_REQUIREMENTS_ALT_NAMES) {
     if (workbook.Sheets[name]) {
-      return workbook.Sheets[name];
+      return getWorkbookSheet(workbook, name);
     }
   }
   throw new Error(`시트를 찾을 수 없습니다: ${SHEET_NAMES.SITE_REQUIREMENTS}`);
@@ -121,10 +136,7 @@ function findSiteRequirementsSheet(workbook: XLSX.WorkBook): XLSX.WorkSheet {
  * 직원 정보 추출 (2행부터)
  */
 function extractEmployees(sheet: XLSX.WorkSheet): EmployeeData[] {
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = readWorksheetRows(sheet);
 
   if (data.length < 2) {
     throw new Error('직원정보 시트: 직원 데이터가 없습니다');
@@ -134,7 +146,7 @@ function extractEmployees(sheet: XLSX.WorkSheet): EmployeeData[] {
   const employeeIds = new Set<string>();
 
   for (let i = 1; i < data.length; i++) {
-    const row = data[i] as string[];
+    const row = data[i] ?? [];
     const employeeId = String(row[0] || '').trim();
     const name = String(row[1] || '').trim();
     const availableShiftsStr = String(row[2] || '').trim();
@@ -187,10 +199,7 @@ function extractEmployees(sheet: XLSX.WorkSheet): EmployeeData[] {
  * 데이터: 월요일, D, 5
  */
 function extractSiteRequirements(sheet: XLSX.WorkSheet): SiteRequirementRow[] {
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = readWorksheetRows(sheet);
 
   if (data.length < 2) {
     throw new Error('요일별인력 시트: 데이터가 부족합니다');
@@ -199,7 +208,7 @@ function extractSiteRequirements(sheet: XLSX.WorkSheet): SiteRequirementRow[] {
   const requirements: SiteRequirementRow[] = [];
 
   for (let i = 1; i < data.length; i++) {
-    const row = data[i] as (string | number)[];
+    const row = data[i] ?? [];
     const dayName = String(row[0] || '').trim();
     const shiftCode = String(row[1] || '').trim().toUpperCase();
     const requiredCount = Number(row[2] || 0);
@@ -278,10 +287,7 @@ function extractPreviousMonthData(
   }
 
   // 시트를 JSON으로 변환
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = readWorksheetRows(sheet);
 
   if (data.length < 2) {
     throw new Error('전월데이터 시트: 데이터가 부족합니다');
@@ -289,7 +295,7 @@ function extractPreviousMonthData(
 
   // 각 직원별 데이터 추출
   for (let i = 1; i < data.length; i++) {
-    const row = data[i] as string[];
+    const row = data[i] ?? [];
     const employeeId = String(row[0] || '').trim();
 
     // 빈 행은 건너뛰기
@@ -305,14 +311,15 @@ function extractPreviousMonthData(
       );
     }
 
-    assignments[employeeId] = {};
+    const employeeAssignments = assignments[employeeId] ?? {};
+    assignments[employeeId] = employeeAssignments;
 
     // 날짜별 시프트 추출 (컬럼 2부터 시작, 5개 날짜)
     for (let j = 0; j < dates.length; j++) {
       const shift = String(row[j + 2] || '').trim().toUpperCase();
       const date = dates[j];
       if (shift && date) {
-        assignments[employeeId][date] = shift;
+        employeeAssignments[date] = shift;
       }
     }
   }

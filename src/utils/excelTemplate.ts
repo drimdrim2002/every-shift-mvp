@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import dayjs from 'dayjs';
 import type { Shift } from '@/types/shift';
-import { DAY_NAMES } from '@/types/excel';
+import { dayOfWeekToDayName } from '@/types/excel';
 
 // 시트 이름 상수 (3개 시트만)
 const SHEET_NAMES = {
@@ -71,6 +71,7 @@ function createEmployeesSheet(shifts: Shift[]): XLSX.WorkSheet {
  */
 function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   const shiftCodes = shifts.map((s) => s.code);
+  const sampleShiftCode = shiftCodes[0] ?? '';
   const data: (string | number)[][] = [['요일명', '시프트유형', '필요인력수']];
 
   // 7일 x 시프트 수 = 세로형 데이터 생성
@@ -78,7 +79,7 @@ function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 
   dayOrder.forEach((dayOfWeek) => {
-    const dayName = DAY_NAMES[dayOfWeek];
+    const dayName = dayOfWeekToDayName(dayOfWeek);
     shiftCodes.forEach((code) => {
       // 기본값으로 샘플 인원 수 설정 (실제로는 빈 값이나, 사용 편의를 위해)
       const defaultCount = code === 'O' ? 0 : 5; // Off는 0, 나머지는 5
@@ -92,7 +93,7 @@ function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 12 }];
 
   // 셀 주석 추가 (B2: 시프트유형)
-  if (!ws['B2']) ws['B2'] = { t: 's', v: shiftCodes[0] };
+  if (!ws['B2']) ws['B2'] = { t: 's', v: sampleShiftCode };
   ws['B2'].c = [
     {
       a: 'Guide',
@@ -135,6 +136,9 @@ function createPreviousMonthSheet(
     fullDates.push(date.format('YYYY-MM-DD'));
   }
 
+  const firstDate = fullDates[0] ?? '';
+  const lastDate = fullDates[fullDates.length - 1] ?? '';
+
   // 헤더 생성
   const header = ['직원ID', '이름', ...dates];
   const data = [header];
@@ -158,7 +162,7 @@ function createPreviousMonthSheet(
   ws['C2'].c = [
     {
       a: 'Guide',
-      t: `시프트 코드(${shiftCodes})를 입력하세요. 전월 마지막 5일(${fullDates[0]} ~ ${fullDates[4]}) 데이터가 필요합니다.`,
+      t: `시프트 코드(${shiftCodes})를 입력하세요. 전월 마지막 5일(${firstDate} ~ ${lastDate}) 데이터가 필요합니다.`,
     },
   ];
 

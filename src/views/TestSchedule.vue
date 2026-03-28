@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useScheduleStore } from '@/stores/schedule';
-import type { ScheduleBasicInfo, SiteRequirements, AssignmentMap } from '@/types/schedule';
+import type { ScheduleBasicInfo, SiteRequirementList, AssignmentMap } from '@/types/schedule';
 
 const scheduleStore = useScheduleStore();
 const actionLog = ref<string[]>([]);
@@ -16,10 +16,14 @@ const sampleBasicInfo: ScheduleBasicInfo = {
   shifts: [],
 };
 
-const sampleSiteRequirements: SiteRequirements = {
-  '2025-12-01': { D: 3, E: 4, N: 2, O: 1, total: 10 },
-  '2025-12-02': { D: 3, E: 4, N: 2, O: 1, total: 10 },
-};
+const sampleSiteRequirements: SiteRequirementList = [
+  { dayOfWeek: 1, dayName: '월요일', shiftCode: 'D', requiredCount: 3 },
+  { dayOfWeek: 1, dayName: '월요일', shiftCode: 'E', requiredCount: 4 },
+  { dayOfWeek: 1, dayName: '월요일', shiftCode: 'N', requiredCount: 2 },
+  { dayOfWeek: 2, dayName: '화요일', shiftCode: 'D', requiredCount: 3 },
+  { dayOfWeek: 2, dayName: '화요일', shiftCode: 'E', requiredCount: 4 },
+  { dayOfWeek: 2, dayName: '화요일', shiftCode: 'N', requiredCount: 2 },
+];
 
 const sampleAssignments: AssignmentMap = {
   'emp-001': {

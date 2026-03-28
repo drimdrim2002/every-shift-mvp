@@ -1,6 +1,9 @@
 <template>
   <template v-if="isSingleBox">
-    <n-tooltip :disabled="!offRequestTooltipText" trigger="hover">
+    <n-tooltip
+      :disabled="!offRequestTooltipText"
+      trigger="hover"
+    >
       <template #trigger>
         <button
           :class="getSingleBoxClass()"
@@ -22,7 +25,10 @@
       </div>
     </n-tooltip>
   </template>
-  <div v-else class="flex gap-0.5 p-0.5">
+  <div
+    v-else
+    class="flex gap-0.5 p-0.5"
+  >
     <n-tooltip
       v-for="shift in availableShifts"
       :key="shift"
@@ -140,7 +146,10 @@ const toggleCursorClass = 'cursor-pointer'
 
 function getShiftButtonClass(shiftCode: string) {
   const isSelected = props.currentShift === shiftCode
-  const color = isSelected ? selectedColorMap[shiftCode] : colorMap[shiftCode]
+  const fallbackColor = isSelected ? selectedColorMap.O : colorMap.O
+  const color = isSelected
+    ? selectedColorMap[shiftCode] ?? fallbackColor
+    : colorMap[shiftCode] ?? fallbackColor
   const opacity = isSelected ? 'opacity-100' : 'opacity-40'
   const hover = !props.readonly ? 'hover:opacity-80 cursor-pointer' : 'cursor-not-allowed'
 
@@ -156,7 +165,8 @@ function getSingleBoxClass() {
       ? 'bg-gray-100 border-gray-300 text-gray-700'
       : 'bg-white border-gray-200 text-gray-700'
   } else {
-    colorClass = singleBoxColorMap[props.currentShift || ''] || singleBoxColorMap['']
+    colorClass = singleBoxColorMap[props.currentShift || '']
+      ?? 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
   }
 
   const cursorClass = props.readonly ? 'cursor-not-allowed' : toggleCursorClass

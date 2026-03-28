@@ -1,6 +1,15 @@
 import dayjs from 'dayjs';
 import type { GridColumn } from '@/types/schedule';
 
+const SHORT_DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+function dayOfWeekToShortDayName(dayOfWeek: number): GridColumn['dayName'] {
+  if (dayOfWeek < 0 || dayOfWeek >= SHORT_DAY_NAMES.length) {
+    throw new Error(`잘못된 요일 번호: ${dayOfWeek}`);
+  }
+  return SHORT_DAY_NAMES[dayOfWeek]!;
+}
+
 /**
  * 다음 달 반환 (YYYY-MM)
  * @returns 다음 달 문자열 (예: "2025-12")
@@ -32,11 +41,12 @@ export function getDaysInMonth(month: string): GridColumn[] {
 
   return Array.from({ length: daysCount }, (_, i) => {
     const date = start.add(i, 'day');
+    const dayOfWeek = date.day();
     return {
       date: date.format('YYYY-MM-DD'),
       day: date.date(),
-      dayOfWeek: date.day(), // 0(일) ~ 6(토)
-      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],
+      dayOfWeek, // 0(일) ~ 6(토)
+      dayName: dayOfWeekToShortDayName(dayOfWeek),
       isLastMonth: false,
     };
   });
@@ -55,11 +65,12 @@ export function getLastDaysOfPreviousMonth(month: string, count: number = 5): Gr
   const days: GridColumn[] = [];
   for (let i = count - 1; i >= 0; i--) {
     const date = previousMonthEnd.subtract(i, 'day');
+    const dayOfWeek = date.day();
     days.push({
       date: date.format('YYYY-MM-DD'),
       day: date.date(),
-      dayOfWeek: date.day(),
-      dayName: ['일', '월', '화', '수', '목', '금', '토'][date.day()],
+      dayOfWeek,
+      dayName: dayOfWeekToShortDayName(dayOfWeek),
       isLastMonth: true,
     });
   }

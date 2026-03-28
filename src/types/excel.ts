@@ -88,8 +88,8 @@ export function dayNameToDayOfWeek(dayName: string): number {
 
 // dayOfWeek → 요일 이름 변환 헬퍼
 export function dayOfWeekToDayName(dayOfWeek: number): string {
-  if (dayOfWeek < 0 || dayOfWeek > 6) {
+  if (dayOfWeek < 0 || dayOfWeek >= DAY_NAMES.length) {
     throw new Error(`잘못된 요일 번호: ${dayOfWeek}`);
   }
-  return DAY_NAMES[dayOfWeek];
+  return DAY_NAMES[dayOfWeek]!;
 }

@@ -3,6 +3,21 @@ import dayjs from 'dayjs';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap } from '@/types/schedule';
 
+function getWorkbookSheet(workbook: XLSX.WorkBook, sheetName: string): XLSX.WorkSheet {
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) {
+    throw new Error(`엑셀 시트를 찾을 수 없습니다: ${sheetName}`);
+  }
+  return sheet;
+}
+
+function readWorksheetRows(sheet: XLSX.WorkSheet): unknown[][] {
+  return XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: '',
+  });
+}
+
 // ============================================================================
 // 전월 데이터 엑셀 템플릿/파싱 (Step4InitialData 전용)
 // ============================================================================
@@ -101,20 +116,17 @@ export async function parseLastMonthExcel(
   // 첫 번째 시트 또는 '전월데이터' 시트 찾기
   let sheet: XLSX.WorkSheet;
   if (workbook.Sheets['전월데이터']) {
-    sheet = workbook.Sheets['전월데이터'];
+    sheet = getWorkbookSheet(workbook, '전월데이터');
   } else {
     const firstSheetName = workbook.SheetNames[0];
     if (!firstSheetName) {
       throw new Error('엑셀 파일에 시트가 없습니다.');
     }
-    sheet = workbook.Sheets[firstSheetName];
+    sheet = getWorkbookSheet(workbook, firstSheetName);
   }
   
   // 시트 데이터 파싱
-  const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-    header: 1,
-    defval: '',
-  }) as unknown[][];
+  const data = readWorksheetRows(sheet);
   
   if (data.length < 2) {
     throw new Error('엑셀 파일에 데이터가 부족합니다. 최소 헤더와 1개의 데이터 행이 필요합니다.');
@@ -133,7 +145,7 @@ export async function parseLastMonthExcel(
   
   // 데이터 행 파싱 (1행부터, 0행은 헤더)
   for (let i = 1; i < data.length; i++) {
-    const row = data[i] as (string | number)[];
+    const row = data[i] ?? [];
     const name = String(row[0] || '').trim();
     const employeeId = String(row[1] || '').trim();
     
@@ -150,9 +162,8 @@ export async function parseLastMonthExcel(
     }
     
     // 해당 직원의 assignments 초기화
-    if (!assignments[employee.id]) {
-      assignments[employee.id] = {};
-    }
+    const employeeAssignments = assignments[employee.id] ?? {};
+    assignments[employee.id] = employeeAssignments;
     
     // 날짜별 시프트 추출 (2번 컬럼부터)
     for (let j = 0; j < lastMonthDates.length; j++) {
@@ -172,8 +183,12 @@ export async function parseLastMonthExcel(
           continue;
         }
         
-        const dateStr = lastMonthDates[j].date;
-        assignments[employee.id][dateStr] = shiftCode;
+        const dateInfo = lastMonthDates[j];
+        if (!dateInfo) {
+          throw new Error(`전월 날짜 정보를 찾을 수 없습니다: index=${j}`);
+        }
+
+        employeeAssignments[dateInfo.date] = shiftCode;
       }
     }
   }
@@ -290,6 +305,7 @@ function getStringWidth(str: string): number {
   let width = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str[i];
+    if (!char) continue;
     // 한글 및 한자는 2 너비, 그 외는 1 너비
     width += /[\u3000-\u9FFF\uAC00-\uD7AF]/.test(char) ? 2 : 1;
   }
