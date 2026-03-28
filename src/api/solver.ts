@@ -11,6 +11,20 @@ interface SolverRuntimeEnv {
   VITE_API_BASE_URL?: string;
 }
 
+export class SolverApiError extends Error {
+  code?: string;
+  status?: number;
+  payload?: unknown;
+
+  constructor(message: string, options?: { code?: string; status?: number; payload?: unknown }) {
+    super(message);
+    this.name = 'SolverApiError';
+    this.code = options?.code;
+    this.status = options?.status;
+    this.payload = options?.payload;
+  }
+}
+
 function normalizeApiBaseUrl(url: string): string {
   return url.endsWith('/') ? url.slice(0, -1) : url;
 }
@@ -45,14 +59,38 @@ export async function createSolverExecution(
   if (!response.ok) {
     const errorText = await response.text();
     console.error('[createSolverExecution] Error response:', errorText);
+    const fallbackMessage = `Solver 요청 실패: ${response.status} ${response.statusText}`;
+
     try {
-      const errorJson = JSON.parse(errorText);
-      throw new Error(errorJson.error || errorJson.message || `Solver 요청 실패: ${response.status} ${response.statusText}`);
-    } catch (e) {
-      if (e instanceof Error && e.message.startsWith('Solver 요청 실패')) {
-        throw e;
+      const errorJson = JSON.parse(errorText) as {
+        code?: unknown;
+        error?: unknown;
+        message?: unknown;
+      };
+      const message = [errorJson.message, errorJson.error].find(
+        (entry) => typeof entry === 'string' && entry.trim().length > 0
+      ) as string | undefined;
+      const code = typeof errorJson.code === 'string' && errorJson.code.trim().length > 0
+        ? errorJson.code
+        : undefined;
+
+      throw new SolverApiError(message ?? fallbackMessage, {
+        code,
+        status: response.status,
+        payload: errorJson,
+      });
+    } catch (parseError) {
+      if (parseError instanceof SolverApiError) {
+        throw parseError;
       }
-      throw new Error(`Solver 요청 실패: ${response.status} ${response.statusText} - ${errorText.substring(0, 100)}`);
+
+      throw new SolverApiError(
+        `${fallbackMessage} - ${errorText.substring(0, 100)}`,
+        {
+          status: response.status,
+          payload: errorText,
+        }
+      );
     }
   }
 

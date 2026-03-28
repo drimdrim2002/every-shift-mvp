@@ -139,6 +139,7 @@ describe('Dashboard', () => {
       scheduleId: 'schedule-123',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         {
           id: 'version-1',

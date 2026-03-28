@@ -12,6 +12,7 @@ const compareResponse = {
   scheduleId: 'schedule-1',
   selectedVersionId: 'version-2',
   finalizedVersionId: null,
+  activeSolvingVersionId: null,
   versions: [
     {
       id: 'version-1',
@@ -77,6 +78,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-1',
+      activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: false,
     })
@@ -86,6 +88,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
@@ -95,6 +98,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, 'missing-version')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
@@ -112,8 +116,29 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       selectedVersionId: null,
       previewVersionId: 'version-1',
+      activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
+    })
+  })
+
+  it('exposes authoritative active solving version for Step5 runtime decisions', () => {
+    const solvingCompare = {
+      ...compareResponse,
+      activeSolvingVersionId: 'version-2',
+      versions: compareResponse.versions.map((version) =>
+        version.id === 'version-2'
+          ? { ...version, status: 'solving' as const }
+          : version
+      ),
+    }
+
+    expect(resolveStep5VersionState(solvingCompare, 'version-2')).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      activeSolvingVersionId: 'version-2',
+      versions: solvingCompare.versions,
+      shouldCanonicalize: false,
     })
   })
 

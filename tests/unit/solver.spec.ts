@@ -149,15 +149,19 @@ describe('solver api', () => {
       });
     });
 
-    it('throws a server-provided error message on non-2xx response', async () => {
+    it('preserves code/message/status for non-2xx json responses', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'validation failed' }), {
-          status: 400,
+        new Response(JSON.stringify({ code: 'another_version_solving', message: 'validation failed' }), {
+          status: 409,
           headers: { 'Content-Type': 'application/json' },
         }),
       );
 
-      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow('validation failed');
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toMatchObject({
+        message: 'validation failed',
+        code: 'another_version_solving',
+        status: 409,
+      });
     });
 
     it('throws a fallback error message when non-json text is returned', async () => {
@@ -165,9 +169,10 @@ describe('solver api', () => {
         new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' }),
       );
 
-      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow(
-        'Solver 요청 실패: 502 Bad Gateway',
-      );
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toMatchObject({
+        message: 'Solver 요청 실패: 502 Bad Gateway - Bad Gateway',
+        status: 502,
+      });
     });
   });
 

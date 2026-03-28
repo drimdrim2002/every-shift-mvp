@@ -28,6 +28,7 @@ export function resolveStep5VersionState(
 ): {
   selectedVersionId: string | null;
   previewVersionId: string | null;
+  activeSolvingVersionId: string | null;
   versions: ScheduleVersionSummary[];
   shouldCanonicalize: boolean;
 } {
@@ -43,9 +44,14 @@ export function resolveStep5VersionState(
     previewVersionId = getDefaultScheduleVersionId(compare.versions);
   }
 
+  const activeSolvingVersionId = hasVersionId(compare.versions, compare.activeSolvingVersionId)
+    ? compare.activeSolvingVersionId
+    : null;
+
   return {
     selectedVersionId: compare.selectedVersionId,
     previewVersionId,
+    activeSolvingVersionId,
     versions: compare.versions,
     shouldCanonicalize: previewVersionId !== requestedPreviewVersionId,
   };

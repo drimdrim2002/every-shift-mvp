@@ -94,6 +94,7 @@ function createCompareMatrix(
     scheduleId: 'schedule-1',
     selectedVersionId: 'version-1',
     finalizedVersionId: null,
+    activeSolvingVersionId: null,
     versions: [createVersionSummary()],
     ...overrides,
   };
