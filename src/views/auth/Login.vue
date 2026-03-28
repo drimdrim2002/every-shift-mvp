@@ -86,7 +86,7 @@ async function handleLogin() {
 
   if (result.success) {
     window.$message?.success('로그인 성공')
-    router.push('/schedule/step1')
+    router.push('/')
   } else {
     window.$message?.error(result.error || '로그인 실패')
   }

@@ -181,9 +181,12 @@ const monthOptions = computed(() => {
 });
 
 onMounted(async () => {
-  // 조직 정보 로드
-  if (!orgStore.current) {
-    await orgStore.loadOrganization('00000000-0000-0000-0000-000000000001');
+  const result = await orgStore.loadOrganization();
+
+  if (!result.success) {
+    showError(result.error || '조직 정보를 불러오지 못했습니다.');
+    loading.value = false;
+    return;
   }
 
   // 근무표 목록 로드

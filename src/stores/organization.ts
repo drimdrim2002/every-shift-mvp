@@ -37,29 +37,109 @@ interface ShiftRow {
   created_at?: string
 }
 
+type OrganizationMetadata = Record<string, unknown> | null | undefined
+
 export const useOrganizationStore = defineStore('organization', () => {
   const current = ref<Organization | null>(null)
   const employees = ref<Employee[]>([])
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
 
+  function readOrganizationIdFromMetadata(metadata: OrganizationMetadata): string | null {
+    const keys = [
+      'organizationId',
+      'organization_id',
+      'currentOrganizationId',
+      'current_organization_id',
+    ] as const
+
+    for (const key of keys) {
+      const value = metadata?.[key]
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim()
+      }
+    }
+
+    return null
+  }
+
+  async function fetchOrganizationById(orgId: string): Promise<OrganizationRow | null> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', orgId)
+      .limit(1)
+
+    if (error) throw error
+
+    return (data as OrganizationRow[])[0] ?? null
+  }
+
+  async function fetchFirstAccessibleOrganization(): Promise<OrganizationRow | null> {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('*')
+      .order('name')
+      .limit(1)
+
+    if (error) throw error
+
+    return (data as OrganizationRow[])[0] ?? null
+  }
+
+  async function resolveOrganization(orgId?: string): Promise<OrganizationRow> {
+    const candidateOrgIds = new Set<string>()
+
+    if (typeof orgId === 'string' && orgId.trim().length > 0) {
+      candidateOrgIds.add(orgId.trim())
+    }
+
+    if (current.value?.id) {
+      candidateOrgIds.add(current.value.id)
+    }
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+    if (sessionError) throw sessionError
+
+    const sessionUser = sessionData.session?.user
+    const metadataOrgIds = [
+      readOrganizationIdFromMetadata(sessionUser?.user_metadata as OrganizationMetadata),
+      readOrganizationIdFromMetadata(sessionUser?.app_metadata as OrganizationMetadata),
+    ]
+
+    for (const metadataOrgId of metadataOrgIds) {
+      if (metadataOrgId) {
+        candidateOrgIds.add(metadataOrgId)
+      }
+    }
+
+    for (const candidateOrgId of candidateOrgIds) {
+      const organization = await fetchOrganizationById(candidateOrgId)
+      if (organization) {
+        return organization
+      }
+    }
+
+    const fallbackOrganization = await fetchFirstAccessibleOrganization()
+
+    if (fallbackOrganization) {
+      return fallbackOrganization
+    }
+
+    throw new Error('접근 가능한 조직 정보가 없습니다.')
+  }
+
   /**
    * 조직 정보 로드 (직원, 시프트 포함)
    */
-  async function loadOrganization(orgId: string) {
+  async function loadOrganization(orgId?: string) {
     loading.value = true
     try {
       // 조직 정보
-      const { data: orgData, error: orgError } = await supabase
-        .from('organizations')
-        .select('*')
-        .eq('id', orgId)
-        .single()
+      const org = await resolveOrganization(orgId)
+      const resolvedOrgId = org.id
 
-      if (orgError) throw orgError
-
-      // Snake_case to camelCase 변환
-      const org = orgData as OrganizationRow
       current.value = {
         id: org.id,
         name: org.name,
@@ -72,7 +152,7 @@ export const useOrganizationStore = defineStore('organization', () => {
       const { data: empData, error: empError } = await supabase
         .from('employees')
         .select('*')
-        .eq('organization_id', orgId)
+        .eq('organization_id', resolvedOrgId)
 
       if (empError) throw empError
 
@@ -91,7 +171,7 @@ export const useOrganizationStore = defineStore('organization', () => {
       const { data: shiftData, error: shiftError } = await supabase
         .from('shifts')
         .select('*')
-        .eq('organization_id', orgId)
+        .eq('organization_id', resolvedOrgId)
 
       if (shiftError) throw shiftError
 

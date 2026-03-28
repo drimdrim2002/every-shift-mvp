@@ -245,14 +245,17 @@ const canProceed = computed(() => {
 
 // 초기화
 onMounted(async () => {
-  // 조직 정보 로드 (없을 경우에만)
-  if (!orgStore.current) {
-    await orgStore.loadOrganization('00000000-0000-0000-0000-000000000001');
-  }
-  
   // Dashboard에서 계획월이 설정되지 않은 경우 Dashboard로 리다이렉트
   if (!scheduleStore.basicInfo?.month) {
     window.$message?.warning('계획월을 먼저 선택해주세요');
+    router.push('/');
+    return;
+  }
+
+  const result = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+
+  if (!result.success) {
+    window.$message?.error(result.error || '조직 정보를 불러올 수 없습니다.');
     router.push('/');
     return;
   }

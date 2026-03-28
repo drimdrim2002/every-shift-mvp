@@ -31,14 +31,20 @@ export async function loadOrganization(orgId: string): Promise<Organization> {
     .from('organizations')
     .select('*')
     .eq('id', orgId)
-    .single();
+    .limit(1);
 
   if (error) {
     console.error('[loadOrganization] Supabase error:', error);
     throw new Error(`조직 조회 실패: ${error.message}`);
   }
 
-  return toOrganization(data as OrganizationRow);
+  const row = (data as OrganizationRow[])[0];
+
+  if (!row) {
+    throw new Error('조직 조회 실패: 접근 가능한 조직 정보가 없습니다.');
+  }
+
+  return toOrganization(row);
 }
 
 /**
@@ -131,4 +137,3 @@ export async function deleteOrganization(orgId: string): Promise<void> {
     throw new Error(`조직 삭제 실패: ${error.message}`);
   }
 }
-
