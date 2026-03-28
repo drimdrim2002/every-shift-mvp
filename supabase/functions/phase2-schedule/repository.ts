@@ -1,8 +1,12 @@
 import {
   ContractError,
   type CompareResponse,
+  type CreateVersionRequest,
+  type CreateVersionResponse,
   type EnsureRequest,
   type EnsureResponse,
+  type PatchAssignmentsRequest,
+  type PatchAssignmentsResponse,
   type Phase2ScheduleAuthContext,
   type ReviewResponse,
   type ScheduleCompareMetrics,
@@ -10,10 +14,21 @@ import {
   type ScheduleFinalizationGate,
   type ScheduleInputDiffSummary,
   type SchedulePrimaryAction,
+  type SolveRequest,
+  type SolveResponse,
+  type SolverResultRequest,
+  type SolverResultResponse,
   type ScheduleVersionStatus,
   type ScheduleVersionSummary,
   type SelectResponse,
 } from './contracts.ts';
+import {
+  buildVersionInsertPayload,
+  cloneLockedAssignments,
+  cloneSchedulePreferences,
+  filterAssignmentChangesToMonth,
+  type AssignmentIdentityRow,
+} from './engine.ts';
 
 type DbRecord = Record<string, unknown>;
 
@@ -52,6 +67,58 @@ interface ScheduleVersionRow {
   input_diff_summary: unknown;
   manual_edit_count: number;
   latest_evaluation_id: string | null;
+  active_solver_execution_id?: string | null;
+}
+
+interface ApplyScheduleVersionSolverResultRow {
+  schedule_version_id: string;
+  status: string;
+  active_solver_execution_id: string | null;
+  hard_score: number | null;
+  soft_score: number | null;
+  failure_reason: string | null;
+}
+
+interface MarkScheduleVersionSolvingAtomicRow {
+  schedule_version_id: string;
+  status: string;
+  active_solver_execution_id: string;
+}
+
+interface PatchScheduleVersionAssignmentsAtomicRow {
+  schedule_version_id: string;
+  status: string;
+  current_revision: number;
+  manual_edit_count: number;
+  changed_cells: number;
+}
+
+interface SchedulePreferenceRow {
+  id?: string;
+  schedule_id: string;
+  schedule_version_id: string | null;
+  employee_id: string;
+  date: string;
+  request_code: string;
+  request_note: string | null;
+  is_soft: boolean;
+  resolution_status: string;
+  resolved_shift_id: string | null;
+  resolved_at: string | null;
+  request_source?: string | null;
+}
+
+interface ScheduleAssignmentRow extends AssignmentIdentityRow {
+  schedule_id: string;
+  schedule_version_id: string | null;
+  employee_id: string;
+  shift_id: string;
+  date: string;
+  is_locked: boolean | null;
+  off_reason?: string | null;
+  comment?: string | null;
+  edited_by?: string | null;
+  edited_at?: string | null;
 }
 
 interface ScheduleEvaluationRow {
@@ -83,6 +150,7 @@ interface BootstrapSnapshotCounts {
 
 export interface Phase2ScheduleRepositoryClient {
   from(table: string): any;
+  rpc?(fn: string, params: Record<string, unknown>): any;
 }
 
 class DatabaseError extends Error {
@@ -310,6 +378,7 @@ function toVersionSummary(
     latestEvaluationResultStatus: evaluation?.resultStatus ?? null,
     comparisonMetrics: version.latest_evaluation_id ? evaluation?.comparisonMetrics ?? null : null,
     finalizationGate: version.latest_evaluation_id ? evaluation?.finalizationGate ?? null : null,
+    activeSolverExecutionId: version.active_solver_execution_id ?? null,
     isSelected: schedule.selected_version_id === version.id,
     isFinalized: schedule.finalized_version_id === version.id,
   };
@@ -380,6 +449,76 @@ async function run(query: any): Promise<void> {
   }
 }
 
+async function rpcSingle<T>(
+  client: Phase2ScheduleRepositoryClient,
+  fn: string,
+  params: Record<string, unknown>
+): Promise<T> {
+  if (typeof client.rpc !== 'function') {
+    throw new Error(`Repository client does not implement rpc(${fn})`);
+  }
+
+  const result = (await client.rpc(fn, params)) as DbQueryResult<T | T[]>;
+
+  if (result.error) {
+    throw new DatabaseError(result.error);
+  }
+
+  if (Array.isArray(result.data)) {
+    const [firstRow] = result.data;
+
+    if (!firstRow) {
+      throw new Error(`Expected rpc ${fn} to return a row`);
+    }
+
+    return firstRow;
+  }
+
+  if (!result.data) {
+    throw new Error(`Expected rpc ${fn} to return data`);
+  }
+
+  return result.data;
+}
+
+function remapSlice5RpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    const { code, constraint, details, message } = error.dbError;
+
+    if (message === 'solver_execution_mismatch') {
+      throw new ContractError(
+        'solver_execution_mismatch',
+        'Solver execution no longer matches the active version run',
+        409
+      );
+    }
+
+    if (message === 'stale_solver_callback') {
+      throw new ContractError(
+        'stale_solver_callback',
+        'Solver callback no longer applies to the current version state',
+        409
+      );
+    }
+
+    if (
+      message === 'another_version_solving'
+      || (code === '23505'
+        && `${constraint ?? ''} ${details ?? ''} ${message ?? ''}`.includes(
+          'schedule_versions_single_running_per_schedule'
+        ))
+    ) {
+      throw new ContractError(
+        'another_version_solving',
+        'Another version is already solving for this schedule',
+        409
+      );
+    }
+  }
+
+  throw error;
+}
+
 function assertOrganizationAccess(
   auth: Phase2ScheduleAuthContext,
   schedule: ScheduleRow
@@ -448,6 +587,28 @@ async function loadVersionRows(
       .select('*')
       .eq('schedule_id', scheduleId)
       .order('version_no', { ascending: true })
+  );
+}
+
+async function loadVersionPreferenceRows(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string
+): Promise<SchedulePreferenceRow[]> {
+  return list<SchedulePreferenceRow>(
+    client.from('schedule_preferences').select('*').eq('schedule_version_id', versionId)
+  );
+}
+
+async function loadLockedAssignmentRows(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string
+): Promise<ScheduleAssignmentRow[]> {
+  return list<ScheduleAssignmentRow>(
+    client
+      .from('schedule_assignments')
+      .select('*')
+      .eq('schedule_version_id', versionId)
+      .eq('is_locked', true)
   );
 }
 
@@ -675,6 +836,186 @@ async function loadAuthorizedSchedule(
 
   assertOrganizationAccess(auth, schedule);
   return schedule;
+}
+
+async function loadAuthorizedVersionContext(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string
+): Promise<{ schedule: ScheduleRow; version: ScheduleVersionRow }> {
+  const version = await loadVersionById(client, versionId);
+
+  if (!version) {
+    throw new ContractError('version_not_found', 'Version not found', 404);
+  }
+
+  const schedule = await loadAuthorizedSchedule(client, auth, version.schedule_id);
+  return { schedule, version };
+}
+
+export async function createVersion(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  scheduleId: string,
+  request: CreateVersionRequest
+): Promise<CreateVersionResponse> {
+  const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
+  const baseVersion = await loadVersionById(client, request.baseVersionId);
+
+  if (!baseVersion || baseVersion.schedule_id !== schedule.id) {
+    throw new ContractError('version_not_found', 'Base version not found', 404);
+  }
+
+  const basePreferences = await loadVersionPreferenceRows(client, baseVersion.id);
+  const lockedAssignments = await loadLockedAssignmentRows(client, baseVersion.id);
+
+  let insertedVersion: ScheduleVersionRow | null = null;
+  let latestVersionNo = schedule.latest_version_no ?? 0;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const nextVersionNo = Math.max(latestVersionNo, 0) + 1;
+
+    try {
+      insertedVersion = await single<ScheduleVersionRow>(
+        client
+          .from('schedule_versions')
+          .insert(buildVersionInsertPayload(schedule.id, nextVersionNo, auth.userId, request))
+          .select()
+      );
+      break;
+    } catch (error: unknown) {
+      if (!isUniqueViolation(error, VERSION_UNIQUE_CONSTRAINTS, ['schedule_id', 'version_no'])) {
+        throw error;
+      }
+
+      const refreshedSchedule = await loadScheduleById(client, schedule.id);
+      latestVersionNo = refreshedSchedule?.latest_version_no ?? nextVersionNo;
+    }
+  }
+
+  if (!insertedVersion) {
+    throw new ContractError('conflict', 'Failed to allocate a new version number', 409);
+  }
+
+  const clonedPreferences = cloneSchedulePreferences(schedule.id, insertedVersion.id, basePreferences);
+  if (clonedPreferences.length > 0) {
+    await run(client.from('schedule_preferences').insert(clonedPreferences));
+  }
+
+  const clonedAssignments = cloneLockedAssignments(schedule.id, insertedVersion.id, lockedAssignments);
+  if (clonedAssignments.length > 0) {
+    await run(client.from('schedule_assignments').insert(clonedAssignments));
+  }
+
+  if ((schedule.latest_version_no ?? 0) < insertedVersion.version_no) {
+    await run(
+      client.from('schedules').update({ latest_version_no: insertedVersion.version_no }).eq('id', schedule.id)
+    );
+    schedule.latest_version_no = insertedVersion.version_no;
+  }
+
+  const response = await buildCompareResponse(client, schedule);
+  return {
+    ...response,
+    createdVersionId: insertedVersion.id,
+  };
+}
+
+export async function markVersionSolving(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string,
+  request: SolveRequest
+): Promise<SolveResponse> {
+  await loadAuthorizedVersionContext(client, auth, versionId);
+
+  try {
+    const row = await rpcSingle<MarkScheduleVersionSolvingAtomicRow>(
+      client,
+      'mark_schedule_version_solving_atomic',
+      {
+        p_version_id: versionId,
+        p_solver_execution_id: request.solverExecutionId,
+      }
+    );
+
+    return {
+      scheduleVersionId: row.schedule_version_id,
+      status: row.status as ScheduleVersionStatus,
+      solverExecutionId: row.active_solver_execution_id,
+    };
+  } catch (error: unknown) {
+    remapSlice5RpcConflict(error);
+  }
+}
+
+export async function syncVersionSolverResult(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string,
+  request: SolverResultRequest
+): Promise<SolverResultResponse> {
+  const { schedule } = await loadAuthorizedVersionContext(client, auth, versionId);
+  const monthScopedAssignments = filterAssignmentChangesToMonth(request.assignments, schedule.month);
+
+  try {
+    const row = await rpcSingle<ApplyScheduleVersionSolverResultRow>(
+      client,
+      'apply_schedule_version_solver_result',
+      {
+        p_version_id: versionId,
+        p_solver_execution_id: request.solverExecutionId,
+        p_status: request.status,
+        p_assignments: monthScopedAssignments,
+        p_score: request.score,
+        p_failure_reason: request.failureReason,
+        p_edited_by: auth.userId,
+      }
+    );
+
+    return {
+      scheduleVersionId: row.schedule_version_id,
+      status: row.status as ScheduleVersionStatus,
+      solverExecutionId: row.active_solver_execution_id,
+      hardScore: row.hard_score,
+      softScore: row.soft_score,
+      failureReason: row.failure_reason,
+    };
+  } catch (error: unknown) {
+    remapSlice5RpcConflict(error);
+  }
+}
+
+export async function patchVersionAssignments(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string,
+  request: PatchAssignmentsRequest
+): Promise<PatchAssignmentsResponse> {
+  const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
+  const monthScopedChanges = filterAssignmentChangesToMonth(request.changes, schedule.month);
+
+  try {
+    const row = await rpcSingle<PatchScheduleVersionAssignmentsAtomicRow>(
+      client,
+      'patch_schedule_version_assignments_atomic',
+      {
+        p_version_id: version.id,
+        p_changes: monthScopedChanges,
+        p_edited_by: auth.userId,
+      }
+    );
+
+    return {
+      scheduleVersionId: row.schedule_version_id,
+      status: row.status as ScheduleVersionStatus,
+      currentRevision: row.current_revision,
+      manualEditCount: row.manual_edit_count,
+      changedCells: row.changed_cells,
+    };
+  } catch (error: unknown) {
+    remapSlice5RpcConflict(error);
+  }
 }
 
 export async function ensure(

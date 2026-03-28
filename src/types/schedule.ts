@@ -165,6 +165,7 @@ export interface ScheduleVersionSummary {
   latestEvaluationResultStatus: ScheduleEvaluationResultStatus | null;
   comparisonMetrics: ScheduleCompareMetrics | null;
   finalizationGate: ScheduleFinalizationGate | null;
+  activeSolverExecutionId: string | null;
   isSelected: boolean;
   isFinalized: boolean;
 }
@@ -192,6 +193,74 @@ export interface ScheduleCompareResponse {
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   versions: ScheduleVersionSummary[];
+}
+
+export interface CreateScheduleVersionRequest {
+  baseVersionId: string;
+  name: string | null;
+  sourceType: ScheduleVersionSourceType;
+  inputDiffSummary: ScheduleInputDiffSummary;
+}
+
+export interface CreateScheduleVersionResponse {
+  scheduleId: string;
+  createdVersionId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
+export interface ScheduleVersionSolveRequest {
+  solverExecutionId: string;
+}
+
+export interface ScheduleVersionSolveResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  solverExecutionId: string;
+}
+
+export interface ScheduleVersionScore {
+  hardScore: number;
+  softScore: number;
+}
+
+export interface ScheduleVersionAssignmentChange {
+  employeeId: string;
+  date: string;
+  shiftId: string | null;
+  comment?: string | null;
+  offReason?: string | null;
+  isLocked?: boolean;
+}
+
+export interface ScheduleVersionSolverResultRequest {
+  status: 'completed' | 'failed';
+  assignments?: ScheduleVersionAssignmentChange[];
+  score?: ScheduleVersionScore | null;
+  failureReason?: string | null;
+  solverExecutionId: string;
+}
+
+export interface ScheduleVersionSolverResultResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  solverExecutionId: string | null;
+  hardScore: number | null;
+  softScore: number | null;
+  failureReason: string | null;
+}
+
+export interface PatchScheduleVersionAssignmentsRequest {
+  changes: ScheduleVersionAssignmentChange[];
+}
+
+export interface PatchScheduleVersionAssignmentsResponse {
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  currentRevision: number;
+  manualEditCount: number;
+  changedCells: number;
 }
 
 export interface ScheduleReviewResponse {

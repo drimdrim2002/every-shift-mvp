@@ -508,6 +508,7 @@ describe('phase2 schedule repository', () => {
               manual_edit_count: 0,
               input_diff_summary: {},
               latest_evaluation_id: null,
+              active_solver_execution_id: 'solver-exec-1',
             },
           ],
           error: null,
@@ -548,6 +549,7 @@ describe('phase2 schedule repository', () => {
       expect.objectContaining({
         id: '78787878-7878-4878-8878-787878787878',
         status: 'solving',
+        activeSolverExecutionId: 'solver-exec-1',
       })
     );
   });
