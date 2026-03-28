@@ -123,6 +123,8 @@ describe('phase2 schedule api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-schedule/schedules/ensure',
       expect.objectContaining({
         method: 'POST',
+        mode: 'cors',
+        credentials: 'omit',
         headers: expect.objectContaining({
           apikey: 'anon-key',
           Authorization: 'Bearer token-123',
@@ -244,6 +246,27 @@ describe('phase2 schedule api helpers', () => {
       })
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
+  });
+
+  it('provides a deployment/cors hint when fetch fails before receiving an HTTP response', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-network',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+
+    await expect(
+      ensurePhase2Schedule({
+        organizationId: '11111111-1111-4111-8111-111111111111',
+        month: '2026-04',
+      })
+    ).rejects.toThrow('phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요)');
   });
 
   it('reads version-scoped preferences by schedule_version_id', async () => {

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import type {
   ScheduleBasicInfo,
   SiteRequirementList,
@@ -11,6 +11,76 @@ import type {
   ScheduleVersionSummary,
 } from '@/types/schedule';
 import type { EmployeeInput } from '@/types/employee';
+
+const WIZARD_CONTEXT_STORAGE_KEY = 'everyshift_wizard_context_v1';
+
+interface PersistedWizardContext {
+  basicInfo: ScheduleBasicInfo | null;
+  selectedVersionId: string | null;
+  previewVersionId: string | null;
+  currentStep: number;
+}
+
+function canUseLocalStorage(): boolean {
+  return typeof window !== 'undefined' && !!window.localStorage;
+}
+
+function isScheduleBasicInfo(value: unknown): value is ScheduleBasicInfo {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (record.scheduleId !== undefined && typeof record.scheduleId !== 'string') {
+    return false;
+  }
+
+  return (
+    typeof record.month === 'string' &&
+    typeof record.organizationId === 'string' &&
+    typeof record.organizationName === 'string' &&
+    typeof record.organizationType === 'string' &&
+    typeof record.employeeCount === 'number' &&
+    Array.isArray(record.shifts)
+  );
+}
+
+function normalizeCurrentStep(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    return 1;
+  }
+
+  if (value < 1) return 1;
+  if (value > 5) return 5;
+
+  return value;
+}
+
+function readPersistedWizardContext(): PersistedWizardContext | null {
+  if (!canUseLocalStorage()) return null;
+
+  const raw = window.localStorage.getItem(WIZARD_CONTEXT_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const parsedBasicInfo = parsed.basicInfo;
+    const basicInfo = isScheduleBasicInfo(parsedBasicInfo) ? parsedBasicInfo : null;
+
+    return {
+      basicInfo,
+      selectedVersionId:
+        typeof parsed.selectedVersionId === 'string' ? parsed.selectedVersionId : null,
+      previewVersionId:
+        typeof parsed.previewVersionId === 'string' ? parsed.previewVersionId : null,
+      currentStep: normalizeCurrentStep(parsed.currentStep),
+    };
+  } catch {
+    window.localStorage.removeItem(WIZARD_CONTEXT_STORAGE_KEY);
+    return null;
+  }
+}
 
 export const useScheduleStore = defineStore('schedule', () => {
   // Step 1: 기본 정보
@@ -45,6 +115,51 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   // scheduleId computed getter
   const scheduleId = computed(() => basicInfo.value?.scheduleId ?? null);
+
+  function clearPersistedWizardContext() {
+    if (!canUseLocalStorage()) return;
+    window.localStorage.removeItem(WIZARD_CONTEXT_STORAGE_KEY);
+  }
+
+  function persistWizardContext() {
+    if (!canUseLocalStorage()) return;
+
+    if (!basicInfo.value) {
+      clearPersistedWizardContext();
+      return;
+    }
+
+    const payload: PersistedWizardContext = {
+      basicInfo: basicInfo.value,
+      selectedVersionId: selectedVersionId.value,
+      previewVersionId: previewVersionId.value,
+      currentStep: normalizeCurrentStep(currentStep.value),
+    };
+
+    window.localStorage.setItem(WIZARD_CONTEXT_STORAGE_KEY, JSON.stringify(payload));
+  }
+
+  function hydrateWizardContext() {
+    const persisted = readPersistedWizardContext();
+    if (!persisted) return;
+
+    basicInfo.value = persisted.basicInfo;
+    selectedVersionId.value = persisted.selectedVersionId;
+    previewVersionId.value = persisted.previewVersionId;
+    currentStep.value = persisted.currentStep;
+  }
+
+  hydrateWizardContext();
+
+  watch(
+    [basicInfo, selectedVersionId, previewVersionId, currentStep],
+    () => {
+      persistWizardContext();
+    },
+    {
+      deep: true,
+    }
+  );
 
   // Actions
   function setBasicInfo(info: ScheduleBasicInfo) {
@@ -125,6 +240,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     currentStep.value = 1;
     isExcelUpload.value = false;
     resetReviewState();
+    clearPersistedWizardContext();
   }
 
   return {

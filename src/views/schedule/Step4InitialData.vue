@@ -5,6 +5,28 @@
       class="mb-4"
     />
 
+    <n-alert
+      v-if="baselineErrorMessage"
+      type="error"
+      class="mb-4"
+    >
+      <template #header>
+        Step4 초기화 실패
+      </template>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm">
+          {{ baselineErrorMessage }}
+        </p>
+        <n-button
+          size="small"
+          :loading="isBaselineLoading"
+          @click="handleRetryBaseline"
+        >
+          다시 시도
+        </n-button>
+      </div>
+    </n-alert>
+
     <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
       <div
@@ -74,6 +96,7 @@
       <div class="flex gap-3">
         <n-button
           size="large"
+          :disabled="isSubmitting || !canPersistStep4"
           @click="handleSave"
         >
           임시 저장
@@ -82,7 +105,7 @@
           type="primary"
           size="large"
           :loading="isSubmitting"
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || !canPersistStep4"
           @click="handleNext"
         >
           다음 단계 →
@@ -122,7 +145,7 @@ import {
   getScheduleVersionPreferences,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NButton, NSpin } from 'naive-ui';
+import { NAlert, NButton, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -138,6 +161,8 @@ const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
 
 const isSubmitting = ref(false);
+const isBaselineLoading = ref(false);
+const baselineErrorMessage = ref<string | null>(null);
 
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
@@ -149,6 +174,15 @@ const showDaySummaryModal = ref(false);
 const selectedDateSummary = ref<string>('');
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
+const baselineState = ref<{
+  scheduleId: string;
+  previewVersionId: string;
+  selectedVersionId: string | null;
+} | null>(null);
+
+const canPersistStep4 = computed(() => {
+  return !isBaselineLoading.value && !baselineErrorMessage.value && !!baselineState.value;
+});
 
 const selectedCellComment = computed(() => {
   if (!selectedCell.value) return '';
@@ -275,74 +309,87 @@ watchDebounced(
   { debounce: 2000 }
 );
 
-async function ensureBaselineVersion(): Promise<{
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+async function ensureBaselineVersion(forceRefresh = false): Promise<{
   scheduleId: string;
   previewVersionId: string;
   selectedVersionId: string | null;
 }> {
+  if (!forceRefresh && baselineState.value) {
+    return baselineState.value;
+  }
+
   if (!scheduleStore.basicInfo) {
     throw new Error('기본 스케줄 정보가 없습니다.');
   }
 
-  const compareResponse = await ensurePhase2Schedule({
-    organizationId: scheduleStore.basicInfo.organizationId,
-    month: scheduleStore.basicInfo.month,
-  });
+  isBaselineLoading.value = true;
+  baselineErrorMessage.value = null;
 
-  const resolvedState = resolveStep4VersionState(compareResponse);
+  try {
+    const compareResponse = await ensurePhase2Schedule({
+      organizationId: scheduleStore.basicInfo.organizationId,
+      month: scheduleStore.basicInfo.month,
+    });
 
-  if (!resolvedState.previewVersionId) {
-    throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
+    const resolvedState = resolveStep4VersionState(compareResponse);
+
+    if (!resolvedState.previewVersionId) {
+      throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
+    }
+
+    scheduleStore.setBasicInfo({
+      ...scheduleStore.basicInfo,
+      scheduleId: compareResponse.scheduleId,
+    });
+    scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+    scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+    baselineState.value = {
+      scheduleId: compareResponse.scheduleId,
+      previewVersionId: resolvedState.previewVersionId,
+      selectedVersionId: resolvedState.selectedVersionId,
+    };
+
+    return baselineState.value;
+  } catch (error) {
+    baselineState.value = null;
+    baselineErrorMessage.value = `기준 버전 초기화에 실패했습니다: ${toErrorMessage(error)}`;
+    throw error;
+  } finally {
+    isBaselineLoading.value = false;
   }
-
-  scheduleStore.setBasicInfo({
-    ...scheduleStore.basicInfo,
-    scheduleId: compareResponse.scheduleId,
-  });
-  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-
-  return {
-    scheduleId: compareResponse.scheduleId,
-    previewVersionId: resolvedState.previewVersionId,
-    selectedVersionId: resolvedState.selectedVersionId,
-  };
 }
 
 // Lifecycle
 onMounted(async () => {
-  console.time('[Step4] Total Load Time');
-
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
-  // Parallel initialization: org loading + data restoration
-  console.time('[Step4] Parallel Init (Org + Data Restore)');
   await Promise.all([
-    // Load org data if not already loaded
     (!orgStore.current || orgStore.employees.length === 0)
       ? orgStore.loadOrganization(scheduleStore.basicInfo.organizationId)
       : Promise.resolve(),
-    // Restore saved data from Supabase
     restoreData(),
   ]);
-  console.timeEnd('[Step4] Parallel Init (Org + Data Restore)');
 
-  // Initialize grid from org store (no DB query needed)
-  console.time('[Step4] Grid Init');
   grid.employees.value = orgStore.employees;
   grid.generateDates(scheduleStore.basicInfo.month, 0);
   ensureEmployeeMaps();
-  console.timeEnd('[Step4] Grid Init');
-
-  console.timeEnd('[Step4] Total Load Time');
 });
 
-async function restoreData() {
+async function restoreData(forceRefresh = false) {
   try {
-    const { previewVersionId } = await ensureBaselineVersion();
+    const { previewVersionId } = await ensureBaselineVersion(forceRefresh);
     const preferenceData = await getScheduleVersionPreferences(previewVersionId);
 
     if (preferenceData.preferences.length > 0) {
@@ -350,9 +397,13 @@ async function restoreData() {
       mergeCommentMap(preferenceData.notes);
       showInfo('저장된 요청 데이터를 불러왔습니다.');
     }
-  } catch (e) {
-    console.error('Failed to load from Supabase', e);
+  } catch {
+    showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
+}
+
+async function handleRetryBaseline() {
+  await restoreData(true);
 }
 
 // Actions
@@ -376,8 +427,8 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
 
     showSuccess('임시 저장되었습니다.');
     return { scheduleId, previewVersionId };
-  } catch (e) {
-    showError('저장 실패: ' + (e instanceof Error ? e.message : String(e)));
+  } catch (error) {
+    showError('저장 실패: ' + toErrorMessage(error));
   }
 }
 

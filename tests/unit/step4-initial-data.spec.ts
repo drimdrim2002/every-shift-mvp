@@ -159,9 +159,18 @@ function createWrapper() {
         NSpin: {
           template: '<div><slot /></div>',
         },
+        NAlert: {
+          template: '<div><slot /><slot name="header" /></div>',
+        },
       },
     },
   })
+}
+
+async function clickButtonByText(wrapper: ReturnType<typeof createWrapper>, text: string) {
+  const target = wrapper.findAll('button').find((button) => button.text().includes(text))
+  expect(target).toBeTruthy()
+  await target?.trigger('click')
 }
 
 describe('Step4InitialData', () => {
@@ -301,7 +310,7 @@ describe('Step4InitialData', () => {
     })
     await flushPromises()
 
-    await wrapper.findAll('button')[1]?.trigger('click')
+    await clickButtonByText(wrapper, '임시 저장')
     await flushPromises()
 
     expect(ensurePhase2ScheduleMock).toHaveBeenCalledBefore(saveScheduleVersionPreferencesMock)
@@ -324,7 +333,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.findAll('button')[2]?.trigger('click')
+    await clickButtonByText(wrapper, '다음 단계')
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({
@@ -373,5 +382,23 @@ describe('Step4InitialData', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith(null)
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-v1')
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-v1')
+  })
+
+  it('shows explicit initialization failure and blocks save when ensure fails', async () => {
+    ensurePhase2ScheduleMock.mockRejectedValueOnce(new Error('Failed to fetch'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith(
+      expect.stringContaining('기준 버전 초기화에 실패했습니다')
+    )
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text().includes('임시 저장'))
+    expect(saveButton).toBeTruthy()
+    expect(saveButton?.attributes('disabled')).toBeDefined()
+
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledTimes(1)
   })
 })

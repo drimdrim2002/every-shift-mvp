@@ -98,6 +98,7 @@ function createCompareMatrix(
 
 describe('useScheduleStore', () => {
   beforeEach(() => {
+    localStorage.clear();
     setActivePinia(createPinia());
   });
 
@@ -265,5 +266,78 @@ describe('useScheduleStore', () => {
     expect(store.latestEvaluation).toBeNull();
     expect(store.compareMatrix).toBeNull();
     expect(store.reviewTab).toBe('grid');
+  });
+
+  it('persists wizard context needed for Step4/Step5 reload', async () => {
+    const store = useScheduleStore();
+
+    store.setBasicInfo({
+      scheduleId: 'schedule-1',
+      month: '2026-04',
+      organizationId: 'org-1',
+      organizationName: 'Test Hospital',
+      organizationType: 'hospital',
+      employeeCount: 12,
+      shifts: [],
+    });
+    store.setSelectedVersionId('version-2');
+    store.setPreviewVersionId('version-1');
+    store.currentStep = 4;
+
+    await Promise.resolve();
+
+    const raw = localStorage.getItem('everyshift_wizard_context_v1');
+    expect(raw).toBeTruthy();
+    expect(JSON.parse(raw || '{}')).toEqual({
+      basicInfo: {
+        scheduleId: 'schedule-1',
+        month: '2026-04',
+        organizationId: 'org-1',
+        organizationName: 'Test Hospital',
+        organizationType: 'hospital',
+        employeeCount: 12,
+        shifts: [],
+      },
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-1',
+      currentStep: 4,
+    });
+  });
+
+  it('hydrates persisted wizard context when store is recreated', () => {
+    localStorage.setItem(
+      'everyshift_wizard_context_v1',
+      JSON.stringify({
+        basicInfo: {
+          scheduleId: 'schedule-restored',
+          month: '2026-05',
+          organizationId: 'org-restore',
+          organizationName: 'Restore Hospital',
+          organizationType: 'hospital',
+          employeeCount: 8,
+          shifts: [],
+        },
+        selectedVersionId: 'version-selected',
+        previewVersionId: 'version-preview',
+        currentStep: 4,
+      })
+    );
+
+    setActivePinia(createPinia());
+
+    const store = useScheduleStore();
+
+    expect(store.basicInfo).toEqual({
+      scheduleId: 'schedule-restored',
+      month: '2026-05',
+      organizationId: 'org-restore',
+      organizationName: 'Restore Hospital',
+      organizationType: 'hospital',
+      employeeCount: 8,
+      shifts: [],
+    });
+    expect(store.selectedVersionId).toBe('version-selected');
+    expect(store.previewVersionId).toBe('version-preview');
+    expect(store.currentStep).toBe(4);
   });
 });

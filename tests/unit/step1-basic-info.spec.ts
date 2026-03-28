@@ -100,6 +100,7 @@ describe('Step1BasicInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', fetchMock)
+    loadOrganizationMock.mockResolvedValue({ success: true })
     scheduleStoreMock.basicInfo = {
       month: '2025-12',
       organizationId: 'org-1',

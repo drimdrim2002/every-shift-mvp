@@ -124,6 +124,12 @@ function buildPhase2ScheduleUrl(path: string): string {
 function createPhase2ScheduleError(payload: unknown, status: number): Error {
   const fallbackMessage = `Phase 2 schedule request failed with status ${status}`;
 
+  if (typeof payload === 'string' && payload.trim().length > 0) {
+    const error = new Error(payload);
+    (error as Error & { status?: number }).status = status;
+    return error;
+  }
+
   if (payload !== null && typeof payload === 'object') {
     const record = payload as { code?: unknown; message?: unknown };
     const message = typeof record.message === 'string' && record.message.trim().length > 0
@@ -150,6 +156,7 @@ async function callPhase2Schedule<T>(
   }
 ): Promise<T> {
   const accessToken = await getPhase2ScheduleAccessToken();
+  const url = buildPhase2ScheduleUrl(path);
   const headers: Record<string, string> = {
     apikey: getPhase2ScheduleAnonKey(),
     Authorization: `Bearer ${accessToken}`,
@@ -158,6 +165,8 @@ async function callPhase2Schedule<T>(
   const requestInit: RequestInit = {
     method: options.method,
     headers,
+    mode: 'cors',
+    credentials: 'omit',
   };
 
   if (options.body !== undefined) {
@@ -165,9 +174,28 @@ async function callPhase2Schedule<T>(
     requestInit.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(buildPhase2ScheduleUrl(path), requestInit);
+  let response: Response;
+  try {
+    response = await fetch(url, requestInit);
+  } catch (error) {
+    const reason =
+      error instanceof Error && error.message.trim().length > 0
+        ? error.message
+        : String(error);
+    throw new Error(
+      `phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요): ${reason}`
+    );
+  }
+
   const responseText = await response.text();
-  const payload = responseText ? JSON.parse(responseText) : null;
+  let payload: unknown = null;
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = responseText;
+    }
+  }
 
   if (!response.ok) {
     throw createPhase2ScheduleError(payload, response.status);

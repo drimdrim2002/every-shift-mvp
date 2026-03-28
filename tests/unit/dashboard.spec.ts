@@ -120,6 +120,7 @@ function createWrapper() {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    organizationStoreMock.loadOrganization.mockResolvedValue({ success: true })
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
