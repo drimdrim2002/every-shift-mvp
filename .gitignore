@@ -8,3 +8,7 @@ node_modules/*
 # Terminal Paste Image folder
 .cp-images/
 .worktrees/
+.gstack/
+
+
+dist/
