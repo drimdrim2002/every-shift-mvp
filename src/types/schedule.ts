@@ -418,15 +418,21 @@ export interface SolverStatusResponse {
   tenant_id?: string;
   organization_name?: string;
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  score?: {
-    hard_score: number;
-    soft_score: number;
-  };
+  score?: SolverApiScore;
   result?: SolverResult;
   error_message?: string | null;
   created_at?: string;
   started_at?: string;
   completed_at?: string;
+}
+
+export interface SolverApiScore {
+  hard_score: number;
+  soft_score?: number | null;
+  undesired_soft_score?: number | null;
+  fair_soft_score?: number | null;
+  desired_soft_score?: number | null;
+  legacy_soft_score_total?: number | null;
 }
 
 export interface SolverResultEmployee {
@@ -460,9 +466,6 @@ export interface SolverResult {
   availabilityList: AvailabilityItem[];
   employeeList: any[]; 
   shiftList: ShiftAssignmentItem[];
-  score: {
-      hard_score: number;
-      soft_score: number;
-  };
+  score: SolverApiScore;
   scheduleState: any;
 }

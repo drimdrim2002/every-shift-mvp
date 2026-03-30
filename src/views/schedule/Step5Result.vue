@@ -58,6 +58,29 @@
         중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
       </n-alert>
 
+      <div
+        v-if="canRecoverSolverState"
+        class="mb-6 flex flex-wrap gap-2"
+      >
+        <n-button
+          size="small"
+          :loading="isRecoveringSolver"
+          :disabled="isRecoveringSolver"
+          @click="handleSyncSolverState"
+        >
+          상태 재동기화
+        </n-button>
+        <n-button
+          size="small"
+          type="warning"
+          :loading="isRecoveringSolver"
+          :disabled="isRecoveringSolver"
+          @click="handleForceResetSolverState"
+        >
+          생성 중단 후 초기화
+        </n-button>
+      </div>
+
       <!-- 변경 사항 알림 -->
       <n-alert
         v-if="changedCells.size > 0"
@@ -186,6 +209,7 @@ import {
   getScheduleVersionPreferences,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
+  submitPhase2ScheduleVersionSolverResult,
   deleteThisMonthVersionAssignments,
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
@@ -196,7 +220,13 @@ import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
-import type { AssignmentMap, ConstraintMap, CommentMap, ScheduleVersionStatus } from '@/types/schedule';
+import type {
+  AssignmentMap,
+  ConstraintMap,
+  CommentMap,
+  ScheduleVersionStatus,
+  ScheduleVersionSummary,
+} from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
@@ -212,7 +242,7 @@ const WAITING_HINT_TICKS = 3;
 
 const scheduleId = computed(() => route.params.id as string);
 const previewVersionId = computed(() => scheduleStore.previewVersionId);
-const compareVersions = ref<Array<{ id: string; status: ScheduleVersionStatus }>>([]);
+const compareVersions = ref<ScheduleVersionSummary[]>([]);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -223,6 +253,7 @@ const hasIntermediateResult = ref(false);
 const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
 const isStartingSolver = ref(false);
+const isRecoveringSolver = ref(false);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -245,10 +276,7 @@ async function syncVersionStateFromCompare() {
     getRequestedPreviewVersionId()
   );
 
-  compareVersions.value = resolvedState.versions.map((version) => ({
-    id: version.id,
-    status: version.status,
-  }));
+  compareVersions.value = resolvedState.versions;
 
   scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
   scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
@@ -322,6 +350,16 @@ const showIntermediateWaitingHint = computed(() => {
     && !hasIntermediateResult.value
     && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
   );
+});
+const previewVersionSummary = computed(() => {
+  if (!previewVersionId.value) return null;
+  return compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
+});
+const previewVersionExecutionId = computed(() => {
+  return previewVersionSummary.value?.activeSolverExecutionId ?? null;
+});
+const canRecoverSolverState = computed(() => {
+  return previewVersionStatus.value === 'solving';
 });
 
 const shiftIdToCodeMap = computed(() => {
@@ -858,6 +896,142 @@ async function handleStartSolver() {
   }
 }
 
+async function syncSolverStateInternal() {
+  solver.stopPolling();
+  stopAssignmentsRefresh();
+
+  const resolvedState = await syncVersionStateFromCompare();
+  const currentPreviewVersionId = scheduleStore.previewVersionId;
+  const currentPreviewStatus = resolvedState.versions.find(
+    (version) => version.id === currentPreviewVersionId
+  )?.status ?? 'draft';
+  const currentExecutionId = resolvedState.versions.find(
+    (version) => version.id === currentPreviewVersionId
+  )?.activeSolverExecutionId ?? null;
+
+  if (currentPreviewStatus === 'solving' && currentExecutionId && currentPreviewVersionId) {
+    solver.status.value = 'running';
+    resetRealtimeState();
+    solver.intermediateResults.value = null;
+    solver.startPolling(currentExecutionId, currentPreviewVersionId);
+    startAssignmentsRefresh();
+    showInfo('생성 진행 상태를 다시 연결했습니다. 잠시 후 다시 확인해주세요.');
+    return;
+  }
+
+  solver.status.value = mapVersionStatusToSolverStatus(currentPreviewStatus);
+  resetRealtimeState();
+
+  await loadPreferencesForDisplay();
+  await loadCurrentAssignments({
+    syncOriginal: true,
+    clearChanges: true,
+    forceAssignmentSync: true,
+  });
+  showSuccess('최신 상태로 동기화했습니다.');
+}
+
+async function handleSyncSolverState() {
+  if (isRecoveringSolver.value) return;
+
+  isRecoveringSolver.value = true;
+  try {
+    await syncSolverStateInternal();
+  } catch (error) {
+    console.warn('상태 재동기화 중 오류:', error);
+    showError(error instanceof Error ? error.message : '상태 재동기화 중 오류가 발생했습니다.');
+  } finally {
+    isRecoveringSolver.value = false;
+  }
+}
+
+async function handleForceResetSolverState() {
+  if (isRecoveringSolver.value) return;
+  if (!previewVersionId.value) {
+    showError('미리보기 버전 정보가 없습니다.');
+    return;
+  }
+  if (previewVersionStatus.value !== 'solving') {
+    showInfo('현재는 생성 중 상태가 아니므로 초기화가 필요하지 않습니다.');
+    return;
+  }
+
+  isRecoveringSolver.value = true;
+  try {
+    solver.stopPolling();
+    stopAssignmentsRefresh();
+
+    const resolvedState = await syncVersionStateFromCompare();
+    const currentPreviewVersionId = scheduleStore.previewVersionId;
+    if (!currentPreviewVersionId) {
+      throw new Error('미리보기 버전 정보가 없습니다.');
+    }
+
+    const currentPreview = resolvedState.versions.find(
+      (version) => version.id === currentPreviewVersionId
+    );
+    if (!currentPreview || currentPreview.status !== 'solving') {
+      solver.status.value = mapVersionStatusToSolverStatus(currentPreview?.status ?? 'draft');
+      resetRealtimeState();
+      await loadPreferencesForDisplay();
+      await loadCurrentAssignments({
+        syncOriginal: true,
+        clearChanges: true,
+        forceAssignmentSync: true,
+      });
+      showSuccess('이미 생성 상태가 해제되어 최신 상태로 동기화했습니다.');
+      return;
+    }
+
+    let executionId = currentPreview.activeSolverExecutionId ?? previewVersionExecutionId.value;
+    if (!executionId) {
+      const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
+      executionId = schedule.solver_execution_id;
+    }
+
+    if (!executionId) {
+      throw new Error('실행 ID를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.');
+    }
+
+    await submitPhase2ScheduleVersionSolverResult(currentPreviewVersionId, {
+      status: 'failed',
+      solverExecutionId: executionId,
+      assignments: [],
+      score: null,
+      failureReason: 'manual_recovery_reset',
+    });
+
+    const refreshedState = await syncVersionStateFromCompare();
+    const refreshedPreviewVersionId = scheduleStore.previewVersionId;
+    const refreshedPreviewStatus = refreshedState.versions.find(
+      (version) => version.id === refreshedPreviewVersionId
+    )?.status ?? 'draft';
+    solver.status.value = mapVersionStatusToSolverStatus(refreshedPreviewStatus);
+    resetRealtimeState();
+
+    await loadPreferencesForDisplay();
+    await loadCurrentAssignments({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+
+    showSuccess('생성 상태를 초기화했습니다. 다시 생성을 시도할 수 있습니다.');
+  } catch (error) {
+    console.warn('생성 상태 강제 초기화 중 오류:', error);
+
+    if (readErrorCode(error) === 'stale_solver_callback') {
+      await syncSolverStateInternal();
+      showInfo('이미 최신 상태로 전환되어 강제 초기화가 필요하지 않았습니다.');
+      return;
+    }
+
+    showError(error instanceof Error ? error.message : '생성 상태 초기화 중 오류가 발생했습니다.');
+  } finally {
+    isRecoveringSolver.value = false;
+  }
+}
+
 async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<boolean> {
   if (!schedule.solver_execution_id || !previewVersionId.value) {
     return false;
@@ -950,6 +1124,7 @@ watch(() => solver.status.value, async (newStatus) => {
 
   if (newStatus === 'complete' || newStatus === 'changed' || newStatus === 'created' || newStatus === 'error') {
     try {
+      await syncVersionStateFromCompare();
       await loadCurrentAssignments({
         syncOriginal: true,
         clearChanges: true,
@@ -1058,10 +1233,7 @@ async function handleRegenerate() {
 
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    compareVersions.value = createResponse.versions.map((version) => ({
-      id: version.id,
-      status: version.status,
-    }));
+    compareVersions.value = createResponse.versions;
     await router.replace(buildStep5Route(scheduleId.value, createResponse.createdVersionId));
 
     await handleStartSolver();

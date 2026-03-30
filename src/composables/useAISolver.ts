@@ -9,7 +9,7 @@ import {
   solvePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
 } from '@/api/schedule';
-import type { AssignmentMap, SolverRequest } from '@/types/schedule';
+import type { AssignmentMap, SolverApiScore, SolverRequest } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
 
 type SolverLocalStatus = 'created' | 'running' | 'complete' | 'error' | 'changed';
@@ -66,6 +66,45 @@ function toErrorMessage(error: unknown, fallbackMessage: string): string {
     : fallbackMessage;
 }
 
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return value;
+}
+
+function normalizeSolverScore(
+  score: SolverApiScore | null | undefined
+): { hardScore: number; softScore: number } | null {
+  if (!score) return null;
+
+  const hardScore = toFiniteNumber(score.hard_score);
+
+  if (typeof score.soft_score === 'number' && Number.isFinite(score.soft_score)) {
+    return {
+      hardScore,
+      softScore: score.soft_score,
+    };
+  }
+
+  if (
+    typeof score.legacy_soft_score_total === 'number'
+    && Number.isFinite(score.legacy_soft_score_total)
+  ) {
+    return {
+      hardScore,
+      softScore: score.legacy_soft_score_total,
+    };
+  }
+
+  return {
+    hardScore,
+    softScore: toFiniteNumber(score.undesired_soft_score)
+      + toFiniteNumber(score.fair_soft_score)
+      + toFiniteNumber(score.desired_soft_score),
+  };
+}
+
 export function useAISolver() {
   const status = ref<SolverLocalStatus>('created');
   const hardScore = ref<number>(0);
@@ -77,24 +116,27 @@ export function useAISolver() {
   const intermediateResults = ref<AssignmentMap | null>(null);
 
   const maxPollingAttempts = 120; // 20 minutes (10s * 120)
+  const maxConsecutivePollingErrors = 3;
   let pollingAttempts = 0;
+  let consecutivePollingErrors = 0;
   let pollingInterval: number | null = null;
 
   async function markSolveFailedIfCurrent(
     scheduleVersionId: string,
     executionId: string,
-    score?: { hard_score: number; soft_score: number },
+    score?: SolverApiScore | null,
     failureReason?: string | null
   ): Promise<void> {
     try {
+      const normalizedScore = normalizeSolverScore(score);
       await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
         status: 'failed',
         solverExecutionId: executionId,
         assignments: [],
-        score: score
+        score: normalizedScore
           ? {
-            hardScore: score.hard_score,
-            softScore: score.soft_score,
+            hardScore: normalizedScore.hardScore,
+            softScore: normalizedScore.softScore,
           }
           : null,
         failureReason: failureReason ?? null,
@@ -115,6 +157,7 @@ export function useAISolver() {
     error.value = null;
     progress.value = 0;
     pollingAttempts = 0;
+    consecutivePollingErrors = 0;
     hardScore.value = 0;
     softScore.value = 0;
     executionIdRef.value = null;
@@ -142,12 +185,13 @@ export function useAISolver() {
     if (pollingInterval) clearInterval(pollingInterval);
     executionIdRef.value = executionId;
     pollingAttempts = 0;
+    consecutivePollingErrors = 0;
 
     pollingInterval = window.setInterval(async () => {
       pollingAttempts++;
       if (pollingAttempts > maxPollingAttempts) {
         stopPolling();
-        error.value = 'Timeout: 근무표 생성이 10분을 초과했습니다.';
+        error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
         status.value = 'error';
         await markSolveFailedIfCurrent(scheduleVersionId, executionId);
         return;
@@ -155,11 +199,13 @@ export function useAISolver() {
 
       try {
         const response = await getSolverStatus(executionId);
+        consecutivePollingErrors = 0;
         const appStatus = mapApiStatusToAppStatus(response.status);
+        const normalizedScore = normalizeSolverScore(response.score);
 
-        if (response.score) {
-          hardScore.value = response.score.hard_score;
-          softScore.value = response.score.soft_score;
+        if (normalizedScore) {
+          hardScore.value = normalizedScore.hardScore;
+          softScore.value = normalizedScore.softScore;
         }
 
         if (appStatus === 'running') {
@@ -186,10 +232,10 @@ export function useAISolver() {
             status: 'completed',
             solverExecutionId: executionId,
             assignments: toSolverWriteRows(assignments),
-            score: response.score
+            score: normalizedScore
               ? {
-                hardScore: response.score.hard_score,
-                softScore: response.score.soft_score,
+                hardScore: normalizedScore.hardScore,
+                softScore: normalizedScore.softScore,
               }
               : null,
             failureReason: null,
@@ -223,8 +269,21 @@ export function useAISolver() {
           return;
         }
 
+        consecutivePollingErrors += 1;
         console.error('Polling error:', pollingError);
-        // Network/transient failures are retried by the next interval tick.
+
+        if (consecutivePollingErrors >= maxConsecutivePollingErrors) {
+          stopPolling();
+          status.value = 'error';
+          error.value = 'AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.';
+          await markSolveFailedIfCurrent(
+            scheduleVersionId,
+            executionId,
+            null,
+            'polling_status_unreachable'
+          );
+          return;
+        }
       }
     }, 10000);
   }

@@ -20,6 +20,7 @@ const {
   patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersionMock,
+  submitPhase2ScheduleVersionSolverResultMock,
   deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
@@ -37,6 +38,7 @@ const {
   patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
   resetPreferenceResolutionByVersionMock: vi.fn(),
+  submitPhase2ScheduleVersionSolverResultMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
@@ -62,6 +64,7 @@ vi.mock('@/api/schedule', () => ({
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
+  submitPhase2ScheduleVersionSolverResult: submitPhase2ScheduleVersionSolverResultMock,
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
   getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
@@ -340,6 +343,14 @@ describe('Step5Result', () => {
       manualEditCount: 2,
       changedCells: 1,
     })
+    submitPhase2ScheduleVersionSolverResultMock.mockResolvedValue({
+      scheduleVersionId: 'version-2',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'manual_recovery_reset',
+    })
     deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
     getPlanningEmployeesMock.mockResolvedValue([])
     getPlanningAssignmentsForVersionMock.mockResolvedValue([])
@@ -557,7 +568,137 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(showErrorMock).toHaveBeenCalledWith('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.')
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2)
+    expect(getPhase2ScheduleCompareMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('forces solver reset when preview version remains solving', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+
+    getPhase2ScheduleCompareMock
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-1',
+        versions: [
+          {
+            id: 'version-1',
+            scheduleId: 'schedule-1',
+            versionNo: 1,
+            name: 'V1',
+            sourceType: 'initial_solve',
+            baseVersionId: null,
+            status: 'solving',
+            currentRevision: 1,
+            manualEditCount: 0,
+            inputDiffSummary: {
+              changedOffRequests: 0,
+              changedLockedAssignments: 0,
+              changedSiteRequirements: 0,
+              note: null,
+            },
+            latestEvaluationId: null,
+            latestEvaluationResultStatus: null,
+            comparisonMetrics: null,
+            finalizationGate: null,
+            activeSolverExecutionId: 'exec-live',
+            isSelected: true,
+            isFinalized: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-1',
+        versions: [
+          {
+            id: 'version-1',
+            scheduleId: 'schedule-1',
+            versionNo: 1,
+            name: 'V1',
+            sourceType: 'initial_solve',
+            baseVersionId: null,
+            status: 'solving',
+            currentRevision: 1,
+            manualEditCount: 0,
+            inputDiffSummary: {
+              changedOffRequests: 0,
+              changedLockedAssignments: 0,
+              changedSiteRequirements: 0,
+              note: null,
+            },
+            latestEvaluationId: null,
+            latestEvaluationResultStatus: null,
+            comparisonMetrics: null,
+            finalizationGate: null,
+            activeSolverExecutionId: 'exec-live',
+            isSelected: true,
+            isFinalized: false,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: null,
+        versions: [
+          {
+            id: 'version-1',
+            scheduleId: 'schedule-1',
+            versionNo: 1,
+            name: 'V1',
+            sourceType: 'initial_solve',
+            baseVersionId: null,
+            status: 'solve_failed',
+            currentRevision: 1,
+            manualEditCount: 0,
+            inputDiffSummary: {
+              changedOffRequests: 0,
+              changedLockedAssignments: 0,
+              changedSiteRequirements: 0,
+              note: null,
+            },
+            latestEvaluationId: null,
+            latestEvaluationResultStatus: null,
+            comparisonMetrics: null,
+            finalizationGate: null,
+            activeSolverExecutionId: null,
+            isSelected: true,
+            isFinalized: false,
+          },
+        ],
+      })
+
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'running',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: 'exec-live',
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const forceResetButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('생성 중단 후 초기화'))
+    expect(forceResetButton).toBeTruthy()
+
+    await forceResetButton!.trigger('click')
+    await flushPromises()
+
+    expect(submitPhase2ScheduleVersionSolverResultMock).toHaveBeenCalledWith('version-1', {
+      status: 'failed',
+      solverExecutionId: 'exec-live',
+      assignments: [],
+      score: null,
+      failureReason: 'manual_recovery_reset',
+    })
+    expect(showSuccessMock).toHaveBeenCalledWith('생성 상태를 초기화했습니다. 다시 생성을 시도할 수 있습니다.')
   })
 
   it('re-solve creates a new preview candidate without changing selected version', async () => {

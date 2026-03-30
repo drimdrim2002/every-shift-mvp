@@ -23,10 +23,12 @@ import {
   type SelectResponse,
 } from './contracts.ts';
 import {
+  buildAssignmentUpsertRows,
   buildVersionInsertPayload,
   cloneLockedAssignments,
   cloneSchedulePreferences,
   filterAssignmentChangesToMonth,
+  getMonthDateRange,
   type AssignmentIdentityRow,
 } from './engine.ts';
 
@@ -524,6 +526,155 @@ function remapSlice5RpcConflict(error: unknown): never {
   throw error;
 }
 
+function isAmbiguousScoreColumnError(error: unknown): boolean {
+  if (!(error instanceof DatabaseError)) {
+    return false;
+  }
+
+  const haystack = `${error.dbError.message ?? ''} ${error.dbError.details ?? ''}`.toLowerCase();
+  return haystack.includes('column reference') && haystack.includes('hard_score') && haystack.includes('ambiguous');
+}
+
+async function syncVersionSolverResultWithoutRpc(
+  client: Phase2ScheduleRepositoryClient,
+  schedule: ScheduleRow,
+  version: ScheduleVersionRow,
+  auth: Phase2ScheduleAuthContext,
+  monthScopedAssignments: SolverResultRequest['assignments'],
+  request: SolverResultRequest
+): Promise<SolverResultResponse> {
+  if (version.active_solver_execution_id !== request.solverExecutionId) {
+    throw new ContractError(
+      'stale_solver_callback',
+      'Solver callback no longer applies to the current version state',
+      409
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+
+  if (request.status === 'completed') {
+    const { startDate, endDate } = getMonthDateRange(schedule.month);
+    const assignmentRows = buildAssignmentUpsertRows(
+      schedule.id,
+      version.id,
+      auth.userId,
+      monthScopedAssignments
+    );
+
+    await run(
+      client
+        .from('schedule_assignments')
+        .delete()
+        .eq('schedule_version_id', version.id)
+        .gte('date', startDate)
+        .lte('date', endDate)
+    );
+
+    if (assignmentRows.length > 0) {
+      await run(
+        client.from('schedule_assignments').upsert(assignmentRows, {
+          onConflict: 'schedule_version_id,employee_id,date',
+        })
+      );
+    }
+
+    if (typeof client.rpc === 'function') {
+      await run(
+        client.rpc('sync_schedule_version_preference_resolution', {
+          p_version_id: version.id,
+        })
+      );
+    }
+
+    const updatedVersion = await maybeSingle<ScheduleVersionRow>(
+      client
+        .from('schedule_versions')
+        .update({
+          status: 'review_pending',
+          active_solver_execution_id: null,
+          updated_at: nowIso,
+        })
+        .eq('id', version.id)
+        .eq('active_solver_execution_id', request.solverExecutionId)
+        .select()
+    );
+
+    if (!updatedVersion) {
+      throw new ContractError(
+        'stale_solver_callback',
+        'Solver callback no longer applies to the current version state',
+        409
+      );
+    }
+
+    await run(
+      client
+        .from('schedules')
+        .update({
+          status: 'complete',
+          solver_execution_id: null,
+          hard_score: request.score?.hardScore ?? null,
+          soft_score: request.score?.softScore ?? null,
+          updated_at: nowIso,
+        })
+        .eq('id', schedule.id)
+    );
+
+    return {
+      scheduleVersionId: updatedVersion.id,
+      status: updatedVersion.status as ScheduleVersionStatus,
+      solverExecutionId: updatedVersion.active_solver_execution_id ?? null,
+      hardScore: request.score?.hardScore ?? null,
+      softScore: request.score?.softScore ?? null,
+      failureReason: null,
+    };
+  }
+
+  const updatedVersion = await maybeSingle<ScheduleVersionRow>(
+    client
+      .from('schedule_versions')
+      .update({
+        status: 'solve_failed',
+        active_solver_execution_id: null,
+        updated_at: nowIso,
+      })
+      .eq('id', version.id)
+      .eq('active_solver_execution_id', request.solverExecutionId)
+      .select()
+  );
+
+  if (!updatedVersion) {
+    throw new ContractError(
+      'stale_solver_callback',
+      'Solver callback no longer applies to the current version state',
+      409
+    );
+  }
+
+  await run(
+    client
+      .from('schedules')
+      .update({
+        status: 'error',
+        solver_execution_id: null,
+        hard_score: null,
+        soft_score: null,
+        updated_at: nowIso,
+      })
+      .eq('id', schedule.id)
+  );
+
+  return {
+    scheduleVersionId: updatedVersion.id,
+    status: updatedVersion.status as ScheduleVersionStatus,
+    solverExecutionId: updatedVersion.active_solver_execution_id ?? null,
+    hardScore: null,
+    softScore: null,
+    failureReason: request.failureReason,
+  };
+}
+
 function remapSelectRpcConflict(error: unknown): never {
   if (error instanceof DatabaseError) {
     if (error.dbError.message === 'version_not_found') {
@@ -984,7 +1135,7 @@ export async function syncVersionSolverResult(
   versionId: string,
   request: SolverResultRequest
 ): Promise<SolverResultResponse> {
-  const { schedule } = await loadAuthorizedVersionContext(client, auth, versionId);
+  const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
   const monthScopedAssignments = filterAssignmentChangesToMonth(request.assignments, schedule.month);
 
   try {
@@ -1011,6 +1162,19 @@ export async function syncVersionSolverResult(
       failureReason: row.failure_reason,
     };
   } catch (error: unknown) {
+    if (isAmbiguousScoreColumnError(error)) {
+      console.warn(
+        '[phase2-schedule] Falling back to non-RPC solver result sync due to ambiguous hard_score column error.'
+      );
+      return syncVersionSolverResultWithoutRpc(
+        client,
+        schedule,
+        version,
+        auth,
+        monthScopedAssignments,
+        request
+      );
+    }
     remapSlice5RpcConflict(error);
   }
 }

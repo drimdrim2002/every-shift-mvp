@@ -185,4 +185,33 @@ describe('useAISolver', () => {
     expect(solver.status.value).toBe('complete');
     expect(solver.progress.value).toBe(100);
   });
+
+  it('stops running and marks failure after repeated polling errors', async () => {
+    vi.mocked(getSolverStatus).mockRejectedValue(new Error('network timeout'));
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-4',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'polling_status_unreachable',
+    });
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-network-fail', 'version-4');
+
+    await vi.advanceTimersByTimeAsync(30000);
+    await flushPromises();
+
+    expect(solver.status.value).toBe('error');
+    expect(solver.error.value).toBe('AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.');
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-4', {
+      status: 'failed',
+      solverExecutionId: 'exec-network-fail',
+      assignments: [],
+      score: null,
+      failureReason: 'polling_status_unreachable',
+    });
+  });
 });
