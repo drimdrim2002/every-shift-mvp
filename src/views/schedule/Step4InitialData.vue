@@ -138,6 +138,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
   ensurePhase2Schedule,
@@ -155,8 +156,16 @@ import { showError, showInfo, showSuccess } from '@/utils/message';
 import { buildStep5Route, resolveStep4VersionState } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
 import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
+import {
+  buildTempPreferencesStorageKey,
+  buildTempPreferencesStorageScope,
+  migrateLegacyTempPreferencesToV2,
+  readTempPreferencesEnvelopeV2,
+  writeTempPreferencesEnvelopeV2,
+} from '@/utils/tempPreferencesStorage';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
@@ -193,6 +202,14 @@ const canPersistStep4 = computed(() => {
 const selectedCellComment = computed(() => {
   if (!selectedCell.value) return '';
   return constraintNotes.value[selectedCell.value.employeeId]?.[selectedCell.value.date] || '';
+});
+
+const tempPreferenceScope = computed(() => {
+  return buildTempPreferencesStorageScope({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
+  });
 });
 
 function ensureEmployeeMaps(): void {
@@ -243,6 +260,66 @@ function sanitizePreferenceMapsToCurrentEmployees(): {
   ensureEmployeeMaps();
 
   return {
+    removedEmployeeIds: Array.from(removedEmployeeIdSet),
+    removedOffRequestCount,
+    removedNoteCount,
+  };
+}
+
+function sanitizeSnapshotToCurrentEmployees(snapshot: {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+}): {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+  removedEmployeeIds: string[];
+  removedOffRequestCount: number;
+  removedNoteCount: number;
+} {
+  const currentEmployeeIds = new Set(grid.employees.value.map((employee) => employee.id));
+  if (currentEmployeeIds.size === 0) {
+    return {
+      constraints: {},
+      notes: {},
+      removedEmployeeIds: [],
+      removedOffRequestCount: 0,
+      removedNoteCount: 0,
+    };
+  }
+
+  const sanitizedConstraints: ConstraintMap = {};
+  const sanitizedNotes: CommentMap = {};
+  const removedEmployeeIdSet = new Set<string>();
+  let removedOffRequestCount = 0;
+  let removedNoteCount = 0;
+
+  Object.entries(snapshot.constraints).forEach(([employeeId, dateMap]) => {
+    if (!currentEmployeeIds.has(employeeId)) {
+      removedEmployeeIdSet.add(employeeId);
+      removedOffRequestCount += Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O')
+        .length;
+      return;
+    }
+    sanitizedConstraints[employeeId] = { ...dateMap };
+  });
+
+  Object.entries(snapshot.notes).forEach(([employeeId, dateMap]) => {
+    if (!currentEmployeeIds.has(employeeId)) {
+      removedEmployeeIdSet.add(employeeId);
+      removedNoteCount += Object.values(dateMap || {}).filter((note) => note.trim().length > 0).length;
+      return;
+    }
+    sanitizedNotes[employeeId] = { ...dateMap };
+  });
+
+  for (const employee of grid.employees.value) {
+    if (!sanitizedConstraints[employee.id]) sanitizedConstraints[employee.id] = {};
+    if (!sanitizedNotes[employee.id]) sanitizedNotes[employee.id] = {};
+  }
+
+  return {
+    constraints: sanitizedConstraints,
+    notes: sanitizedNotes,
     removedEmployeeIds: Array.from(removedEmployeeIdSet),
     removedOffRequestCount,
     removedNoteCount,
@@ -341,19 +418,12 @@ function handleHeaderClick(date: string) {
   showDaySummaryModal.value = true;
 }
 
-// Watchers for LocalStorage
-const STORAGE_KEY = computed(() => {
-  if (!scheduleStore.basicInfo) return '';
-  return `everyshift_temp_preferences_${scheduleStore.basicInfo.month}`;
-});
-
 watchDebounced(
   [() => constraints.value, () => constraintNotes.value],
   ([latestConstraints, latestNotes]) => {
-    if (STORAGE_KEY.value) {
-      const dataToSave = { constraints: latestConstraints, constraintNotes: latestNotes };
-      localStorage.setItem(STORAGE_KEY.value, JSON.stringify(dataToSave));
-    }
+    const scope = tempPreferenceScope.value;
+    if (!scope) return;
+    writeTempPreferencesEnvelopeV2(scope, latestConstraints, latestNotes);
   },
   { debounce: 2000 }
 );
@@ -396,27 +466,56 @@ function hasCurrentPreferences(): boolean {
 }
 
 function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; notes: CommentMap } | null {
-  if (!STORAGE_KEY.value) return null;
+  const scope = tempPreferenceScope.value;
+  if (!scope) return null;
 
-  const raw = localStorage.getItem(STORAGE_KEY.value);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      constraints?: ConstraintMap;
-      constraintNotes?: CommentMap;
-    };
-
-    return {
-      constraints: parsed.constraints ?? {},
-      notes: parsed.constraintNotes ?? {},
-    };
-  } catch (error) {
-    logRestoreTrace('Failed to parse localStorage temp preferences', {
-      storageKey: STORAGE_KEY.value,
-      error: toErrorMessage(error),
-    });
+  const result = readTempPreferencesEnvelopeV2(scope);
+  if (result.status !== 'ok' || !result.envelope) {
+    if (result.status !== 'missing') {
+      logRestoreTrace('Skipped localStorage v2 restore', {
+        storageKey: result.storageKey,
+        reason: result.status,
+      });
+    }
     return null;
+  }
+
+  return {
+    constraints: result.envelope.constraints,
+    notes: result.envelope.constraintNotes,
+  };
+}
+
+function migrateLegacyTempPreferencesIfNeeded(): void {
+  const migration = migrateLegacyTempPreferencesToV2(tempPreferenceScope.value, {
+    sanitize: (payload) => {
+      const sanitized = sanitizeSnapshotToCurrentEmployees(payload);
+      if (sanitized.removedEmployeeIds.length > 0) {
+        logRestoreTrace('Removed stale employee keys during legacy migration', {
+          removedEmployeeIds: sanitized.removedEmployeeIds,
+          removedOffRequestCount: sanitized.removedOffRequestCount,
+          removedNoteCount: sanitized.removedNoteCount,
+        });
+      }
+      return {
+        constraints: sanitized.constraints,
+        notes: sanitized.notes,
+      };
+    },
+  });
+
+  if (migration.status === 'migrated') {
+    logRestoreTrace('Migrated legacy Step4 localStorage payload to v2 envelope', {
+      storageKey: migration.storageKey,
+    });
+    return;
+  }
+
+  if (migration.status === 'legacy_parse_error' || migration.status === 'legacy_invalid') {
+    logRestoreTrace('Legacy Step4 localStorage payload skipped during migration', {
+      reason: migration.status,
+      storageKey: migration.storageKey,
+    });
   }
 }
 
@@ -505,6 +604,8 @@ async function restoreData(forceRefresh = false) {
   }
 
   try {
+    migrateLegacyTempPreferencesIfNeeded();
+
     const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
       forceRefresh
     );
@@ -567,7 +668,9 @@ async function restoreData(forceRefresh = false) {
       const hasNotes = hasAnyConstraintNotes(localSnapshot.notes);
 
       logRestoreTrace('Fetched preferences by localStorage fallback', {
-        storageKey: STORAGE_KEY.value,
+        storageKey: tempPreferenceScope.value
+          ? buildTempPreferencesStorageKey(tempPreferenceScope.value)
+          : null,
         offRequestCount,
         hasNotes,
       });

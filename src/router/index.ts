@@ -3,13 +3,7 @@ import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { stepProgressGuard } from './guards';
 
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/login',
-    name: 'Login',
-    component: () => import('@/views/auth/Login.vue'),
-    meta: { requiresAuth: false, title: '로그인' },
-  },
+const devOnlyRoutes: RouteRecordRaw[] = [
   {
     path: '/test',
     name: 'TestOrganization',
@@ -33,6 +27,15 @@ const routes: RouteRecordRaw[] = [
     name: 'TestScheduleGrid',
     component: () => import('@/views/TestScheduleGrid.vue'),
     meta: { requiresAuth: false, title: 'ScheduleGrid 테스트' },
+  },
+];
+
+const baseRoutes: RouteRecordRaw[] = [
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/auth/Login.vue'),
+    meta: { requiresAuth: false, title: '로그인' },
   },
   {
     path: '/',
@@ -79,9 +82,17 @@ const routes: RouteRecordRaw[] = [
   },
 ];
 
+export function createAppRoutes(isDev = import.meta.env.DEV): RouteRecordRaw[] {
+  if (!isDev) {
+    return [...baseRoutes];
+  }
+
+  return [...baseRoutes, ...devOnlyRoutes];
+}
+
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: createAppRoutes(),
 });
 
 // 인증 가드 및 Step 진행 검증 가드

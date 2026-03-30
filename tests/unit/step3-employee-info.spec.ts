@@ -106,8 +106,18 @@ const organizationStoreMock = reactive({
   ],
 })
 
+const authStoreMock = reactive({
+  user: {
+    id: 'user-1',
+  } as { id: string } | null,
+})
+
 vi.mock('@/stores/schedule', () => ({
   useScheduleStore: () => scheduleStoreMock,
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 vi.mock('@/stores/organization', () => ({
@@ -163,6 +173,13 @@ describe('Step3EmployeeInfo', () => {
       },
     ]
     scheduleStoreMock.currentStep = 3
+    authStoreMock.user = {
+      id: 'user-1',
+    }
+
+    const eqMock = vi.fn().mockResolvedValue({ count: 1, error: null })
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
+    supabaseFromMock.mockReturnValue({ select: selectMock })
 
     getScheduleStatusMock.mockResolvedValue({
       id: 'schedule-123',

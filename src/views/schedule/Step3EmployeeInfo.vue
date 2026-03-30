@@ -97,6 +97,7 @@ import { NCard, NButton, NAlert, NTabs, NTabPane, NPopconfirm } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import EmployeeTable from '@/components/schedule/EmployeeTable.vue';
 import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
@@ -108,10 +109,12 @@ import {
 import { supabase } from '@/api/supabase';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
+import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 
@@ -283,12 +286,13 @@ async function handleSave() {
       employeeCount: employees.value.length,
     });
 
-    // 7. LocalStorage 초기화 (새 직원들로 인해 UUID 변경되므로 이전 assignments 무효화)
-    if (scheduleStore.basicInfo) {
-      const storageKey = `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
-      localStorage.removeItem(storageKey);
-      console.log('[Step3] Cleared localStorage for new employees:', storageKey);
-    }
+    // 7. 임시키 정리 (동일 사용자/조직/월 범위 + 레거시 키)
+    const clearedStorageKeys = clearScopedTempPreferencesStorage({
+      userId: authStore.user?.id,
+      organizationId: scheduleStore.basicInfo.organizationId,
+      month: scheduleStore.basicInfo.month,
+    });
+    console.log('[Step3] Cleared temp preference storage keys:', clearedStorageKeys);
 
     // 8. Store의 assignments도 초기화
     scheduleStore.setAssignments({});

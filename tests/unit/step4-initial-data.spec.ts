@@ -6,6 +6,7 @@ const {
   pushMock,
   ensurePhase2ScheduleMock,
   getScheduleVersionPreferencesMock,
+  getSchedulePreferencesMock,
   saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignmentsMock,
   showSuccessMock,
@@ -15,6 +16,7 @@ const {
   pushMock: vi.fn(),
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
+  getSchedulePreferencesMock: vi.fn(),
   saveScheduleVersionPreferencesMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   showSuccessMock: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   ensurePhase2Schedule: ensurePhase2ScheduleMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
+  getSchedulePreferences: getSchedulePreferencesMock,
   saveScheduleVersionPreferences: saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
 }))
@@ -87,6 +90,12 @@ const scheduleStoreMock = reactive({
   }),
 })
 
+const authStoreMock = reactive({
+  user: {
+    id: 'user-1',
+  } as { id: string } | null,
+})
+
 const organizationStoreMock = reactive({
   current: {
     id: 'org-1',
@@ -121,6 +130,10 @@ const gridMock = {
 
 vi.mock('@/stores/schedule', () => ({
   useScheduleStore: () => scheduleStoreMock,
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 vi.mock('@/stores/organization', () => ({
@@ -192,6 +205,9 @@ describe('Step4InitialData', () => {
     scheduleStoreMock.comments = {}
     scheduleStoreMock.selectedVersionId = null
     scheduleStoreMock.previewVersionId = null
+    authStoreMock.user = {
+      id: 'user-1',
+    }
 
     organizationStoreMock.current = {
       id: 'org-1',
@@ -274,6 +290,11 @@ describe('Step4InitialData', () => {
       ],
     })
     getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
+    })
+    getSchedulePreferencesMock.mockResolvedValue({
       constraints: {},
       notes: {},
       preferences: [],
@@ -408,5 +429,195 @@ describe('Step4InitialData', () => {
 
     expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
     expect(showErrorMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('restores from scoped localStorage v2 when DB has no preferences', async () => {
+    localStorage.setItem(
+      'everyshift_temp_preferences_v2:user-1:org-1:2025-12',
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-1',
+        month: '2025-12',
+        savedAt: new Date().toISOString(),
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+        },
+        constraintNotes: {
+          'emp-1': {
+            '2025-12-01': '연차',
+          },
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '임시 저장')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+        'emp-2': {},
+      }
+    )
+    expect(showInfoMock).toHaveBeenCalledWith('브라우저 임시 저장 데이터를 불러왔습니다.')
+  })
+
+  it('keeps DB preferences as restore priority over scoped localStorage fallback', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValueOnce({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+      },
+      notes: {},
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+        },
+      ],
+    })
+
+    localStorage.setItem(
+      'everyshift_temp_preferences_v2:user-1:org-1:2025-12',
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-1',
+        month: '2025-12',
+        savedAt: new Date().toISOString(),
+        constraints: {
+          'emp-2': {
+            '2025-12-01': 'O',
+          },
+        },
+        constraintNotes: {},
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '임시 저장')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
+  })
+
+  it('ignores expired scoped localStorage v2 payloads older than 72 hours', async () => {
+    const expired = new Date(Date.now() - 73 * 60 * 60 * 1000).toISOString()
+    localStorage.setItem(
+      'everyshift_temp_preferences_v2:user-1:org-1:2025-12',
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-1',
+        month: '2025-12',
+        savedAt: expired,
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+        },
+        constraintNotes: {},
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '임시 저장')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      {
+        'emp-1': {},
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
+  })
+
+  it('migrates legacy month-based key once when scoped v2 key is missing', async () => {
+    localStorage.setItem(
+      'everyshift_temp_preferences_2025-12',
+      JSON.stringify({
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+          'legacy-emp': {
+            '2025-12-01': 'O',
+          },
+        },
+        constraintNotes: {
+          'emp-1': {
+            '2025-12-01': '개인 사유',
+          },
+          'legacy-emp': {
+            '2025-12-01': 'stale',
+          },
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '임시 저장')
+    await flushPromises()
+
+    expect(localStorage.getItem('everyshift_temp_preferences_2025-12')).toBeNull()
+
+    const migrated = localStorage.getItem('everyshift_temp_preferences_v2:user-1:org-1:2025-12')
+    expect(migrated).toBeTruthy()
+    const parsed = JSON.parse(migrated || '{}')
+    expect(parsed.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {},
+    })
+    expect(parsed.constraintNotes).toEqual({
+      'emp-1': {
+        '2025-12-01': '개인 사유',
+      },
+      'emp-2': {},
+    })
   })
 })

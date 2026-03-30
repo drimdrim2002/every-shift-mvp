@@ -127,6 +127,12 @@ const organizationStoreMock = reactive({
   loadOrganization: vi.fn().mockResolvedValue(undefined),
 })
 
+const authStoreMock = reactive({
+  user: {
+    id: 'user-1',
+  } as { id: string } | null,
+})
+
 const solverMock = {
   status: ref<'created' | 'running' | 'complete' | 'changed' | 'error'>('created'),
   hardScore: ref(0),
@@ -159,6 +165,10 @@ const gridMock = {
 
 vi.mock('@/stores/schedule', () => ({
   useScheduleStore: () => scheduleStoreMock,
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 vi.mock('@/stores/organization', () => ({
@@ -217,6 +227,9 @@ describe('Step5Result', () => {
     }
     scheduleStoreMock.selectedVersionId = null
     scheduleStoreMock.previewVersionId = null
+    authStoreMock.user = {
+      id: 'user-1',
+    }
     solverMock.status.value = 'created'
     solverMock.hardScore.value = 0
     solverMock.softScore.value = 0

@@ -53,9 +53,10 @@
                 <n-input-number
                   :value="getRequirement(dayOfWeek, shift.code)"
                   :min="0"
+                  :precision="0"
                   :show-button="false"
                   class="w-full"
-                  @update:value="(val) => setRequirement(dayOfWeek, shift.code, val || 0)"
+                  @update:value="(val) => setRequirement(dayOfWeek, shift.code, val)"
                 />
               </td>
               <td class="border border-gray-300 bg-gray-50 px-4 py-3 text-center font-bold">
@@ -109,6 +110,7 @@ import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { replaceSiteRequirements, loadSiteRequirements } from '@/api/employee';
+import { showError, showSuccess } from '@/utils/message';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
@@ -199,7 +201,7 @@ function convertVerticalToHorizontal(verticalData: SiteRequirementRow[]) {
     // Type assertion or check
     const dayData = horizontalData[row.dayOfWeek];
     if (dayData) {
-        dayData[row.shiftCode.toUpperCase()] = row.requiredCount;
+      dayData[row.shiftCode.toUpperCase()] = normalizeRequirementValue(row.requiredCount);
     }
   });
 }
@@ -236,7 +238,7 @@ function initDefaultValues() {
     shiftCodes.value.forEach((shift) => {
       const dayData = horizontalData[day];
       if (dayData) {
-          dayData[shift.code.toUpperCase()] = shift.code.toUpperCase() === 'O' ? 0 : 5;
+        dayData[shift.code.toUpperCase()] = 0;
       }
     });
   }
@@ -252,11 +254,11 @@ function getRequirement(dayOfWeek: number, shiftCode: string): number {
 /**
  * 요일/시프트별 값 설정
  */
-function setRequirement(dayOfWeek: number, shiftCode: string, value: number) {
+function setRequirement(dayOfWeek: number, shiftCode: string, value: number | null) {
   if (!horizontalData[dayOfWeek]) {
     horizontalData[dayOfWeek] = {};
   }
-  horizontalData[dayOfWeek][shiftCode.toUpperCase()] = value;
+  horizontalData[dayOfWeek][shiftCode.toUpperCase()] = normalizeRequirementValue(value);
 }
 
 /**
@@ -265,6 +267,28 @@ function setRequirement(dayOfWeek: number, shiftCode: string, value: number) {
 function getDayTotal(dayOfWeek: number): number {
   const dayData = horizontalData[dayOfWeek] || {};
   return Object.values(dayData).reduce((sum, val) => sum + (val || 0), 0);
+}
+
+function normalizeRequirementValue(value: number | null): number {
+  if (value === null || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+}
+
+function validateBeforeSave(): string | null {
+  for (const dayOfWeek of dayOrder) {
+    for (const shift of shiftCodes.value) {
+      const count = getRequirement(dayOfWeek, shift.code);
+      if (!Number.isInteger(count) || count < 0) {
+        return `${dayNames[dayOfWeek]} 요일의 ${shift.code} 값은 0 이상의 정수여야 합니다.`;
+      }
+    }
+
+    if (getDayTotal(dayOfWeek) === 0) {
+      return `${dayNames[dayOfWeek]} 요일의 총 필요 인원은 1명 이상이어야 합니다.`;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -287,6 +311,12 @@ async function handleNext() {
   isSaving.value = true;
 
   try {
+    const validationError = validateBeforeSave();
+    if (validationError) {
+      showError(validationError);
+      return;
+    }
+
     // 가로형 → 세로형 변환
     const verticalData = convertHorizontalToVertical();
 
@@ -308,13 +338,5 @@ async function handleNext() {
   } finally {
     isSaving.value = false;
   }
-}
-
-function showSuccess(msg: string) {
-  window.$message?.success(msg);
-}
-
-function showError(msg: string) {
-  window.$message?.error(msg);
 }
 </script>

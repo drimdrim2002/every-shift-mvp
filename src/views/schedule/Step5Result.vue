@@ -174,6 +174,7 @@ import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
@@ -194,12 +195,14 @@ import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
+import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type { AssignmentMap, ConstraintMap, CommentMap, ScheduleVersionStatus } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
 const solver = useAISolver();
 const grid = useScheduleGrid();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
 
@@ -1028,6 +1031,7 @@ function handleReset() {
       );
       rebuildDisplayAssignments(currentScheduleAssignments.value);
       changedCells.value.clear();
+      clearTempPreferenceStorage();
       showSuccess('변경사항이 취소되었습니다');
     },
   });
@@ -1202,11 +1206,7 @@ async function handleCancelSchedule() {
         currentScheduleAssignments.value = {};
         rebuildDisplayAssignments();
 
-        const storageKeys = [
-          `everyshift_temp_schedule_${currentMonth}`,
-          `everyshift_temp_preferences_${currentMonth}`,
-        ];
-        storageKeys.forEach((key) => localStorage.removeItem(key));
+        clearTempPreferenceStorage();
 
         showSuccess('이번달 근무표가 삭제되었습니다. 지난달 데이터는 보존되었습니다.');
         router.push('/schedule/step4');
@@ -1215,6 +1215,14 @@ async function handleCancelSchedule() {
         showError('근무표 삭제 중 오류가 발생했습니다');
       }
     },
+  });
+}
+
+function clearTempPreferenceStorage() {
+  clearScopedTempPreferencesStorage({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
   });
 }
 </script>

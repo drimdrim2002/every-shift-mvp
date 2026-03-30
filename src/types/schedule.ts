@@ -39,6 +39,16 @@ export type OffReasonMap = Record<string, Record<string, string>>;
 // 코멘트 맵: employeeId -> date -> comment
 export type CommentMap = Record<string, Record<string, string>>;
 
+export interface TempPreferencesEnvelopeV2 {
+  schemaVersion: 2;
+  ownerUserId: string;
+  ownerOrganizationId: string;
+  month: string;
+  savedAt: string;
+  constraints: ConstraintMap;
+  constraintNotes: CommentMap;
+}
+
 export type PreferenceStatus = 'pending' | 'fulfilled' | 'unfulfilled';
 
 export type LegacyScheduleStatus = 'created' | 'running' | 'complete' | 'changed' | 'error';
