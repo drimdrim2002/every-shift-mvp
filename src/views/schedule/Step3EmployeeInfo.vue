@@ -107,7 +107,7 @@ import {
 } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
-import { showError } from '@/utils/message';
+import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
@@ -170,7 +170,7 @@ onMounted(async () => {
       // DB에서 불러온 데이터는 저장된 상태
       hasUnsavedChanges.value = false;
       
-      window.$message?.info(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
+      showInfo(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
     } else {
       // DB에 데이터가 없으면 처음 입력하는 상태
       hasUnsavedChanges.value = false;
@@ -204,18 +204,18 @@ function handleDeleteEmployee(index: number) {
 function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
   employees.value = uploadedEmployees;
   hasUnsavedChanges.value = true;
-  window.$message?.success(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
+  showSuccess(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
 // 저장 핸들러
 async function handleSave() {
   if (employees.value.length === 0) {
-    window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
+    showWarning('최소 1명 이상의 직원을 등록해주세요.');
     return;
   }
 
   if (!scheduleStore.basicInfo) {
-    window.$message?.error('기본 정보가 없습니다. 다시 시도해주세요.');
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
     return;
   }
 
@@ -296,10 +296,10 @@ async function handleSave() {
     // 9. 저장 완료 플래그
     hasUnsavedChanges.value = false;
 
-    window.$message?.success('직원 정보가 저장되었습니다.');
+    showSuccess('직원 정보가 저장되었습니다.');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
-    window.$message?.error(errorMessage);
+    showError(errorMessage);
   } finally {
     isSaving.value = false;
   }
@@ -342,16 +342,45 @@ async function getTargetScheduleForNextStep(): Promise<{ id: string; status: str
   }
 }
 
+async function hasPersistedEmployees(orgId: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('employees')
+    .select('id', { count: 'exact', head: true })
+    .eq('organization_id', orgId);
+
+  if (error) {
+    throw new Error(`직원 저장 상태 확인 실패: ${error.message}`);
+  }
+
+  return (count ?? 0) > 0;
+}
+
 // 다음 버튼 핸들러
 async function handleNext() {
   if (employees.value.length === 0) {
-    window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
+    showWarning('최소 1명 이상의 직원을 등록해주세요.');
     return;
   }
 
   // 저장되지 않은 변경사항이 있으면 경고
   if (hasUnsavedChanges.value) {
-    window.$message?.warning('변경사항을 먼저 저장해주세요.');
+    showWarning('변경사항을 먼저 저장해주세요.');
+    return;
+  }
+
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
+    return;
+  }
+
+  try {
+    const persistedExists = await hasPersistedEmployees(scheduleStore.basicInfo.organizationId);
+    if (!persistedExists) {
+      showWarning('저장된 직원 정보가 없습니다. Step3에서 저장 후 다시 진행해주세요.');
+      return;
+    }
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '직원 저장 상태 확인 중 오류가 발생했습니다.');
     return;
   }
 

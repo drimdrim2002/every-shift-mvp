@@ -143,6 +143,7 @@ import {
   ensurePhase2Schedule,
   deleteThisMonthVersionAssignments,
   getScheduleVersionPreferences,
+  getSchedulePreferences,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
 import { NAlert, NButton, NSpin } from 'naive-ui';
@@ -181,7 +182,12 @@ const baselineState = ref<{
 } | null>(null);
 
 const canPersistStep4 = computed(() => {
-  return !isBaselineLoading.value && !baselineErrorMessage.value && !!baselineState.value;
+  return (
+    !isBaselineLoading.value &&
+    !baselineErrorMessage.value &&
+    !!baselineState.value &&
+    grid.employees.value.length > 0
+  );
 });
 
 const selectedCellComment = computed(() => {
@@ -198,6 +204,49 @@ function ensureEmployeeMaps(): void {
       constraintNotes.value[employee.id] = {};
     }
   });
+}
+
+function sanitizePreferenceMapsToCurrentEmployees(): {
+  removedEmployeeIds: string[];
+  removedOffRequestCount: number;
+  removedNoteCount: number;
+} {
+  const currentEmployeeIds = new Set(grid.employees.value.map((employee) => employee.id));
+  if (currentEmployeeIds.size === 0) {
+    return { removedEmployeeIds: [], removedOffRequestCount: 0, removedNoteCount: 0 };
+  }
+
+  const removedEmployeeIdSet = new Set<string>();
+  let removedOffRequestCount = 0;
+  let removedNoteCount = 0;
+
+  Object.entries(constraints.value).forEach(([employeeId, dateMap]) => {
+    if (currentEmployeeIds.has(employeeId)) return;
+    removedEmployeeIdSet.add(employeeId);
+    removedOffRequestCount += Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O')
+      .length;
+    delete constraints.value[employeeId];
+  });
+
+  Object.entries(constraintNotes.value).forEach(([employeeId, dateMap]) => {
+    if (currentEmployeeIds.has(employeeId)) return;
+    removedEmployeeIdSet.add(employeeId);
+    removedNoteCount += Object.values(dateMap || {}).filter((note) => note.trim().length > 0).length;
+    delete constraintNotes.value[employeeId];
+  });
+
+  if (removedEmployeeIdSet.size > 0) {
+    constraints.value = { ...constraints.value };
+    constraintNotes.value = { ...constraintNotes.value };
+  }
+
+  ensureEmployeeMaps();
+
+  return {
+    removedEmployeeIds: Array.from(removedEmployeeIdSet),
+    removedOffRequestCount,
+    removedNoteCount,
+  };
 }
 
 function mergeConstraintMap(source: ConstraintMap): void {
@@ -317,6 +366,60 @@ function toErrorMessage(error: unknown): string {
   return String(error);
 }
 
+function logRestoreTrace(message: string, payload?: Record<string, unknown>): void {
+  if (!import.meta.env.DEV) return;
+  if (payload) {
+    console.info(`[Step4InitialData] ${message}`, payload);
+    return;
+  }
+
+  console.info(`[Step4InitialData] ${message}`);
+}
+
+function countStoredOffRequests(map: ConstraintMap): number {
+  return Object.values(map).reduce((total, dateMap) => {
+    return (
+      total +
+      Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O').length
+    );
+  }, 0);
+}
+
+function hasAnyConstraintNotes(map: CommentMap): boolean {
+  return Object.values(map).some((dateMap) => {
+    return Object.values(dateMap || {}).some((note) => note.trim().length > 0);
+  });
+}
+
+function hasCurrentPreferences(): boolean {
+  return countStoredOffRequests(constraints.value) > 0 || hasAnyConstraintNotes(constraintNotes.value);
+}
+
+function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; notes: CommentMap } | null {
+  if (!STORAGE_KEY.value) return null;
+
+  const raw = localStorage.getItem(STORAGE_KEY.value);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      constraints?: ConstraintMap;
+      constraintNotes?: CommentMap;
+    };
+
+    return {
+      constraints: parsed.constraints ?? {},
+      notes: parsed.constraintNotes ?? {},
+    };
+  } catch (error) {
+    logRestoreTrace('Failed to parse localStorage temp preferences', {
+      storageKey: STORAGE_KEY.value,
+      error: toErrorMessage(error),
+    });
+    return null;
+  }
+}
+
 async function ensureBaselineVersion(forceRefresh = false): Promise<{
   scheduleId: string;
   previewVersionId: string;
@@ -375,28 +478,116 @@ onMounted(async () => {
     return;
   }
 
-  await Promise.all([
-    (!orgStore.current || orgStore.employees.length === 0)
-      ? orgStore.loadOrganization(scheduleStore.basicInfo.organizationId)
-      : Promise.resolve(),
-    restoreData(),
-  ]);
-
+  if (!orgStore.current || orgStore.employees.length === 0) {
+    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    if (!loadResult.success) {
+      baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
+      showError(baselineErrorMessage.value);
+      return;
+    }
+  }
   grid.employees.value = orgStore.employees;
+  if (grid.employees.value.length === 0) {
+    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+    showError(baselineErrorMessage.value);
+    return;
+  }
   grid.generateDates(scheduleStore.basicInfo.month, 0);
   ensureEmployeeMaps();
+  await restoreData();
 });
 
 async function restoreData(forceRefresh = false) {
-  try {
-    const { previewVersionId } = await ensureBaselineVersion(forceRefresh);
-    const preferenceData = await getScheduleVersionPreferences(previewVersionId);
+  if (grid.employees.value.length === 0) {
+    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+    showError(baselineErrorMessage.value);
+    return;
+  }
 
-    if (preferenceData.preferences.length > 0) {
-      mergeConstraintMap(preferenceData.constraints);
-      mergeCommentMap(preferenceData.notes);
-      showInfo('저장된 요청 데이터를 불러왔습니다.');
+  try {
+    const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
+      forceRefresh
+    );
+
+    const versionCandidates = Array.from(
+      new Set([previewVersionId, selectedVersionId].filter((id): id is string => !!id))
+    );
+
+    logRestoreTrace('Starting restoreData()', {
+      scheduleId,
+      previewVersionId,
+      selectedVersionId,
+      versionCandidates,
+    });
+
+    for (const versionId of versionCandidates) {
+      const versionPreferenceData = await getScheduleVersionPreferences(versionId);
+
+      logRestoreTrace('Fetched preferences by schedule_version_id', {
+        scheduleVersionId: versionId,
+        preferenceCount: versionPreferenceData.preferences.length,
+      });
+
+      if (versionPreferenceData.preferences.length > 0) {
+        mergeConstraintMap(versionPreferenceData.constraints);
+        mergeCommentMap(versionPreferenceData.notes);
+        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        if (sanitized.removedEmployeeIds.length > 0) {
+          logRestoreTrace('Removed stale employee keys from version preferences', sanitized);
+        }
+        if (hasCurrentPreferences()) {
+          showInfo('저장된 요청 데이터를 불러왔습니다.');
+          return;
+        }
+      }
     }
+
+    const schedulePreferenceData = await getSchedulePreferences(scheduleId);
+    logRestoreTrace('Fetched preferences by schedule_id (legacy fallback)', {
+      scheduleId,
+      preferenceCount: schedulePreferenceData.preferences.length,
+    });
+
+    if (schedulePreferenceData.preferences.length > 0) {
+      mergeConstraintMap(schedulePreferenceData.constraints);
+      mergeCommentMap(schedulePreferenceData.notes);
+      const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+      if (sanitized.removedEmployeeIds.length > 0) {
+        logRestoreTrace('Removed stale employee keys from legacy schedule preferences', sanitized);
+      }
+      if (hasCurrentPreferences()) {
+        showInfo('기존 저장 데이터(schedule 기준)를 불러왔습니다.');
+        return;
+      }
+    }
+
+    const localSnapshot = loadTempPreferencesFromLocalStorage();
+    if (localSnapshot) {
+      const offRequestCount = countStoredOffRequests(localSnapshot.constraints);
+      const hasNotes = hasAnyConstraintNotes(localSnapshot.notes);
+
+      logRestoreTrace('Fetched preferences by localStorage fallback', {
+        storageKey: STORAGE_KEY.value,
+        offRequestCount,
+        hasNotes,
+      });
+
+      if (offRequestCount > 0 || hasNotes) {
+        mergeConstraintMap(localSnapshot.constraints);
+        mergeCommentMap(localSnapshot.notes);
+        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        if (sanitized.removedEmployeeIds.length > 0) {
+          logRestoreTrace('Removed stale employee keys from localStorage preferences', sanitized);
+        }
+        if (hasCurrentPreferences()) {
+          showInfo('브라우저 임시 저장 데이터를 불러왔습니다.');
+          return;
+        }
+        showInfo('브라우저 임시 저장 데이터가 현재 직원 목록과 일치하지 않아 불러오지 않았습니다.');
+      }
+    }
+
+    logRestoreTrace('No saved preference data found in all scopes');
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -416,12 +607,30 @@ function handlePrev() {
 
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
+  if (grid.employees.value.length === 0) {
+    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
+    return;
+  }
 
   try {
+    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
+    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
+      logRestoreTrace('Removed stale employee keys before save', sanitizedBeforeSave);
+      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.');
+    }
+
     scheduleStore.setAssignments(constraints.value);
     scheduleStore.setComments(constraintNotes.value);
 
     const { scheduleId, previewVersionId } = await ensureBaselineVersion();
+    const offRequestCount = countStoredOffRequests(constraints.value);
+
+    logRestoreTrace('Saving preferences', {
+      scheduleId,
+      scheduleVersionId: previewVersionId,
+      offRequestCount,
+      hasNotes: hasAnyConstraintNotes(constraintNotes.value),
+    });
 
     await saveScheduleVersionPreferences(
       scheduleId,
@@ -429,6 +638,14 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
       constraints.value,
       constraintNotes.value
     );
+
+    const verification = await getScheduleVersionPreferences(previewVersionId);
+    logRestoreTrace('Saved preferences verification', {
+      scheduleVersionId: previewVersionId,
+      preferenceCount: verification.preferences.length,
+      offRequestCount: countStoredOffRequests(verification.constraints),
+      hasNotes: hasAnyConstraintNotes(verification.notes),
+    });
 
     showSuccess('임시 저장되었습니다.');
     return { scheduleId, previewVersionId };
