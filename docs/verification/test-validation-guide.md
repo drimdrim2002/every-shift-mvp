@@ -70,7 +70,7 @@ pnpm preview
 ```bash
 # Mock 모드로 시작
 VITE_USE_SUPABASE=false
-VITE_SUPABASE_URL=https://kkxchntkzopfrpnvzzth.supabase.co
+VITE_SUPABASE_URL=https://vjmerqaxguovnojinxfq.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
 
 # Backend Mock
@@ -210,7 +210,7 @@ echo $VITE_SUPABASE_URL
 echo $VITE_SUPABASE_ANON_KEY
 
 # 네트워크 연결 확인
-curl -I https://kkxchntkzopfrpnvzzth.supabase.co
+curl -I https://vjmerqaxguovnojinxfq.supabase.co
 ```
 
 ### 3. 권한 오류

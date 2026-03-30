@@ -19,7 +19,7 @@ VITE_API_URL=/api
 
 # Supabase 설정
 VITE_USE_SUPABASE=false                  # true로 변경하면 Supabase 모드 활성화
-VITE_SUPABASE_URL=https://kkxchntkzopfrpnvzzth.supabase.co
+VITE_SUPABASE_URL=https://vjmerqaxguovnojinxfq.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtreGNobnRrem9wZnJwbnZ6enRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyMTEyNDgsImV4cCI6MjA2OTc4NzI0OH0.wcRVKBmlsBBXBfOJ8Vypit-b47gRFVvecp1TVxonvmU
 
 # Development
@@ -126,8 +126,7 @@ const uploadOptions = {
   maxSize: 5 * 1024 * 1024, // 5MB
 };
 
-const { uploadSingleFile, uploading, uploadProgress } =
-  useFileUpload(uploadOptions);
+const { uploadSingleFile, uploading, uploadProgress } = useFileUpload(uploadOptions);
 
 // 파일 업로드
 const handleUpload = async (file: File) => {
@@ -283,11 +282,7 @@ const loginResult = await supabaseLoginApi({
 const userInfo = await supabaseGetUserInfoApi();
 
 // 파일 업로드
-const uploadResult = await supabaseUploadFileApi(
-  file,
-  'user-uploads',
-  'custom/path.jpg',
-);
+const uploadResult = await supabaseUploadFileApi(file, 'user-uploads', 'custom/path.jpg');
 ```
 
 ### 2. 기존 API (Backend Mock을 통한 방식)
