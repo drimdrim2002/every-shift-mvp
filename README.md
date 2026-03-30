@@ -142,15 +142,14 @@ VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 
 # AI Solver API (개발 모드)
-# 개발에서는 반드시 빈 값 유지 (Vite /api 프록시 사용)
-VITE_API_BASE_URL=
+# Cloud Run Solver API URL
+VITE_API_BASE_URL=https://every-shift-api-service-554455861916.asia-northeast3.run.app
 ```
 
 **중요: AI Solver URL 규칙**
 
-- 개발(`pnpm dev`): `VITE_API_BASE_URL`를 비워서 `/api` 프록시 사용
-- 프로덕션 배포: 배포 환경 변수에만 절대 URL 설정  
-  `VITE_API_BASE_URL=https://every-shift-api-service-554455861916.asia-northeast3.run.app`
+- 개발/프로덕션 공통: `VITE_API_BASE_URL`에 Cloud Run 절대 URL 설정
+- 로컬에서 CORS 오류가 발생하면 백엔드 CORS 허용 출처에 `http://localhost:5173`(또는 사용 포트)를 추가
 
 **Supabase 정보 확인 방법**:
 

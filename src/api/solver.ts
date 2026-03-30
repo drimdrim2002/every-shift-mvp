@@ -39,22 +39,90 @@ export function buildSolverApiUrl(path: string, env: SolverRuntimeEnv = import.m
   return baseUrl ? `${baseUrl}${path}` : path;
 }
 
+function shouldRetryWithDevProxy(env: SolverRuntimeEnv): boolean {
+  return Boolean(env.DEV && resolveApiBaseUrl(env));
+}
+
+async function fetchSolverApiWithDevProxyFallback(
+  path: string,
+  fallbackProxyPaths: string[],
+  init: RequestInit,
+  env: SolverRuntimeEnv = import.meta.env,
+): Promise<Response> {
+  const directUrl = buildSolverApiUrl(path, env);
+
+  try {
+    return await fetch(directUrl, init);
+  } catch (error) {
+    if (!shouldRetryWithDevProxy(env)) {
+      throw error;
+    }
+
+    console.warn('[solver] Direct API request failed, retrying with Vite proxy:', {
+      directUrl,
+      proxyUrl: path,
+      error,
+    });
+
+    const primaryProxyResponse = await fetch(path, init);
+    if (primaryProxyResponse.status !== 404 || fallbackProxyPaths.length === 0) {
+      return primaryProxyResponse;
+    }
+
+    let lastResponse = primaryProxyResponse;
+    for (const fallbackProxyPath of fallbackProxyPaths) {
+      console.warn('[solver] Proxy request returned 404, retrying with alternate proxy path:', {
+        primaryProxyUrl: path,
+        alternateProxyUrl: fallbackProxyPath,
+      });
+
+      const fallbackResponse = await fetch(fallbackProxyPath, init);
+      if (fallbackResponse.status !== 404) {
+        return fallbackResponse;
+      }
+      lastResponse = fallbackResponse;
+    }
+
+    return lastResponse;
+  }
+}
+
 // 실제 API 호출: POST /api/solve
 export async function createSolverExecution(
   request: SolverRequest,
   env: SolverRuntimeEnv = import.meta.env,
 ): Promise<string> {
-  const url = buildSolverApiUrl('/api/solve', env);
+  const path = '/api/solve';
+  const url = buildSolverApiUrl(path, env);
   console.log('[createSolverExecution] API_BASE_URL:', resolveApiBaseUrl(env));
   console.log('[createSolverExecution] Full URL:', url);
   
   console.log('[createSolverExecution] Request Body:', JSON.stringify(request, null, 2));
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
+  let response: Response;
+  try {
+    response = await fetchSolverApiWithDevProxyFallback(
+      path,
+      ['/solve'],
+      {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      },
+      env
+    );
+  } catch (networkError) {
+    const fallbackMessage = networkError instanceof Error ? networkError.message : String(networkError);
+    throw new SolverApiError(
+      `Solver API 호출 실패 (네트워크/CORS 또는 배포 URL 확인 필요): ${fallbackMessage}`,
+      {
+        payload: {
+          url,
+          baseUrl: resolveApiBaseUrl(env),
+        },
+      }
+    );
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -103,7 +171,13 @@ export async function getSolverStatus(
   executionId: string,
   env: SolverRuntimeEnv = import.meta.env,
 ): Promise<SolverStatusResponse> {
-  const response = await fetch(buildSolverApiUrl(`/api/status/${executionId}`, env));
+  const path = `/api/status/${executionId}`;
+  const response = await fetchSolverApiWithDevProxyFallback(
+    path,
+    [`/status/${executionId}`],
+    {},
+    env
+  );
   
   if (!response.ok) {
     throw new Error('상태 조회 실패');

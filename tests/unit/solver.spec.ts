@@ -117,6 +117,10 @@ describe('solver api', () => {
     DEV: true,
     VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
   };
+  const noFallbackEnv = {
+    DEV: false,
+    VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
+  };
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -174,6 +178,60 @@ describe('solver api', () => {
         status: 502,
       });
     });
+
+    it('retries with vite proxy path when direct request fails in development mode', async () => {
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ execution_id: 'exec-proxy' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const executionId = await createSolverExecution(createSolverRequest(), directApiEnv);
+
+      expect(executionId).toBe('exec-proxy');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
+      expect(proxyUrl).toBe('/api/solve');
+    });
+
+    it('retries with alternate proxy path when primary proxy path returns 404', async () => {
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ execution_id: 'exec-alt-proxy' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const executionId = await createSolverExecution(createSolverRequest(), directApiEnv);
+
+      expect(executionId).toBe('exec-alt-proxy');
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [primaryProxyUrl] = fetchMock.mock.calls[1]!;
+      const [alternateProxyUrl] = fetchMock.mock.calls[2]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
+      expect(primaryProxyUrl).toBe('/api/solve');
+      expect(alternateProxyUrl).toBe('/solve');
+    });
+
+    it('throws a solver api error with diagnostics when fetch fails before response', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      await expect(createSolverExecution(createSolverRequest(), noFallbackEnv)).rejects.toMatchObject({
+        name: 'SolverApiError',
+        message: expect.stringContaining('Solver API 호출 실패 (네트워크/CORS 또는 배포 URL 확인 필요)'),
+      });
+    });
   });
 
   describe('getSolverStatus', () => {
@@ -188,6 +246,53 @@ describe('solver api', () => {
 
       const result = await getSolverStatus('exec-1');
       expect(result).toEqual(expected);
+    });
+
+    it('retries with vite proxy path for status polling in development mode', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(expected), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const result = await getSolverStatus('exec-1', directApiEnv);
+
+      expect(result).toEqual(expected);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/status/exec-1');
+      expect(proxyUrl).toBe('/api/status/exec-1');
+    });
+
+    it('retries status polling with alternate proxy path when primary proxy path returns 404', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(expected), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const result = await getSolverStatus('exec-1', directApiEnv);
+
+      expect(result).toEqual(expected);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [primaryProxyUrl] = fetchMock.mock.calls[1]!;
+      const [alternateProxyUrl] = fetchMock.mock.calls[2]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/status/exec-1');
+      expect(primaryProxyUrl).toBe('/api/status/exec-1');
+      expect(alternateProxyUrl).toBe('/status/exec-1');
     });
 
     it('throws when status endpoint returns non-2xx', async () => {
