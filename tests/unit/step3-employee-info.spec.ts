@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   pushMock,
   getScheduleStatusMock,
+  getLatestScheduleByOrganizationMonthMock,
   getPhase2ScheduleCompareMock,
   deleteOrganizationEmployeesMock,
   createEmployeesBatchMock,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   getScheduleStatusMock: vi.fn(),
+  getLatestScheduleByOrganizationMonthMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
   deleteOrganizationEmployeesMock: vi.fn(),
   createEmployeesBatchMock: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('@/api/schedule', () => ({
   getScheduleStatus: getScheduleStatusMock,
+  getLatestScheduleByOrganizationMonth: getLatestScheduleByOrganizationMonthMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
 }))
 
@@ -165,6 +168,7 @@ describe('Step3EmployeeInfo', () => {
       id: 'schedule-123',
       status: 'complete',
     })
+    getLatestScheduleByOrganizationMonthMock.mockResolvedValue(null)
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',
       selectedVersionId: 'version-2',
@@ -237,6 +241,75 @@ describe('Step3EmployeeInfo', () => {
       path: '/schedule/step5/schedule-123',
       query: {
         version: 'version-2',
+      },
+    })
+  })
+
+  it('falls back to the latest schedule when the stored schedule id is stale', async () => {
+    getScheduleStatusMock.mockResolvedValue(null)
+    getLatestScheduleByOrganizationMonthMock.mockResolvedValue({
+      id: 'schedule-456',
+      organization_id: 'org-1',
+      month: '2025-12',
+      status: 'complete',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: null,
+      created_at: '2025-12-01T00:00:00Z',
+      updated_at: '2025-12-01T00:00:00Z',
+    })
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-456',
+      selectedVersionId: 'version-9',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-9',
+          scheduleId: 'schedule-456',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))?.trigger('click')
+    await flushPromises()
+
+    expect(getScheduleStatusMock).toHaveBeenCalledWith('schedule-123')
+    expect(getLatestScheduleByOrganizationMonthMock).toHaveBeenCalledWith('org-1', '2025-12')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-456')
+    expect(setBasicInfoMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: 'schedule-456',
+      })
+    )
+    expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-9')
+    expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-9')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-456',
+      query: {
+        version: 'version-9',
       },
     })
   })

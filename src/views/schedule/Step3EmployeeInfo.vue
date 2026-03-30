@@ -100,7 +100,11 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
-import { getPhase2ScheduleCompare, getScheduleStatus } from '@/api/schedule';
+import {
+  getLatestScheduleByOrganizationMonth,
+  getPhase2ScheduleCompare,
+  getScheduleStatus,
+} from '@/api/schedule';
 import { supabase } from '@/api/supabase';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import { showError } from '@/utils/message';
@@ -255,6 +259,12 @@ async function handleSave() {
         console.warn('[Step3] Failed to delete schedules, continuing...');
       } else {
         console.log('[Step3] Deleted schedules for month:', scheduleStore.basicInfo.month);
+        scheduleStore.setBasicInfo({
+          ...scheduleStore.basicInfo,
+          scheduleId: undefined,
+        });
+        scheduleStore.setSelectedVersionId(null);
+        scheduleStore.setPreviewVersionId(null);
       }
     }
 
@@ -319,20 +329,10 @@ async function getTargetScheduleForNextStep(): Promise<{ id: string; status: str
 
   // 2) fallback: 조직+월 기준 최신 schedule 조회
   try {
-    const { data, error } = await supabase
-      .from('schedules')
-      .select('id, status')
-      .eq('organization_id', basicInfo.organizationId)
-      .eq('month', basicInfo.month)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.warn('[Step3] Failed to load latest schedule:', error);
-      return null;
-    }
-
-    const latest = data?.[0];
+    const latest = await getLatestScheduleByOrganizationMonth(
+      basicInfo.organizationId,
+      basicInfo.month
+    );
     if (!latest || !latest.id || !latest.status) return null;
 
     return { id: latest.id, status: latest.status };
