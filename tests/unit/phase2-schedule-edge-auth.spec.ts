@@ -39,6 +39,76 @@ describe('phase2 schedule edge auth', () => {
     });
   });
 
+  it('accepts camelCase and current organization metadata keys', async () => {
+    const getUser = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          id: '55555555-5555-4555-8555-555555555555',
+          app_metadata: {
+            currentOrganizationId: '66666666-6666-4666-8666-666666666666',
+          },
+          user_metadata: {
+            organizationId: '77777777-7777-4777-8777-777777777777',
+          },
+        },
+      },
+      error: null,
+    });
+
+    const context = await resolveAuthContext(
+      {
+        auth: {
+          getUser,
+        },
+      },
+      new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer access-token-789',
+        },
+      })
+    );
+
+    expect(context).toEqual({
+      userId: '55555555-5555-4555-8555-555555555555',
+      organizationId: '66666666-6666-4666-8666-666666666666',
+    });
+  });
+
+  it('accepts seeded zero-prefixed organization ids from auth metadata', async () => {
+    const getUser = vi.fn().mockResolvedValue({
+      data: {
+        user: {
+          id: '55555555-5555-4555-8555-555555555555',
+          app_metadata: {
+            organization_id: '00000000-0000-0000-0000-000000000001',
+          },
+          user_metadata: {},
+        },
+      },
+      error: null,
+    });
+
+    const context = await resolveAuthContext(
+      {
+        auth: {
+          getUser,
+        },
+      },
+      new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer access-token-000',
+        },
+      })
+    );
+
+    expect(context).toEqual({
+      userId: '55555555-5555-4555-8555-555555555555',
+      organizationId: '00000000-0000-0000-0000-000000000001',
+    });
+  });
+
   it('rejects verified users without an organization claim', async () => {
     const getUser = vi.fn().mockResolvedValue({
       data: {

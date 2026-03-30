@@ -27,17 +27,34 @@ function asMetadataRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function readOrganizationIdFromMetadata(metadata: Record<string, unknown>): string | null {
+  const candidates = [
+    metadata.organization_id,
+    metadata.organizationId,
+    metadata.current_organization_id,
+    metadata.currentOrganizationId,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && isValidUuid(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function readOrganizationId(user: Phase2ScheduleAuthUser): string | null {
   const appMetadata = asMetadataRecord(user.app_metadata);
   const userMetadata = asMetadataRecord(user.user_metadata);
 
   const candidates = [
-    appMetadata.organization_id,
-    userMetadata.organization_id,
+    readOrganizationIdFromMetadata(appMetadata),
+    readOrganizationIdFromMetadata(userMetadata),
   ];
 
   for (const candidate of candidates) {
-    if (typeof candidate === 'string' && isValidUuid(candidate)) {
+    if (candidate) {
       return candidate;
     }
   }

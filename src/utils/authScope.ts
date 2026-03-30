@@ -31,8 +31,8 @@ export function resolveAuthScope(user: User | null | undefined): AuthScope | nul
   }
 
   const organizationId =
-    readOrganizationIdFromMetadata(user.user_metadata as OrganizationMetadata) ??
-    readOrganizationIdFromMetadata(user.app_metadata as OrganizationMetadata);
+    readOrganizationIdFromMetadata(user.app_metadata as OrganizationMetadata) ??
+    readOrganizationIdFromMetadata(user.user_metadata as OrganizationMetadata);
 
   return {
     userId: user.id,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getSessionMock = vi.fn();
+const refreshSessionMock = vi.fn();
 const supabaseFromMock = vi.fn();
 const supabaseRpcMock = vi.fn();
 
@@ -8,6 +9,7 @@ vi.mock('@/api/supabase', () => ({
   supabase: {
     auth: {
       getSession: getSessionMock,
+      refreshSession: refreshSessionMock,
     },
     from: supabaseFromMock,
     rpc: supabaseRpcMock,
@@ -176,6 +178,188 @@ describe('phase2 schedule api helpers', () => {
       getPhase2ScheduleCompare('22222222-2222-4222-8222-222222222222')
     ).rejects.toThrow('Authenticated session is required to call phase2-schedule');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the session and retries once when the server reports missing organization context', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-1',
+          selectedVersionId: 'version-1',
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+    await ensurePhase2Schedule({
+      organizationId: '22222222-2222-4222-8222-222222222222',
+      month: '2026-04',
+    });
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/ensure',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer stale-token-123',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/ensure',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer fresh-token-456',
+        }),
+      })
+    );
+  });
+
+  it('surfaces a clear error when organization context is still missing after one retry', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+
+    await expect(
+      ensurePhase2Schedule({
+        organizationId: '22222222-2222-4222-8222-222222222222',
+        month: '2026-04',
+      })
+    ).rejects.toMatchObject({
+      message:
+        '로그인 세션에 조직 정보가 없습니다. 다시 로그인한 뒤 다시 시도해주세요.',
+      code: 'organization_context_missing',
+      status: 403,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes the session and retries once on unauthorized responses', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 'unauthorized', message: 'Authorization required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-1',
+            selectedVersionId: 'version-1',
+            finalizedVersionId: null,
+            activeSolvingVersionId: null,
+            versions: [],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+    await ensurePhase2Schedule({
+      organizationId: '22222222-2222-4222-8222-222222222222',
+      month: '2026-04',
+    });
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('unwraps error envelopes from non-2xx responses', async () => {

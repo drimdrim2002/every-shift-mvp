@@ -6,6 +6,7 @@ import * as shiftApi from '@/api/shift'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
+import { resolveAuthScope } from '@/utils/authScope'
 
 // Supabase 응답 타입 정의 (snake_case)
 interface OrganizationRow {
@@ -75,59 +76,40 @@ export const useOrganizationStore = defineStore('organization', () => {
     return (data as OrganizationRow[])[0] ?? null
   }
 
-  async function fetchFirstAccessibleOrganization(): Promise<OrganizationRow | null> {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('name')
-      .limit(1)
-
-    if (error) throw error
-
-    return (data as OrganizationRow[])[0] ?? null
-  }
-
   async function resolveOrganization(orgId?: string): Promise<OrganizationRow> {
-    const candidateOrgIds = new Set<string>()
-
-    if (typeof orgId === 'string' && orgId.trim().length > 0) {
-      candidateOrgIds.add(orgId.trim())
-    }
-
-    if (current.value?.id) {
-      candidateOrgIds.add(current.value.id)
-    }
-
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) throw sessionError
 
     const sessionUser = sessionData.session?.user
+    const authScope = resolveAuthScope(sessionUser)
+    const explicitOrgId = typeof orgId === 'string' && orgId.trim().length > 0 ? orgId.trim() : null
     const metadataOrgIds = [
-      readOrganizationIdFromMetadata(sessionUser?.user_metadata as OrganizationMetadata),
       readOrganizationIdFromMetadata(sessionUser?.app_metadata as OrganizationMetadata),
-    ]
+      readOrganizationIdFromMetadata(sessionUser?.user_metadata as OrganizationMetadata),
+    ].filter((value): value is string => !!value)
 
-    for (const metadataOrgId of metadataOrgIds) {
-      if (metadataOrgId) {
-        candidateOrgIds.add(metadataOrgId)
-      }
+    if (sessionUser && !authScope?.organizationId) {
+      throw new Error('로그인 계정에 organization_id 메타데이터가 없습니다.')
     }
 
-    for (const candidateOrgId of candidateOrgIds) {
-      const organization = await fetchOrganizationById(candidateOrgId)
-      if (organization) {
-        return organization
-      }
+    if (explicitOrgId && metadataOrgIds.length > 0 && !metadataOrgIds.includes(explicitOrgId)) {
+      throw new Error('요청한 조직과 로그인 계정의 organization_id가 일치하지 않습니다.')
     }
 
-    const fallbackOrganization = await fetchFirstAccessibleOrganization()
+    const resolvedOrgId = explicitOrgId ?? authScope?.organizationId ?? metadataOrgIds[0] ?? null
 
-    if (fallbackOrganization) {
-      return fallbackOrganization
+    if (!resolvedOrgId) {
+      throw new Error('접근 가능한 조직 정보가 없습니다.')
     }
 
-    throw new Error('접근 가능한 조직 정보가 없습니다.')
+    const organization = await fetchOrganizationById(resolvedOrgId)
+
+    if (!organization) {
+      throw new Error('로그인 계정의 organization_id에 해당하는 조직을 찾을 수 없습니다.')
+    }
+
+    return organization
   }
 
   /**

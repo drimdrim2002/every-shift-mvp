@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   allowedMethods,
+  isValidUuid,
   matchRoute,
   normalizePathSegments,
+  parseEnsureRequest,
   parseCreateVersionRequest,
   parsePatchScheduleVersionAssignmentsRequest,
   parseScheduleVersionSolveRequest,
@@ -86,6 +88,20 @@ describe('phase2 schedule contracts', () => {
         changedSiteRequirements: 3,
         note: 'retry',
       },
+    });
+  });
+
+  it('accepts canonical postgres uuids used by seeded organizations', () => {
+    expect(isValidUuid('00000000-0000-0000-0000-000000000001')).toBe(true);
+
+    expect(
+      parseEnsureRequest({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        month: '2026-04',
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      month: '2026-04',
     });
   });
 

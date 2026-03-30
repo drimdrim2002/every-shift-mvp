@@ -114,19 +114,40 @@ function getPhase2ScheduleAnonKey(): string {
   return anonKey;
 }
 
+function createMissingOrganizationClaimError(): Error {
+  const message = '로그인 세션에 조직 정보가 없습니다. 다시 로그인한 뒤 다시 시도해주세요.';
+  const error = new Error(message);
+  (error as Error & { code?: string; status?: number }).code = 'organization_context_missing';
+  (error as Error & { code?: string; status?: number }).status = 403;
+  return error;
+}
+
 async function getPhase2ScheduleAccessToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     throw error;
   }
 
-  const accessToken = data.session?.access_token;
-
-  if (!accessToken) {
+  const session = data.session ?? null;
+  if (!session?.access_token) {
     throw new Error('Authenticated session is required to call phase2-schedule');
   }
 
-  return accessToken;
+  return session.access_token;
+}
+
+async function refreshPhase2ScheduleAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) {
+    throw error;
+  }
+
+  const refreshedSession = data.session ?? null;
+  if (!refreshedSession?.access_token) {
+    throw new Error('Authenticated session is required to call phase2-schedule');
+  }
+
+  return refreshedSession.access_token;
 }
 
 function buildPhase2ScheduleUrl(path: string): string {
@@ -144,9 +165,12 @@ function createPhase2ScheduleError(payload: unknown, status: number): Error {
 
   if (payload !== null && typeof payload === 'object') {
     const record = payload as { code?: unknown; message?: unknown };
-    const message = typeof record.message === 'string' && record.message.trim().length > 0
-      ? record.message
-      : fallbackMessage;
+    const message =
+      record.code === 'organization_context_missing'
+        ? createMissingOrganizationClaimError().message
+        : typeof record.message === 'string' && record.message.trim().length > 0
+          ? record.message
+          : fallbackMessage;
     const error = new Error(message);
     (error as Error & { status?: number }).status = status;
 
@@ -167,46 +191,72 @@ async function callPhase2Schedule<T>(
     body?: unknown;
   }
 ): Promise<T> {
-  const accessToken = await getPhase2ScheduleAccessToken();
   const url = buildPhase2ScheduleUrl(path);
-  const headers: Record<string, string> = {
-    apikey: getPhase2ScheduleAnonKey(),
-    Authorization: `Bearer ${accessToken}`,
-  };
+  const executeRequest = async (
+    accessToken: string
+  ): Promise<{ response: Response; payload: unknown }> => {
+    const headers: Record<string, string> = {
+      apikey: getPhase2ScheduleAnonKey(),
+      Authorization: `Bearer ${accessToken}`,
+    };
 
-  const requestInit: RequestInit = {
-    method: options.method,
-    headers,
-    mode: 'cors',
-    credentials: 'omit',
-  };
+    const requestInit: RequestInit = {
+      method: options.method,
+      headers,
+      mode: 'cors',
+      credentials: 'omit',
+    };
 
-  if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    requestInit.body = JSON.stringify(options.body);
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(url, requestInit);
-  } catch (error) {
-    const reason =
-      error instanceof Error && error.message.trim().length > 0
-        ? error.message
-        : String(error);
-    throw new Error(
-      `phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요): ${reason}`
-    );
-  }
-
-  const responseText = await response.text();
-  let payload: unknown = null;
-  if (responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = responseText;
+    if (options.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      requestInit.body = JSON.stringify(options.body);
     }
+
+    let response: Response;
+    try {
+      response = await fetch(url, requestInit);
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : String(error);
+      throw new Error(
+        `phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요): ${reason}`
+      );
+    }
+
+    const responseText = await response.text();
+    let payload: unknown = null;
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        payload = responseText;
+      }
+    }
+
+    return { response, payload };
+  };
+
+  const shouldRetryWithRefreshedSession = (status: number, payload: unknown): boolean => {
+    if (status === 401) {
+      return true;
+    }
+
+    if (status !== 403 || payload === null || typeof payload !== 'object') {
+      return false;
+    }
+
+    const record = payload as { code?: unknown };
+    return record.code === 'organization_context_missing';
+  };
+
+  const accessToken = await getPhase2ScheduleAccessToken();
+  let { response, payload } = await executeRequest(accessToken);
+
+  if (!response.ok && shouldRetryWithRefreshedSession(response.status, payload)) {
+    const refreshedAccessToken = await refreshPhase2ScheduleAccessToken();
+    ({ response, payload } = await executeRequest(refreshedAccessToken));
   }
 
   if (!response.ok) {
@@ -388,7 +438,7 @@ export async function getScheduleStatus(scheduleId: string) {
     .from('schedules')
     .select('*')
     .eq('id', scheduleId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
