@@ -66,9 +66,33 @@ const compareResponse = {
 }
 
 describe('scheduleVersionResolver', () => {
-  it('keeps Step4 bound to the default V1 preview while preserving backend selection', () => {
-    expect(resolveStep4VersionState(compareResponse)).toEqual({
+  it('keeps Step4 bound to the preferred preview when it is still valid', () => {
+    expect(resolveStep4VersionState(compareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
+      previewVersionId: 'version-1',
+      versions: compareResponse.versions,
+    })
+  })
+
+  it('defaults Step4 preview to the selected version when there is no preferred preview', () => {
+    expect(resolveStep4VersionState(compareResponse, null)).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      versions: compareResponse.versions,
+    })
+  })
+
+  it('falls back to V1 when both preferred and selected versions are unavailable', () => {
+    expect(
+      resolveStep4VersionState(
+        {
+          ...compareResponse,
+          selectedVersionId: null,
+        },
+        'missing-version'
+      )
+    ).toEqual({
+      selectedVersionId: null,
       previewVersionId: 'version-1',
       versions: compareResponse.versions,
     })

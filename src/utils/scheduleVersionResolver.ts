@@ -14,10 +14,30 @@ export function resolveStep4VersionState(compare: ScheduleCompareResponse): {
   selectedVersionId: string | null;
   previewVersionId: string | null;
   versions: ScheduleVersionSummary[];
+}
+export function resolveStep4VersionState(
+  compare: ScheduleCompareResponse,
+  preferredPreviewVersionId?: string | null
+): {
+  selectedVersionId: string | null;
+  previewVersionId: string | null;
+  versions: ScheduleVersionSummary[];
 } {
+  let previewVersionId = hasVersionId(compare.versions, preferredPreviewVersionId ?? null)
+    ? preferredPreviewVersionId ?? null
+    : null;
+
+  if (!previewVersionId && hasVersionId(compare.versions, compare.selectedVersionId)) {
+    previewVersionId = compare.selectedVersionId;
+  }
+
+  if (!previewVersionId) {
+    previewVersionId = getDefaultScheduleVersionId(compare.versions);
+  }
+
   return {
     selectedVersionId: compare.selectedVersionId,
-    previewVersionId: getDefaultScheduleVersionId(compare.versions),
+    previewVersionId,
     versions: compare.versions,
   };
 }

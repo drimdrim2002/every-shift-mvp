@@ -141,6 +141,7 @@ import { useOrganizationStore } from '@/stores/organization';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import {
+  createPhase2ScheduleVersion,
   ensurePhase2Schedule,
   deleteThisMonthVersionAssignments,
   getScheduleVersionPreferences,
@@ -184,10 +185,19 @@ const showDaySummaryModal = ref(false);
 const selectedDateSummary = ref<string>('');
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
+type PreferenceSnapshot = {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+};
+
 const baselineState = ref<{
   scheduleId: string;
   previewVersionId: string;
   selectedVersionId: string | null;
+} | null>(null);
+const baselinePreferenceSnapshot = ref<{
+  previewVersionId: string;
+  snapshot: PreferenceSnapshot;
 } | null>(null);
 
 const canPersistStep4 = computed(() => {
@@ -465,6 +475,147 @@ function hasCurrentPreferences(): boolean {
   return countStoredOffRequests(constraints.value) > 0 || hasAnyConstraintNotes(constraintNotes.value);
 }
 
+function getPreferredPreviewVersionId(): string | null {
+  return scheduleStore.previewVersionId;
+}
+
+function createPreferenceSnapshot(
+  sourceConstraints: ConstraintMap,
+  sourceNotes: CommentMap
+): PreferenceSnapshot {
+  const normalizedConstraints: ConstraintMap = {};
+  const normalizedNotes: CommentMap = {};
+
+  Object.keys(sourceConstraints)
+    .sort()
+    .forEach((employeeId) => {
+      const entries = Object.entries(sourceConstraints[employeeId] ?? {})
+        .filter(([, code]) => code === 'O')
+        .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+
+      if (entries.length === 0) return;
+
+      normalizedConstraints[employeeId] = Object.fromEntries(entries);
+    });
+
+  Object.keys(sourceNotes)
+    .sort()
+    .forEach((employeeId) => {
+      const entries = Object.entries(sourceNotes[employeeId] ?? {})
+        .map(([date, note]) => [date, note.trim()] as const)
+        .filter(([, note]) => note.length > 0)
+        .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+
+      if (entries.length === 0) return;
+
+      normalizedNotes[employeeId] = Object.fromEntries(entries);
+    });
+
+  return {
+    constraints: normalizedConstraints,
+    notes: normalizedNotes,
+  };
+}
+
+function getCurrentPreferenceSnapshot(): PreferenceSnapshot {
+  return createPreferenceSnapshot(constraints.value, constraintNotes.value);
+}
+
+function serializeConstraintMap(map: ConstraintMap): string {
+  return JSON.stringify(
+    Object.keys(map)
+      .sort()
+      .map((employeeId) => [
+        employeeId,
+        Object.keys(map[employeeId] ?? {})
+          .sort()
+          .map((date) => [date, map[employeeId]?.[date] ?? '']),
+      ])
+  );
+}
+
+function serializeCommentMap(map: CommentMap): string {
+  return JSON.stringify(
+    Object.keys(map)
+      .sort()
+      .map((employeeId) => [
+        employeeId,
+        Object.keys(map[employeeId] ?? {})
+          .sort()
+          .map((date) => [date, map[employeeId]?.[date] ?? '']),
+      ])
+  );
+}
+
+function arePreferenceSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return (
+    serializeConstraintMap(left.constraints) === serializeConstraintMap(right.constraints)
+    && serializeCommentMap(left.notes) === serializeCommentMap(right.notes)
+  );
+}
+
+function countChangedEntries<T extends string>(left: Record<string, Record<string, T>>, right: Record<string, Record<string, T>>): number {
+  const employeeIds = new Set([...Object.keys(left), ...Object.keys(right)]);
+  let changedCount = 0;
+
+  employeeIds.forEach((employeeId) => {
+    const dates = new Set([
+      ...Object.keys(left[employeeId] ?? {}),
+      ...Object.keys(right[employeeId] ?? {}),
+    ]);
+
+    dates.forEach((date) => {
+      if ((left[employeeId]?.[date] ?? '') !== (right[employeeId]?.[date] ?? '')) {
+        changedCount += 1;
+      }
+    });
+  });
+
+  return changedCount;
+}
+
+function buildStep4InputDiffSummary(
+  baselineSnapshot: PreferenceSnapshot,
+  currentSnapshot: PreferenceSnapshot
+) {
+  const changedOffRequests = countChangedEntries(
+    baselineSnapshot.constraints,
+    currentSnapshot.constraints
+  );
+  const changedNotes = countChangedEntries(baselineSnapshot.notes, currentSnapshot.notes);
+
+  return {
+    changedOffRequests,
+    changedLockedAssignments: 0,
+    changedSiteRequirements: 0,
+    note: changedNotes > 0 ? `step4_notes_changed:${changedNotes}` : null,
+  };
+}
+
+function setBaselinePreferenceSnapshot(
+  previewVersionId: string,
+  snapshot: PreferenceSnapshot
+): void {
+  baselinePreferenceSnapshot.value = {
+    previewVersionId,
+    snapshot,
+  };
+}
+
+async function getBaselinePreferenceSnapshot(previewVersionId: string): Promise<PreferenceSnapshot> {
+  if (baselinePreferenceSnapshot.value?.previewVersionId === previewVersionId) {
+    return baselinePreferenceSnapshot.value.snapshot;
+  }
+
+  const versionPreferenceData = await getScheduleVersionPreferences(previewVersionId);
+  const snapshot = createPreferenceSnapshot(
+    versionPreferenceData.constraints,
+    versionPreferenceData.notes
+  );
+  setBaselinePreferenceSnapshot(previewVersionId, snapshot);
+  return snapshot;
+}
+
 function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; notes: CommentMap } | null {
   const scope = tempPreferenceScope.value;
   if (!scope) return null;
@@ -524,7 +675,12 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
   previewVersionId: string;
   selectedVersionId: string | null;
 }> {
-  if (!forceRefresh && baselineState.value) {
+  const preferredPreviewVersionId = getPreferredPreviewVersionId();
+  if (
+    !forceRefresh &&
+    baselineState.value &&
+    baselineState.value.previewVersionId === preferredPreviewVersionId
+  ) {
     return baselineState.value;
   }
 
@@ -541,7 +697,7 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
       month: scheduleStore.basicInfo.month,
     });
 
-    const resolvedState = resolveStep4VersionState(compareResponse);
+    const resolvedState = resolveStep4VersionState(compareResponse, preferredPreviewVersionId);
 
     if (!resolvedState.previewVersionId) {
       throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
@@ -559,10 +715,12 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
       previewVersionId: resolvedState.previewVersionId,
       selectedVersionId: resolvedState.selectedVersionId,
     };
+    baselinePreferenceSnapshot.value = null;
 
     return baselineState.value;
   } catch (error) {
     baselineState.value = null;
+    baselinePreferenceSnapshot.value = null;
     baselineErrorMessage.value = `기준 버전 초기화에 실패했습니다: ${toErrorMessage(error)}`;
     throw error;
   } finally {
@@ -623,6 +781,13 @@ async function restoreData(forceRefresh = false) {
 
     for (const versionId of versionCandidates) {
       const versionPreferenceData = await getScheduleVersionPreferences(versionId);
+
+      if (versionId === previewVersionId) {
+        setBaselinePreferenceSnapshot(
+          previewVersionId,
+          createPreferenceSnapshot(versionPreferenceData.constraints, versionPreferenceData.notes)
+        );
+      }
 
       logRestoreTrace('Fetched preferences by schedule_version_id', {
         scheduleVersionId: versionId,
@@ -691,6 +856,13 @@ async function restoreData(forceRefresh = false) {
     }
 
     logRestoreTrace('No saved preference data found in all scopes');
+
+    if (previewVersionId) {
+      setBaselinePreferenceSnapshot(
+        previewVersionId,
+        createPreferenceSnapshot({}, {})
+      );
+    }
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -741,6 +913,7 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
       constraints.value,
       constraintNotes.value
     );
+    setBaselinePreferenceSnapshot(previewVersionId, getCurrentPreferenceSnapshot());
 
     const verification = await getScheduleVersionPreferences(previewVersionId);
     logRestoreTrace('Saved preferences verification', {
@@ -762,20 +935,58 @@ async function handleNext() {
   isSubmitting.value = true;
 
   try {
-    const saved = await handleSave();
-    if (!saved) throw new Error('임시 저장에 실패했습니다.');
-
-    if (!saved.previewVersionId) {
-      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
+    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
+      logRestoreTrace('Removed stale employee keys before next', sanitizedBeforeSave);
+      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 진행합니다.');
     }
 
+    scheduleStore.setAssignments(constraints.value);
+    scheduleStore.setComments(constraintNotes.value);
+
+    const baseline = await ensureBaselineVersion();
+    if (!baseline.previewVersionId) {
+      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    }
+    const currentSnapshot = getCurrentPreferenceSnapshot();
+    const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
+    const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
+
+    if (!hasStep4Changes) {
+      scheduleStore.currentStep = 5;
+      router.push(buildStep5Route(baseline.scheduleId, baseline.previewVersionId));
+      return;
+    }
+
+    const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
+      baseVersionId: baseline.previewVersionId,
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
+    });
+
+    await saveScheduleVersionPreferences(
+      baseline.scheduleId,
+      createResponse.createdVersionId,
+      constraints.value,
+      constraintNotes.value
+    );
     await deleteThisMonthVersionAssignments(
-      saved.scheduleId,
-      saved.previewVersionId,
+      baseline.scheduleId,
+      createResponse.createdVersionId,
       scheduleStore.basicInfo!.month
     );
+
+    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+    baselineState.value = {
+      scheduleId: baseline.scheduleId,
+      previewVersionId: createResponse.createdVersionId,
+      selectedVersionId: createResponse.selectedVersionId,
+    };
+    setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
     scheduleStore.currentStep = 5;
-    router.push(buildStep5Route(saved.scheduleId, saved.previewVersionId));
+    router.push(buildStep5Route(baseline.scheduleId, createResponse.createdVersionId));
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');

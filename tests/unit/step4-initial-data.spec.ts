@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   pushMock,
+  createPhase2ScheduleVersionMock,
   ensurePhase2ScheduleMock,
   getScheduleVersionPreferencesMock,
   getSchedulePreferencesMock,
@@ -14,6 +15,7 @@ const {
   showErrorMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  createPhase2ScheduleVersionMock: vi.fn(),
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   getSchedulePreferencesMock: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/api/schedule', () => ({
+  createPhase2ScheduleVersion: createPhase2ScheduleVersionMock,
   ensurePhase2Schedule: ensurePhase2ScheduleMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   getSchedulePreferences: getSchedulePreferencesMock,
@@ -301,9 +304,18 @@ describe('Step4InitialData', () => {
     })
     saveScheduleVersionPreferencesMock.mockResolvedValue(undefined)
     deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
+    createPhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      createdVersionId: 'version-3',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [],
+    })
   })
 
-  it('keeps selected authoritative while restoring Step4 preview from canonical V1', async () => {
+  it('keeps the current preview version when returning from Step5', async () => {
+    scheduleStoreMock.previewVersionId = 'version-2'
+
     createWrapper()
     await flushPromises()
 
@@ -311,17 +323,26 @@ describe('Step4InitialData', () => {
       organizationId: 'org-1',
       month: '2025-12',
     })
-    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setBasicInfo).toHaveBeenCalledWith(
       expect.objectContaining({
         scheduleId: 'schedule-1',
       })
     )
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
-    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
   })
 
-  it('uses canonical V1 preview for saves even when selected points at another candidate', async () => {
+  it('falls back to the selected version when there is no preferred preview', async () => {
+    createWrapper()
+    await flushPromises()
+
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+  })
+
+  it('saves Step4 preferences into the active preview version', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -338,7 +359,7 @@ describe('Step4InitialData', () => {
     expect(ensurePhase2ScheduleMock).toHaveBeenCalledBefore(saveScheduleVersionPreferencesMock)
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
       'schedule-1',
-      'version-1',
+      'version-2',
       {
         'emp-1': {
           '2025-12-01': 'O',
@@ -352,22 +373,72 @@ describe('Step4InitialData', () => {
     )
   })
 
-  it('navigates to Step5 with the preview version in query params on next', async () => {
+  it('preserves the preview version and skips destructive resets when Step4 is unchanged', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     await clickButtonByText(wrapper, '다음 단계')
     await flushPromises()
 
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+      },
+    })
+  })
+
+  it('creates a new candidate version when Step4 input changes before returning to Step5', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '다음 단계')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
+      baseVersionId: 'version-2',
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 1,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    })
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-3',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
     expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
       'schedule-1',
-      'version-1',
+      'version-3',
       '2025-12'
     )
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {
-        version: 'version-1',
+        version: 'version-3',
       },
     })
   })
@@ -461,7 +532,7 @@ describe('Step4InitialData', () => {
 
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
       'schedule-1',
-      'version-1',
+      'version-2',
       {
         'emp-1': {
           '2025-12-01': 'O',
@@ -520,7 +591,7 @@ describe('Step4InitialData', () => {
 
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
       'schedule-1',
-      'version-1',
+      'version-2',
       {
         'emp-1': {
           '2025-12-01': 'O',
@@ -561,7 +632,7 @@ describe('Step4InitialData', () => {
 
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
       'schedule-1',
-      'version-1',
+      'version-2',
       {
         'emp-1': {},
         'emp-2': {},
