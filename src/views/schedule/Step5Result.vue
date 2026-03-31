@@ -240,7 +240,11 @@ const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
-const scheduleId = computed(() => route.params.id as string);
+const routeScheduleId = computed(() => {
+  const paramId = route.params.id;
+  return typeof paramId === 'string' && paramId.length > 0 ? paramId : null;
+});
+const scheduleId = computed(() => routeScheduleId.value ?? scheduleStore.basicInfo?.scheduleId ?? null);
 const previewVersionId = computed(() => scheduleStore.previewVersionId);
 const compareVersions = ref<ScheduleVersionSummary[]>([]);
 const changedCells = ref<Set<string>>(new Set());
@@ -269,11 +273,35 @@ function getRequestedPreviewVersionId(): string | null {
     : null;
 }
 
-async function syncVersionStateFromCompare() {
-  const compareResponse = await getPhase2ScheduleCompare(scheduleId.value);
+function syncScheduleIdToStore(nextScheduleId: string) {
+  if (!scheduleStore.basicInfo || scheduleStore.basicInfo.scheduleId === nextScheduleId) {
+    return;
+  }
+
+  scheduleStore.setBasicInfo({
+    ...scheduleStore.basicInfo,
+    scheduleId: nextScheduleId,
+  });
+}
+
+function ensureScheduleId(): string {
+  const currentScheduleId = scheduleId.value;
+
+  if (!currentScheduleId) {
+    throw new Error('스케줄 ID를 확인할 수 없습니다. Step4부터 다시 시도해주세요.');
+  }
+
+  syncScheduleIdToStore(currentScheduleId);
+  return currentScheduleId;
+}
+
+async function syncVersionStateFromCompare(requestedPreviewVersionId: string | null = getRequestedPreviewVersionId()) {
+  const currentScheduleId = ensureScheduleId();
+  const compareResponse = await getPhase2ScheduleCompare(currentScheduleId);
+  syncScheduleIdToStore(compareResponse.scheduleId);
   const resolvedState = resolveStep5VersionState(
     compareResponse,
-    getRequestedPreviewVersionId()
+    requestedPreviewVersionId
   );
 
   compareVersions.value = resolvedState.versions;
@@ -282,7 +310,7 @@ async function syncVersionStateFromCompare() {
   scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
   if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
-    await router.replace(buildStep5Route(scheduleId.value, resolvedState.previewVersionId));
+    await router.replace(buildStep5Route(compareResponse.scheduleId, resolvedState.previewVersionId));
   }
 
   return resolvedState;
@@ -985,7 +1013,7 @@ async function handleForceResetSolverState() {
 
     let executionId = currentPreview.activeSolverExecutionId ?? previewVersionExecutionId.value;
     if (!executionId) {
-      const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
+      const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
       executionId = schedule.solver_execution_id;
     }
 
@@ -1059,7 +1087,7 @@ onMounted(async () => {
     grid.generateDates(scheduleStore.basicInfo.month, 0);
     await loadPreferencesForDisplay();
 
-    const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
+    const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
     applyScheduleStatus(schedule);
 
     const previewStatus =
@@ -1219,7 +1247,8 @@ async function handleRegenerate() {
   }
 
   try {
-    const createResponse = await createPhase2ScheduleVersion(scheduleId.value, {
+    const currentScheduleId = ensureScheduleId();
+    const createResponse = await createPhase2ScheduleVersion(currentScheduleId, {
       baseVersionId: previewVersionId.value,
       name: null,
       sourceType: 're_solve',
@@ -1234,7 +1263,7 @@ async function handleRegenerate() {
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
     compareVersions.value = createResponse.versions;
-    await router.replace(buildStep5Route(scheduleId.value, createResponse.createdVersionId));
+    await router.replace(buildStep5Route(currentScheduleId, createResponse.createdVersionId));
 
     await handleStartSolver();
   } catch (error) {
@@ -1271,10 +1300,10 @@ function handleSave() {
     return;
   }
   const targetVersionId = previewVersionId.value;
+  const targetScheduleId = ensureScheduleId();
 
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
-    router.push('/');
     return;
   }
 
@@ -1285,11 +1314,6 @@ function handleSave() {
     negativeText: '취소',
     onPositiveClick: async () => {
       try {
-        if (!scheduleId.value) {
-          showError('스케줄 ID가 없습니다');
-          return;
-        }
-
         const changes: Array<{ employeeId: string; date: string; shiftId: string | null }> = [];
 
         for (const cellKey of changedCells.value) {
@@ -1330,7 +1354,14 @@ function handleSave() {
           changes,
         });
 
-        await syncVersionStateFromCompare();
+        if (getRequestedPreviewVersionId() !== targetVersionId) {
+          await router.replace(buildStep5Route(targetScheduleId, targetVersionId));
+        }
+
+        await syncVersionStateFromCompare(targetVersionId);
+        if (scheduleStore.previewVersionId !== targetVersionId) {
+          scheduleStore.setPreviewVersionId(targetVersionId);
+        }
         await loadPreferencesForDisplay();
         await loadCurrentAssignments({
           syncOriginal: true,
@@ -1339,7 +1370,6 @@ function handleSave() {
         });
 
         showSuccess('저장되었습니다');
-        router.push('/');
       } catch (error) {
         console.warn('저장 중 오류:', error);
         showError('저장 중 오류가 발생했습니다');
@@ -1367,7 +1397,7 @@ async function handleCancelSchedule() {
         }
 
         await deleteThisMonthVersionAssignments(
-          scheduleId.value,
+          ensureScheduleId(),
           previewVersionId.value,
           currentMonth
         );

@@ -747,6 +747,65 @@ describe('Step5Result', () => {
   })
 
   it('saves manual changes through preview-version patch route', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 1,
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'selected',
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
     getScheduleStatusMock.mockResolvedValue({
       status: 'complete',
       hard_score: 11,
@@ -764,6 +823,7 @@ describe('Step5Result', () => {
 
     const wrapper = createWrapper()
     await flushPromises()
+    vi.clearAllMocks()
 
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
@@ -777,7 +837,7 @@ describe('Step5Result', () => {
 
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledTimes(1)
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledWith(
-      'version-2',
+      'version-1',
       {
         changes: [
           {
@@ -788,6 +848,138 @@ describe('Step5Result', () => {
         ],
       }
     )
+    expect(scheduleStoreMock.previewVersionId).toBe('version-1')
+    expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
+    expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(replaceMock).not.toHaveBeenCalled()
+  })
+
+  it('does not leave Step5 when save is clicked without changes', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 1,
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'selected',
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+
+    const dialogInfoMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: dialogInfoMock,
+      warning: vi.fn(),
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경사항이 없습니다')
+    expect(dialogInfoMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('canonicalizes a legacy Step5 URL before refreshing saved preview state', async () => {
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+
+    const dialogInfoMock = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
+      options.onPositiveClick?.()
+    })
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: dialogInfoMock,
+      warning: vi.fn(),
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+      },
+    })
+    expect(pushMock).not.toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
   })
 })
