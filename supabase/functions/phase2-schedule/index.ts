@@ -20,8 +20,10 @@ import {
   compare as compareVersion,
   createVersion,
   ensure as ensureSchedule,
+  finalizeVersion,
   markVersionSolving,
   patchVersionAssignments,
+  recheckVersion,
   review as reviewVersion,
   select as selectVersion,
   syncVersionSolverResult,
@@ -32,6 +34,8 @@ import type {
   EnsureResponse,
   PatchAssignmentsResponse,
   ReviewResponse,
+  ScheduleVersionFinalizeResponse,
+  ScheduleVersionRecheckResponse,
   SelectResponse,
   SolveResponse,
   SolverResultResponse,
@@ -43,6 +47,8 @@ type ApiResponseBody =
   | EnsureResponse
   | PatchAssignmentsResponse
   | ReviewResponse
+  | ScheduleVersionFinalizeResponse
+  | ScheduleVersionRecheckResponse
   | SelectResponse
   | SolveResponse
   | SolverResultResponse
@@ -79,6 +85,11 @@ function mapErrorToStatus(code: string): number {
     case 'solver_execution_mismatch':
     case 'stale_solver_callback':
     case 'another_version_solving':
+    case 'stale_evaluation':
+    case 'review_not_passed':
+    case 'gate_blocked':
+    case 'not_selected_version':
+    case 'version_locked_for_solving':
     case 'conflict':
       return 409;
     case 'not_found':
@@ -263,6 +274,26 @@ Deno.serve(async (request) => {
         auth,
         versionId,
         patchInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'recheck') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const result: ScheduleVersionRecheckResponse = await recheckVersion(
+        repositoryClient,
+        auth,
+        versionId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'finalize') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const result: ScheduleVersionFinalizeResponse = await finalizeVersion(
+        repositoryClient,
+        auth,
+        versionId
       );
       return createResponse(request, result, 200);
     }

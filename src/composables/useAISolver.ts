@@ -125,7 +125,9 @@ export function useAISolver() {
     scheduleVersionId: string,
     executionId: string,
     score?: SolverApiScore | null,
-    failureReason?: string | null
+    failureReason?: string | null,
+    failureType?: string | null,
+    failureContext?: Record<string, unknown> | null
   ): Promise<void> {
     try {
       const normalizedScore = normalizeSolverScore(score);
@@ -140,6 +142,8 @@ export function useAISolver() {
           }
           : null,
         failureReason: failureReason ?? null,
+        failureType: failureType ?? null,
+        failureContext: failureContext ?? null,
       });
     } catch (applyError) {
       if (!isStaleSolverCallbackError(applyError)) {
@@ -193,7 +197,14 @@ export function useAISolver() {
         stopPolling();
         error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
         status.value = 'error';
-        await markSolveFailedIfCurrent(scheduleVersionId, executionId);
+        await markSolveFailedIfCurrent(
+          scheduleVersionId,
+          executionId,
+          null,
+          'polling_timeout',
+          'timeout',
+          null
+        );
         return;
       }
 
@@ -239,6 +250,8 @@ export function useAISolver() {
               }
               : null,
             failureReason: null,
+            failureType: null,
+            failureContext: null,
           });
           await refreshPreferenceResolutionByVersion(scheduleVersionId);
 
@@ -251,11 +264,19 @@ export function useAISolver() {
           stopPolling();
           error.value = response.error_message || 'AI Solver 오류';
           status.value = 'error';
+          const failureType = response.failure_type
+            ?? response.failureType
+            ?? null;
+          const failureContext = response.failure_context
+            ?? response.failureContext
+            ?? null;
           await markSolveFailedIfCurrent(
             scheduleVersionId,
             executionId,
             response.score,
-            response.error_message ?? null
+            response.error_message ?? null,
+            failureType,
+            failureContext
           );
           return;
         }
@@ -280,7 +301,9 @@ export function useAISolver() {
             scheduleVersionId,
             executionId,
             null,
-            'polling_status_unreachable'
+            'polling_status_unreachable',
+            'polling_unreachable',
+            null
           );
           return;
         }

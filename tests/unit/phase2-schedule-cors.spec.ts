@@ -16,7 +16,7 @@ describe('phase2 schedule cors helper', () => {
     expect(headers['Access-Control-Allow-Headers']).toBe(
       'authorization,apikey,x-client-info,content-type'
     );
-    expect(headers['Access-Control-Allow-Methods']).toBe('GET,POST,OPTIONS');
+    expect(headers['Access-Control-Allow-Methods']).toBe('GET,POST,PATCH,OPTIONS');
     expect(headers['Access-Control-Allow-Credentials']).toBe('true');
   });
 
@@ -31,7 +31,7 @@ describe('phase2 schedule cors helper', () => {
     expect(headers['Access-Control-Allow-Headers']).toBe(
       'authorization, x-client-info, content-type, apikey'
     );
-    expect(headers['Access-Control-Allow-Methods']).toBe('GET,POST,OPTIONS');
+    expect(headers['Access-Control-Allow-Methods']).toBe('GET,POST,PATCH,OPTIONS');
     expect(headers['Access-Control-Allow-Credentials']).toBeUndefined();
   });
 });

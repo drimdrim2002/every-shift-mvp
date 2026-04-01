@@ -862,4 +862,60 @@ describe('phase2 schedule api helpers', () => {
       })
     );
   });
+
+  it('calls trust-gate mutation routes for recheck and finalize', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-trust-gate',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-22',
+            currentRevision: 3,
+            evaluationId: 'evaluation-22',
+            resultStatus: 'review_ready',
+            evaluationResultStatus: 'passed',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-22',
+            scheduleVersionId: 'version-22',
+            status: 'finalized',
+            finalizedVersionId: 'version-22',
+            finalizedAt: '2026-04-01T10:00:00Z',
+            finalizedBy: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const { recheckPhase2ScheduleVersion, finalizePhase2ScheduleVersion } = await import('@/api/schedule');
+    await recheckPhase2ScheduleVersion('version-22');
+    await finalizePhase2ScheduleVersion('version-22');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-22/recheck',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-22/finalize',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
 });

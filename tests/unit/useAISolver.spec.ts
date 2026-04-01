@@ -147,7 +147,7 @@ describe('useAISolver', () => {
     });
     vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
       scheduleVersionId: 'version-3',
-      status: 'review_pending',
+      status: 'review_ready',
       solverExecutionId: null,
       hardScore: 10,
       softScore: 20,
@@ -180,6 +180,8 @@ describe('useAISolver', () => {
         softScore: 20,
       },
       failureReason: null,
+      failureType: null,
+      failureContext: null,
     });
     expect(refreshPreferenceResolutionByVersion).toHaveBeenCalledWith('version-3');
     expect(solver.status.value).toBe('complete');
@@ -212,6 +214,8 @@ describe('useAISolver', () => {
       assignments: [],
       score: null,
       failureReason: 'polling_status_unreachable',
+      failureType: 'polling_unreachable',
+      failureContext: null,
     });
   });
 });

@@ -250,6 +250,8 @@ export interface ScheduleVersionSolverResultRequest {
   assignments?: ScheduleVersionAssignmentChange[];
   score?: ScheduleVersionScore | null;
   failureReason?: string | null;
+  failureType?: string | null;
+  failureContext?: Record<string, unknown> | null;
   solverExecutionId: string;
 }
 
@@ -272,6 +274,23 @@ export interface PatchScheduleVersionAssignmentsResponse {
   currentRevision: number;
   manualEditCount: number;
   changedCells: number;
+}
+
+export interface ScheduleVersionRecheckResponse {
+  scheduleVersionId: string;
+  currentRevision: number;
+  evaluationId: string;
+  resultStatus: ScheduleVersionStatus;
+  evaluationResultStatus: ScheduleEvaluationResultStatus;
+}
+
+export interface ScheduleVersionFinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: string;
+  finalizedAt: string;
+  finalizedBy: string | null;
 }
 
 export interface ScheduleReviewResponse {
@@ -421,6 +440,10 @@ export interface SolverStatusResponse {
   score?: SolverApiScore;
   result?: SolverResult;
   error_message?: string | null;
+  failure_type?: string | null;
+  failure_context?: Record<string, unknown> | null;
+  failureType?: string | null;
+  failureContext?: Record<string, unknown> | null;
   created_at?: string;
   started_at?: string;
   completed_at?: string;

@@ -12,7 +12,7 @@ import {
 } from '@/../supabase/functions/phase2-schedule/contracts.ts';
 
 describe('phase2 schedule contracts', () => {
-  it('matches the Slice 5 mutation routes and allowed methods', () => {
+  it('matches mutation routes and allowed methods including trust-gate actions', () => {
     expect(
       matchRoute(normalizePathSegments('/functions/v1/phase2-schedule/schedules/schedule-1/versions'))
     ).toEqual({
@@ -59,10 +59,38 @@ describe('phase2 schedule contracts', () => {
       },
     });
 
+    expect(
+      matchRoute(
+        normalizePathSegments(
+          '/functions/v1/phase2-schedule/schedule-versions/version-1/recheck'
+        )
+      )
+    ).toEqual({
+      route: 'recheck',
+      params: {
+        versionId: 'version-1',
+      },
+    });
+
+    expect(
+      matchRoute(
+        normalizePathSegments(
+          '/functions/v1/phase2-schedule/schedule-versions/version-1/finalize'
+        )
+      )
+    ).toEqual({
+      route: 'finalize',
+      params: {
+        versionId: 'version-1',
+      },
+    });
+
     expect(allowedMethods('createVersion')).toEqual(['POST']);
     expect(allowedMethods('solve')).toEqual(['POST']);
     expect(allowedMethods('solverResult')).toEqual(['POST']);
     expect(allowedMethods('patchAssignments')).toEqual(['PATCH']);
+    expect(allowedMethods('recheck')).toEqual(['POST']);
+    expect(allowedMethods('finalize')).toEqual(['POST']);
   });
 
   it('parses create version request bodies', () => {
@@ -151,6 +179,8 @@ describe('phase2 schedule contracts', () => {
         softScore: 20,
       },
       failureReason: null,
+      failureType: null,
+      failureContext: null,
     });
 
     expect(
@@ -165,6 +195,36 @@ describe('phase2 schedule contracts', () => {
       assignments: [],
       score: null,
       failureReason: 'timeout',
+      failureType: null,
+      failureContext: null,
+    });
+
+    expect(
+      parseScheduleVersionSolverResultRequest({
+        status: 'failed',
+        solverExecutionId: 'exec-4',
+        failureReason: 'no feasible solution',
+        failureType: 'infeasible',
+        failureContext: {
+          date: '2026-04-12',
+          shiftCode: 'N',
+          required: 3,
+          feasible: 2,
+        },
+      })
+    ).toEqual({
+      status: 'failed',
+      solverExecutionId: 'exec-4',
+      assignments: [],
+      score: null,
+      failureReason: 'no feasible solution',
+      failureType: 'infeasible',
+      failureContext: {
+        date: '2026-04-12',
+        shiftCode: 'N',
+        required: 3,
+        feasible: 2,
+      },
     });
   });
 

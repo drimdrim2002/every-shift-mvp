@@ -1,6 +1,13 @@
 import type {
   CreateVersionRequest,
+  type ScheduleCompareMetrics,
+  type ScheduleEvaluationResultStatus,
+  type ScheduleFinalizationGate,
+  type ScheduleInfeasibility,
+  type ScheduleOffRequestResult,
+  type ScheduleProofSummary,
   ScheduleVersionAssignmentChange,
+  type ScheduleViolationDetail,
 } from './contracts.ts';
 
 interface SchedulePreferenceRow {
@@ -40,6 +47,391 @@ export interface AssignmentIdentityRow {
 export interface MonthDateRange {
   startDate: string;
   endDate: string;
+}
+
+export interface EvaluationAssignmentInput {
+  employeeId: string;
+  date: string;
+  shiftId: string;
+  isLocked: boolean;
+}
+
+export interface EvaluationPreferenceInput {
+  employeeId: string;
+  date: string;
+  requestCode: string;
+  requestNote: string | null;
+  isSoft: boolean;
+  resolutionStatus: string;
+  resolvedShiftId: string | null;
+  resolvedAt: string | null;
+}
+
+export interface EvaluationSiteRequirementInput {
+  dayOfWeek: number;
+  shiftId: string;
+  requiredCount: number;
+}
+
+export interface EvaluationShiftInput {
+  id: string;
+  code: string;
+}
+
+export interface EvaluationEmployeeInput {
+  id: string;
+}
+
+export interface EvaluateScheduleVersionInput {
+  month: string;
+  manualEditCount: number;
+  assignments: EvaluationAssignmentInput[];
+  preferences: EvaluationPreferenceInput[];
+  siteRequirements: EvaluationSiteRequirementInput[];
+  shifts: EvaluationShiftInput[];
+  employees: EvaluationEmployeeInput[];
+  forcedResultStatus?: ScheduleEvaluationResultStatus | null;
+  failureReason?: string | null;
+  failureType?: string | null;
+  failureContext?: Record<string, unknown> | null;
+}
+
+export interface EvaluatedTrustResult {
+  assignmentHash: string;
+  resultStatus: ScheduleEvaluationResultStatus;
+  proofSummary: ScheduleProofSummary;
+  violationDetails: ScheduleViolationDetail[];
+  infeasibility: ScheduleInfeasibility | null;
+  offRequestResults: ScheduleOffRequestResult[];
+  comparisonMetrics: ScheduleCompareMetrics;
+  finalizationGate: ScheduleFinalizationGate;
+}
+
+const TRUST_EVALUATOR_VERSION = 'phase2a-trust-gate-v1';
+
+function toDateKey(day: Date): string {
+  return day.toISOString().slice(0, 10);
+}
+
+function parseDateUtc(date: string): Date {
+  return new Date(`${date}T00:00:00.000Z`);
+}
+
+function getDayOfWeekUtc(date: string): number {
+  return parseDateUtc(date).getUTCDay();
+}
+
+function enumerateMonthDates(month: string): string[] {
+  const { startDate, endDate } = getMonthDateRange(month);
+  const dates: string[] = [];
+  let cursor = parseDateUtc(startDate);
+  const end = parseDateUtc(endDate);
+
+  while (cursor <= end) {
+    dates.push(toDateKey(cursor));
+    cursor = new Date(cursor.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  return dates;
+}
+
+function getFailureSummary(
+  failureReason: string | null | undefined,
+  fallback: string
+): string {
+  if (typeof failureReason === 'string' && failureReason.trim().length > 0) {
+    return failureReason.trim();
+  }
+
+  return fallback;
+}
+
+function buildGateForResult(
+  resultStatus: ScheduleEvaluationResultStatus
+): ScheduleFinalizationGate {
+  if (resultStatus === 'passed') {
+    return {
+      allowed: true,
+      blockingReasons: [],
+    };
+  }
+
+  if (resultStatus === 'review_blocked') {
+    return {
+      allowed: false,
+      blockingReasons: [
+        {
+          code: 'hard_constraints_violated',
+          message: 'Hard-constraint violations were detected. Recheck after fixing assignments.',
+        },
+      ],
+    };
+  }
+
+  if (resultStatus === 'infeasible') {
+    return {
+      allowed: false,
+      blockingReasons: [
+        {
+          code: 'infeasible',
+          message: 'No feasible schedule exists for the current input conditions.',
+        },
+      ],
+    };
+  }
+
+  return {
+    allowed: false,
+    blockingReasons: [
+      {
+        code: 'solve_failed',
+        message: 'Solver execution failed. Retry before finalization.',
+      },
+    ],
+  };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const payload = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', payload);
+  const bytes = new Uint8Array(digest);
+  const hex = Array.from(bytes)
+    .map((chunk) => chunk.toString(16).padStart(2, '0'))
+    .join('');
+  return `sha256:${hex}`;
+}
+
+async function computeAssignmentHash(assignments: EvaluationAssignmentInput[]): Promise<string> {
+  const normalized = assignments
+    .map((assignment) => ({
+      employeeId: assignment.employeeId,
+      date: assignment.date,
+      shiftId: assignment.shiftId,
+      isLocked: assignment.isLocked,
+    }))
+    .sort((a, b) => {
+      const employeeDiff = a.employeeId.localeCompare(b.employeeId);
+      if (employeeDiff !== 0) return employeeDiff;
+      const dateDiff = a.date.localeCompare(b.date);
+      if (dateDiff !== 0) return dateDiff;
+      return a.shiftId.localeCompare(b.shiftId);
+    });
+
+  return sha256Hex(JSON.stringify(normalized));
+}
+
+function roundTo4(value: number): number {
+  return Number(value.toFixed(4));
+}
+
+function buildOffRequestResults(
+  preferences: EvaluationPreferenceInput[],
+  assignmentByCell: Map<string, EvaluationAssignmentInput>,
+  shiftCodeById: Map<string, string>
+): ScheduleOffRequestResult[] {
+  const results: ScheduleOffRequestResult[] = [];
+
+  for (const preference of preferences) {
+    if (preference.requestCode !== 'O') {
+      continue;
+    }
+
+    const assignment = assignmentByCell.get(`${preference.employeeId}:${preference.date}`) ?? null;
+    const assignedShiftCode = assignment ? shiftCodeById.get(assignment.shiftId) ?? null : null;
+    const fulfilled = assignedShiftCode === 'O';
+
+    results.push({
+      employeeId: preference.employeeId,
+      date: preference.date,
+      requestCode: 'O',
+      requestNote: preference.requestNote,
+      isSoft: preference.isSoft,
+      resolutionStatus: fulfilled ? 'fulfilled' : 'unfulfilled',
+      resolvedShiftId: assignment?.shiftId ?? null,
+      resolvedAt: fulfilled || assignment ? new Date().toISOString() : null,
+      fulfilled,
+      reason: fulfilled
+        ? '요청된 Off가 반영되었습니다.'
+        : '요청된 Off가 배정되지 않았습니다.',
+    });
+  }
+
+  return results;
+}
+
+function buildComparisonMetrics(
+  employees: EvaluationEmployeeInput[],
+  assignments: EvaluationAssignmentInput[],
+  offRequestResults: ScheduleOffRequestResult[],
+  shiftCodeById: Map<string, string>,
+  manualEditCount: number
+): ScheduleCompareMetrics {
+  const totalOffRequests = offRequestResults.length;
+  const fulfilledOffRequests = offRequestResults.filter((result) => result.fulfilled).length;
+
+  const employeeIds = employees.map((employee) => employee.id);
+  const nightCountByEmployee = new Map<string, number>();
+  const weekendCountByEmployee = new Map<string, number>();
+
+  for (const employeeId of employeeIds) {
+    nightCountByEmployee.set(employeeId, 0);
+    weekendCountByEmployee.set(employeeId, 0);
+  }
+
+  for (const assignment of assignments) {
+    if (!nightCountByEmployee.has(assignment.employeeId)) {
+      nightCountByEmployee.set(assignment.employeeId, 0);
+      weekendCountByEmployee.set(assignment.employeeId, 0);
+    }
+
+    const shiftCode = shiftCodeById.get(assignment.shiftId) ?? null;
+    if (shiftCode === 'N') {
+      nightCountByEmployee.set(
+        assignment.employeeId,
+        (nightCountByEmployee.get(assignment.employeeId) ?? 0) + 1
+      );
+    }
+
+    const dayOfWeek = getDayOfWeekUtc(assignment.date);
+    if ((dayOfWeek === 0 || dayOfWeek === 6) && shiftCode !== 'O') {
+      weekendCountByEmployee.set(
+        assignment.employeeId,
+        (weekendCountByEmployee.get(assignment.employeeId) ?? 0) + 1
+      );
+    }
+  }
+
+  const nightValues = Array.from(nightCountByEmployee.values());
+  const weekendValues = Array.from(weekendCountByEmployee.values());
+
+  return {
+    offRequestReflectionRate:
+      totalOffRequests > 0 ? roundTo4(fulfilledOffRequests / totalOffRequests) : null,
+    nightShiftMin: nightValues.length > 0 ? Math.min(...nightValues) : null,
+    nightShiftMax: nightValues.length > 0 ? Math.max(...nightValues) : null,
+    weekendShiftMin: weekendValues.length > 0 ? Math.min(...weekendValues) : null,
+    weekendShiftMax: weekendValues.length > 0 ? Math.max(...weekendValues) : null,
+    manualEditCount,
+  };
+}
+
+function buildStaffingViolations(
+  month: string,
+  assignments: EvaluationAssignmentInput[],
+  siteRequirements: EvaluationSiteRequirementInput[]
+): {
+  proofSummary: ScheduleProofSummary;
+  violationDetails: ScheduleViolationDetail[];
+} {
+  const assignmentCountByDateShift = new Map<string, number>();
+  const monthDates = enumerateMonthDates(month);
+
+  for (const assignment of assignments) {
+    const key = `${assignment.date}:${assignment.shiftId}`;
+    assignmentCountByDateShift.set(key, (assignmentCountByDateShift.get(key) ?? 0) + 1);
+  }
+
+  let staffingShortfalls = 0;
+  const violationDetails: ScheduleViolationDetail[] = [];
+
+  for (const date of monthDates) {
+    const dayOfWeek = getDayOfWeekUtc(date);
+    const requirementsForDay = siteRequirements.filter((row) => row.dayOfWeek === dayOfWeek);
+
+    for (const requirement of requirementsForDay) {
+      const assignedCount = assignmentCountByDateShift.get(`${date}:${requirement.shiftId}`) ?? 0;
+      if (assignedCount >= requirement.requiredCount) {
+        continue;
+      }
+
+      const shortfall = requirement.requiredCount - assignedCount;
+      staffingShortfalls += shortfall;
+
+      violationDetails.push({
+        code: 'staffing_shortfall',
+        message: `Staffing shortfall on ${date}: required ${requirement.requiredCount}, assigned ${assignedCount}.`,
+        severity: 'error',
+        affectedEmployeeIds: [],
+        dates: [date],
+        metadata: {
+          shiftId: requirement.shiftId,
+          requiredCount: requirement.requiredCount,
+          assignedCount,
+          shortfall,
+        },
+      });
+    }
+  }
+
+  return {
+    proofSummary: {
+      weeklyHoursViolations: 0,
+      nnnViolations: 0,
+      nodViolations: 0,
+      minimumRestViolations: 0,
+      staffingShortfalls,
+    },
+    violationDetails,
+  };
+}
+
+export function getTrustEvaluatorVersion(): string {
+  return TRUST_EVALUATOR_VERSION;
+}
+
+export async function evaluateScheduleTrust(
+  input: EvaluateScheduleVersionInput
+): Promise<EvaluatedTrustResult> {
+  const shiftCodeById = new Map(input.shifts.map((shift) => [shift.id, shift.code]));
+  const assignmentByCell = new Map(
+    input.assignments.map((assignment) => [`${assignment.employeeId}:${assignment.date}`, assignment])
+  );
+
+  const assignmentHash = await computeAssignmentHash(input.assignments);
+  const { proofSummary, violationDetails } = buildStaffingViolations(
+    input.month,
+    input.assignments,
+    input.siteRequirements
+  );
+  const offRequestResults = buildOffRequestResults(
+    input.preferences,
+    assignmentByCell,
+    shiftCodeById
+  );
+  const comparisonMetrics = buildComparisonMetrics(
+    input.employees,
+    input.assignments,
+    offRequestResults,
+    shiftCodeById,
+    input.manualEditCount
+  );
+
+  const forcedResultStatus = input.forcedResultStatus ?? null;
+  const resultStatus: ScheduleEvaluationResultStatus = forcedResultStatus
+    ?? (proofSummary.staffingShortfalls > 0 ? 'review_blocked' : 'passed');
+  const infeasibility: ScheduleInfeasibility | null =
+    resultStatus === 'infeasible'
+      ? {
+          summary: getFailureSummary(
+            input.failureReason,
+            'No feasible schedule exists for the current input.'
+          ),
+          reason: input.failureType ?? 'infeasible',
+          details: input.failureContext ?? {},
+        }
+      : null;
+  const finalizationGate = buildGateForResult(resultStatus);
+
+  return {
+    assignmentHash,
+    resultStatus,
+    proofSummary,
+    violationDetails,
+    infeasibility,
+    offRequestResults,
+    comparisonMetrics,
+    finalizationGate,
+  };
 }
 
 export function getMonthDateRange(month: string): MonthDateRange {

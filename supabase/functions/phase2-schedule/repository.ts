@@ -9,6 +9,9 @@ import {
   type PatchAssignmentsResponse,
   type Phase2ScheduleAuthContext,
   type ReviewResponse,
+  type ScheduleEvaluationResultStatus,
+  type ScheduleVersionFinalizeResponse,
+  type ScheduleVersionRecheckResponse,
   type ScheduleCompareMetrics,
   type ScheduleEvaluation,
   type ScheduleFinalizationGate,
@@ -27,8 +30,10 @@ import {
   buildVersionInsertPayload,
   cloneLockedAssignments,
   cloneSchedulePreferences,
+  evaluateScheduleTrust,
   filterAssignmentChangesToMonth,
   getMonthDateRange,
+  getTrustEvaluatorVersion,
   type AssignmentIdentityRow,
 } from './engine.ts';
 
@@ -81,6 +86,14 @@ interface ApplyScheduleVersionSolverResultRow {
   failure_reason: string | null;
 }
 
+interface SaveScheduleVersionEvaluationAtomicRow {
+  schedule_version_id: string;
+  current_revision: number;
+  evaluation_id: string;
+  status: string;
+  evaluation_result_status: string;
+}
+
 interface MarkScheduleVersionSolvingAtomicRow {
   schedule_version_id: string;
   status: string;
@@ -98,6 +111,15 @@ interface PatchScheduleVersionAssignmentsAtomicRow {
 interface SelectScheduleVersionAtomicRow {
   schedule_id: string;
   selected_version_id: string;
+}
+
+interface FinalizeScheduleVersionAtomicRow {
+  schedule_id: string;
+  schedule_version_id: string;
+  status: string;
+  finalized_version_id: string;
+  finalized_at: string;
+  finalized_by: string | null;
 }
 
 interface SchedulePreferenceRow {
@@ -126,6 +148,21 @@ interface ScheduleAssignmentRow extends AssignmentIdentityRow {
   comment?: string | null;
   edited_by?: string | null;
   edited_at?: string | null;
+}
+
+interface SiteRequirementRow {
+  day_of_week: number;
+  shift_id: string;
+  required_count: number;
+}
+
+interface ShiftRow {
+  id: string;
+  code: string;
+}
+
+interface EmployeeRow {
+  id: string;
 }
 
 interface ScheduleEvaluationRow {
@@ -346,13 +383,45 @@ function toEvaluation(row: ScheduleEvaluationRow): ScheduleEvaluation {
 
 function buildPrimaryAction(
   previewVersionId: string,
-  selectedVersionId: string | null
+  selectedVersionId: string | null,
+  version: ScheduleVersionSummary,
+  latestEvaluation: ScheduleEvaluation | null
 ): SchedulePrimaryAction {
   if (previewVersionId !== selectedVersionId) {
     return {
       kind: 'select',
       targetVersionId: previewVersionId,
       label: 'Select this version as the finalization candidate',
+      disabledReason: null,
+    };
+  }
+
+  if (version.status === 'solve_failed') {
+    return {
+      kind: 'retry',
+      targetVersionId: version.id,
+      label: 'Retry',
+      disabledReason: null,
+    };
+  }
+
+  if (version.status === 'review_pending' || version.status === 'review_blocked') {
+    return {
+      kind: 'recheck',
+      targetVersionId: version.id,
+      label: 'Run recheck',
+      disabledReason: null,
+    };
+  }
+
+  if (
+    version.status === 'review_ready'
+    && latestEvaluation?.finalizationGate.allowed
+  ) {
+    return {
+      kind: 'finalize',
+      targetVersionId: version.id,
+      label: 'Finalize this version',
       disabledReason: null,
     };
   }
@@ -533,6 +602,213 @@ function isAmbiguousScoreColumnError(error: unknown): boolean {
 
   const haystack = `${error.dbError.message ?? ''} ${error.dbError.details ?? ''}`.toLowerCase();
   return haystack.includes('column reference') && haystack.includes('hard_score') && haystack.includes('ambiguous');
+}
+
+function isInfeasibleFailureType(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === 'infeasible'
+    || normalized === 'no_feasible_solution'
+    || normalized === 'unsat'
+    || normalized === 'no_solution';
+}
+
+async function loadEvaluationAssignmentRows(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string,
+  month: string
+): Promise<ScheduleAssignmentRow[]> {
+  const { startDate, endDate } = getMonthDateRange(month);
+  return list<ScheduleAssignmentRow>(
+    client
+      .from('schedule_assignments')
+      .select('employee_id, date, shift_id, is_locked')
+      .eq('schedule_version_id', versionId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+  );
+}
+
+async function loadEvaluationPreferenceRows(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string,
+  month: string
+): Promise<SchedulePreferenceRow[]> {
+  const { startDate, endDate } = getMonthDateRange(month);
+  return list<SchedulePreferenceRow>(
+    client
+      .from('schedule_preferences')
+      .select(
+        'employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at'
+      )
+      .eq('schedule_version_id', versionId)
+      .gte('date', startDate)
+      .lte('date', endDate)
+  );
+}
+
+async function loadSiteRequirementRows(
+  client: Phase2ScheduleRepositoryClient,
+  organizationId: string
+): Promise<SiteRequirementRow[]> {
+  return list<SiteRequirementRow>(
+    client
+      .from('site_requirements')
+      .select('day_of_week, shift_id, required_count')
+      .eq('organization_id', organizationId)
+  );
+}
+
+async function loadShiftRows(
+  client: Phase2ScheduleRepositoryClient,
+  organizationId: string
+): Promise<ShiftRow[]> {
+  return list<ShiftRow>(
+    client
+      .from('shifts')
+      .select('id, code')
+      .eq('organization_id', organizationId)
+  );
+}
+
+async function loadEmployeeRows(
+  client: Phase2ScheduleRepositoryClient,
+  organizationId: string
+): Promise<EmployeeRow[]> {
+  return list<EmployeeRow>(
+    client
+      .from('employees')
+      .select('id')
+      .eq('organization_id', organizationId)
+  );
+}
+
+async function buildVersionEvaluation(
+  client: Phase2ScheduleRepositoryClient,
+  schedule: ScheduleRow,
+  version: ScheduleVersionRow,
+  options?: {
+    forcedResultStatus?: ScheduleEvaluationResultStatus | null;
+    failureReason?: string | null;
+    failureType?: string | null;
+    failureContext?: Record<string, unknown> | null;
+  }
+) {
+  const [assignments, preferences, siteRequirements, shifts, employees] = await Promise.all([
+    loadEvaluationAssignmentRows(client, version.id, schedule.month),
+    loadEvaluationPreferenceRows(client, version.id, schedule.month),
+    loadSiteRequirementRows(client, schedule.organization_id),
+    loadShiftRows(client, schedule.organization_id),
+    loadEmployeeRows(client, schedule.organization_id),
+  ]);
+
+  return evaluateScheduleTrust({
+    month: schedule.month,
+    manualEditCount: version.manual_edit_count,
+    assignments: assignments.map((row) => ({
+      employeeId: row.employee_id,
+      date: row.date,
+      shiftId: row.shift_id,
+      isLocked: row.is_locked === true,
+    })),
+    preferences: preferences.map((row) => ({
+      employeeId: row.employee_id,
+      date: row.date,
+      requestCode: row.request_code,
+      requestNote: row.request_note,
+      isSoft: row.is_soft,
+      resolutionStatus: row.resolution_status,
+      resolvedShiftId: row.resolved_shift_id,
+      resolvedAt: row.resolved_at,
+    })),
+    siteRequirements: siteRequirements.map((row) => ({
+      dayOfWeek: row.day_of_week,
+      shiftId: row.shift_id,
+      requiredCount: row.required_count,
+    })),
+    shifts: shifts.map((row) => ({
+      id: row.id,
+      code: row.code,
+    })),
+    employees: employees.map((row) => ({
+      id: row.id,
+    })),
+    forcedResultStatus: options?.forcedResultStatus ?? null,
+    failureReason: options?.failureReason ?? null,
+    failureType: options?.failureType ?? null,
+    failureContext: options?.failureContext ?? null,
+  });
+}
+
+function remapTrustGateRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    const { message } = error.dbError;
+    if (message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
+    if (message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+    if (message === 'version_locked_for_solving') {
+      throw new ContractError(
+        'version_locked_for_solving',
+        'Version is locked while solving is active',
+        409
+      );
+    }
+    if (message === 'stale_evaluation') {
+      throw new ContractError('stale_evaluation', 'Evaluation is stale', 409);
+    }
+    if (message === 'review_not_passed') {
+      throw new ContractError('review_not_passed', 'Latest evaluation did not pass review', 409);
+    }
+    if (message === 'gate_blocked') {
+      throw new ContractError('gate_blocked', 'Finalization gate is blocked', 409);
+    }
+    if (message === 'not_selected_version') {
+      throw new ContractError(
+        'not_selected_version',
+        'Finalize target must match selected_version_id',
+        409
+      );
+    }
+  }
+
+  throw error;
+}
+
+async function persistVersionEvaluation(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string,
+  revisionNo: number,
+  evaluation: Awaited<ReturnType<typeof evaluateScheduleTrust>>,
+  solverExecutionId: string | null
+): Promise<SaveScheduleVersionEvaluationAtomicRow> {
+  try {
+    return await rpcSingle<SaveScheduleVersionEvaluationAtomicRow>(
+      client,
+      'save_schedule_version_evaluation_atomic',
+      {
+        p_version_id: versionId,
+        p_revision_no: revisionNo,
+        p_result_status: evaluation.resultStatus,
+        p_proof_summary: evaluation.proofSummary,
+        p_violation_details: evaluation.violationDetails,
+        p_infeasibility: evaluation.infeasibility,
+        p_off_request_results: evaluation.offRequestResults,
+        p_comparison_metrics: evaluation.comparisonMetrics,
+        p_finalization_gate: evaluation.finalizationGate,
+        p_assignment_hash: evaluation.assignmentHash,
+        p_solver_execution_id: solverExecutionId,
+        p_evaluator_version: getTrustEvaluatorVersion(),
+      }
+    );
+  } catch (error: unknown) {
+    remapTrustGateRpcConflict(error);
+  }
 }
 
 async function syncVersionSolverResultWithoutRpc(
@@ -1137,9 +1413,10 @@ export async function syncVersionSolverResult(
 ): Promise<SolverResultResponse> {
   const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
   const monthScopedAssignments = filterAssignmentChangesToMonth(request.assignments, schedule.month);
+  let applyResult: ApplyScheduleVersionSolverResultRow;
 
   try {
-    const row = await rpcSingle<ApplyScheduleVersionSolverResultRow>(
+    applyResult = await rpcSingle<ApplyScheduleVersionSolverResultRow>(
       client,
       'apply_schedule_version_solver_result',
       {
@@ -1152,21 +1429,12 @@ export async function syncVersionSolverResult(
         p_edited_by: auth.userId,
       }
     );
-
-    return {
-      scheduleVersionId: row.schedule_version_id,
-      status: row.status as ScheduleVersionStatus,
-      solverExecutionId: row.active_solver_execution_id,
-      hardScore: row.hard_score,
-      softScore: row.soft_score,
-      failureReason: row.failure_reason,
-    };
   } catch (error: unknown) {
     if (isAmbiguousScoreColumnError(error)) {
       console.warn(
         '[phase2-schedule] Falling back to non-RPC solver result sync due to ambiguous hard_score column error.'
       );
-      return syncVersionSolverResultWithoutRpc(
+      applyResult = await syncVersionSolverResultWithoutRpc(
         client,
         schedule,
         version,
@@ -1174,9 +1442,37 @@ export async function syncVersionSolverResult(
         monthScopedAssignments,
         request
       );
+    } else {
+      remapSlice5RpcConflict(error);
     }
-    remapSlice5RpcConflict(error);
   }
+
+  const forcedResultStatus: ScheduleEvaluationResultStatus | null =
+    request.status === 'failed'
+      ? (isInfeasibleFailureType(request.failureType) ? 'infeasible' : 'solve_failed')
+      : null;
+  const evaluation = await buildVersionEvaluation(client, schedule, version, {
+    forcedResultStatus,
+    failureReason: request.failureReason,
+    failureType: request.failureType,
+    failureContext: request.failureContext,
+  });
+  const evaluationRow = await persistVersionEvaluation(
+    client,
+    version.id,
+    version.current_revision,
+    evaluation,
+    request.solverExecutionId
+  );
+
+  return {
+    scheduleVersionId: evaluationRow.schedule_version_id,
+    status: evaluationRow.status as ScheduleVersionStatus,
+    solverExecutionId: null,
+    hardScore: applyResult.hard_score,
+    softScore: applyResult.soft_score,
+    failureReason: applyResult.failure_reason,
+  };
 }
 
 export async function patchVersionAssignments(
@@ -1255,14 +1551,20 @@ export async function review(
   const latestEvaluation = version.latest_evaluation_id
     ? await loadEvaluationById(client, version.latest_evaluation_id)
     : null;
+  const versionSummary = toVersionSummary(schedule, version, latestEvaluation);
 
   return {
     scheduleId: schedule.id,
     selectedVersionId: schedule.selected_version_id,
     finalizedVersionId: schedule.finalized_version_id,
-    version: toVersionSummary(schedule, version, latestEvaluation),
+    version: versionSummary,
     latestEvaluation,
-    primaryAction: buildPrimaryAction(version.id, schedule.selected_version_id),
+    primaryAction: buildPrimaryAction(
+      version.id,
+      schedule.selected_version_id,
+      versionSummary,
+      latestEvaluation
+    ),
     defaultTab: 'grid',
   };
 }
@@ -1289,5 +1591,66 @@ export async function select(
     };
   } catch (error: unknown) {
     remapSelectRpcConflict(error);
+  }
+}
+
+export async function recheckVersion(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string
+): Promise<ScheduleVersionRecheckResponse> {
+  const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
+
+  if (schedule.finalized_version_id !== null || version.status === 'finalized') {
+    throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+  }
+
+  if (version.status === 'solving' || version.active_solver_execution_id) {
+    throw new ContractError(
+      'version_locked_for_solving',
+      'Version is currently solving and cannot be rechecked',
+      409
+    );
+  }
+
+  const evaluation = await buildVersionEvaluation(client, schedule, version);
+  const row = await persistVersionEvaluation(client, version.id, version.current_revision, evaluation, null);
+
+  return {
+    scheduleVersionId: row.schedule_version_id,
+    currentRevision: row.current_revision,
+    evaluationId: row.evaluation_id,
+    resultStatus: row.status as ScheduleVersionStatus,
+    evaluationResultStatus: row.evaluation_result_status as ScheduleEvaluationResultStatus,
+  };
+}
+
+export async function finalizeVersion(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string
+): Promise<ScheduleVersionFinalizeResponse> {
+  const { version } = await loadAuthorizedVersionContext(client, auth, versionId);
+
+  try {
+    const row = await rpcSingle<FinalizeScheduleVersionAtomicRow>(
+      client,
+      'finalize_schedule_version_atomic',
+      {
+        p_version_id: version.id,
+        p_finalized_by: auth.userId,
+      }
+    );
+
+    return {
+      scheduleId: row.schedule_id,
+      scheduleVersionId: row.schedule_version_id,
+      status: row.status as ScheduleVersionStatus,
+      finalizedVersionId: row.finalized_version_id,
+      finalizedAt: row.finalized_at,
+      finalizedBy: row.finalized_by,
+    };
+  } catch (error: unknown) {
+    remapTrustGateRpcConflict(error);
   }
 }

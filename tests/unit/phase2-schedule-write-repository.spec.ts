@@ -722,6 +722,52 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
+      schedule_assignments: [
+        {
+          data: [
+            {
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              shift_id: 'new-shift-1',
+              is_locked: false,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [
+            {
+              id: 'new-shift-1',
+              code: 'D',
+            },
+          ],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-1',
+            },
+          ],
+          error: null,
+        },
+      ],
     }, {
       apply_schedule_version_solver_result: [
         {
@@ -732,6 +778,18 @@ describe('phase2 schedule write repository', () => {
             hard_score: 12,
             soft_score: 34,
             failure_reason: null,
+          },
+          error: null,
+        },
+      ],
+      save_schedule_version_evaluation_atomic: [
+        {
+          data: {
+            schedule_version_id: 'version-2',
+            current_revision: 0,
+            evaluation_id: 'evaluation-2',
+            status: 'review_ready',
+            evaluation_result_status: 'passed',
           },
           error: null,
         },
@@ -768,7 +826,7 @@ describe('phase2 schedule write repository', () => {
 
     expect(result).toEqual({
       scheduleVersionId: 'version-2',
-      status: 'review_pending',
+      status: 'review_ready',
       solverExecutionId: null,
       hardScore: 12,
       softScore: 34,
@@ -795,6 +853,15 @@ describe('phase2 schedule write repository', () => {
       p_failure_reason: null,
       p_edited_by: AUTH_CONTEXT.userId,
     });
+    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_version_id: 'version-2',
+        p_revision_no: 0,
+        p_result_status: 'passed',
+        p_solver_execution_id: 'exec-1',
+        p_evaluator_version: 'phase2a-trust-gate-v1',
+      })
+    );
   });
 
   it('marks only the target version as solve_failed when solver sync fails', async () => {
@@ -838,6 +905,40 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-1',
+            },
+          ],
+          error: null,
+        },
+      ],
     }, {
       apply_schedule_version_solver_result: [
         {
@@ -852,19 +953,37 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
+      save_schedule_version_evaluation_atomic: [
+        {
+          data: {
+            schedule_version_id: 'version-2',
+            current_revision: 0,
+            evaluation_id: 'evaluation-3',
+            status: 'infeasible',
+            evaluation_result_status: 'infeasible',
+          },
+          error: null,
+        },
+      ],
     });
 
     const result = await syncVersionSolverResult(client, AUTH_CONTEXT, 'version-2', {
       status: 'failed',
       solverExecutionId: 'exec-1',
       failureReason: 'timeout',
+      failureType: 'infeasible',
+      failureContext: {
+        shiftCode: 'N',
+        required: 3,
+        feasible: 2,
+      },
       assignments: [],
       score: null,
     });
 
     expect(result).toEqual({
       scheduleVersionId: 'version-2',
-      status: 'solve_failed',
+      status: 'infeasible',
       solverExecutionId: null,
       hardScore: null,
       softScore: null,
@@ -879,6 +998,14 @@ describe('phase2 schedule write repository', () => {
       p_failure_reason: 'timeout',
       p_edited_by: AUTH_CONTEXT.userId,
     });
+    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_version_id: 'version-2',
+        p_revision_no: 0,
+        p_result_status: 'infeasible',
+        p_solver_execution_id: 'exec-1',
+      })
+    );
   });
 
   it('patches version assignments with version-scoped upserts, delete-for-null, revision bump, and review_pending status', async () => {

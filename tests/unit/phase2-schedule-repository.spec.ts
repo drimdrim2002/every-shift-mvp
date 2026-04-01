@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { compare, ensure, review, select } from '@/../supabase/functions/phase2-schedule/repository.ts';
+import {
+  compare,
+  ensure,
+  finalizeVersion,
+  recheckVersion,
+  review,
+  select,
+} from '@/../supabase/functions/phase2-schedule/repository.ts';
 import type { Phase2ScheduleAuthContext } from '@/../supabase/functions/phase2-schedule/contracts.ts';
 import type { Phase2ScheduleRepositoryClient } from '@/../supabase/functions/phase2-schedule/repository.ts';
 
@@ -36,6 +43,14 @@ class FakeQueryBuilder<T> implements PromiseLike<QueryResult<T>> {
   }
 
   eq() {
+    return this;
+  }
+
+  gte() {
+    return this;
+  }
+
+  lte() {
     return this;
   }
 
@@ -908,6 +923,238 @@ describe('phase2 schedule repository', () => {
       select(client, AUTH_CONTEXT, '66666666-6666-4666-8666-666666666666')
     ).rejects.toMatchObject({
       code: 'already_finalized',
+      status: 409,
+    });
+  });
+
+  it('runs recheck by appending a new immutable evaluation and updating latest pointer', async () => {
+    const { client, rpc } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-recheck',
+            schedule_id: 'schedule-recheck',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_pending',
+            current_revision: 3,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-recheck',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-recheck',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [
+            {
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              shift_id: 'shift-d',
+              is_locked: false,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [
+            {
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: null,
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [
+            {
+              id: 'shift-d',
+              code: 'D',
+            },
+          ],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-1',
+            },
+          ],
+          error: null,
+        },
+      ],
+      'rpc:save_schedule_version_evaluation_atomic': [
+        {
+          data: {
+            schedule_version_id: 'version-recheck',
+            current_revision: 3,
+            evaluation_id: 'evaluation-recheck',
+            status: 'review_ready',
+            evaluation_result_status: 'passed',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await recheckVersion(client, AUTH_CONTEXT, 'version-recheck');
+
+    expect(result).toEqual({
+      scheduleVersionId: 'version-recheck',
+      currentRevision: 3,
+      evaluationId: 'evaluation-recheck',
+      resultStatus: 'review_ready',
+      evaluationResultStatus: 'passed',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'save_schedule_version_evaluation_atomic',
+      expect.objectContaining({
+        p_version_id: 'version-recheck',
+        p_revision_no: 3,
+      })
+    );
+  });
+
+  it('finalizes only through the atomic finalize rpc boundary', async () => {
+    const { client, rpc } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-finalize',
+            schedule_id: 'schedule-finalize',
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-finalize',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-finalize',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      'rpc:finalize_schedule_version_atomic': [
+        {
+          data: {
+            schedule_id: 'schedule-finalize',
+            schedule_version_id: 'version-finalize',
+            status: 'finalized',
+            finalized_version_id: 'version-finalize',
+            finalized_at: '2026-04-01T09:00:00Z',
+            finalized_by: AUTH_CONTEXT.userId,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await finalizeVersion(client, AUTH_CONTEXT, 'version-finalize');
+
+    expect(result).toEqual({
+      scheduleId: 'schedule-finalize',
+      scheduleVersionId: 'version-finalize',
+      status: 'finalized',
+      finalizedVersionId: 'version-finalize',
+      finalizedAt: '2026-04-01T09:00:00Z',
+      finalizedBy: AUTH_CONTEXT.userId,
+    });
+    expect(rpc).toHaveBeenCalledWith('finalize_schedule_version_atomic', {
+      p_version_id: 'version-finalize',
+      p_finalized_by: AUTH_CONTEXT.userId,
+    });
+  });
+
+  it('maps finalize selection mismatch to not_selected_version conflict', async () => {
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-finalize-2',
+            schedule_id: 'schedule-finalize-2',
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-finalize-2',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-other',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      'rpc:finalize_schedule_version_atomic': [
+        {
+          data: null,
+          error: {
+            message: 'not_selected_version',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      finalizeVersion(client, AUTH_CONTEXT, 'version-finalize-2')
+    ).rejects.toMatchObject({
+      code: 'not_selected_version',
       status: 409,
     });
   });

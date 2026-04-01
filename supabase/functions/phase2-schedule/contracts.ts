@@ -7,7 +7,9 @@ export type RouteName =
   | 'createVersion'
   | 'solve'
   | 'solverResult'
-  | 'patchAssignments';
+  | 'patchAssignments'
+  | 'recheck'
+  | 'finalize';
 export type ScheduleVersionStatus =
   | 'draft'
   | 'solving'
@@ -223,6 +225,8 @@ export interface SolverResultRequest {
   assignments: ScheduleVersionAssignmentChange[];
   score: ScheduleVersionScore | null;
   failureReason: string | null;
+  failureType: string | null;
+  failureContext: Record<string, unknown> | null;
   solverExecutionId: string;
 }
 
@@ -245,6 +249,23 @@ export interface PatchAssignmentsResponse {
   currentRevision: number;
   manualEditCount: number;
   changedCells: number;
+}
+
+export interface ScheduleVersionRecheckResponse {
+  scheduleVersionId: string;
+  currentRevision: number;
+  evaluationId: string;
+  resultStatus: ScheduleVersionStatus;
+  evaluationResultStatus: ScheduleEvaluationResultStatus;
+}
+
+export interface ScheduleVersionFinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: string;
+  finalizedAt: string;
+  finalizedBy: string | null;
 }
 
 export class ContractError extends Error {
@@ -309,6 +330,16 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'patchAssignments',
     methods: ['PATCH'],
     segments: ['schedule-versions', ':versionId', 'assignments'],
+  },
+  {
+    name: 'recheck',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'recheck'],
+  },
+  {
+    name: 'finalize',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'finalize'],
   },
 ];
 
@@ -597,6 +628,8 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
   const record = payload as Record<string, unknown>;
   const status = record.status;
   const failureReason = record.failureReason;
+  const failureType = record.failureType;
+  const failureContext = record.failureContext;
 
   if (status !== 'completed' && status !== 'failed') {
     throw new ContractError('bad_request', 'status must be completed or failed', 400);
@@ -608,6 +641,18 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
     && typeof failureReason !== 'string'
   ) {
     throw new ContractError('bad_request', 'failureReason must be a string or null', 400);
+  }
+
+  if (failureType !== null && failureType !== undefined && typeof failureType !== 'string') {
+    throw new ContractError('bad_request', 'failureType must be a string or null', 400);
+  }
+
+  if (
+    failureContext !== null
+    && failureContext !== undefined
+    && (typeof failureContext !== 'object' || Array.isArray(failureContext))
+  ) {
+    throw new ContractError('bad_request', 'failureContext must be a JSON object or null', 400);
   }
 
   const solveRequest = parseScheduleVersionSolveRequest(payload);
@@ -622,6 +667,14 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
     assignments,
     score,
     failureReason: typeof failureReason === 'string' ? failureReason : null,
+    failureType: typeof failureType === 'string' ? failureType : null,
+    failureContext:
+      failureContext !== null
+      && failureContext !== undefined
+      && typeof failureContext === 'object'
+      && !Array.isArray(failureContext)
+        ? (failureContext as Record<string, unknown>)
+        : null,
   };
 }
 

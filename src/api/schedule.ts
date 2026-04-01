@@ -18,6 +18,8 @@ import type {
   ScheduleReviewResponse,
   ScheduleVersionSolveRequest,
   ScheduleVersionSolveResponse,
+  ScheduleVersionRecheckResponse,
+  ScheduleVersionFinalizeResponse,
   ScheduleVersionSolverResultRequest,
   ScheduleVersionSolverResultResponse,
   PlanningOrganization,
@@ -378,6 +380,28 @@ export async function patchPhase2ScheduleVersionAssignments(
     {
       method: 'PATCH',
       body: request,
+    }
+  );
+}
+
+export async function recheckPhase2ScheduleVersion(
+  versionId: string
+): Promise<ScheduleVersionRecheckResponse> {
+  return callPhase2Schedule<ScheduleVersionRecheckResponse>(
+    `/schedule-versions/${versionId}/recheck`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function finalizePhase2ScheduleVersion(
+  versionId: string
+): Promise<ScheduleVersionFinalizeResponse> {
+  return callPhase2Schedule<ScheduleVersionFinalizeResponse>(
+    `/schedule-versions/${versionId}/finalize`,
+    {
+      method: 'POST',
     }
   );
 }
