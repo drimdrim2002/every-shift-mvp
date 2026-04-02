@@ -1,6 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routeMock = reactive({
   params: {
@@ -13,9 +13,11 @@ const {
   pushMock,
   replaceMock,
   getPhase2ScheduleCompareMock,
+  getPhase2ScheduleReviewMock,
   getScheduleStatusMock,
   getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
+  selectPhase2ScheduleVersionMock,
   createPhase2ScheduleVersionMock,
   patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
@@ -31,9 +33,11 @@ const {
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
+  getPhase2ScheduleReviewMock: vi.fn(),
   getScheduleStatusMock: vi.fn(),
   getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
+  selectPhase2ScheduleVersionMock: vi.fn(),
   createPhase2ScheduleVersionMock: vi.fn(),
   patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
@@ -58,10 +62,12 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   createPhase2ScheduleVersion: createPhase2ScheduleVersionMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
+  getPhase2ScheduleReview: getPhase2ScheduleReviewMock,
   patchPhase2ScheduleVersionAssignments: patchPhase2ScheduleVersionAssignmentsMock,
   getScheduleStatus: getScheduleStatusMock,
   getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
+  selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
   submitPhase2ScheduleVersionSolverResult: submitPhase2ScheduleVersionSolverResultMock,
@@ -110,12 +116,27 @@ const scheduleStoreMock = reactive({
   siteRequirements: [],
   selectedVersionId: null as string | null,
   previewVersionId: null as string | null,
+  compareMatrix: null as unknown,
+  latestEvaluation: null as unknown,
+  reviewTab: 'grid' as 'grid' | 'proof' | 'offRequests',
+  setBasicInfo: vi.fn((value) => {
+    scheduleStoreMock.basicInfo = value
+  }),
   setSiteRequirements: vi.fn(),
   setSelectedVersionId: vi.fn((value: string | null) => {
     scheduleStoreMock.selectedVersionId = value
   }),
   setPreviewVersionId: vi.fn((value: string | null) => {
     scheduleStoreMock.previewVersionId = value
+  }),
+  setCompareMatrix: vi.fn((value) => {
+    scheduleStoreMock.compareMatrix = value
+  }),
+  setLatestEvaluation: vi.fn((value) => {
+    scheduleStoreMock.latestEvaluation = value
+  }),
+  setReviewTab: vi.fn((value) => {
+    scheduleStoreMock.reviewTab = value
   }),
 })
 
@@ -199,8 +220,10 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
 
 import Step5Result from '@/views/schedule/Step5Result.vue'
 
+const mountedWrappers: Array<ReturnType<typeof mount>> = []
+
 function createWrapper() {
-  return mount(Step5Result, {
+  const wrapper = mount(Step5Result, {
     global: {
       stubs: {
         NCard: { template: '<div><slot /></div>' },
@@ -212,13 +235,87 @@ function createWrapper() {
       },
     },
   })
+
+  mountedWrappers.push(wrapper)
+  return wrapper
+}
+
+function createVersionSummary(overrides: Record<string, unknown> = {}) {
+  const versionNo = (overrides.versionNo as number | undefined) ?? 1
+  const id = (overrides.id as string | undefined) ?? `version-${versionNo}`
+
+  return {
+    id,
+    scheduleId: 'schedule-1',
+    versionNo,
+    name: `V${versionNo}`,
+    sourceType: versionNo === 1 ? 'initial_solve' : 're_solve',
+    baseVersionId: versionNo === 1 ? null : 'version-1',
+    status: versionNo === 1 ? 'draft' : 'review_ready',
+    currentRevision: versionNo,
+    manualEditCount: versionNo === 1 ? 0 : 1,
+    inputDiffSummary: {
+      changedOffRequests: versionNo === 1 ? 0 : 1,
+      changedLockedAssignments: 0,
+      changedSiteRequirements: 0,
+      note: versionNo === 1 ? null : 'selected',
+    },
+    latestEvaluationId: null,
+    latestEvaluationResultStatus: null,
+    comparisonMetrics: null,
+    finalizationGate: null,
+    activeSolverExecutionId: null,
+    isSelected: false,
+    isFinalized: false,
+    ...overrides,
+  }
+}
+
+function createReviewResponse(versionId: string) {
+  const parsedVersionNo = Number(versionId.split('-').at(-1))
+  const versionNo = Number.isFinite(parsedVersionNo) && parsedVersionNo > 0 ? parsedVersionNo : 2
+  const version = createVersionSummary({
+    id: versionId,
+    versionNo,
+    isSelected: versionId === 'version-2',
+  })
+
+  return {
+    scheduleId: 'schedule-1',
+    selectedVersionId: 'version-2',
+    finalizedVersionId: null,
+    version,
+    latestEvaluation: null,
+    primaryAction: {
+      kind: versionId === 'version-1' ? 'select' : 'none',
+      targetVersionId: versionId === 'version-1' ? 'version-1' : null,
+      label: versionId === 'version-1' ? 'Select this version as the finalization candidate' : 'No primary action',
+      disabledReason: null,
+    },
+    defaultTab: 'grid',
+  }
 }
 
 describe('Step5Result', () => {
+  afterEach(() => {
+    while (mountedWrappers.length > 0) {
+      mountedWrappers.pop()?.unmount()
+    }
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     routeMock.params.id = 'schedule-1'
     routeMock.query = {}
+    replaceMock.mockImplementation(async (location: { path?: string; query?: Record<string, string> }) => {
+      const nextPath = location.path ?? ''
+      const pathParts = nextPath.split('/')
+      const nextId = pathParts.at(-1)
+      if (nextId) {
+        routeMock.params.id = nextId
+      }
+      routeMock.query = location.query ?? {}
+    })
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-1',
       month: '2025-12',
@@ -230,6 +327,9 @@ describe('Step5Result', () => {
     }
     scheduleStoreMock.selectedVersionId = null
     scheduleStoreMock.previewVersionId = null
+    scheduleStoreMock.compareMatrix = null
+    scheduleStoreMock.latestEvaluation = null
+    scheduleStoreMock.reviewTab = 'grid'
     authStoreMock.user = {
       id: 'user-1',
     }
@@ -298,6 +398,9 @@ describe('Step5Result', () => {
         },
       ],
     })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId))
+    })
     getScheduleStatusMock.mockResolvedValue({
       status: 'created',
       hard_score: null,
@@ -343,6 +446,10 @@ describe('Step5Result', () => {
       manualEditCount: 2,
       changedCells: 1,
     })
+    selectPhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+    })
     submitPhase2ScheduleVersionSolverResultMock.mockResolvedValue({
       scheduleVersionId: 'version-2',
       status: 'solve_failed',
@@ -383,6 +490,96 @@ describe('Step5Result', () => {
         version: 'version-2',
       },
     })
+  })
+
+  it('renders the compare surface above the result grid for all preview states', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="version-compare-surface"]').exists()).toBe(true)
+  })
+
+  it('changes preview only when a version card is clicked', async () => {
+    routeMock.query = { version: 'version-2' }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
+  it('requires confirmation before discarding unsaved changes on preview switch', async () => {
+    routeMock.query = { version: 'version-2' }
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: vi.fn(),
+      warning: warningMock,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledTimes(1)
+    expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-1')
+  })
+
+  it('changes authoritative selection only when the explicit select button is clicked', async () => {
+    routeMock.query = { version: 'version-1' }
+    getPhase2ScheduleCompareMock
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-2',
+        finalizedVersionId: null,
+        activeSolvingVersionId: null,
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: false,
+          }),
+          createVersionSummary({
+            id: 'version-2',
+            versionNo: 2,
+            isSelected: true,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: null,
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: true,
+          }),
+          createVersionSummary({
+            id: 'version-2',
+            versionNo: 2,
+            isSelected: false,
+          }),
+        ],
+      })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="select-preview-button"]').trigger('click')
+    await flushPromises()
+
+    expect(selectPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
   })
 
   it('loads preview data by previewVersionId and allows mutation when preview status is editable', async () => {
@@ -716,6 +913,50 @@ describe('Step5Result', () => {
         requiredCount: 1,
       },
     ]
+    getPhase2ScheduleCompareMock
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-2',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-3',
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: false,
+          }),
+          createVersionSummary({
+            id: 'version-2',
+            versionNo: 2,
+            isSelected: true,
+          }),
+        ],
+      })
+      .mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-2',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-3',
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: false,
+          }),
+          createVersionSummary({
+            id: 'version-2',
+            versionNo: 2,
+            isSelected: true,
+          }),
+          createVersionSummary({
+            id: 'version-3',
+            versionNo: 3,
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
+            isSelected: false,
+          }),
+        ],
+      })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -740,6 +981,31 @@ describe('Step5Result', () => {
     })
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.previewVersionId).toBe('version-3')
+    expect(scheduleStoreMock.compareMatrix).toEqual({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-3',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+        }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+          isSelected: false,
+        }),
+      ],
+    })
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-3',
       expect.any(Object)
@@ -973,12 +1239,7 @@ describe('Step5Result', () => {
     await saveButton!.trigger('click')
     await flushPromises()
 
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-2',
-      },
-    })
+    expect(replaceMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
   })
