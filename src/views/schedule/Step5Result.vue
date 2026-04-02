@@ -14,8 +14,10 @@
         :preview-version="previewVersionSummary"
         :selected-version="selectedVersionSummary"
         :primary-action="primaryAction"
+        :support-copy="primaryActionSupportCopy"
         :selecting="isSelectingPreview"
-        @select-preview="handleSelectPreviewVersion"
+        :acting="isPrimaryActionRunning"
+        @primary-action="handlePrimaryAction"
       />
 
       <!-- 상태 표시 -->
@@ -105,30 +107,52 @@
         <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
       </n-alert>
 
-      <!-- 그리드 -->
       <div class="my-6">
-        <ScheduleGrid
-          v-if="grid.employees.value.length > 0"
-          mode="result"
-          :employees="grid.employees.value"
-          :dates="grid.dates.value"
-          :assignments="grid.assignments.value"
-          :shift-colors="shiftColors"
-          :off-requests="offRequestsCurrentMonth"
-          :off-request-notes="offRequestNotesCurrentMonth"
-          :preference-display-mode="preferenceDisplayMode"
-          :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
-          :readonly="isReadonlyGrid"
-          :show-last-month="true"
-          result-cell-layout="single-box"
-          @update:assignment="handleAssignmentUpdate"
-        />
-        <div
-          v-else
-          class="text-center text-gray-500"
+        <VersionReviewDetail
+          :review="review"
+          :active-tab="activeReviewTab"
+          @update:tab="handleReviewTabChange"
         >
-          결과 로딩 중...
-        </div>
+          <template #grid>
+            <ScheduleGrid
+              v-if="grid.employees.value.length > 0"
+              mode="result"
+              :employees="grid.employees.value"
+              :dates="grid.dates.value"
+              :assignments="grid.assignments.value"
+              :shift-colors="shiftColors"
+              :off-requests="offRequestsCurrentMonth"
+              :off-request-notes="offRequestNotesCurrentMonth"
+              :preference-display-mode="preferenceDisplayMode"
+              :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
+              :readonly="isReadonlyGrid"
+              :show-last-month="true"
+              result-cell-layout="single-box"
+              @update:assignment="handleAssignmentUpdate"
+            />
+            <div
+              v-else
+              class="text-center text-gray-500"
+            >
+              결과 로딩 중...
+            </div>
+          </template>
+
+          <template #proof>
+            <p
+              v-if="review?.latestEvaluation?.violationDetails.length"
+              class="text-sm text-slate-700"
+            >
+              {{ review.latestEvaluation.violationDetails[0]?.message }}
+            </p>
+          </template>
+
+          <template #offRequests>
+            <p class="text-sm text-slate-700">
+              미충족 Off 요청 {{ review?.latestEvaluation?.offRequestResults.length ?? 0 }}건
+            </p>
+          </template>
+        </VersionReviewDetail>
       </div>
 
       <!-- 버튼 -->
@@ -153,7 +177,7 @@
         <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
             v-if="isPreRun"
-            type="primary"
+            :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
             size="medium"
             :loading="isStartingSolver"
             :disabled="isStartingSolver || isVersionReadOnly"
@@ -190,7 +214,6 @@
 
           <n-button
             v-if="isFinished"
-            type="primary"
             size="medium"
             :disabled="isVersionReadOnly"
             @click="handleSave"
@@ -215,6 +238,7 @@ import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import VersionActionArea from '@/components/schedule/review/VersionActionArea.vue';
 import VersionCompareSurface from '@/components/schedule/review/VersionCompareSurface.vue';
+import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
@@ -226,6 +250,8 @@ import {
   getScheduleVersionPreferences,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
+  recheckPhase2ScheduleVersion,
+  finalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
   deleteThisMonthVersionAssignments,
   getPlanningEmployees,
@@ -235,6 +261,10 @@ import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
+import {
+  buildPrimaryActionSupportCopy,
+  resolveDefaultReviewTab,
+} from '@/utils/scheduleReviewState';
 import { buildStep5Route } from '@/utils/scheduleVersionResolver';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type {
@@ -279,6 +309,7 @@ const warnedUnknownShiftIds = ref<Set<string>>(new Set());
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
 const isSelectingPreview = computed(() => hub.isSelecting.value);
+const isPrimaryActionRunning = ref(false);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -334,6 +365,12 @@ const isFinished = computed(() => solver.status.value === 'complete' || solver.s
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
 const previewVersionStatus = computed<ScheduleVersionStatus>(() => {
   if (!previewVersionId.value) return 'draft';
+  if (
+    review.value?.version?.id === previewVersionId.value
+    && review.value.latestEvaluation !== null
+  ) {
+    return review.value.version.status;
+  }
   return compareVersions.value.find((version) => version.id === previewVersionId.value)?.status ?? 'draft';
 });
 const isVersionReadOnly = computed(() => {
@@ -389,15 +426,16 @@ const previewVersionSummary = computed(() => {
   if (!previewVersionId.value) return null;
   const comparedVersion = compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
   const reviewedVersion = review.value?.version?.id === previewVersionId.value ? review.value.version : null;
+  const shouldUseReviewedVersion = review.value?.latestEvaluation !== null;
 
-  if (reviewedVersion && comparedVersion) {
+  if (reviewedVersion && comparedVersion && shouldUseReviewedVersion) {
     return {
-      ...reviewedVersion,
       ...comparedVersion,
+      ...reviewedVersion,
     };
   }
 
-  return reviewedVersion ?? comparedVersion;
+  return comparedVersion ?? reviewedVersion;
 });
 const selectedVersionSummary = computed(() => {
   if (!selectedVersionId.value) return null;
@@ -406,12 +444,29 @@ const selectedVersionSummary = computed(() => {
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
+const activeReviewTab = computed(() => scheduleStore.reviewTab);
+const selectedGate = computed(() => {
+  return selectedVersionSummary.value?.finalizationGate
+    ?? scheduleStore.latestEvaluation?.finalizationGate
+    ?? null;
+});
+const primaryActionSupportCopy = computed(() => {
+  return buildPrimaryActionSupportCopy({
+    action: primaryAction.value,
+    gate: selectedGate.value,
+    latestEvaluation: review.value?.latestEvaluation ?? null,
+  });
+});
 const previewVersionExecutionId = computed(() => {
   return previewVersionSummary.value?.activeSolverExecutionId ?? null;
 });
 const canRecoverSolverState = computed(() => {
   return previewVersionStatus.value === 'solving';
 });
+
+function syncReviewTabForPreview() {
+  scheduleStore.setReviewTab(resolveDefaultReviewTab(previewVersionStatus.value));
+}
 
 function getActiveSolvingVersionId(): string | null {
   return scheduleStore.compareMatrix?.activeSolvingVersionId ?? null;
@@ -1162,6 +1217,14 @@ watch(lastMonthDays, (newDays) => {
   rebuildDisplayAssignments();
 });
 
+watch(
+  () => [review.value?.version?.id ?? null, previewVersionStatus.value],
+  () => {
+    syncReviewTabForPreview();
+  },
+  { immediate: true }
+);
+
 watch(() => solver.status.value, async (newStatus) => {
   if (newStatus === 'running') {
     startAssignmentsRefresh();
@@ -1210,6 +1273,10 @@ function handleBack() {
   router.push('/schedule/step4');
 }
 
+function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
+  scheduleStore.setReviewTab(tab);
+}
+
 async function handlePreviewVersionChange(versionId: string) {
   if (versionId === previewVersionId.value) {
     return;
@@ -1252,12 +1319,46 @@ async function handlePreviewVersionChange(versionId: string) {
   }
 }
 
-async function handleSelectPreviewVersion() {
+async function handlePrimaryAction() {
+  if (isPrimaryActionRunning.value) {
+    return;
+  }
+
+  isPrimaryActionRunning.value = true;
+
   try {
-    await hub.selectPreviewVersion();
+    switch (primaryAction.value.kind) {
+      case 'select':
+        await hub.selectPreviewVersion();
+        break;
+      case 'recheck':
+        if (!primaryAction.value.targetVersionId) return;
+        await recheckPhase2ScheduleVersion(primaryAction.value.targetVersionId);
+        showSuccess('재검토를 완료했습니다.');
+        break;
+      case 'finalize':
+        if (!primaryAction.value.targetVersionId) return;
+        await finalizePhase2ScheduleVersion(primaryAction.value.targetVersionId);
+        showSuccess('버전을 확정했습니다.');
+        break;
+      case 'retry':
+        await handleStartSolver();
+        return;
+      default:
+        return;
+    }
+
+    await hub.hydrate();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
   } catch (error) {
-    console.warn('버전 선택 중 오류:', error);
-    showError(error instanceof Error ? error.message : '버전 선택 중 오류가 발생했습니다.');
+    console.warn('Primary action 처리 중 오류:', error);
+    showError(error instanceof Error ? error.message : '작업 처리 중 오류가 발생했습니다.');
+  } finally {
+    isPrimaryActionRunning.value = false;
   }
 }
 

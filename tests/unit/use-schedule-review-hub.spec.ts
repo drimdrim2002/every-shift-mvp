@@ -264,6 +264,19 @@ describe('useScheduleReviewHub', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves the current review tab while hydrating review data', async () => {
+    scheduleStoreMock.reviewTab = 'proof';
+    getPhase2ScheduleCompareMock.mockResolvedValue(
+      createCompareResponse('version-2', [version1, version2])
+    );
+    getPhase2ScheduleReviewMock.mockResolvedValue(createReviewResponse('version-2', 'grid'));
+
+    await mountUseScheduleReviewHub();
+
+    expect(scheduleStoreMock.reviewTab).toBe('proof');
+    expect(scheduleStoreMock.setReviewTab).not.toHaveBeenCalled();
+  });
+
   it('selects the preview version only through the explicit action and refreshes compare/review state', async () => {
     routeMock.query = { version: 'version-1' };
     getPhase2ScheduleCompareMock

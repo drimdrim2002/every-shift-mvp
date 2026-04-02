@@ -87,65 +87,67 @@ export async function completeStep2(
 }
 
 /**
- * Step 3: 초기 데이터 입력
+ * Step 3: 직원 정보 화면에서 다음 단계로 이동
  */
-export async function completeStep3(
+export async function completeStep3Employees(page: Page) {
+  await page.waitForSelector('text=근무표 생성 - 직원 정보 입력')
+  await page.click('button:has-text("다음 단계")')
+  await page.waitForURL('/schedule/step4')
+}
+
+/**
+ * Step 4: 초기 데이터 입력
+ */
+export async function completeStep4InitialData(
   page: Page,
   assignments: {
     rowIndex: number
     colIndex: number
-    shift: 'D' | 'E' | 'N' | 'O'
+    shift: 'O'
   }[]
 ) {
-  // Step 3 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 초기 데이터 입력')
+  await page.waitForURL('/schedule/step4')
+  await page.waitForSelector('text=월 근무 조정 일정 입력')
 
-  // 그리드 로드 대기
   await page.waitForSelector('table')
 
-  // 데이터 입력
   for (const assignment of assignments) {
     const row = page.locator('tbody tr').nth(assignment.rowIndex)
     const cell = row.locator('td').nth(assignment.colIndex + 1) // +1은 이름 컬럼 건너뛰기
 
     await cell.click()
-    await page.click(`button:has-text("${assignment.shift}")`)
-
-    // 짧은 대기 (UI 업데이트)
     await page.waitForTimeout(100)
   }
 
-  // LocalStorage 저장 대기 (debounce)
   await page.waitForTimeout(1000)
 }
 
 /**
- * AI Solver 생성 및 완료 대기
+ * Step 4 → Step 5 이동
  */
-export async function generateSchedule(page: Page, timeout = 30000) {
-  // 생성 버튼 클릭
-  await page.click('button:has-text("생성")')
-
-  // 결과 화면 이동 대기 (Step5에서 폴링 진행)
+export async function goToStep5(page: Page, timeout = 30000) {
+  await page.click('button:has-text("다음 단계")')
   await page.waitForURL(/\/schedule\/step5\/.+/, { timeout })
+}
+
+/**
+ * Step 5: AI 생성 시작
+ */
+export async function startAISolver(page: Page) {
+  await page.waitForSelector('text=근무표 생성 - 결과 확인')
+  await page.click('button:has-text("근무표 생성 (AI)")')
 }
 
 /**
  * Step 5: 결과 확인
  */
-export async function verifyStep4Results(page: Page) {
-  // Step 5 페이지 확인
+export async function verifyStep5ReviewHub(page: Page) {
   await page.waitForSelector('text=근무표 생성 - 결과 확인')
-
-  // 그리드 로드 대기
-  await page.waitForSelector('table')
-
-  // 통계 정보 확인
-  const statsVisible =
-    (await page.locator('text=총 직원').isVisible()) &&
-    (await page.locator('text=총 근무일').isVisible())
-
-  return statsVisible
+  await page.waitForSelector('[data-test="version-compare-surface"]')
+  await page.waitForSelector('[data-test="review-tab-grid"]')
+  await page.waitForSelector('[data-test="review-tab-proof"]')
+  await page.waitForSelector('[data-test="review-tab-offRequests"]')
+  return await page.locator('[data-test="version-compare-surface"]').isVisible()
 }
 
 /**
@@ -169,6 +171,13 @@ export async function saveSchedule(page: Page) {
  */
 export async function getTempScheduleFromStorage(page: Page) {
   const localStorage = await page.evaluate(() => {
+    const scopedKey = Object.keys(window.localStorage).find((key) =>
+      key.startsWith('everyshift_temp_preferences_v2:')
+    )
+    if (scopedKey) {
+      return window.localStorage.getItem(scopedKey)
+    }
+
     return window.localStorage.getItem('everyshift_temp_schedule')
   })
 

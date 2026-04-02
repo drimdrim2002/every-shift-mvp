@@ -18,6 +18,8 @@ const {
   getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
   selectPhase2ScheduleVersionMock,
+  recheckPhase2ScheduleVersionMock,
+  finalizePhase2ScheduleVersionMock,
   createPhase2ScheduleVersionMock,
   patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
@@ -38,6 +40,8 @@ const {
   getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   selectPhase2ScheduleVersionMock: vi.fn(),
+  recheckPhase2ScheduleVersionMock: vi.fn(),
+  finalizePhase2ScheduleVersionMock: vi.fn(),
   createPhase2ScheduleVersionMock: vi.fn(),
   patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
@@ -68,6 +72,8 @@ vi.mock('@/api/schedule', () => ({
   getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
+  recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
+  finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
   submitPhase2ScheduleVersionSolverResult: submitPhase2ScheduleVersionSolverResultMock,
@@ -271,28 +277,30 @@ function createVersionSummary(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function createReviewResponse(versionId: string) {
+function createReviewResponse(versionId: string, overrides: Record<string, unknown> = {}) {
   const parsedVersionNo = Number(versionId.split('-').at(-1))
   const versionNo = Number.isFinite(parsedVersionNo) && parsedVersionNo > 0 ? parsedVersionNo : 2
   const version = createVersionSummary({
     id: versionId,
     versionNo,
     isSelected: versionId === 'version-2',
+    ...(overrides.version as Record<string, unknown> | undefined),
   })
 
   return {
     scheduleId: 'schedule-1',
-    selectedVersionId: 'version-2',
-    finalizedVersionId: null,
+    selectedVersionId: (overrides.selectedVersionId as string | null | undefined) ?? 'version-2',
+    finalizedVersionId: (overrides.finalizedVersionId as string | null | undefined) ?? null,
     version,
-    latestEvaluation: null,
+    latestEvaluation: (overrides.latestEvaluation as Record<string, unknown> | null | undefined) ?? null,
     primaryAction: {
       kind: versionId === 'version-1' ? 'select' : 'none',
       targetVersionId: versionId === 'version-1' ? 'version-1' : null,
       label: versionId === 'version-1' ? 'Select this version as the finalization candidate' : 'No primary action',
       disabledReason: null,
+      ...(overrides.primaryAction as Record<string, unknown> | undefined),
     },
-    defaultTab: 'grid',
+    defaultTab: (overrides.defaultTab as string | undefined) ?? 'grid',
   }
 }
 
@@ -450,6 +458,21 @@ describe('Step5Result', () => {
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-1',
     })
+    recheckPhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleVersionId: 'version-2',
+      currentRevision: 3,
+      evaluationId: 'evaluation-3',
+      resultStatus: 'review_ready',
+      evaluationResultStatus: 'passed',
+    })
+    finalizePhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      scheduleVersionId: 'version-2',
+      status: 'finalized',
+      finalizedVersionId: 'version-2',
+      finalizedAt: '2026-04-02T00:00:00Z',
+      finalizedBy: 'user-1',
+    })
     submitPhase2ScheduleVersionSolverResultMock.mockResolvedValue({
       scheduleVersionId: 'version-2',
       status: 'solve_failed',
@@ -576,10 +599,159 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="select-preview-button"]').trigger('click')
+    await wrapper.get('[data-test="primary-action-button"]').trigger('click')
     await flushPromises()
 
     expect(selectPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
+  })
+
+  it('opens proof-first when the preview version is review_blocked', async () => {
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        version: {
+          status: 'review_blocked',
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'review_blocked',
+          proofSummary: {
+            weeklyHoursViolations: 1,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 1,
+          },
+          violationDetails: [
+            {
+              code: 'hard_constraints_violated',
+              message: 'Hard-constraint violations were detected.',
+              severity: 'error',
+              affectedEmployeeIds: ['emp-1'],
+              dates: ['2025-12-01'],
+              metadata: {},
+            },
+          ],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: {
+            offRequestReflectionRate: 90,
+            nightShiftMin: 1,
+            nightShiftMax: 2,
+            weekendShiftMin: 0,
+            weekendShiftMax: 1,
+            manualEditCount: 1,
+          },
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: [
+              {
+                code: 'hard_constraints_violated',
+                message: '하드 제약 위반이 있습니다.',
+              },
+            ],
+          },
+          assignmentHash: 'hash-2',
+          solverExecutionId: null,
+          evaluatorVersion: 'test',
+          createdAt: '2026-04-02T00:00:00Z',
+        },
+        primaryAction: {
+          kind: 'recheck',
+          targetVersionId: 'version-2',
+          label: 'Run recheck',
+          disabledReason: null,
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(scheduleStoreMock.setReviewTab).toHaveBeenCalledWith('proof')
+    expect(wrapper.text()).toContain('하드 제약 위반 요약')
+    expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="primary-action-button"]').text()).toContain('다시 검토')
+  })
+
+  it('shows solve_failed support copy and dispatches retry from the shared Step5 frame', async () => {
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        version: {
+          status: 'solve_failed',
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'solve_failed',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 0,
+          },
+          violationDetails: [],
+          infeasibility: {
+            summary: 'solver crashed',
+            reason: 'worker_crash',
+            details: {
+              traceId: 'trace-123',
+            },
+          },
+          offRequestResults: [],
+          comparisonMetrics: {
+            offRequestReflectionRate: null,
+            nightShiftMin: null,
+            nightShiftMax: null,
+            weekendShiftMin: null,
+            weekendShiftMax: null,
+            manualEditCount: 0,
+          },
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: [
+              {
+                code: 'solve_failed',
+                message: 'Solver execution failed. Retry before finalization.',
+              },
+            ],
+          },
+          assignmentHash: 'hash-2',
+          solverExecutionId: 'exec-fail',
+          evaluatorVersion: 'test',
+          createdAt: '2026-04-02T00:00:00Z',
+        },
+        primaryAction: {
+          kind: 'retry',
+          targetVersionId: 'version-2',
+          label: 'Retry',
+          disabledReason: null,
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('solver crashed')
+    expect(wrapper.text()).toContain('trace-123')
+    await wrapper.get('[data-test="primary-action-button"]').trigger('click')
+    await flushPromises()
+
+    expect(solverMock.startSolver).toHaveBeenCalled()
   })
 
   it('loads preview data by previewVersionId and allows mutation when preview status is editable', async () => {

@@ -164,7 +164,11 @@ onMounted(async () => {
 
     if (data && data.length > 0) {
       // DB 데이터를 EmployeeInput 형식으로 변환
-      employees.value = data.map((emp: any) => ({
+      employees.value = data.map((emp: {
+        employee_id: string;
+        name: string;
+        available_shifts: string[];
+      }) => ({
         employeeId: emp.employee_id,
         name: emp.name,
         availableShifts: emp.available_shifts,
@@ -210,23 +214,10 @@ function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
   showSuccess(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
-// 저장 핸들러
-async function handleSave() {
-  if (employees.value.length === 0) {
-    showWarning('최소 1명 이상의 직원을 등록해주세요.');
-    return;
-  }
-
-  if (!scheduleStore.basicInfo) {
-    showError('기본 정보가 없습니다. 다시 시도해주세요.');
-    return;
-  }
-
+async function performEmployeeResave(orgId: string) {
   isSaving.value = true;
 
   try {
-    const orgId = scheduleStore.basicInfo.organizationId;
-
     // 1. 기존 직원 ID 조회
     const { data: existingEmployees } = await supabase
       .from('employees')
@@ -235,7 +226,7 @@ async function handleSave() {
 
     // 2. 기존 직원들의 schedule_assignments 먼저 삭제 (외래 키 제약 조건 해결)
     if (existingEmployees && existingEmployees.length > 0) {
-      const employeeIds = existingEmployees.map(e => e.id);
+      const employeeIds = existingEmployees.map((employee) => employee.id);
       const { error: assignmentError } = await supabase
         .from('schedule_assignments')
         .delete()
@@ -245,7 +236,7 @@ async function handleSave() {
         console.error('[handleSave] Assignment delete error:', assignmentError);
         throw new Error(`배정 데이터 삭제 실패: ${assignmentError.message}`);
       }
-      
+
       console.log('[Step3] Deleted schedule_assignments for', employeeIds.length, 'employees');
     }
 
@@ -279,7 +270,7 @@ async function handleSave() {
 
     // 6. Store 업데이트
     scheduleStore.setEmployees(employees.value);
-    
+
     // basicInfo의 employeeCount 업데이트
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
@@ -307,6 +298,64 @@ async function handleSave() {
   } finally {
     isSaving.value = false;
   }
+}
+
+async function getCurrentMonthScheduleState(): Promise<{ id: string; status: string } | null> {
+  return getTargetScheduleForNextStep();
+}
+
+// 저장 핸들러
+async function handleSave() {
+  if (employees.value.length === 0) {
+    showWarning('최소 1명 이상의 직원을 등록해주세요.');
+    return;
+  }
+
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+    return;
+  }
+
+  const orgId = scheduleStore.basicInfo.organizationId;
+  const currentMonthSchedule = await getCurrentMonthScheduleState();
+
+  if (!currentMonthSchedule) {
+    await performEmployeeResave(orgId);
+    return;
+  }
+
+  try {
+    const compareResponse = await getPhase2ScheduleCompare(currentMonthSchedule.id);
+
+    if (compareResponse.finalizedVersionId) {
+      showError('현재 월에 확정된 근무표가 있어 직원 정보를 다시 저장할 수 없습니다.');
+      return;
+    }
+
+    if ((compareResponse.versions?.length ?? 0) > 0) {
+      if (!window.$dialog?.warning) {
+        showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+
+      window.$dialog.warning({
+        title: '직원 정보 저장 확인',
+        content: '현재 월의 근무표와 버전이 모두 삭제됩니다. 계속 저장하시겠습니까?',
+        positiveText: '계속 저장',
+        negativeText: '취소',
+        onPositiveClick: async () => {
+          await performEmployeeResave(orgId);
+        },
+      });
+      return;
+    }
+  } catch (error) {
+    console.warn('[Step3] Failed to check current month version state:', error);
+    showError('현재 월의 근무표 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  await performEmployeeResave(orgId);
 }
 
 // 이전 버튼 핸들러

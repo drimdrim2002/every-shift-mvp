@@ -56,7 +56,6 @@ export function useScheduleReviewHub() {
   function syncReviewState(nextReview: ScheduleReviewResponse | null) {
     review.value = nextReview;
     scheduleStore.setLatestEvaluation(nextReview?.latestEvaluation ?? null);
-    scheduleStore.setReviewTab(nextReview?.defaultTab ?? 'grid');
   }
 
   async function loadReview(versionId: string | null) {

@@ -11,6 +11,7 @@ const {
   createEmployeesBatchMock,
   supabaseFromMock,
   messageMock,
+  dialogMock,
   setBasicInfoMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
@@ -28,6 +29,9 @@ const {
     success: vi.fn(),
     warning: vi.fn(),
     error: vi.fn(),
+  },
+  dialogMock: {
+    warning: vi.fn(),
   },
   setBasicInfoMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
@@ -179,7 +183,31 @@ describe('Step3EmployeeInfo', () => {
 
     const eqMock = vi.fn().mockResolvedValue({ count: 1, error: null })
     const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
-    supabaseFromMock.mockReturnValue({ select: selectMock })
+    const assignmentsDeleteMock = vi.fn().mockReturnValue({
+      in: vi.fn().mockResolvedValue({ error: null }),
+    })
+    const schedulesDeleteMock = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    })
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'schedule_assignments') {
+        return {
+          select: selectMock,
+          delete: assignmentsDeleteMock,
+        }
+      }
+
+      if (table === 'schedules') {
+        return {
+          select: selectMock,
+          delete: schedulesDeleteMock,
+        }
+      }
+
+      return { select: selectMock }
+    })
 
     getScheduleStatusMock.mockResolvedValue({
       id: 'schedule-123',
@@ -241,6 +269,7 @@ describe('Step3EmployeeInfo', () => {
       ],
     })
     ;(window as typeof window & { $message?: typeof messageMock }).$message = messageMock
+    ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = dialogMock
   })
 
   it('navigates to Step5 with a resolved preview query for existing schedules', async () => {
@@ -343,5 +372,222 @@ describe('Step3EmployeeInfo', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
     expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/schedule-123')
+  })
+
+  it('blocks employee resave when the current month already has a finalized version', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-123',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-final',
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-final',
+          scheduleId: 'schedule-123',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'finalized',
+          currentRevision: 2,
+          manualEditCount: 1,
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'finalized',
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: true,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(dialogMock.warning).not.toHaveBeenCalled()
+    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
+    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith('현재 월에 확정된 근무표가 있어 직원 정보를 다시 저장할 수 없습니다.')
+  })
+
+  it('requires confirmation before destructive resave when only unfinalized versions exist', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-123',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-123',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
+    await flushPromises()
+
+    expect(dialogMock.warning).toHaveBeenCalledTimes(1)
+    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
+    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    expect(warningConfig).toMatchObject({
+      title: '직원 정보 저장 확인',
+      positiveText: '계속 저장',
+      negativeText: '취소',
+    })
+
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(deleteOrganizationEmployeesMock).toHaveBeenCalledWith('org-1')
+    expect(createEmployeesBatchMock).toHaveBeenCalledWith(
+      'org-1',
+      expect.arrayContaining([
+        expect.objectContaining({
+          employeeId: 'E001',
+          name: 'Kim',
+        }),
+      ])
+    )
+  })
+
+  it('proceeds with destructive resave after confirmation is accepted', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-123',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-123',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(deleteOrganizationEmployeesMock).toHaveBeenCalledWith('org-1')
+    expect(createEmployeesBatchMock).toHaveBeenCalledWith(
+      'org-1',
+      expect.arrayContaining([
+        expect.objectContaining({
+          employeeId: 'E001',
+          name: 'Kim',
+        }),
+      ])
+    )
+    expect(setSelectedVersionIdMock).toHaveBeenCalledWith(null)
+    expect(setPreviewVersionIdMock).toHaveBeenCalledWith(null)
+  })
+
+  it('shows an error instead of silently no-op when the confirmation dialog is unavailable', async () => {
+    ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = undefined
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-123',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-123',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
+    await flushPromises()
+
+    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
+    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   })
 })

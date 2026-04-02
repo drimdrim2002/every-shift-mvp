@@ -10,16 +10,32 @@ const props = defineProps<{
   previewVersion: ScheduleVersionSummary | null;
   selectedVersion: ScheduleVersionSummary | null;
   primaryAction: SchedulePrimaryAction;
+  supportCopy: string | null;
   selecting: boolean;
+  acting: boolean;
 }>();
 
 const emit = defineEmits<{
-  (event: 'select-preview'): void;
+  (event: 'primary-action'): void;
 }>();
 
-const canSelectPreview = computed(() => props.primaryAction.kind === 'select');
+const hasPrimaryAction = computed(() => props.primaryAction.kind !== 'none');
+const isPrimaryActionDisabled = computed(() => {
+  return props.selecting || props.acting || !!props.primaryAction.disabledReason;
+});
 const primaryActionLabel = computed(() => {
   return formatSchedulePrimaryActionLabel(props.primaryAction.kind, props.primaryAction.label);
+});
+const primaryActionPendingLabel = computed(() => {
+  if (props.primaryAction.kind === 'select' && props.selecting) {
+    return '선택 중...';
+  }
+
+  if (props.acting) {
+    return '처리 중...';
+  }
+
+  return primaryActionLabel.value;
 });
 
 function formatVersionLabel(version: ScheduleVersionSummary | null) {
@@ -62,21 +78,21 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
           {{ primaryActionLabel }}
         </p>
         <p
-          v-if="primaryAction.disabledReason"
+          v-if="supportCopy"
           class="text-xs text-amber-700"
         >
-          {{ primaryAction.disabledReason }}
+          {{ supportCopy }}
         </p>
 
         <button
-          v-if="canSelectPreview"
-          data-test="select-preview-button"
+          v-if="hasPrimaryAction"
+          data-test="primary-action-button"
           type="button"
           class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-          :disabled="selecting || !!primaryAction.disabledReason"
-          @click="emit('select-preview')"
+          :disabled="isPrimaryActionDisabled"
+          @click="emit('primary-action')"
         >
-          {{ selecting ? '선택 중...' : primaryActionLabel }}
+          {{ primaryActionPendingLabel }}
         </button>
       </div>
     </div>
