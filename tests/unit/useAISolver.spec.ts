@@ -218,4 +218,48 @@ describe('useAISolver', () => {
       failureContext: null,
     });
   });
+
+  it('preserves solver failure reason, type, and context for the failure panel', async () => {
+    vi.mocked(getSolverStatus).mockResolvedValue({
+      execution_id: 'exec-fail',
+      status: 'FAILED',
+      error_message: 'solver crashed',
+      failure_type: 'worker_crash',
+      failure_context: {
+        traceId: 'trace-123',
+        workerId: 'worker-9',
+      },
+      score: null,
+      result: null,
+    });
+    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('error');
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-5',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'solver crashed',
+    });
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-fail', 'version-5');
+
+    await vi.advanceTimersByTimeAsync(10000);
+    await flushPromises();
+
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-5', {
+      status: 'failed',
+      solverExecutionId: 'exec-fail',
+      assignments: [],
+      score: null,
+      failureReason: 'solver crashed',
+      failureType: 'worker_crash',
+      failureContext: {
+        traceId: 'trace-123',
+        workerId: 'worker-9',
+      },
+    });
+  });
 });

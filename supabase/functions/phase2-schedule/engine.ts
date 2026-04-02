@@ -146,6 +146,28 @@ function getFailureSummary(
   return fallback;
 }
 
+function buildInfeasibilityArtifact(
+  resultStatus: ScheduleEvaluationResultStatus,
+  failureReason: string | null | undefined,
+  failureType: string | null | undefined,
+  failureContext: Record<string, unknown> | null | undefined
+): ScheduleInfeasibility | null {
+  if (resultStatus !== 'infeasible' && resultStatus !== 'solve_failed') {
+    return null;
+  }
+
+  return {
+    summary: getFailureSummary(
+      failureReason,
+      resultStatus === 'solve_failed'
+        ? 'Solver execution failed for this version.'
+        : 'No feasible schedule exists for the current input.'
+    ),
+    reason: failureType ?? resultStatus,
+    details: failureContext ?? {},
+  };
+}
+
 function buildGateForResult(
   resultStatus: ScheduleEvaluationResultStatus
 ): ScheduleFinalizationGate {
@@ -409,17 +431,12 @@ export async function evaluateScheduleTrust(
   const forcedResultStatus = input.forcedResultStatus ?? null;
   const resultStatus: ScheduleEvaluationResultStatus = forcedResultStatus
     ?? (proofSummary.staffingShortfalls > 0 ? 'review_blocked' : 'passed');
-  const infeasibility: ScheduleInfeasibility | null =
-    resultStatus === 'infeasible'
-      ? {
-          summary: getFailureSummary(
-            input.failureReason,
-            'No feasible schedule exists for the current input.'
-          ),
-          reason: input.failureType ?? 'infeasible',
-          details: input.failureContext ?? {},
-        }
-      : null;
+  const infeasibility = buildInfeasibilityArtifact(
+    resultStatus,
+    input.failureReason,
+    input.failureType,
+    input.failureContext
+  );
   const finalizationGate = buildGateForResult(resultStatus);
 
   return {
