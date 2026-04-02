@@ -3,6 +3,21 @@
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
+      <VersionCompareSurface
+        :versions="compareVersions"
+        :preview-version-id="previewVersionId"
+        :selected-version-id="selectedVersionId"
+        @preview-change="handlePreviewVersionChange"
+      />
+
+      <VersionActionArea
+        :preview-version="previewVersionSummary"
+        :selected-version="selectedVersionSummary"
+        :primary-action="primaryAction"
+        :selecting="isSelectingPreview"
+        @select-preview="handleSelectPreviewVersion"
+      />
+
       <!-- 상태 표시 -->
       <div class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4">
         <div class="flex items-center gap-4">
@@ -196,13 +211,15 @@ import { NCard, NButton, NBadge, NProgress, NAlert, NSlider } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
+import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import VersionActionArea from '@/components/schedule/review/VersionActionArea.vue';
+import VersionCompareSurface from '@/components/schedule/review/VersionCompareSurface.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
   createPhase2ScheduleVersion,
-  getPhase2ScheduleCompare,
   patchPhase2ScheduleVersionAssignments,
   getScheduleStatus,
   getScheduleVersionAssignments,
@@ -218,19 +235,20 @@ import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
+import { buildStep5Route } from '@/utils/scheduleVersionResolver';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type {
   AssignmentMap,
   ConstraintMap,
   CommentMap,
+  SchedulePrimaryAction,
   ScheduleVersionStatus,
-  ScheduleVersionSummary,
 } from '@/types/schedule';
 
 const route = useRoute();
 const router = useRouter();
 const solver = useAISolver();
+const hub = useScheduleReviewHub();
 const grid = useScheduleGrid();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
@@ -245,8 +263,10 @@ const routeScheduleId = computed(() => {
   return typeof paramId === 'string' && paramId.length > 0 ? paramId : null;
 });
 const scheduleId = computed(() => routeScheduleId.value ?? scheduleStore.basicInfo?.scheduleId ?? null);
-const previewVersionId = computed(() => scheduleStore.previewVersionId);
-const compareVersions = ref<ScheduleVersionSummary[]>([]);
+const previewVersionId = computed(() => hub.previewVersionId.value);
+const selectedVersionId = computed(() => hub.selectedVersionId.value);
+const compareVersions = hub.versions;
+const review = computed(() => hub.review.value);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -258,6 +278,7 @@ const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
+const isSelectingPreview = computed(() => hub.isSelecting.value);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -265,6 +286,12 @@ const previousMonthAssignments = ref<AssignmentMap>({});
 const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
+const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
+  kind: 'none',
+  targetVersionId: null,
+  label: '선택 가능한 작업이 없습니다.',
+  disabledReason: null,
+};
 
 function getRequestedPreviewVersionId(): string | null {
   const routeQueryVersion = route.query.version;
@@ -293,27 +320,6 @@ function ensureScheduleId(): string {
 
   syncScheduleIdToStore(currentScheduleId);
   return currentScheduleId;
-}
-
-async function syncVersionStateFromCompare(requestedPreviewVersionId: string | null = getRequestedPreviewVersionId()) {
-  const currentScheduleId = ensureScheduleId();
-  const compareResponse = await getPhase2ScheduleCompare(currentScheduleId);
-  syncScheduleIdToStore(compareResponse.scheduleId);
-  const resolvedState = resolveStep5VersionState(
-    compareResponse,
-    requestedPreviewVersionId
-  );
-
-  compareVersions.value = resolvedState.versions;
-
-  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-
-  if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
-    await router.replace(buildStep5Route(compareResponse.scheduleId, resolvedState.previewVersionId));
-  }
-
-  return resolvedState;
 }
 
 interface ScheduleStatusRow {
@@ -381,7 +387,24 @@ const showIntermediateWaitingHint = computed(() => {
 });
 const previewVersionSummary = computed(() => {
   if (!previewVersionId.value) return null;
-  return compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
+  const comparedVersion = compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
+  const reviewedVersion = review.value?.version?.id === previewVersionId.value ? review.value.version : null;
+
+  if (reviewedVersion && comparedVersion) {
+    return {
+      ...reviewedVersion,
+      ...comparedVersion,
+    };
+  }
+
+  return reviewedVersion ?? comparedVersion;
+});
+const selectedVersionSummary = computed(() => {
+  if (!selectedVersionId.value) return null;
+  return compareVersions.value.find((version) => version.id === selectedVersionId.value) ?? null;
+});
+const primaryAction = computed(() => {
+  return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
 const previewVersionExecutionId = computed(() => {
   return previewVersionSummary.value?.activeSolverExecutionId ?? null;
@@ -389,6 +412,10 @@ const previewVersionExecutionId = computed(() => {
 const canRecoverSolverState = computed(() => {
   return previewVersionStatus.value === 'solving';
 });
+
+function getActiveSolvingVersionId(): string | null {
+  return scheduleStore.compareMatrix?.activeSolvingVersionId ?? null;
+}
 
 const shiftIdToCodeMap = computed(() => {
   const map = new Map<string, string>();
@@ -874,6 +901,46 @@ async function buildSolverRequest() {
   );
 }
 
+async function syncPreviewWorkspace(options: {
+  syncOriginal?: boolean;
+  clearChanges?: boolean;
+  forceAssignmentSync?: boolean;
+} = {}) {
+  const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
+  applyScheduleStatus(schedule);
+  await loadPreferencesForDisplay();
+
+  const shouldResumePolling = (
+    getActiveSolvingVersionId() !== null
+    && getActiveSolvingVersionId() === previewVersionId.value
+    && Boolean(schedule.solver_execution_id)
+  );
+
+  if (shouldResumePolling) {
+    await loadCurrentAssignments({
+      syncOriginal: false,
+      clearChanges: false,
+      ...options,
+    });
+    const resumed = await resumePollingFromSchedule(schedule);
+    if (resumed) {
+      return;
+    }
+  }
+
+  solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
+
+  if (
+    (solver.status.value === 'complete' || solver.status.value === 'changed')
+    && canMutatePreviewVersion.value
+    && previewVersionId.value
+  ) {
+    await refreshPreferenceResolutionByVersion(previewVersionId.value);
+  }
+
+  await loadCurrentAssignments(options);
+}
+
 async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
@@ -900,12 +967,9 @@ async function handleStartSolver() {
     if (readErrorCode(error) === 'another_version_solving') {
       showError('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.');
       try {
-        const resolvedState = await syncVersionStateFromCompare();
-        if (resolvedState.activeSolvingVersionId !== previewVersionId.value) {
-          const previewStatus =
-            resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)
-              ?.status ?? 'draft';
-          solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
+        await hub.hydrate();
+        if (getActiveSolvingVersionId() !== previewVersionId.value) {
+          solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
         }
         await loadCurrentAssignments({
           syncOriginal: true,
@@ -928,14 +992,10 @@ async function syncSolverStateInternal() {
   solver.stopPolling();
   stopAssignmentsRefresh();
 
-  const resolvedState = await syncVersionStateFromCompare();
-  const currentPreviewVersionId = scheduleStore.previewVersionId;
-  const currentPreviewStatus = resolvedState.versions.find(
-    (version) => version.id === currentPreviewVersionId
-  )?.status ?? 'draft';
-  const currentExecutionId = resolvedState.versions.find(
-    (version) => version.id === currentPreviewVersionId
-  )?.activeSolverExecutionId ?? null;
+  await hub.hydrate();
+  const currentPreviewVersionId = previewVersionId.value;
+  const currentPreviewStatus = previewVersionStatus.value;
+  const currentExecutionId = previewVersionExecutionId.value;
 
   if (currentPreviewStatus === 'solving' && currentExecutionId && currentPreviewVersionId) {
     solver.status.value = 'running';
@@ -989,15 +1049,13 @@ async function handleForceResetSolverState() {
     solver.stopPolling();
     stopAssignmentsRefresh();
 
-    const resolvedState = await syncVersionStateFromCompare();
-    const currentPreviewVersionId = scheduleStore.previewVersionId;
+    await hub.hydrate();
+    const currentPreviewVersionId = previewVersionId.value;
     if (!currentPreviewVersionId) {
       throw new Error('미리보기 버전 정보가 없습니다.');
     }
 
-    const currentPreview = resolvedState.versions.find(
-      (version) => version.id === currentPreviewVersionId
-    );
+    const currentPreview = compareVersions.value.find((version) => version.id === currentPreviewVersionId);
     if (!currentPreview || currentPreview.status !== 'solving') {
       solver.status.value = mapVersionStatusToSolverStatus(currentPreview?.status ?? 'draft');
       resetRealtimeState();
@@ -1029,12 +1087,8 @@ async function handleForceResetSolverState() {
       failureReason: 'manual_recovery_reset',
     });
 
-    const refreshedState = await syncVersionStateFromCompare();
-    const refreshedPreviewVersionId = scheduleStore.previewVersionId;
-    const refreshedPreviewStatus = refreshedState.versions.find(
-      (version) => version.id === refreshedPreviewVersionId
-    )?.status ?? 'draft';
-    solver.status.value = mapVersionStatusToSolverStatus(refreshedPreviewStatus);
+    await hub.hydrate();
+    solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
     resetRealtimeState();
 
     await loadPreferencesForDisplay();
@@ -1080,46 +1134,11 @@ onMounted(async () => {
   }
 
   try {
-    const resolvedState = await syncVersionStateFromCompare();
-
+    await hub.hydrate();
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);
-    await loadPreferencesForDisplay();
-
-    const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
-    applyScheduleStatus(schedule);
-
-    const previewStatus =
-      resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)?.status ??
-      'draft';
-    const shouldResumePolling =
-      resolvedState.activeSolvingVersionId !== null &&
-      resolvedState.activeSolvingVersionId === previewVersionId.value &&
-      Boolean(schedule.solver_execution_id);
-
-    if (shouldResumePolling) {
-      await loadCurrentAssignments({
-        syncOriginal: false,
-        clearChanges: false,
-      });
-      const resumed = await resumePollingFromSchedule(schedule);
-      if (resumed) {
-        return;
-      }
-    }
-
-    solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
-
-    if (
-      (solver.status.value === 'complete' || solver.status.value === 'changed')
-      && canMutatePreviewVersion.value
-      && previewVersionId.value
-    ) {
-      await refreshPreferenceResolutionByVersion(previewVersionId.value);
-    }
-
-    await loadCurrentAssignments({
+    await syncPreviewWorkspace({
       syncOriginal: true,
       clearChanges: true,
     });
@@ -1152,7 +1171,7 @@ watch(() => solver.status.value, async (newStatus) => {
 
   if (newStatus === 'complete' || newStatus === 'changed' || newStatus === 'created' || newStatus === 'error') {
     try {
-      await syncVersionStateFromCompare();
+      await hub.hydrate();
       await loadCurrentAssignments({
         syncOriginal: true,
         clearChanges: true,
@@ -1189,6 +1208,57 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
 
 function handleBack() {
   router.push('/schedule/step4');
+}
+
+async function handlePreviewVersionChange(versionId: string) {
+  if (versionId === previewVersionId.value) {
+    return;
+  }
+
+  const switchPreviewVersion = async () => {
+    try {
+      solver.stopPolling();
+      stopAssignmentsRefresh();
+      resetRealtimeState();
+
+      await hub.setPreviewVersion(versionId);
+      await syncPreviewWorkspace({
+        syncOriginal: true,
+        clearChanges: true,
+        forceAssignmentSync: true,
+      });
+    } catch (error) {
+      console.warn('미리보기 버전 전환 중 오류:', error);
+      showError(error instanceof Error ? error.message : '버전 미리보기 전환 중 오류가 발생했습니다.');
+    }
+  };
+
+  if (changedCells.value.size > 0) {
+    window.$dialog?.warning({
+      title: '저장되지 않은 변경사항',
+      content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 버전을 전환하면 현재 수정 내용이 사라집니다.`,
+      positiveText: '버전 전환',
+      negativeText: '계속 편집',
+      onPositiveClick: () => switchPreviewVersion(),
+    });
+    return;
+  }
+
+  try {
+    await switchPreviewVersion();
+  } catch (error) {
+    console.warn('미리보기 버전 전환 중 오류:', error);
+    showError(error instanceof Error ? error.message : '버전 미리보기 전환 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleSelectPreviewVersion() {
+  try {
+    await hub.selectPreviewVersion();
+  } catch (error) {
+    console.warn('버전 선택 중 오류:', error);
+    showError(error instanceof Error ? error.message : '버전 선택 중 오류가 발생했습니다.');
+  }
 }
 
 function isCurrentMonthDate(date: string) {
@@ -1263,9 +1333,10 @@ async function handleRegenerate() {
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
     compareVersions.value = createResponse.versions;
-    await router.replace(buildStep5Route(currentScheduleId, createResponse.createdVersionId));
+    await hub.setPreviewVersion(createResponse.createdVersionId);
 
     await handleStartSolver();
+    await hub.hydrate();
   } catch (error) {
     console.warn('후보 버전 생성 중 오류:', error);
     showError(error instanceof Error ? error.message : '후보 버전 생성 중 오류가 발생했습니다.');
@@ -1358,10 +1429,7 @@ function handleSave() {
           await router.replace(buildStep5Route(targetScheduleId, targetVersionId));
         }
 
-        await syncVersionStateFromCompare(targetVersionId);
-        if (scheduleStore.previewVersionId !== targetVersionId) {
-          scheduleStore.setPreviewVersionId(targetVersionId);
-        }
+        await hub.hydrate();
         await loadPreferencesForDisplay();
         await loadCurrentAssignments({
           syncOriginal: true,
