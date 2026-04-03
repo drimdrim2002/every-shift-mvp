@@ -1,103 +1,224 @@
-import type { Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 
-/**
- * E2E 테스트 헬퍼 함수
- */
-
-/**
- * 로그인 헬퍼
- */
-export async function login(page: Page, email?: string, password?: string) {
-  const testEmail = email || process.env.TEST_USER_EMAIL || 'test@example.com'
-  const testPassword = password || process.env.TEST_USER_PASSWORD || 'password123'
-
-  await page.goto('/login')
-  await page.fill('input[type="email"]', testEmail)
-  await page.fill('input[type="password"]', testPassword)
-  await page.click('button[type="submit"]')
-
-  // 로그인 완료 대기
-  await page.waitForURL('/schedule/step1')
+type TestCredentials = {
+  email: string
+  password: string
 }
 
-/**
- * Step 1: 기본 정보 설정
- */
-export async function completeStep1(page: Page, monthIndex = 0) {
-  // Step 1 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 기본 정보 설정')
-
-  // 조직 정보 로드 대기
-  await page.waitForSelector('text=조직 정보 확인')
-
-  // 월 선택
-  await page.click('.n-select')
-  await page.waitForSelector('.n-select-menu')
-
-  // 지정된 월 선택 (기본값: 첫 번째 옵션)
-  const options = page.locator('.n-select-menu .n-base-select-option')
-  await options.nth(monthIndex).click()
-
-  // 선택된 월 저장
-  const selectedMonth = await page.locator('.n-select').textContent()
-
-  // 다음 단계 버튼 클릭
-  await page.click('button:has-text("다음 단계")')
-
-  // Step 2로 이동 확인
-  await page.waitForURL('/schedule/step2')
-
-  return selectedMonth
+type DayRequirement = {
+  dayOfWeek: number
+  D?: number
+  E?: number
+  N?: number
 }
 
-/**
- * Step 2: 사이트 정보 설정
- */
-export async function completeStep2(
-  page: Page,
-  requirements: {
-    dayOfWeek: number // 0-6 (일-토)
-    D: number
-    E: number
-    N: number
-    O: number
-  }[]
-) {
-  // Step 2 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 사이트 정보 설정')
+type ExistingScheduleOptions = {
+  month?: string | null
+  preferCompleted?: boolean
+}
 
-  const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
 
-  // 각 요일별 필요 인력 설정
-  for (const req of requirements) {
-    const row = page.locator('tr').filter({ hasText: dayNames[req.dayOfWeek] })
+export function getRequiredTestCredentials(): TestCredentials {
+  const email = process.env.TEST_USER_EMAIL?.trim()
+  const password = process.env.TEST_USER_PASSWORD?.trim()
 
-    // D, E, N, O 순서대로 입력
-    await row.locator('input').nth(0).fill(String(req.D))
-    await row.locator('input').nth(1).fill(String(req.E))
-    await row.locator('input').nth(2).fill(String(req.N))
-    await row.locator('input').nth(3).fill(String(req.O))
+  if (!email || !password) {
+    throw new Error(
+      'Missing TEST_USER_EMAIL or TEST_USER_PASSWORD. Set them in the environment or .env.test before running Playwright.'
+    )
   }
 
-  // 다음 단계 버튼 클릭
-  await page.click('button:has-text("다음 단계")')
-
-  // Step 3로 이동 확인
-  await page.waitForURL('/schedule/step3')
+  return { email, password }
 }
 
-/**
- * Step 3: 직원 정보 화면에서 다음 단계로 이동
- */
+export async function login(page: Page, credentials = getRequiredTestCredentials()) {
+  await page.goto('/login')
+  await expect(page).toHaveURL(/\/login$/)
+
+  await page
+    .locator('[data-test="login-email"] input, input[placeholder="admin@everyshift.com"]')
+    .first()
+    .fill(credentials.email)
+  await page
+    .locator('[data-test="login-password"] input, input[type="password"]')
+    .first()
+    .fill(credentials.password)
+  await page
+    .locator('[data-test="login-submit"], button:has-text("로그인")')
+    .first()
+    .click()
+
+  await waitForDashboard(page)
+}
+
+export async function waitForDashboard(page: Page) {
+  await page.waitForURL((url) => url.pathname === '/')
+  await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
+  await page.waitForLoadState('networkidle')
+}
+
+export async function startNewScheduleFromDashboard(page: Page) {
+  await page.goto('/')
+  await waitForDashboard(page)
+  await waitForDashboardScheduleState(page)
+
+  const existingMonths = (await getDashboardScheduleMonthLabels(page).allTextContents())
+    .map(normalizeScheduleMonth)
+    .filter(Boolean)
+  const existingMonthSet = new Set(existingMonths)
+
+  await page
+    .locator(
+      '[data-test="dashboard-create-schedule"], button:has-text("새 근무표 생성"), button:has-text("첫 근무표 생성하기")'
+    )
+    .first()
+    .click()
+
+  const monthSelect = page.locator('[data-test="dashboard-month-select"], .n-base-selection').last()
+  await expect(monthSelect).toBeVisible()
+  await monthSelect.click()
+
+  const optionLocator = page.locator('.n-base-select-option')
+  await expect(optionLocator.first()).toBeVisible()
+
+  const optionTexts = (await optionLocator.allTextContents())
+    .map((text) => text.trim())
+    .filter(Boolean)
+  const targetMonth = optionTexts.find((month) => !existingMonthSet.has(month))
+
+  if (targetMonth) {
+    await optionLocator.filter({ hasText: targetMonth }).first().click()
+    await page.getByRole('button', { name: '확인' }).click()
+
+    await page.waitForURL(/\/schedule\/step1$/)
+    await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+    return targetMonth
+  }
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '취소' }).click()
+
+  const reusableMonth = existingMonths.find((month) => month !== (process.env.TEST_REVIEW_HUB_MONTH?.trim() || '2026-03'))
+  if (!reusableMonth) {
+    throw new Error(
+      `No unused schedule month is available and no reusable editable month was found. Existing months: ${existingMonths.join(', ')}`
+    )
+  }
+
+  const reusableIndex = existingMonths.indexOf(reusableMonth)
+  await page.getByRole('button', { name: '수정' }).nth(reusableIndex).click()
+  await page.waitForURL(/\/schedule\/step1$/)
+  await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+  return reusableMonth
+}
+
+export async function openExistingScheduleFromDashboard(
+  page: Page,
+  options: ExistingScheduleOptions = {}
+) {
+  await page.goto('/')
+  await waitForDashboard(page)
+  await waitForDashboardScheduleState(page)
+
+  const { month = null, preferCompleted = true } = options
+  const targetCard = await resolveExistingScheduleCard(page, month, preferCompleted)
+
+  await targetCard.click()
+  await page.waitForURL(/\/schedule\/step5\/.+/)
+
+  return page.url()
+}
+
+async function resolveExistingScheduleCard(
+  page: Page,
+  month: string | null,
+  preferCompleted: boolean
+) {
+  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
+  const availableTitles = (await scheduleMonthLabels.allTextContents()).map(normalizeScheduleMonth)
+
+  if (month) {
+    const matched = scheduleMonthLabels.filter({ hasText: `${month} 근무표` }).first()
+    if ((await matched.count()) === 0) {
+      throw new Error(
+        `Could not find schedule month ${month}. Available months: ${availableTitles.join(', ')}`
+      )
+    }
+    return matched
+  }
+
+  if (preferCompleted) {
+    const completed = page
+      .locator('[data-test="schedule-card"], .n-card')
+      .filter({ hasText: '완료' })
+      .locator('[data-test="schedule-card-month"], h3')
+      .first()
+    if ((await completed.count()) > 0) {
+      return completed
+    }
+  }
+
+  const firstCard = scheduleMonthLabels.first()
+  if ((await firstCard.count()) === 0) {
+    throw new Error('No schedule card is available on the dashboard.')
+  }
+  return firstCard
+}
+
+function getDashboardScheduleMonthLabels(page: Page): Locator {
+  return page.locator('[data-test="schedule-card-month"], h3').filter({ hasText: '근무표' })
+}
+
+async function waitForDashboardScheduleState(page: Page) {
+  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
+  const emptyState = page.getByText('생성된 근무표가 없습니다')
+
+  await Promise.any([
+    scheduleMonthLabels.first().waitFor({ state: 'visible', timeout: 10_000 }),
+    emptyState.waitFor({ state: 'visible', timeout: 10_000 }),
+  ]).catch(() => undefined)
+}
+
+function normalizeScheduleMonth(text: string) {
+  return text.replace(' 근무표', '').trim()
+}
+
+export async function completeStep1(page: Page) {
+  await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+  await expect(page.getByText('계획월:')).toBeVisible()
+
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL(/\/schedule\/step2$/)
+}
+
+export async function completeStep2(page: Page, requirements: DayRequirement[]) {
+  await expect(page.getByText('근무표 생성 - 요일별 인력 설정')).toBeVisible()
+
+  for (const requirement of requirements) {
+    const row = page.locator('tr').filter({ hasText: dayNames[requirement.dayOfWeek] }).first()
+    await expect(row).toBeVisible()
+
+    const inputValues = [requirement.D, requirement.E, requirement.N]
+    for (const [index, value] of inputValues.entries()) {
+      if (typeof value !== 'number') {
+        continue
+      }
+
+      await row.locator('input').nth(index).fill(String(value))
+    }
+  }
+
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL(/\/schedule\/step3$/)
+}
+
 export async function completeStep3Employees(page: Page) {
-  await page.waitForSelector('text=근무표 생성 - 직원 정보 입력')
-  await page.click('button:has-text("다음 단계")')
-  await page.waitForURL('/schedule/step4')
+  await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL(/\/schedule\/step4$/)
 }
 
-/**
- * Step 4: 초기 데이터 입력
- */
 export async function completeStep4InitialData(
   page: Page,
   assignments: {
@@ -106,69 +227,34 @@ export async function completeStep4InitialData(
     shift: 'O'
   }[]
 ) {
-  await page.waitForURL('/schedule/step4')
-  await page.waitForSelector('text=월 근무 조정 일정 입력')
-
-  await page.waitForSelector('table')
+  await page.waitForURL(/\/schedule\/step4$/)
+  await expect(page.getByText(/월 근무 조정 일정 입력/)).toBeVisible()
+  await expect(page.locator('table').first()).toBeVisible()
 
   for (const assignment of assignments) {
     const row = page.locator('tbody tr').nth(assignment.rowIndex)
-    const cell = row.locator('td').nth(assignment.colIndex + 1) // +1은 이름 컬럼 건너뛰기
-
+    const cell = row.locator('.constraint-selector').nth(assignment.colIndex)
     await cell.click()
-    await page.waitForTimeout(100)
+    await expect(cell).toContainText(assignment.shift)
   }
 
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(500)
 }
 
-/**
- * Step 4 → Step 5 이동
- */
 export async function goToStep5(page: Page, timeout = 30000) {
-  await page.click('button:has-text("다음 단계")')
+  await page.getByRole('button', { name: /다음 단계/ }).click()
   await page.waitForURL(/\/schedule\/step5\/.+/, { timeout })
 }
 
-/**
- * Step 5: AI 생성 시작
- */
-export async function startAISolver(page: Page) {
-  await page.waitForSelector('text=근무표 생성 - 결과 확인')
-  await page.click('button:has-text("근무표 생성 (AI)")')
-}
-
-/**
- * Step 5: 결과 확인
- */
 export async function verifyStep5ReviewHub(page: Page) {
-  await page.waitForSelector('text=근무표 생성 - 결과 확인')
-  await page.waitForSelector('[data-test="version-compare-surface"]')
-  await page.waitForSelector('[data-test="review-tab-grid"]')
-  await page.waitForSelector('[data-test="review-tab-proof"]')
-  await page.waitForSelector('[data-test="review-tab-offRequests"]')
-  return await page.locator('[data-test="version-compare-surface"]').isVisible()
+  await expect(page.getByText('근무표 생성 - 결과 확인')).toBeVisible()
+  await expect(page.getByTestId('version-compare-surface')).toBeVisible()
+  await expect(page.getByTestId('review-tab-grid')).toBeVisible()
+  await expect(page.getByTestId('review-tab-proof')).toBeVisible()
+  await expect(page.getByTestId('review-tab-offRequests')).toBeVisible()
+  return page.getByTestId('version-compare-surface').isVisible()
 }
 
-/**
- * 결과 저장
- */
-export async function saveSchedule(page: Page) {
-  // 저장 버튼 클릭
-  await page.click('button:has-text("저장")')
-
-  // 저장 완료 메시지 대기
-  await page.waitForSelector('.n-message', { timeout: 5000 })
-
-  // 메시지 내용 확인
-  const messageText = await page.locator('.n-message').textContent()
-
-  return messageText?.includes('저장')
-}
-
-/**
- * LocalStorage에서 임시 저장 데이터 가져오기
- */
 export async function getTempScheduleFromStorage(page: Page) {
   const localStorage = await page.evaluate(() => {
     const scopedKey = Object.keys(window.localStorage).find((key) =>
@@ -184,32 +270,23 @@ export async function getTempScheduleFromStorage(page: Page) {
   return localStorage ? JSON.parse(localStorage) : null
 }
 
-/**
- * LocalStorage 초기화
- */
 export async function clearLocalStorage(page: Page) {
   await page.evaluate(() => {
     window.localStorage.clear()
   })
 }
 
-/**
- * 특정 셀의 시프트 값 가져오기
- */
 export async function getCellShift(page: Page, rowIndex: number, colIndex: number) {
   const row = page.locator('tbody tr').nth(rowIndex)
-  const cell = row.locator('td').nth(colIndex + 1) // +1은 이름 컬럼 건너뛰기
+  const cell = row.locator('.constraint-selector').nth(colIndex)
 
-  return await cell.textContent()
+  return cell.textContent()
 }
 
-/**
- * 에러 메시지 확인
- */
 export async function getErrorMessage(page: Page) {
   try {
     await page.waitForSelector('.n-message', { timeout: 5000 })
-    return await page.locator('.n-message').textContent()
+    return page.locator('.n-message').textContent()
   } catch {
     return null
   }

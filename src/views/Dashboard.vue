@@ -7,6 +7,7 @@
             근무표 관리
           </h1>
           <n-button
+            data-test="dashboard-create-schedule"
             type="primary"
             @click="handleCreateNew"
           >
@@ -44,6 +45,7 @@
           새 근무표를 생성하여 시작하세요
         </p>
         <n-button
+          data-test="dashboard-create-schedule"
           type="primary"
           size="large"
           @click="handleCreateNew"
@@ -60,6 +62,7 @@
         <n-card
           v-for="schedule in schedules"
           :key="schedule.id"
+          data-test="schedule-card"
           :bordered="true"
           class="cursor-pointer transition-shadow hover:shadow-md"
           @click="handleViewSchedule(schedule)"
@@ -67,10 +70,14 @@
           <div class="flex items-center justify-between">
             <div class="flex-1">
               <div class="flex items-center gap-3">
-                <h3 class="text-lg font-semibold">
+                <h3
+                  data-test="schedule-card-month"
+                  class="text-lg font-semibold"
+                >
                   {{ schedule.month }} 근무표
                 </h3>
                 <n-badge
+                  data-test="schedule-card-status"
                   :value="getStatusText(schedule.status)"
                   :type="getStatusType(schedule.status)"
                 />
@@ -105,6 +112,7 @@
     <!-- 월 선택 모달 -->
     <n-modal
       v-model:show="showMonthModal"
+      data-test="dashboard-month-modal"
       preset="dialog"
       title="근무표 생성"
       positive-text="확인"
@@ -123,6 +131,7 @@
           >
             <n-select
               v-model:value="monthForm.month"
+              data-test="dashboard-month-select"
               :options="monthOptions"
               placeholder="근무표 생성할 월을 선택하세요"
             />

@@ -15,6 +15,7 @@
         >
           <n-input
             v-model:value="formValue.email"
+            data-test="login-email"
             placeholder="admin@everyshift.com"
             @keydown.enter="handleLogin"
           />
@@ -25,6 +26,7 @@
         >
           <n-input
             v-model:value="formValue.password"
+            data-test="login-password"
             type="password"
             show-password-on="click"
             placeholder="비밀번호 입력"
@@ -32,6 +34,7 @@
           />
         </n-form-item>
         <n-button
+          data-test="login-submit"
           type="primary"
           block
           :loading="authStore.loading"
