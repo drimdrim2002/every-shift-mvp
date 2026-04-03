@@ -516,6 +516,45 @@ describe('Step5Result', () => {
     })
   })
 
+  it('navigates to dashboard directly when the go-dashboard button is clicked', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="go-dashboard-button"]').trigger('click')
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith('/')
+  })
+
+  it('requires confirmation before navigating to dashboard when there are unsaved changes', async () => {
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: vi.fn(),
+      warning: warningMock,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-test="go-dashboard-button"]').trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledTimes(1)
+    expect(replaceMock).not.toHaveBeenCalledWith('/')
+
+    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => void | Promise<void>
+    }
+    await dialogConfig.onPositiveClick?.()
+
+    expect(replaceMock).toHaveBeenCalledWith('/')
+  })
+
   it('renders the compare surface above the result grid for all preview states', async () => {
     const wrapper = createWrapper()
     await flushPromises()

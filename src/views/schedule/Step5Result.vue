@@ -158,12 +158,21 @@
 
       <!-- 버튼 -->
       <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
-        <n-button
-          size="medium"
-          @click="handleBack"
-        >
-          ← 이전
-        </n-button>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <n-button
+            size="medium"
+            @click="handleBack"
+          >
+            ← 이전
+          </n-button>
+          <n-button
+            size="medium"
+            data-test="go-dashboard-button"
+            @click="handleGoDashboard"
+          >
+            근무표 관리로
+          </n-button>
+        </div>
 
         <n-button
           v-if="canCancel"
@@ -1277,6 +1286,23 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
 
 function handleBack() {
   router.push('/schedule/step4');
+}
+
+function handleGoDashboard() {
+  if (changedCells.value.size === 0) {
+    router.replace('/');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '저장되지 않은 변경사항',
+    content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 근무표 관리로 이동하면 현재 수정 내용이 사라집니다.`,
+    positiveText: '이동',
+    negativeText: '계속 편집',
+    onPositiveClick: () => {
+      router.replace('/');
+    },
+  });
 }
 
 function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
