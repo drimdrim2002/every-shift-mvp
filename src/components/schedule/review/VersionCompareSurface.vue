@@ -6,6 +6,7 @@ const props = defineProps<{
   versions: ScheduleVersionSummary[];
   previewVersionId: string | null;
   selectedVersionId: string | null;
+  lockedVersionId?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -22,6 +23,10 @@ function formatPercent(value: number | null) {
 }
 
 function handlePreviewChange(versionId: string) {
+  if (props.lockedVersionId && versionId !== props.lockedVersionId) {
+    return;
+  }
+
   if (versionId === props.previewVersionId) {
     return;
   }
@@ -56,6 +61,7 @@ function handlePreviewChange(versionId: string) {
         :class="version.id === previewVersionId
           ? 'border-sky-500 ring-2 ring-sky-100'
           : 'border-slate-200 hover:border-slate-300'"
+        :disabled="Boolean(lockedVersionId) && version.id !== lockedVersionId"
         :data-test="`preview-${version.id}`"
         @click="handlePreviewChange(version.id)"
       >
@@ -80,6 +86,12 @@ function handlePreviewChange(versionId: string) {
             class="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700"
           >
             확정됨
+          </span>
+          <span
+            v-if="lockedVersionId && version.id === lockedVersionId"
+            class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+          >
+            잠김
           </span>
         </div>
 

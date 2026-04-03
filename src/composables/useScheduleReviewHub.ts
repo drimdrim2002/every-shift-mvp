@@ -102,16 +102,29 @@ export function useScheduleReviewHub() {
     isLoading.value = true;
 
     try {
-      const scheduleId = getScheduleId();
-      scheduleStore.setPreviewVersionId(versionId);
-      await router.replace(buildStep5Route(scheduleId, versionId));
-      await loadReview(versionId);
+      const resolvedState = await loadCompare(versionId);
+      const currentPreviewQuery = getQueryPreviewVersionId(route.query.version);
+
+      if (
+        resolvedState.previewVersionId
+        && resolvedState.previewVersionId !== currentPreviewQuery
+      ) {
+        await router.replace(
+          buildStep5Route(getScheduleId(), resolvedState.previewVersionId)
+        );
+      }
+
+      await loadReview(resolvedState.previewVersionId);
     } finally {
       isLoading.value = false;
     }
   }
 
   async function selectPreviewVersion() {
+    if (scheduleStore.compareMatrix?.finalizedVersionId) {
+      return;
+    }
+
     const versionId = scheduleStore.previewVersionId;
     if (!versionId) {
       return;

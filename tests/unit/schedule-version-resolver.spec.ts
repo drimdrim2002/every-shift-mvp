@@ -108,6 +108,24 @@ describe('scheduleVersionResolver', () => {
     })
   })
 
+  it('canonicalizes Step5 preview to the finalized version when the month is locked', () => {
+    expect(
+      resolveStep5VersionState(
+        {
+          ...compareResponse,
+          finalizedVersionId: 'version-2',
+        },
+        'version-1'
+      )
+    ).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: compareResponse.versions,
+      shouldCanonicalize: true,
+    })
+  })
+
   it('defaults Step5 preview to the selected version when the query is missing', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
       selectedVersionId: 'version-2',

@@ -7,8 +7,7 @@ const {
   getScheduleStatusMock,
   getLatestScheduleByOrganizationMonthMock,
   getPhase2ScheduleCompareMock,
-  deleteOrganizationEmployeesMock,
-  createEmployeesBatchMock,
+  resetPhase2ScheduleRosterMock,
   supabaseFromMock,
   messageMock,
   dialogMock,
@@ -21,8 +20,7 @@ const {
   getScheduleStatusMock: vi.fn(),
   getLatestScheduleByOrganizationMonthMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
-  deleteOrganizationEmployeesMock: vi.fn(),
-  createEmployeesBatchMock: vi.fn(),
+  resetPhase2ScheduleRosterMock: vi.fn(),
   supabaseFromMock: vi.fn(),
   messageMock: {
     info: vi.fn(),
@@ -49,11 +47,7 @@ vi.mock('@/api/schedule', () => ({
   getScheduleStatus: getScheduleStatusMock,
   getLatestScheduleByOrganizationMonth: getLatestScheduleByOrganizationMonthMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
-}))
-
-vi.mock('@/api/employee', () => ({
-  deleteOrganizationEmployees: deleteOrganizationEmployeesMock,
-  createEmployeesBatch: createEmployeesBatchMock,
+  resetPhase2ScheduleRoster: resetPhase2ScheduleRosterMock,
 }))
 
 vi.mock('@/api/supabase', () => ({
@@ -214,6 +208,10 @@ describe('Step3EmployeeInfo', () => {
       status: 'complete',
     })
     getLatestScheduleByOrganizationMonthMock.mockResolvedValue(null)
+    resetPhase2ScheduleRosterMock.mockResolvedValue({
+      deletedScheduleId: 'schedule-123',
+      employeeCount: 1,
+    })
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',
       selectedVersionId: 'version-2',
@@ -415,8 +413,7 @@ describe('Step3EmployeeInfo', () => {
 
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
     expect(dialogMock.warning).not.toHaveBeenCalled()
-    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
-    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+    expect(resetPhase2ScheduleRosterMock).not.toHaveBeenCalled()
     expect(showErrorMock).toHaveBeenCalledWith('현재 월에 확정된 근무표가 있어 직원 정보를 다시 저장할 수 없습니다.')
   })
 
@@ -460,8 +457,7 @@ describe('Step3EmployeeInfo', () => {
     await flushPromises()
 
     expect(dialogMock.warning).toHaveBeenCalledTimes(1)
-    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
-    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+    expect(resetPhase2ScheduleRosterMock).not.toHaveBeenCalled()
 
     const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
       onPositiveClick?: () => Promise<void> | void
@@ -475,15 +471,21 @@ describe('Step3EmployeeInfo', () => {
     await warningConfig.onPositiveClick?.()
     await flushPromises()
 
-    expect(deleteOrganizationEmployeesMock).toHaveBeenCalledWith('org-1')
-    expect(createEmployeesBatchMock).toHaveBeenCalledWith(
-      'org-1',
-      expect.arrayContaining([
+    expect(resetPhase2ScheduleRosterMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employees: expect.arrayContaining([
         expect.objectContaining({
           employeeId: 'E001',
           name: 'Kim',
         }),
-      ])
+      ]),
+    })
+    expect(setBasicInfoMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: undefined,
+        employeeCount: 1,
+      })
     )
   })
 
@@ -532,18 +534,25 @@ describe('Step3EmployeeInfo', () => {
     await warningConfig.onPositiveClick?.()
     await flushPromises()
 
-    expect(deleteOrganizationEmployeesMock).toHaveBeenCalledWith('org-1')
-    expect(createEmployeesBatchMock).toHaveBeenCalledWith(
-      'org-1',
-      expect.arrayContaining([
+    expect(resetPhase2ScheduleRosterMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employees: expect.arrayContaining([
         expect.objectContaining({
           employeeId: 'E001',
           name: 'Kim',
         }),
-      ])
-    )
+      ]),
+    })
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith(null)
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith(null)
+    expect(scheduleStoreMock.setAssignments).toHaveBeenCalledWith({})
+    expect(setBasicInfoMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: undefined,
+        employeeCount: 1,
+      })
+    )
   })
 
   it('shows an error instead of silently no-op when the confirmation dialog is unavailable', async () => {
@@ -586,8 +595,30 @@ describe('Step3EmployeeInfo', () => {
     await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
     await flushPromises()
 
-    expect(deleteOrganizationEmployeesMock).not.toHaveBeenCalled()
-    expect(createEmployeesBatchMock).not.toHaveBeenCalled()
+    expect(resetPhase2ScheduleRosterMock).not.toHaveBeenCalled()
     expect(showErrorMock).toHaveBeenCalledWith('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+  })
+
+  it('uses the same reset route when no current month schedule exists', async () => {
+    getScheduleStatusMock.mockResolvedValue(null)
+    getLatestScheduleByOrganizationMonthMock.mockResolvedValue(null)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('저장'))?.trigger('click')
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).not.toHaveBeenCalled()
+    expect(resetPhase2ScheduleRosterMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employees: expect.arrayContaining([
+        expect.objectContaining({
+          employeeId: 'E001',
+          name: 'Kim',
+        }),
+      ]),
+    })
   })
 })

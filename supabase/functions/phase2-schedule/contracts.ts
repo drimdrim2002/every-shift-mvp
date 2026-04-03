@@ -5,6 +5,7 @@ export type RouteName =
   | 'review'
   | 'select'
   | 'createVersion'
+  | 'resetRoster'
   | 'solve'
   | 'solverResult'
   | 'patchAssignments'
@@ -196,6 +197,23 @@ export interface CreateVersionResponse {
   versions: ScheduleVersionSummary[];
 }
 
+export interface ResetRosterEmployeeInput {
+  employeeId: string;
+  name: string;
+  availableShifts: string[];
+}
+
+export interface ResetRosterRequest {
+  organizationId: string;
+  month: string;
+  employees: ResetRosterEmployeeInput[];
+}
+
+export interface ResetRosterResponse {
+  deletedScheduleId: string | null;
+  employeeCount: number;
+}
+
 export interface SolveRequest {
   solverExecutionId: string;
 }
@@ -305,6 +323,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'createVersion',
     methods: ['POST'],
     segments: ['schedules', ':scheduleId', 'versions'],
+  },
+  {
+    name: 'resetRoster',
+    methods: ['POST'],
+    segments: ['schedules', 'reset-roster'],
   },
   {
     name: 'review',
@@ -498,6 +521,47 @@ function parseInputDiffSummary(value: unknown): ScheduleInputDiffSummary {
   };
 }
 
+function parseResetRosterEmployee(payload: unknown): ResetRosterEmployeeInput {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const employeeId = typeof record.employeeId === 'string' ? record.employeeId.trim() : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const availableShifts = record.availableShifts;
+
+  if (!employeeId) {
+    throw new ContractError('bad_request', 'employeeId is required', 400);
+  }
+
+  if (!name) {
+    throw new ContractError('bad_request', 'name is required', 400);
+  }
+
+  if (!Array.isArray(availableShifts)) {
+    throw new ContractError('bad_request', 'availableShifts must be an array', 400);
+  }
+
+  const normalizedAvailableShifts = availableShifts.map((shift, index) => {
+    if (typeof shift !== 'string' || shift.trim().length === 0) {
+      throw new ContractError(
+        'bad_request',
+        `availableShifts[${index}] must be a non-empty string`,
+        400
+      );
+    }
+
+    return shift.trim();
+  });
+
+  return {
+    employeeId,
+    name,
+    availableShifts: normalizedAvailableShifts,
+  };
+}
+
 function parseScheduleVersionAssignmentChange(
   payload: unknown
 ): ScheduleVersionAssignmentChange {
@@ -601,6 +665,42 @@ export function parseCreateVersionRequest(payload: unknown): CreateVersionReques
     name: typeof name === 'string' ? name : null,
     sourceType,
     inputDiffSummary: parseInputDiffSummary(record.inputDiffSummary),
+  };
+}
+
+export function parseResetRosterRequest(payload: unknown): ResetRosterRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'reset roster request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId : '';
+  const month = typeof record.month === 'string' ? record.month : '';
+  const employees = record.employees;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!isValidMonth(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  if (!Array.isArray(employees)) {
+    throw new ContractError('bad_request', 'employees must be an array', 400);
+  }
+
+  const parsedEmployees = employees.map((employee) => parseResetRosterEmployee(employee));
+  const uniqueEmployeeIds = new Set(parsedEmployees.map((employee) => employee.employeeId));
+
+  if (uniqueEmployeeIds.size !== parsedEmployees.length) {
+    throw new ContractError('bad_request', 'employeeId values must be unique', 400);
+  }
+
+  return {
+    organizationId,
+    month,
+    employees: parsedEmployees,
   };
 }
 

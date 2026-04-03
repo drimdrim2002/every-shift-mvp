@@ -261,7 +261,37 @@ describe('useScheduleReviewHub', () => {
       query: { version: 'version-1' },
     });
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled();
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(1);
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('canonicalizes preview to the finalized version and blocks preview switching', async () => {
+    routeMock.query = { version: 'version-1' };
+    const finalizedVersion = createVersionSummary('version-2', 2, {
+      status: 'finalized',
+      isSelected: true,
+      isFinalized: true,
+    });
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      ...createCompareResponse('version-2', [version1, finalizedVersion]),
+      finalizedVersionId: 'version-2',
+    });
+    getPhase2ScheduleReviewMock.mockResolvedValue(createReviewResponse('version-2'));
+
+    const hub = await mountUseScheduleReviewHub({ previewVersionId: 'version-1' });
+
+    expect(hub.previewVersionId.value).toBe('version-2');
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2');
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: { version: 'version-2' },
+    });
+
+    await hub.setPreviewVersion('version-1');
+
+    expect(hub.previewVersionId.value).toBe('version-2');
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2');
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(2);
   });
 
   it('preserves the current review tab while hydrating review data', async () => {

@@ -3,6 +3,7 @@ import {
   createVersion,
   markVersionSolving,
   patchVersionAssignments,
+  resetScheduleRoster,
   syncVersionSolverResult,
 } from '@/../supabase/functions/phase2-schedule/repository.ts';
 import type { Phase2ScheduleAuthContext } from '@/../supabase/functions/phase2-schedule/contracts.ts';
@@ -208,8 +209,8 @@ const AUTH_CONTEXT: Phase2ScheduleAuthContext = {
 };
 
 describe('phase2 schedule write repository', () => {
-  it('creates a new version without changing selected_version_id and clones preferences plus locked assignments only', async () => {
-    const { client, insertSpies, updateSpies } = createClient({
+  it('creates a new version through the atomic rpc without changing selected_version_id', async () => {
+    const { client, rpcSpies } = createClient({
       schedules: [
         {
           data: {
@@ -226,44 +227,8 @@ describe('phase2 schedule write repository', () => {
           },
           error: null,
         },
-        {
-          data: null,
-          error: null,
-        },
       ],
       schedule_versions: [
-        {
-          data: {
-            id: 'version-1',
-            schedule_id: 'schedule-1',
-            version_no: 1,
-            name: 'V1',
-            source_type: 'initial_solve',
-            base_version_id: null,
-            status: 'review_pending',
-            current_revision: 2,
-            manual_edit_count: 1,
-            input_diff_summary: {},
-            latest_evaluation_id: null,
-          },
-          error: null,
-        },
-        {
-          data: {
-            id: 'version-2',
-            schedule_id: 'schedule-1',
-            version_no: 2,
-            name: 'V2',
-            source_type: 're_solve',
-            base_version_id: 'version-1',
-            status: 'draft',
-            current_revision: 0,
-            manual_edit_count: 0,
-            input_diff_summary: { changed_off_requests: 1, note: 'retry' },
-            latest_evaluation_id: null,
-          },
-          error: null,
-        },
         {
           data: [
             {
@@ -296,61 +261,16 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
-      schedule_preferences: [
+    }, {
+      create_schedule_version_atomic: [
         {
-          data: [
-            {
-              id: 'pref-1',
-              schedule_id: 'schedule-1',
-              schedule_version_id: 'version-1',
-              employee_id: 'employee-1',
-              date: '2026-04-01',
-              request_code: 'O',
-              request_note: 'personal',
-              is_soft: true,
-              resolution_status: 'pending',
-              resolved_shift_id: null,
-              resolved_at: null,
-              request_source: 'employee_off',
-            },
-          ],
-          error: null,
-        },
-        {
-          data: null,
-          error: null,
-        },
-      ],
-      schedule_assignments: [
-        {
-          data: [
-            {
-              id: 'assignment-locked',
-              schedule_id: 'schedule-1',
-              schedule_version_id: 'version-1',
-              employee_id: 'employee-1',
-              shift_id: 'shift-1',
-              date: '2026-03-31',
-              is_locked: true,
-              off_reason: null,
-              comment: 'keep',
-            },
-            {
-              id: 'assignment-open',
-              schedule_id: 'schedule-1',
-              schedule_version_id: 'version-1',
-              employee_id: 'employee-2',
-              shift_id: 'shift-2',
-              date: '2026-04-01',
-              is_locked: false,
-              off_reason: null,
-              comment: null,
-            },
-          ],
-          error: null,
-        },
-        {
-          data: null,
+          data: {
+            schedule_id: 'schedule-1',
+            created_version_id: 'version-2',
+            selected_version_id: 'version-1',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
           error: null,
         },
       ],
@@ -379,41 +299,23 @@ describe('phase2 schedule write repository', () => {
         expect.objectContaining({ id: 'version-2', versionNo: 2 }),
       ],
     });
-    expect(insertSpies.schedule_versions).toHaveBeenCalledWith(
-      expect.objectContaining({
-        schedule_id: 'schedule-1',
-        version_no: 2,
-        name: 'V2',
-        source_type: 're_solve',
-        base_version_id: 'version-1',
-        status: 'draft',
-      })
-    );
-    expect(insertSpies.schedule_preferences).toHaveBeenCalledWith([
-      expect.objectContaining({
-        schedule_id: 'schedule-1',
-        schedule_version_id: 'version-2',
-        employee_id: 'employee-1',
-        date: '2026-04-01',
-      }),
-    ]);
-    expect(insertSpies.schedule_assignments).toHaveBeenCalledWith([
-      expect.objectContaining({
-        schedule_id: 'schedule-1',
-        schedule_version_id: 'version-2',
-        employee_id: 'employee-1',
-        shift_id: 'shift-1',
-        date: '2026-03-31',
-        is_locked: true,
-      }),
-    ]);
-    expect(updateSpies.schedules).toHaveBeenCalledWith({
-      latest_version_no: 2,
+    expect(rpcSpies.create_schedule_version_atomic).toHaveBeenCalledWith({
+      p_schedule_id: 'schedule-1',
+      p_base_version_id: 'version-1',
+      p_name: 'V2',
+      p_source_type: 're_solve',
+      p_input_diff_summary: {
+        changedOffRequests: 1,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: 'retry',
+      },
+      p_created_by: AUTH_CONTEXT.userId,
     });
   });
 
-  it('retries version numbering on duplicate version_no conflicts', async () => {
-    const { client, insertSpies, updateSpies } = createClient({
+  it('maps create-version finalized conflicts to 409 already_finalized contract errors', async () => {
+    const { client } = createClient({
       schedules: [
         {
           data: {
@@ -430,134 +332,34 @@ describe('phase2 schedule write repository', () => {
           },
           error: null,
         },
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 2,
-          },
-          error: null,
-        },
-        {
-          data: null,
-          error: null,
-        },
       ],
-      schedule_versions: [
-        {
-          data: {
-            id: 'version-1',
-            schedule_id: 'schedule-1',
-            version_no: 1,
-            name: 'V1',
-            source_type: 'initial_solve',
-            base_version_id: null,
-            status: 'review_pending',
-            current_revision: 2,
-            manual_edit_count: 1,
-            input_diff_summary: {},
-            latest_evaluation_id: null,
-          },
-          error: null,
-        },
+    }, {
+      create_schedule_version_atomic: [
         {
           data: null,
           error: {
-            message: 'duplicate key value violates unique constraint',
-            code: '23505',
-            constraint: 'schedule_versions_schedule_id_version_no_key',
+            message: 'already_finalized',
+            code: 'P0001',
           },
-        },
-        {
-          data: {
-            id: 'version-3',
-            schedule_id: 'schedule-1',
-            version_no: 3,
-            name: 'V3',
-            source_type: 're_solve',
-            base_version_id: 'version-1',
-            status: 'draft',
-            current_revision: 0,
-            manual_edit_count: 0,
-            input_diff_summary: {},
-            latest_evaluation_id: null,
-          },
-          error: null,
-        },
-        {
-          data: [
-            {
-              id: 'version-1',
-              schedule_id: 'schedule-1',
-              version_no: 1,
-              name: 'V1',
-              source_type: 'initial_solve',
-              base_version_id: null,
-              status: 'review_pending',
-              current_revision: 2,
-              manual_edit_count: 1,
-              input_diff_summary: {},
-              latest_evaluation_id: null,
-            },
-            {
-              id: 'version-3',
-              schedule_id: 'schedule-1',
-              version_no: 3,
-              name: 'V3',
-              source_type: 're_solve',
-              base_version_id: 'version-1',
-              status: 'draft',
-              current_revision: 0,
-              manual_edit_count: 0,
-              input_diff_summary: {},
-              latest_evaluation_id: null,
-            },
-          ],
-          error: null,
-        },
-      ],
-      schedule_preferences: [
-        {
-          data: [],
-          error: null,
-        },
-      ],
-      schedule_assignments: [
-        {
-          data: [],
-          error: null,
         },
       ],
     });
 
-    const result = await createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-      baseVersionId: 'version-1',
-      name: 'V3',
-      sourceType: 're_solve',
-      inputDiffSummary: {
-        changedOffRequests: 0,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: null,
-      },
-    });
-
-    expect(result.createdVersionId).toBe('version-3');
-    expect(insertSpies.schedule_versions.mock.calls[0]?.[0]).toEqual(
-      expect.objectContaining({ version_no: 2 })
-    );
-    expect(insertSpies.schedule_versions.mock.calls[1]?.[0]).toEqual(
-      expect.objectContaining({ version_no: 3 })
-    );
-    expect(updateSpies.schedules).toHaveBeenCalledWith({
-      latest_version_no: 3,
+    await expect(
+      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
+        baseVersionId: 'version-1',
+        name: 'V2',
+        sourceType: 're_solve',
+        inputDiffSummary: {
+          changedOffRequests: 0,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: null,
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'already_finalized',
+      status: 409,
     });
   });
 
@@ -769,27 +571,15 @@ describe('phase2 schedule write repository', () => {
         },
       ],
     }, {
-      apply_schedule_version_solver_result: [
+      commit_schedule_version_solver_result_atomic: [
         {
           data: {
             schedule_version_id: 'version-2',
-            status: 'review_pending',
+            status: 'review_ready',
             active_solver_execution_id: null,
             hard_score: 12,
             soft_score: 34,
             failure_reason: null,
-          },
-          error: null,
-        },
-      ],
-      save_schedule_version_evaluation_atomic: [
-        {
-          data: {
-            schedule_version_id: 'version-2',
-            current_revision: 0,
-            evaluation_id: 'evaluation-2',
-            status: 'review_ready',
-            evaluation_result_status: 'passed',
           },
           error: null,
         },
@@ -832,7 +622,8 @@ describe('phase2 schedule write repository', () => {
       softScore: 34,
       failureReason: null,
     });
-    expect(rpcSpies.apply_schedule_version_solver_result).toHaveBeenCalledWith({
+    expect(rpcSpies.commit_schedule_version_solver_result_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
       p_version_id: 'version-2',
       p_solver_execution_id: 'exec-1',
       p_status: 'completed',
@@ -852,16 +643,17 @@ describe('phase2 schedule write repository', () => {
       },
       p_failure_reason: null,
       p_edited_by: AUTH_CONTEXT.userId,
-    });
-    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_version_id: 'version-2',
-        p_revision_no: 0,
-        p_result_status: 'passed',
-        p_solver_execution_id: 'exec-1',
-        p_evaluator_version: 'phase2a-trust-gate-v1',
+      p_evaluation_result_status: 'passed',
+      p_finalization_gate: {
+        allowed: true,
+        blockingReasons: [],
+      },
+      p_evaluator_version: 'phase2a-trust-gate-v1',
       })
     );
+    expect(
+      rpcSpies.commit_schedule_version_solver_result_atomic.mock.calls[0]?.[0]?.p_assignment_hash
+    ).toMatch(/^sha256:/);
   });
 
   it('marks only the target version as solve_failed when solver sync fails', async () => {
@@ -881,10 +673,6 @@ describe('phase2 schedule write repository', () => {
             input_diff_summary: {},
             latest_evaluation_id: null,
           },
-          error: null,
-        },
-        {
-          data: null,
           error: null,
         },
       ],
@@ -940,27 +728,15 @@ describe('phase2 schedule write repository', () => {
         },
       ],
     }, {
-      apply_schedule_version_solver_result: [
+      commit_schedule_version_solver_result_atomic: [
         {
           data: {
             schedule_version_id: 'version-2',
-            status: 'solve_failed',
+            status: 'infeasible',
             active_solver_execution_id: null,
             hard_score: null,
             soft_score: null,
             failure_reason: 'timeout',
-          },
-          error: null,
-        },
-      ],
-      save_schedule_version_evaluation_atomic: [
-        {
-          data: {
-            schedule_version_id: 'version-2',
-            current_revision: 0,
-            evaluation_id: 'evaluation-3',
-            status: 'infeasible',
-            evaluation_result_status: 'infeasible',
           },
           error: null,
         },
@@ -989,7 +765,8 @@ describe('phase2 schedule write repository', () => {
       softScore: null,
       failureReason: 'timeout',
     });
-    expect(rpcSpies.apply_schedule_version_solver_result).toHaveBeenCalledWith({
+    expect(rpcSpies.commit_schedule_version_solver_result_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
       p_version_id: 'version-2',
       p_solver_execution_id: 'exec-1',
       p_status: 'failed',
@@ -997,13 +774,14 @@ describe('phase2 schedule write repository', () => {
       p_score: null,
       p_failure_reason: 'timeout',
       p_edited_by: AUTH_CONTEXT.userId,
-    });
-    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_version_id: 'version-2',
-        p_revision_no: 0,
-        p_result_status: 'infeasible',
-        p_solver_execution_id: 'exec-1',
+      p_evaluation_result_status: 'infeasible',
+      p_infeasibility: expect.objectContaining({
+        summary: 'timeout',
+        reason: 'infeasible',
+      }),
+      p_finalization_gate: expect.objectContaining({
+        allowed: false,
+      }),
       })
     );
   });
@@ -1128,6 +906,58 @@ describe('phase2 schedule write repository', () => {
     });
   });
 
+  it('resets roster and current-month schedule through the atomic trust boundary rpc', async () => {
+    const { client, rpcSpies } = createClient({}, {
+      replace_roster_and_reset_schedule_atomic: [
+        {
+          data: {
+            deleted_schedule_id: 'schedule-2',
+            employee_count: 2,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await resetScheduleRoster(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+      employees: [
+        {
+          employeeId: 'E-001',
+          name: 'Alice',
+          availableShifts: ['D', 'E'],
+        },
+        {
+          employeeId: 'E-002',
+          name: 'Bob',
+          availableShifts: ['N', 'O'],
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      deletedScheduleId: 'schedule-2',
+      employeeCount: 2,
+    });
+    expect(rpcSpies.replace_roster_and_reset_schedule_atomic).toHaveBeenCalledWith({
+      p_organization_id: AUTH_CONTEXT.organizationId,
+      p_month: '2026-04',
+      p_employees: [
+        {
+          employeeId: 'E-001',
+          name: 'Alice',
+          availableShifts: ['D', 'E'],
+        },
+        {
+          employeeId: 'E-002',
+          name: 'Bob',
+          availableShifts: ['N', 'O'],
+        },
+      ],
+    });
+  });
+
   it('maps rpc solver execution conflicts to 409 contract errors', async () => {
     const { client } = createClient({
       schedule_versions: [
@@ -1166,8 +996,32 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
     }, {
-      apply_schedule_version_solver_result: [
+      commit_schedule_version_solver_result_atomic: [
         {
           data: null,
           error: {

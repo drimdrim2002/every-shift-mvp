@@ -8,6 +8,8 @@ import {
   type PatchAssignmentsRequest,
   type PatchAssignmentsResponse,
   type Phase2ScheduleAuthContext,
+  type ResetRosterRequest,
+  type ResetRosterResponse,
   type ReviewResponse,
   type ScheduleEvaluationResultStatus,
   type ScheduleVersionFinalizeResponse,
@@ -26,10 +28,6 @@ import {
   type SelectResponse,
 } from './contracts.ts';
 import {
-  buildAssignmentUpsertRows,
-  buildVersionInsertPayload,
-  cloneLockedAssignments,
-  cloneSchedulePreferences,
   evaluateScheduleTrust,
   filterAssignmentChangesToMonth,
   getMonthDateRange,
@@ -77,7 +75,15 @@ interface ScheduleVersionRow {
   active_solver_execution_id?: string | null;
 }
 
-interface ApplyScheduleVersionSolverResultRow {
+interface CreateScheduleVersionAtomicRow {
+  schedule_id: string;
+  created_version_id: string;
+  selected_version_id: string | null;
+  finalized_version_id: string | null;
+  latest_version_no: number;
+}
+
+interface CommitScheduleVersionSolverResultAtomicRow {
   schedule_version_id: string;
   status: string;
   active_solver_execution_id: string | null;
@@ -120,6 +126,11 @@ interface FinalizeScheduleVersionAtomicRow {
   finalized_version_id: string;
   finalized_at: string;
   finalized_by: string | null;
+}
+
+interface ReplaceRosterAndResetScheduleAtomicRow {
+  deleted_schedule_id: string | null;
+  employee_count: number;
 }
 
 interface SchedulePreferenceRow {
@@ -561,6 +572,10 @@ function remapSlice5RpcConflict(error: unknown): never {
   if (error instanceof DatabaseError) {
     const { code, constraint, details, message } = error.dbError;
 
+    if (message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
     if (message === 'solver_execution_mismatch') {
       throw new ContractError(
         'solver_execution_mismatch',
@@ -595,13 +610,26 @@ function remapSlice5RpcConflict(error: unknown): never {
   throw error;
 }
 
-function isAmbiguousScoreColumnError(error: unknown): boolean {
-  if (!(error instanceof DatabaseError)) {
-    return false;
+function remapCreateVersionRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    if (error.dbError.message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Base version not found', 404);
+    }
+
+    if (error.dbError.message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
   }
 
-  const haystack = `${error.dbError.message ?? ''} ${error.dbError.details ?? ''}`.toLowerCase();
-  return haystack.includes('column reference') && haystack.includes('hard_score') && haystack.includes('ambiguous');
+  throw error;
+}
+
+function remapResetRosterRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError && error.dbError.message === 'already_finalized') {
+    throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+  }
+
+  throw error;
 }
 
 function isInfeasibleFailureType(value: string | null): boolean {
@@ -695,10 +723,13 @@ async function buildVersionEvaluation(
     failureReason?: string | null;
     failureType?: string | null;
     failureContext?: Record<string, unknown> | null;
+    assignmentRowsOverride?: ScheduleAssignmentRow[] | null;
   }
 ) {
-  const [assignments, preferences, siteRequirements, shifts, employees] = await Promise.all([
-    loadEvaluationAssignmentRows(client, version.id, schedule.month),
+  const [assignmentRows, preferences, siteRequirements, shifts, employees] = await Promise.all([
+    options?.assignmentRowsOverride
+      ? Promise.resolve(options.assignmentRowsOverride)
+      : loadEvaluationAssignmentRows(client, version.id, schedule.month),
     loadEvaluationPreferenceRows(client, version.id, schedule.month),
     loadSiteRequirementRows(client, schedule.organization_id),
     loadShiftRows(client, schedule.organization_id),
@@ -708,7 +739,7 @@ async function buildVersionEvaluation(
   return evaluateScheduleTrust({
     month: schedule.month,
     manualEditCount: version.manual_edit_count,
-    assignments: assignments.map((row) => ({
+    assignments: assignmentRows.map((row) => ({
       employeeId: row.employee_id,
       date: row.date,
       shiftId: row.shift_id,
@@ -765,6 +796,9 @@ function remapTrustGateRpcConflict(error: unknown): never {
     if (message === 'review_not_passed') {
       throw new ContractError('review_not_passed', 'Latest evaluation did not pass review', 409);
     }
+    if (message === 'not_review_ready') {
+      throw new ContractError('not_review_ready', 'Version must be review_ready before finalization', 409);
+    }
     if (message === 'gate_blocked') {
       throw new ContractError('gate_blocked', 'Finalization gate is blocked', 409);
     }
@@ -809,146 +843,6 @@ async function persistVersionEvaluation(
   } catch (error: unknown) {
     remapTrustGateRpcConflict(error);
   }
-}
-
-async function syncVersionSolverResultWithoutRpc(
-  client: Phase2ScheduleRepositoryClient,
-  schedule: ScheduleRow,
-  version: ScheduleVersionRow,
-  auth: Phase2ScheduleAuthContext,
-  monthScopedAssignments: SolverResultRequest['assignments'],
-  request: SolverResultRequest
-): Promise<SolverResultResponse> {
-  if (version.active_solver_execution_id !== request.solverExecutionId) {
-    throw new ContractError(
-      'stale_solver_callback',
-      'Solver callback no longer applies to the current version state',
-      409
-    );
-  }
-
-  const nowIso = new Date().toISOString();
-
-  if (request.status === 'completed') {
-    const { startDate, endDate } = getMonthDateRange(schedule.month);
-    const assignmentRows = buildAssignmentUpsertRows(
-      schedule.id,
-      version.id,
-      auth.userId,
-      monthScopedAssignments
-    );
-
-    await run(
-      client
-        .from('schedule_assignments')
-        .delete()
-        .eq('schedule_version_id', version.id)
-        .gte('date', startDate)
-        .lte('date', endDate)
-    );
-
-    if (assignmentRows.length > 0) {
-      await run(
-        client.from('schedule_assignments').upsert(assignmentRows, {
-          onConflict: 'schedule_version_id,employee_id,date',
-        })
-      );
-    }
-
-    if (typeof client.rpc === 'function') {
-      await run(
-        client.rpc('sync_schedule_version_preference_resolution', {
-          p_version_id: version.id,
-        })
-      );
-    }
-
-    const updatedVersion = await maybeSingle<ScheduleVersionRow>(
-      client
-        .from('schedule_versions')
-        .update({
-          status: 'review_pending',
-          active_solver_execution_id: null,
-          updated_at: nowIso,
-        })
-        .eq('id', version.id)
-        .eq('active_solver_execution_id', request.solverExecutionId)
-        .select()
-    );
-
-    if (!updatedVersion) {
-      throw new ContractError(
-        'stale_solver_callback',
-        'Solver callback no longer applies to the current version state',
-        409
-      );
-    }
-
-    await run(
-      client
-        .from('schedules')
-        .update({
-          status: 'complete',
-          solver_execution_id: null,
-          hard_score: request.score?.hardScore ?? null,
-          soft_score: request.score?.softScore ?? null,
-          updated_at: nowIso,
-        })
-        .eq('id', schedule.id)
-    );
-
-    return {
-      scheduleVersionId: updatedVersion.id,
-      status: updatedVersion.status as ScheduleVersionStatus,
-      solverExecutionId: updatedVersion.active_solver_execution_id ?? null,
-      hardScore: request.score?.hardScore ?? null,
-      softScore: request.score?.softScore ?? null,
-      failureReason: null,
-    };
-  }
-
-  const updatedVersion = await maybeSingle<ScheduleVersionRow>(
-    client
-      .from('schedule_versions')
-      .update({
-        status: 'solve_failed',
-        active_solver_execution_id: null,
-        updated_at: nowIso,
-      })
-      .eq('id', version.id)
-      .eq('active_solver_execution_id', request.solverExecutionId)
-      .select()
-  );
-
-  if (!updatedVersion) {
-    throw new ContractError(
-      'stale_solver_callback',
-      'Solver callback no longer applies to the current version state',
-      409
-    );
-  }
-
-  await run(
-    client
-      .from('schedules')
-      .update({
-        status: 'error',
-        solver_execution_id: null,
-        hard_score: null,
-        soft_score: null,
-        updated_at: nowIso,
-      })
-      .eq('id', schedule.id)
-  );
-
-  return {
-    scheduleVersionId: updatedVersion.id,
-    status: updatedVersion.status as ScheduleVersionStatus,
-    solverExecutionId: updatedVersion.active_solver_execution_id ?? null,
-    hardScore: null,
-    softScore: null,
-    failureReason: request.failureReason,
-  };
 }
 
 function remapSelectRpcConflict(error: unknown): never {
@@ -1033,28 +927,6 @@ async function loadVersionRows(
       .select('*')
       .eq('schedule_id', scheduleId)
       .order('version_no', { ascending: true })
-  );
-}
-
-async function loadVersionPreferenceRows(
-  client: Phase2ScheduleRepositoryClient,
-  versionId: string
-): Promise<SchedulePreferenceRow[]> {
-  return list<SchedulePreferenceRow>(
-    client.from('schedule_preferences').select('*').eq('schedule_version_id', versionId)
-  );
-}
-
-async function loadLockedAssignmentRows(
-  client: Phase2ScheduleRepositoryClient,
-  versionId: string
-): Promise<ScheduleAssignmentRow[]> {
-  return list<ScheduleAssignmentRow>(
-    client
-      .from('schedule_assignments')
-      .select('*')
-      .eq('schedule_version_id', versionId)
-      .eq('is_locked', true)
   );
 }
 
@@ -1316,64 +1188,29 @@ export async function createVersion(
   request: CreateVersionRequest
 ): Promise<CreateVersionResponse> {
   const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
-  const baseVersion = await loadVersionById(client, request.baseVersionId);
+  let row: CreateScheduleVersionAtomicRow;
 
-  if (!baseVersion || baseVersion.schedule_id !== schedule.id) {
-    throw new ContractError('version_not_found', 'Base version not found', 404);
+  try {
+    row = await rpcSingle<CreateScheduleVersionAtomicRow>(client, 'create_schedule_version_atomic', {
+      p_schedule_id: schedule.id,
+      p_base_version_id: request.baseVersionId,
+      p_name: request.name,
+      p_source_type: request.sourceType,
+      p_input_diff_summary: request.inputDiffSummary,
+      p_created_by: auth.userId,
+    });
+  } catch (error: unknown) {
+    remapCreateVersionRpcConflict(error);
   }
 
-  const basePreferences = await loadVersionPreferenceRows(client, baseVersion.id);
-  const lockedAssignments = await loadLockedAssignmentRows(client, baseVersion.id);
-
-  let insertedVersion: ScheduleVersionRow | null = null;
-  let latestVersionNo = schedule.latest_version_no ?? 0;
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const nextVersionNo = Math.max(latestVersionNo, 0) + 1;
-
-    try {
-      insertedVersion = await single<ScheduleVersionRow>(
-        client
-          .from('schedule_versions')
-          .insert(buildVersionInsertPayload(schedule.id, nextVersionNo, auth.userId, request))
-          .select()
-      );
-      break;
-    } catch (error: unknown) {
-      if (!isUniqueViolation(error, VERSION_UNIQUE_CONSTRAINTS, ['schedule_id', 'version_no'])) {
-        throw error;
-      }
-
-      const refreshedSchedule = await loadScheduleById(client, schedule.id);
-      latestVersionNo = refreshedSchedule?.latest_version_no ?? nextVersionNo;
-    }
-  }
-
-  if (!insertedVersion) {
-    throw new ContractError('conflict', 'Failed to allocate a new version number', 409);
-  }
-
-  const clonedPreferences = cloneSchedulePreferences(schedule.id, insertedVersion.id, basePreferences);
-  if (clonedPreferences.length > 0) {
-    await run(client.from('schedule_preferences').insert(clonedPreferences));
-  }
-
-  const clonedAssignments = cloneLockedAssignments(schedule.id, insertedVersion.id, lockedAssignments);
-  if (clonedAssignments.length > 0) {
-    await run(client.from('schedule_assignments').insert(clonedAssignments));
-  }
-
-  if ((schedule.latest_version_no ?? 0) < insertedVersion.version_no) {
-    await run(
-      client.from('schedules').update({ latest_version_no: insertedVersion.version_no }).eq('id', schedule.id)
-    );
-    schedule.latest_version_no = insertedVersion.version_no;
-  }
+  schedule.selected_version_id = row.selected_version_id;
+  schedule.finalized_version_id = row.finalized_version_id;
+  schedule.latest_version_no = row.latest_version_no;
 
   const response = await buildCompareResponse(client, schedule);
   return {
     ...response,
-    createdVersionId: insertedVersion.id,
+    createdVersionId: row.created_version_id,
   };
 }
 
@@ -1413,40 +1250,6 @@ export async function syncVersionSolverResult(
 ): Promise<SolverResultResponse> {
   const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
   const monthScopedAssignments = filterAssignmentChangesToMonth(request.assignments, schedule.month);
-  let applyResult: ApplyScheduleVersionSolverResultRow;
-
-  try {
-    applyResult = await rpcSingle<ApplyScheduleVersionSolverResultRow>(
-      client,
-      'apply_schedule_version_solver_result',
-      {
-        p_version_id: versionId,
-        p_solver_execution_id: request.solverExecutionId,
-        p_status: request.status,
-        p_assignments: monthScopedAssignments,
-        p_score: request.score,
-        p_failure_reason: request.failureReason,
-        p_edited_by: auth.userId,
-      }
-    );
-  } catch (error: unknown) {
-    if (isAmbiguousScoreColumnError(error)) {
-      console.warn(
-        '[phase2-schedule] Falling back to non-RPC solver result sync due to ambiguous hard_score column error.'
-      );
-      applyResult = await syncVersionSolverResultWithoutRpc(
-        client,
-        schedule,
-        version,
-        auth,
-        monthScopedAssignments,
-        request
-      );
-    } else {
-      remapSlice5RpcConflict(error);
-    }
-  }
-
   const forcedResultStatus: ScheduleEvaluationResultStatus | null =
     request.status === 'failed'
       ? (isInfeasibleFailureType(request.failureType) ? 'infeasible' : 'solve_failed')
@@ -1456,22 +1259,59 @@ export async function syncVersionSolverResult(
     failureReason: request.failureReason,
     failureType: request.failureType,
     failureContext: request.failureContext,
+    assignmentRowsOverride:
+      request.status === 'completed'
+        ? monthScopedAssignments
+          .filter((assignment) => assignment.shiftId)
+          .map((assignment) => ({
+            id: '',
+            schedule_id: schedule.id,
+            schedule_version_id: version.id,
+            employee_id: assignment.employeeId,
+            shift_id: assignment.shiftId ?? '',
+            date: assignment.date,
+            is_locked: assignment.isLocked,
+            off_reason: assignment.offReason,
+            comment: assignment.comment,
+          }))
+        : null,
   });
-  const evaluationRow = await persistVersionEvaluation(
-    client,
-    version.id,
-    version.current_revision,
-    evaluation,
-    request.solverExecutionId
-  );
+  let row: CommitScheduleVersionSolverResultAtomicRow;
+
+  try {
+    row = await rpcSingle<CommitScheduleVersionSolverResultAtomicRow>(
+      client,
+      'commit_schedule_version_solver_result_atomic',
+      {
+        p_version_id: versionId,
+        p_solver_execution_id: request.solverExecutionId,
+        p_status: request.status,
+        p_assignments: monthScopedAssignments,
+        p_score: request.score,
+        p_failure_reason: request.failureReason,
+        p_edited_by: auth.userId,
+        p_evaluation_result_status: evaluation.resultStatus,
+        p_proof_summary: evaluation.proofSummary,
+        p_violation_details: evaluation.violationDetails,
+        p_infeasibility: evaluation.infeasibility,
+        p_off_request_results: evaluation.offRequestResults,
+        p_comparison_metrics: evaluation.comparisonMetrics,
+        p_finalization_gate: evaluation.finalizationGate,
+        p_assignment_hash: evaluation.assignmentHash,
+        p_evaluator_version: getTrustEvaluatorVersion(),
+      }
+    );
+  } catch (error: unknown) {
+    remapSlice5RpcConflict(error);
+  }
 
   return {
-    scheduleVersionId: evaluationRow.schedule_version_id,
-    status: evaluationRow.status as ScheduleVersionStatus,
-    solverExecutionId: null,
-    hardScore: applyResult.hard_score,
-    softScore: applyResult.soft_score,
-    failureReason: applyResult.failure_reason,
+    scheduleVersionId: row.schedule_version_id,
+    status: row.status as ScheduleVersionStatus,
+    solverExecutionId: row.active_solver_execution_id,
+    hardScore: row.hard_score,
+    softScore: row.soft_score,
+    failureReason: row.failure_reason,
   };
 }
 
@@ -1504,6 +1344,39 @@ export async function patchVersionAssignments(
     };
   } catch (error: unknown) {
     remapSlice5RpcConflict(error);
+  }
+}
+
+export async function resetScheduleRoster(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  request: ResetRosterRequest
+): Promise<ResetRosterResponse> {
+  if (request.organizationId !== auth.organizationId) {
+    throw new ContractError(
+      'organization_access_denied',
+      'Authenticated user cannot reset another organization roster',
+      403
+    );
+  }
+
+  try {
+    const row = await rpcSingle<ReplaceRosterAndResetScheduleAtomicRow>(
+      client,
+      'replace_roster_and_reset_schedule_atomic',
+      {
+        p_organization_id: request.organizationId,
+        p_month: request.month,
+        p_employees: request.employees,
+      }
+    );
+
+    return {
+      deletedScheduleId: row.deleted_schedule_id,
+      employeeCount: row.employee_count,
+    };
+  } catch (error: unknown) {
+    remapResetRosterRpcConflict(error);
   }
 }
 

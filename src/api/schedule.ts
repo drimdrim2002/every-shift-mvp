@@ -26,6 +26,8 @@ import type {
   PlanningShift,
   PlanningEmployee,
   PlanningAssignment,
+  ResetScheduleRosterRequest,
+  ResetScheduleRosterResponse,
 } from '@/types/schedule';
 
 interface ShiftReference {
@@ -404,6 +406,15 @@ export async function finalizePhase2ScheduleVersion(
       method: 'POST',
     }
   );
+}
+
+export async function resetPhase2ScheduleRoster(
+  request: ResetScheduleRosterRequest
+): Promise<ResetScheduleRosterResponse> {
+  return callPhase2Schedule<ResetScheduleRosterResponse>('/schedules/reset-roster', {
+    method: 'POST',
+    body: request,
+  });
 }
 
 export async function patchScheduleVersionAssignmentsAtomic(

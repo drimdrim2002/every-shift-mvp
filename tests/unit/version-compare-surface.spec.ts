@@ -53,6 +53,7 @@ describe('VersionCompareSurface', () => {
         ],
         previewVersionId: 'version-1',
         selectedVersionId: 'version-2',
+        lockedVersionId: null,
       },
     })
 
@@ -71,6 +72,7 @@ describe('VersionCompareSurface', () => {
         ],
         previewVersionId: 'version-1',
         selectedVersionId: null,
+        lockedVersionId: null,
       },
     })
 
@@ -91,11 +93,38 @@ describe('VersionCompareSurface', () => {
         ],
         previewVersionId: 'version-2',
         selectedVersionId: 'version-2',
+        lockedVersionId: null,
       },
     })
 
     await wrapper.get('[data-test="preview-version-1"]').trigger('click')
 
     expect(wrapper.emitted('preview-change')).toEqual([['version-1']])
+  })
+
+  it('locks preview switching to the finalized version when a month is finalized', async () => {
+    const wrapper = mount(VersionCompareSurface, {
+      props: {
+        versions: [
+          createVersion(),
+          createVersion({
+            id: 'version-2',
+            versionNo: 2,
+            name: 'V2',
+            status: 'finalized',
+            isFinalized: true,
+          }),
+        ],
+        previewVersionId: 'version-2',
+        selectedVersionId: 'version-2',
+        lockedVersionId: 'version-2',
+      },
+    })
+
+    expect(wrapper.get('[data-test="preview-version-1"]').attributes('disabled')).toBeDefined()
+
+    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+
+    expect(wrapper.emitted('preview-change')).toBeUndefined()
   })
 })

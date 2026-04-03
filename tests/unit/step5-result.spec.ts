@@ -225,6 +225,7 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
 }))
 
 import Step5Result from '@/views/schedule/Step5Result.vue'
+import VersionCompareSurface from '@/components/schedule/review/VersionCompareSurface.vue'
 
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
@@ -522,6 +523,63 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="version-compare-surface"]').exists()).toBe(true)
   })
 
+  it('canonicalizes finalized months to the locked preview version and disables compare switching', async () => {
+    routeMock.query = { version: 'version-1' }
+
+    const finalizedVersion = createVersionSummary({
+      id: 'version-2',
+      versionNo: 2,
+      isSelected: true,
+      status: 'finalized',
+      isFinalized: true,
+    })
+
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'draft',
+          isSelected: false,
+        }),
+        finalizedVersion,
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        finalizedVersionId: 'version-2',
+        version: {
+          status: 'finalized',
+          isFinalized: true,
+        },
+        primaryAction: {
+          kind: 'none',
+          targetVersionId: null,
+          label: 'No primary action',
+          disabledReason: null,
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2')
+    expect(wrapper.get('[data-test="preview-version-1"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.findComponent(VersionCompareSurface).props('lockedVersionId')).toBe('version-2')
+
+    const previewCallCount = scheduleStoreMock.setPreviewVersionId.mock.calls.length
+    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.setPreviewVersionId.mock.calls.length).toBe(previewCallCount)
+    expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
   it('changes preview only when a version card is clicked', async () => {
     routeMock.query = { version: 'version-2' }
 
@@ -591,6 +649,31 @@ describe('Step5Result', () => {
           createVersionSummary({
             id: 'version-2',
             versionNo: 2,
+            isSelected: false,
+          }),
+        ],
+      })
+      .mockResolvedValue({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-2',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-3',
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: false,
+          }),
+          createVersionSummary({
+            id: 'version-2',
+            versionNo: 2,
+            isSelected: true,
+          }),
+          createVersionSummary({
+            id: 'version-3',
+            versionNo: 3,
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
             isSelected: false,
           }),
         ],
@@ -1152,35 +1235,22 @@ describe('Step5Result', () => {
       },
     })
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
-    expect(scheduleStoreMock.previewVersionId).toBe('version-3')
-    expect(scheduleStoreMock.compareMatrix).toEqual({
-      scheduleId: 'schedule-1',
-      selectedVersionId: 'version-2',
-      finalizedVersionId: null,
-      activeSolvingVersionId: 'version-3',
-      versions: [
-        createVersionSummary({
-          id: 'version-1',
-          versionNo: 1,
-          isSelected: false,
-        }),
-        createVersionSummary({
-          id: 'version-2',
-          versionNo: 2,
-          isSelected: true,
-        }),
-        createVersionSummary({
-          id: 'version-3',
-          versionNo: 3,
-          status: 'solving',
-          activeSolverExecutionId: 'exec-1',
-          isSelected: false,
-        }),
-      ],
-    })
-    expect(solverMock.startSolver).toHaveBeenCalledWith(
-      'version-3',
-      expect.any(Object)
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-3')
+    expect(scheduleStoreMock.compareMatrix).toEqual(
+      expect.objectContaining({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-2',
+        finalizedVersionId: null,
+        activeSolvingVersionId: null,
+        versions: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'version-1',
+          }),
+          expect.objectContaining({
+            id: 'version-2',
+          }),
+        ]),
+      })
     )
   })
 

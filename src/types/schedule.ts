@@ -1,4 +1,5 @@
 import type { SiteRequirementRow } from './excel';
+import type { EmployeeInput } from './employee';
 import type { Shift } from './shift';
 
 // 기본 정보 (Step 1)
@@ -291,6 +292,17 @@ export interface ScheduleVersionFinalizeResponse {
   finalizedVersionId: string;
   finalizedAt: string;
   finalizedBy: string | null;
+}
+
+export interface ResetScheduleRosterRequest {
+  organizationId: string;
+  month: string;
+  employees: EmployeeInput[];
+}
+
+export interface ResetScheduleRosterResponse {
+  deletedScheduleId: string | null;
+  employeeCount: number;
 }
 
 export interface ScheduleReviewResponse {

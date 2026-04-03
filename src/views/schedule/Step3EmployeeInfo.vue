@@ -100,8 +100,8 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
 import {
+  resetPhase2ScheduleRoster,
   getLatestScheduleByOrganizationMonth,
   getPhase2ScheduleCompare,
   getScheduleStatus,
@@ -218,77 +218,36 @@ async function performEmployeeResave(orgId: string) {
   isSaving.value = true;
 
   try {
-    // 1. 기존 직원 ID 조회
-    const { data: existingEmployees } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('organization_id', orgId);
-
-    // 2. 기존 직원들의 schedule_assignments 먼저 삭제 (외래 키 제약 조건 해결)
-    if (existingEmployees && existingEmployees.length > 0) {
-      const employeeIds = existingEmployees.map((employee) => employee.id);
-      const { error: assignmentError } = await supabase
-        .from('schedule_assignments')
-        .delete()
-        .in('employee_id', employeeIds);
-
-      if (assignmentError) {
-        console.error('[handleSave] Assignment delete error:', assignmentError);
-        throw new Error(`배정 데이터 삭제 실패: ${assignmentError.message}`);
-      }
-
-      console.log('[Step3] Deleted schedule_assignments for', employeeIds.length, 'employees');
+    if (!scheduleStore.basicInfo) {
+      throw new Error('기본 정보가 없습니다. 다시 시도해주세요.');
     }
 
-    // 3. 현재 month의 모든 schedules 삭제 (직원 재생성 시 이전 schedule 무효화)
-    if (scheduleStore.basicInfo) {
-      const { error: scheduleDeleteError } = await supabase
-        .from('schedules')
-        .delete()
-        .eq('organization_id', orgId)
-        .eq('month', scheduleStore.basicInfo.month);
-
-      if (scheduleDeleteError) {
-        console.error('[Step3] Schedule delete error:', scheduleDeleteError);
-        console.warn('[Step3] Failed to delete schedules, continuing...');
-      } else {
-        console.log('[Step3] Deleted schedules for month:', scheduleStore.basicInfo.month);
-        scheduleStore.setBasicInfo({
-          ...scheduleStore.basicInfo,
-          scheduleId: undefined,
-        });
-        scheduleStore.setSelectedVersionId(null);
-        scheduleStore.setPreviewVersionId(null);
-      }
-    }
-
-    // 4. 기존 직원 삭제
-    await deleteOrganizationEmployees(orgId);
-
-    // 5. 새 직원 일괄 생성
-    await createEmployeesBatch(orgId, employees.value);
-
-    // 6. Store 업데이트
-    scheduleStore.setEmployees(employees.value);
-
-    // basicInfo의 employeeCount 업데이트
-    scheduleStore.setBasicInfo({
-      ...scheduleStore.basicInfo,
-      employeeCount: employees.value.length,
+    const resetResult = await resetPhase2ScheduleRoster({
+      organizationId: orgId,
+      month: scheduleStore.basicInfo.month,
+      employees: employees.value,
     });
 
-    // 7. 임시키 정리 (동일 사용자/조직/월 범위 + 레거시 키)
+    if (resetResult.deletedScheduleId) {
+      console.log('[Step3] Reset roster for schedule:', resetResult.deletedScheduleId);
+    }
+
+    scheduleStore.setEmployees(employees.value);
+    scheduleStore.setBasicInfo({
+      ...scheduleStore.basicInfo,
+      scheduleId: undefined,
+      employeeCount: employees.value.length,
+    });
+    scheduleStore.setSelectedVersionId(null);
+    scheduleStore.setPreviewVersionId(null);
+    scheduleStore.setAssignments({});
+
     const clearedStorageKeys = clearScopedTempPreferencesStorage({
       userId: authStore.user?.id,
       organizationId: scheduleStore.basicInfo.organizationId,
       month: scheduleStore.basicInfo.month,
     });
     console.log('[Step3] Cleared temp preference storage keys:', clearedStorageKeys);
-
-    // 8. Store의 assignments도 초기화
-    scheduleStore.setAssignments({});
-
-    // 9. 저장 완료 플래그
     hasUnsavedChanges.value = false;
 
     showSuccess('직원 정보가 저장되었습니다.');

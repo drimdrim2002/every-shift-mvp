@@ -7,6 +7,7 @@
         :versions="compareVersions"
         :preview-version-id="previewVersionId"
         :selected-version-id="selectedVersionId"
+        :locked-version-id="lockedVersionId"
         @preview-change="handlePreviewVersionChange"
       />
 
@@ -297,6 +298,9 @@ const previewVersionId = computed(() => hub.previewVersionId.value);
 const selectedVersionId = computed(() => hub.selectedVersionId.value);
 const compareVersions = hub.versions;
 const review = computed(() => hub.review.value);
+const lockedVersionId = computed(() => {
+  return review.value?.finalizedVersionId ?? scheduleStore.compareMatrix?.finalizedVersionId ?? null;
+});
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -375,7 +379,9 @@ const previewVersionStatus = computed<ScheduleVersionStatus>(() => {
 });
 const isVersionReadOnly = computed(() => {
   if (!previewVersionId.value) return true;
-  return previewVersionStatus.value === 'solving' || previewVersionStatus.value === 'finalized';
+  return Boolean(lockedVersionId.value)
+    || previewVersionStatus.value === 'solving'
+    || previewVersionStatus.value === 'finalized';
 });
 const canMutatePreviewVersion = computed(() => {
   return !!previewVersionId.value && !isVersionReadOnly.value;
@@ -1278,6 +1284,10 @@ function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
 }
 
 async function handlePreviewVersionChange(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
   if (versionId === previewVersionId.value) {
     return;
   }

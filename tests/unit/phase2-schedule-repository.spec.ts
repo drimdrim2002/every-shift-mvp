@@ -1158,4 +1158,50 @@ describe('phase2 schedule repository', () => {
       status: 409,
     });
   });
+
+  it('maps finalize review readiness guard to not_review_ready conflict', async () => {
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-finalize-3',
+            schedule_id: 'schedule-finalize-3',
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-finalize-3',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-finalize-3',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      'rpc:finalize_schedule_version_atomic': [
+        {
+          data: null,
+          error: {
+            message: 'not_review_ready',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      finalizeVersion(client, AUTH_CONTEXT, 'version-finalize-3')
+    ).rejects.toMatchObject({
+      code: 'not_review_ready',
+      status: 409,
+    });
+  });
 });

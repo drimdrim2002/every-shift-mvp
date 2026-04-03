@@ -52,9 +52,14 @@ export function resolveStep5VersionState(
   versions: ScheduleVersionSummary[];
   shouldCanonicalize: boolean;
 } {
-  let previewVersionId = hasVersionId(compare.versions, requestedPreviewVersionId)
-    ? requestedPreviewVersionId
+  const finalizedVersionId = hasVersionId(compare.versions, compare.finalizedVersionId)
+    ? compare.finalizedVersionId
     : null;
+  let previewVersionId = finalizedVersionId;
+
+  if (!previewVersionId && hasVersionId(compare.versions, requestedPreviewVersionId)) {
+    previewVersionId = requestedPreviewVersionId;
+  }
 
   if (!previewVersionId && hasVersionId(compare.versions, compare.selectedVersionId)) {
     previewVersionId = compare.selectedVersionId;

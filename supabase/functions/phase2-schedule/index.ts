@@ -9,6 +9,7 @@ import {
   matchRoute,
   normalizePathSegments,
   parsePatchScheduleVersionAssignmentsRequest,
+  parseResetRosterRequest,
   parseEnsureRequest,
   parseJsonBody,
   parseUuidParam,
@@ -23,6 +24,7 @@ import {
   finalizeVersion,
   markVersionSolving,
   patchVersionAssignments,
+  resetScheduleRoster,
   recheckVersion,
   review as reviewVersion,
   select as selectVersion,
@@ -33,6 +35,7 @@ import type {
   CreateVersionResponse,
   EnsureResponse,
   PatchAssignmentsResponse,
+  ResetRosterResponse,
   ReviewResponse,
   ScheduleVersionFinalizeResponse,
   ScheduleVersionRecheckResponse,
@@ -46,6 +49,7 @@ type ApiResponseBody =
   | CreateVersionResponse
   | EnsureResponse
   | PatchAssignmentsResponse
+  | ResetRosterResponse
   | ReviewResponse
   | ScheduleVersionFinalizeResponse
   | ScheduleVersionRecheckResponse
@@ -87,6 +91,7 @@ function mapErrorToStatus(code: string): number {
     case 'another_version_solving':
     case 'stale_evaluation':
     case 'review_not_passed':
+    case 'not_review_ready':
     case 'gate_blocked':
     case 'not_selected_version':
     case 'version_locked_for_solving':
@@ -235,6 +240,17 @@ Deno.serve(async (request) => {
         auth,
         scheduleId,
         createVersionInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'resetRoster') {
+      const payload = await parseJsonBody(request);
+      const resetRosterInput = parseResetRosterRequest(payload);
+      const result: ResetRosterResponse = await resetScheduleRoster(
+        repositoryClient,
+        auth,
+        resetRosterInput
       );
       return createResponse(request, result, 200);
     }

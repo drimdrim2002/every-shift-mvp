@@ -7,6 +7,7 @@ import {
   parseEnsureRequest,
   parseCreateVersionRequest,
   parsePatchScheduleVersionAssignmentsRequest,
+  parseResetRosterRequest,
   parseScheduleVersionSolveRequest,
   parseScheduleVersionSolverResultRequest,
 } from '@/../supabase/functions/phase2-schedule/contracts.ts';
@@ -20,6 +21,13 @@ describe('phase2 schedule contracts', () => {
       params: {
         scheduleId: 'schedule-1',
       },
+    });
+
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-schedule/schedules/reset-roster'))
+    ).toEqual({
+      route: 'resetRoster',
+      params: {},
     });
 
     expect(
@@ -86,6 +94,7 @@ describe('phase2 schedule contracts', () => {
     });
 
     expect(allowedMethods('createVersion')).toEqual(['POST']);
+    expect(allowedMethods('resetRoster')).toEqual(['POST']);
     expect(allowedMethods('solve')).toEqual(['POST']);
     expect(allowedMethods('solverResult')).toEqual(['POST']);
     expect(allowedMethods('patchAssignments')).toEqual(['PATCH']);
@@ -116,6 +125,32 @@ describe('phase2 schedule contracts', () => {
         changedSiteRequirements: 3,
         note: 'retry',
       },
+    });
+  });
+
+  it('parses reset roster request bodies', () => {
+    expect(
+      parseResetRosterRequest({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        month: '2026-04',
+        employees: [
+          {
+            employeeId: 'E-001',
+            name: 'Alice',
+            availableShifts: ['D', 'E', 'N'],
+          },
+        ],
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      month: '2026-04',
+      employees: [
+        {
+          employeeId: 'E-001',
+          name: 'Alice',
+          availableShifts: ['D', 'E', 'N'],
+        },
+      ],
     });
   });
 
