@@ -245,6 +245,12 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 ### 4.4 Phase2A-2 - Go-Live Ops Layer
 
+> 현재 구현 상태:
+>
+> - 이번 revision의 active implementation target은 Trust Layer다.
+> - 여기서 `bootstrap`은 관리자 온보딩이 아니라 schedule container 내부의 `V1 bootstrap`을 뜻하는 코드 경계가 일부 먼저 들어와 있다.
+> - 관리자 bootstrap, rank/policy, rolling fairness ledger write, 파일럿 운영 진입 가이드는 제품 범위로 유지하되 현재는 deferred slice다.
+
 #### A. 관리자 bootstrap 및 초기 운영 설정
 
 - 운영자 또는 내부 팀이 첫 관리자 계정을 provision할 수 있어야 한다.
@@ -259,6 +265,7 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 - 첫 배포에서는 `일반 직원 셀프 회원가입` 없이 운영 가능하다.
 - 필요 시 운영자가 초기 데이터를 직접 세팅하는 assisted pilot 방식 허용
 - 여기서 말하는 bootstrap은 Phase2B의 셀프 회원가입 및 승인 플로우와 구분한다.
+- 현재 revision 기준 이 항목은 planned/deferred다.
 
 #### B. off 요청 정책 관리
 
@@ -272,6 +279,7 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 - rank는 조직별 코드로 관리하며, 조직에 rank 체계가 없을 수도 있다.
 - rank가 없는 조직은 조직 공통 기본 정책으로 동작해야 한다.
+- 현재 revision 기준 이 항목은 deferred다.
 
 #### C. rolling fairness ledger
 
@@ -286,6 +294,7 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 - rolling fairness ledger는 finalized version 기준으로만 적재한다.
 - draft 상태, review 중인 version, compare 전용 후보안은 ledger를 오염시키면 안 된다.
+- 현재 revision 기준 ledger read/write path는 deferred다.
 
 #### D. 파일럿 운영 진입 가이드
 
@@ -298,6 +307,7 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 - Phase2A에서는 guided checklist 수준이면 충분하다.
 - 완전한 self-serve onboarding wizard는 Phase2B 범위로 본다.
+- 현재 revision 기준 이 항목은 deferred다.
 
 ### 4.5 Phase2A 성공 기준
 
@@ -310,6 +320,7 @@ Trust Layer 기준:
 
 Go-Live Ops Layer 기준:
 
+- 아래 기준은 제품 목표로 유지하지만, 현재 revision의 implementation acceptance 기준은 아니다.
 - 관리자 1~2명이 초기 설정을 마치고 월별 생성 플로우에 진입할 수 있음
 - 수간호사 기준 작성/수정 시간 6시간에서 30분 수준으로 감소
 - 실제 병동 파일럿에서 월별 생성과 확정이 가능
@@ -326,10 +337,10 @@ Trust Layer 산출물:
 
 Go-Live Ops Layer 산출물:
 
-- 병동 운영 가능 버전 배포
-- 관리자 bootstrap 및 파일럿 운영 진입 가이드
-- off 요청 정책 관리 화면
-- rolling fairness 기반 누적 공정성 데이터 구조
+- 병동 운영 가능 버전 배포 `(planned/deferred)`
+- 관리자 bootstrap 및 파일럿 운영 진입 가이드 `(planned/deferred)`
+- off 요청 정책 관리 화면 `(planned/deferred)`
+- rolling fairness 기반 누적 공정성 데이터 구조 `(planned/deferred)`
 
 ### 4.7 Engineering-ready 구현 규칙
 

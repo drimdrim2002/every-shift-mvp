@@ -49,7 +49,7 @@ Phase1 can generate schedules, but the following elements are still missing for 
 - Proof that generated results satisfy hard constraints
 - Explanations for why generation is impossible
 - Explanations for why off requests were not reflected
-- Comparison of improvements versus an existing manual schedule
+- Comparison across candidate versions and rationale for selecting the final version
 - Fairness management from a cumulative perspective rather than a month-only view
 - Administrator-centered initial onboarding for actual deployment
 
@@ -104,7 +104,7 @@ Users should not simply receive a result. They must also be able to get answers 
 
 - Is this result legally safe?
 - Why were some off requests not reflected?
-- Why is this result fairer than the existing schedule?
+- Why is this version more appropriate than the other candidate versions?
 - If fairness is not perfect this month, how is it corrected from a cumulative perspective?
 
 ### 3.3 Deployment Principle
@@ -126,30 +126,35 @@ Phase2A is the minimum scope required for real ward deployment.
 - Secure result trustworthiness and explainability
 - Complete administrator-centered initial onboarding
 
-### 4.2 Required Feature Scope
+### 4.2 Internal Layer Split
 
-#### A. Administrator-Centered Initial Onboarding
+Phase2A is not treated as one undifferentiated bundle. It is split into the following two layers.
 
-- Admin account creation and login
-- Input of core organization information
-- Input of ward or site information
-- Employee registration and Excel upload
-- Shift and constraint configuration
+- `Phase2A-1: Trust Layer`
+  The layer that lets head nurses trust, explain, compare, and finalize generated results
+- `Phase2A-2: Go-Live Ops Layer`
+  The minimum operational-preparation layer required to start a real pilot
 
-Notes:
+Principles:
 
-- The first deployment can operate without `general employee self-signup`.
-- If needed, an assisted pilot model is allowed in which an operator sets up the initial data directly.
+- The Trust Layer is defined separately from the Go-Live Ops Layer.
+- The success of the first pilot depends more directly on Trust Layer completeness than on Go-Live Ops completeness.
+- The Go-Live Ops Layer should be added immediately after the Trust Layer when possible, but the two should not be mixed into one oversized scope.
 
-#### B. Off-Request Policy Management
+### 4.3 Phase2A-1 - Trust Layer
 
-- Off-request input by employee
-- Monthly off-request limit management
-- Annual cumulative off-request limit management
-- Off-request limit policy settings by rank
-- Display of reflected versus unreflected requests
+#### Trust Layer Fixed Rules
 
-#### C. Proof of Hard-Constraint Compliance
+- Multiple candidate versions may exist for the same target month.
+- A materially different set of off requests, locked assignments, policies, or input conditions creates a new version.
+- Re-solving, manual edits, and rechecks within the same version are tracked by increasing the revision.
+- An evaluation is stored as an immutable snapshot at the `version + revision` level.
+- The backend evaluator calculates hard-constraint proof, unreflected off-request explanations, and review state from the saved assignments.
+- `review_blocked` means a result exists, but hard-constraint violations were found.
+- `infeasible` means no feasible schedule could be created under the current input conditions.
+- `solve_failed` means a system, network, or integration failure occurred.
+
+#### A. Proof of Hard-Constraint Compliance
 
 After generation is complete, the system must show the following outcomes.
 
@@ -163,8 +168,10 @@ Output principles:
 
 - If there are zero hard-constraint violations, display the status as `Satisfied`
 - If violations exist, block final confirmation of the result and provide a list of causes
+- The proof snapshot must be stored for the current revision of the selected version.
+- Final confirmation must only be allowed against the latest passed evaluation for the current revision of the selected version.
 
-#### D. Explanation of Why Generation Is Impossible
+#### B. Explanation of Why Generation Is Impossible
 
 If no feasible solution exists, the system must explain the reason rather than simply failing.
 
@@ -181,7 +188,12 @@ Required output items:
 - Required headcount and feasible headcount
 - Main conflict causes
 
-#### E. Explanation for Unreflected Off Requests
+Classification principles:
+
+- `infeasible` is used only when no feasible schedule can be created under the current inputs.
+- If a result exists but hard-constraint violations such as `NOD`, weekly-hours violations, minimum-rest violations, or staffing shortfalls are found, the result is classified as `review_blocked`, not `infeasible`.
+
+#### C. Explanation for Unreflected Off Requests
 
 Because off requests are a soft constraint, the system must provide a reason whenever a request is not reflected.
 
@@ -194,28 +206,78 @@ Required output items:
 - Reason it was not reflected
 - Summary of why no feasible alternative existed
 
-#### F. Before/After Comparison Report
+#### D. Candidate Version Comparison Report
 
-Under the same input conditions, compare the existing manual plan with the EveryShift result.
+For the same target month, compare multiple generated candidate versions and select one of them as the finalization target.
 
 Comparison conditions:
 
-- Same month
-- Same staff population
-- Same required staffing
-- Same off requests
-- Same legal constraints
+- Same organization / ward
+- Same target month
+- The changed inputs for each version, such as off requests, locked assignments, policies, or manual edits, must be recorded explicitly
+- The purpose of compare is to choose one finalization target version
 
 Comparison metrics:
 
 - Number of hard-constraint violations
-- Time spent creating and editing
 - Off-request reflection rate
 - Night-shift variance
 - Weekend-shift variance
+- Rolling fairness impact
 - Number of manual edits
+- Summary of input differences across versions
 
-#### G. Rolling Fairness Ledger
+Notes:
+
+- The core compare flow in Phase2A does not assume a manual baseline schedule by default.
+- Manual-schedule versus generated-schedule reporting may be separated into pilot materials or later functionality.
+
+#### E. Finalization Gate
+
+- If at least one hard-constraint violation exists, finalization is not allowed.
+- If the version is `infeasible`, finalization is not allowed.
+- Unreflected off requests do not block finalization, but their reasons must remain inspectable.
+- If an operator manually edits the selected version, the state must move to `review_pending` and proof / explanation artifacts must be recalculated.
+- Finalization is only allowed when the latest passed evaluation matches the current revision of the selected version.
+- Other unfinalized versions may remain visible as compare candidates.
+
+### 4.4 Phase2A-2 - Go-Live Ops Layer
+
+Current implementation note:
+
+- The current implementation revision actively targets the Trust Layer only.
+- `bootstrap` that already exists in code means automatic `V1` schedule-version bootstrap inside a month container, not administrator account onboarding.
+- Rank policy, off-request policy management, rolling fairness ledger writes, and pilot onboarding guidance remain deferred slices.
+
+#### A. Administrator Bootstrap and Initial Operational Setup
+
+- An operator or internal team must be able to provision the first administrator account
+- Administrator login
+- Input / confirmation of core organization information
+- Input of ward or site information
+- Employee registration and Excel upload
+- Shift and constraint configuration
+
+Notes:
+
+- The first deployment can operate without `general employee self-signup`.
+- If needed, an assisted pilot model is allowed in which an operator sets up the initial data directly.
+- The bootstrap described here is distinct from the self-serve signup and approval flow in Phase2B.
+
+#### B. Off-Request Policy Management
+
+- Off-request input by employee
+- Monthly off-request limit management
+- Annual cumulative off-request limit management
+- Off-request limit policy settings by organization-specific rank code
+- Display of reflected versus unreflected requests
+
+Notes:
+
+- Rank is managed by organization-specific codes, and some organizations may not use a rank system.
+- Organizations without rank should fall back to a common organization-level policy.
+
+#### C. Rolling Fairness Ledger
 
 Fairness should be managed on a cumulative basis rather than as a single-month metric.
 
@@ -224,22 +286,101 @@ Fairness should be managed on a cumulative basis rather than as a single-month m
 - Cumulative N/E/weekend shifts over the last 12 months
 - Apply cumulative imbalance to the cost function when generating the next month
 
-### 4.3 Phase2A Success Criteria
+Notes:
+
+- The rolling fairness ledger should only be written from finalized versions.
+- Drafts, review-in-progress versions, and compare-only candidates must not pollute the ledger.
+
+#### D. Pilot Entry Guidance
+
+- After the first login, guide operators through what they should do and in what order
+- Organization information confirmation
+- Employee registration guidance
+- First schedule request guidance
+
+Notes:
+
+- In Phase2A, a guided checklist is sufficient.
+- A full self-serve onboarding wizard belongs to Phase2B.
+
+### 4.5 Phase2A Success Criteria
+
+Trust Layer criteria:
 
 - Zero hard-constraint violations
-- A reduction in head-nurse schedule creation and editing time from 6 hours to around 30 minutes
-- Improved night and weekend variance compared with manual scheduling under the same inputs
-- Explanations for unreflected off requests that operators find understandable and acceptable
-- The ability to generate and finalize monthly schedules in a real ward pilot
+- Operators can understand the tradeoffs across candidate versions and choose one version
+- Operators receive explanations for unreflected off requests that they find understandable and acceptable
+- Proof and explanation artifacts can be reviewed before finalization
 
-### 4.4 Phase2A Deliverables
+Go-Live Ops Layer criteria:
 
-- A deployable version that can support ward operations
+- One or two administrators can complete initial setup and enter the monthly generation flow
+- Head-nurse schedule creation and editing time is reduced from about 6 hours to around 30 minutes
+- Real ward pilots can generate and finalize monthly schedules
+
+### 4.6 Phase2A Deliverables
+
+Trust Layer deliverables:
+
 - A hard-constraint compliance proof screen
 - An infeasibility explanation screen
 - An unreflected off-request explanation screen
-- A before/after comparison report
+- A candidate-version comparison report
+- A finalization gate
+
+Go-Live Ops Layer deliverables:
+
+- A ward-operable deployment
+- Administrator bootstrap and pilot entry guidance
+- An off-request policy-management surface
 - A cumulative fairness data structure based on rolling fairness
+
+Current implementation note:
+
+- In the current revision, the active implementation target is the Trust Layer.
+- Go-Live Ops Layer items remain planned but deferred.
+
+### 4.7 Engineering-Ready Rules
+
+#### A. Core Entities
+
+- One target month is managed as one schedule container.
+- Multiple candidate versions can exist under one schedule container.
+- Each version can have multiple revisions.
+- An evaluation is an immutable review artifact stored per `version + revision`.
+
+#### B. State Lifecycle
+
+```text
+draft
+-> solving
+-> review_ready | review_blocked | infeasible | solve_failed
+
+review_ready
+-> finalized
+
+review_ready
+-> review_pending
+-> review_ready | review_blocked
+```
+
+- `review_ready`: the latest evaluation for the current revision is passed
+- `review_blocked`: a result exists, but hard-constraint violations remain
+- `review_pending`: recheck required after manual edits
+- `infeasible`: no feasible schedule exists under the current inputs
+- `solve_failed`: system failure
+
+#### C. Finalization Rules
+
+- Finalization is performed at the selected version level, not at the whole month level.
+- Finalization is allowed only when `selected version + current revision + latest passed evaluation` all match.
+- Only the finalized version is treated as the operationally confirmed result, and rolling fairness ledger writes must also follow the finalized version.
+
+#### D. Compare Rules
+
+- The default compare unit is a candidate version, not a manual baseline.
+- The compare screen must show both input differences and result differences across versions.
+- Operators must compare versions and then finalize one chosen version.
 
 ---
 
@@ -301,14 +442,14 @@ Phase2B is important for product expansion, but it is not considered a blocker f
 
 ---
 
-## 6. Before/After Comparison Report Template
+## 6. Candidate Version Comparison Report Template
 
 The following report should be provided by default in real ward pilots.
 
 ### 6.1 Purpose of the Report
 
-- Explain why the EveryShift result is better than the existing manual plan
-- Compare fairness, time, and request reflection rates under the same conditions
+- Provide rationale for deciding which version should be finalized for the same target month
+- Compare fairness, request reflection, and hard-constraint status at the version level
 
 ### 6.2 Report Template
 
@@ -317,34 +458,41 @@ The following report should be provided by default in real ward pilots.
 - Target organization:
 - Target ward:
 - Target month:
-- Comparison baseline:
-  - Existing plan: Manual schedule or output from the current solution
-  - Improved plan: EveryShift-generated result
+- Comparison purpose:
+  - Candidate version comparison for the same month
+  - Selection of the finalization target
+
+#### Candidate Version Summary
+
+| Version | Creation mode | Input change summary         | Review status  | Finalizable |
+| ------- | ------------- | ---------------------------- | -------------- | ----------- |
+| V1      | Initial solve | Default off inputs           | review_ready   | Yes         |
+| V2      | Re-solve      | Some off requests adjusted   | review_ready   | Yes         |
+| V3      | Re-solve      | Staffing requirement changed | review_blocked | No          |
 
 #### Comparison Summary
 
-| Metric                      | Existing Plan | EveryShift | Difference           |
-| --------------------------- | ------------- | ---------- | -------------------- |
-| Hard-constraint violations  | 0             | 0          | Same                 |
-| Creation/editing time       | 6 hours       | 30 minutes | -5h 30m              |
-| Off-request reflection rate | 72%           | 81%        | +9 percentage points |
-| Night-shift min/max         | 0 / 7         | 4 / 5      | Reduced variance     |
-| Weekend-shift min/max       | 1 / 6         | 3 / 4      | Reduced variance     |
-| Manual edits                | 14            | 3          | -11                  |
+| Metric                      | V1    | V2    | V3    | Selected |
+| --------------------------- | ----- | ----- | ----- | -------- |
+| Hard-constraint violations  | 0     | 0     | 2     | V2       |
+| Off-request reflection rate | 72%   | 81%   | 79%   | V2       |
+| Night-shift min/max         | 0 / 7 | 4 / 5 | 3 / 6 | V2       |
+| Weekend-shift min/max       | 1 / 6 | 3 / 4 | 2 / 5 | V2       |
+| Manual edits                | 0     | 1     | 0     | V2       |
 
-#### Fairness Details
+#### Input Difference Details
 
-| Item                          | Existing Plan | EveryShift | Interpretation                          |
-| ----------------------------- | ------------- | ---------- | --------------------------------------- |
-| Night distribution            | 0~7           | 4~5        | Reduced concentration on specific staff |
-| Weekend distribution          | 1~6           | 3~4        | Lower weekend variance                  |
-| 3-month cumulative N variance | High          | Reduced    | Rolling fairness improved               |
+| Version | Changed off requests | Changed policy | Changed locked assignments | Note            |
+| ------- | -------------------- | -------------- | -------------------------- | --------------- |
+| V1      | None                 | None           | None                       | Initial version |
+| V2      | 2 adjusted           | None           | None                       | Request realism |
+| V3      | None                 | 1 changed      | None                       | Staffing test   |
 
 #### Interpretation Summary
 
-- While satisfying all hard constraints, EveryShift reduced night and weekend variance compared with the existing manual plan.
-- Under the same conditions, the off-request reflection rate improved and the number of manual edits decreased significantly.
-- Operators can either finalize the result immediately or finalize it after only a small number of adjustments.
+- Operators compare both input differences and result differences across versions before choosing the finalization target.
+- A `review_blocked` version may remain visible in compare, but it cannot become the finalization target.
+- The selected version can only be finalized against the latest passed evaluation.
 
 ---
 
@@ -387,7 +535,7 @@ Deployment criteria:
 - Organization and employee data can be entered or uploaded
 - Off requests can be entered and results can be generated
 - Users can view proof that the generated result is legally safe
-- Users can review unreflected requests and improvement results
+- Users can review unreflected requests and candidate-version comparison results
 
 ### 8.2 Second Deployment Goal
 
@@ -399,20 +547,25 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 
 ### Priority 1
 
+- Entire Trust Layer
 - Hard-constraint compliance proof
 - Explanation of why generation is impossible
 - Explanation for unreflected off requests
-- Before/after comparison report
-- Off-request limit policy
-- Rolling fairness ledger
+- Candidate-version comparison report
+- Finalization gate
 
 ### Priority 2
 
-- Admin operations dashboard
-- Notifications
+- Entire Go-Live Ops Layer
+- Administrator bootstrap and pilot entry guidance
+- Off-request limit policy
+- Rolling fairness ledger
 
 ### Later
 
+- Self-serve signup and approval flow
+- Admin operations dashboard
+- Notifications
 - More advanced organization and permission management
 - Expansion into other industries
 
@@ -421,7 +574,8 @@ After `Phase2B` is complete, the goal becomes self-serve adoption and expanded o
 ## 10. Open Issues
 
 - What formula should be used to calculate the rolling fairness score?
-- How should monthly and annual off-request limits be differentiated by rank?
+- Which input differences should be fixed as the default compare diff set?
+- How should monthly and annual off-request limits be differentiated by organization-specific rank code?
 - For infeasible months, how many alternative schedules should be provided?
 - In a real ward pilot, which purchase or adoption metric should be fixed as the primary one?
 
