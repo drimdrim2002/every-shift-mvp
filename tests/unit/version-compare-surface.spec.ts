@@ -76,7 +76,7 @@ describe('VersionCompareSurface', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('재검토 필요')
+    expect(wrapper.text()).toContain('수정 후 다시 검사 필요')
     expect(wrapper.text()).not.toContain('review_pending')
   })
 

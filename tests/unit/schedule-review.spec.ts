@@ -5,6 +5,7 @@ import {
   resolveDefaultReviewTab,
   resolveReviewLeadPanel,
 } from '@/utils/scheduleReviewState';
+import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy';
 import type {
   ScheduleEvaluation,
   ScheduleFinalizationGate,
@@ -82,6 +83,15 @@ describe('scheduleReviewState', () => {
     expect(resolveDefaultReviewTab('infeasible')).toBe('grid');
     expect(resolveDefaultReviewTab('solve_failed')).toBe('grid');
     expect(resolveDefaultReviewTab('finalized')).toBe('grid');
+  });
+
+  it('uses compare-centric status labels for user-facing copy', () => {
+    expect(formatScheduleVersionStatus('review_ready')).toBe('확정 가능');
+    expect(formatScheduleVersionStatus('review_blocked')).toBe('규칙 위반으로 확정 불가');
+    expect(formatScheduleVersionStatus('review_pending')).toBe('수정 후 다시 검사 필요');
+    expect(formatScheduleVersionStatus('infeasible')).toBe('조건 충돌로 생성 불가');
+    expect(formatScheduleVersionStatus('solve_failed')).toBe('생성 중 오류 발생');
+    expect(formatScheduleVersionStatus('finalized')).toBe('최종 확정됨');
   });
 
   it('prefers disabled copy, then latest failure summary, then gate copy for primary actions', () => {

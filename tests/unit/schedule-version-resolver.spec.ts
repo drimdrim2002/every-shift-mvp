@@ -62,6 +62,30 @@ const compareResponse = {
       isSelected: true,
       isFinalized: false,
     },
+    {
+      id: 'version-3',
+      scheduleId: 'schedule-1',
+      versionNo: 3,
+      name: 'V3',
+      sourceType: 're_solve' as const,
+      baseVersionId: 'version-2',
+      status: 'review_ready' as const,
+      currentRevision: 3,
+      manualEditCount: 2,
+      inputDiffSummary: {
+        changedOffRequests: 2,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: 'candidate',
+      },
+      latestEvaluationId: null,
+      latestEvaluationResultStatus: null,
+      comparisonMetrics: null,
+      finalizationGate: null,
+      activeSolverExecutionId: null,
+      isSelected: false,
+      isFinalized: false,
+    },
   ],
 }
 
@@ -102,9 +126,42 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-1',
+      compareVersionIds: ['version-2', 'version-1'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: false,
+    })
+  })
+
+  it('canonicalizes a compare query to valid distinct Step5 ids', () => {
+    expect(
+      resolveStep5VersionState(compareResponse, {
+        requestedFocusVersionId: 'version-3',
+        requestedCompareVersionIds: ['version-3', 'version-2', 'missing-version'],
+      })
+    ).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-3',
+      compareVersionIds: ['version-3', 'version-2'],
+      activeSolvingVersionId: null,
+      versions: compareResponse.versions,
+      shouldCanonicalize: true,
+    })
+  })
+
+  it('canonicalizes compare routes so the focused version stays first', () => {
+    expect(
+      resolveStep5VersionState(compareResponse, {
+        requestedFocusVersionId: 'version-2',
+        requestedCompareVersionIds: ['version-3', 'version-2'],
+      })
+    ).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      compareVersionIds: ['version-2', 'version-3'],
+      activeSolvingVersionId: null,
+      versions: compareResponse.versions,
+      shouldCanonicalize: true,
     })
   })
 
@@ -120,6 +177,7 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      compareVersionIds: ['version-2'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
@@ -130,6 +188,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      compareVersionIds: ['version-2'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
@@ -140,6 +199,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(compareResponse, 'missing-version')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      compareVersionIds: ['version-2'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
@@ -158,6 +218,7 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       selectedVersionId: null,
       previewVersionId: 'version-1',
+      compareVersionIds: ['version-1'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
@@ -178,6 +239,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(solvingCompare, 'version-2')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
+      compareVersionIds: ['version-2'],
       activeSolvingVersionId: 'version-2',
       versions: solvingCompare.versions,
       shouldCanonicalize: false,
@@ -190,6 +252,15 @@ describe('scheduleVersionResolver', () => {
       path: '/schedule/step5/schedule-1',
       query: {
         version: 'version-2',
+      },
+    })
+    expect(
+      buildStep5Route('schedule-1', 'version-2', ['version-3', 'version-2'])
+    ).toEqual({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+        compare: 'version-2,version-3',
       },
     })
   })

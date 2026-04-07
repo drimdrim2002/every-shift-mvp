@@ -115,6 +115,18 @@ const version1 = createVersionSummary('version-1', 1);
 const version2 = createVersionSummary('version-2', 2, {
   baseVersionId: 'version-1',
 });
+const version3 = createVersionSummary('version-3', 3, {
+  baseVersionId: 'version-2',
+  status: 'review_ready',
+  currentRevision: 3,
+  manualEditCount: 2,
+  inputDiffSummary: {
+    changedOffRequests: 2,
+    changedLockedAssignments: 0,
+    changedSiteRequirements: 0,
+    note: 'candidate',
+  },
+});
 
 function createCompareResponse(
   selectedVersionId: string | null,
@@ -130,7 +142,11 @@ function createCompareResponse(
 }
 
 function createReviewResponse(versionId: string, defaultTab: ScheduleReviewResponse['defaultTab'] = 'grid'): ScheduleReviewResponse {
-  const reviewedVersion = versionId === 'version-1' ? version1 : version2;
+  const reviewedVersion = versionId === 'version-1'
+    ? version1
+    : versionId === 'version-3'
+      ? version3
+      : version2;
 
   return {
     scheduleId: 'schedule-1',
@@ -238,30 +254,100 @@ describe('useScheduleReviewHub', () => {
     });
   });
 
-  it('switches preview without mutating authoritative selection', async () => {
+  it('hydrates compare slots and focused review state from the query', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2,missing-version',
+    };
+    getPhase2ScheduleCompareMock.mockResolvedValue(
+      createCompareResponse('version-2', [version1, version2, version3])
+    );
+    getPhase2ScheduleReviewMock
+      .mockResolvedValueOnce(createReviewResponse('version-3'))
+      .mockResolvedValueOnce(createReviewResponse('version-2'));
+
+    const hub = await mountUseScheduleReviewHub();
+
+    expect(hub.previewVersionId.value).toBe('version-3');
+    expect(hub.selectedVersionId.value).toBe('version-2');
+    expect(hub.compareVersionIds.value).toEqual(['version-3', 'version-2']);
+    expect(hub.comparedReviews.value['version-3']?.version.id).toBe('version-3');
+    expect(hub.comparedReviews.value['version-2']?.version.id).toBe('version-2');
+    expect(scheduleStoreMock.previewVersionId).toBe('version-3');
+    expect(scheduleStoreMock.selectedVersionId).toBe('version-2');
+    expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(1, 'version-3');
+    expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(2, 'version-2');
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-3',
+        compare: 'version-3,version-2',
+      },
+    });
+  });
+
+  it('switches preview and canonicalizes the route without mutating authoritative selection', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue(
       createCompareResponse('version-2', [version1, version2])
     );
     getPhase2ScheduleReviewMock
       .mockResolvedValueOnce(createReviewResponse('version-2'))
-      .mockResolvedValueOnce(createReviewResponse('version-1'));
+      .mockResolvedValueOnce(createReviewResponse('version-1'))
+      .mockResolvedValueOnce(createReviewResponse('version-2'));
 
     const hub = await mountUseScheduleReviewHub();
+    replaceMock.mockClear();
 
     await hub.setPreviewVersion('version-1');
 
     expect(hub.selectedVersionId.value).toBe('version-2');
     expect(hub.previewVersionId.value).toBe('version-1');
+    expect(hub.compareVersionIds.value).toEqual(['version-1', 'version-2']);
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1');
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2');
     expect(scheduleStoreMock.latestEvaluation?.scheduleVersionId).toBe('version-1');
     expect(scheduleStoreMock.reviewTab).toBe('grid');
-    expect(replaceMock).toHaveBeenLastCalledWith({
+    expect(replaceMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
-      query: { version: 'version-1' },
+      query: {
+        version: 'version-1',
+        compare: 'version-1,version-2',
+      },
     });
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled();
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves the current compare route when switching focus to another version', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    };
+    getPhase2ScheduleCompareMock.mockResolvedValue(
+      createCompareResponse('version-2', [version1, version2, version3])
+    );
+    getPhase2ScheduleReviewMock
+      .mockResolvedValueOnce(createReviewResponse('version-3'))
+      .mockResolvedValueOnce(createReviewResponse('version-2'))
+      .mockResolvedValueOnce(createReviewResponse('version-2'))
+      .mockResolvedValueOnce(createReviewResponse('version-3'));
+
+    const hub = await mountUseScheduleReviewHub();
+    replaceMock.mockClear();
+
+    await hub.setPreviewVersion('version-2');
+
+    expect(hub.previewVersionId.value).toBe('version-2');
+    expect(hub.compareVersionIds.value).toEqual(['version-2', 'version-3']);
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+        compare: 'version-2,version-3',
+      },
+    });
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(4);
   });
 
   it('canonicalizes preview to the finalized version and blocks preview switching', async () => {
@@ -329,6 +415,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenLastCalledWith('version-1');
     expect(scheduleStoreMock.selectedVersionId).toBe('version-1');
     expect(scheduleStoreMock.previewVersionId).toBe('version-1');
+    expect(hub.compareVersionIds.value).toEqual(['version-1']);
     expect(hub.selectedVersionId.value).toBe('version-1');
     expect(hub.previewVersionId.value).toBe('version-1');
     expect(scheduleStoreMock.compareMatrix).toEqual(
@@ -340,6 +427,6 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.latestEvaluation?.scheduleVersionId).toBe('version-1');
     expect(replaceMock).not.toHaveBeenCalled();
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
-    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(2);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(3);
   });
 });

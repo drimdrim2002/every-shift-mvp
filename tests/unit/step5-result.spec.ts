@@ -243,8 +243,6 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
 }))
 
 import Step5Result from '@/views/schedule/Step5Result.vue'
-import VersionCompareSurface from '@/components/schedule/review/VersionCompareSurface.vue'
-
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
 function createWrapper() {
@@ -579,14 +577,42 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith('/')
   })
 
-  it('renders the compare surface above the result grid for all preview states', async () => {
+  it('renders the candidate shelf and comparison workspace above the result grid', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="version-compare-surface"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('비교 후보')
+    expect(wrapper.text()).toContain('비교 도구')
+    expect(wrapper.text()).toContain('현재 자세히 보는 안')
+    expect(wrapper.text()).toContain('현재 기준안')
   })
 
-  it('canonicalizes finalized months to the locked preview version and disables compare switching', async () => {
+  it('collapses and re-expands comparison tools without clearing focus state', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('비교 후보')
+
+    await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('비교 후보')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2')
+    expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
+
+    await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('비교 후보')
+  })
+
+  it('canonicalizes finalized months to the locked preview version and hides comparison tools', async () => {
     routeMock.query = { version: 'version-1' }
 
     const finalizedVersion = createVersionSummary({
@@ -632,31 +658,26 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(scheduleStoreMock.previewVersionId).toBe('version-2')
-    expect(wrapper.get('[data-test="preview-version-1"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.findComponent(VersionCompareSurface).props('lockedVersionId')).toBe('version-2')
-
-    const previewCallCount = scheduleStoreMock.setPreviewVersionId.mock.calls.length
-    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
-    await flushPromises()
-
-    expect(scheduleStoreMock.setPreviewVersionId.mock.calls.length).toBe(previewCallCount)
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('비교 후보')
+    expect(wrapper.text()).not.toContain('비교 워크스페이스')
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
-  it('changes preview only when a version card is clicked', async () => {
+  it('changes the focused version only when the explicit detail button is clicked', async () => {
     routeMock.query = { version: 'version-2' }
 
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+    await wrapper.get('[data-test="focus-version-1"]').trigger('click')
     await flushPromises()
 
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
-  it('requires confirmation before discarding unsaved changes on preview switch', async () => {
+  it('requires confirmation before discarding unsaved changes on focused-version switch', async () => {
     routeMock.query = { version: 'version-2' }
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
@@ -670,7 +691,7 @@ describe('Step5Result', () => {
 
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-test="preview-version-1"]').trigger('click')
+    await wrapper.get('[data-test="focus-version-1"]').trigger('click')
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
@@ -819,7 +840,7 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.setReviewTab).toHaveBeenCalledWith('proof')
     expect(wrapper.text()).toContain('하드 제약 위반 요약')
     expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="primary-action-button"]').text()).toContain('다시 검토')
+    expect(wrapper.find('[data-test="primary-action-button"]').text()).toContain('다시 검사')
   })
 
   it('shows solve_failed support copy and dispatches retry from the shared Step5 frame', async () => {
@@ -1481,6 +1502,13 @@ describe('Step5Result', () => {
     })
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-3')
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-3',
+        compare: 'version-3,version-2',
+      },
+    })
     expect(scheduleStoreMock.compareMatrix).toEqual(
       expect.objectContaining({
         scheduleId: 'schedule-1',

@@ -3,18 +3,18 @@ import type { SchedulePrimaryActionKind, ScheduleVersionStatus } from '@/types/s
 const VERSION_STATUS_LABELS: Record<ScheduleVersionStatus, string> = {
   draft: '초안',
   solving: '생성 중',
-  review_ready: '검토 준비 완료',
-  review_blocked: '검토 차단',
-  review_pending: '재검토 필요',
-  infeasible: '생성 불가',
-  solve_failed: '생성 실패',
-  finalized: '최종 확정',
+  review_ready: '확정 가능',
+  review_blocked: '규칙 위반으로 확정 불가',
+  review_pending: '수정 후 다시 검사 필요',
+  infeasible: '조건 충돌로 생성 불가',
+  solve_failed: '생성 중 오류 발생',
+  finalized: '최종 확정됨',
 };
 
 const PRIMARY_ACTION_LABELS: Record<SchedulePrimaryActionKind, string> = {
-  select: '이 버전을 선택',
-  recheck: '다시 검토',
-  finalize: '이 버전 확정',
+  select: '이 안을 기준안으로 사용',
+  recheck: '다시 검사',
+  finalize: '이 안으로 최종 확정',
   retry: '다시 생성',
   none: '선택 가능한 작업이 없습니다.',
 };

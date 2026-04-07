@@ -3,16 +3,38 @@
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
-      <VersionCompareSurface
-        :versions="compareVersions"
-        :preview-version-id="previewVersionId"
-        :selected-version-id="selectedVersionId"
-        :locked-version-id="lockedVersionId"
-        @preview-change="handlePreviewVersionChange"
-      />
+      <ComparisonToolsSection
+        v-if="shouldShowComparisonTools"
+        :collapsed="isComparisonToolsCollapsed"
+        :candidate-count="compareVersions.length"
+        :compare-count="compareVersionIds.length"
+        @toggle-collapsed="handleToggleComparisonTools"
+      >
+        <VersionCandidateShelf
+          :versions="compareVersions"
+          :compare-version-ids="compareVersionIds"
+          :focused-version-id="previewVersionId"
+          :selected-version-id="selectedVersionId"
+          :locked-version-id="lockedVersionId"
+          @toggle-compare="handleToggleCompareVersion"
+          @focus-version="handleFocusVersionChange"
+          @select-version="handleSelectCandidateVersion"
+        />
 
-      <VersionActionArea
-        :preview-version="previewVersionSummary"
+        <div class="my-6">
+          <ComparisonWorkspace
+            :left-version="leftComparedVersion"
+            :right-version="rightComparedVersion"
+            :left-review="leftComparedReview"
+            :right-review="rightComparedReview"
+            :focused-version-id="previewVersionId"
+            @focus-version="handleFocusVersionChange"
+          />
+        </div>
+      </ComparisonToolsSection>
+
+      <FocusedVersionActionBar
+        :focused-version="previewVersionSummary"
         :selected-version="selectedVersionSummary"
         :primary-action="primaryAction"
         :support-copy="primaryActionSupportCopy"
@@ -65,7 +87,7 @@
         type="warning"
         class="mb-6"
       >
-        현재 미리보기 버전 상태에서는 편집할 수 없습니다. (생성 중 또는 확정됨)
+        현재 자세히 보고 있는 안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
       </n-alert>
 
       <n-alert
@@ -112,6 +134,7 @@
         <VersionReviewDetail
           :review="review"
           :active-tab="activeReviewTab"
+          :focus-title="focusedVersionTitle"
           @update:tab="handleReviewTabChange"
         >
           <template #grid>
@@ -247,8 +270,10 @@ import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import VersionActionArea from '@/components/schedule/review/VersionActionArea.vue';
-import VersionCompareSurface from '@/components/schedule/review/VersionCompareSurface.vue';
+import ComparisonToolsSection from '@/components/schedule/review/ComparisonToolsSection.vue';
+import VersionCandidateShelf from '@/components/schedule/review/VersionCandidateShelf.vue';
+import ComparisonWorkspace from '@/components/schedule/review/ComparisonWorkspace.vue';
+import FocusedVersionActionBar from '@/components/schedule/review/FocusedVersionActionBar.vue';
 import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
@@ -262,6 +287,7 @@ import {
   getScheduleVersionPreferences,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
+  selectPhase2ScheduleVersion,
   recheckPhase2ScheduleVersion,
   finalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
@@ -289,6 +315,8 @@ import type {
   CommentMap,
   PlanningAssignment,
   SchedulePrimaryAction,
+  ScheduleReviewResponse,
+  ScheduleVersionSummary,
   ScheduleVersionStatus,
 } from '@/types/schedule';
 
@@ -312,8 +340,10 @@ const routeScheduleId = computed(() => {
 const scheduleId = computed(() => routeScheduleId.value ?? scheduleStore.basicInfo?.scheduleId ?? null);
 const previewVersionId = computed(() => hub.previewVersionId.value);
 const selectedVersionId = computed(() => hub.selectedVersionId.value);
+const compareVersionIds = computed(() => hub.compareVersionIds.value);
 const compareVersions = hub.versions;
 const review = computed(() => hub.review.value);
+const comparedReviews = computed(() => hub.comparedReviews.value);
 const lockedVersionId = computed(() => {
   return review.value?.finalizedVersionId ?? scheduleStore.compareMatrix?.finalizedVersionId ?? null;
 });
@@ -330,6 +360,7 @@ const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
 const isSelectingPreview = computed(() => hub.isSelecting.value);
 const isPrimaryActionRunning = ref(false);
+const isComparisonToolsCollapsed = ref(false);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -447,6 +478,12 @@ const showIntermediateWaitingHint = computed(() => {
     && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
   );
 });
+
+function formatVersionLabel(version: ScheduleVersionSummary | null): string {
+  if (!version) return '없음';
+  return version.name ?? `V${version.versionNo}`;
+}
+
 const previewVersionSummary = computed(() => {
   if (!previewVersionId.value) return null;
   const comparedVersion = compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
@@ -465,6 +502,34 @@ const previewVersionSummary = computed(() => {
 const selectedVersionSummary = computed(() => {
   if (!selectedVersionId.value) return null;
   return compareVersions.value.find((version) => version.id === selectedVersionId.value) ?? null;
+});
+const comparedVersionSummaries = computed(() => {
+  return compareVersionIds.value
+    .map((versionId) => {
+      const comparedVersion = compareVersions.value.find((version) => version.id === versionId) ?? null;
+      const reviewedVersion = comparedReviews.value[versionId]?.version ?? null;
+
+      if (comparedVersion && reviewedVersion) {
+        return {
+          ...comparedVersion,
+          ...reviewedVersion,
+        } as ScheduleVersionSummary;
+      }
+
+      return comparedVersion ?? reviewedVersion;
+    })
+    .filter((version): version is ScheduleVersionSummary => version !== null);
+});
+const leftComparedVersion = computed(() => comparedVersionSummaries.value[0] ?? null);
+const rightComparedVersion = computed(() => comparedVersionSummaries.value[1] ?? null);
+const leftComparedReview = computed<ScheduleReviewResponse | null>(() => {
+  return leftComparedVersion.value ? comparedReviews.value[leftComparedVersion.value.id] ?? null : null;
+});
+const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
+  return rightComparedVersion.value ? comparedReviews.value[rightComparedVersion.value.id] ?? null : null;
+});
+const focusedVersionTitle = computed(() => {
+  return previewVersionSummary.value ? `${formatVersionLabel(previewVersionSummary.value)}안` : null;
 });
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
@@ -488,6 +553,8 @@ const previewVersionExecutionId = computed(() => {
 const canRecoverSolverState = computed(() => {
   return previewVersionStatus.value === 'solving';
 });
+const isFinalizedMonth = computed(() => Boolean(lockedVersionId.value));
+const shouldShowComparisonTools = computed(() => !isFinalizedMonth.value);
 
 function syncReviewTabForPreview() {
   scheduleStore.setReviewTab(resolveDefaultReviewTab(previewVersionStatus.value));
@@ -1005,7 +1072,7 @@ async function buildSolverRequest() {
     throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
   }
   if (!versionId) {
-    throw new Error('미리보기 버전 정보가 없습니다. 다시 진입해주세요.');
+    throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다. 다시 진입해주세요.');
   }
 
   if (organizationStore.shifts.length === 0) {
@@ -1089,7 +1156,7 @@ async function handleStartSolver() {
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 생성/편집을 진행할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
   }
 
@@ -1183,7 +1250,7 @@ async function handleSyncSolverState() {
 async function handleForceResetSolverState() {
   if (isRecoveringSolver.value) return;
   if (!previewVersionId.value) {
-    showError('미리보기 버전 정보가 없습니다.');
+    showError('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
     return;
   }
   if (previewVersionStatus.value !== 'solving') {
@@ -1199,7 +1266,7 @@ async function handleForceResetSolverState() {
     await hub.hydrate();
     const currentPreviewVersionId = previewVersionId.value;
     if (!currentPreviewVersionId) {
-      throw new Error('미리보기 버전 정보가 없습니다.');
+      throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
     }
 
     const currentPreview = compareVersions.value.find((version) => version.id === currentPreviewVersionId);
@@ -1410,7 +1477,58 @@ function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
   scheduleStore.setReviewTab(tab);
 }
 
-async function handlePreviewVersionChange(versionId: string) {
+function handleToggleComparisonTools() {
+  isComparisonToolsCollapsed.value = !isComparisonToolsCollapsed.value;
+}
+
+function dedupeVersionIds(versionIds: string[]): string[] {
+  return [...new Set(versionIds)];
+}
+
+function getCanonicalCompareVersionIds(
+  versionIds: string[],
+  focusVersionId: string | null
+): string[] {
+  const deduped = dedupeVersionIds(versionIds);
+
+  if (!focusVersionId) {
+    return deduped.slice(0, 2);
+  }
+
+  const withoutFocus = deduped.filter((versionId) => versionId !== focusVersionId);
+  return [focusVersionId, ...withoutFocus].slice(0, 2);
+}
+
+async function syncComparisonWorkspace(
+  focusVersionId: string | null,
+  nextCompareVersionIds: string[]
+) {
+  await router.replace(
+    buildStep5Route(ensureScheduleId(), focusVersionId, nextCompareVersionIds)
+  );
+  await hub.hydrate();
+}
+
+function buildNextCompareVersionIds(versionId: string): string[] {
+  if (versionId === previewVersionId.value) {
+    return compareVersionIds.value;
+  }
+
+  if (compareVersionIds.value.includes(versionId)) {
+    return getCanonicalCompareVersionIds(
+      compareVersionIds.value.filter((candidateId) => candidateId !== versionId),
+      previewVersionId.value
+    );
+  }
+
+  if (compareVersionIds.value.length >= 2) {
+    return getCanonicalCompareVersionIds([previewVersionId.value, versionId].filter(Boolean) as string[], previewVersionId.value);
+  }
+
+  return getCanonicalCompareVersionIds([...compareVersionIds.value, versionId], previewVersionId.value);
+}
+
+async function handleFocusVersionChange(versionId: string) {
   if (lockedVersionId.value && versionId !== lockedVersionId.value) {
     return;
   }
@@ -1419,40 +1537,95 @@ async function handlePreviewVersionChange(versionId: string) {
     return;
   }
 
-  const switchPreviewVersion = async () => {
+  const switchFocusedVersion = async () => {
     try {
       solver.stopPolling();
       stopAssignmentsRefresh();
       resetRealtimeState();
 
-      await hub.setPreviewVersion(versionId);
+      await syncComparisonWorkspace(
+        versionId,
+        getCanonicalCompareVersionIds(compareVersionIds.value, versionId)
+      );
       await syncPreviewWorkspace({
         syncOriginal: true,
         clearChanges: true,
         forceAssignmentSync: true,
       });
     } catch (error) {
-      console.warn('미리보기 버전 전환 중 오류:', error);
-      showError(error instanceof Error ? error.message : '버전 미리보기 전환 중 오류가 발생했습니다.');
+      console.warn('상세 보기 버전 전환 중 오류:', error);
+      showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
     }
   };
 
   if (changedCells.value.size > 0) {
     window.$dialog?.warning({
       title: '저장되지 않은 변경사항',
-      content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 버전을 전환하면 현재 수정 내용이 사라집니다.`,
-      positiveText: '버전 전환',
+      content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 다른 안을 자세히 보면 현재 수정 내용이 사라집니다.`,
+      positiveText: '다른 안 보기',
       negativeText: '계속 편집',
-      onPositiveClick: () => switchPreviewVersion(),
+      onPositiveClick: () => switchFocusedVersion(),
     });
     return;
   }
 
   try {
-    await switchPreviewVersion();
+    await switchFocusedVersion();
   } catch (error) {
-    console.warn('미리보기 버전 전환 중 오류:', error);
-    showError(error instanceof Error ? error.message : '버전 미리보기 전환 중 오류가 발생했습니다.');
+    console.warn('상세 보기 버전 전환 중 오류:', error);
+    showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleToggleCompareVersion(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
+  const nextCompareVersionIds = buildNextCompareVersionIds(versionId);
+  const currentCompareVersionIds = compareVersionIds.value;
+
+  if (
+    nextCompareVersionIds.length === currentCompareVersionIds.length
+    && nextCompareVersionIds.every((candidateId, index) => candidateId === currentCompareVersionIds[index])
+  ) {
+    return;
+  }
+
+  try {
+    await syncComparisonWorkspace(previewVersionId.value, nextCompareVersionIds);
+  } catch (error) {
+    console.warn('비교 후보 갱신 중 오류:', error);
+    showError(error instanceof Error ? error.message : '비교 후보를 갱신하는 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleSelectCandidateVersion(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
+  if (versionId === selectedVersionId.value || isPrimaryActionRunning.value) {
+    return;
+  }
+
+  isPrimaryActionRunning.value = true;
+
+  try {
+    await selectPhase2ScheduleVersion(versionId);
+    showSuccess('기준안을 변경했습니다.');
+
+    await hub.hydrate();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: false,
+      forceAssignmentSync: true,
+    });
+  } catch (error) {
+    console.warn('기준안 변경 중 오류:', error);
+    showError(error instanceof Error ? error.message : '기준안 변경 중 오류가 발생했습니다.');
+  } finally {
+    isPrimaryActionRunning.value = false;
   }
 }
 
@@ -1466,7 +1639,9 @@ async function handlePrimaryAction() {
   try {
     switch (primaryAction.value.kind) {
       case 'select':
-        await hub.selectPreviewVersion();
+        if (!previewVersionId.value) return;
+        await selectPhase2ScheduleVersion(previewVersionId.value);
+        showSuccess('기준안을 변경했습니다.');
         break;
       case 'recheck':
         if (!primaryAction.value.targetVersionId) return;
@@ -1522,7 +1697,7 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 
 function handleReset() {
   if (!canMutatePreviewVersion.value) {
-    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
     return;
   }
 
@@ -1550,7 +1725,7 @@ function handleReset() {
 
 async function handleRegenerate() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 생성할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 생성할 수 없습니다.');
     return;
   }
 
@@ -1568,13 +1743,22 @@ async function handleRegenerate() {
       },
     });
 
-    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    compareVersions.value = createResponse.versions;
-    await hub.setPreviewVersion(createResponse.createdVersionId);
+    await syncComparisonWorkspace(
+      createResponse.createdVersionId,
+      getCanonicalCompareVersionIds(
+        [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+          (versionId): versionId is string => typeof versionId === 'string' && versionId.length > 0
+        ),
+        createResponse.createdVersionId
+      )
+    );
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
 
     await handleStartSolver();
-    await hub.hydrate();
   } catch (error) {
     console.warn('후보 버전 생성 중 오류:', error);
     showError(error instanceof Error ? error.message : '후보 버전 생성 중 오류가 발생했습니다.');
@@ -1605,7 +1789,7 @@ function handleExport() {
 
 function handleSave() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
     return;
   }
   const targetVersionId = previewVersionId.value;
@@ -1698,7 +1882,7 @@ async function handleCancelSchedule() {
           return;
         }
         if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-          showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+          showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
           return;
         }
 

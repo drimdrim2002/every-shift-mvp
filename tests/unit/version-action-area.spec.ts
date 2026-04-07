@@ -107,7 +107,7 @@ describe('VersionActionArea', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('이 버전 확정')
+    expect(wrapper.text()).toContain('이 안으로 최종 확정')
     expect(wrapper.text()).toContain('재검토가 완료되어 확정할 수 있습니다.')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(true)
   })
@@ -133,9 +133,9 @@ describe('VersionActionArea', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('이 버전을 선택')
-    expect(wrapper.text()).toContain('검토 준비 완료')
-    expect(wrapper.text()).toContain('생성 실패')
+    expect(wrapper.text()).toContain('이 안을 기준안으로 사용')
+    expect(wrapper.text()).toContain('확정 가능')
+    expect(wrapper.text()).toContain('생성 중 오류 발생')
     expect(wrapper.text()).not.toContain('Select this version as the finalization candidate')
     expect(wrapper.text()).not.toContain('review_ready')
     expect(wrapper.text()).not.toContain('solve_failed')

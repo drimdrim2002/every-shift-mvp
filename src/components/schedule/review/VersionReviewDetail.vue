@@ -6,6 +6,7 @@ import type { ScheduleReviewResponse, ScheduleReviewTab } from '@/types/schedule
 const props = defineProps<{
   review: ScheduleReviewResponse | null;
   activeTab: ScheduleReviewTab;
+  focusTitle?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -38,6 +39,19 @@ function isTabActive(tab: ScheduleReviewTab) {
 
 <template>
   <section class="rounded-2xl border border-slate-200 bg-white p-4">
+    <div
+      v-if="focusTitle"
+      data-test="review-focus-heading"
+      class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+    >
+      <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
+        현재 자세히 보는 안
+      </p>
+      <h3 class="mt-1 text-base font-semibold text-slate-900">
+        {{ focusTitle }}
+      </h3>
+    </div>
+
     <div
       v-if="leadPanel === 'pending'"
       data-test="review-lead-panel-pending"
