@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { supabase } from './supabase';
 import type {
   AssignmentMap,
@@ -26,6 +27,7 @@ import type {
   PlanningShift,
   PlanningEmployee,
   PlanningAssignment,
+  PreviousMonthFinalizedContext,
   ResetScheduleRosterRequest,
   ResetScheduleRosterResponse,
 } from '@/types/schedule';
@@ -795,6 +797,35 @@ export async function getScheduleVersionAssignments(scheduleVersionId: string): 
   comments: CommentMap;
 }> {
   return getScheduleAssignmentsByScope('schedule_version_id', scheduleVersionId);
+}
+
+export async function getPreviousMonthFinalizedContext(
+  organizationId: string,
+  month: string,
+): Promise<PreviousMonthFinalizedContext | null> {
+  const previousMonth = dayjs(`${month}-01`).subtract(1, 'month').format('YYYY-MM');
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('id, finalized_version_id')
+    .eq('organization_id', organizationId)
+    .eq('month', previousMonth)
+    .maybeSingle();
+
+  if (error) throw new Error(`전월 확정 스케줄 조회 실패: ${error.message}`);
+  if (!data?.id || !data.finalized_version_id) return null;
+
+  const [displayData, planningAssignments] = await Promise.all([
+    getScheduleVersionAssignments(data.finalized_version_id),
+    getPlanningAssignmentsForVersion(data.finalized_version_id),
+  ]);
+
+  return {
+    scheduleId: data.id,
+    scheduleVersionId: data.finalized_version_id,
+    displayAssignments: displayData.assignments,
+    planningAssignments,
+  };
 }
 
 async function getScheduleAssignmentsByScope(scopeColumn: AssignmentScopeColumn, scopeId: string): Promise<{

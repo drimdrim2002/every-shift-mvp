@@ -1,3 +1,4 @@
+import dayjs from 'dayjs'
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,6 +18,7 @@ const {
   getScheduleStatusMock,
   getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
+  getPreviousMonthFinalizedContextMock,
   selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersionMock,
@@ -28,6 +30,7 @@ const {
   deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
+  mapToSolverRequestMock,
   showSuccessMock,
   showErrorMock,
   showInfoMock,
@@ -39,6 +42,7 @@ const {
   getScheduleStatusMock: vi.fn(),
   getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
+  getPreviousMonthFinalizedContextMock: vi.fn(),
   selectPhase2ScheduleVersionMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
   finalizePhase2ScheduleVersionMock: vi.fn(),
@@ -50,6 +54,7 @@ const {
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
+  mapToSolverRequestMock: vi.fn(() => ({})),
   showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
   showInfoMock: vi.fn(),
@@ -71,6 +76,7 @@ vi.mock('@/api/schedule', () => ({
   getScheduleStatus: getScheduleStatusMock,
   getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
+  getPreviousMonthFinalizedContext: getPreviousMonthFinalizedContextMock,
   selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
@@ -87,7 +93,7 @@ vi.mock('@/api/employee', () => ({
 }))
 
 vi.mock('@/utils/solverMapper', () => ({
-  mapToSolverRequest: vi.fn(() => ({})),
+  mapToSolverRequest: mapToSolverRequestMock,
 }))
 
 vi.mock('@/utils/excel', () => ({
@@ -191,6 +197,18 @@ const gridMock = {
   offReasons: ref({}),
   loadEmployees: vi.fn().mockResolvedValue(undefined),
   generateDates: vi.fn(),
+}
+
+function setMockGridDates(month: string, lastMonthDays = 0) {
+  const currentMonthDate = dayjs(`${month}-01`).format('YYYY-MM-DD')
+  const previousDates = Array.from({ length: lastMonthDays }, (_, index) => (
+    dayjs(`${month}-01`).subtract(lastMonthDays - index, 'day').format('YYYY-MM-DD')
+  ))
+
+  gridMock.dates.value = [
+    ...previousDates.map((date) => ({ date, isLastMonth: true })),
+    { date: currentMonthDate, isLastMonth: false },
+  ]
 }
 
 vi.mock('@/stores/schedule', () => ({
@@ -348,6 +366,12 @@ describe('Step5Result', () => {
     solverMock.progress.value = 0
     solverMock.intermediateResults.value = null
     solverMock.startSolver.mockResolvedValue('exec-1')
+    gridMock.generateDates.mockImplementation((month: string, lastMonthDays = 0) => {
+      setMockGridDates(month, lastMonthDays)
+    })
+    setMockGridDates('2025-12', 0)
+    getPreviousMonthFinalizedContextMock.mockResolvedValue(null)
+    mapToSolverRequestMock.mockImplementation(() => ({}))
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
       warning: vi.fn(),
@@ -887,11 +911,195 @@ describe('Step5Result', () => {
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
     expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-1')
 
-    const startSolverButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('근무표 생성 (AI)'))
+    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
 
-    expect(startSolverButton).toBeTruthy()
-    expect(startSolverButton?.attributes('disabled')).toBeUndefined()
+    expect(startSolverButton.exists()).toBe(true)
+    expect(startSolverButton.attributes('disabled')).toBeUndefined()
+  })
+
+  it('shows finalized previous-month fallback rows when the preview version has none', async () => {
+    routeMock.query = { version: 'version-1' }
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+    getPreviousMonthFinalizedContextMock.mockResolvedValue({
+      scheduleId: 'schedule-2025-03',
+      scheduleVersionId: 'version-2025-03-final',
+      displayAssignments: {
+        'emp-1': {
+          '2025-03-31': 'D',
+        },
+      },
+      planningAssignments: [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-1',
+          date: '2025-03-31',
+          is_locked: true,
+        },
+      ],
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(gridMock.assignments.value['emp-1']?.['2025-03-31']).toBe('D')
+    expect(gridMock.dates.value.some((date) => date.date === '2025-03-31')).toBe(true)
+  })
+
+  it('generates the full previous-month window when fallback already spans the default five days', async () => {
+    routeMock.query = { version: 'version-1' }
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+    getPreviousMonthFinalizedContextMock.mockResolvedValue({
+      scheduleId: 'schedule-2025-03',
+      scheduleVersionId: 'version-2025-03-final',
+      displayAssignments: {
+        'emp-1': {
+          '2025-03-27': 'D',
+          '2025-03-28': 'D',
+          '2025-03-29': 'D',
+          '2025-03-30': 'D',
+          '2025-03-31': 'D',
+        },
+      },
+      planningAssignments: [],
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(gridMock.generateDates).toHaveBeenCalledWith('2025-04', 5)
+    expect(gridMock.dates.value.filter((date) => date.isLastMonth)).toHaveLength(5)
+    expect(gridMock.dates.value[0]?.date).toBe('2025-03-27')
+    expect(gridMock.assignments.value['emp-1']?.['2025-03-31']).toBe('D')
+  })
+
+  it('passes finalized previous-month planning rows into mapToSolverRequest on AI start', async () => {
+    routeMock.query = { version: 'version-1' }
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+    getPreviousMonthFinalizedContextMock.mockResolvedValue({
+      scheduleId: 'schedule-2025-03',
+      scheduleVersionId: 'version-2025-03-final',
+      displayAssignments: {},
+      planningAssignments: [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-1',
+          date: '2025-03-31',
+          is_locked: true,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await flushPromises()
+    mapToSolverRequestMock.mockClear()
+
+    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
+    expect(startSolverButton.attributes('disabled')).toBeUndefined()
+
+    await startSolverButton.trigger('click')
+    await flushPromises()
+
+    expect(mapToSolverRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        month: '2025-04',
+        organizationId: 'org-1',
+      }),
+      expect.any(Object),
+      expect.any(Object),
+      expect.any(Array),
+      expect.any(Array),
+      expect.any(Array),
+      expect.any(Number),
+      [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-1',
+          date: '2025-03-31',
+          is_locked: true,
+        },
+      ],
+    )
+  })
+
+  it('blocks AI start when the previous-month fallback lookup fails', async () => {
+    routeMock.query = { version: 'version-1' }
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+    getPreviousMonthFinalizedContextMock.mockRejectedValueOnce(new Error('lookup failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
+    await startSolverButton.trigger('click')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith(
+      '전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.'
+    )
+    expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
+    expect(mapToSolverRequestMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
+  })
+
+  it('regenerates the calendar grid when the mounted month changes', async () => {
+    routeMock.query = { version: 'version-1' }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+
+    await flushPromises()
+    await flushPromises()
+
+    expect(gridMock.generateDates).toHaveBeenCalledWith('2025-04', expect.any(Number))
+    expect(gridMock.dates.value[0]?.date).toBe('2025-04-01')
+    expect(wrapper.exists()).toBe(true)
   })
 
   it('locks mutation controls when preview version status is solving', async () => {
@@ -956,11 +1164,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    const startSolverButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('근무표 생성 (AI)'))
+    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
 
-    expect(startSolverButton).toBeTruthy()
-    expect(startSolverButton?.attributes('disabled')).toBeDefined()
+    expect(startSolverButton.exists()).toBe(true)
+    expect(startSolverButton.attributes('disabled')).toBeDefined()
   })
 
   it('does not resume polling when compare has no activeSolvingVersionId even if legacy schedule.status is running', async () => {
@@ -1051,11 +1258,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    const startSolverButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('근무표 생성 (AI)'))
-    expect(startSolverButton).toBeTruthy()
+    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
+    expect(startSolverButton.exists()).toBe(true)
 
-    await startSolverButton!.trigger('click')
+    await startSolverButton.trigger('click')
     await flushPromises()
 
     expect(showErrorMock).toHaveBeenCalledWith('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.')

@@ -187,6 +187,7 @@
         <div class="flex flex-col gap-4 sm:flex-row">
           <n-button
             v-if="isPreRun"
+            data-test="start-solver-button"
             :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
             size="medium"
             :loading="isStartingSolver"
@@ -254,6 +255,7 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
   createPhase2ScheduleVersion,
+  getPreviousMonthFinalizedContext,
   patchPhase2ScheduleVersionAssignments,
   getScheduleStatus,
   getScheduleVersionAssignments,
@@ -276,11 +278,16 @@ import {
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
 import { buildStep5Route } from '@/utils/scheduleVersionResolver';
+import {
+  buildRollingHistoryWindow,
+  mergeAssignmentMapsWithFallback,
+} from '@/utils/rollingHistory';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type {
   AssignmentMap,
   ConstraintMap,
   CommentMap,
+  PlanningAssignment,
   SchedulePrimaryAction,
   ScheduleVersionStatus,
 } from '@/types/schedule';
@@ -327,6 +334,9 @@ const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
 const previousMonthAssignments = ref<AssignmentMap>({});
+const previousMonthFallbackAssignments = ref<AssignmentMap>({});
+const previousMonthFallbackPlanningAssignments = ref<PlanningAssignment[]>([]);
+const previousMonthFallbackError = ref<string | null>(null);
 const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
@@ -537,6 +547,34 @@ function resetRealtimeState() {
   warnedUnknownShiftIds.value = new Set();
 }
 
+async function loadPreviousMonthFallback() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo?.organizationId || !basicInfo.month) {
+    previousMonthFallbackAssignments.value = {};
+    previousMonthFallbackPlanningAssignments.value = [];
+    previousMonthFallbackError.value = null;
+    return;
+  }
+
+  previousMonthFallbackError.value = null;
+
+  try {
+    const context = await getPreviousMonthFinalizedContext(
+      basicInfo.organizationId,
+      basicInfo.month,
+    );
+
+    previousMonthFallbackAssignments.value = context?.displayAssignments ?? {};
+    previousMonthFallbackPlanningAssignments.value = context?.planningAssignments ?? [];
+  } catch (error) {
+    previousMonthFallbackAssignments.value = {};
+    previousMonthFallbackPlanningAssignments.value = [];
+    previousMonthFallbackError.value = error instanceof Error
+      ? error.message
+      : '전월 rolling history 조회 실패';
+  }
+}
+
 function hashAssignmentMap(assignments: AssignmentMap): string {
   const employeeIds = Object.keys(assignments).sort();
   return employeeIds
@@ -661,6 +699,11 @@ function syncLastMonthDayWindow(previousDates: Set<string>) {
   if (!hasInitializedLastMonthDays.value) {
     lastMonthDays.value = maxDays;
     hasInitializedLastMonthDays.value = true;
+
+    if (scheduleStore.basicInfo && getDisplayedLastMonthDates().size !== maxDays) {
+      grid.generateDates(scheduleStore.basicInfo.month, maxDays);
+    }
+
     return;
   }
 
@@ -819,14 +862,39 @@ async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearCh
     return;
   }
 
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) {
+    currentScheduleAssignments.value = {};
+    previousMonthAssignments.value = {};
+    grid.assignments.value = {};
+    grid.offReasons.value = {};
+    if (clearChanges) {
+      changedCells.value.clear();
+    }
+    return;
+  }
+
   const data = await getScheduleVersionAssignments(versionId);
-  const { currentAssignments, previousAssignments, previousDates } = splitAssignmentsByMonth(
-    data.assignments
+  const { currentAssignments, previousAssignments } = splitAssignmentsByMonth(
+    data.assignments,
+  );
+
+  const mergedPreviousAssignments = mergeAssignmentMapsWithFallback(
+    previousAssignments,
+    previousMonthFallbackAssignments.value,
+    buildRollingHistoryWindow(currentMonth, 5).previousMonthDates,
   );
 
   if (solver.status.value !== 'running') {
-    previousMonthAssignments.value = previousAssignments;
-    syncLastMonthDayWindow(previousDates);
+    previousMonthAssignments.value = mergedPreviousAssignments;
+    const mergedPreviousDates = new Set<string>();
+    for (const dateMap of Object.values(mergedPreviousAssignments)) {
+      for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+        if (!shiftCode) continue;
+        mergedPreviousDates.add(date);
+      }
+    }
+    syncLastMonthDayWindow(mergedPreviousDates);
   }
 
   const hasDbAssignments = Object.values(currentAssignments).some((dateMap) => {
@@ -948,6 +1016,10 @@ async function buildSolverRequest() {
   const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
   const planningAssignments = await getPlanningAssignmentsForVersion(versionId);
 
+  if (previousMonthFallbackError.value) {
+    throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
+  }
+
   let siteRequirements = scheduleStore.siteRequirements;
   if (!siteRequirements || siteRequirements.length === 0) {
     siteRequirements = await loadSiteRequirements(basicInfo.organizationId);
@@ -967,7 +1039,8 @@ async function buildSolverRequest() {
     planningEmployees,
     organizationStore.shifts,
     planningAssignments,
-    lastMonthDays.value
+    lastMonthDays.value,
+    previousMonthFallbackPlanningAssignments.value,
   );
 }
 
@@ -1023,6 +1096,10 @@ async function handleStartSolver() {
   isStartingSolver.value = true;
 
   try {
+    if (previousMonthFallbackError.value) {
+      throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
+    }
+
     await loadPreferencesForDisplay();
     await resetPreferenceResolutionByVersion(previewVersionId.value);
 
@@ -1208,6 +1285,7 @@ onMounted(async () => {
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);
+    await loadPreviousMonthFallback();
     await syncPreviewWorkspace({
       syncOriginal: true,
       clearChanges: true,
@@ -1231,6 +1309,29 @@ watch(lastMonthDays, (newDays) => {
   grid.generateDates(scheduleStore.basicInfo.month, newDays);
   rebuildDisplayAssignments();
 });
+
+watch(
+  () => [
+    scheduleStore.basicInfo?.organizationId ?? null,
+    scheduleStore.basicInfo?.month ?? null,
+  ],
+  async ([newOrganizationId, newMonth], [oldOrganizationId, oldMonth]) => {
+    if (newOrganizationId === oldOrganizationId && newMonth === oldMonth) {
+      return;
+    }
+    if (!newOrganizationId || !newMonth) {
+      return;
+    }
+
+    grid.generateDates(newMonth, lastMonthDays.value);
+    await loadPreviousMonthFallback();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+  }
+);
 
 watch(
   () => [review.value?.version?.id ?? null, previewVersionStatus.value],

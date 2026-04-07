@@ -28,6 +28,13 @@ export interface GridColumn {
 // 배정 맵: employeeId -> date -> shiftCode
 export type AssignmentMap = Record<string, Record<string, string>>;
 
+export interface PreviousMonthFinalizedContext {
+  scheduleId: string;
+  scheduleVersionId: string;
+  displayAssignments: AssignmentMap;
+  planningAssignments: PlanningAssignment[];
+}
+
 // Step4 근무 불가 코드
 export type ConstraintCode = 'O';
 
