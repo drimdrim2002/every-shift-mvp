@@ -2,10 +2,16 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
+import * as opsApi from '@/api/ops'
 import * as shiftApi from '@/api/shift'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
+import type {
+  OrganizationProfileResponse,
+  ShiftsConstraintsResponse,
+  SiteRecord,
+} from '@/types/ops'
 import {
   resolveAuthScope,
   resolvePreferredOrganizationId,
@@ -47,6 +53,10 @@ export const useOrganizationStore = defineStore('organization', () => {
   const employees = ref<Employee[]>([])
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
+  const foundationProfile = ref<OrganizationProfileResponse | null>(null)
+  const foundationSites = ref<SiteRecord[]>([])
+  const foundationShiftsConstraints = ref<ShiftsConstraintsResponse | null>(null)
+  const foundationLoading = ref(false)
 
   async function fetchOrganizationById(orgId: string): Promise<OrganizationRow | null> {
     const { data, error } = await supabase
@@ -172,6 +182,57 @@ export const useOrganizationStore = defineStore('organization', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function loadFoundationData(orgId?: string) {
+    const organizationId = orgId ?? current.value?.id ?? null
+
+    if (!organizationId) {
+      return { success: false, error: '기본 설정을 불러올 조직이 없습니다.' }
+    }
+
+    foundationLoading.value = true
+
+    try {
+      const [profile, sites, shiftsConstraints] = await Promise.all([
+        opsApi.getOrganizationProfile(organizationId),
+        opsApi.getSites(organizationId),
+        opsApi.getShiftsConstraints(organizationId),
+      ])
+
+      foundationProfile.value = profile
+      foundationSites.value = sites.sites
+      foundationShiftsConstraints.value = shiftsConstraints
+
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    } finally {
+      foundationLoading.value = false
+    }
+  }
+
+  function updateFoundationProfileCache(profile: OrganizationProfileResponse) {
+    foundationProfile.value = profile
+
+    if (current.value) {
+      current.value = {
+        ...current.value,
+        name: profile.name,
+        type: profile.type,
+        foundation: {
+          currentStepKey: current.value.foundation?.currentStepKey ?? 'organization_profile',
+          organizationInfoConfirmedAt:
+            current.value.foundation?.organizationInfoConfirmedAt ?? new Date().toISOString(),
+          organizationInfoConfirmedBy: current.value.foundation?.organizationInfoConfirmedBy ?? null,
+        },
+      }
+    }
+  }
+
+  function updateFoundationSitesCache(sites: SiteRecord[]) {
+    foundationSites.value = sites
   }
 
   /**
@@ -340,6 +401,10 @@ export const useOrganizationStore = defineStore('organization', () => {
     employees.value = []
     shifts.value = []
     loading.value = false
+    foundationProfile.value = null
+    foundationSites.value = []
+    foundationShiftsConstraints.value = null
+    foundationLoading.value = false
   }
 
   return {
@@ -348,8 +413,15 @@ export const useOrganizationStore = defineStore('organization', () => {
     employees,
     shifts,
     loading,
+    foundationProfile,
+    foundationSites,
+    foundationShiftsConstraints,
+    foundationLoading,
     // Actions - Organization
     loadOrganization,
+    loadFoundationData,
+    updateFoundationProfileCache,
+    updateFoundationSitesCache,
     createOrganization,
     updateCurrentOrganization,
     // Actions - Shifts (DB)

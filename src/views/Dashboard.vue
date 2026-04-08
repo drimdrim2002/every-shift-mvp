@@ -19,6 +19,40 @@
         </div>
       </template>
 
+      <n-card
+        data-test="dashboard-foundation-card"
+        :bordered="true"
+        class="mb-6"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-base font-semibold text-gray-900">
+              {{
+                foundationReady
+                  ? '조직/사이트 기본 설정이 완료되었습니다'
+                  : '조직/사이트 기본 설정이 아직 완료되지 않았습니다'
+              }}
+            </p>
+            <p class="mt-1 text-sm text-gray-500">
+              {{
+                foundationReady
+                  ? '대시보드와 근무표 생성 흐름에서 동일한 기본 설정 정보를 사용합니다.'
+                  : '조직 기본 정보 확인과 스케줄 대상 사이트 지정을 먼저 완료해주세요.'
+              }}
+            </p>
+          </div>
+          <n-button
+            v-if="!foundationReady"
+            data-test="dashboard-foundation-setup"
+            secondary
+            type="primary"
+            @click="handleOpenFoundationSetup"
+          >
+            기본 설정 열기
+          </n-button>
+        </div>
+      </n-card>
+
       <!-- 로딩 상태 -->
       <div
         v-if="loading"
@@ -189,6 +223,15 @@ const monthOptions = computed(() => {
   }));
 });
 
+const foundationReady = computed(() => {
+  const organizationConfirmed = Boolean(orgStore.current?.foundation?.organizationInfoConfirmedAt);
+  const hasScheduleActiveSite = orgStore.foundationSites.some(
+    (site) => site.isActive && site.isScheduleActive
+  );
+
+  return organizationConfirmed && hasScheduleActiveSite;
+});
+
 onMounted(async () => {
   const result = await orgStore.loadOrganization();
 
@@ -196,6 +239,10 @@ onMounted(async () => {
     showError(result.error || '조직 정보를 불러오지 못했습니다.');
     loading.value = false;
     return;
+  }
+
+  if (orgStore.current?.id && typeof orgStore.loadFoundationData === 'function') {
+    await orgStore.loadFoundationData(orgStore.current.id);
   }
 
   // 근무표 목록 로드
@@ -219,6 +266,10 @@ function handleCreateNew() {
   // 기본값: 다음 달
   monthForm.value.month = monthOptions.value[1]?.value || '';
   showMonthModal.value = true;
+}
+
+function handleOpenFoundationSetup() {
+  router.push('/ops/organization-setup');
 }
 
 async function handleMonthConfirm() {

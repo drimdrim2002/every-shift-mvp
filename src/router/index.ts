@@ -49,6 +49,12 @@ const baseRoutes: RouteRecordRaw[] = [
         meta: { title: '대시보드' },
       },
       {
+        path: 'ops/organization-setup',
+        name: 'OrganizationProfileSetup',
+        component: () => import('@/views/ops/OrganizationProfileSetup.vue'),
+        meta: { title: '조직/사이트 기본 설정' },
+      },
+      {
         path: 'schedule/step1',
         name: 'Step1',
         component: () => import('@/views/schedule/Step1BasicInfo.vue'),

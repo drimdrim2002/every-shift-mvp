@@ -1,0 +1,121 @@
+<template>
+  <div class="mx-auto max-w-4xl space-y-6 px-4">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">
+          조직/사이트 기본 설정
+        </h1>
+        <p class="mt-1 text-sm text-gray-500">
+          대시보드와 Step2에서 공통으로 사용할 기본 설정을 관리합니다.
+        </p>
+      </div>
+      <n-button @click="router.push('/')">
+        대시보드로 돌아가기
+      </n-button>
+    </div>
+
+    <organization-profile-form
+      :model-value="organizationProfile"
+      :saving="organizationSaving"
+      @save="handleSaveOrganizationProfile"
+    />
+
+    <site-foundation-form
+      :model-value="siteRecords"
+      :saving="siteSaving"
+      @save="handleSaveSites"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { NButton } from 'naive-ui';
+import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
+import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
+import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
+import { useOrganizationStore } from '@/stores/organization';
+import type { OrganizationProfileRequest, SiteRecord } from '@/types/ops';
+import { showError, showSuccess } from '@/utils/message';
+
+const router = useRouter();
+const organizationStore = useOrganizationStore();
+
+const organizationSaving = ref(false);
+const siteSaving = ref(false);
+const organizationProfile = ref<OrganizationProfileRequest>({
+  organizationId: '',
+  name: '',
+  type: '',
+});
+const siteRecords = ref<SiteRecord[]>([]);
+
+async function ensureOrganizationId(): Promise<string> {
+  if (organizationStore.current?.id) {
+    return organizationStore.current.id;
+  }
+
+  const result = await organizationStore.loadOrganization();
+  if (!result.success || !organizationStore.current?.id) {
+    throw new Error(result.error ?? '조직 정보를 불러오지 못했습니다.');
+  }
+
+  return organizationStore.current.id;
+}
+
+async function loadFoundationSetup() {
+  try {
+    const organizationId = await ensureOrganizationId();
+    const [profile, sites] = await Promise.all([
+      getOrganizationProfile(organizationId),
+      getSites(organizationId),
+    ]);
+
+    organizationProfile.value = profile;
+    siteRecords.value = sites.sites;
+    organizationStore.updateFoundationProfileCache(profile);
+    organizationStore.updateFoundationSitesCache(sites.sites);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '기본 설정을 불러오지 못했습니다.');
+  }
+}
+
+async function handleSaveOrganizationProfile(value: OrganizationProfileRequest) {
+  organizationSaving.value = true;
+
+  try {
+    const saved = await updateOrganizationProfile(value);
+    organizationProfile.value = saved;
+    organizationStore.updateFoundationProfileCache(saved);
+    showSuccess('조직 기본 정보를 저장했습니다.');
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '조직 기본 정보 저장에 실패했습니다.');
+  } finally {
+    organizationSaving.value = false;
+  }
+}
+
+async function handleSaveSites(value: SiteRecord[]) {
+  siteSaving.value = true;
+
+  try {
+    const organizationId = await ensureOrganizationId();
+    const saved = await updateSites({
+      organizationId,
+      sites: value,
+    });
+    siteRecords.value = saved.sites;
+    organizationStore.updateFoundationSitesCache(saved.sites);
+    showSuccess('사이트 설정을 저장했습니다.');
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '사이트 설정 저장에 실패했습니다.');
+  } finally {
+    siteSaving.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadFoundationSetup();
+});
+</script>
