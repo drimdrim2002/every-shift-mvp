@@ -4,6 +4,8 @@ import type {
   EmployeeImportApplyResponse,
   EmployeeImportValidateRequest,
   EmployeeImportValidateResponse,
+  OffRequestPolicySetupRequest,
+  OffRequestPolicySetupResponse,
   OrganizationProfileRequest,
   OrganizationProfileResponse,
   ShiftsConstraintsRequest,
@@ -158,4 +160,19 @@ export async function applyEmployeeImport(
   request: EmployeeImportApplyRequest
 ): Promise<EmployeeImportApplyResponse> {
   return callPhase2Ops<EmployeeImportApplyResponse>('/employee-import/apply', 'POST', request);
+}
+
+export async function getOffRequestPolicies(
+  organizationId: string
+): Promise<OffRequestPolicySetupResponse> {
+  return callPhase2Ops<OffRequestPolicySetupResponse>(
+    `/off-request-policies?organizationId=${encodeURIComponent(organizationId)}`,
+    'GET'
+  );
+}
+
+export async function updateOffRequestPolicies(
+  request: OffRequestPolicySetupRequest
+): Promise<OffRequestPolicySetupResponse> {
+  return callPhase2Ops<OffRequestPolicySetupResponse>('/off-request-policies', 'PUT', request);
 }

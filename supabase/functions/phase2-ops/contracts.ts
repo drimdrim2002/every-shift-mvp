@@ -1,5 +1,9 @@
-export type HttpMethod = 'POST' | 'OPTIONS';
-export type RouteName = 'bootstrapAdmin' | 'employeeImportValidate' | 'employeeImportApply';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'OPTIONS';
+export type RouteName =
+  | 'bootstrapAdmin'
+  | 'employeeImportValidate'
+  | 'employeeImportApply'
+  | 'offRequestPolicies';
 
 export interface ErrorEnvelope {
   code: string;
@@ -60,6 +64,46 @@ export interface EmployeeImportApplyResponse extends EmployeeImportPreviewRespon
   deletedScheduleId: string | null;
 }
 
+export type OffRequestPolicyPeriodType = 'monthly' | 'annual';
+
+export interface OffRequestPolicyRankCode {
+  id?: string;
+  code: string;
+  label: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface OffRequestPolicyRule {
+  id?: string;
+  rankCode: string | null;
+  periodType: OffRequestPolicyPeriodType;
+  limitCount: number;
+  isActive: boolean;
+}
+
+export interface OffRequestPolicySetupRequest {
+  organizationId: string;
+  rankCodes: OffRequestPolicyRankCode[];
+  policyRules: OffRequestPolicyRule[];
+}
+
+export interface OffRequestPolicyRankCodeRecord extends OffRequestPolicyRankCode {
+  id: string;
+  organizationId: string;
+}
+
+export interface OffRequestPolicyRuleRecord extends OffRequestPolicyRule {
+  id: string;
+  organizationId: string;
+}
+
+export interface OffRequestPolicySetupResponse {
+  organizationId: string;
+  rankCodes: OffRequestPolicyRankCodeRecord[];
+  policyRules: OffRequestPolicyRuleRecord[];
+}
+
 export class ContractError extends Error {
   constructor(
     public readonly code: string,
@@ -97,6 +141,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'employeeImportApply',
     methods: ['POST'],
     segments: ['employee-import', 'apply'],
+  },
+  {
+    name: 'offRequestPolicies',
+    methods: ['GET', 'PUT'],
+    segments: ['off-request-policies'],
   },
 ];
 
@@ -299,6 +348,212 @@ export function parseBootstrapAdminResponse(payload: unknown): BootstrapAdminRes
     onboardingInitializationFlags: parseBootstrapAdminInitializationFlags(
       record.onboardingInitializationFlags
     ),
+  };
+}
+
+function parseOffRequestPolicyRankCode(value: unknown): OffRequestPolicyRankCode {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'policy rank code must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const code = typeof record.code === 'string' ? record.code.trim() : '';
+  const label = typeof record.label === 'string' ? record.label.trim() : '';
+  const displayOrder = typeof record.displayOrder === 'number' ? record.displayOrder : NaN;
+  const isActive = typeof record.isActive === 'boolean' ? record.isActive : null;
+
+  if (!code) {
+    throw new ContractError('bad_request', 'policy rank code.code is required', 400);
+  }
+
+  if (!label) {
+    throw new ContractError('bad_request', 'policy rank code.label is required', 400);
+  }
+
+  if (!Number.isInteger(displayOrder) || displayOrder < 0) {
+    throw new ContractError(
+      'bad_request',
+      'policy rank code.displayOrder must be a non-negative integer',
+      400
+    );
+  }
+
+  if (isActive === null) {
+    throw new ContractError('bad_request', 'policy rank code.isActive must be a boolean', 400);
+  }
+
+  const payload: OffRequestPolicyRankCode = {
+    code,
+    label,
+    displayOrder,
+    isActive,
+  };
+
+  if (typeof record.id === 'string' && record.id.trim().length > 0) {
+    payload.id = record.id.trim();
+  }
+
+  return payload;
+}
+
+function parseOffRequestPolicyRule(value: unknown): OffRequestPolicyRule {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'policy rule must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const rankCode =
+    typeof record.rankCode === 'string' && record.rankCode.trim().length > 0
+      ? record.rankCode.trim()
+      : record.rankCode === null
+        ? null
+        : undefined;
+  const periodType =
+    record.periodType === 'monthly' || record.periodType === 'annual'
+      ? record.periodType
+      : null;
+  const limitCount = typeof record.limitCount === 'number' ? record.limitCount : NaN;
+  const isActive = typeof record.isActive === 'boolean' ? record.isActive : null;
+
+  if (periodType === null) {
+    throw new ContractError(
+      'bad_request',
+      'policy rule.periodType must be monthly or annual',
+      400
+    );
+  }
+
+  if (!Number.isInteger(limitCount) || limitCount < 0) {
+    throw new ContractError('bad_request', 'policy rule.limitCount must be a non-negative integer', 400);
+  }
+
+  if (isActive === null) {
+    throw new ContractError('bad_request', 'policy rule.isActive must be a boolean', 400);
+  }
+
+  const payload: OffRequestPolicyRule = {
+    rankCode: rankCode ?? null,
+    periodType,
+    limitCount,
+    isActive,
+  };
+
+  if (typeof record.id === 'string' && record.id.trim().length > 0) {
+    payload.id = record.id.trim();
+  }
+
+  return payload;
+}
+
+export function parseOffRequestPolicySetupRequest(payload: unknown): OffRequestPolicySetupRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'off-request policy request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!Array.isArray(record.rankCodes)) {
+    throw new ContractError('bad_request', 'rankCodes must be an array', 400);
+  }
+
+  if (!Array.isArray(record.policyRules)) {
+    throw new ContractError('bad_request', 'policyRules must be an array', 400);
+  }
+
+  return {
+    organizationId,
+    rankCodes: record.rankCodes.map((rankCode) => parseOffRequestPolicyRankCode(rankCode)),
+    policyRules: record.policyRules.map((rule) => parseOffRequestPolicyRule(rule)),
+  };
+}
+
+function parseOffRequestPolicyRankCodeRecord(value: unknown): OffRequestPolicyRankCodeRecord {
+  const rankCode = parseOffRequestPolicyRankCode(value);
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'policy rank code record must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id.trim() : '';
+  const organizationId =
+    typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+
+  if (!id) {
+    throw new ContractError('bad_request', 'policy rank code id is required', 400);
+  }
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'policy rank code organizationId must be a valid UUID', 400);
+  }
+
+  return {
+    id,
+    organizationId,
+    ...rankCode,
+  };
+}
+
+function parseOffRequestPolicyRuleRecord(value: unknown): OffRequestPolicyRuleRecord {
+  const rule = parseOffRequestPolicyRule(value);
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'policy rule record must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const id = typeof record.id === 'string' ? record.id.trim() : '';
+  const organizationId =
+    typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+
+  if (!id) {
+    throw new ContractError('bad_request', 'policy rule id is required', 400);
+  }
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'policy rule organizationId must be a valid UUID', 400);
+  }
+
+  return {
+    id,
+    organizationId,
+    ...rule,
+  };
+}
+
+export function parseOffRequestPolicySetupResponse(payload: unknown): OffRequestPolicySetupResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError(
+      'bad_request',
+      'off-request policy response must be a JSON object',
+      400
+    );
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!Array.isArray(record.rankCodes)) {
+    throw new ContractError('bad_request', 'rankCodes must be an array', 400);
+  }
+
+  if (!Array.isArray(record.policyRules)) {
+    throw new ContractError('bad_request', 'policyRules must be an array', 400);
+  }
+
+  return {
+    organizationId,
+    rankCodes: record.rankCodes.map((rankCode) => parseOffRequestPolicyRankCodeRecord(rankCode)),
+    policyRules: record.policyRules.map((rule) => parseOffRequestPolicyRuleRecord(rule)),
   };
 }
 

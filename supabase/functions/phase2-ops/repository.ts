@@ -7,6 +7,11 @@ import {
   type EmployeeImportPreviewEmployee,
   type EmployeeImportPreviewResponse,
   type EmployeeImportRequest,
+  type OffRequestPolicyPeriodType,
+  type OffRequestPolicyRankCodeRecord,
+  type OffRequestPolicyRuleRecord,
+  type OffRequestPolicySetupRequest,
+  type OffRequestPolicySetupResponse,
 } from './contracts.ts';
 import {
   emitPhase2OpsEvent,
@@ -48,6 +53,8 @@ interface QueryBuilder<T> extends PromiseLike<QueryResult<T>> {
   select(columns: string): QueryBuilder<T>;
   eq(column: string, value: string): QueryBuilder<T>;
   limit(count: number): QueryBuilder<T>;
+  order(column: string, options?: { ascending?: boolean }): QueryBuilder<T>;
+  delete(): QueryBuilder<T>;
   maybeSingle(): Promise<QueryResult<T extends Array<infer R> ? R : T>>;
 }
 
@@ -80,6 +87,24 @@ interface ShiftRow {
   code: string;
 }
 
+interface OrganizationRankCodeRow {
+  id: string;
+  organization_id: string;
+  code: string;
+  label: string;
+  display_order: number;
+  is_active: boolean;
+}
+
+interface OffRequestPolicyRuleRow {
+  id: string;
+  organization_id: string;
+  rank_code: string | null;
+  period_type: OffRequestPolicyPeriodType;
+  limit_count: number;
+  is_active: boolean;
+}
+
 interface EmployeeImportValidationState {
   organizationId: string;
   month: string;
@@ -92,7 +117,13 @@ interface EmployeeImportValidationState {
 }
 
 type TableName = 'profiles' | 'onboarding_progress';
-type Phase2OpsTableName = TableName | 'employees' | 'schedules' | 'shifts';
+type Phase2OpsTableName =
+  | TableName
+  | 'employees'
+  | 'schedules'
+  | 'shifts'
+  | 'organization_rank_codes'
+  | 'off_request_policy_rules';
 
 export interface Phase2OpsRepositoryClient {
   auth: {
@@ -663,6 +694,299 @@ async function callResetRosterBoundary(
       typeof row?.deleted_schedule_id === 'string' ? row.deleted_schedule_id : null,
     employeeCount: typeof row?.employee_count === 'number' ? row.employee_count : 0,
   };
+}
+
+function normalizeOffRequestPolicyRankCode(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function normalizeOffRequestPolicySetupRequest(
+  request: OffRequestPolicySetupRequest
+): OffRequestPolicySetupRequest {
+  return {
+    organizationId: request.organizationId,
+    rankCodes: request.rankCodes.map((rankCode) => ({
+      ...rankCode,
+      code: rankCode.code.trim(),
+      label: rankCode.label.trim(),
+    })),
+    policyRules: request.policyRules.map((rule) => ({
+      ...rule,
+      rankCode: normalizeOffRequestPolicyRankCode(rule.rankCode),
+    })),
+  };
+}
+
+function ensureNoOffRequestPolicyOverlap(request: OffRequestPolicySetupRequest): void {
+  const activeRuleKeys = new Set<string>();
+
+  for (const rule of request.policyRules) {
+    if (!rule.isActive) {
+      continue;
+    }
+
+    const key = `${rule.periodType}:${normalizeOffRequestPolicyRankCode(rule.rankCode) ?? '__default__'}`;
+    if (activeRuleKeys.has(key)) {
+      throw new ContractError(
+        'bad_request',
+        'Overlapping active off-request policies are not allowed',
+        400
+      );
+    }
+
+    activeRuleKeys.add(key);
+  }
+}
+
+function ensureOffRequestPolicyRuleRankCodesExist(request: OffRequestPolicySetupRequest): void {
+  const availableRankCodes = new Set(
+    request.rankCodes.map((rankCode) => rankCode.code.trim()).filter((code) => code.length > 0)
+  );
+
+  for (const rule of request.policyRules) {
+    const normalizedRankCode = normalizeOffRequestPolicyRankCode(rule.rankCode);
+    if (normalizedRankCode === null) {
+      continue;
+    }
+
+    if (!availableRankCodes.has(normalizedRankCode)) {
+      throw new ContractError(
+        'bad_request',
+        `Unknown rank code in off-request policy rule: ${normalizedRankCode}`,
+        400
+      );
+    }
+  }
+}
+
+function toOffRequestPolicyRankCodeResponse(
+  row: OrganizationRankCodeRow
+): OffRequestPolicyRankCodeRecord {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    code: row.code,
+    label: row.label,
+    displayOrder: row.display_order,
+    isActive: row.is_active,
+  };
+}
+
+function toOffRequestPolicyRuleResponse(row: OffRequestPolicyRuleRow): OffRequestPolicyRuleRecord {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    rankCode: normalizeOffRequestPolicyRankCode(row.rank_code),
+    periodType: row.period_type,
+    limitCount: row.limit_count,
+    isActive: row.is_active,
+  };
+}
+
+function sortOffRequestPolicyRankCodes(
+  rankCodes: OffRequestPolicyRankCodeRecord[]
+): OffRequestPolicyRankCodeRecord[] {
+  return [...rankCodes].sort((left, right) => {
+    if (left.displayOrder !== right.displayOrder) {
+      return left.displayOrder - right.displayOrder;
+    }
+
+    return left.code.localeCompare(right.code);
+  });
+}
+
+function sortOffRequestPolicyRules(
+  policyRules: OffRequestPolicyRuleRecord[]
+): OffRequestPolicyRuleRecord[] {
+  return [...policyRules].sort((left, right) => {
+    if (left.periodType !== right.periodType) {
+      return left.periodType.localeCompare(right.periodType);
+    }
+
+    if (left.rankCode === right.rankCode) {
+      return left.limitCount - right.limitCount;
+    }
+
+    if (left.rankCode === null) {
+      return -1;
+    }
+
+    if (right.rankCode === null) {
+      return 1;
+    }
+
+    return left.rankCode.localeCompare(right.rankCode);
+  });
+}
+
+export function resolveApplicableOffRequestPolicyRule<
+  T extends { rankCode: string | null; periodType: OffRequestPolicyPeriodType; isActive: boolean }
+>(
+  policyRules: T[],
+  rankCode: string | null,
+  periodType: OffRequestPolicyPeriodType
+): T | null {
+  const normalizedRankCode = normalizeOffRequestPolicyRankCode(rankCode);
+
+  return (
+    policyRules.find(
+      (rule) =>
+        rule.isActive &&
+        rule.periodType === periodType &&
+        normalizeOffRequestPolicyRankCode(rule.rankCode) === normalizedRankCode
+    ) ??
+    policyRules.find(
+      (rule) => rule.isActive && rule.periodType === periodType && rule.rankCode === null
+    ) ??
+    null
+  );
+}
+
+async function loadOffRequestPolicySetupRows(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<OffRequestPolicySetupResponse> {
+  const rankCodeResult = await client
+    .from('organization_rank_codes')
+    .select('id, organization_id, code, label, display_order, is_active')
+    .eq('organization_id', organizationId)
+    .order('display_order', { ascending: true });
+
+  if ((rankCodeResult as QueryResult<OrganizationRankCodeRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (rankCodeResult as QueryResult<OrganizationRankCodeRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const policyRuleResult = await client
+    .from('off_request_policy_rules')
+    .select('id, organization_id, rank_code, period_type, limit_count, is_active')
+    .eq('organization_id', organizationId)
+    .order('period_type', { ascending: true });
+
+  if ((policyRuleResult as QueryResult<OffRequestPolicyRuleRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (policyRuleResult as QueryResult<OffRequestPolicyRuleRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const rankCodes = Array.isArray((rankCodeResult as QueryResult<OrganizationRankCodeRow[]>).data)
+    ? sortOffRequestPolicyRankCodes(
+        ((rankCodeResult as QueryResult<OrganizationRankCodeRow[]>).data ?? []).map(
+          (row) => toOffRequestPolicyRankCodeResponse(row)
+        )
+      )
+    : [];
+  const policyRules = Array.isArray((policyRuleResult as QueryResult<OffRequestPolicyRuleRow[]>).data)
+    ? sortOffRequestPolicyRules(
+        ((policyRuleResult as QueryResult<OffRequestPolicyRuleRow[]>).data ?? []).map((row) =>
+          toOffRequestPolicyRuleResponse(row)
+        )
+      )
+    : [];
+
+  return {
+    organizationId,
+    rankCodes,
+    policyRules,
+  };
+}
+
+function toRankCodeInsertPayload(
+  request: OffRequestPolicySetupRequest
+): Record<string, unknown>[] {
+  return request.rankCodes.map((rankCode) => ({
+    id: rankCode.id,
+    organization_id: request.organizationId,
+    code: rankCode.code,
+    label: rankCode.label,
+    display_order: rankCode.displayOrder,
+    is_active: rankCode.isActive,
+  }));
+}
+
+function toPolicyRuleInsertPayload(request: OffRequestPolicySetupRequest): Record<string, unknown>[] {
+  return request.policyRules.map((rule) => ({
+    id: rule.id,
+    organization_id: request.organizationId,
+    rank_code: normalizeOffRequestPolicyRankCode(rule.rankCode),
+    period_type: rule.periodType,
+    limit_count: rule.limitCount,
+    is_active: rule.isActive,
+  }));
+}
+
+export async function getOffRequestPolicySetup(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<OffRequestPolicySetupResponse> {
+  assertBootstrapOrganizationAccess(auth, organizationId);
+  return loadOffRequestPolicySetupRows(client, organizationId);
+}
+
+export async function saveOffRequestPolicySetup(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: OffRequestPolicySetupRequest
+): Promise<OffRequestPolicySetupResponse> {
+  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  const normalizedRequest = normalizeOffRequestPolicySetupRequest(request);
+  ensureOffRequestPolicyRuleRankCodesExist(normalizedRequest);
+  ensureNoOffRequestPolicyOverlap(normalizedRequest);
+
+  const deleteRankCodesResult = await client
+    .from('organization_rank_codes')
+    .delete()
+    .eq('organization_id', normalizedRequest.organizationId);
+
+  if ((deleteRankCodesResult as QueryResult<unknown>).error) {
+    throw new ContractError(
+      'internal_error',
+      (deleteRankCodesResult as QueryResult<unknown>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const deletePolicyRulesResult = await client
+    .from('off_request_policy_rules')
+    .delete()
+    .eq('organization_id', normalizedRequest.organizationId);
+
+  if ((deletePolicyRulesResult as QueryResult<unknown>).error) {
+    throw new ContractError(
+      'internal_error',
+      (deletePolicyRulesResult as QueryResult<unknown>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const rankCodePayload = toRankCodeInsertPayload(normalizedRequest);
+  if (rankCodePayload.length > 0) {
+    const { error } = await client.from('organization_rank_codes').insert(rankCodePayload);
+    if (error) {
+      throw new ContractError('internal_error', error.message, 500);
+    }
+  }
+
+  const policyRulePayload = toPolicyRuleInsertPayload(normalizedRequest);
+  if (policyRulePayload.length > 0) {
+    const { error } = await client.from('off_request_policy_rules').insert(policyRulePayload);
+    if (error) {
+      throw new ContractError('internal_error', error.message, 500);
+    }
+  }
+
+  return loadOffRequestPolicySetupRows(client, normalizedRequest.organizationId);
 }
 
 export async function bootstrapAdmin(

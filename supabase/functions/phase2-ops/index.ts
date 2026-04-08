@@ -11,17 +11,26 @@ import {
   parseEmployeeImportValidateResponse,
   parseBootstrapAdminRequest,
   parseBootstrapAdminResponse,
+  parseOffRequestPolicySetupRequest,
+  parseOffRequestPolicySetupResponse,
   parseJsonBody,
   type ErrorEnvelope,
   type HttpMethod,
 } from './contracts.ts';
-import { applyEmployeeImport, bootstrapAdmin, validateEmployeeImport } from './repository.ts';
+import {
+  applyEmployeeImport,
+  bootstrapAdmin,
+  getOffRequestPolicySetup,
+  saveOffRequestPolicySetup,
+  validateEmployeeImport,
+} from './repository.ts';
 
 type ApiResponseBody =
   | ErrorEnvelope
   | ReturnType<typeof parseBootstrapAdminResponse>
   | ReturnType<typeof parseEmployeeImportValidateResponse>
-  | ReturnType<typeof parseEmployeeImportApplyResponse>;
+  | ReturnType<typeof parseEmployeeImportApplyResponse>
+  | ReturnType<typeof parseOffRequestPolicySetupResponse>;
 
 function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -59,6 +68,16 @@ function mapErrorToStatus(code: string): number {
     default:
       return 500;
   }
+}
+
+function parseOrganizationIdQueryParam(request: Request): string {
+  const organizationId = new URL(request.url).searchParams.get('organizationId')?.trim() ?? '';
+
+  if (!organizationId) {
+    throw new ContractError('bad_request', 'organizationId query parameter is required', 400);
+  }
+
+  return organizationId;
 }
 
 function createAuthClient() {
@@ -141,6 +160,21 @@ Deno.serve(async (request) => {
       const input = parseEmployeeImportApplyRequest(payload);
       const result = await applyEmployeeImport(repositoryClient, auth, input);
       return createResponse(request, parseEmployeeImportApplyResponse(result), 200);
+    }
+
+    if (route.route === 'offRequestPolicies') {
+      if (method === 'GET') {
+        const organizationId = parseOrganizationIdQueryParam(request);
+        const result = await getOffRequestPolicySetup(repositoryClient, auth, organizationId);
+        return createResponse(request, parseOffRequestPolicySetupResponse(result), 200);
+      }
+
+      if (method === 'PUT') {
+        const payload = await parseJsonBody(request);
+        const input = parseOffRequestPolicySetupRequest(payload);
+        const result = await saveOffRequestPolicySetup(repositoryClient, auth, input);
+        return createResponse(request, parseOffRequestPolicySetupResponse(result), 200);
+      }
     }
 
     return createResponse(request, { code: 'not_found', message: 'Not found' }, 404);

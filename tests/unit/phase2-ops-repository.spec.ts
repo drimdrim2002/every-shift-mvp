@@ -4,6 +4,7 @@ import {
   bootstrapAdmin,
   validateEmployeeImport,
 } from '@/../supabase/functions/phase2-ops/repository.ts';
+import * as phase2OpsRepository from '@/../supabase/functions/phase2-ops/repository.ts';
 import type { BootstrapAdminRequest } from '@/../supabase/functions/phase2-ops/contracts.ts';
 import type { Phase2OpsOperatorAuthContext } from '@/../supabase/functions/phase2-ops/auth.ts';
 import type { Phase2OpsRepositoryClient } from '@/../supabase/functions/phase2-ops/repository.ts';
@@ -220,6 +221,202 @@ const REQUEST: BootstrapAdminRequest = {
     seedOrganizationSettings: true,
   },
 };
+
+const POLICY_ORGANIZATION_ID = '00000000-0000-0000-0000-000000000001';
+
+class PolicySelectBuilder<T> {
+  constructor(private readonly resolveResult: () => QueryResult<T>) {}
+
+  eq() {
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  maybeSingle(): Promise<QueryResult<T>> {
+    return Promise.resolve(this.resolveResult());
+  }
+
+  then<TResult1 = QueryResult<T>, TResult2 = never>(
+    onfulfilled?:
+      | ((value: QueryResult<T>) => TResult1 | PromiseLike<TResult1>)
+      | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+  ): Promise<TResult1 | TResult2> {
+    return Promise.resolve(this.resolveResult()).then(onfulfilled ?? undefined, onrejected ?? undefined);
+  }
+}
+
+function createPolicyRepositoryClient(params: {
+  rankCodes?: Array<Record<string, unknown>>;
+  policyRules?: Array<Record<string, unknown>>;
+}) {
+  const deleteCalls: Array<{ table: string; filters: Array<[string, string]> }> = [];
+  const insertCalls: Array<{ table: string; payload: unknown }> = [];
+  const rankCodes = [...(params.rankCodes ?? [])];
+  const policyRules = [...(params.policyRules ?? [])];
+
+  function clearRows(table: string) {
+    if (table === 'organization_rank_codes') {
+      rankCodes.splice(0, rankCodes.length);
+      return;
+    }
+
+    if (table === 'off_request_policy_rules') {
+      policyRules.splice(0, policyRules.length);
+    }
+  }
+
+  function normalizeRankCodeRow(row: Record<string, unknown>, index: number) {
+    return {
+      id: typeof row.id === 'string' && row.id.trim().length > 0 ? row.id.trim() : `rank-code-${index + 1}`,
+      organization_id:
+        typeof row.organization_id === 'string' && row.organization_id.trim().length > 0
+          ? row.organization_id.trim()
+          : POLICY_ORGANIZATION_ID,
+      code: typeof row.code === 'string' ? row.code.trim() : '',
+      label: typeof row.label === 'string' ? row.label.trim() : '',
+      display_order:
+        typeof row.display_order === 'number'
+          ? row.display_order
+          : typeof row.displayOrder === 'number'
+            ? row.displayOrder
+            : index + 1,
+      is_active:
+        typeof row.is_active === 'boolean'
+          ? row.is_active
+          : typeof row.isActive === 'boolean'
+            ? row.isActive
+            : true,
+    };
+  }
+
+  function normalizePolicyRuleRow(row: Record<string, unknown>, index: number) {
+    const rankCode =
+      typeof row.rank_code === 'string'
+        ? row.rank_code.trim()
+        : typeof row.rankCode === 'string'
+          ? row.rankCode.trim()
+          : null;
+
+    return {
+      id:
+        typeof row.id === 'string' && row.id.trim().length > 0
+          ? row.id.trim()
+          : rankCode === null
+            ? `policy-rule-default-${index + 1}`
+            : `policy-rule-${rankCode.toLowerCase()}-${index + 1}`,
+      organization_id:
+        typeof row.organization_id === 'string' && row.organization_id.trim().length > 0
+          ? row.organization_id.trim()
+          : POLICY_ORGANIZATION_ID,
+      rank_code: rankCode,
+      period_type:
+        typeof row.period_type === 'string'
+          ? row.period_type
+          : typeof row.periodType === 'string'
+            ? row.periodType
+            : 'monthly',
+      limit_count:
+        typeof row.limit_count === 'number'
+          ? row.limit_count
+          : typeof row.limitCount === 'number'
+            ? row.limitCount
+            : 0,
+      is_active:
+        typeof row.is_active === 'boolean'
+          ? row.is_active
+          : typeof row.isActive === 'boolean'
+            ? row.isActive
+            : true,
+    };
+  }
+
+  const client = {
+    auth: {
+      admin: {
+        listUsers: vi.fn(),
+        updateUserById: vi.fn(),
+      },
+    },
+    rpc: vi.fn(),
+    from(table: string) {
+      if (table === 'organization_rank_codes') {
+        return {
+          select() {
+            return new PolicySelectBuilder(() => ({
+              data: rankCodes,
+              error: null,
+            }));
+          },
+          delete() {
+            return {
+              eq(column: string, value: string) {
+                deleteCalls.push({ table, filters: [[column, value]] });
+                clearRows(table);
+                return Promise.resolve({
+                  data: null,
+                  error: null,
+                });
+              },
+            };
+          },
+          insert(payload: unknown) {
+            insertCalls.push({ table, payload });
+            const rows = Array.isArray(payload) ? payload : [payload];
+            rows.forEach((row, index) => {
+              rankCodes.push(normalizeRankCodeRow(row as Record<string, unknown>, index));
+            });
+            return Promise.resolve({
+              data: null,
+              error: null,
+            });
+          },
+        };
+      }
+
+      if (table === 'off_request_policy_rules') {
+        return {
+          select() {
+            return new PolicySelectBuilder(() => ({
+              data: policyRules,
+              error: null,
+            }));
+          },
+          delete() {
+            return {
+              eq(column: string, value: string) {
+                deleteCalls.push({ table, filters: [[column, value]] });
+                clearRows(table);
+                return Promise.resolve({
+                  data: null,
+                  error: null,
+                });
+              },
+            };
+          },
+          insert(payload: unknown) {
+            insertCalls.push({ table, payload });
+            const rows = Array.isArray(payload) ? payload : [payload];
+            rows.forEach((row, index) => {
+              policyRules.push(normalizePolicyRuleRow(row as Record<string, unknown>, index));
+            });
+            return Promise.resolve({
+              data: null,
+              error: null,
+            });
+          },
+        };
+      }
+
+      throw new Error(`Unexpected policy table ${table}`);
+    },
+  } as unknown as Phase2OpsRepositoryClient;
+
+  return { client, deleteCalls, insertCalls };
+}
 
 describe('phase2 ops repository', () => {
   it('creates profile and onboarding progress while aligning auth metadata', async () => {
@@ -762,5 +959,306 @@ describe('phase2 ops repository', () => {
         },
       }
     );
+  });
+
+  it('loads rank and default off-request policies and resolves null-rank employees to the default rule', async () => {
+    const { client } = createPolicyRepositoryClient({
+      rankCodes: [
+        {
+          id: 'rank-code-1',
+          organization_id: POLICY_ORGANIZATION_ID,
+          code: 'RN',
+          label: 'Registered Nurse',
+          display_order: 1,
+          is_active: true,
+        },
+      ],
+      policyRules: [
+        {
+          id: 'policy-rule-default',
+          organization_id: POLICY_ORGANIZATION_ID,
+          rank_code: null,
+          period_type: 'monthly',
+          limit_count: 4,
+          is_active: true,
+        },
+        {
+          id: 'policy-rule-rn',
+          organization_id: POLICY_ORGANIZATION_ID,
+          rank_code: 'RN',
+          period_type: 'monthly',
+          limit_count: 6,
+          is_active: true,
+        },
+      ],
+    });
+
+    const result = await (phase2OpsRepository as any).getOffRequestPolicySetup(
+      client,
+      AUTH_CONTEXT,
+      POLICY_ORGANIZATION_ID
+    );
+
+    expect(result).toEqual({
+      organizationId: POLICY_ORGANIZATION_ID,
+      rankCodes: [
+        {
+          id: 'rank-code-1',
+          organizationId: POLICY_ORGANIZATION_ID,
+          code: 'RN',
+          label: 'Registered Nurse',
+          displayOrder: 1,
+          isActive: true,
+        },
+      ],
+      policyRules: [
+        {
+          id: 'policy-rule-default',
+          organizationId: POLICY_ORGANIZATION_ID,
+          rankCode: null,
+          periodType: 'monthly',
+          limitCount: 4,
+          isActive: true,
+        },
+        {
+          id: 'policy-rule-rn',
+          organizationId: POLICY_ORGANIZATION_ID,
+          rankCode: 'RN',
+          periodType: 'monthly',
+          limitCount: 6,
+          isActive: true,
+        },
+      ],
+    });
+
+    expect(
+      (phase2OpsRepository as any).resolveApplicableOffRequestPolicyRule(
+        result.policyRules,
+        null,
+        'monthly'
+      )
+    ).toEqual({
+      id: 'policy-rule-default',
+      organizationId: POLICY_ORGANIZATION_ID,
+      rankCode: null,
+      periodType: 'monthly',
+      limitCount: 4,
+      isActive: true,
+    });
+  });
+
+  it('saves rank/default off-request policies through the repository', async () => {
+    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+      rankCodes: [],
+      policyRules: [],
+    });
+
+    const request = {
+      organizationId: POLICY_ORGANIZATION_ID,
+      rankCodes: [
+        {
+          id: 'rank-code-1',
+          code: 'RN',
+          label: 'Registered Nurse',
+          displayOrder: 1,
+          isActive: true,
+        },
+      ],
+      policyRules: [
+        {
+          id: 'policy-rule-default',
+          rankCode: null,
+          periodType: 'monthly',
+          limitCount: 4,
+          isActive: true,
+        },
+        {
+          id: 'policy-rule-rn',
+          rankCode: 'RN',
+          periodType: 'monthly',
+          limitCount: 6,
+          isActive: true,
+        },
+      ],
+    };
+
+    const result = await (phase2OpsRepository as any).saveOffRequestPolicySetup(
+      client,
+      AUTH_CONTEXT,
+      request
+    );
+
+    expect(deleteCalls).toEqual([
+      {
+        table: 'organization_rank_codes',
+        filters: [['organization_id', POLICY_ORGANIZATION_ID]],
+      },
+      {
+        table: 'off_request_policy_rules',
+        filters: [['organization_id', POLICY_ORGANIZATION_ID]],
+      },
+    ]);
+    expect(insertCalls).toEqual([
+      {
+        table: 'organization_rank_codes',
+        payload: [
+          {
+            id: 'rank-code-1',
+            organization_id: POLICY_ORGANIZATION_ID,
+            code: 'RN',
+            label: 'Registered Nurse',
+            display_order: 1,
+            is_active: true,
+          },
+        ],
+      },
+      {
+        table: 'off_request_policy_rules',
+        payload: [
+          {
+            id: 'policy-rule-default',
+            organization_id: POLICY_ORGANIZATION_ID,
+            rank_code: null,
+            period_type: 'monthly',
+            limit_count: 4,
+            is_active: true,
+          },
+          {
+            id: 'policy-rule-rn',
+            organization_id: POLICY_ORGANIZATION_ID,
+            rank_code: 'RN',
+            period_type: 'monthly',
+            limit_count: 6,
+            is_active: true,
+          },
+        ],
+      },
+    ]);
+    expect(result).toEqual({
+      organizationId: POLICY_ORGANIZATION_ID,
+      rankCodes: [
+        {
+          id: 'rank-code-1',
+          organizationId: POLICY_ORGANIZATION_ID,
+          code: 'RN',
+          label: 'Registered Nurse',
+          displayOrder: 1,
+          isActive: true,
+        },
+      ],
+      policyRules: [
+        {
+          id: 'policy-rule-default',
+          organizationId: POLICY_ORGANIZATION_ID,
+          rankCode: null,
+          periodType: 'monthly',
+          limitCount: 4,
+          isActive: true,
+        },
+        {
+          id: 'policy-rule-rn',
+          organizationId: POLICY_ORGANIZATION_ID,
+          rankCode: 'RN',
+          periodType: 'monthly',
+          limitCount: 6,
+          isActive: true,
+        },
+      ],
+    });
+  });
+
+  it('rejects off-request policy rules that reference unknown rank codes before any writes', async () => {
+    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+      rankCodes: [],
+      policyRules: [],
+    });
+
+    await expect(
+      (phase2OpsRepository as any).saveOffRequestPolicySetup(client, AUTH_CONTEXT, {
+        organizationId: POLICY_ORGANIZATION_ID,
+        rankCodes: [],
+        policyRules: [
+          {
+            rankCode: 'RN',
+            periodType: 'monthly',
+            limitCount: 4,
+            isActive: true,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      message: 'Unknown rank code in off-request policy rule: RN',
+      status: 400,
+    });
+
+    expect(deleteCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('rejects overlapping active rank policies for the same period', async () => {
+    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+      rankCodes: [],
+      policyRules: [],
+    });
+
+    await expect(
+      (phase2OpsRepository as any).saveOffRequestPolicySetup(client, AUTH_CONTEXT, {
+        organizationId: POLICY_ORGANIZATION_ID,
+        rankCodes: [],
+        policyRules: [
+          {
+            rankCode: 'RN',
+            periodType: 'monthly',
+            limitCount: 4,
+            isActive: true,
+          },
+          {
+            rankCode: 'RN',
+            periodType: 'monthly',
+            limitCount: 5,
+            isActive: true,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+    });
+
+    expect(deleteCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('rejects a second active default rule for the same organization and period', async () => {
+    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+      rankCodes: [],
+      policyRules: [],
+    });
+
+    await expect(
+      (phase2OpsRepository as any).saveOffRequestPolicySetup(client, AUTH_CONTEXT, {
+        organizationId: POLICY_ORGANIZATION_ID,
+        rankCodes: [],
+        policyRules: [
+          {
+            rankCode: null,
+            periodType: 'annual',
+            limitCount: 12,
+            isActive: true,
+          },
+          {
+            rankCode: null,
+            periodType: 'annual',
+            limitCount: 10,
+            isActive: true,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+    });
+
+    expect(deleteCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
   });
 });

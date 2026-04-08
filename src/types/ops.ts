@@ -45,6 +45,46 @@ export interface ShiftsConstraintsRequest {
   checklistCursor: string;
 }
 
+export type OffRequestPolicyPeriodType = 'monthly' | 'annual';
+
+export interface OffRequestPolicyRankCode {
+  id?: string;
+  code: string;
+  label: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface OffRequestPolicyRule {
+  id?: string;
+  rankCode: string | null;
+  periodType: OffRequestPolicyPeriodType;
+  limitCount: number;
+  isActive: boolean;
+}
+
+export interface OffRequestPolicyRankCodeRecord extends OffRequestPolicyRankCode {
+  id: string;
+  organizationId: string;
+}
+
+export interface OffRequestPolicyRuleRecord extends OffRequestPolicyRule {
+  id: string;
+  organizationId: string;
+}
+
+export interface OffRequestPolicySetupRequest {
+  organizationId: string;
+  rankCodes: OffRequestPolicyRankCode[];
+  policyRules: OffRequestPolicyRule[];
+}
+
+export interface OffRequestPolicySetupResponse {
+  organizationId: string;
+  rankCodes: OffRequestPolicyRankCodeRecord[];
+  policyRules: OffRequestPolicyRuleRecord[];
+}
+
 export interface EmployeeImportEmployeePreview {
   employeeId: string;
   name: string;

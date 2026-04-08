@@ -7,6 +7,7 @@ import {
   parseBootstrapAdminResponse,
   parseOperatorAuthorization,
 } from '@/../supabase/functions/phase2-ops/contracts.ts';
+import * as phase2OpsContracts from '@/../supabase/functions/phase2-ops/contracts.ts';
 
 describe('phase2 ops contracts', () => {
   it('matches the bootstrap admin route and allows POST only', () => {
@@ -175,6 +176,71 @@ describe('phase2 ops contracts', () => {
         createPilotSite: true,
         seedOrganizationSettings: true,
       },
+    });
+  });
+
+  it('matches off-request policy routes and allows GET and PUT', () => {
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-ops/off-request-policies'))
+    ).toEqual({
+      route: 'offRequestPolicies',
+      params: {},
+    });
+
+    expect(allowedMethods('offRequestPolicies' as any)).toEqual(['GET', 'PUT']);
+  });
+
+  it('parses off-request policy setup payloads with rank codes and policy rules', () => {
+    expect(
+      (phase2OpsContracts as any).parseOffRequestPolicySetupRequest({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        rankCodes: [
+          {
+            code: 'RN',
+            label: 'Registered Nurse',
+            displayOrder: 1,
+            isActive: true,
+          },
+        ],
+        policyRules: [
+          {
+            rankCode: null,
+            periodType: 'monthly',
+            limitCount: 4,
+            isActive: true,
+          },
+          {
+            rankCode: 'RN',
+            periodType: 'monthly',
+            limitCount: 6,
+            isActive: true,
+          },
+        ],
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      rankCodes: [
+        {
+          code: 'RN',
+          label: 'Registered Nurse',
+          displayOrder: 1,
+          isActive: true,
+        },
+      ],
+      policyRules: [
+        {
+          rankCode: null,
+          periodType: 'monthly',
+          limitCount: 4,
+          isActive: true,
+        },
+        {
+          rankCode: 'RN',
+          periodType: 'monthly',
+          limitCount: 6,
+          isActive: true,
+        },
+      ],
     });
   });
 });
