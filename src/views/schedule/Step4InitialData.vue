@@ -27,6 +27,24 @@
       </div>
     </n-alert>
 
+    <n-alert
+      v-if="policyRejectionSummaries.length > 0"
+      type="warning"
+      class="mb-4"
+    >
+      <template #header>
+        정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
+      </template>
+      <ul class="space-y-1 text-sm">
+        <li
+          v-for="summary in policyRejectionSummaries.slice(0, 3)"
+          :key="summary"
+        >
+          {{ summary }}
+        </li>
+      </ul>
+    </n-alert>
+
     <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
       <div
@@ -64,7 +82,7 @@
                 :employees="grid.employees.value"
                 :dates="grid.dates.value"
                 :constraints="constraints"
-                :comments="constraintNotes"
+                :comments="displayConstraintNotes"
                 :readonly="false"
                 :show-last-month="false"
                 @update:assignment="handleAssignmentUpdate"
@@ -127,7 +145,7 @@
       :date="selectedDateSummary || ''"
       :employees="grid.employees.value"
       :assignments="constraints"
-      :comments="constraintNotes"
+      :comments="displayConstraintNotes"
       @close="showDaySummaryModal = false"
     />
   </div>
@@ -146,6 +164,7 @@ import {
   deleteThisMonthVersionAssignments,
   getScheduleVersionPreferences,
   getSchedulePreferences,
+  recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
 import { NAlert, NButton, NSpin } from 'naive-ui';
@@ -177,6 +196,8 @@ const baselineErrorMessage = ref<string | null>(null);
 
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
+const policyRejectionReasons = ref<CommentMap>({});
+const policyRejectionSummaries = ref<string[]>([]);
 
 // Modals state
 const showCommentModal = ref(false);
@@ -214,6 +235,39 @@ const selectedCellComment = computed(() => {
   return constraintNotes.value[selectedCell.value.employeeId]?.[selectedCell.value.date] || '';
 });
 
+const displayConstraintNotes = computed(() => {
+  const mergedNotes: CommentMap = {};
+  const employeeIds = new Set([
+    ...Object.keys(constraintNotes.value),
+    ...Object.keys(policyRejectionReasons.value),
+  ]);
+
+  employeeIds.forEach((employeeId) => {
+    const dates = new Set([
+      ...Object.keys(constraintNotes.value[employeeId] ?? {}),
+      ...Object.keys(policyRejectionReasons.value[employeeId] ?? {}),
+    ]);
+
+    if (!mergedNotes[employeeId]) {
+      mergedNotes[employeeId] = {};
+    }
+
+    dates.forEach((date) => {
+      const userNote = constraintNotes.value[employeeId]?.[date]?.trim() ?? '';
+      const rejectionReason = policyRejectionReasons.value[employeeId]?.[date]?.trim() ?? '';
+      const displayNote = [userNote, rejectionReason ? `정책 거부: ${rejectionReason}` : '']
+        .filter((value) => value.length > 0)
+        .join('\n');
+
+      if (displayNote.length > 0) {
+        mergedNotes[employeeId]![date] = displayNote;
+      }
+    });
+  });
+
+  return mergedNotes;
+});
+
 const tempPreferenceScope = computed(() => {
   return buildTempPreferencesStorageScope({
     userId: authStore.user?.id,
@@ -231,6 +285,42 @@ function ensureEmployeeMaps(): void {
       constraintNotes.value[employee.id] = {};
     }
   });
+}
+
+type PreferenceWithPolicyResult = {
+  employee_id: string;
+  date: string;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
+};
+
+function syncPolicyRejectionDisplay(preferences: PreferenceWithPolicyResult[]): void {
+  const nextPolicyReasons: CommentMap = {};
+  const nextSummaries: string[] = [];
+
+  preferences.forEach((pref) => {
+    if (pref.policy_check_status !== 'rejected') {
+      return;
+    }
+
+    const rejectionReason = pref.policy_rejection_reason?.trim() ?? '';
+    if (!rejectionReason) {
+      return;
+    }
+
+    if (!nextPolicyReasons[pref.employee_id]) {
+      nextPolicyReasons[pref.employee_id] = {};
+    }
+    nextPolicyReasons[pref.employee_id]![pref.date] = rejectionReason;
+
+    const employeeName =
+      grid.employees.value.find((employee) => employee.id === pref.employee_id)?.name ??
+      pref.employee_id;
+    nextSummaries.push(`${employeeName} (${pref.date}) - ${rejectionReason}`);
+  });
+
+  policyRejectionReasons.value = nextPolicyReasons;
+  policyRejectionSummaries.value = nextSummaries;
 }
 
 function sanitizePreferenceMapsToCurrentEmployees(): {
@@ -787,6 +877,7 @@ async function restoreData(forceRefresh = false) {
           previewVersionId,
           createPreferenceSnapshot(versionPreferenceData.constraints, versionPreferenceData.notes)
         );
+        syncPolicyRejectionDisplay(versionPreferenceData.preferences as PreferenceWithPolicyResult[]);
       }
 
       logRestoreTrace('Fetched preferences by schedule_version_id', {
@@ -863,6 +954,7 @@ async function restoreData(forceRefresh = false) {
         createPreferenceSnapshot({}, {})
       );
     }
+    syncPolicyRejectionDisplay([]);
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -913,6 +1005,7 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
       constraints.value,
       constraintNotes.value
     );
+    await recheckPhase2ScheduleVersion(previewVersionId);
     setBaselinePreferenceSnapshot(previewVersionId, getCurrentPreferenceSnapshot());
 
     const verification = await getScheduleVersionPreferences(previewVersionId);
@@ -922,6 +1015,7 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
       offRequestCount: countStoredOffRequests(verification.constraints),
       hasNotes: hasAnyConstraintNotes(verification.notes),
     });
+    syncPolicyRejectionDisplay(verification.preferences as PreferenceWithPolicyResult[]);
 
     showSuccess('임시 저장되었습니다.');
     return { scheduleId, previewVersionId };
@@ -976,6 +1070,7 @@ async function handleNext() {
       createResponse.createdVersionId,
       scheduleStore.basicInfo!.month
     );
+    await recheckPhase2ScheduleVersion(createResponse.createdVersionId);
 
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);

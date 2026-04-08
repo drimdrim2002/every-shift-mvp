@@ -34,6 +34,7 @@ import {
   getTrustEvaluatorVersion,
   type AssignmentIdentityRow,
 } from './engine.ts';
+import type { OffRequestPolicyPeriodType } from '../phase2-ops/contracts.ts';
 
 type DbRecord = Record<string, unknown>;
 
@@ -134,7 +135,7 @@ interface ReplaceRosterAndResetScheduleAtomicRow {
 }
 
 interface SchedulePreferenceRow {
-  id?: string;
+  id: string;
   schedule_id: string;
   schedule_version_id: string | null;
   employee_id: string;
@@ -146,6 +147,8 @@ interface SchedulePreferenceRow {
   resolved_shift_id: string | null;
   resolved_at: string | null;
   request_source?: string | null;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
 }
 
 interface ScheduleAssignmentRow extends AssignmentIdentityRow {
@@ -174,6 +177,24 @@ interface ShiftRow {
 
 interface EmployeeRow {
   id: string;
+  rank_code: string | null;
+}
+
+interface OffRequestPolicyRuleRow {
+  rank_code: string | null;
+  period_type: OffRequestPolicyPeriodType;
+  limit_count: number;
+  is_active: boolean;
+}
+
+interface CanonicalScheduleMonthRow {
+  id: string;
+  month: string;
+  finalized_version_id: string | null;
+}
+
+interface CanonicalAnnualPreferenceRow {
+  employee_id: string;
 }
 
 interface ScheduleEvaluationRow {
@@ -644,6 +665,94 @@ function isInfeasibleFailureType(value: string | null): boolean {
     || normalized === 'no_solution';
 }
 
+function normalizeOffRequestPolicyRankCode(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function resolveApplicableOffRequestPolicyRule<
+  T extends { rankCode: string | null; periodType: OffRequestPolicyPeriodType; isActive: boolean }
+>(
+  policyRules: T[],
+  rankCode: string | null,
+  periodType: OffRequestPolicyPeriodType
+): T | null {
+  const normalizedRankCode = normalizeOffRequestPolicyRankCode(rankCode);
+
+  return (
+    policyRules.find(
+      (rule) =>
+        rule.isActive &&
+        rule.periodType === periodType &&
+        normalizeOffRequestPolicyRankCode(rule.rankCode) === normalizedRankCode
+    ) ??
+    policyRules.find(
+      (rule) => rule.isActive && rule.periodType === periodType && rule.rankCode === null
+    ) ??
+    null
+  );
+}
+
+function getPreviousMonthInSameYear(month: string): string | null {
+  const [yearPart, monthPart] = month.split('-');
+  const year = Number(yearPart);
+  const monthNumber = Number(monthPart);
+
+  if (!Number.isInteger(year) || !Number.isInteger(monthNumber) || monthNumber <= 1) {
+    return null;
+  }
+
+  return `${yearPart}-${String(monthNumber - 1).padStart(2, '0')}`;
+}
+
+async function loadCanonicalAnnualPreferenceCounts(
+  client: Phase2ScheduleRepositoryClient,
+  organizationId: string,
+  month: string
+): Promise<Map<string, number>> {
+  const previousMonth = getPreviousMonthInSameYear(month);
+  if (!previousMonth) {
+    return new Map();
+  }
+
+  const [currentYear] = month.split('-');
+  const schedulesInRange = await list<CanonicalScheduleMonthRow>(
+    client
+      .from('schedules')
+      .select('id, month, finalized_version_id')
+      .eq('organization_id', organizationId)
+      .gte('month', `${currentYear}-01`)
+      .lte('month', previousMonth)
+      .order('month', { ascending: true })
+  );
+
+  const finalizedVersionIds = schedulesInRange
+    .filter((row) => typeof row.finalized_version_id === 'string' && row.finalized_version_id.length > 0)
+    .map((row) => row.finalized_version_id as string);
+
+  if (finalizedVersionIds.length === 0) {
+    return new Map();
+  }
+
+  const canonicalPreferences = await list<CanonicalAnnualPreferenceRow>(
+    client
+      .from('schedule_preferences')
+      .select('employee_id')
+      .in('schedule_version_id', finalizedVersionIds)
+  );
+
+  const countsByEmployeeId = new Map<string, number>();
+  canonicalPreferences.forEach((row) => {
+    countsByEmployeeId.set(row.employee_id, (countsByEmployeeId.get(row.employee_id) ?? 0) + 1);
+  });
+
+  return countsByEmployeeId;
+}
+
 async function loadEvaluationAssignmentRows(
   client: Phase2ScheduleRepositoryClient,
   versionId: string,
@@ -670,11 +779,13 @@ async function loadEvaluationPreferenceRows(
     client
       .from('schedule_preferences')
       .select(
-        'employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at'
+        'id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason'
       )
       .eq('schedule_version_id', versionId)
       .gte('date', startDate)
       .lte('date', endDate)
+      .order('date', { ascending: true })
+      .order('employee_id', { ascending: true })
   );
 }
 
@@ -709,9 +820,122 @@ async function loadEmployeeRows(
   return list<EmployeeRow>(
     client
       .from('employees')
-      .select('id')
+      .select('id, rank_code')
       .eq('organization_id', organizationId)
   );
+}
+
+async function loadOffRequestPolicyRuleRows(
+  client: Phase2ScheduleRepositoryClient,
+  organizationId: string
+): Promise<OffRequestPolicyRuleRow[]> {
+  return list<OffRequestPolicyRuleRow>(
+    client
+      .from('off_request_policy_rules')
+      .select('rank_code, period_type, limit_count, is_active')
+      .eq('organization_id', organizationId)
+      .eq('is_active', true)
+  );
+}
+
+function getPolicyRejectionReason(periodType: OffRequestPolicyPeriodType): string {
+  return periodType === 'annual' ? '연간 한도 초과' : '월 한도 초과';
+}
+
+async function refreshOffRequestPolicyResults(
+  client: Phase2ScheduleRepositoryClient,
+  schedule: ScheduleRow,
+  preferences: SchedulePreferenceRow[],
+  employees: EmployeeRow[],
+  policyRules: OffRequestPolicyRuleRow[],
+  historicalAnnualCountByEmployeeId: Map<string, number>
+): Promise<SchedulePreferenceRow[]> {
+  if (preferences.length === 0) {
+    return [];
+  }
+
+  const currentMonth = schedule.month;
+  const rankCodeByEmployeeId = new Map(
+    employees.map((employee) => [employee.id, employee.rank_code ?? null] as const)
+  );
+  const normalizedPolicyRules = policyRules.map((rule) => ({
+    rankCode: rule.rank_code ?? null,
+    periodType: rule.period_type,
+    limitCount: rule.limit_count,
+    isActive: rule.is_active,
+  }));
+  const policyUpdates: Array<{
+    id: string;
+    policy_check_status: string | null;
+    policy_rejection_reason: string | null;
+  }> = [];
+  const monthlyCountByPeriod = new Map<string, number>();
+  const annualCountByEmployeeId = new Map(historicalAnnualCountByEmployeeId);
+  const sortedPreferences = [...preferences].sort((left, right) => {
+    const dateDiff = left.date.localeCompare(right.date);
+    if (dateDiff !== 0) return dateDiff;
+    return left.employee_id.localeCompare(right.employee_id);
+  });
+
+  for (const preference of sortedPreferences) {
+    const rankCode = rankCodeByEmployeeId.get(preference.employee_id) ?? null;
+    const monthlyRule = resolveApplicableOffRequestPolicyRule(
+      normalizedPolicyRules,
+      rankCode,
+      'monthly'
+    );
+    const annualRule = resolveApplicableOffRequestPolicyRule(
+      normalizedPolicyRules,
+      rankCode,
+      'annual'
+    );
+
+    const monthlyKey = `${preference.employee_id}:${currentMonth}`;
+    const nextMonthlyCount = (monthlyCountByPeriod.get(monthlyKey) ?? 0) + 1;
+    const nextAnnualCount = (annualCountByEmployeeId.get(preference.employee_id) ?? 0) + 1;
+    monthlyCountByPeriod.set(monthlyKey, nextMonthlyCount);
+    annualCountByEmployeeId.set(preference.employee_id, nextAnnualCount);
+
+    let policyCheckStatus: string | null = null;
+    let policyRejectionReason: string | null = null;
+
+    if (monthlyRule && nextMonthlyCount > monthlyRule.limitCount) {
+      policyCheckStatus = 'rejected';
+      policyRejectionReason = getPolicyRejectionReason('monthly');
+    } else if (annualRule && nextAnnualCount > annualRule.limitCount) {
+      policyCheckStatus = 'rejected';
+      policyRejectionReason = getPolicyRejectionReason('annual');
+    } else if (monthlyRule || annualRule) {
+      policyCheckStatus = 'passed';
+    }
+
+    policyUpdates.push({
+      id: preference.id,
+      policy_check_status: policyCheckStatus,
+      policy_rejection_reason: policyRejectionReason,
+    });
+  }
+
+  const { error } = await client
+    .from('schedule_preferences')
+    .upsert(policyUpdates, { onConflict: 'id' });
+
+  if (error) {
+    throw new DatabaseError(error);
+  }
+
+  return sortedPreferences.map((preference) => {
+    const policyState = policyUpdates.find((row) => row.id === preference.id) ?? {
+      policy_check_status: null,
+      policy_rejection_reason: null,
+    };
+
+    return {
+      ...preference,
+      policy_check_status: policyState.policy_check_status,
+      policy_rejection_reason: policyState.policy_rejection_reason,
+    };
+  });
 }
 
 async function buildVersionEvaluation(
@@ -726,15 +950,30 @@ async function buildVersionEvaluation(
     assignmentRowsOverride?: ScheduleAssignmentRow[] | null;
   }
 ) {
-  const [assignmentRows, preferences, siteRequirements, shifts, employees] = await Promise.all([
-    options?.assignmentRowsOverride
-      ? Promise.resolve(options.assignmentRowsOverride)
-      : loadEvaluationAssignmentRows(client, version.id, schedule.month),
-    loadEvaluationPreferenceRows(client, version.id, schedule.month),
-    loadSiteRequirementRows(client, schedule.organization_id),
-    loadShiftRows(client, schedule.organization_id),
-    loadEmployeeRows(client, schedule.organization_id),
-  ]);
+  const [assignmentRows, preferences, siteRequirements, shifts, employees, policyRules] =
+    await Promise.all([
+      options?.assignmentRowsOverride
+        ? Promise.resolve(options.assignmentRowsOverride)
+        : loadEvaluationAssignmentRows(client, version.id, schedule.month),
+      loadEvaluationPreferenceRows(client, version.id, schedule.month),
+      loadSiteRequirementRows(client, schedule.organization_id),
+      loadShiftRows(client, schedule.organization_id),
+      loadEmployeeRows(client, schedule.organization_id),
+      loadOffRequestPolicyRuleRows(client, schedule.organization_id),
+    ]);
+  const historicalAnnualCountByEmployeeId = await loadCanonicalAnnualPreferenceCounts(
+    client,
+    schedule.organization_id,
+    schedule.month
+  );
+  const refreshedPreferences = await refreshOffRequestPolicyResults(
+    client,
+    schedule,
+    preferences,
+    employees,
+    policyRules,
+    historicalAnnualCountByEmployeeId
+  );
 
   return evaluateScheduleTrust({
     month: schedule.month,
@@ -745,7 +984,7 @@ async function buildVersionEvaluation(
       shiftId: row.shift_id,
       isLocked: row.is_locked === true,
     })),
-    preferences: preferences.map((row) => ({
+    preferences: refreshedPreferences.map((row) => ({
       employeeId: row.employee_id,
       date: row.date,
       requestCode: row.request_code,
@@ -754,6 +993,8 @@ async function buildVersionEvaluation(
       resolutionStatus: row.resolution_status,
       resolvedShiftId: row.resolved_shift_id,
       resolvedAt: row.resolved_at,
+      policyCheckStatus: row.policy_check_status ?? null,
+      policyRejectionReason: row.policy_rejection_reason ?? null,
     })),
     siteRequirements: siteRequirements.map((row) => ({
       dayOfWeek: row.day_of_week,

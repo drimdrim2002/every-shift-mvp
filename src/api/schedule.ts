@@ -73,6 +73,8 @@ interface RawSchedulePreference {
   resolution_status: PreferenceStatus;
   resolved_shift_id: string | null;
   resolved_at: string | null;
+  policy_check_status: string | null;
+  policy_rejection_reason: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -514,11 +516,11 @@ async function loadSchedulePreferences(
   let hasMore = true;
 
   while (hasMore) {
-    const { data, error } = await supabase
-      .from('schedule_preferences')
-      .select(
-        'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
-      )
+  const { data, error } = await supabase
+    .from('schedule_preferences')
+    .select(
+      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason, created_at, updated_at'
+    )
       .eq(scopeColumn, scopeId)
       .order('date', { ascending: true })
       .order('employee_id', { ascending: true })
@@ -600,6 +602,8 @@ async function saveSchedulePreferencesByScope(
     resolution_status: PreferenceStatus;
     resolved_shift_id: null;
     resolved_at: null;
+    policy_check_status: string | null;
+    policy_rejection_reason: string | null;
   }> = [];
 
   Object.entries(constraints).forEach(([employeeId, dateMap]) => {
@@ -620,6 +624,8 @@ async function saveSchedulePreferencesByScope(
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: null,
+        policy_rejection_reason: null,
       });
     });
   });
@@ -765,6 +771,8 @@ async function refreshPreferenceResolutionByScope(
       resolution_status: (isFulfilled ? 'fulfilled' : 'unfulfilled') as PreferenceStatus,
       resolved_shift_id: match?.shiftId ?? null,
       resolved_at: resolvedAt,
+      policy_check_status: pref.policy_check_status,
+      policy_rejection_reason: pref.policy_rejection_reason,
     };
   });
 
@@ -772,7 +780,7 @@ async function refreshPreferenceResolutionByScope(
     .from('schedule_preferences')
     .upsert(updates, { onConflict: 'id' })
     .select(
-      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason, created_at, updated_at'
     );
 
   if (error) {

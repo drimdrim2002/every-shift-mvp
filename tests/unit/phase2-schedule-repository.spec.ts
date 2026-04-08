@@ -90,16 +90,29 @@ class FakeQueryBuilder<T> implements PromiseLike<QueryResult<T>> {
 function createClient(results: Record<string, Array<QueryResult<any>>>) {
   const updateSpies: Record<string, ReturnType<typeof vi.fn>> = {};
   const insertSpies: Record<string, ReturnType<typeof vi.fn>> = {};
+  const upsertSpies: Record<string, ReturnType<typeof vi.fn>> = {};
   const from = vi.fn((table: string) => {
-    const queue = results[table];
+    const queue = (results[table] ??= []);
 
-    if (!queue || queue.length === 0) {
-      throw new Error(`Unexpected query for table ${table}`);
+    if (queue.length === 0) {
+      if (
+        table === 'schedules'
+        || table === 'schedule_preferences'
+        || table === 'off_request_policy_rules'
+      ) {
+        queue.push({
+          data: [],
+          error: null,
+        });
+      } else {
+        throw new Error(`Unexpected query for table ${table}`);
+      }
     }
 
     const builder = new FakeQueryBuilder(queue.shift()!);
     insertSpies[table] ??= vi.fn();
     updateSpies[table] ??= vi.fn();
+    upsertSpies[table] ??= vi.fn();
 
     return {
       select: vi.fn(() => builder),
@@ -109,6 +122,10 @@ function createClient(results: Record<string, Array<QueryResult<any>>>) {
       }),
       update: vi.fn((payload: unknown) => {
         updateSpies[table](payload);
+        return builder;
+      }),
+      upsert: vi.fn((payload: unknown, options?: unknown) => {
+        upsertSpies[table](payload, options);
         return builder;
       }),
     };
@@ -132,6 +149,7 @@ function createClient(results: Record<string, Array<QueryResult<any>>>) {
     rpc,
     updateSpies,
     insertSpies,
+    upsertSpies,
   };
 }
 
@@ -928,7 +946,7 @@ describe('phase2 schedule repository', () => {
   });
 
   it('runs recheck by appending a new immutable evaluation and updating latest pointer', async () => {
-    const { client, rpc } = createClient({
+    const { client, rpc, upsertSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -964,6 +982,16 @@ describe('phase2 schedule repository', () => {
           },
           error: null,
         },
+        {
+          data: [
+            {
+              id: 'schedule-finalized-1',
+              month: '2026-03',
+              finalized_version_id: 'version-finalized-1',
+            },
+          ],
+          error: null,
+        },
       ],
       schedule_assignments: [
         {
@@ -982,6 +1010,9 @@ describe('phase2 schedule repository', () => {
         {
           data: [
             {
+              id: 'pref-1',
+              schedule_id: 'schedule-recheck',
+              schedule_version_id: 'version-recheck',
               employee_id: 'employee-1',
               date: '2026-04-01',
               request_code: 'O',
@@ -990,6 +1021,27 @@ describe('phase2 schedule repository', () => {
               resolution_status: 'pending',
               resolved_shift_id: null,
               resolved_at: null,
+            },
+            {
+              id: 'pref-2',
+              schedule_id: 'schedule-recheck',
+              schedule_version_id: 'version-recheck',
+              employee_id: 'employee-1',
+              date: '2026-04-02',
+              request_code: 'O',
+              request_note: null,
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+          ],
+          error: null,
+        },
+        {
+          data: [
+            {
+              employee_id: 'employee-1',
             },
           ],
           error: null,
@@ -1017,6 +1069,26 @@ describe('phase2 schedule repository', () => {
           data: [
             {
               id: 'employee-1',
+              rank_code: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [
+            {
+              rank_code: null,
+              period_type: 'monthly',
+              limit_count: 99,
+              is_active: true,
+            },
+            {
+              rank_code: null,
+              period_type: 'annual',
+              limit_count: 2,
+              is_active: true,
             },
           ],
           error: null,
@@ -1050,6 +1122,206 @@ describe('phase2 schedule repository', () => {
       expect.objectContaining({
         p_version_id: 'version-recheck',
         p_revision_no: 3,
+        p_off_request_results: expect.arrayContaining([
+          expect.objectContaining({
+            employeeId: 'employee-1',
+            date: '2026-04-02',
+          }),
+        ]),
+      })
+    );
+    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'pref-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-2',
+          policy_check_status: 'rejected',
+          policy_rejection_reason: '연간 한도 초과',
+        }),
+      ],
+      {
+        onConflict: 'id',
+      }
+    );
+  });
+
+  it('ignores draft or compare-only rows from other months when counting annual policy limits', async () => {
+    const { client, rpc, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-recheck-draft-guard',
+            schedule_id: 'schedule-draft-guard',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_pending',
+            current_revision: 1,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-draft-guard',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-recheck-draft-guard',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: [
+            {
+              id: 'schedule-draft-noise',
+              month: '2026-03',
+              finalized_version_id: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [
+            {
+              id: 'pref-draft-1',
+              schedule_id: 'schedule-draft-guard',
+              schedule_version_id: 'version-recheck-draft-guard',
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: null,
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+          ],
+          error: null,
+        },
+        {
+          data: [
+            {
+              employee_id: 'employee-1',
+            },
+          ],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [
+            {
+              id: 'shift-d',
+              code: 'D',
+            },
+          ],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-1',
+              rank_code: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [
+            {
+              rank_code: null,
+              period_type: 'monthly',
+              limit_count: 99,
+              is_active: true,
+            },
+            {
+              rank_code: null,
+              period_type: 'annual',
+              limit_count: 1,
+              is_active: true,
+            },
+          ],
+          error: null,
+        },
+      ],
+      'rpc:save_schedule_version_evaluation_atomic': [
+        {
+          data: {
+            schedule_version_id: 'version-recheck-draft-guard',
+            current_revision: 1,
+            evaluation_id: 'evaluation-draft-guard',
+            status: 'review_ready',
+            evaluation_result_status: 'passed',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await recheckVersion(client, AUTH_CONTEXT, 'version-recheck-draft-guard');
+
+    expect(result).toEqual({
+      scheduleVersionId: 'version-recheck-draft-guard',
+      currentRevision: 1,
+      evaluationId: 'evaluation-draft-guard',
+      resultStatus: 'review_ready',
+      evaluationResultStatus: 'passed',
+    });
+    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'pref-draft-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+      ],
+      {
+        onConflict: 'id',
+      }
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      'save_schedule_version_evaluation_atomic',
+      expect.objectContaining({
+        p_off_request_results: expect.arrayContaining([
+          expect.objectContaining({
+            employeeId: 'employee-1',
+            date: '2026-04-01',
+          }),
+        ]),
       })
     );
   });

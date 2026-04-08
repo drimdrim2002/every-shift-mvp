@@ -163,6 +163,8 @@ export interface SchedulePreference {
   resolution_status: PreferenceStatus;
   resolved_shift_id: string | null;
   resolved_at: string | null;
+  policy_check_status: string | null;
+  policy_rejection_reason: string | null;
   created_at?: string;
   updated_at?: string;
 }

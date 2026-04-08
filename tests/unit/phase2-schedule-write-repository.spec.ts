@@ -4,6 +4,7 @@ import {
   markVersionSolving,
   patchVersionAssignments,
   resetScheduleRoster,
+  recheckVersion,
   syncVersionSolverResult,
 } from '@/../supabase/functions/phase2-schedule/repository.ts';
 import type { Phase2ScheduleAuthContext } from '@/../supabase/functions/phase2-schedule/contracts.ts';
@@ -133,10 +134,21 @@ function createClient(
   const rpcSpies: Record<string, ReturnType<typeof vi.fn>> = {};
 
   const from = vi.fn((table: string) => {
-    const queue = results[table];
+    const queue = (results[table] ??= []);
 
-    if (!queue || queue.length === 0) {
-      throw new Error(`Unexpected query for table ${table}`);
+    if (queue.length === 0) {
+      if (
+        table === 'schedules'
+        || table === 'schedule_preferences'
+        || table === 'off_request_policy_rules'
+      ) {
+        queue.push({
+          data: [],
+          error: null,
+        });
+      } else {
+        throw new Error(`Unexpected query for table ${table}`);
+      }
     }
 
     insertSpies[table] ??= vi.fn();
@@ -782,6 +794,237 @@ describe('phase2 schedule write repository', () => {
       p_finalization_gate: expect.objectContaining({
         allowed: false,
       }),
+      })
+    );
+  });
+
+  it('evaluates and persists off-request policy results from active rules on recheck', async () => {
+    const { client, rpcSpies, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_pending',
+            current_revision: 3,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-1',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [
+            {
+              id: 'pref-rn-1',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-rn',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: 'rn off 1',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-rn-2',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-rn',
+              date: '2026-04-02',
+              request_code: 'O',
+              request_note: 'rn off 2',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-default-1',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-default',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: 'default off 1',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-default-2',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-default',
+              date: '2026-04-02',
+              request_code: 'O',
+              request_note: 'default off 2',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [
+            {
+              id: 'shift-1',
+              code: 'D',
+            },
+          ],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-rn',
+              rank_code: 'RN',
+            },
+            {
+              id: 'employee-default',
+              rank_code: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [
+            {
+              rank_code: null,
+              period_type: 'monthly',
+              limit_count: 1,
+              is_active: true,
+            },
+            {
+              rank_code: null,
+              period_type: 'annual',
+              limit_count: 12,
+              is_active: true,
+            },
+            {
+              rank_code: 'RN',
+              period_type: 'monthly',
+              limit_count: 2,
+              is_active: true,
+            },
+            {
+              rank_code: 'RN',
+              period_type: 'annual',
+              limit_count: 12,
+              is_active: true,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: null,
+          error: null,
+        },
+      ],
+    }, {
+      save_schedule_version_evaluation_atomic: [
+        {
+          data: {
+            schedule_version_id: 'version-2',
+            current_revision: 3,
+            evaluation_id: 'evaluation-2',
+            status: 'review_blocked',
+            evaluation_result_status: 'review_blocked',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    await recheckVersion(client, AUTH_CONTEXT, 'version-2');
+
+    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'pref-default-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-rn-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-default-2',
+          policy_check_status: 'rejected',
+          policy_rejection_reason: '월 한도 초과',
+        }),
+        expect.objectContaining({
+          id: 'pref-rn-2',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+      ],
+      {
+        onConflict: 'id',
+      }
+    );
+    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_version_id: 'version-2',
+        p_off_request_results: expect.arrayContaining([
+          expect.objectContaining({
+            employeeId: 'employee-default',
+            date: '2026-04-02',
+            fulfilled: false,
+            reason: '월 한도 초과',
+          }),
+        ]),
       })
     );
   });

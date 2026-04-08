@@ -63,6 +63,24 @@
         </div>
       </div>
 
+      <n-alert
+        v-if="policyRejectionSummariesCurrentMonth.length > 0"
+        type="warning"
+        class="mb-6"
+      >
+        <template #header>
+          정책상 거부된 Off 요청 {{ policyRejectionSummariesCurrentMonth.length }}건
+        </template>
+        <ul class="space-y-1 text-sm">
+          <li
+            v-for="summary in policyRejectionSummariesCurrentMonth.slice(0, 3)"
+            :key="summary"
+          >
+            {{ summary }}
+          </li>
+        </ul>
+      </n-alert>
+
       <div
         v-if="isPreRun"
         class="mb-6"
@@ -371,6 +389,7 @@ const previousMonthFallbackError = ref<string | null>(null);
 const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
+const policyRejectionSummariesCurrentMonth = ref<string[]>([]);
 const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
   kind: 'none',
   targetVersionId: null,
@@ -702,6 +721,53 @@ function createEmptyCommentMapForEmployees(): CommentMap {
   return map;
 }
 
+type PreferenceWithPolicyResult = {
+  employee_id: string;
+  date: string;
+  request_note: string | null;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
+};
+
+function combineOffRequestNote(
+  requestNote: string | null | undefined,
+  policyRejectionReason: string | null | undefined
+): string | null {
+  const parts = [requestNote?.trim() ?? '', policyRejectionReason?.trim() ? `정책 거부: ${policyRejectionReason.trim()}` : '']
+    .filter((part) => part.length > 0);
+
+  return parts.length > 0 ? parts.join('\n') : null;
+}
+
+function syncPolicyRejectionDisplay(
+  preferences: PreferenceWithPolicyResult[],
+  monthPrefix: string
+): void {
+  const nextSummaries: string[] = [];
+
+  preferences.forEach((pref) => {
+    if (!pref.date.startsWith(monthPrefix)) {
+      return;
+    }
+
+    if (pref.policy_check_status !== 'rejected') {
+      return;
+    }
+
+    const rejectionReason = pref.policy_rejection_reason?.trim() ?? '';
+    if (!rejectionReason) {
+      return;
+    }
+
+    const employeeName =
+      grid.employees.value.find((employee) => employee.id === pref.employee_id)?.name ??
+      pref.employee_id;
+    nextSummaries.push(`${employeeName} (${pref.date}) - ${rejectionReason}`);
+  });
+
+  policyRejectionSummariesCurrentMonth.value = nextSummaries;
+}
+
 async function loadPreferencesForDisplay() {
   const emptyConstraints = createEmptyConstraintMapForEmployees();
   const emptyNotes = createEmptyCommentMapForEmployees();
@@ -711,10 +777,11 @@ async function loadPreferencesForDisplay() {
   if (!currentMonth || !versionId) {
     offRequestsCurrentMonth.value = emptyConstraints;
     offRequestNotesCurrentMonth.value = emptyNotes;
+    policyRejectionSummariesCurrentMonth.value = [];
     return;
   }
 
-  const { constraints, notes } = await getScheduleVersionPreferences(versionId);
+  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
 
   const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
   const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
@@ -737,8 +804,25 @@ async function loadPreferencesForDisplay() {
     }
   }
 
+  for (const pref of preferences as PreferenceWithPolicyResult[]) {
+    if (!pref.date.startsWith(currentMonth)) continue;
+    const rejectionReason = pref.policy_check_status === 'rejected'
+      ? pref.policy_rejection_reason?.trim() ?? ''
+      : '';
+    if (!rejectionReason) continue;
+
+    if (!filteredNotes[pref.employee_id]) {
+      filteredNotes[pref.employee_id] = {};
+    }
+    filteredNotes[pref.employee_id]![pref.date] = combineOffRequestNote(
+      filteredNotes[pref.employee_id]?.[pref.date] ?? null,
+      rejectionReason
+    ) ?? '';
+  }
+
   offRequestsCurrentMonth.value = filteredConstraints;
   offRequestNotesCurrentMonth.value = filteredNotes;
+  syncPolicyRejectionDisplay(preferences as PreferenceWithPolicyResult[], currentMonth);
 }
 
 function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {

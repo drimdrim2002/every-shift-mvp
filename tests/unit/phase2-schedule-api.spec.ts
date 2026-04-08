@@ -613,6 +613,8 @@ describe('phase2 schedule api helpers', () => {
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: null,
+        policy_rejection_reason: null,
       },
     ]);
     expect(
@@ -651,6 +653,8 @@ describe('phase2 schedule api helpers', () => {
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: null,
+        policy_rejection_reason: null,
       },
     ]);
   });
