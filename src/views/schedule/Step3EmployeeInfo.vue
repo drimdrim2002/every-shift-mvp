@@ -35,6 +35,7 @@
         >
           <EmployeeExcelUpload
             :shifts="shifts"
+            :validation-preview="validationPreview"
             @upload="handleExcelUpload"
           />
 
@@ -70,8 +71,8 @@
         <div class="flex gap-4">
           <n-button
             size="medium"
-            :disabled="!canProceed"
-            :loading="isSaving"
+            :disabled="!canProceed || isValidating || isApplying"
+            :loading="isValidating"
             @click="handleSave"
           >
             {{ hasUnsavedChanges ? '저장 *' : '저장' }}
@@ -79,10 +80,11 @@
           <n-button
             type="primary"
             size="medium"
-            :disabled="!canProceed || hasUnsavedChanges"
-            @click="handleNext"
+            :disabled="!canProceed || !validationPreview || isValidating || isApplying"
+            :loading="isApplying"
+            @click="handleApply"
           >
-            다음 단계 →
+            적용 →
           </n-button>
         </div>
       </div>
@@ -100,17 +102,17 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { applyEmployeeImport, validateEmployeeImport } from '@/api/ops';
 import {
-  resetPhase2ScheduleRoster,
   getLatestScheduleByOrganizationMonth,
   getPhase2ScheduleCompare,
   getScheduleStatus,
 } from '@/api/schedule';
 import { supabase } from '@/api/supabase';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type { EmployeeInput } from '@/types/employee';
+import type { EmployeeImportValidateResponse } from '@/types/ops';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
@@ -121,7 +123,9 @@ const orgStore = useOrganizationStore();
 // State
 const activeTab = ref<'manual' | 'excel'>('manual');
 const employees = ref<EmployeeInput[]>([]);
-const isSaving = ref(false);
+const isValidating = ref(false);
+const isApplying = ref(false);
+const validationPreview = ref<EmployeeImportValidateResponse | null>(null);
 const hasUnsavedChanges = ref(false); // 저장되지 않은 변경사항 추적
 
 // 시프트 목록
@@ -145,6 +149,7 @@ onMounted(async () => {
   if (scheduleStore.employees.length > 0) {
     employees.value = [...scheduleStore.employees];
     hasUnsavedChanges.value = false;
+    validationPreview.value = null;
     return;
   }
 
@@ -176,21 +181,28 @@ onMounted(async () => {
       
       // DB에서 불러온 데이터는 저장된 상태
       hasUnsavedChanges.value = false;
+      validationPreview.value = null;
       
       showInfo(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
     } else {
       // DB에 데이터가 없으면 처음 입력하는 상태
       hasUnsavedChanges.value = false;
+      validationPreview.value = null;
     }
   } catch (error) {
     console.error('[Step3] Failed to load employees:', error);
   }
 });
 
+function resetValidationPreview() {
+  validationPreview.value = null;
+}
+
 // 직원 추가 핸들러
 function handleAddEmployee(employee: EmployeeInput) {
   employees.value = [...employees.value, employee];
   hasUnsavedChanges.value = true;
+  resetValidationPreview();
 }
 
 // 직원 수정 핸들러
@@ -199,37 +211,103 @@ function handleEditEmployee(index: number, employee: EmployeeInput) {
   updated[index] = employee;
   employees.value = updated;
   hasUnsavedChanges.value = true;
+  resetValidationPreview();
 }
 
 // 직원 삭제 핸들러
 function handleDeleteEmployee(index: number) {
   employees.value = employees.value.filter((_, i) => i !== index);
   hasUnsavedChanges.value = true;
+  resetValidationPreview();
 }
 
 // 엑셀 업로드 핸들러
 function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
   employees.value = uploadedEmployees;
   hasUnsavedChanges.value = true;
+  resetValidationPreview();
   showSuccess(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
-async function performEmployeeResave(orgId: string) {
-  isSaving.value = true;
+async function validateEmployees(orgId: string) {
+  isValidating.value = true;
 
   try {
     if (!scheduleStore.basicInfo) {
       throw new Error('기본 정보가 없습니다. 다시 시도해주세요.');
     }
 
-    const resetResult = await resetPhase2ScheduleRoster({
+    const result = await validateEmployeeImport({
       organizationId: orgId,
       month: scheduleStore.basicInfo.month,
-      employees: employees.value,
+      employees: employees.value.map((employee) => ({
+        employeeId: employee.employeeId,
+        name: employee.name,
+        availableShifts: employee.availableShifts,
+        rankCode: employee.rankCode ?? null,
+      })),
     });
 
-    if (resetResult.deletedScheduleId) {
-      console.log('[Step3] Reset roster for schedule:', resetResult.deletedScheduleId);
+    validationPreview.value = result;
+    showSuccess('직원 정보 검증이 완료되었습니다. 적용 전에 결과를 확인하세요.');
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '검증 중 오류가 발생했습니다.';
+    showError(errorMessage);
+  } finally {
+    isValidating.value = false;
+  }
+}
+
+async function getCurrentMonthScheduleState(): Promise<{ id: string; status: string } | null> {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo) return null;
+
+  if (basicInfo.scheduleId) {
+    try {
+      const schedule = await getScheduleStatus(basicInfo.scheduleId);
+      if (schedule?.id && schedule?.status) {
+        return { id: schedule.id, status: schedule.status };
+      }
+    } catch (error) {
+      console.warn('[Step3] Failed to load schedule by id:', error);
+    }
+  }
+
+  try {
+    const latest = await getLatestScheduleByOrganizationMonth(
+      basicInfo.organizationId,
+      basicInfo.month
+    );
+    if (!latest?.id || !latest?.status) return null;
+
+    return { id: latest.id, status: latest.status };
+  } catch (error) {
+    console.warn('[Step3] Failed to query latest schedule:', error);
+    return null;
+  }
+}
+
+async function performEmployeeApply(orgId: string) {
+  isApplying.value = true;
+
+  try {
+    if (!scheduleStore.basicInfo) {
+      throw new Error('기본 정보가 없습니다. 다시 시도해주세요.');
+    }
+
+    const applyResult = await applyEmployeeImport({
+      organizationId: orgId,
+      month: scheduleStore.basicInfo.month,
+      employees: employees.value.map((employee) => ({
+        employeeId: employee.employeeId,
+        name: employee.name,
+        availableShifts: employee.availableShifts,
+        rankCode: employee.rankCode ?? null,
+      })),
+    });
+
+    if (applyResult.deletedScheduleId) {
+      console.log('[Step3] Applied roster and removed schedule:', applyResult.deletedScheduleId);
     }
 
     scheduleStore.setEmployees(employees.value);
@@ -249,18 +327,17 @@ async function performEmployeeResave(orgId: string) {
     });
     console.log('[Step3] Cleared temp preference storage keys:', clearedStorageKeys);
     hasUnsavedChanges.value = false;
+    validationPreview.value = null;
 
-    showSuccess('직원 정보가 저장되었습니다.');
+    showSuccess('직원 정보가 적용되었습니다.');
+    scheduleStore.nextStep();
+    router.push('/schedule/step4');
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
+    const errorMessage = error instanceof Error ? error.message : '적용 중 오류가 발생했습니다.';
     showError(errorMessage);
   } finally {
-    isSaving.value = false;
+    isApplying.value = false;
   }
-}
-
-async function getCurrentMonthScheduleState(): Promise<{ id: string; status: string } | null> {
-  return getTargetScheduleForNextStep();
 }
 
 // 저장 핸들러
@@ -275,46 +352,7 @@ async function handleSave() {
     return;
   }
 
-  const orgId = scheduleStore.basicInfo.organizationId;
-  const currentMonthSchedule = await getCurrentMonthScheduleState();
-
-  if (!currentMonthSchedule) {
-    await performEmployeeResave(orgId);
-    return;
-  }
-
-  try {
-    const compareResponse = await getPhase2ScheduleCompare(currentMonthSchedule.id);
-
-    if (compareResponse.finalizedVersionId) {
-      showError('현재 월에 확정된 근무표가 있어 직원 정보를 다시 저장할 수 없습니다.');
-      return;
-    }
-
-    if ((compareResponse.versions?.length ?? 0) > 0) {
-      if (!window.$dialog?.warning) {
-        showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
-        return;
-      }
-
-      window.$dialog.warning({
-        title: '직원 정보 저장 확인',
-        content: '현재 월의 근무표와 버전이 모두 삭제됩니다. 계속 저장하시겠습니까?',
-        positiveText: '계속 저장',
-        negativeText: '취소',
-        onPositiveClick: async () => {
-          await performEmployeeResave(orgId);
-        },
-      });
-      return;
-    }
-  } catch (error) {
-    console.warn('[Step3] Failed to check current month version state:', error);
-    showError('현재 월의 근무표 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-    return;
-  }
-
-  await performEmployeeResave(orgId);
+  await validateEmployees(scheduleStore.basicInfo.organizationId);
 }
 
 // 이전 버튼 핸들러
@@ -323,60 +361,10 @@ function handlePrev() {
   router.push('/schedule/step2');
 }
 
-async function getTargetScheduleForNextStep(): Promise<{ id: string; status: string } | null> {
-  const basicInfo = scheduleStore.basicInfo;
-  if (!basicInfo) return null;
-
-  // 1) scheduleId가 있으면 우선 조회
-  if (basicInfo.scheduleId) {
-    try {
-      const schedule = await getScheduleStatus(basicInfo.scheduleId);
-      if (schedule?.id && schedule?.status) {
-        return { id: schedule.id, status: schedule.status };
-      }
-    } catch (error) {
-      console.warn('[Step3] Failed to load schedule by id:', error);
-    }
-  }
-
-  // 2) fallback: 조직+월 기준 최신 schedule 조회
-  try {
-    const latest = await getLatestScheduleByOrganizationMonth(
-      basicInfo.organizationId,
-      basicInfo.month
-    );
-    if (!latest || !latest.id || !latest.status) return null;
-
-    return { id: latest.id, status: latest.status };
-  } catch (error) {
-    console.warn('[Step3] Failed to query latest schedule:', error);
-    return null;
-  }
-}
-
-async function hasPersistedEmployees(orgId: string): Promise<boolean> {
-  const { count, error } = await supabase
-    .from('employees')
-    .select('id', { count: 'exact', head: true })
-    .eq('organization_id', orgId);
-
-  if (error) {
-    throw new Error(`직원 저장 상태 확인 실패: ${error.message}`);
-  }
-
-  return (count ?? 0) > 0;
-}
-
-// 다음 버튼 핸들러
-async function handleNext() {
+// 적용 핸들러
+async function handleApply() {
   if (employees.value.length === 0) {
     showWarning('최소 1명 이상의 직원을 등록해주세요.');
-    return;
-  }
-
-  // 저장되지 않은 변경사항이 있으면 경고
-  if (hasUnsavedChanges.value) {
-    showWarning('변경사항을 먼저 저장해주세요.');
     return;
   }
 
@@ -385,55 +373,49 @@ async function handleNext() {
     return;
   }
 
-  try {
-    const persistedExists = await hasPersistedEmployees(scheduleStore.basicInfo.organizationId);
-    if (!persistedExists) {
-      showWarning('저장된 직원 정보가 없습니다. Step3에서 저장 후 다시 진행해주세요.');
-      return;
-    }
-  } catch (error) {
-    showError(error instanceof Error ? error.message : '직원 저장 상태 확인 중 오류가 발생했습니다.');
+  if (!validationPreview.value) {
+    showWarning('먼저 저장하여 검증해주세요.');
     return;
   }
 
-  // Store에 저장 (이미 DB에 저장되어 있음)
-  if (scheduleStore.basicInfo) {
-    scheduleStore.setEmployees(employees.value);
-    scheduleStore.setBasicInfo({
-      ...scheduleStore.basicInfo,
-      employeeCount: employees.value.length,
-    });
+  if (validationPreview.value.isFinalized) {
+    showError('현재 월에 확정된 근무표가 있어 직원 정보를 적용할 수 없습니다.');
+    return;
   }
 
-  const targetSchedule = await getTargetScheduleForNextStep();
-
-  if (targetSchedule && (targetSchedule.status === 'complete' || targetSchedule.status === 'changed')) {
-    if (scheduleStore.basicInfo) {
-      scheduleStore.setBasicInfo({
-        ...scheduleStore.basicInfo,
-        scheduleId: targetSchedule.id,
-      });
+  const orgId = scheduleStore.basicInfo.organizationId;
+  let compareResponse = null;
+  try {
+    const currentMonthSchedule = await getCurrentMonthScheduleState();
+    if (currentMonthSchedule) {
+      compareResponse = await getPhase2ScheduleCompare(currentMonthSchedule.id);
+      if (compareResponse.finalizedVersionId) {
+        showError('현재 월에 확정된 근무표가 있어 직원 정보를 적용할 수 없습니다.');
+        return;
+      }
     }
-    try {
-      const compareResponse = await getPhase2ScheduleCompare(targetSchedule.id);
-      const resolvedState = resolveStep5VersionState(
-        compareResponse,
-        scheduleStore.previewVersionId
-      );
-
-      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-      scheduleStore.currentStep = 5;
-      router.push(buildStep5Route(targetSchedule.id, resolvedState.previewVersionId));
-      return;
-    } catch (error) {
-      console.warn('[Step3] Failed to resolve Step5 preview version:', error);
-      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
+  } catch (error) {
+    console.warn('[Step3] Failed to check current month version state:', error);
+    showError('현재 월의 근무표 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return;
   }
 
-  scheduleStore.nextStep();
-  router.push('/schedule/step4');
+  if (!window.$dialog?.warning) {
+    showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return;
+  }
+
+  window.$dialog.warning({
+    title: '직원 정보 적용 확인',
+    content:
+      (compareResponse?.versions?.length ?? 0) > 0
+        ? '현재 월의 근무표와 버전이 모두 삭제됩니다. 계속 적용하시겠습니까?'
+        : '검증한 직원 정보를 현재 월에 적용하시겠습니까?',
+    positiveText: '계속 적용',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      await performEmployeeApply(orgId);
+    },
+  });
 }
 </script>
