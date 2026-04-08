@@ -240,6 +240,7 @@ describe('useScheduleReviewHub', () => {
 
     expect(hub.selectedVersionId.value).toBe('version-2');
     expect(hub.previewVersionId.value).toBe('version-2');
+    expect(hub.compareVersionIds.value).toEqual([]);
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2');
     expect(scheduleStoreMock.previewVersionId).toBe('version-2');
     expect(scheduleStoreMock.compareMatrix).toEqual(
@@ -251,6 +252,26 @@ describe('useScheduleReviewHub', () => {
     expect(replaceMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: { version: 'version-2' },
+    });
+  });
+
+  it('keeps compare mode hidden until the route explicitly requests it', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue(
+      createCompareResponse('version-2', [version1, version2, version3])
+    );
+    getPhase2ScheduleReviewMock.mockResolvedValueOnce(createReviewResponse('version-2'));
+
+    const hub = await mountUseScheduleReviewHub();
+
+    expect(hub.previewVersionId.value).toBe('version-2');
+    expect(hub.compareVersionIds.value).toEqual([]);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(1);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledWith('version-2');
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+      },
     });
   });
 
@@ -302,18 +323,12 @@ describe('useScheduleReviewHub', () => {
 
     expect(hub.selectedVersionId.value).toBe('version-2');
     expect(hub.previewVersionId.value).toBe('version-1');
-    expect(hub.compareVersionIds.value).toEqual(['version-1', 'version-2']);
+    expect(hub.compareVersionIds.value).toEqual([]);
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1');
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2');
     expect(scheduleStoreMock.latestEvaluation?.scheduleVersionId).toBe('version-1');
     expect(scheduleStoreMock.reviewTab).toBe('grid');
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-1',
-        compare: 'version-1,version-2',
-      },
-    });
+    expect(replaceMock).not.toHaveBeenCalled();
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled();
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
   });
@@ -415,7 +430,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenLastCalledWith('version-1');
     expect(scheduleStoreMock.selectedVersionId).toBe('version-1');
     expect(scheduleStoreMock.previewVersionId).toBe('version-1');
-    expect(hub.compareVersionIds.value).toEqual(['version-1']);
+    expect(hub.compareVersionIds.value).toEqual([]);
     expect(hub.selectedVersionId.value).toBe('version-1');
     expect(hub.previewVersionId.value).toBe('version-1');
     expect(scheduleStoreMock.compareMatrix).toEqual(
@@ -427,6 +442,6 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.latestEvaluation?.scheduleVersionId).toBe('version-1');
     expect(replaceMock).not.toHaveBeenCalled();
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
-    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(3);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(2);
   });
 });

@@ -986,7 +986,15 @@ async function handleNext() {
     };
     setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
     scheduleStore.currentStep = 5;
-    router.push(buildStep5Route(baseline.scheduleId, createResponse.createdVersionId));
+    router.push(
+      buildStep5Route(
+        baseline.scheduleId,
+        createResponse.createdVersionId,
+        [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+          (versionId): versionId is string => !!versionId
+        )
+      )
+    );
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');

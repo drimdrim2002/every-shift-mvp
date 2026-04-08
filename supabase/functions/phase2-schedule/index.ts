@@ -25,6 +25,7 @@ import {
   markVersionSolving,
   patchVersionAssignments,
   resetScheduleRoster,
+  resetActiveFlow,
   recheckVersion,
   review as reviewVersion,
   select as selectVersion,
@@ -36,6 +37,7 @@ import type {
   EnsureResponse,
   PatchAssignmentsResponse,
   ResetRosterResponse,
+  ResetActiveFlowResponse,
   ReviewResponse,
   ScheduleVersionFinalizeResponse,
   ScheduleVersionRecheckResponse,
@@ -50,6 +52,7 @@ type ApiResponseBody =
   | EnsureResponse
   | PatchAssignmentsResponse
   | ResetRosterResponse
+  | ResetActiveFlowResponse
   | ReviewResponse
   | ScheduleVersionFinalizeResponse
   | ScheduleVersionRecheckResponse
@@ -251,6 +254,16 @@ Deno.serve(async (request) => {
         repositoryClient,
         auth,
         resetRosterInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'resetActiveFlow') {
+      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
+      const result: ResetActiveFlowResponse = await resetActiveFlow(
+        repositoryClient,
+        auth,
+        scheduleId
       );
       return createResponse(request, result, 200);
     }

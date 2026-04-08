@@ -3,6 +3,7 @@ import {
   createVersion,
   markVersionSolving,
   patchVersionAssignments,
+  resetActiveFlow,
   resetScheduleRoster,
   syncVersionSolverResult,
 } from '@/../supabase/functions/phase2-schedule/repository.ts';
@@ -209,6 +210,109 @@ const AUTH_CONTEXT: Phase2ScheduleAuthContext = {
 };
 
 describe('phase2 schedule write repository', () => {
+  it('archives the active non-finalized flow and returns the empty active compare state', async () => {
+    const { client, rpcSpies } = createClient({
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: null,
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: null,
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+    }, {
+      reset_schedule_active_flow_atomic: [
+        {
+          data: {
+            schedule_id: 'schedule-1',
+          },
+          error: null,
+        },
+      ],
+    })
+
+    const result = await resetActiveFlow(client, AUTH_CONTEXT, 'schedule-1')
+
+    expect(rpcSpies.reset_schedule_active_flow_atomic).toHaveBeenCalledWith({
+      p_schedule_id: 'schedule-1',
+      p_archived_by: AUTH_CONTEXT.userId,
+    })
+    expect(result).toEqual({
+      scheduleId: 'schedule-1',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [],
+    })
+  })
+
+  it('maps reset-active-flow finalized conflicts to 409 already_finalized contract errors', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-1',
+            finalized_version_id: 'version-1',
+            latest_version_no: 1,
+          },
+          error: null,
+        },
+      ],
+    }, {
+      reset_schedule_active_flow_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'already_finalized',
+            code: 'P0001',
+          },
+        },
+      ],
+    })
+
+    await expect(resetActiveFlow(client, AUTH_CONTEXT, 'schedule-1')).rejects.toMatchObject({
+      code: 'already_finalized',
+      status: 409,
+    })
+  })
+
   it('creates a new version through the atomic rpc without changing selected_version_id', async () => {
     const { client, rpcSpies } = createClient({
       schedules: [

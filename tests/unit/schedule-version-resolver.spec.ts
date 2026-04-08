@@ -89,6 +89,11 @@ const compareResponse = {
   ],
 }
 
+const initialEntryCompareResponse = {
+  ...compareResponse,
+  versions: compareResponse.versions.slice(0, 2),
+}
+
 describe('scheduleVersionResolver', () => {
   it('keeps Step4 bound to the preferred preview when it is still valid', () => {
     expect(resolveStep4VersionState(compareResponse, 'version-1')).toEqual({
@@ -123,12 +128,12 @@ describe('scheduleVersionResolver', () => {
   })
 
   it('preserves a valid preview deep link even when preview differs from selected', () => {
-    expect(resolveStep5VersionState(compareResponse, 'version-1')).toEqual({
+    expect(resolveStep5VersionState(initialEntryCompareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-1',
-      compareVersionIds: ['version-2', 'version-1'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
-      versions: compareResponse.versions,
+      versions: initialEntryCompareResponse.versions,
       shouldCanonicalize: false,
     })
   })
@@ -177,31 +182,31 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
   })
 
-  it('defaults Step5 preview to the selected version when the query is missing', () => {
-    expect(resolveStep5VersionState(compareResponse, null)).toEqual({
+  it('keeps first-entry Step5 in single-version mode when there is no compare candidate', () => {
+    expect(resolveStep5VersionState(initialEntryCompareResponse, null)).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
-      versions: compareResponse.versions,
+      versions: initialEntryCompareResponse.versions,
       shouldCanonicalize: true,
     })
   })
 
   it('replaces invalid preview queries with the selected version', () => {
-    expect(resolveStep5VersionState(compareResponse, 'missing-version')).toEqual({
+    expect(resolveStep5VersionState(initialEntryCompareResponse, 'missing-version')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
-      versions: compareResponse.versions,
+      versions: initialEntryCompareResponse.versions,
       shouldCanonicalize: true,
     })
   })
@@ -210,7 +215,7 @@ describe('scheduleVersionResolver', () => {
     expect(
       resolveStep5VersionState(
         {
-          ...compareResponse,
+          ...initialEntryCompareResponse,
           selectedVersionId: null,
         },
         null
@@ -218,18 +223,74 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       selectedVersionId: null,
       previewVersionId: 'version-1',
-      compareVersionIds: ['version-1'],
+      compareVersionIds: [],
+      activeSolvingVersionId: null,
+      versions: initialEntryCompareResponse.versions,
+      shouldCanonicalize: true,
+    })
+  })
+
+  it('does not auto-seed compare ids without an explicit compare route', () => {
+    expect(resolveStep5VersionState(compareResponse, null)).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
   })
 
+  it('does not treat an untouched re-solve draft as a compare candidate', () => {
+    expect(
+      resolveStep5VersionState(
+        {
+          ...initialEntryCompareResponse,
+          versions: [
+            initialEntryCompareResponse.versions[0]!,
+            {
+              ...initialEntryCompareResponse.versions[1]!,
+              sourceType: 're_solve',
+              manualEditCount: 0,
+              inputDiffSummary: {
+                changedOffRequests: 0,
+                changedLockedAssignments: 0,
+                changedSiteRequirements: 0,
+                note: null,
+              },
+            },
+          ],
+        },
+        null
+      )
+    ).toEqual({
+      selectedVersionId: 'version-2',
+      previewVersionId: 'version-2',
+      compareVersionIds: [],
+      activeSolvingVersionId: null,
+      versions: [
+        initialEntryCompareResponse.versions[0]!,
+        {
+          ...initialEntryCompareResponse.versions[1]!,
+          sourceType: 're_solve',
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+        },
+      ],
+      shouldCanonicalize: true,
+    })
+  })
+
   it('exposes authoritative active solving version for Step5 runtime decisions', () => {
     const solvingCompare = {
-      ...compareResponse,
+      ...initialEntryCompareResponse,
       activeSolvingVersionId: 'version-2',
-      versions: compareResponse.versions.map((version) =>
+      versions: initialEntryCompareResponse.versions.map((version) =>
         version.id === 'version-2'
           ? { ...version, status: 'solving' as const }
           : version
@@ -239,7 +300,7 @@ describe('scheduleVersionResolver', () => {
     expect(resolveStep5VersionState(solvingCompare, 'version-2')).toEqual({
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2'],
+      compareVersionIds: [],
       activeSolvingVersionId: 'version-2',
       versions: solvingCompare.versions,
       shouldCanonicalize: false,

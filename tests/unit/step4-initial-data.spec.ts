@@ -439,6 +439,7 @@ describe('Step4InitialData', () => {
       path: '/schedule/step5/schedule-1',
       query: {
         version: 'version-3',
+        compare: 'version-3,version-2',
       },
     })
   })

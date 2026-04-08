@@ -6,6 +6,7 @@ export type RouteName =
   | 'select'
   | 'createVersion'
   | 'resetRoster'
+  | 'resetActiveFlow'
   | 'solve'
   | 'solverResult'
   | 'patchAssignments'
@@ -214,6 +215,14 @@ export interface ResetRosterResponse {
   employeeCount: number;
 }
 
+export interface ResetActiveFlowResponse {
+  scheduleId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
 export interface SolveRequest {
   solverExecutionId: string;
 }
@@ -328,6 +337,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'resetRoster',
     methods: ['POST'],
     segments: ['schedules', 'reset-roster'],
+  },
+  {
+    name: 'resetActiveFlow',
+    methods: ['POST'],
+    segments: ['schedules', ':scheduleId', 'reset-active-flow'],
   },
   {
     name: 'review',

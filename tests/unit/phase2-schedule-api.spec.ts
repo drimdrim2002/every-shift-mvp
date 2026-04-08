@@ -980,4 +980,38 @@ describe('phase2 schedule api helpers', () => {
       })
     );
   });
+
+  it('calls the reset-active-flow mutation route through phase2-schedule edge function', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-reset-active-flow',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-33',
+          selectedVersionId: null,
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { resetPhase2ScheduleActiveFlow } = await import('@/api/schedule');
+
+    await resetPhase2ScheduleActiveFlow('schedule-33');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-33/reset-active-flow',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
 });

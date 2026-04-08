@@ -30,6 +30,7 @@ import type {
   PreviousMonthFinalizedContext,
   ResetScheduleRosterRequest,
   ResetScheduleRosterResponse,
+  ResetScheduleActiveFlowResponse,
 } from '@/types/schedule';
 
 interface ShiftReference {
@@ -417,6 +418,17 @@ export async function resetPhase2ScheduleRoster(
     method: 'POST',
     body: request,
   });
+}
+
+export async function resetPhase2ScheduleActiveFlow(
+  scheduleId: string
+): Promise<ResetScheduleActiveFlowResponse> {
+  return callPhase2Schedule<ResetScheduleActiveFlowResponse>(
+    `/schedules/${scheduleId}/reset-active-flow`,
+    {
+      method: 'POST',
+    }
+  );
 }
 
 export async function patchScheduleVersionAssignmentsAtomic(

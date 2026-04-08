@@ -312,6 +312,14 @@ export interface ResetScheduleRosterResponse {
   employeeCount: number;
 }
 
+export interface ResetScheduleActiveFlowResponse {
+  scheduleId: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
 export interface ScheduleReviewResponse {
   scheduleId: string;
   selectedVersionId: string | null;

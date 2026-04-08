@@ -10,6 +10,7 @@ import {
   type Phase2ScheduleAuthContext,
   type ResetRosterRequest,
   type ResetRosterResponse,
+  type ResetActiveFlowResponse,
   type ReviewResponse,
   type ScheduleEvaluationResultStatus,
   type ScheduleVersionFinalizeResponse,
@@ -73,6 +74,9 @@ interface ScheduleVersionRow {
   manual_edit_count: number;
   latest_evaluation_id: string | null;
   active_solver_execution_id?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  archive_reason?: string | null;
 }
 
 interface CreateScheduleVersionAtomicRow {
@@ -131,6 +135,10 @@ interface FinalizeScheduleVersionAtomicRow {
 interface ReplaceRosterAndResetScheduleAtomicRow {
   deleted_schedule_id: string | null;
   employee_count: number;
+}
+
+interface ResetScheduleActiveFlowAtomicRow {
+  schedule_id: string;
 }
 
 interface SchedulePreferenceRow {
@@ -471,6 +479,20 @@ function toVersionSummary(
   };
 }
 
+function isArchivedVersion(version: ScheduleVersionRow): boolean {
+  return typeof version.archived_at === 'string' && version.archived_at.length > 0;
+}
+
+function assertVersionNotArchived(version: ScheduleVersionRow): void {
+  if (isArchivedVersion(version)) {
+    throw new ContractError(
+      'version_archived',
+      'Version is archived and no longer part of the active flow',
+      409
+    );
+  }
+}
+
 function isUniqueViolation(
   error: unknown,
   constraintNames: string[],
@@ -625,6 +647,14 @@ function remapCreateVersionRpcConflict(error: unknown): never {
 }
 
 function remapResetRosterRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError && error.dbError.message === 'already_finalized') {
+    throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+  }
+
+  throw error;
+}
+
+function remapResetActiveFlowRpcConflict(error: unknown): never {
   if (error instanceof DatabaseError && error.dbError.message === 'already_finalized') {
     throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
   }
@@ -921,13 +951,15 @@ async function loadVersionRows(
   client: Phase2ScheduleRepositoryClient,
   scheduleId: string
 ): Promise<ScheduleVersionRow[]> {
-  return list<ScheduleVersionRow>(
+  const rows = await list<ScheduleVersionRow>(
     client
       .from('schedule_versions')
       .select('*')
       .eq('schedule_id', scheduleId)
       .order('version_no', { ascending: true })
   );
+
+  return rows.filter((version) => !isArchivedVersion(version));
 }
 
 async function loadEvaluationById(
@@ -977,12 +1009,13 @@ async function loadLegacySnapshotCounts(
 function buildBootstrapVersionInsert(
   schedule: ScheduleRow,
   snapshotCounts: BootstrapSnapshotCounts,
-  preserveLegacyState: boolean
+  preserveLegacyState: boolean,
+  versionNo: number
 ): DbRecord {
   const payload: DbRecord = {
     schedule_id: schedule.id,
-    version_no: 1,
-    name: 'V1',
+    version_no: versionNo,
+    name: `V${versionNo}`,
     source_type: 'initial_solve',
     base_version_id: null,
     current_revision: 0,
@@ -1014,11 +1047,15 @@ function buildBootstrapVersionInsert(
 async function repairSelectionState(
   client: Phase2ScheduleRepositoryClient,
   schedule: ScheduleRow,
-  versionId: string
+  options: {
+    versionId: string;
+    versionNo: number;
+    repairSelection: boolean;
+  }
 ): Promise<void> {
-  const desiredLatestVersionNo = Math.max(schedule.latest_version_no ?? 0, 1);
-  const needsSelectionRepair = schedule.selected_version_id == null;
-  const needsVersionNoRepair = (schedule.latest_version_no ?? 0) < 1;
+  const desiredLatestVersionNo = Math.max(schedule.latest_version_no ?? 0, options.versionNo);
+  const needsSelectionRepair = options.repairSelection;
+  const needsVersionNoRepair = (schedule.latest_version_no ?? 0) < desiredLatestVersionNo;
 
   if (!needsSelectionRepair && !needsVersionNoRepair) {
     return;
@@ -1029,11 +1066,11 @@ async function repairSelectionState(
   };
 
   if (needsSelectionRepair) {
-    updatePayload.selected_version_id = versionId;
+    updatePayload.selected_version_id = options.versionId;
   }
 
   await run(client.from('schedules').update(updatePayload).eq('id', schedule.id));
-  schedule.selected_version_id = needsSelectionRepair ? versionId : schedule.selected_version_id;
+  schedule.selected_version_id = needsSelectionRepair ? options.versionId : schedule.selected_version_id;
   schedule.latest_version_no = desiredLatestVersionNo;
 }
 
@@ -1093,23 +1130,44 @@ async function ensureBootstrapVersion(
   preserveLegacyState: boolean
 ): Promise<void> {
   const existingVersions = await loadVersionRows(client, schedule.id);
-  const version1 = existingVersions.find((version) => version.version_no === 1) ?? null;
+  const fallbackVersion = existingVersions[0] ?? null;
 
-  if (version1) {
-    await repairSelectionState(client, schedule, version1.id);
+  if (fallbackVersion) {
+    const hasValidSelection = existingVersions.some(
+      (version) => version.id === schedule.selected_version_id
+    );
+    const selectedVersion = hasValidSelection
+      ? existingVersions.find((version) => version.id === schedule.selected_version_id) ?? fallbackVersion
+      : fallbackVersion;
+
+    await repairSelectionState(client, schedule, {
+      versionId: selectedVersion.id,
+      versionNo: selectedVersion.version_no,
+      repairSelection: !hasValidSelection,
+    });
     return;
   }
 
   const snapshotCounts = preserveLegacyState
     ? await loadLegacySnapshotCounts(client, schedule.id)
     : EMPTY_BOOTSTRAP_COUNTS;
-  const bootstrapInsert = buildBootstrapVersionInsert(schedule, snapshotCounts, preserveLegacyState);
+  const nextVersionNo = Math.max((schedule.latest_version_no ?? 0) + 1, 1);
+  const bootstrapInsert = buildBootstrapVersionInsert(
+    schedule,
+    snapshotCounts,
+    preserveLegacyState,
+    nextVersionNo
+  );
 
   try {
     const insertedVersion = await single<ScheduleVersionRow>(
       client.from('schedule_versions').insert(bootstrapInsert).select()
     );
-    await repairSelectionState(client, schedule, insertedVersion.id);
+    await repairSelectionState(client, schedule, {
+      versionId: insertedVersion.id,
+      versionNo: insertedVersion.version_no,
+      repairSelection: true,
+    });
     return;
   } catch (error: unknown) {
     if (!isUniqueViolation(error, VERSION_UNIQUE_CONSTRAINTS, ['schedule_id', 'version_no'])) {
@@ -1121,10 +1179,14 @@ async function ensureBootstrapVersion(
   const recoveredVersion1 = recoveredVersions.find((version) => version.version_no === 1) ?? null;
 
   if (!recoveredVersion1) {
-    throw new Error('Expected V1 to exist after duplicate bootstrap recovery');
+    throw new Error('Expected an active bootstrap version to exist after duplicate recovery');
   }
 
-  await repairSelectionState(client, schedule, recoveredVersion1.id);
+  await repairSelectionState(client, schedule, {
+    versionId: recoveredVersion1.id,
+    versionNo: recoveredVersion1.version_no,
+    repairSelection: true,
+  });
 }
 
 async function buildCompareResponse(
@@ -1176,6 +1238,8 @@ async function loadAuthorizedVersionContext(
   if (!version) {
     throw new ContractError('version_not_found', 'Version not found', 404);
   }
+
+  assertVersionNotArchived(version);
 
   const schedule = await loadAuthorizedSchedule(client, auth, version.schedule_id);
   return { schedule, version };
@@ -1380,6 +1444,26 @@ export async function resetScheduleRoster(
   }
 }
 
+export async function resetActiveFlow(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  scheduleId: string
+): Promise<ResetActiveFlowResponse> {
+  await loadAuthorizedSchedule(client, auth, scheduleId);
+
+  try {
+    await rpcSingle<ResetScheduleActiveFlowAtomicRow>(client, 'reset_schedule_active_flow_atomic', {
+      p_schedule_id: scheduleId,
+      p_archived_by: auth.userId,
+    });
+  } catch (error: unknown) {
+    remapResetActiveFlowRpcConflict(error);
+  }
+
+  const refreshedSchedule = await loadAuthorizedSchedule(client, auth, scheduleId);
+  return buildCompareResponse(client, refreshedSchedule);
+}
+
 export async function ensure(
   client: Phase2ScheduleRepositoryClient,
   auth: Phase2ScheduleAuthContext,
@@ -1419,6 +1503,8 @@ export async function review(
   if (!version) {
     throw new ContractError('version_not_found', 'Version not found', 404);
   }
+
+  assertVersionNotArchived(version);
 
   const schedule = await loadAuthorizedSchedule(client, auth, version.schedule_id);
   const latestEvaluation = version.latest_evaluation_id

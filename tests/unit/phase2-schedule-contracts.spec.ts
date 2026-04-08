@@ -32,6 +32,19 @@ describe('phase2 schedule contracts', () => {
 
     expect(
       matchRoute(
+        normalizePathSegments(
+          '/functions/v1/phase2-schedule/schedules/11111111-1111-4111-8111-111111111111/reset-active-flow'
+        )
+      )
+    ).toEqual({
+      route: 'resetActiveFlow',
+      params: {
+        scheduleId: '11111111-1111-4111-8111-111111111111',
+      },
+    });
+
+    expect(
+      matchRoute(
         normalizePathSegments('/functions/v1/phase2-schedule/schedule-versions/version-1/solve')
       )
     ).toEqual({
@@ -95,6 +108,7 @@ describe('phase2 schedule contracts', () => {
 
     expect(allowedMethods('createVersion')).toEqual(['POST']);
     expect(allowedMethods('resetRoster')).toEqual(['POST']);
+    expect(allowedMethods('resetActiveFlow')).toEqual(['POST']);
     expect(allowedMethods('solve')).toEqual(['POST']);
     expect(allowedMethods('solverResult')).toEqual(['POST']);
     expect(allowedMethods('patchAssignments')).toEqual(['PATCH']);

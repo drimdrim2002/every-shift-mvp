@@ -6,14 +6,17 @@ import {
   formatScheduleVersionStatus,
 } from '@/utils/scheduleReviewCopy'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   focusedVersion: ScheduleVersionSummary | null
   selectedVersion: ScheduleVersionSummary | null
   primaryAction: SchedulePrimaryAction
   supportCopy: string | null
   selecting: boolean
   acting: boolean
-}>()
+  showVersionContext?: boolean
+}>(), {
+  showVersionContext: true,
+})
 
 const emit = defineEmits<{
   (event: 'primary-action'): void
@@ -51,8 +54,14 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
 
 <template>
   <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div class="grid gap-4 md:grid-cols-2">
+    <div
+      class="flex flex-col gap-4 lg:flex-row lg:items-start"
+      :class="showVersionContext ? 'lg:justify-between' : 'lg:justify-end'"
+    >
+      <div
+        v-if="showVersionContext"
+        class="grid gap-4 md:grid-cols-2"
+      >
         <div class="rounded-xl bg-slate-50 p-4">
           <p class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
             현재 자세히 보는 안

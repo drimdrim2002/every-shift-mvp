@@ -22,6 +22,7 @@ const {
   selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersionMock,
+  resetPhase2ScheduleActiveFlowMock,
   createPhase2ScheduleVersionMock,
   patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
@@ -46,6 +47,7 @@ const {
   selectPhase2ScheduleVersionMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
   finalizePhase2ScheduleVersionMock: vi.fn(),
+  resetPhase2ScheduleActiveFlowMock: vi.fn(),
   createPhase2ScheduleVersionMock: vi.fn(),
   patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
@@ -80,6 +82,7 @@ vi.mock('@/api/schedule', () => ({
   selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
+  resetPhase2ScheduleActiveFlow: resetPhase2ScheduleActiveFlowMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
   submitPhase2ScheduleVersionSolverResult: submitPhase2ScheduleVersionSolverResultMock,
@@ -496,6 +499,13 @@ describe('Step5Result', () => {
       finalizedAt: '2026-04-02T00:00:00Z',
       finalizedBy: 'user-1',
     })
+    resetPhase2ScheduleActiveFlowMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [],
+    })
     submitPhase2ScheduleVersionSolverResultMock.mockResolvedValue({
       scheduleVersionId: 'version-2',
       status: 'solve_failed',
@@ -577,32 +587,195 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith('/')
   })
 
-  it('renders the candidate shelf and comparison workspace above the result grid', async () => {
+  it('requires confirmation before returning to Step4 when there are unsaved changes', async () => {
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: vi.fn(),
+      warning: warningMock,
+    }
+
     const wrapper = createWrapper()
     await flushPromises()
+    vi.clearAllMocks()
 
-    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('비교 후보')
-    expect(wrapper.text()).toContain('비교 도구')
-    expect(wrapper.text()).toContain('현재 자세히 보는 안')
-    expect(wrapper.text()).toContain('현재 기준안')
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const step4Button = wrapper.findAll('button')
+      .find((button) => button.text().includes('입력 변경 후 비교안 만들기'))
+    expect(step4Button).toBeTruthy()
+
+    await step4Button!.trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledTimes(1)
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step4')
+
+    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => void | Promise<void>
+    }
+    await dialogConfig.onPositiveClick?.()
+
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
   })
 
-  it('collapses and re-expands comparison tools without clearing focus state', async () => {
+  it('splits reset actions and resets the active month flow through the new API', async () => {
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      warning: warningMock,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('현재 안 초기화')
+    expect(wrapper.text()).toContain('이번 달 새로 시작')
+
+    const resetMonthButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('이번 달 새로 시작'))
+    expect(resetMonthButton).toBeTruthy()
+
+    await resetMonthButton!.trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledTimes(1)
+
+    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => void | Promise<void>
+    }
+    await dialogConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(resetPhase2ScheduleActiveFlowMock).toHaveBeenCalledWith('schedule-1')
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
+  })
+
+  it('disables month reset when the schedule is already finalized', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1 }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true, isFinalized: true, status: 'finalized' }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) =>
+      Promise.resolve(createReviewResponse(versionId, {
+        finalizedVersionId: 'version-2',
+        version: {
+          status: versionId === 'version-2' ? 'finalized' : 'draft',
+          isFinalized: versionId === 'version-2',
+        },
+      }))
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const resetMonthButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('이번 달 새로 시작'))
+    expect(resetMonthButton).toBeTruthy()
+    expect(resetMonthButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('hides comparison tools on first entry when there is only a single working version state', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          sourceType: 'initial_solve',
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: false,
+          sourceType: 're_solve',
+          status: 'draft',
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+        }),
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('비교 후보')
+    expect(wrapper.text()).not.toContain('비교 도구')
+    expect(wrapper.text()).not.toContain('현재 자세히 보는 안')
+    expect(wrapper.text()).not.toContain('현재 기준안')
+  })
+
+  it('shows comparison tools only after a real compare candidate exists and can collapse them', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve', manualEditCount: 0, inputDiffSummary: { changedOffRequests: 0, changedLockedAssignments: 0, changedSiteRequirements: 0, note: null } }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId))
+    })
+
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('비교 후보')
+    expect(wrapper.text()).toContain('V3')
+    expect(wrapper.text()).not.toContain('V1')
 
     await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('비교 후보')
-    expect(scheduleStoreMock.previewVersionId).toBe('version-2')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-3')
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
 
     await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
@@ -665,20 +838,74 @@ describe('Step5Result', () => {
   })
 
   it('changes the focused version only when the explicit detail button is clicked', async () => {
-    routeMock.query = { version: 'version-2' }
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve', manualEditCount: 0, inputDiffSummary: { changedOffRequests: 0, changedLockedAssignments: 0, changedSiteRequirements: 0, note: null } }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
 
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="focus-version-1"]').trigger('click')
+    await wrapper.get('[data-test="focus-version-3"]').trigger('click')
     await flushPromises()
 
-    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-3')
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
   it('requires confirmation before discarding unsaved changes on focused-version switch', async () => {
-    routeMock.query = { version: 'version-2' }
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve', manualEditCount: 0, inputDiffSummary: { changedOffRequests: 0, changedLockedAssignments: 0, changedSiteRequirements: 0, note: null } }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
@@ -691,11 +918,11 @@ describe('Step5Result', () => {
 
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-test="focus-version-1"]').trigger('click')
+    await wrapper.get('[data-test="focus-version-2"]').trigger('click')
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
-    expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-2')
   })
 
   it('changes authoritative selection only when the explicit select button is clicked', async () => {
@@ -1419,7 +1646,7 @@ describe('Step5Result', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('생성 상태를 초기화했습니다. 다시 생성을 시도할 수 있습니다.')
   })
 
-  it('re-solve creates a new preview candidate without changing selected version', async () => {
+  it('re-solves the current preview version without creating a new candidate version', async () => {
     solverMock.status.value = 'complete'
     getScheduleStatusMock.mockResolvedValue({
       status: 'complete',
@@ -1489,42 +1716,42 @@ describe('Step5Result', () => {
     await regenerateButton!.trigger('click')
     await flushPromises()
 
-    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
-      baseVersionId: 'version-2',
-      name: null,
-      sourceType: 're_solve',
-      inputDiffSummary: {
-        changedOffRequests: 0,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: null,
-      },
-    })
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
+    expect(solverMock.startSolver).toHaveBeenCalledWith('version-2', {})
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
-    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-3')
-    expect(replaceMock).toHaveBeenCalledWith({
+    expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-3')
+    expect(replaceMock).not.toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {
         version: 'version-3',
-        compare: 'version-3,version-2',
       },
     })
-    expect(scheduleStoreMock.compareMatrix).toEqual(
-      expect.objectContaining({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-2',
-        finalizedVersionId: null,
-        activeSolvingVersionId: null,
-        versions: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'version-1',
-          }),
-          expect.objectContaining({
-            id: 'version-2',
-          }),
-        ]),
-      })
-    )
+  })
+
+  it('blocks re-solve when there are unsaved manual changes', async () => {
+    solverMock.status.value = 'complete'
+    routeMock.query = {
+      version: 'version-2',
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const regenerateButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('더 개선하기'))
+    expect(regenerateButton).toBeTruthy()
+
+    await regenerateButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경사항을 먼저 저장하거나 취소한 뒤 다시 생성해주세요.')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
   it('saves manual changes through preview-version patch route', async () => {

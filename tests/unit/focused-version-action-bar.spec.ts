@@ -65,6 +65,28 @@ describe('FocusedVersionActionBar', () => {
     expect(wrapper.text()).toContain('V2')
   })
 
+  it('hides focused and selected summaries when version context is disabled', () => {
+    const wrapper = mount(FocusedVersionActionBar, {
+      props: {
+        focusedVersion: createVersion(),
+        selectedVersion: createVersion({
+          id: 'version-2',
+          versionNo: 2,
+          name: 'V2',
+        }),
+        primaryAction: createPrimaryAction(),
+        supportCopy: null,
+        selecting: false,
+        acting: false,
+        showVersionContext: false,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('현재 자세히 보는 안')
+    expect(wrapper.text()).not.toContain('현재 기준안')
+    expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(true)
+  })
+
   it('localizes version status and primary action copy', () => {
     const wrapper = mount(FocusedVersionActionBar, {
       props: {

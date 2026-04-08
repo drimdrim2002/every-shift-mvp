@@ -108,13 +108,12 @@ function normalizeStep5QueryState(
 
 function resolvePreferredCompareVersionIds(args: {
   compare: ScheduleCompareResponse;
-  requestedFocusVersionId: string | null;
   requestedCompareVersionIds: string[];
   resolvedFocusVersionId: string | null;
   finalizedVersionId: string | null;
 }): string[] {
   if (args.finalizedVersionId) {
-    return [args.finalizedVersionId];
+    return [];
   }
 
   const requestedCompareVersionIds = dedupeVersionIds(
@@ -122,19 +121,12 @@ function resolvePreferredCompareVersionIds(args: {
   );
 
   if (requestedCompareVersionIds.length > 0) {
-    return getCanonicalCompareVersionIds(requestedCompareVersionIds, args.resolvedFocusVersionId);
-  }
+    const canonicalCompareVersionIds = getCanonicalCompareVersionIds(
+      requestedCompareVersionIds,
+      args.resolvedFocusVersionId
+    );
 
-  if (args.resolvedFocusVersionId && args.compare.selectedVersionId && args.compare.selectedVersionId !== args.resolvedFocusVersionId) {
-    return [args.compare.selectedVersionId, args.resolvedFocusVersionId];
-  }
-
-  if (args.resolvedFocusVersionId) {
-    return [args.resolvedFocusVersionId];
-  }
-
-  if (hasVersionId(args.compare.versions, args.compare.selectedVersionId)) {
-    return [args.compare.selectedVersionId];
+    return canonicalCompareVersionIds.length >= 2 ? canonicalCompareVersionIds : [];
   }
 
   return [];
@@ -167,7 +159,6 @@ export function resolveStep5VersionState(
     : null;
   const compareVersionIds = resolvePreferredCompareVersionIds({
     compare,
-    requestedFocusVersionId: normalizedQuery.requestedFocusVersionId,
     requestedCompareVersionIds: normalizedQuery.requestedCompareVersionIds,
     resolvedFocusVersionId: previewVersionId,
     finalizedVersionId,

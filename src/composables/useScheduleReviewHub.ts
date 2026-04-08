@@ -98,9 +98,11 @@ export function useScheduleReviewHub() {
   }
 
   async function loadReviews(versionIds: string[], focusReviewVersionId: string | null) {
-    const uniqueVersionIds = dedupeVersionIds(versionIds);
+    const uniqueVersionIds = dedupeVersionIds(
+      [focusReviewVersionId, ...versionIds].filter((versionId): versionId is string => !!versionId)
+    );
 
-    if (uniqueVersionIds.length === 0) {
+    if (focusReviewVersionId === null && uniqueVersionIds.length === 0) {
       syncReviewState(null);
       comparedReviews.value = {};
       return null;

@@ -141,6 +141,199 @@ const AUTH_CONTEXT: Phase2ScheduleAuthContext = {
 };
 
 describe('phase2 schedule repository', () => {
+  it('creates a fresh active bootstrap version when only archived versions remain', async () => {
+    const { client, insertSpies, updateSpies } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '11111111-1111-4111-8111-111111111111',
+            organization_id: '33333333-3333-4333-8333-333333333333',
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: null,
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: null,
+          error: null,
+        },
+        {
+          data: {
+            id: '11111111-1111-4111-8111-111111111111',
+            organization_id: '33333333-3333-4333-8333-333333333333',
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '33333333-3333-4333-8333-333333333333',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [],
+          error: null,
+        },
+        {
+          data: {
+            id: '33333333-3333-4333-8333-333333333333',
+            schedule_id: '11111111-1111-4111-8111-111111111111',
+            version_no: 3,
+            name: 'V3',
+            source_type: 'initial_solve',
+            base_version_id: null,
+            status: 'draft',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            archived_at: null,
+          },
+          error: null,
+        },
+        {
+          data: [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              schedule_id: '11111111-1111-4111-8111-111111111111',
+              version_no: 3,
+              name: 'V3',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'draft',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              archived_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await ensure(client, AUTH_CONTEXT, {
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
+    });
+
+    expect(insertSpies.schedule_versions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        schedule_id: '11111111-1111-4111-8111-111111111111',
+        version_no: 3,
+        name: 'V3',
+      })
+    );
+    expect(updateSpies.schedules).toHaveBeenCalledWith(
+      expect.objectContaining({
+        latest_version_no: 3,
+        selected_version_id: '33333333-3333-4333-8333-333333333333',
+      })
+    );
+    expect(result).toEqual({
+      scheduleId: '11111111-1111-4111-8111-111111111111',
+      selectedVersionId: '33333333-3333-4333-8333-333333333333',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        expect.objectContaining({
+          id: '33333333-3333-4333-8333-333333333333',
+          versionNo: 3,
+        }),
+      ],
+    });
+  });
+
+  it('excludes archived versions from compare responses', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '11111111-1111-4111-8111-111111111111',
+            organization_id: '33333333-3333-4333-8333-333333333333',
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: '33333333-3333-4333-8333-333333333333',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [
+            {
+              id: '22222222-2222-4222-8222-222222222222',
+              schedule_id: '11111111-1111-4111-8111-111111111111',
+              version_no: 2,
+              name: 'V2',
+              source_type: 're_solve',
+              base_version_id: '11111111-1111-4111-8111-111111111111',
+              status: 'review_ready',
+              current_revision: 1,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              archived_at: '2026-04-08T00:00:00Z',
+            },
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              schedule_id: '11111111-1111-4111-8111-111111111111',
+              version_no: 3,
+              name: 'V3',
+              source_type: 're_solve',
+              base_version_id: '22222222-2222-4222-8222-222222222222',
+              status: 'draft',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              archived_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await compare(client, AUTH_CONTEXT, '11111111-1111-4111-8111-111111111111');
+
+    expect(result.versions).toHaveLength(1);
+    expect(result.versions[0]).toEqual(
+      expect.objectContaining({
+        id: '33333333-3333-4333-8333-333333333333',
+        versionNo: 3,
+      })
+    );
+  });
+
   it('keeps ensure idempotent when the container and V1 already exist', async () => {
     const { client, insertSpies } = createClient({
       schedules: [
