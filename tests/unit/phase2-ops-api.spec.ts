@@ -1,4 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  OrganizationProfileRequest,
+  OrganizationProfileResponse,
+  ShiftsConstraintsRequest,
+  ShiftsConstraintsResponse,
+  SiteRequest,
+  SiteResponse,
+  SitesRequest,
+  SitesResponse,
+} from '@/types/ops';
 
 const getSessionMock = vi.fn();
 const fetchMock = vi.fn();
@@ -29,24 +39,23 @@ describe('phase2 ops api helpers', () => {
   });
 
   it('loads organization profile through the phase2-ops edge function', async () => {
+    const response = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      name: 'Severance Hospital',
+      type: 'hospital',
+    } satisfies OrganizationProfileResponse;
+
     fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          name: 'Severance Hospital',
-          type: 'hospital',
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
     );
 
     const { getOrganizationProfile } = await import('@/api/ops');
-    const result = await getOrganizationProfile('00000000-0000-0000-0000-000000000001');
+    const result = await getOrganizationProfile(response.organizationId);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://example.supabase.co/functions/v1/phase2-ops/organization-profile?organizationId=00000000-0000-0000-0000-000000000001',
@@ -60,36 +69,27 @@ describe('phase2 ops api helpers', () => {
         }),
       })
     );
-    expect(result).toEqual({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      name: 'Severance Hospital',
-      type: 'hospital',
-    });
+    expect(result).toEqual(response);
   });
 
   it('updates organization profile through the phase2-ops edge function', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          name: 'Severance Hospital',
-          type: 'hospital',
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-    );
-
-    const { updateOrganizationProfile } = await import('@/api/ops');
-    const result = await updateOrganizationProfile({
+    const request = {
       organizationId: '00000000-0000-0000-0000-000000000001',
       name: 'Severance Hospital',
       type: 'hospital',
-    });
+    } satisfies OrganizationProfileRequest;
+
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(request), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+
+    const { updateOrganizationProfile } = await import('@/api/ops');
+    const result = await updateOrganizationProfile(request);
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://example.supabase.co/functions/v1/phase2-ops/organization-profile',
@@ -98,44 +98,36 @@ describe('phase2 ops api helpers', () => {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
         }),
-        body: JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          name: 'Severance Hospital',
-          type: 'hospital',
-        }),
+        body: JSON.stringify(request),
       })
     );
-    expect(result).toEqual({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      name: 'Severance Hospital',
-      type: 'hospital',
-    });
+    expect(result).toEqual(request);
   });
 
   it('loads sites through the phase2-ops edge function', async () => {
+    const responseSites = [
+      {
+        id: 'site-1',
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        code: 'MAIN',
+        name: 'Main Ward',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    ] satisfies SiteResponse[];
+    const response = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      pilotSiteId: 'site-1',
+      sites: responseSites,
+    } satisfies SitesResponse;
+
     fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          pilotSiteId: 'site-1',
-          sites: [
-            {
-              id: 'site-1',
-              organizationId: '00000000-0000-0000-0000-000000000001',
-              code: 'MAIN',
-              name: 'Main Ward',
-              isActive: true,
-              isScheduleActive: true,
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
     );
 
     const { getSites } = await import('@/api/ops');
@@ -147,7 +139,50 @@ describe('phase2 ops api helpers', () => {
         method: 'GET',
       })
     );
-    expect(result).toEqual({
+    expect(result).toEqual(response);
+  });
+
+  it('rejects site payloads that do not contain exactly one schedule-active site', async () => {
+    const { updateSites } = await import('@/api/ops');
+    const invalidSites = [
+      {
+        code: 'A',
+        name: 'Alpha',
+        isActive: true,
+        isScheduleActive: true,
+      },
+      {
+        code: 'B',
+        name: 'Bravo',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    ] satisfies SiteRequest[];
+
+    await expect(
+      updateSites({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        sites: invalidSites,
+      })
+    ).rejects.toThrow('Exactly one schedule-active site is required');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('saves valid sites and shift constraints through the phase2-ops edge function', async () => {
+    const siteRequest = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      sites: [
+        {
+          code: 'MAIN',
+          name: 'Main Ward',
+          isActive: true,
+          isScheduleActive: true,
+        },
+      ],
+    } satisfies SitesRequest;
+
+    const sitesResponse = {
       organizationId: '00000000-0000-0000-0000-000000000001',
       pilotSiteId: 'site-1',
       sites: [
@@ -160,96 +195,42 @@ describe('phase2 ops api helpers', () => {
           isScheduleActive: true,
         },
       ],
-    });
-  });
+    } satisfies SitesResponse;
 
-  it('rejects site payloads that do not contain exactly one schedule-active site', async () => {
-    const { updateSites } = await import('@/api/ops');
+    const shiftsConstraintsRequest = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      minimumRestHours: 11,
+      checklistCursor: '',
+    } satisfies ShiftsConstraintsRequest;
 
-    await expect(
-      updateSites({
-        organizationId: '00000000-0000-0000-0000-000000000001',
-        sites: [
-          {
-            code: 'A',
-            name: 'Alpha',
-            isActive: true,
-            isScheduleActive: true,
-          },
-          {
-            code: 'B',
-            name: 'Bravo',
-            isActive: true,
-            isScheduleActive: true,
-          },
-        ],
-      })
-    ).rejects.toThrow('Exactly one schedule-active site is required');
+    const shiftsConstraintsResponse = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      minimumRestHours: 11,
+      checklistCursor: '',
+    } satisfies ShiftsConstraintsResponse;
 
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it('saves valid sites and shift constraints through the phase2-ops edge function', async () => {
     fetchMock
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            organizationId: '00000000-0000-0000-0000-000000000001',
-            pilotSiteId: 'site-1',
-            sites: [
-              {
-                id: 'site-1',
-                organizationId: '00000000-0000-0000-0000-000000000001',
-                code: 'MAIN',
-                name: 'Main Ward',
-                isActive: true,
-                isScheduleActive: true,
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        new Response(JSON.stringify(sitesResponse), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            organizationId: '00000000-0000-0000-0000-000000000001',
-            minimumRestHours: 11,
-            checklistCursor: '',
-          }),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        new Response(JSON.stringify(shiftsConstraintsResponse), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
       );
 
     const { updateSites, updateShiftsConstraints } = await import('@/api/ops');
 
-    const sitesResult = await updateSites({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      sites: [
-        {
-          code: 'MAIN',
-          name: 'Main Ward',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
-    });
-
-    const shiftsConstraintsResult = await updateShiftsConstraints({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      minimumRestHours: 11,
-      checklistCursor: '',
-    });
+    const sitesResult = await updateSites(siteRequest);
+    const shiftsConstraintsResult = await updateShiftsConstraints(shiftsConstraintsRequest);
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -259,17 +240,7 @@ describe('phase2 ops api helpers', () => {
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
         }),
-        body: JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          sites: [
-            {
-              code: 'MAIN',
-              name: 'Main Ward',
-              isActive: true,
-              isScheduleActive: true,
-            },
-          ],
-        }),
+        body: JSON.stringify(siteRequest),
       })
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -277,49 +248,27 @@ describe('phase2 ops api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-ops/shifts-constraints',
       expect.objectContaining({
         method: 'PUT',
-        body: JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          minimumRestHours: 11,
-          checklistCursor: '',
-        }),
+        body: JSON.stringify(shiftsConstraintsRequest),
       })
     );
-    expect(sitesResult).toEqual({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      pilotSiteId: 'site-1',
-      sites: [
-        {
-          id: 'site-1',
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          code: 'MAIN',
-          name: 'Main Ward',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
-    });
-    expect(shiftsConstraintsResult).toEqual({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      minimumRestHours: 11,
-      checklistCursor: '',
-    });
+    expect(sitesResult).toEqual(sitesResponse);
+    expect(shiftsConstraintsResult).toEqual(shiftsConstraintsResponse);
   });
 
   it('loads shift constraints through the phase2-ops edge function', async () => {
+    const response = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      minimumRestHours: 11,
+      checklistCursor: '',
+    } satisfies ShiftsConstraintsResponse;
+
     fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          minimumRestHours: 11,
-          checklistCursor: '',
-        }),
-        {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      )
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
     );
 
     const { getShiftsConstraints } = await import('@/api/ops');
@@ -331,10 +280,6 @@ describe('phase2 ops api helpers', () => {
         method: 'GET',
       })
     );
-    expect(result).toEqual({
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      minimumRestHours: 11,
-      checklistCursor: '',
-    });
+    expect(result).toEqual(response);
   });
 });

@@ -4,26 +4,33 @@ export interface OrganizationProfileResponse {
   type: string;
 }
 
-export type OrganizationProfileRequest = OrganizationProfileResponse;
+export interface OrganizationProfileRequest {
+  organizationId: string;
+  name: string;
+  type: string;
+}
 
-export interface SiteRecord {
-  id?: string;
-  organizationId?: string;
+export interface SiteRequest {
   code: string;
   name: string;
   isActive: boolean;
   isScheduleActive: boolean;
 }
 
-export interface SitesResponse {
+export interface SiteResponse extends SiteRequest {
+  id: string;
   organizationId: string;
-  pilotSiteId: string | null;
-  sites: SiteRecord[];
 }
 
 export interface SitesRequest {
   organizationId: string;
-  sites: SiteRecord[];
+  sites: SiteRequest[];
+}
+
+export interface SitesResponse {
+  organizationId: string;
+  pilotSiteId: string | null;
+  sites: SiteResponse[];
 }
 
 export interface ShiftsConstraintsResponse {
@@ -32,4 +39,8 @@ export interface ShiftsConstraintsResponse {
   checklistCursor: string;
 }
 
-export type ShiftsConstraintsRequest = ShiftsConstraintsResponse;
+export interface ShiftsConstraintsRequest {
+  organizationId: string;
+  minimumRestHours: number;
+  checklistCursor: string;
+}

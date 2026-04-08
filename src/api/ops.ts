@@ -6,7 +6,7 @@ import type {
   ShiftsConstraintsResponse,
   SitesRequest,
   SitesResponse,
-  SiteRecord,
+  SiteRequest,
 } from '@/types/ops';
 
 function getPhase2OpsBaseUrl(): string {
@@ -91,11 +91,11 @@ async function callPhase2Ops<T>(
   return payload as T;
 }
 
-function countScheduleActiveSites(sites: SiteRecord[]): number {
+function countScheduleActiveSites(sites: SiteRequest[]): number {
   return sites.filter((site) => site.isScheduleActive).length;
 }
 
-function assertExactlyOneScheduleActiveSite(sites: SiteRecord[]): void {
+function assertExactlyOneScheduleActiveSite(sites: SiteRequest[]): void {
   if (countScheduleActiveSites(sites) !== 1) {
     throw new Error('Exactly one schedule-active site is required');
   }
