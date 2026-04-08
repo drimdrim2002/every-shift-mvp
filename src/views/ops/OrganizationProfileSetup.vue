@@ -36,7 +36,7 @@ import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vu
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
-import type { OrganizationProfileRequest, SiteRecord } from '@/types/ops';
+import type { OrganizationProfileRequest, SiteRequest, SiteResponse } from '@/types/ops';
 import { showError, showSuccess } from '@/utils/message';
 
 const router = useRouter();
@@ -49,7 +49,7 @@ const organizationProfile = ref<OrganizationProfileRequest>({
   name: '',
   type: '',
 });
-const siteRecords = ref<SiteRecord[]>([]);
+const siteRecords = ref<SiteResponse[]>([]);
 
 async function ensureOrganizationId(): Promise<string> {
   if (organizationStore.current?.id) {
@@ -96,7 +96,7 @@ async function handleSaveOrganizationProfile(value: OrganizationProfileRequest) 
   }
 }
 
-async function handleSaveSites(value: SiteRecord[]) {
+async function handleSaveSites(value: SiteRequest[]) {
   siteSaving.value = true;
 
   try {

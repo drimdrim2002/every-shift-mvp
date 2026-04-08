@@ -40,7 +40,17 @@
         <n-button
           type="primary"
           :loading="saving"
-          @click="emit('save', localSites.map((site) => ({ ...site })))"
+          @click="
+            emit(
+              'save',
+              localSites.map((site) => ({
+                code: site.code,
+                name: site.name,
+                isActive: site.isActive,
+                isScheduleActive: site.isScheduleActive,
+              }))
+            )
+          "
         >
           사이트 설정 저장
         </n-button>
@@ -52,20 +62,25 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { NButton, NCard, NCheckbox, NFormItem, NInput } from 'naive-ui';
-import type { SiteRecord } from '@/types/ops';
+import type { SiteRequest, SiteResponse } from '@/types/ops';
+
+type SiteDraft = SiteRequest & {
+  id?: string;
+  organizationId?: string;
+};
 
 const props = defineProps<{
-  modelValue: SiteRecord[];
+  modelValue: SiteResponse[];
   saving?: boolean;
 }>();
 
 const emit = defineEmits<{
-  save: [value: SiteRecord[]];
+  save: [value: SiteRequest[]];
 }>();
 
-const localSites = ref<SiteRecord[]>([]);
+const localSites = ref<SiteDraft[]>([]);
 
-function createEmptySite(): SiteRecord {
+function createEmptySite(): SiteDraft {
   return {
     code: '',
     name: '',
@@ -74,7 +89,7 @@ function createEmptySite(): SiteRecord {
   };
 }
 
-function syncSites(sites: SiteRecord[]) {
+function syncSites(sites: SiteResponse[]) {
   localSites.value = sites.length > 0 ? sites.map((site) => ({ ...site })) : [createEmptySite()];
 }
 

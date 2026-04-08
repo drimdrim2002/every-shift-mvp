@@ -10,7 +10,7 @@ import type { Shift } from '@/types/shift'
 import type {
   OrganizationProfileResponse,
   ShiftsConstraintsResponse,
-  SiteRecord,
+  SiteResponse,
 } from '@/types/ops'
 import {
   resolveAuthScope,
@@ -54,7 +54,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
   const foundationProfile = ref<OrganizationProfileResponse | null>(null)
-  const foundationSites = ref<SiteRecord[]>([])
+  const foundationSites = ref<SiteResponse[]>([])
   const foundationShiftsConstraints = ref<ShiftsConstraintsResponse | null>(null)
   const foundationLoading = ref(false)
 
@@ -231,7 +231,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   }
 
-  function updateFoundationSitesCache(sites: SiteRecord[]) {
+  function updateFoundationSitesCache(sites: SiteResponse[]) {
     foundationSites.value = sites
   }
 
