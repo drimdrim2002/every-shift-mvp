@@ -2,6 +2,11 @@ import {
   ContractError,
   type BootstrapAdminRequest,
   type BootstrapAdminResponse,
+  type EmployeeImportApplyResponse,
+  type EmployeeImportEmployeePayload,
+  type EmployeeImportPreviewEmployee,
+  type EmployeeImportPreviewResponse,
+  type EmployeeImportRequest,
 } from './contracts.ts';
 import {
   emitPhase2OpsEvent,
@@ -39,6 +44,13 @@ interface QueryResult<T> {
   error: Phase2OpsDbError | null;
 }
 
+interface QueryBuilder<T> extends PromiseLike<QueryResult<T>> {
+  select(columns: string): QueryBuilder<T>;
+  eq(column: string, value: string): QueryBuilder<T>;
+  limit(count: number): QueryBuilder<T>;
+  maybeSingle(): Promise<QueryResult<T extends Array<infer R> ? R : T>>;
+}
+
 interface ProfileRow {
   id: string;
   organization_id: string | null;
@@ -56,7 +68,31 @@ interface OnboardingProgressRow {
   organization_info_confirmed_by?: string | null;
 }
 
+interface ScheduleRow {
+  id: string;
+  organization_id: string;
+  month: string;
+  finalized_version_id: string | null;
+}
+
+interface ShiftRow {
+  id: string;
+  code: string;
+}
+
+interface EmployeeImportValidationState {
+  organizationId: string;
+  month: string;
+  employeeCount: number;
+  duplicateEmployeeIds: string[];
+  missingShiftCodes: string[];
+  isFinalized: boolean;
+  isValid: boolean;
+  previewEmployees: EmployeeImportPreviewEmployee[];
+}
+
 type TableName = 'profiles' | 'onboarding_progress';
+type Phase2OpsTableName = TableName | 'employees' | 'schedules' | 'shifts';
 
 export interface Phase2OpsRepositoryClient {
   auth: {
@@ -71,19 +107,11 @@ export interface Phase2OpsRepositoryClient {
       ): Promise<UpdateUserResult>;
     };
   };
-  from(table: TableName): {
-    select(columns: string): {
-      eq(column: string, value: string): {
-        limit(count: number): {
-          maybeSingle(): Promise<QueryResult<Record<string, unknown>>>;
-        };
-      };
-    };
-    insert(payload: Record<string, unknown>): Promise<QueryResult<null>>;
-    update(payload: Record<string, unknown>): {
-      eq(column: string, value: string): Promise<QueryResult<null>>;
-    };
-  };
+  rpc(
+    fn: string,
+    params: Record<string, unknown>
+  ): Promise<QueryResult<Record<string, unknown> | Record<string, unknown>[]>>;
+  from(table: Phase2OpsTableName): QueryBuilder<Record<string, unknown> | Record<string, unknown>[]>;
 }
 
 export type Phase2OpsEventEmitter = (
@@ -247,6 +275,140 @@ function needsMetadataAlignment(user: TargetAuthUser, organizationId: string): b
     ORGANIZATION_METADATA_KEYS.some((key) => appMetadata[key] !== organizationId)
     || foundation === null
   );
+}
+
+function normalizeEmployeeImportEmployee(
+  employee: EmployeeImportEmployeePayload
+): EmployeeImportPreviewEmployee {
+  const employeeId = employee.employeeId.trim();
+  const name = employee.name.trim();
+  const availableShifts = employee.availableShifts
+    .map((shift) => shift.trim().toUpperCase())
+    .filter(Boolean);
+  const normalized: EmployeeImportPreviewEmployee = {
+    employeeId,
+    name,
+    availableShifts,
+  };
+
+  if (employee.rankCode === null) {
+    normalized.rankCode = null;
+  } else if (typeof employee.rankCode === 'string' && employee.rankCode.trim().length > 0) {
+    normalized.rankCode = employee.rankCode.trim();
+  }
+
+  return normalized;
+}
+
+function collectDuplicateEmployeeIds(employees: EmployeeImportPreviewEmployee[]): string[] {
+  const seen = new Set<string>();
+  const duplicates = new Set<string>();
+
+  for (const employee of employees) {
+    if (seen.has(employee.employeeId)) {
+      duplicates.add(employee.employeeId);
+      continue;
+    }
+
+    seen.add(employee.employeeId);
+  }
+
+  return [...duplicates];
+}
+
+function collectMissingShiftCodes(
+  employees: EmployeeImportPreviewEmployee[],
+  allowedShiftCodes: Set<string>
+): string[] {
+  const missing = new Set<string>();
+
+  for (const employee of employees) {
+    for (const shiftCode of employee.availableShifts) {
+      const normalizedShiftCode = shiftCode.trim().toUpperCase();
+      if (normalizedShiftCode && !allowedShiftCodes.has(normalizedShiftCode)) {
+        missing.add(normalizedShiftCode);
+      }
+    }
+  }
+
+  return [...missing];
+}
+
+async function loadScheduleForImport(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string,
+  month: string
+): Promise<ScheduleRow | null> {
+  const result = await client
+    .from('schedules')
+    .select('id, organization_id, month, finalized_version_id')
+    .eq('organization_id', organizationId)
+    .eq('month', month)
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new ContractError('internal_error', result.error.message, 500);
+  }
+
+  return (result.data as ScheduleRow | null) ?? null;
+}
+
+async function loadShiftCodes(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<Set<string>> {
+  const result = await client
+    .from('shifts')
+    .select('id, code')
+    .eq('organization_id', organizationId);
+
+  if (result.error) {
+    throw new ContractError('internal_error', result.error.message, 500);
+  }
+
+  const rows = Array.isArray(result.data) ? (result.data as ShiftRow[]) : [];
+  return new Set(
+    rows
+      .map((row) => row.code.trim().toUpperCase())
+      .filter((code) => code.length > 0)
+  );
+}
+
+async function validateEmployeeImportRequest(
+  client: Phase2OpsRepositoryClient,
+  request: EmployeeImportRequest
+): Promise<EmployeeImportValidationState> {
+  const previewEmployees = request.employees.map((employee) => normalizeEmployeeImportEmployee(employee));
+  const allowedShiftCodes = await loadShiftCodes(client, request.organizationId);
+  const schedule = await loadScheduleForImport(client, request.organizationId, request.month);
+  const duplicateEmployeeIds = collectDuplicateEmployeeIds(previewEmployees);
+  const missingShiftCodes = collectMissingShiftCodes(previewEmployees, allowedShiftCodes);
+  const isFinalized = Boolean(schedule?.finalized_version_id);
+
+  return {
+    organizationId: request.organizationId,
+    month: request.month,
+    employeeCount: previewEmployees.length,
+    duplicateEmployeeIds,
+    missingShiftCodes,
+    isFinalized,
+    isValid: !isFinalized && duplicateEmployeeIds.length === 0 && missingShiftCodes.length === 0,
+    previewEmployees,
+  };
+}
+
+function toEmployeeImportPreviewResponse(state: EmployeeImportValidationState): EmployeeImportPreviewResponse {
+  return {
+    organizationId: state.organizationId,
+    month: state.month,
+    employeeCount: state.employeeCount,
+    duplicateEmployeeIds: state.duplicateEmployeeIds,
+    missingShiftCodes: state.missingShiftCodes,
+    isFinalized: state.isFinalized,
+    isValid: state.isValid,
+    previewEmployees: state.previewEmployees,
+  };
 }
 
 async function findTargetAuthUserByEmail(
@@ -434,6 +596,75 @@ async function alignAuthMetadata(
   }
 }
 
+function remapEmployeeImportFailure(
+  state: EmployeeImportValidationState
+): never {
+  if (state.isFinalized) {
+    throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+  }
+
+  if (state.duplicateEmployeeIds.length > 0) {
+    throw new ContractError(
+      'bad_request',
+      `Duplicate employee IDs: ${state.duplicateEmployeeIds.join(', ')}`,
+      400
+    );
+  }
+
+  if (state.missingShiftCodes.length > 0) {
+    throw new ContractError(
+      'bad_request',
+      `Unknown shift codes: ${state.missingShiftCodes.join(', ')}`,
+      400
+    );
+  }
+
+  throw new ContractError('bad_request', 'Employee import preview is invalid', 400);
+}
+
+function toApplyResponse(
+  state: EmployeeImportValidationState,
+  applied: { deletedScheduleId: string | null; employeeCount: number }
+): EmployeeImportApplyResponse {
+  return {
+    ...toEmployeeImportPreviewResponse(state),
+    deletedScheduleId: applied.deletedScheduleId,
+    employeeCount: applied.employeeCount,
+  };
+}
+
+async function callResetRosterBoundary(
+  client: Phase2OpsRepositoryClient,
+  request: EmployeeImportRequest
+): Promise<{ deletedScheduleId: string | null; employeeCount: number }> {
+  const { data, error } = await client.rpc('replace_roster_and_reset_schedule_atomic', {
+    p_organization_id: request.organizationId,
+    p_month: request.month,
+    p_employees: request.employees.map((employee) => ({
+      employee_id: employee.employeeId,
+      name: employee.name,
+      available_shifts: employee.availableShifts,
+      rank_code: employee.rankCode ?? null,
+    })),
+  });
+
+  if (error) {
+    if (/already_finalized/i.test(error.message)) {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    throw new ContractError('internal_error', error.message, 500);
+  }
+
+  const row = Array.isArray(data) ? (data[0] as Record<string, unknown> | null) : data;
+
+  return {
+    deletedScheduleId:
+      typeof row?.deleted_schedule_id === 'string' ? row.deleted_schedule_id : null,
+    employeeCount: typeof row?.employee_count === 'number' ? row.employee_count : 0,
+  };
+}
+
 export async function bootstrapAdmin(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
@@ -462,4 +693,30 @@ export async function bootstrapAdmin(
     operatorUserId: auth.operatorUserId,
     onboardingInitializationFlags: request.onboardingInitializationFlags,
   };
+}
+
+export async function validateEmployeeImport(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: EmployeeImportRequest
+): Promise<EmployeeImportPreviewResponse> {
+  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  const state = await validateEmployeeImportRequest(client, request);
+  return toEmployeeImportPreviewResponse(state);
+}
+
+export async function applyEmployeeImport(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: EmployeeImportRequest
+): Promise<EmployeeImportApplyResponse> {
+  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  const state = await validateEmployeeImportRequest(client, request);
+
+  if (!state.isValid) {
+    remapEmployeeImportFailure(state);
+  }
+
+  const applied = await callResetRosterBoundary(client, request);
+  return toApplyResponse(state, applied);
 }

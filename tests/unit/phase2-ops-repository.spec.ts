@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { bootstrapAdmin } from '@/../supabase/functions/phase2-ops/repository.ts';
+import {
+  applyEmployeeImport,
+  bootstrapAdmin,
+  validateEmployeeImport,
+} from '@/../supabase/functions/phase2-ops/repository.ts';
 import type { BootstrapAdminRequest } from '@/../supabase/functions/phase2-ops/contracts.ts';
 import type { Phase2OpsOperatorAuthContext } from '@/../supabase/functions/phase2-ops/auth.ts';
 import type { Phase2OpsRepositoryClient } from '@/../supabase/functions/phase2-ops/repository.ts';
@@ -34,6 +38,10 @@ function createRepositoryClient(params: {
   onboardingProgressResults?: Array<Record<string, unknown> | null>;
   profileInsertErrors?: Array<{ message: string } | null>;
   onboardingInsertErrors?: Array<{ message: string } | null>;
+  shifts?: Array<Record<string, unknown>>;
+  shiftResults?: Array<Array<Record<string, unknown>>>;
+  schedule?: Record<string, unknown> | null;
+  scheduleResults?: Array<Record<string, unknown> | null>;
 }) {
   const insertCalls: Array<{ table: string; payload: Record<string, unknown> }> = [];
   const updateCalls: Array<{
@@ -41,16 +49,21 @@ function createRepositoryClient(params: {
     payload: Record<string, unknown>;
     filters: Array<[string, string]>;
   }> = [];
+  const rpcCalls: Array<{ fn: string; params: Record<string, unknown> }> = [];
   const userPages = params.userPages ?? [params.users ?? []];
   const profileResults = [...(params.profileResults ?? [params.profile ?? null])];
   const onboardingProgressResults = [
     ...(params.onboardingProgressResults ?? [params.onboardingProgress ?? null]),
   ];
+  const shiftResults = [...(params.shiftResults ?? [params.shifts ?? []])];
+  const scheduleResults = [...(params.scheduleResults ?? [params.schedule ?? null])];
   const profileInsertErrors = [...(params.profileInsertErrors ?? [])];
   const onboardingInsertErrors = [...(params.onboardingInsertErrors ?? [])];
   const nextProfileResult = () => profileResults.shift() ?? params.profile ?? null;
   const nextOnboardingProgressResult =
     () => onboardingProgressResults.shift() ?? params.onboardingProgress ?? null;
+  const nextShiftResult = () => shiftResults.shift() ?? params.shifts ?? [];
+  const nextScheduleResult = () => scheduleResults.shift() ?? params.schedule ?? null;
   const listUsers = vi.fn().mockImplementation(async ({ page = 1 } = {}) => ({
     data: {
       users: userPages[page - 1] ?? [],
@@ -61,6 +74,16 @@ function createRepositoryClient(params: {
     data: { user: null },
     error: null,
   });
+  const rpc = vi.fn().mockImplementation(async (fn: string, params: Record<string, unknown>) => {
+    rpcCalls.push({ fn, params });
+    return {
+      data: {
+        deleted_schedule_id: 'schedule-123',
+        employee_count: 2,
+      },
+      error: null,
+    };
+  });
 
   const client: Phase2OpsRepositoryClient = {
     auth: {
@@ -69,6 +92,7 @@ function createRepositoryClient(params: {
         updateUserById,
       },
     },
+    rpc,
     from(table) {
       if (table === 'profiles') {
         return {
@@ -94,6 +118,48 @@ function createRepositoryClient(params: {
                   filters: [[column, value]],
                 });
                 return Promise.resolve({ data: null, error: null });
+              },
+            };
+          },
+        };
+      }
+
+      if (table === 'shifts') {
+        return {
+          select() {
+            return {
+              eq() {
+                return Promise.resolve({
+                  data: nextShiftResult(),
+                  error: null,
+                });
+              },
+            };
+          },
+        };
+      }
+
+      if (table === 'schedules') {
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  eq() {
+                    return {
+                      limit() {
+                        return {
+                          maybeSingle() {
+                            return Promise.resolve({
+                              data: nextScheduleResult(),
+                              error: null,
+                            });
+                          },
+                        };
+                      },
+                    };
+                  },
+                };
               },
             };
           },
@@ -130,7 +196,7 @@ function createRepositoryClient(params: {
     },
   };
 
-  return { client, insertCalls, updateCalls, listUsers, updateUserById };
+  return { client, insertCalls, updateCalls, listUsers, updateUserById, rpcCalls };
 }
 
 const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
@@ -298,6 +364,156 @@ describe('phase2 ops repository', () => {
 
     expect(listUsers).not.toHaveBeenCalled();
     expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('validates employee import previews without writing and reports duplicate and missing shifts', async () => {
+    const { client, rpcCalls, insertCalls, updateCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+        { id: 'shift-e', code: 'E' },
+      ],
+    });
+
+    const result = await validateEmployeeImport(client, AUTH_CONTEXT, {
+      organizationId: REQUEST.organizationId,
+      month: '2026-04',
+      employees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: null,
+        },
+        {
+          employeeId: 'EMP-1',
+          name: 'Lee',
+          availableShifts: ['X'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      organizationId: REQUEST.organizationId,
+      month: '2026-04',
+      employeeCount: 2,
+      duplicateEmployeeIds: ['EMP-1'],
+      missingShiftCodes: ['X'],
+      isFinalized: false,
+      isValid: false,
+      previewEmployees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: null,
+        },
+        {
+          employeeId: 'EMP-1',
+          name: 'Lee',
+          availableShifts: ['X'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+    expect(rpcCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('applies employee import through the destructive reset boundary when the month is open', async () => {
+    const { client, rpcCalls, insertCalls, updateCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+        { id: 'shift-e', code: 'E' },
+      ],
+      schedule: {
+        id: 'schedule-123',
+        finalized_version_id: null,
+      },
+    });
+
+    const result = await applyEmployeeImport(client, AUTH_CONTEXT, {
+      organizationId: REQUEST.organizationId,
+      month: '2026-04',
+      employees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      organizationId: REQUEST.organizationId,
+      month: '2026-04',
+      deletedScheduleId: 'schedule-123',
+      employeeCount: 2,
+      isFinalized: false,
+      isValid: true,
+      duplicateEmployeeIds: [],
+      missingShiftCodes: [],
+      previewEmployees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+    expect(rpcCalls).toEqual([
+      {
+        fn: 'replace_roster_and_reset_schedule_atomic',
+        params: {
+          p_organization_id: REQUEST.organizationId,
+          p_month: '2026-04',
+          p_employees: [
+            {
+              employee_id: 'EMP-1',
+              name: 'Kim',
+              available_shifts: ['D'],
+              rank_code: 'RN',
+            },
+          ],
+        },
+      },
+    ]);
+    expect(insertCalls).toHaveLength(0);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('blocks employee import apply when the current month is finalized', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+      ],
+      schedule: {
+        id: 'schedule-123',
+        finalized_version_id: 'version-final',
+      },
+    });
+
+    await expect(
+      applyEmployeeImport(client, AUTH_CONTEXT, {
+        organizationId: REQUEST.organizationId,
+        month: '2026-04',
+        employees: [
+          {
+            employeeId: 'EMP-1',
+            name: 'Kim',
+            availableShifts: ['D'],
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'already_finalized',
+      status: 409,
+    });
+
+    expect(rpcCalls).toHaveLength(0);
   });
 
   it('pages through auth users until the requested email is found', async () => {

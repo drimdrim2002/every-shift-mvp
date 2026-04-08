@@ -5,15 +5,23 @@ import {
   ContractError,
   matchRoute,
   normalizePathSegments,
+  parseEmployeeImportApplyRequest,
+  parseEmployeeImportApplyResponse,
+  parseEmployeeImportValidateRequest,
+  parseEmployeeImportValidateResponse,
   parseBootstrapAdminRequest,
   parseBootstrapAdminResponse,
   parseJsonBody,
   type ErrorEnvelope,
   type HttpMethod,
 } from './contracts.ts';
-import { bootstrapAdmin } from './repository.ts';
+import { applyEmployeeImport, bootstrapAdmin, validateEmployeeImport } from './repository.ts';
 
-type ApiResponseBody = ErrorEnvelope | ReturnType<typeof parseBootstrapAdminResponse>;
+type ApiResponseBody =
+  | ErrorEnvelope
+  | ReturnType<typeof parseBootstrapAdminResponse>
+  | ReturnType<typeof parseEmployeeImportValidateResponse>
+  | ReturnType<typeof parseEmployeeImportApplyResponse>;
 
 function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -119,6 +127,20 @@ Deno.serve(async (request) => {
       const input = parseBootstrapAdminRequest(payload);
       const result = await bootstrapAdmin(repositoryClient, auth, input);
       return createResponse(request, parseBootstrapAdminResponse(result), 200);
+    }
+
+    if (route.route === 'employeeImportValidate') {
+      const payload = await parseJsonBody(request);
+      const input = parseEmployeeImportValidateRequest(payload);
+      const result = await validateEmployeeImport(repositoryClient, auth, input);
+      return createResponse(request, parseEmployeeImportValidateResponse(result), 200);
+    }
+
+    if (route.route === 'employeeImportApply') {
+      const payload = await parseJsonBody(request);
+      const input = parseEmployeeImportApplyRequest(payload);
+      const result = await applyEmployeeImport(repositoryClient, auth, input);
+      return createResponse(request, parseEmployeeImportApplyResponse(result), 200);
     }
 
     return createResponse(request, { code: 'not_found', message: 'Not found' }, 404);

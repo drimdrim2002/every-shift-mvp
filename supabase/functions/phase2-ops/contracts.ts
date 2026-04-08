@@ -1,5 +1,5 @@
 export type HttpMethod = 'POST' | 'OPTIONS';
-export type RouteName = 'bootstrapAdmin';
+export type RouteName = 'bootstrapAdmin' | 'employeeImportValidate' | 'employeeImportApply';
 
 export interface ErrorEnvelope {
   code: string;
@@ -30,6 +30,36 @@ export interface BootstrapAdminResponse {
   onboardingInitializationFlags: BootstrapAdminInitializationFlags;
 }
 
+export interface EmployeeImportEmployeePayload {
+  employeeId: string;
+  name: string;
+  availableShifts: string[];
+  rankCode?: string | null;
+}
+
+export interface EmployeeImportRequest {
+  organizationId: string;
+  month: string;
+  employees: EmployeeImportEmployeePayload[];
+}
+
+export type EmployeeImportPreviewEmployee = EmployeeImportEmployeePayload;
+
+export interface EmployeeImportPreviewResponse {
+  organizationId: string;
+  month: string;
+  employeeCount: number;
+  duplicateEmployeeIds: string[];
+  missingShiftCodes: string[];
+  isFinalized: boolean;
+  isValid: boolean;
+  previewEmployees: EmployeeImportPreviewEmployee[];
+}
+
+export interface EmployeeImportApplyResponse extends EmployeeImportPreviewResponse {
+  deletedScheduleId: string | null;
+}
+
 export class ContractError extends Error {
   constructor(
     public readonly code: string,
@@ -57,6 +87,16 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'bootstrapAdmin',
     methods: ['POST'],
     segments: ['bootstrap-admin'],
+  },
+  {
+    name: 'employeeImportValidate',
+    methods: ['POST'],
+    segments: ['employee-import', 'validate'],
+  },
+  {
+    name: 'employeeImportApply',
+    methods: ['POST'],
+    segments: ['employee-import', 'apply'],
   },
 ];
 
@@ -259,5 +299,166 @@ export function parseBootstrapAdminResponse(payload: unknown): BootstrapAdminRes
     onboardingInitializationFlags: parseBootstrapAdminInitializationFlags(
       record.onboardingInitializationFlags
     ),
+  };
+}
+
+function parseEmployeeImportEmployeePayload(value: unknown): EmployeeImportEmployeePayload {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'employee must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const employeeId = typeof record.employeeId === 'string' ? record.employeeId.trim() : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const availableShifts = Array.isArray(record.availableShifts)
+    ? record.availableShifts.filter((shift) => typeof shift === 'string').map((shift) => shift.trim()).filter(Boolean)
+    : null;
+  const rankCode =
+    typeof record.rankCode === 'string' && record.rankCode.trim().length > 0
+      ? record.rankCode.trim()
+      : record.rankCode === null
+        ? null
+        : undefined;
+
+  if (!employeeId) {
+    throw new ContractError('bad_request', 'employeeId is required', 400);
+  }
+
+  if (!name) {
+    throw new ContractError('bad_request', 'name is required', 400);
+  }
+
+  if (!availableShifts) {
+    throw new ContractError('bad_request', 'availableShifts must be an array', 400);
+  }
+
+  const payload: EmployeeImportEmployeePayload = {
+    employeeId,
+    name,
+    availableShifts,
+  };
+
+  if (rankCode !== undefined) {
+    payload.rankCode = rankCode;
+  }
+
+  return payload;
+}
+
+function parseEmployeeImportRequest(payload: unknown): EmployeeImportRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee import request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const month = typeof record.month === 'string' ? record.month.trim() : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  if (!Array.isArray(record.employees)) {
+    throw new ContractError('bad_request', 'employees must be an array', 400);
+  }
+
+  return {
+    organizationId,
+    month,
+    employees: record.employees.map((employee) => parseEmployeeImportEmployeePayload(employee)),
+  };
+}
+
+export function parseEmployeeImportValidateRequest(payload: unknown): EmployeeImportRequest {
+  return parseEmployeeImportRequest(payload);
+}
+
+export function parseEmployeeImportApplyRequest(payload: unknown): EmployeeImportRequest {
+  return parseEmployeeImportRequest(payload);
+}
+
+function parseEmployeeImportPreviewEmployee(value: unknown): EmployeeImportPreviewEmployee {
+  return parseEmployeeImportEmployeePayload(value);
+}
+
+function parseEmployeeImportPreviewResponse(payload: unknown): EmployeeImportPreviewResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee import response must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const month = typeof record.month === 'string' ? record.month.trim() : '';
+  const employeeCount = typeof record.employeeCount === 'number' ? record.employeeCount : NaN;
+  const duplicateEmployeeIds = Array.isArray(record.duplicateEmployeeIds)
+    ? record.duplicateEmployeeIds.filter((value) => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
+    : null;
+  const missingShiftCodes = Array.isArray(record.missingShiftCodes)
+    ? record.missingShiftCodes.filter((value) => typeof value === 'string').map((value) => value.trim()).filter(Boolean)
+    : null;
+  const isFinalized = typeof record.isFinalized === 'boolean' ? record.isFinalized : null;
+  const isValid = typeof record.isValid === 'boolean' ? record.isValid : null;
+  const previewEmployees = Array.isArray(record.previewEmployees)
+    ? record.previewEmployees.map((employee) => parseEmployeeImportPreviewEmployee(employee))
+    : null;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!/^\d{4}-\d{2}$/.test(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  if (!Number.isInteger(employeeCount) || employeeCount < 0) {
+    throw new ContractError('bad_request', 'employeeCount must be a non-negative integer', 400);
+  }
+
+  if (!duplicateEmployeeIds || !missingShiftCodes || isFinalized === null || isValid === null || !previewEmployees) {
+    throw new ContractError('bad_request', 'employee import response is missing required fields', 400);
+  }
+
+  return {
+    organizationId,
+    month,
+    employeeCount,
+    duplicateEmployeeIds,
+    missingShiftCodes,
+    isFinalized,
+    isValid,
+    previewEmployees,
+  };
+}
+
+export function parseEmployeeImportValidateResponse(payload: unknown): EmployeeImportPreviewResponse {
+  return parseEmployeeImportPreviewResponse(payload);
+}
+
+export function parseEmployeeImportApplyResponse(payload: unknown): EmployeeImportApplyResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee import apply response must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const deletedScheduleId =
+    typeof record.deletedScheduleId === 'string' && record.deletedScheduleId.trim().length > 0
+      ? record.deletedScheduleId.trim()
+      : record.deletedScheduleId === null
+        ? null
+        : undefined;
+
+  const preview = parseEmployeeImportPreviewResponse(record);
+
+  if (deletedScheduleId === undefined) {
+    throw new ContractError('bad_request', 'deletedScheduleId must be a string or null', 400);
+  }
+
+  return {
+    ...preview,
+    deletedScheduleId,
   };
 }

@@ -44,3 +44,33 @@ export interface ShiftsConstraintsRequest {
   minimumRestHours: number;
   checklistCursor: string;
 }
+
+export interface EmployeeImportEmployeePreview {
+  employeeId: string;
+  name: string;
+  availableShifts: string[];
+  rankCode?: string | null;
+}
+
+export interface EmployeeImportValidateRequest {
+  organizationId: string;
+  month: string;
+  employees: EmployeeImportEmployeePreview[];
+}
+
+export interface EmployeeImportValidateResponse {
+  organizationId: string;
+  month: string;
+  employeeCount: number;
+  duplicateEmployeeIds: string[];
+  missingShiftCodes: string[];
+  isFinalized: boolean;
+  isValid: boolean;
+  previewEmployees: EmployeeImportEmployeePreview[];
+}
+
+export type EmployeeImportApplyRequest = EmployeeImportValidateRequest;
+
+export interface EmployeeImportApplyResponse extends EmployeeImportValidateResponse {
+  deletedScheduleId: string | null;
+}

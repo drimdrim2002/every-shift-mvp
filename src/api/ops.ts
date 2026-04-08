@@ -1,5 +1,9 @@
 import { supabase } from './supabase';
 import type {
+  EmployeeImportApplyRequest,
+  EmployeeImportApplyResponse,
+  EmployeeImportValidateRequest,
+  EmployeeImportValidateResponse,
   OrganizationProfileRequest,
   OrganizationProfileResponse,
   ShiftsConstraintsRequest,
@@ -47,7 +51,7 @@ function buildPhase2OpsUrl(path: string): string {
 
 async function callPhase2Ops<T>(
   path: string,
-  method: 'GET' | 'PATCH' | 'PUT',
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT',
   body?: unknown
 ): Promise<T> {
   const accessToken = await getPhase2OpsAccessToken();
@@ -138,4 +142,20 @@ export async function updateShiftsConstraints(
   request: ShiftsConstraintsRequest
 ): Promise<ShiftsConstraintsResponse> {
   return callPhase2Ops<ShiftsConstraintsResponse>('/shifts-constraints', 'PUT', request);
+}
+
+export async function validateEmployeeImport(
+  request: EmployeeImportValidateRequest
+): Promise<EmployeeImportValidateResponse> {
+  return callPhase2Ops<EmployeeImportValidateResponse>(
+    '/employee-import/validate',
+    'POST',
+    request
+  );
+}
+
+export async function applyEmployeeImport(
+  request: EmployeeImportApplyRequest
+): Promise<EmployeeImportApplyResponse> {
+  return callPhase2Ops<EmployeeImportApplyResponse>('/employee-import/apply', 'POST', request);
 }
