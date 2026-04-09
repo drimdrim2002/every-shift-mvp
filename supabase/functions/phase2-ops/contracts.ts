@@ -3,7 +3,8 @@ export type RouteName =
   | 'bootstrapAdmin'
   | 'employeeImportValidate'
   | 'employeeImportApply'
-  | 'offRequestPolicies';
+  | 'offRequestPolicies'
+  | 'checklist';
 
 export interface ErrorEnvelope {
   code: string;
@@ -104,6 +105,29 @@ export interface OffRequestPolicySetupResponse {
   policyRules: OffRequestPolicyRuleRecord[];
 }
 
+export type FairnessLedgerWindowMonths = 3 | 6 | 12;
+
+export interface FairnessLedgerProofSummary {
+  weeklyHoursViolations: number;
+  nnnViolations: number;
+  nodViolations: number;
+  minimumRestViolations: number;
+  staffingShortfalls: number;
+}
+
+export interface FairnessLedgerWindowSummary {
+  months: FairnessLedgerWindowMonths;
+  windowStartMonth: string | null;
+  windowEndMonth: string | null;
+  finalizedVersionCount: number;
+  proofSummary: FairnessLedgerProofSummary;
+}
+
+export interface ChecklistResponse {
+  organizationId: string;
+  fairnessSummary: FairnessLedgerWindowSummary[];
+}
+
 export class ContractError extends Error {
   constructor(
     public readonly code: string,
@@ -146,6 +170,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'offRequestPolicies',
     methods: ['GET', 'PUT'],
     segments: ['off-request-policies'],
+  },
+  {
+    name: 'checklist',
+    methods: ['GET'],
+    segments: ['checklist'],
   },
 ];
 
@@ -715,5 +744,85 @@ export function parseEmployeeImportApplyResponse(payload: unknown): EmployeeImpo
   return {
     ...preview,
     deletedScheduleId,
+  };
+}
+
+function parseFairnessLedgerProofSummary(payload: unknown): FairnessLedgerProofSummary {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'fairness proof summary must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const readCount = (key: keyof FairnessLedgerProofSummary): number => {
+    const value = record[key];
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : NaN;
+  };
+
+  const proofSummary = {
+    weeklyHoursViolations: readCount('weeklyHoursViolations'),
+    nnnViolations: readCount('nnnViolations'),
+    nodViolations: readCount('nodViolations'),
+    minimumRestViolations: readCount('minimumRestViolations'),
+    staffingShortfalls: readCount('staffingShortfalls'),
+  };
+
+  if (Object.values(proofSummary).some((value) => !Number.isFinite(value))) {
+    throw new ContractError('bad_request', 'fairness proof summary must contain counts', 400);
+  }
+
+  return proofSummary;
+}
+
+function parseFairnessLedgerWindowSummary(payload: unknown): FairnessLedgerWindowSummary {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'fairness summary item must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const months = record.months;
+  const windowStartMonth = typeof record.windowStartMonth === 'string' ? record.windowStartMonth.trim() : null;
+  const windowEndMonth = typeof record.windowEndMonth === 'string' ? record.windowEndMonth.trim() : null;
+  const finalizedVersionCount =
+    typeof record.finalizedVersionCount === 'number' ? record.finalizedVersionCount : NaN;
+
+  if (months !== 3 && months !== 6 && months !== 12) {
+    throw new ContractError('bad_request', 'months must be one of 3, 6, or 12', 400);
+  }
+
+  if (!Number.isInteger(finalizedVersionCount) || finalizedVersionCount < 0) {
+    throw new ContractError('bad_request', 'finalizedVersionCount must be a non-negative integer', 400);
+  }
+
+  return {
+    months,
+    windowStartMonth: windowStartMonth && /^\d{4}-\d{2}$/.test(windowStartMonth) ? windowStartMonth : null,
+    windowEndMonth: windowEndMonth && /^\d{4}-\d{2}$/.test(windowEndMonth) ? windowEndMonth : null,
+    finalizedVersionCount,
+    proofSummary: parseFairnessLedgerProofSummary(record.proofSummary),
+  };
+}
+
+export function parseChecklistResponse(payload: unknown): ChecklistResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'checklist response must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const fairnessSummary = Array.isArray(record.fairnessSummary)
+    ? record.fairnessSummary.map((item) => parseFairnessLedgerWindowSummary(item))
+    : null;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!fairnessSummary) {
+    throw new ContractError('bad_request', 'fairnessSummary must be an array', 400);
+  }
+
+  return {
+    organizationId,
+    fairnessSummary,
   };
 }

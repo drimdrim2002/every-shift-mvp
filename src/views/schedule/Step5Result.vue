@@ -63,6 +63,43 @@
         </div>
       </div>
 
+      <n-card
+        v-if="fairnessSummary.length > 0"
+        title="공정성 요약"
+        size="small"
+        class="mb-6"
+      >
+        <p class="mb-4 text-xs text-slate-500">
+          이 요약은 확정된 이력만 읽는 읽기 전용 정보입니다.
+        </p>
+        <div class="grid gap-3 md:grid-cols-3">
+          <div
+            v-for="window in fairnessSummary"
+            :key="window.months"
+            class="rounded-lg border border-slate-200 bg-white p-3"
+          >
+            <div class="flex items-baseline justify-between gap-3">
+              <h3 class="text-sm font-semibold text-slate-800">
+                최근 {{ window.months }}개월
+              </h3>
+              <span class="text-xs text-slate-500">
+                {{ window.windowStartMonth ?? '미정' }} ~ {{ window.windowEndMonth ?? '미정' }}
+              </span>
+            </div>
+            <p class="mt-2 text-sm text-slate-700">
+              확정 {{ window.finalizedVersionCount }}건
+            </p>
+            <p class="mt-2 text-xs leading-5 text-slate-500">
+              주간 {{ window.proofSummary.weeklyHoursViolations }} ·
+              야간 {{ window.proofSummary.nnnViolations }} ·
+              주말 {{ window.proofSummary.nodViolations }} ·
+              최소휴식 {{ window.proofSummary.minimumRestViolations }} ·
+              인력부족 {{ window.proofSummary.staffingShortfalls }}
+            </p>
+          </div>
+        </div>
+      </n-card>
+
       <n-alert
         v-if="policyRejectionSummariesCurrentMonth.length > 0"
         type="warning"
@@ -313,6 +350,7 @@ import {
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
+import { getChecklist } from '@/api/ops';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
@@ -337,6 +375,7 @@ import type {
   ScheduleVersionSummary,
   ScheduleVersionStatus,
 } from '@/types/schedule';
+import type { FairnessLedgerWindowSummary } from '@/types/ops';
 
 const route = useRoute();
 const router = useRouter();
@@ -390,6 +429,7 @@ const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
 const policyRejectionSummariesCurrentMonth = ref<string[]>([]);
+const fairnessSummary = ref<FairnessLedgerWindowSummary[]>([]);
 const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
   kind: 'none',
   targetVersionId: null,
@@ -823,6 +863,23 @@ async function loadPreferencesForDisplay() {
   offRequestsCurrentMonth.value = filteredConstraints;
   offRequestNotesCurrentMonth.value = filteredNotes;
   syncPolicyRejectionDisplay(preferences as PreferenceWithPolicyResult[], currentMonth);
+}
+
+async function loadFairnessSummary() {
+  const organizationId = scheduleStore.basicInfo?.organizationId ?? null;
+
+  if (!organizationId) {
+    fairnessSummary.value = [];
+    return;
+  }
+
+  try {
+    const result = await getChecklist(organizationId);
+    fairnessSummary.value = result.fairnessSummary;
+  } catch (error) {
+    console.warn('공정성 요약 조회 중 오류:', error);
+    fairnessSummary.value = [];
+  }
 }
 
 function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
@@ -1441,6 +1498,7 @@ onMounted(async () => {
       syncOriginal: true,
       clearChanges: true,
     });
+    await loadFairnessSummary();
   } catch (error) {
     console.warn('데이터 로드 중 오류:', error);
     showError('데이터 로드 중 오류가 발생했습니다.');

@@ -19,6 +19,7 @@ const {
   getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
   getPreviousMonthFinalizedContextMock,
+  getChecklistMock,
   selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersionMock,
@@ -43,6 +44,7 @@ const {
   getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   getPreviousMonthFinalizedContextMock: vi.fn(),
+  getChecklistMock: vi.fn(),
   selectPhase2ScheduleVersionMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
   finalizePhase2ScheduleVersionMock: vi.fn(),
@@ -86,6 +88,10 @@ vi.mock('@/api/schedule', () => ({
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
   getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
+}))
+
+vi.mock('@/api/ops', () => ({
+  getChecklist: getChecklistMock,
 }))
 
 vi.mock('@/api/employee', () => ({
@@ -369,6 +375,50 @@ describe('Step5Result', () => {
     })
     setMockGridDates('2025-12', 0)
     getPreviousMonthFinalizedContextMock.mockResolvedValue(null)
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      fairnessSummary: [
+        {
+          months: 3,
+          windowStartMonth: '2025-10',
+          windowEndMonth: '2025-12',
+          finalizedVersionCount: 1,
+          proofSummary: {
+            weeklyHoursViolations: 1,
+            nnnViolations: 2,
+            nodViolations: 3,
+            minimumRestViolations: 4,
+            staffingShortfalls: 5,
+          },
+        },
+        {
+          months: 6,
+          windowStartMonth: '2025-07',
+          windowEndMonth: '2025-12',
+          finalizedVersionCount: 1,
+          proofSummary: {
+            weeklyHoursViolations: 1,
+            nnnViolations: 2,
+            nodViolations: 3,
+            minimumRestViolations: 4,
+            staffingShortfalls: 5,
+          },
+        },
+        {
+          months: 12,
+          windowStartMonth: '2025-01',
+          windowEndMonth: '2025-12',
+          finalizedVersionCount: 1,
+          proofSummary: {
+            weeklyHoursViolations: 1,
+            nnnViolations: 2,
+            nodViolations: 3,
+            minimumRestViolations: 4,
+            staffingShortfalls: 5,
+          },
+        },
+      ],
+    })
     mapToSolverRequestMock.mockImplementation(() => ({}))
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
@@ -536,6 +586,16 @@ describe('Step5Result', () => {
         version: 'version-2',
       },
     })
+  })
+
+  it('renders the read-only fairness summary from checklist data', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
+    expect(wrapper.text()).toContain('공정성 요약')
+    expect(wrapper.text()).toContain('최근 3개월')
+    expect(wrapper.text()).toContain('확정 1건')
   })
 
   it('navigates to dashboard directly when the go-dashboard button is clicked', async () => {

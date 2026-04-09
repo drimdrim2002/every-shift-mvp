@@ -85,6 +85,29 @@ export interface OffRequestPolicySetupResponse {
   policyRules: OffRequestPolicyRuleRecord[];
 }
 
+export type FairnessLedgerWindowMonths = 3 | 6 | 12;
+
+export interface FairnessLedgerProofSummary {
+  weeklyHoursViolations: number;
+  nnnViolations: number;
+  nodViolations: number;
+  minimumRestViolations: number;
+  staffingShortfalls: number;
+}
+
+export interface FairnessLedgerWindowSummary {
+  months: FairnessLedgerWindowMonths;
+  windowStartMonth: string | null;
+  windowEndMonth: string | null;
+  finalizedVersionCount: number;
+  proofSummary: FairnessLedgerProofSummary;
+}
+
+export interface ChecklistResponse {
+  organizationId: string;
+  fairnessSummary: FairnessLedgerWindowSummary[];
+}
+
 export interface EmployeeImportEmployeePreview {
   employeeId: string;
   name: string;

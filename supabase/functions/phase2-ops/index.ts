@@ -11,6 +11,7 @@ import {
   parseEmployeeImportValidateResponse,
   parseBootstrapAdminRequest,
   parseBootstrapAdminResponse,
+  parseChecklistResponse,
   parseOffRequestPolicySetupRequest,
   parseOffRequestPolicySetupResponse,
   parseJsonBody,
@@ -20,6 +21,7 @@ import {
 import {
   applyEmployeeImport,
   bootstrapAdmin,
+  getChecklist,
   getOffRequestPolicySetup,
   saveOffRequestPolicySetup,
   validateEmployeeImport,
@@ -30,7 +32,8 @@ type ApiResponseBody =
   | ReturnType<typeof parseBootstrapAdminResponse>
   | ReturnType<typeof parseEmployeeImportValidateResponse>
   | ReturnType<typeof parseEmployeeImportApplyResponse>
-  | ReturnType<typeof parseOffRequestPolicySetupResponse>;
+  | ReturnType<typeof parseOffRequestPolicySetupResponse>
+  | ReturnType<typeof parseChecklistResponse>;
 
 function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -175,6 +178,12 @@ Deno.serve(async (request) => {
         const result = await saveOffRequestPolicySetup(repositoryClient, auth, input);
         return createResponse(request, parseOffRequestPolicySetupResponse(result), 200);
       }
+    }
+
+    if (route.route === 'checklist') {
+      const organizationId = parseOrganizationIdQueryParam(request);
+      const result = await getChecklist(repositoryClient, auth, organizationId);
+      return createResponse(request, parseChecklistResponse(result), 200);
     }
 
     return createResponse(request, { code: 'not_found', message: 'Not found' }, 404);

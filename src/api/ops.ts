@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type {
+  ChecklistResponse,
   EmployeeImportApplyRequest,
   EmployeeImportApplyResponse,
   EmployeeImportValidateRequest,
@@ -175,4 +176,11 @@ export async function updateOffRequestPolicies(
   request: OffRequestPolicySetupRequest
 ): Promise<OffRequestPolicySetupResponse> {
   return callPhase2Ops<OffRequestPolicySetupResponse>('/off-request-policies', 'PUT', request);
+}
+
+export async function getChecklist(organizationId: string): Promise<ChecklistResponse> {
+  return callPhase2Ops<ChecklistResponse>(
+    `/checklist?organizationId=${encodeURIComponent(organizationId)}`,
+    'GET'
+  );
 }

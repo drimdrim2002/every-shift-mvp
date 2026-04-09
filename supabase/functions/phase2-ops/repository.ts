@@ -1,7 +1,11 @@
 import {
   ContractError,
+  type ChecklistResponse,
   type BootstrapAdminRequest,
   type BootstrapAdminResponse,
+  type FairnessLedgerProofSummary,
+  type FairnessLedgerWindowMonths,
+  type FairnessLedgerWindowSummary,
   type EmployeeImportApplyResponse,
   type EmployeeImportEmployeePayload,
   type EmployeeImportPreviewEmployee,
@@ -105,6 +109,15 @@ interface OffRequestPolicyRuleRow {
   is_active: boolean;
 }
 
+interface FairnessLedgerMonthlyRow {
+  organization_id: string;
+  month: string;
+  finalized_at: string;
+  result_status: string;
+  proof_summary: unknown;
+  comparison_metrics: unknown;
+}
+
 interface EmployeeImportValidationState {
   organizationId: string;
   month: string;
@@ -123,7 +136,8 @@ type Phase2OpsTableName =
   | 'schedules'
   | 'shifts'
   | 'organization_rank_codes'
-  | 'off_request_policy_rules';
+  | 'off_request_policy_rules'
+  | 'fairness_ledger_monthly';
 
 export interface Phase2OpsRepositoryClient {
   auth: {
@@ -181,6 +195,21 @@ function readStringValue(metadata: Record<string, unknown>, keys: readonly strin
   }
 
   return null;
+}
+
+function readNumberValue(
+  record: Record<string, unknown>,
+  keys: readonly string[],
+  fallback = 0
+): number {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+  }
+
+  return fallback;
 }
 
 function readFoundationMetadataFromRecord(metadata: Record<string, unknown>): FoundationMetadata | null {
@@ -987,6 +1016,191 @@ export async function saveOffRequestPolicySetup(
   }
 
   return loadOffRequestPolicySetupRows(client, normalizedRequest.organizationId);
+}
+
+const FAIRNESS_WINDOW_MONTHS: FairnessLedgerWindowMonths[] = [3, 6, 12];
+
+function normalizeLedgerMonth(month: string): string | null {
+  return /^\d{4}-\d{2}$/.test(month) ? month : null;
+}
+
+function shiftLedgerMonth(month: string, offset: number): string | null {
+  const normalizedMonth = normalizeLedgerMonth(month);
+  if (!normalizedMonth) {
+    return null;
+  }
+
+  const [yearPart, monthPart] = normalizedMonth.split('-');
+  const year = Number(yearPart);
+  const monthIndex = Number(monthPart) - 1 + offset;
+
+  if (!Number.isInteger(year) || !Number.isInteger(monthIndex)) {
+    return null;
+  }
+
+  let nextYear = year;
+  let nextMonthIndex = monthIndex;
+
+  while (nextMonthIndex < 0) {
+    nextMonthIndex += 12;
+    nextYear -= 1;
+  }
+
+  while (nextMonthIndex > 11) {
+    nextMonthIndex -= 12;
+    nextYear += 1;
+  }
+
+  return `${nextYear.toString().padStart(4, '0')}-${(nextMonthIndex + 1).toString().padStart(2, '0')}`;
+}
+
+function readFairnessLedgerProofSummary(row: FairnessLedgerMonthlyRow): FairnessLedgerProofSummary {
+  const proofSummary = asRecord(row.proof_summary);
+
+  return {
+    weeklyHoursViolations: readNumberValue(proofSummary, [
+      'weeklyHoursViolations',
+      'weekly_hours_violations',
+    ]),
+    nnnViolations: readNumberValue(proofSummary, ['nnnViolations', 'nnn_violations']),
+    nodViolations: readNumberValue(proofSummary, ['nodViolations', 'nod_violations']),
+    minimumRestViolations: readNumberValue(proofSummary, [
+      'minimumRestViolations',
+      'minimum_rest_violations',
+    ]),
+    staffingShortfalls: readNumberValue(proofSummary, [
+      'staffingShortfalls',
+      'staffing_shortfalls',
+    ]),
+  };
+}
+
+function createEmptyFairnessProofSummary(): FairnessLedgerProofSummary {
+  return {
+    weeklyHoursViolations: 0,
+    nnnViolations: 0,
+    nodViolations: 0,
+    minimumRestViolations: 0,
+    staffingShortfalls: 0,
+  };
+}
+
+function sumFairnessProofSummaries(rows: FairnessLedgerMonthlyRow[]): FairnessLedgerProofSummary {
+  const totals = createEmptyFairnessProofSummary();
+
+  for (const row of rows) {
+    const proofSummary = readFairnessLedgerProofSummary(row);
+    totals.weeklyHoursViolations += proofSummary.weeklyHoursViolations;
+    totals.nnnViolations += proofSummary.nnnViolations;
+    totals.nodViolations += proofSummary.nodViolations;
+    totals.minimumRestViolations += proofSummary.minimumRestViolations;
+    totals.staffingShortfalls += proofSummary.staffingShortfalls;
+  }
+
+  return totals;
+}
+
+function collectFairnessLedgerWindowRows(
+  rows: FairnessLedgerMonthlyRow[],
+  anchorMonth: string,
+  months: FairnessLedgerWindowMonths
+): FairnessLedgerMonthlyRow[] {
+  const windowStartMonth = shiftLedgerMonth(anchorMonth, -(months - 1));
+  if (!windowStartMonth) {
+    return [];
+  }
+
+  return rows.filter((row) => row.month >= windowStartMonth && row.month <= anchorMonth);
+}
+
+function buildFairnessLedgerWindowSummary(
+  rows: FairnessLedgerMonthlyRow[],
+  anchorMonth: string,
+  months: FairnessLedgerWindowMonths
+): FairnessLedgerWindowSummary {
+  const windowRows = collectFairnessLedgerWindowRows(rows, anchorMonth, months);
+  return {
+    months,
+    windowStartMonth: shiftLedgerMonth(anchorMonth, -(months - 1)),
+    windowEndMonth: anchorMonth,
+    finalizedVersionCount: windowRows.length,
+    proofSummary: sumFairnessProofSummaries(windowRows),
+  };
+}
+
+export function buildFairnessLedgerSummary(
+  rows: FairnessLedgerMonthlyRow[]
+): FairnessLedgerWindowSummary[] {
+  const sortedRows = rows
+    .map((row) => ({
+      ...row,
+      month: normalizeLedgerMonth(row.month) ?? '',
+    }))
+    .filter((row) => row.month.length > 0)
+    .sort((left, right) => left.month.localeCompare(right.month));
+
+  if (sortedRows.length === 0) {
+    return FAIRNESS_WINDOW_MONTHS.map((months) => ({
+      months,
+      windowStartMonth: null,
+      windowEndMonth: null,
+      finalizedVersionCount: 0,
+      proofSummary: createEmptyFairnessProofSummary(),
+    }));
+  }
+
+  const anchorMonth = sortedRows.at(-1)?.month ?? null;
+  if (!anchorMonth) {
+    return FAIRNESS_WINDOW_MONTHS.map((months) => ({
+      months,
+      windowStartMonth: null,
+      windowEndMonth: null,
+      finalizedVersionCount: 0,
+      proofSummary: createEmptyFairnessProofSummary(),
+    }));
+  }
+
+  return FAIRNESS_WINDOW_MONTHS.map((months) =>
+    buildFairnessLedgerWindowSummary(sortedRows, anchorMonth, months)
+  );
+}
+
+async function loadFairnessLedgerMonthlyRows(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<FairnessLedgerMonthlyRow[]> {
+  const result = await client
+    .from('fairness_ledger_monthly')
+    .select(
+      'organization_id, month, finalized_at, result_status, proof_summary, comparison_metrics'
+    )
+    .eq('organization_id', organizationId)
+    .order('month', { ascending: true });
+
+  if ((result as QueryResult<FairnessLedgerMonthlyRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<FairnessLedgerMonthlyRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<FairnessLedgerMonthlyRow[]>).data)
+    ? ((result as QueryResult<FairnessLedgerMonthlyRow[]>).data ?? [])
+    : [];
+}
+
+export async function getChecklist(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<ChecklistResponse> {
+  assertBootstrapOrganizationAccess(auth, organizationId);
+  const rows = await loadFairnessLedgerMonthlyRows(client, organizationId);
+  return {
+    organizationId,
+    fairnessSummary: buildFairnessLedgerSummary(rows),
+  };
 }
 
 export async function bootstrapAdmin(
