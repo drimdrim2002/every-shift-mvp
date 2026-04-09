@@ -35,6 +35,7 @@ import {
   type AssignmentIdentityRow,
 } from './engine.ts';
 import type { OffRequestPolicyPeriodType } from '../phase2-ops/contracts.ts';
+import { emitPhase2OpsEvent } from '../phase2-ops/observability.ts';
 
 type DbRecord = Record<string, unknown>;
 
@@ -1182,6 +1183,75 @@ async function loadEvaluationById(
   return row ? toEvaluation(row) : null;
 }
 
+function emitFairnessLedgerWriteEvent(
+  event: 'fairness_ledger_write_attempted' | 'fairness_ledger_write_succeeded' | 'fairness_ledger_write_blocked',
+  payload: Record<string, unknown>
+): void {
+  emitPhase2OpsEvent(event, payload);
+}
+
+function blockFairnessLedgerWrite(
+  schedule: ScheduleRow,
+  version: ScheduleVersionRow,
+  reason: string,
+  message: string,
+  code: string
+): never {
+  emitFairnessLedgerWriteEvent('fairness_ledger_write_blocked', {
+    organizationId: schedule.organization_id,
+    scheduleId: schedule.id,
+    scheduleVersionId: version.id,
+    reason,
+  });
+  throw new ContractError(code, message, 409);
+}
+
+function assertVersionFinalizableForLedger(schedule: ScheduleRow, version: ScheduleVersionRow): void {
+  if (schedule.finalized_version_id !== null) {
+    if (schedule.finalized_version_id === version.id) {
+      return;
+    }
+
+    blockFairnessLedgerWrite(
+      schedule,
+      version,
+      'already_finalized',
+      'Schedule is already finalized',
+      'already_finalized'
+    );
+  }
+
+  if (version.status !== 'review_ready') {
+    blockFairnessLedgerWrite(
+      schedule,
+      version,
+      'not_review_ready',
+      'Version must be review_ready before finalization',
+      'not_review_ready'
+    );
+  }
+
+  if (schedule.selected_version_id !== version.id) {
+    blockFairnessLedgerWrite(
+      schedule,
+      version,
+      'not_selected_version',
+      'Finalize target must match selected_version_id',
+      'not_selected_version'
+    );
+  }
+
+  if (!version.latest_evaluation_id) {
+    blockFairnessLedgerWrite(
+      schedule,
+      version,
+      'stale_evaluation',
+      'Evaluation is stale',
+      'stale_evaluation'
+    );
+  }
+}
+
 async function mapVersionSummaries(
   client: Phase2ScheduleRepositoryClient,
   schedule: ScheduleRow,
@@ -1744,9 +1814,31 @@ export async function finalizeVersion(
   auth: Phase2ScheduleAuthContext,
   versionId: string
 ): Promise<ScheduleVersionFinalizeResponse> {
-  const { version } = await loadAuthorizedVersionContext(client, auth, versionId);
+  const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
+
+  assertVersionFinalizableForLedger(schedule, version);
+
+  if (!version.latest_evaluation_id) {
+    throw new ContractError('stale_evaluation', 'Evaluation is stale', 409);
+  }
+
+  const evaluation = await loadEvaluationById(client, version.latest_evaluation_id);
+
+  if (!evaluation) {
+    throw new ContractError('stale_evaluation', 'Evaluation is stale', 409);
+  }
 
   try {
+    emitFairnessLedgerWriteEvent('fairness_ledger_write_attempted', {
+      organizationId: schedule.organization_id,
+      scheduleId: schedule.id,
+      scheduleVersionId: version.id,
+      finalizedVersionId: version.id,
+      month: schedule.month,
+      evaluationId: evaluation.id,
+      resultStatus: evaluation.resultStatus,
+    });
+
     const row = await rpcSingle<FinalizeScheduleVersionAtomicRow>(
       client,
       'finalize_schedule_version_atomic',
@@ -1755,6 +1847,16 @@ export async function finalizeVersion(
         p_finalized_by: auth.userId,
       }
     );
+
+    emitFairnessLedgerWriteEvent('fairness_ledger_write_succeeded', {
+      organizationId: schedule.organization_id,
+      scheduleId: schedule.id,
+      scheduleVersionId: version.id,
+      finalizedVersionId: row.finalized_version_id,
+      month: schedule.month,
+      evaluationId: evaluation.id,
+      resultStatus: evaluation.resultStatus,
+    });
 
     return {
       scheduleId: row.schedule_id,

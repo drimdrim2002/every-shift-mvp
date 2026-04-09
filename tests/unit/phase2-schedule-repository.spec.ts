@@ -99,6 +99,7 @@ function createClient(results: Record<string, Array<QueryResult<any>>>) {
         table === 'schedules'
         || table === 'schedule_preferences'
         || table === 'off_request_policy_rules'
+        || table === 'fairness_ledger_monthly'
       ) {
         queue.push({
           data: [],
@@ -1333,6 +1334,16 @@ describe('phase2 schedule repository', () => {
           data: {
             id: 'version-finalize',
             schedule_id: 'schedule-finalize',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            current_revision: 4,
+            status: 'review_ready',
+            input_diff_summary: {},
+            manual_edit_count: 1,
+            latest_evaluation_id: 'evaluation-finalize',
+            active_solver_execution_id: null,
           },
           error: null,
         },
@@ -1350,6 +1361,44 @@ describe('phase2 schedule repository', () => {
             selected_version_id: 'version-finalize',
             finalized_version_id: null,
             latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: {
+            id: 'evaluation-finalize',
+            schedule_id: 'schedule-finalize',
+            schedule_version_id: 'version-finalize',
+            revision_no: 4,
+            result_status: 'passed',
+            proof_summary: {
+              weeklyHoursViolations: 0,
+              nnnViolations: 0,
+              nodViolations: 0,
+              minimumRestViolations: 0,
+              staffingShortfalls: 0,
+            },
+            violation_details: [],
+            infeasibility: null,
+            off_request_results: [],
+            comparison_metrics: {
+              offRequestReflectionRate: 0.75,
+              nightShiftMin: 1,
+              nightShiftMax: 2,
+              weekendShiftMin: 0,
+              weekendShiftMax: 1,
+              manualEditCount: 1,
+            },
+            finalization_gate: {
+              allowed: true,
+              blocking_reasons: [],
+            },
+            assignment_hash: 'sha256:finalize-hash',
+            solver_execution_id: null,
+            evaluator_version: 'phase2a-trust-gate-v1',
+            created_at: '2026-04-01T08:00:00Z',
           },
           error: null,
         },
@@ -1392,6 +1441,16 @@ describe('phase2 schedule repository', () => {
           data: {
             id: 'version-finalize-2',
             schedule_id: 'schedule-finalize-2',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            current_revision: 4,
+            status: 'review_ready',
+            input_diff_summary: {},
+            manual_edit_count: 1,
+            latest_evaluation_id: 'evaluation-finalize-2',
+            active_solver_execution_id: null,
           },
           error: null,
         },
@@ -1413,12 +1472,36 @@ describe('phase2 schedule repository', () => {
           error: null,
         },
       ],
-      'rpc:finalize_schedule_version_atomic': [
+      schedule_evaluations: [
         {
-          data: null,
-          error: {
-            message: 'not_selected_version',
+          data: {
+            id: 'evaluation-finalize-2',
+            schedule_id: 'schedule-finalize-2',
+            schedule_version_id: 'version-finalize-2',
+            revision_no: 4,
+            result_status: 'passed',
+            proof_summary: {},
+            violation_details: [],
+            infeasibility: null,
+            off_request_results: [],
+            comparison_metrics: {
+              offRequestReflectionRate: 0.5,
+              nightShiftMin: 0,
+              nightShiftMax: 1,
+              weekendShiftMin: 0,
+              weekendShiftMax: 0,
+              manualEditCount: 0,
+            },
+            finalization_gate: {
+              allowed: true,
+              blocking_reasons: [],
+            },
+            assignment_hash: 'sha256:finalize-2-hash',
+            solver_execution_id: null,
+            evaluator_version: 'phase2a-trust-gate-v1',
+            created_at: '2026-04-01T08:00:00Z',
           },
+          error: null,
         },
       ],
     });
