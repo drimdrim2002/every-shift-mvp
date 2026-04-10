@@ -8,6 +8,7 @@ const {
   ensurePhase2ScheduleMock,
   getScheduleVersionPreferencesMock,
   getSchedulePreferencesMock,
+  recheckPhase2ScheduleVersionMock,
   saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignmentsMock,
   showSuccessMock,
@@ -19,6 +20,7 @@ const {
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   getSchedulePreferencesMock: vi.fn(),
+  recheckPhase2ScheduleVersionMock: vi.fn(),
   saveScheduleVersionPreferencesMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   showSuccessMock: vi.fn(),
@@ -37,6 +39,7 @@ vi.mock('@/api/schedule', () => ({
   ensurePhase2Schedule: ensurePhase2ScheduleMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   getSchedulePreferences: getSchedulePreferencesMock,
+  recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
   saveScheduleVersionPreferences: saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
 }))
@@ -302,6 +305,13 @@ describe('Step4InitialData', () => {
       notes: {},
       preferences: [],
     })
+    recheckPhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleVersionId: 'version-2',
+      currentRevision: 2,
+      evaluationId: 'evaluation-1',
+      resultStatus: 'review_ready',
+      evaluationResultStatus: 'passed',
+    })
     saveScheduleVersionPreferencesMock.mockResolvedValue(undefined)
     deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
     createPhase2ScheduleVersionMock.mockResolvedValue({
@@ -342,6 +352,46 @@ describe('Step4InitialData', () => {
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
   })
 
+  it('shows policy rejection reasons while keeping Step4 request rows visible', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValueOnce({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+      },
+      preferences: [
+        {
+          id: 'pref-1',
+          schedule_id: 'schedule-1',
+          schedule_version_id: 'version-2',
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '연차',
+          is_soft: true,
+          resolution_status: 'pending',
+          resolved_shift_id: null,
+          resolved_at: null,
+          policy_check_status: 'rejected',
+          policy_rejection_reason: '월 한도 초과',
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('정책상 거부된 요청')
+    expect(wrapper.text()).toContain('월 한도 초과')
+    expect(wrapper.text()).toContain('Kim (2025-12-01)')
+  })
+
   it('saves Step4 preferences into the active preview version', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -371,6 +421,7 @@ describe('Step4InitialData', () => {
         'emp-2': {},
       }
     )
+    expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
   })
 
   it('preserves the preview version and skips destructive resets when Step4 is unchanged', async () => {
@@ -435,6 +486,7 @@ describe('Step4InitialData', () => {
       'version-3',
       '2025-12'
     )
+    expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-3')
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {

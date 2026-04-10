@@ -22,6 +22,8 @@ interface SchedulePreferenceRow {
   resolved_shift_id: string | null;
   resolved_at: string | null;
   request_source?: string | null;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
 }
 
 interface ScheduleAssignmentRow {
@@ -65,6 +67,8 @@ export interface EvaluationPreferenceInput {
   resolutionStatus: string;
   resolvedShiftId: string | null;
   resolvedAt: string | null;
+  policyCheckStatus?: string | null;
+  policyRejectionReason?: string | null;
 }
 
 export interface EvaluationSiteRequirementInput {
@@ -261,6 +265,8 @@ function buildOffRequestResults(
     const assignment = assignmentByCell.get(`${preference.employeeId}:${preference.date}`) ?? null;
     const assignedShiftCode = assignment ? shiftCodeById.get(assignment.shiftId) ?? null : null;
     const fulfilled = assignedShiftCode === 'O';
+    const policyRejected = preference.policyCheckStatus === 'rejected';
+    const policyRejectionReason = preference.policyRejectionReason?.trim() || null;
 
     results.push({
       employeeId: preference.employeeId,
@@ -274,6 +280,8 @@ function buildOffRequestResults(
       fulfilled,
       reason: fulfilled
         ? '요청된 Off가 반영되었습니다.'
+        : policyRejected && policyRejectionReason
+          ? policyRejectionReason
         : '요청된 Off가 배정되지 않았습니다.',
     });
   }
@@ -500,6 +508,8 @@ export function cloneSchedulePreferences(
     resolved_shift_id: row.resolved_shift_id,
     resolved_at: row.resolved_at,
     request_source: row.request_source ?? 'employee_off',
+    policy_check_status: null,
+    policy_rejection_reason: null,
   }));
 }
 

@@ -4,6 +4,7 @@ export interface Employee {
   employeeId: string // 직번 (예: "40627")
   name: string // 이름 (예: "박지현")
   availableShifts: string[] // ["D", "E", "N", "O"]
+  rankCode?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -13,4 +14,5 @@ export interface EmployeeInput {
   employeeId: string // 직번 (선택 - 미입력 시 자동 생성)
   name: string // 이름
   availableShifts: string[] // ["D", "E", "N", "O"]
+  rankCode?: string | null
 }

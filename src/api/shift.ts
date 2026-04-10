@@ -224,3 +224,6 @@ export async function replaceAllShifts(
   return (data as ShiftRow[]).map(toShift);
 }
 
+export function getSchedulingShifts(shifts: Shift[]): Shift[] {
+  return shifts.filter((shift) => shift.code.toUpperCase() !== 'O');
+}

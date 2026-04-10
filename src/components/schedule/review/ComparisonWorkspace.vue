@@ -36,7 +36,7 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
   return version.name ?? `V${version.versionNo}`;
 }
 
-function isFocused(versionId: string | null) {
+function isFocused(versionId: string | null | undefined) {
   return !!versionId && versionId === props.focusedVersionId;
 }
 </script>

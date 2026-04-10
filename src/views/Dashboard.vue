@@ -19,6 +19,47 @@
         </div>
       </template>
 
+      <n-card
+        data-test="dashboard-foundation-card"
+        :bordered="true"
+        class="mb-6"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-base font-semibold text-gray-900">
+              {{
+                foundationReady
+                  ? '조직/사이트 기본 설정이 완료되었습니다'
+                  : '조직/사이트 기본 설정이 아직 완료되지 않았습니다'
+              }}
+            </p>
+            <p class="mt-1 text-sm text-gray-500">
+              {{
+                foundationReady
+                  ? '대시보드와 근무표 생성 흐름에서 동일한 기본 설정 정보를 사용합니다.'
+                  : '조직 기본 정보 확인과 스케줄 대상 사이트 지정을 먼저 완료해주세요.'
+              }}
+            </p>
+          </div>
+          <n-button
+            v-if="!foundationReady"
+            data-test="dashboard-foundation-setup"
+            secondary
+            type="primary"
+            @click="handleOpenFoundationSetup"
+          >
+            기본 설정 열기
+          </n-button>
+        </div>
+      </n-card>
+
+      <PilotChecklistCard
+        v-if="checklist"
+        class="mb-6"
+        :checklist="checklist"
+        @navigate="handleChecklistNavigate"
+      />
+
       <!-- 로딩 상태 -->
       <div
         v-if="loading"
@@ -146,14 +187,18 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
+import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleStore } from '@/stores/schedule';
+import { loadCanonicalSiteRequirements } from '@/api/employee';
 import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
+import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
-import { getAvailableMonths } from '@/utils/date';
+import { getAvailableMonths, getNextMonth } from '@/utils/date';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import dayjs from 'dayjs';
+import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
 interface Schedule {
   id: string;
@@ -172,6 +217,7 @@ const scheduleStore = useScheduleStore();
 
 const loading = ref(true);
 const schedules = ref<Schedule[]>([]);
+const checklist = ref<ChecklistResponse | null>(null);
 
 // 월 선택 모달 관련
 const showMonthModal = ref(false);
@@ -189,6 +235,15 @@ const monthOptions = computed(() => {
   }));
 });
 
+const foundationReady = computed(() => {
+  const organizationConfirmed = Boolean(orgStore.current?.foundation?.organizationInfoConfirmedAt);
+  const hasScheduleActiveSite = orgStore.foundationSites.some(
+    (site) => site.isActive && site.isScheduleActive
+  );
+
+  return organizationConfirmed && hasScheduleActiveSite;
+});
+
 onMounted(async () => {
   const result = await orgStore.loadOrganization();
 
@@ -198,8 +253,13 @@ onMounted(async () => {
     return;
   }
 
+  if (orgStore.current?.id && typeof orgStore.loadFoundationData === 'function') {
+    await orgStore.loadFoundationData(orgStore.current.id);
+  }
+
   // 근무표 목록 로드
   await loadSchedules();
+  await loadChecklist();
 });
 
 async function loadSchedules() {
@@ -215,10 +275,78 @@ async function loadSchedules() {
   }
 }
 
+async function loadChecklist() {
+  try {
+    checklist.value = await getChecklist(orgStore.current!.id);
+  } catch (error) {
+    console.warn('체크리스트 로드 실패:', error);
+    checklist.value = null;
+  }
+}
+
 function handleCreateNew() {
   // 기본값: 다음 달
   monthForm.value.month = monthOptions.value[1]?.value || '';
   showMonthModal.value = true;
+}
+
+function handleOpenFoundationSetup() {
+  router.push('/ops/organization-setup');
+}
+
+function buildChecklistBasicInfo(month: string, scheduleId?: string) {
+  return {
+    scheduleId,
+    month,
+    organizationId: orgStore.current!.id,
+    organizationName: orgStore.current!.name,
+    organizationType: orgStore.current!.type,
+    shifts: orgStore.shifts,
+    employeeCount: orgStore.employees.length,
+  };
+}
+
+async function seedChecklistScheduleContext(item: ChecklistItem) {
+  const nextMonth = getAvailableMonths()[1] || getNextMonth();
+
+  if (item.route === '/schedule/step2') {
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
+    return;
+  }
+
+  if (item.route === '/schedule/step3') {
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
+
+    try {
+      const requirements = await loadCanonicalSiteRequirements(orgStore.current!.id);
+      scheduleStore.setSiteRequirements(requirements);
+    } catch (error) {
+      console.warn('체크리스트 Step3 요구사항 로드 실패:', error);
+    }
+
+    return;
+  }
+
+  if (item.route?.startsWith('/schedule/step5/')) {
+    const scheduleId = item.route.split('/').pop() || undefined;
+    const schedule = scheduleId ? schedules.value.find((entry) => entry.id === scheduleId) : null;
+
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(
+      buildChecklistBasicInfo(schedule?.month || nextMonth, scheduleId)
+    );
+  }
+}
+
+async function handleChecklistNavigate(item: ChecklistItem) {
+  if (!item.route) {
+    return;
+  }
+
+  await seedChecklistScheduleContext(item);
+  await router.push(item.route);
 }
 
 async function handleMonthConfirm() {

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createVersion,
+  finalizeVersion,
   markVersionSolving,
   patchVersionAssignments,
   resetActiveFlow,
   resetScheduleRoster,
+  recheckVersion,
   syncVersionSolverResult,
 } from '@/../supabase/functions/phase2-schedule/repository.ts';
 import type { Phase2ScheduleAuthContext } from '@/../supabase/functions/phase2-schedule/contracts.ts';
@@ -134,10 +136,23 @@ function createClient(
   const rpcSpies: Record<string, ReturnType<typeof vi.fn>> = {};
 
   const from = vi.fn((table: string) => {
-    const queue = results[table];
+    const queue = (results[table] ??= []);
 
-    if (!queue || queue.length === 0) {
-      throw new Error(`Unexpected query for table ${table}`);
+    if (queue.length === 0) {
+      if (
+        table === 'schedules'
+        || table === 'schedule_preferences'
+        || table === 'off_request_policy_rules'
+        || table === 'schedule_evaluations'
+        || table === 'fairness_ledger_monthly'
+      ) {
+        queue.push({
+          data: [],
+          error: null,
+        });
+      } else {
+        throw new Error(`Unexpected query for table ${table}`);
+      }
     }
 
     insertSpies[table] ??= vi.fn();
@@ -888,6 +903,594 @@ describe('phase2 schedule write repository', () => {
       }),
       })
     );
+  });
+
+  it('evaluates and persists off-request policy results from active rules on recheck', async () => {
+    const { client, rpcSpies, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_pending',
+            current_revision: 3,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-1',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [
+            {
+              id: 'pref-rn-1',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-rn',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: 'rn off 1',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-rn-2',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-rn',
+              date: '2026-04-02',
+              request_code: 'O',
+              request_note: 'rn off 2',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-default-1',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-default',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: 'default off 1',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
+              id: 'pref-default-2',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-default',
+              date: '2026-04-02',
+              request_code: 'O',
+              request_note: 'default off 2',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [
+            {
+              id: 'shift-1',
+              code: 'D',
+            },
+          ],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [
+            {
+              id: 'employee-rn',
+              rank_code: 'RN',
+            },
+            {
+              id: 'employee-default',
+              rank_code: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [
+            {
+              rank_code: null,
+              period_type: 'monthly',
+              limit_count: 1,
+              is_active: true,
+            },
+            {
+              rank_code: null,
+              period_type: 'annual',
+              limit_count: 12,
+              is_active: true,
+            },
+            {
+              rank_code: 'RN',
+              period_type: 'monthly',
+              limit_count: 2,
+              is_active: true,
+            },
+            {
+              rank_code: 'RN',
+              period_type: 'annual',
+              limit_count: 12,
+              is_active: true,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: null,
+          error: null,
+        },
+      ],
+    }, {
+      save_schedule_version_evaluation_atomic: [
+        {
+          data: {
+            schedule_version_id: 'version-2',
+            current_revision: 3,
+            evaluation_id: 'evaluation-2',
+            status: 'review_blocked',
+            evaluation_result_status: 'review_blocked',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    await recheckVersion(client, AUTH_CONTEXT, 'version-2');
+
+    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          id: 'pref-default-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-rn-1',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-default-2',
+          policy_check_status: 'rejected',
+          policy_rejection_reason: '월 한도 초과',
+        }),
+        expect.objectContaining({
+          id: 'pref-rn-2',
+          policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+      ],
+      {
+        onConflict: 'id',
+      }
+    );
+    expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_version_id: 'version-2',
+        p_off_request_results: expect.arrayContaining([
+          expect.objectContaining({
+            employeeId: 'employee-default',
+            date: '2026-04-02',
+            fulfilled: false,
+            reason: '월 한도 초과',
+          }),
+        ]),
+      })
+    );
+  });
+
+  it('finalizes a review-ready version without a repository-side fairness ledger write', async () => {
+    const { client, rpcSpies, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-finalize',
+            schedule_id: 'schedule-finalize',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_ready',
+            current_revision: 4,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-finalize',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-finalize',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-finalize',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: {
+            id: 'evaluation-finalize',
+            schedule_id: 'schedule-finalize',
+            schedule_version_id: 'version-finalize',
+            revision_no: 4,
+            result_status: 'passed',
+            proof_summary: {
+              weeklyHoursViolations: 0,
+              nnnViolations: 0,
+              nodViolations: 0,
+              minimumRestViolations: 0,
+              staffingShortfalls: 0,
+            },
+            violation_details: [],
+            infeasibility: null,
+            off_request_results: [],
+            comparison_metrics: {
+              offRequestReflectionRate: 0.75,
+              nightShiftMin: 1,
+              nightShiftMax: 2,
+              weekendShiftMin: 0,
+              weekendShiftMax: 1,
+              manualEditCount: 1,
+            },
+            finalization_gate: {
+              allowed: true,
+              blocking_reasons: [],
+            },
+            assignment_hash: 'sha256:finalize-hash',
+            solver_execution_id: null,
+            evaluator_version: 'phase2a-trust-gate-v1',
+            created_at: '2026-04-01T08:00:00Z',
+          },
+          error: null,
+        },
+      ],
+    }, {
+      finalize_schedule_version_atomic: [
+        {
+          data: {
+            schedule_id: 'schedule-finalize',
+            schedule_version_id: 'version-finalize',
+            status: 'finalized',
+            finalized_version_id: 'version-finalize',
+            finalized_at: '2026-04-01T09:00:00Z',
+            finalized_by: AUTH_CONTEXT.userId,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await finalizeVersion(client, AUTH_CONTEXT, 'version-finalize');
+
+    expect(result).toEqual({
+      scheduleId: 'schedule-finalize',
+      scheduleVersionId: 'version-finalize',
+      status: 'finalized',
+      finalizedVersionId: 'version-finalize',
+      finalizedAt: '2026-04-01T09:00:00Z',
+      finalizedBy: AUTH_CONTEXT.userId,
+    });
+    expect(rpcSpies.finalize_schedule_version_atomic).toHaveBeenCalledWith({
+      p_version_id: 'version-finalize',
+      p_finalized_by: AUTH_CONTEXT.userId,
+    });
+    expect(upsertSpies.fairness_ledger_monthly).toBeUndefined();
+  });
+
+  it('retries finalization without a repository-side fairness ledger write', async () => {
+    const { client, rpcSpies, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-finalize-retry',
+            schedule_id: 'schedule-finalize-retry',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_ready',
+            current_revision: 4,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-finalize-retry',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'version-finalize-retry',
+            schedule_id: 'schedule-finalize-retry',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'finalized',
+            current_revision: 4,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-finalize-retry',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-finalize-retry',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-finalize-retry',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-finalize-retry',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-finalize-retry',
+            finalized_version_id: 'version-finalize-retry',
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: {
+            id: 'evaluation-finalize-retry',
+            schedule_id: 'schedule-finalize-retry',
+            schedule_version_id: 'version-finalize-retry',
+            revision_no: 4,
+            result_status: 'passed',
+            proof_summary: {
+              weeklyHoursViolations: 0,
+              nnnViolations: 0,
+              nodViolations: 0,
+              minimumRestViolations: 0,
+              staffingShortfalls: 0,
+            },
+            violation_details: [],
+            infeasibility: null,
+            off_request_results: [],
+            comparison_metrics: {
+              offRequestReflectionRate: 0.75,
+              nightShiftMin: 1,
+              nightShiftMax: 2,
+              weekendShiftMin: 0,
+              weekendShiftMax: 1,
+              manualEditCount: 1,
+            },
+            finalization_gate: {
+              allowed: true,
+              blocking_reasons: [],
+            },
+            assignment_hash: 'sha256:finalize-retry-hash',
+            solver_execution_id: null,
+            evaluator_version: 'phase2a-trust-gate-v1',
+            created_at: '2026-04-01T08:00:00Z',
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'evaluation-finalize-retry',
+            schedule_id: 'schedule-finalize-retry',
+            schedule_version_id: 'version-finalize-retry',
+            revision_no: 4,
+            result_status: 'passed',
+            proof_summary: {
+              weeklyHoursViolations: 0,
+              nnnViolations: 0,
+              nodViolations: 0,
+              minimumRestViolations: 0,
+              staffingShortfalls: 0,
+            },
+            violation_details: [],
+            infeasibility: null,
+            off_request_results: [],
+            comparison_metrics: {
+              offRequestReflectionRate: 0.75,
+              nightShiftMin: 1,
+              nightShiftMax: 2,
+              weekendShiftMin: 0,
+              weekendShiftMax: 1,
+              manualEditCount: 1,
+            },
+            finalization_gate: {
+              allowed: true,
+              blocking_reasons: [],
+            },
+            assignment_hash: 'sha256:finalize-retry-hash',
+            solver_execution_id: null,
+            evaluator_version: 'phase2a-trust-gate-v1',
+            created_at: '2026-04-01T08:00:00Z',
+          },
+          error: null,
+        },
+      ],
+    }, {
+      finalize_schedule_version_atomic: [
+        {
+          data: {
+            schedule_id: 'schedule-finalize-retry',
+            schedule_version_id: 'version-finalize-retry',
+            status: 'finalized',
+            finalized_version_id: 'version-finalize-retry',
+            finalized_at: '2026-04-01T09:00:00Z',
+            finalized_by: AUTH_CONTEXT.userId,
+          },
+          error: null,
+        },
+        {
+          data: {
+            schedule_id: 'schedule-finalize-retry',
+            schedule_version_id: 'version-finalize-retry',
+            status: 'finalized',
+            finalized_version_id: 'version-finalize-retry',
+            finalized_at: '2026-04-01T09:00:00Z',
+            finalized_by: AUTH_CONTEXT.userId,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    await finalizeVersion(client, AUTH_CONTEXT, 'version-finalize-retry');
+    await finalizeVersion(client, AUTH_CONTEXT, 'version-finalize-retry');
+
+    expect(rpcSpies.finalize_schedule_version_atomic).toHaveBeenCalledTimes(2);
+    expect(upsertSpies.fairness_ledger_monthly).toBeUndefined();
+  });
+
+  it.each([
+    {
+      label: 'draft',
+      versionStatus: 'draft' as const,
+      selectedVersionId: 'version-blocked',
+      errorCode: 'not_review_ready',
+    },
+    {
+      label: 'review_pending',
+      versionStatus: 'review_pending' as const,
+      selectedVersionId: 'version-blocked',
+      errorCode: 'not_review_ready',
+    },
+    {
+      label: 'compare-only',
+      versionStatus: 'review_ready' as const,
+      selectedVersionId: 'version-other',
+      errorCode: 'not_selected_version',
+    },
+  ])('blocks ledger writes for $label versions', async ({
+    versionStatus,
+    selectedVersionId,
+    errorCode,
+  }) => {
+    const { client, rpcSpies, upsertSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-blocked',
+            schedule_id: 'schedule-blocked',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: versionStatus,
+            current_revision: 4,
+            manual_edit_count: 1,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-blocked',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-blocked',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: selectedVersionId,
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    await expect(finalizeVersion(client, AUTH_CONTEXT, 'version-blocked')).rejects.toMatchObject({
+      code: errorCode,
+    });
+    expect(rpcSpies.finalize_schedule_version_atomic).toBeUndefined();
+    expect(upsertSpies.fairness_ledger_monthly).toBeUndefined();
   });
 
   it('patches version assignments with version-scoped upserts, delete-for-null, revision bump, and review_pending status', async () => {
