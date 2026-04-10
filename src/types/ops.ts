@@ -103,8 +103,26 @@ export interface FairnessLedgerWindowSummary {
   proofSummary: FairnessLedgerProofSummary;
 }
 
+export type ChecklistItemKey =
+  | 'organization_profile'
+  | 'schedule_foundation'
+  | 'employee_roster'
+  | 'off_request_policy'
+  | 'schedule_review';
+
+export interface ChecklistItem {
+  key: ChecklistItemKey;
+  title: string;
+  status: 'ready' | 'blocked';
+  route: string | null;
+  blockedReason: string | null;
+}
+
 export interface ChecklistResponse {
   organizationId: string;
+  checklistCursor: string | null;
+  ready: boolean;
+  items: ChecklistItem[];
   fairnessSummary: FairnessLedgerWindowSummary[];
 }
 

@@ -53,6 +53,13 @@
         </div>
       </n-card>
 
+      <PilotChecklistCard
+        v-if="checklist"
+        class="mb-6"
+        :checklist="checklist"
+        @navigate="handleChecklistNavigate"
+      />
+
       <!-- 로딩 상태 -->
       <div
         v-if="loading"
@@ -180,14 +187,18 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
+import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleStore } from '@/stores/schedule';
+import { loadCanonicalSiteRequirements } from '@/api/employee';
 import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
+import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
-import { getAvailableMonths } from '@/utils/date';
+import { getAvailableMonths, getNextMonth } from '@/utils/date';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
 import dayjs from 'dayjs';
+import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
 interface Schedule {
   id: string;
@@ -206,6 +217,7 @@ const scheduleStore = useScheduleStore();
 
 const loading = ref(true);
 const schedules = ref<Schedule[]>([]);
+const checklist = ref<ChecklistResponse | null>(null);
 
 // 월 선택 모달 관련
 const showMonthModal = ref(false);
@@ -247,6 +259,7 @@ onMounted(async () => {
 
   // 근무표 목록 로드
   await loadSchedules();
+  await loadChecklist();
 });
 
 async function loadSchedules() {
@@ -262,6 +275,15 @@ async function loadSchedules() {
   }
 }
 
+async function loadChecklist() {
+  try {
+    checklist.value = await getChecklist(orgStore.current!.id);
+  } catch (error) {
+    console.warn('체크리스트 로드 실패:', error);
+    checklist.value = null;
+  }
+}
+
 function handleCreateNew() {
   // 기본값: 다음 달
   monthForm.value.month = monthOptions.value[1]?.value || '';
@@ -270,6 +292,61 @@ function handleCreateNew() {
 
 function handleOpenFoundationSetup() {
   router.push('/ops/organization-setup');
+}
+
+function buildChecklistBasicInfo(month: string, scheduleId?: string) {
+  return {
+    scheduleId,
+    month,
+    organizationId: orgStore.current!.id,
+    organizationName: orgStore.current!.name,
+    organizationType: orgStore.current!.type,
+    shifts: orgStore.shifts,
+    employeeCount: orgStore.employees.length,
+  };
+}
+
+async function seedChecklistScheduleContext(item: ChecklistItem) {
+  const nextMonth = getAvailableMonths()[1] || getNextMonth();
+
+  if (item.route === '/schedule/step2') {
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
+    return;
+  }
+
+  if (item.route === '/schedule/step3') {
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
+
+    try {
+      const requirements = await loadCanonicalSiteRequirements(orgStore.current!.id);
+      scheduleStore.setSiteRequirements(requirements);
+    } catch (error) {
+      console.warn('체크리스트 Step3 요구사항 로드 실패:', error);
+    }
+
+    return;
+  }
+
+  if (item.route?.startsWith('/schedule/step5/')) {
+    const scheduleId = item.route.split('/').pop() || undefined;
+    const schedule = scheduleId ? schedules.value.find((entry) => entry.id === scheduleId) : null;
+
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo(
+      buildChecklistBasicInfo(schedule?.month || nextMonth, scheduleId)
+    );
+  }
+}
+
+async function handleChecklistNavigate(item: ChecklistItem) {
+  if (!item.route) {
+    return;
+  }
+
+  await seedChecklistScheduleContext(item);
+  await router.push(item.route);
 }
 
 async function handleMonthConfirm() {

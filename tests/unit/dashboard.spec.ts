@@ -6,6 +6,8 @@ const {
   pushMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
+  getChecklistMock,
+  loadCanonicalSiteRequirementsMock,
   resetMock,
   setBasicInfoMock,
   setSelectedVersionIdMock,
@@ -15,6 +17,8 @@ const {
   pushMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
+  getChecklistMock: vi.fn(),
+  loadCanonicalSiteRequirementsMock: vi.fn(),
   resetMock: vi.fn(),
   setBasicInfoMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
@@ -31,6 +35,14 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   getScheduleList: getScheduleListMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
+}))
+
+vi.mock('@/api/ops', () => ({
+  getChecklist: getChecklistMock,
+}))
+
+vi.mock('@/api/employee', () => ({
+  loadCanonicalSiteRequirements: loadCanonicalSiteRequirementsMock,
 }))
 
 vi.mock('@/api/supabase', () => ({
@@ -150,6 +162,57 @@ describe('Dashboard', () => {
         soft_score: 20,
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
+      },
+    ])
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '조직 기본 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '사이트/근무 기본 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 요청 정책 설정',
+          status: 'ready',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: null,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/schedule-123',
+          blockedReason: null,
+        },
+      ],
+      fairnessSummary: [],
+    })
+    loadCanonicalSiteRequirementsMock.mockResolvedValue([
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 1,
       },
     ])
     getPhase2ScheduleCompareMock.mockResolvedValue({
@@ -309,5 +372,43 @@ describe('Dashboard', () => {
 
     expect(wrapper.text()).toContain('조직/사이트 기본 설정이 완료되었습니다')
     expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+  })
+
+  it('surfaces the pilot checklist entry with deep links from the dashboard shell', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
+    expect(wrapper.text()).toContain('파일럿 준비 체크리스트')
+    expect(wrapper.text()).toContain('조직 기본 정보 확인')
+    expect(wrapper.text()).toContain('사이트/근무 기본 설정')
+    expect(wrapper.text()).toContain('직원 로스터 준비')
+    expect(wrapper.text()).toContain('Off 요청 정책 설정')
+    expect(wrapper.text()).toContain('최종 검토 진입')
+
+    await wrapper.get('[data-test="pilot-checklist-link-organization_profile"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/ops/organization-setup')
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-schedule_foundation"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step2')
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
+    await flushPromises()
+    expect(loadCanonicalSiteRequirementsMock).toHaveBeenCalledWith('org-1')
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-off_request_policy"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/ops/off-request-policy-setup')
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-schedule_review"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step5/schedule-123')
   })
 })
