@@ -1,5 +1,6 @@
 import {
   ContractError,
+  type ChecklistUpdateRequest,
   type ChecklistResponse,
   type BootstrapAdminRequest,
   type BootstrapAdminResponse,
@@ -22,6 +23,7 @@ import {
   type Phase2OpsEventName,
 } from './observability.ts';
 import type { Phase2OpsOperatorAuthContext } from './auth.ts';
+import { buildChecklistResponse, type ChecklistSnapshot } from './checklist.ts';
 
 interface Phase2OpsDbError {
   message: string;
@@ -59,6 +61,9 @@ interface QueryBuilder<T> extends PromiseLike<QueryResult<T>> {
   limit(count: number): QueryBuilder<T>;
   order(column: string, options?: { ascending?: boolean }): QueryBuilder<T>;
   delete(): QueryBuilder<T>;
+  update(payload: Record<string, unknown>): {
+    eq(column: string, value: string): Promise<QueryResult<unknown>>;
+  };
   maybeSingle(): Promise<QueryResult<T extends Array<infer R> ? R : T>>;
 }
 
@@ -77,6 +82,31 @@ interface OnboardingProgressRow {
   current_step_key: string | null;
   organization_info_confirmed_at?: string | null;
   organization_info_confirmed_by?: string | null;
+}
+
+interface OrganizationRow {
+  id: string;
+  name: string | null;
+  type: string | null;
+}
+
+interface SiteRow {
+  id: string;
+  organization_id: string;
+  is_active: boolean;
+  is_schedule_active: boolean;
+}
+
+interface OrganizationSettingsRow {
+  organization_id: string;
+  pilot_site_id: string | null;
+  minimum_rest_hours: number | null;
+  checklist_cursor: string | null;
+}
+
+interface SiteRequirementRow {
+  id: string;
+  organization_id: string;
 }
 
 interface ScheduleRow {
@@ -112,7 +142,7 @@ interface OffRequestPolicyRuleRow {
 interface FairnessLedgerMonthlyRow {
   organization_id: string;
   month: string;
-  finalized_at: string;
+  finalized_at: string | null;
   result_status: string;
   proof_summary: unknown;
   comparison_metrics: unknown;
@@ -132,6 +162,10 @@ interface EmployeeImportValidationState {
 type TableName = 'profiles' | 'onboarding_progress';
 type Phase2OpsTableName =
   | TableName
+  | 'organizations'
+  | 'sites'
+  | 'organization_settings'
+  | 'site_requirements'
   | 'employees'
   | 'schedules'
   | 'shifts'
@@ -167,6 +201,7 @@ export type Phase2OpsEventEmitter = (
 const AUTH_USER_LOOKUP_PAGE_SIZE = 200;
 const AUTH_USER_LOOKUP_MAX_PAGES = 1000;
 const INITIAL_FOUNDATION_STEP_KEY = 'organization_info';
+const INITIAL_CHECKLIST_CURSOR = 'organization_profile';
 const ORGANIZATION_METADATA_KEYS = [
   'organization_id',
   'organizationId',
@@ -210,6 +245,42 @@ function readNumberValue(
   }
 
   return fallback;
+}
+
+function normalizeChecklistCursor(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  switch (normalized) {
+    case 'organization_info':
+      return INITIAL_CHECKLIST_CURSOR;
+    case 'organization_profile':
+    case 'schedule_foundation':
+    case 'employee_roster':
+    case 'off_request_policy':
+    case 'schedule_review':
+      return normalized;
+    default:
+      return null;
+  }
+}
+
+function mapChecklistCursorToStep(checklistCursor: string | null): number {
+  switch (checklistCursor) {
+    case 'schedule_foundation':
+      return 2;
+    case 'employee_roster':
+      return 3;
+    case 'off_request_policy':
+      return 4;
+    case 'schedule_review':
+      return 5;
+    case 'organization_profile':
+    default:
+      return 1;
+  }
 }
 
 function readFoundationMetadataFromRecord(metadata: Record<string, unknown>): FoundationMetadata | null {
@@ -1132,6 +1203,11 @@ export function buildFairnessLedgerSummary(
   rows: FairnessLedgerMonthlyRow[]
 ): FairnessLedgerWindowSummary[] {
   const sortedRows = rows
+    .filter((row) =>
+      typeof row.finalized_at === 'string'
+      && row.finalized_at.trim().length > 0
+      && row.result_status === 'passed'
+    )
     .map((row) => ({
       ...row,
       month: normalizeLedgerMonth(row.month) ?? '',
@@ -1175,6 +1251,7 @@ async function loadFairnessLedgerMonthlyRows(
       'organization_id, month, finalized_at, result_status, proof_summary, comparison_metrics'
     )
     .eq('organization_id', organizationId)
+    .eq('result_status', 'passed')
     .order('month', { ascending: true });
 
   if ((result as QueryResult<FairnessLedgerMonthlyRow[]>).error) {
@@ -1190,17 +1267,275 @@ async function loadFairnessLedgerMonthlyRows(
     : [];
 }
 
+async function loadChecklistOrganization(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<OrganizationRow | null> {
+  const result = await client
+    .from('organizations')
+    .select('id, name, type')
+    .eq('id', organizationId)
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new ContractError('internal_error', result.error.message, 500);
+  }
+
+  return (result.data as OrganizationRow | null) ?? null;
+}
+
+async function loadChecklistSites(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<SiteRow[]> {
+  const result = await client
+    .from('sites')
+    .select('id, organization_id, is_active, is_schedule_active')
+    .eq('organization_id', organizationId);
+
+  if ((result as QueryResult<SiteRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<SiteRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<SiteRow[]>).data)
+    ? ((result as QueryResult<SiteRow[]>).data ?? [])
+    : [];
+}
+
+async function loadOrganizationSettings(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<OrganizationSettingsRow | null> {
+  const result = await client
+    .from('organization_settings')
+    .select('organization_id, pilot_site_id, minimum_rest_hours, checklist_cursor')
+    .eq('organization_id', organizationId)
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new ContractError('internal_error', result.error.message, 500);
+  }
+
+  return (result.data as OrganizationSettingsRow | null) ?? null;
+}
+
+async function loadSiteRequirements(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<SiteRequirementRow[]> {
+  const result = await client
+    .from('site_requirements')
+    .select('id, organization_id')
+    .eq('organization_id', organizationId);
+
+  if ((result as QueryResult<SiteRequirementRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<SiteRequirementRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<SiteRequirementRow[]>).data)
+    ? ((result as QueryResult<SiteRequirementRow[]>).data ?? [])
+    : [];
+}
+
+async function loadChecklistShifts(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<ShiftRow[]> {
+  const result = await client
+    .from('shifts')
+    .select('id, code')
+    .eq('organization_id', organizationId);
+
+  if ((result as QueryResult<ShiftRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<ShiftRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<ShiftRow[]>).data)
+    ? ((result as QueryResult<ShiftRow[]>).data ?? [])
+    : [];
+}
+
+async function loadChecklistEmployees(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<Array<Record<string, unknown>>> {
+  const result = await client
+    .from('employees')
+    .select('id')
+    .eq('organization_id', organizationId);
+
+  if ((result as QueryResult<Array<Record<string, unknown>>>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<Array<Record<string, unknown>>>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<Array<Record<string, unknown>>>).data)
+    ? ((result as QueryResult<Array<Record<string, unknown>>>).data ?? [])
+    : [];
+}
+
+async function loadChecklistPolicyRules(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<OffRequestPolicyRuleRow[]> {
+  const result = await client
+    .from('off_request_policy_rules')
+    .select('id, organization_id, rank_code, period_type, limit_count, is_active')
+    .eq('organization_id', organizationId);
+
+  if ((result as QueryResult<OffRequestPolicyRuleRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<OffRequestPolicyRuleRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<OffRequestPolicyRuleRow[]>).data)
+    ? ((result as QueryResult<OffRequestPolicyRuleRow[]>).data ?? [])
+    : [];
+}
+
+async function loadChecklistSchedules(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<ScheduleRow[]> {
+  const result = await client
+    .from('schedules')
+    .select('id, organization_id, month, finalized_version_id')
+    .eq('organization_id', organizationId)
+    .order('month', { ascending: false });
+
+  if ((result as QueryResult<ScheduleRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<ScheduleRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<ScheduleRow[]>).data)
+    ? ((result as QueryResult<ScheduleRow[]>).data ?? [])
+    : [];
+}
+
+async function loadChecklistSnapshot(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<ChecklistSnapshot> {
+  const [
+    organization,
+    onboardingProgress,
+    organizationSettings,
+    sites,
+    shifts,
+    siteRequirements,
+    employees,
+    policyRules,
+    schedules,
+    fairnessLedgerRows,
+  ] = await Promise.all([
+    loadChecklistOrganization(client, organizationId),
+    loadOnboardingProgress(client, organizationId),
+    loadOrganizationSettings(client, organizationId),
+    loadChecklistSites(client, organizationId),
+    loadChecklistShifts(client, organizationId),
+    loadSiteRequirements(client, organizationId),
+    loadChecklistEmployees(client, organizationId),
+    loadChecklistPolicyRules(client, organizationId),
+    loadChecklistSchedules(client, organizationId),
+    loadFairnessLedgerMonthlyRows(client, organizationId),
+  ]);
+
+  return {
+    organizationId,
+    organizationName: organization?.name ?? null,
+    organizationType: organization?.type ?? null,
+    checklistCursor:
+      normalizeChecklistCursor(onboardingProgress?.current_step_key)
+      ?? normalizeChecklistCursor(organizationSettings?.checklist_cursor)
+      ?? INITIAL_CHECKLIST_CURSOR,
+    organizationProfileConfirmedAt: onboardingProgress?.organization_info_confirmed_at ?? null,
+    scheduleActiveSiteCount: sites.filter((site) => site.is_active && site.is_schedule_active).length,
+    pilotSiteId: organizationSettings?.pilot_site_id ?? null,
+    minimumRestHours: organizationSettings?.minimum_rest_hours ?? null,
+    shiftCount: shifts.length,
+    siteRequirementCount: siteRequirements.length,
+    employeeCount: employees.length,
+    hasMonthlyDefaultOffRequestPolicy: policyRules.some((rule) =>
+      rule.is_active
+      && rule.period_type === 'monthly'
+      && normalizeOffRequestPolicyRankCode(rule.rank_code) === null
+    ),
+    hasAnnualDefaultOffRequestPolicy: policyRules.some((rule) =>
+      rule.is_active
+      && rule.period_type === 'annual'
+      && normalizeOffRequestPolicyRankCode(rule.rank_code) === null
+    ),
+    scheduleReviewRoute:
+      typeof schedules[0]?.id === 'string' && schedules[0].id.length > 0
+        ? `/schedule/step5/${schedules[0].id}`
+        : null,
+    fairnessSummary: buildFairnessLedgerSummary(fairnessLedgerRows),
+  };
+}
+
+async function saveChecklistCursor(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string,
+  checklistCursor: string | null
+): Promise<void> {
+  await ensureOnboardingProgress(client, auth, organizationId);
+
+  const { error } = await client
+    .from('onboarding_progress')
+    .update({
+      current_step: mapChecklistCursorToStep(checklistCursor),
+      current_step_key: checklistCursor ?? INITIAL_CHECKLIST_CURSOR,
+      last_actor_user_id: auth.operatorUserId,
+    })
+    .eq('organization_id', organizationId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+}
+
 export async function getChecklist(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
 ): Promise<ChecklistResponse> {
   assertBootstrapOrganizationAccess(auth, organizationId);
-  const rows = await loadFairnessLedgerMonthlyRows(client, organizationId);
-  return {
-    organizationId,
-    fairnessSummary: buildFairnessLedgerSummary(rows),
-  };
+  return buildChecklistResponse(await loadChecklistSnapshot(client, organizationId));
+}
+
+export async function updateChecklist(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: ChecklistUpdateRequest
+): Promise<ChecklistResponse> {
+  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  await saveChecklistCursor(client, auth, request.organizationId, request.checklistCursor);
+  return buildChecklistResponse(await loadChecklistSnapshot(client, request.organizationId));
 }
 
 export async function bootstrapAdmin(

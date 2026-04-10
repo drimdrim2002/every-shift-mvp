@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  buildFairnessLedgerSummary,
-  getChecklist,
-} from '@/../supabase/functions/phase2-ops/repository.ts';
-import type { Phase2OpsRepositoryClient } from '@/../supabase/functions/phase2-ops/repository.ts';
+import { buildChecklistResponse, type ChecklistSnapshot } from '@/../supabase/functions/phase2-ops/checklist.ts';
+import { getChecklist, updateChecklist, type Phase2OpsRepositoryClient } from '@/../supabase/functions/phase2-ops/repository.ts';
 import type { Phase2OpsOperatorAuthContext } from '@/../supabase/functions/phase2-ops/auth.ts';
 
 interface QueryResult<T> {
@@ -11,11 +8,20 @@ interface QueryResult<T> {
   error: { message: string } | null;
 }
 
-class FakeQueryBuilder<T> {
+type TableRowValue = Record<string, unknown> | Array<Record<string, unknown>> | null;
+
+class FakeQueryBuilder {
+  private filters: Array<[string, string]> = [];
+
   constructor(
     private readonly table: string,
-    private readonly result: QueryResult<T>,
-    private readonly calls: Array<{ table: string; method: string; args: unknown[] }>
+    private readonly rowsByTable: Record<string, TableRowValue>,
+    private readonly calls: Array<{ table: string; method: string; args: unknown[] }>,
+    private readonly updateCalls: Array<{
+      table: string;
+      payload: Record<string, unknown>;
+      filters: Array<[string, string]>;
+    }>
   ) {}
 
   select(columns: string) {
@@ -25,26 +31,74 @@ class FakeQueryBuilder<T> {
 
   eq(column: string, value: string) {
     this.calls.push({ table: this.table, method: 'eq', args: [column, value] });
+    this.filters.push([column, value]);
+    return this;
+  }
+
+  limit(count: number) {
+    this.calls.push({ table: this.table, method: 'limit', args: [count] });
     return this;
   }
 
   order(column: string, options?: { ascending?: boolean }) {
     this.calls.push({ table: this.table, method: 'order', args: [column, options] });
-    return Promise.resolve(this.result);
+    return this;
   }
 
-  then<TResult1 = QueryResult<T>, TResult2 = never>(
+  update(payload: Record<string, unknown>) {
+    this.calls.push({ table: this.table, method: 'update', args: [payload] });
+    return {
+      eq: async (column: string, value: string): Promise<QueryResult<null>> => {
+        this.updateCalls.push({
+          table: this.table,
+          payload,
+          filters: [...this.filters, [column, value]],
+        });
+
+        const current = this.rowsByTable[this.table];
+        if (Array.isArray(current) && current.length > 0) {
+          this.rowsByTable[this.table] = [{ ...current[0], ...payload }];
+        } else if (current && !Array.isArray(current)) {
+          this.rowsByTable[this.table] = { ...current, ...payload };
+        }
+
+        return { data: null, error: null };
+      },
+    };
+  }
+
+  maybeSingle(): Promise<QueryResult<Record<string, unknown>>> {
+    const value = this.rowsByTable[this.table];
+    const row = Array.isArray(value) ? (value[0] ?? null) : value;
+    return Promise.resolve({
+      data: row,
+      error: null,
+    });
+  }
+
+  then<TResult1 = QueryResult<Array<Record<string, unknown>>>, TResult2 = never>(
     onfulfilled?:
-      | ((value: QueryResult<T>) => TResult1 | PromiseLike<TResult1>)
+      | ((value: QueryResult<Array<Record<string, unknown>>>) => TResult1 | PromiseLike<TResult1>)
       | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): Promise<TResult1 | TResult2> {
-    return Promise.resolve(this.result).then(onfulfilled ?? undefined, onrejected ?? undefined);
+    const value = this.rowsByTable[this.table];
+    const rows = Array.isArray(value) ? value : value ? [value] : [];
+
+    return Promise.resolve({
+      data: rows,
+      error: null,
+    }).then(onfulfilled ?? undefined, onrejected ?? undefined);
   }
 }
 
-function createRepositoryClient(rows: Array<Record<string, unknown>>) {
+function createRepositoryClient(rowsByTable: Record<string, TableRowValue>) {
   const calls: Array<{ table: string; method: string; args: unknown[] }> = [];
+  const updateCalls: Array<{
+    table: string;
+    payload: Record<string, unknown>;
+    filters: Array<[string, string]>;
+  }> = [];
 
   const client: Phase2OpsRepositoryClient = {
     auth: {
@@ -55,22 +109,11 @@ function createRepositoryClient(rows: Array<Record<string, unknown>>) {
     },
     rpc: vi.fn(),
     from(table) {
-      if (table !== 'fairness_ledger_monthly') {
-        throw new Error(`Unexpected table query: ${table}`);
-      }
-
-      return new FakeQueryBuilder(
-        table,
-        {
-          data: rows,
-          error: null,
-        },
-        calls
-      );
+      return new FakeQueryBuilder(table, rowsByTable, calls, updateCalls) as never;
     },
   };
 
-  return { client, calls };
+  return { client, calls, updateCalls, rowsByTable };
 }
 
 const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
@@ -79,168 +122,86 @@ const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorGlobalRole: 'admin',
 };
 
-describe('phase2 ops checklist', () => {
-  it('builds 3/6/12 month aggregates only from finalized ledger rows', () => {
-    const summary = buildFairnessLedgerSummary([
-      {
-        organization_id: '00000000-0000-0000-0000-000000000001',
-        month: '2025-12',
-        finalized_at: '2025-12-31T09:00:00Z',
-        result_status: 'passed',
-        proof_summary: {
-          weeklyHoursViolations: 1,
-          nnnViolations: 2,
-          nodViolations: 3,
-          minimumRestViolations: 4,
-          staffingShortfalls: 5,
-        },
-        comparison_metrics: {},
-      },
-      {
-        organization_id: '00000000-0000-0000-0000-000000000001',
-        month: '2025-11',
-        finalized_at: '2025-11-30T09:00:00Z',
-        result_status: 'passed',
-        proof_summary: {
-          weeklyHoursViolations: 10,
-          nnnViolations: 20,
-          nodViolations: 30,
-          minimumRestViolations: 40,
-          staffingShortfalls: 50,
-        },
-        comparison_metrics: {},
-      },
-      {
-        organization_id: '00000000-0000-0000-0000-000000000001',
-        month: '2025-09',
-        finalized_at: '2025-09-30T09:00:00Z',
-        result_status: 'passed',
-        proof_summary: {
-          weeklyHoursViolations: 100,
-          nnnViolations: 200,
-          nodViolations: 300,
-          minimumRestViolations: 400,
-          staffingShortfalls: 500,
-        },
-        comparison_metrics: {},
-      },
-      {
-        organization_id: '00000000-0000-0000-0000-000000000001',
-        month: '2025-06',
-        finalized_at: '2025-06-30T09:00:00Z',
-        result_status: 'passed',
-        proof_summary: {
-          weeklyHoursViolations: 1000,
-          nnnViolations: 2000,
-          nodViolations: 3000,
-          minimumRestViolations: 4000,
-          staffingShortfalls: 5000,
-        },
-        comparison_metrics: {},
-      },
-    ]);
+function createBlockedSnapshot(): ChecklistSnapshot {
+  return {
+    organizationId: AUTH_CONTEXT.operatorOrganizationId,
+    organizationName: null,
+    organizationType: null,
+    checklistCursor: 'organization_profile',
+    organizationProfileConfirmedAt: null,
+    scheduleActiveSiteCount: 0,
+    pilotSiteId: null,
+    minimumRestHours: null,
+    shiftCount: 0,
+    siteRequirementCount: 0,
+    employeeCount: 0,
+    hasMonthlyDefaultOffRequestPolicy: false,
+    hasAnnualDefaultOffRequestPolicy: false,
+    scheduleReviewRoute: null,
+    fairnessSummary: [],
+  };
+}
 
-    expect(summary).toEqual([
-      {
-        months: 3,
-        windowStartMonth: '2025-10',
-        windowEndMonth: '2025-12',
-        finalizedVersionCount: 2,
-        proofSummary: {
-          weeklyHoursViolations: 11,
-          nnnViolations: 22,
-          nodViolations: 33,
-          minimumRestViolations: 44,
-          staffingShortfalls: 55,
-        },
-      },
-      {
-        months: 6,
-        windowStartMonth: '2025-07',
-        windowEndMonth: '2025-12',
-        finalizedVersionCount: 3,
-        proofSummary: {
-          weeklyHoursViolations: 111,
-          nnnViolations: 222,
-          nodViolations: 333,
-          minimumRestViolations: 444,
-          staffingShortfalls: 555,
-        },
-      },
-      {
-        months: 12,
-        windowStartMonth: '2025-01',
-        windowEndMonth: '2025-12',
-        finalizedVersionCount: 4,
-        proofSummary: {
-          weeklyHoursViolations: 1111,
-          nnnViolations: 2222,
-          nodViolations: 3333,
-          minimumRestViolations: 4444,
-          staffingShortfalls: 5555,
-        },
-      },
-    ]);
+describe('phase2 ops checklist', () => {
+  it('builds blocked checklist items from empty snapshot state', () => {
+    const response = buildChecklistResponse(createBlockedSnapshot());
+
+    expect(response.ready).toBe(false);
+    expect(response.checklistCursor).toBe('organization_profile');
+    expect(response.items).toHaveLength(5);
+    expect(response.items.find((item) => item.key === 'organization_profile')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        route: '/ops/organization-setup',
+      })
+    );
+    expect(response.items.find((item) => item.key === 'schedule_foundation')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        route: '/schedule/step2',
+      })
+    );
+    expect(response.items.find((item) => item.key === 'employee_roster')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        route: '/schedule/step3',
+      })
+    );
+    expect(response.items.find((item) => item.key === 'off_request_policy')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        route: '/ops/off-request-policy-setup',
+      })
+    );
+    expect(response.items.find((item) => item.key === 'schedule_review')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        route: null,
+      })
+    );
   });
 
-  it('reads the checklist summary from fairness_ledger_monthly only', async () => {
-    const { client, calls } = createRepositoryClient([
-      {
-        organization_id: AUTH_CONTEXT.operatorOrganizationId,
-        month: '2025-12',
-        finalized_at: '2025-12-31T09:00:00Z',
-        result_status: 'passed',
-        proof_summary: {
-          weeklyHoursViolations: 1,
-          nnnViolations: 2,
-          nodViolations: 3,
-          minimumRestViolations: 4,
-          staffingShortfalls: 5,
-        },
-        comparison_metrics: {},
-      },
-    ]);
-
-    const checklist = await getChecklist(client, AUTH_CONTEXT, AUTH_CONTEXT.operatorOrganizationId);
-
-    expect(calls.length).toBeGreaterThan(0);
-    expect(calls.every((call) => call.table === 'fairness_ledger_monthly')).toBe(true);
-    expect(calls.some((call) => call.method === 'select')).toBe(true);
-    expect(calls.some((call) => call.method === 'eq')).toBe(true);
-    expect(calls.some((call) => call.method === 'order')).toBe(true);
-    expect(checklist).toEqual({
+  it('builds ready checklist items and preserves fairness summary as read-only context', () => {
+    const response = buildChecklistResponse({
       organizationId: AUTH_CONTEXT.operatorOrganizationId,
+      organizationName: '서울병원',
+      organizationType: 'hospital',
+      checklistCursor: 'schedule_review',
+      organizationProfileConfirmedAt: '2026-04-09T00:00:00Z',
+      scheduleActiveSiteCount: 1,
+      pilotSiteId: 'site-1',
+      minimumRestHours: 11,
+      shiftCount: 4,
+      siteRequirementCount: 21,
+      employeeCount: 30,
+      hasMonthlyDefaultOffRequestPolicy: true,
+      hasAnnualDefaultOffRequestPolicy: true,
+      scheduleReviewRoute: '/schedule/step5/schedule-2',
       fairnessSummary: [
         {
           months: 3,
-          windowStartMonth: '2025-10',
-          windowEndMonth: '2025-12',
-          finalizedVersionCount: 1,
-          proofSummary: {
-            weeklyHoursViolations: 1,
-            nnnViolations: 2,
-            nodViolations: 3,
-            minimumRestViolations: 4,
-            staffingShortfalls: 5,
-          },
-        },
-        {
-          months: 6,
-          windowStartMonth: '2025-07',
-          windowEndMonth: '2025-12',
-          finalizedVersionCount: 1,
-          proofSummary: {
-            weeklyHoursViolations: 1,
-            nnnViolations: 2,
-            nodViolations: 3,
-            minimumRestViolations: 4,
-            staffingShortfalls: 5,
-          },
-        },
-        {
-          months: 12,
-          windowStartMonth: '2025-01',
-          windowEndMonth: '2025-12',
+          windowStartMonth: '2026-02',
+          windowEndMonth: '2026-04',
           finalizedVersionCount: 1,
           proofSummary: {
             weeklyHoursViolations: 1,
@@ -252,5 +213,251 @@ describe('phase2 ops checklist', () => {
         },
       ],
     });
+
+    expect(response.ready).toBe(true);
+    expect(response.items.every((item) => item.status === 'ready')).toBe(true);
+    expect(response.items.find((item) => item.key === 'schedule_review')).toEqual(
+      expect.objectContaining({
+        status: 'ready',
+        route: '/schedule/step5/schedule-2',
+      })
+    );
+    expect(response.fairnessSummary).toEqual([
+      expect.objectContaining({
+        months: 3,
+        finalizedVersionCount: 1,
+      }),
+    ]);
+  });
+
+  it('derives checklist readiness from repository snapshot tables on GET', async () => {
+    const { client, calls } = createRepositoryClient({
+      organizations: {
+        id: AUTH_CONTEXT.operatorOrganizationId,
+        name: '서울병원',
+        type: 'hospital',
+      },
+      onboarding_progress: {
+        id: 'progress-1',
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        current_step: 3,
+        current_step_key: 'employee_roster',
+        organization_info_confirmed_at: '2026-04-09T00:00:00Z',
+        organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+      },
+      organization_settings: {
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        pilot_site_id: 'site-1',
+        minimum_rest_hours: 11,
+        checklist_cursor: '',
+      },
+      sites: [
+        {
+          id: 'site-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          is_active: true,
+          is_schedule_active: true,
+        },
+      ],
+      shifts: [
+        { id: 'shift-1', code: 'D' },
+      ],
+      site_requirements: [
+        { id: 'req-1', organization_id: AUTH_CONTEXT.operatorOrganizationId },
+      ],
+      employees: [
+        { id: 'emp-1' },
+      ],
+      off_request_policy_rules: [
+        {
+          id: 'policy-monthly',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'monthly',
+          limit_count: 2,
+          is_active: true,
+        },
+        {
+          id: 'policy-annual',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'annual',
+          limit_count: 12,
+          is_active: true,
+        },
+      ],
+      schedules: [
+        {
+          id: 'schedule-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          month: '2026-04',
+          finalized_version_id: null,
+        },
+      ],
+      fairness_ledger_monthly: [
+        {
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          month: '2026-04',
+          finalized_at: '2026-04-30T09:00:00Z',
+          result_status: 'passed',
+          proof_summary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 0,
+          },
+          comparison_metrics: {},
+        },
+        {
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          month: '2026-05',
+          finalized_at: null,
+          result_status: 'draft',
+          proof_summary: {
+            weeklyHoursViolations: 99,
+            nnnViolations: 99,
+            nodViolations: 99,
+            minimumRestViolations: 99,
+            staffingShortfalls: 99,
+          },
+          comparison_metrics: {},
+        },
+      ],
+    });
+
+    const response = await getChecklist(client, AUTH_CONTEXT, AUTH_CONTEXT.operatorOrganizationId);
+
+    expect(response.ready).toBe(true);
+    expect(response.checklistCursor).toBe('employee_roster');
+    expect(response.items.find((item) => item.key === 'schedule_review')).toEqual(
+      expect.objectContaining({
+        status: 'ready',
+        route: '/schedule/step5/schedule-1',
+      })
+    );
+    expect(calls.some((call) => call.table === 'site_requirements')).toBe(true);
+    expect(calls.some((call) => call.table === 'fairness_ledger_monthly')).toBe(true);
+    expect(
+      calls.some((call) =>
+        call.table === 'fairness_ledger_monthly'
+        && call.method === 'eq'
+        && call.args[0] === 'result_status'
+        && call.args[1] === 'passed'
+      )
+    ).toBe(true);
+    expect(response.fairnessSummary.find((item) => item.months === 3)).toEqual(
+      expect.objectContaining({
+        windowEndMonth: '2026-04',
+        finalizedVersionCount: 1,
+        proofSummary: expect.objectContaining({
+          weeklyHoursViolations: 0,
+        }),
+      })
+    );
+  });
+
+  it('normalizes the legacy organization_info cursor on GET', async () => {
+    const { client } = createRepositoryClient({
+      organizations: {
+        id: AUTH_CONTEXT.operatorOrganizationId,
+        name: '서울병원',
+        type: 'hospital',
+      },
+      onboarding_progress: {
+        id: 'progress-legacy',
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        current_step: 1,
+        current_step_key: 'organization_info',
+        organization_info_confirmed_at: null,
+        organization_info_confirmed_by: null,
+      },
+    });
+
+    const response = await getChecklist(client, AUTH_CONTEXT, AUTH_CONTEXT.operatorOrganizationId);
+
+    expect(response.checklistCursor).toBe('organization_profile');
+  });
+
+  it('patches checklist cursor through onboarding_progress and returns the full derived response', async () => {
+    const { client, updateCalls, rowsByTable } = createRepositoryClient({
+      organizations: {
+        id: AUTH_CONTEXT.operatorOrganizationId,
+        name: '서울병원',
+        type: 'hospital',
+      },
+      onboarding_progress: {
+        id: 'progress-1',
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        current_step: 1,
+        current_step_key: 'organization_profile',
+        organization_info_confirmed_at: '2026-04-09T00:00:00Z',
+        organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+      },
+      organization_settings: {
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        pilot_site_id: 'site-1',
+        minimum_rest_hours: 11,
+        checklist_cursor: '',
+      },
+      sites: [
+        {
+          id: 'site-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          is_active: true,
+          is_schedule_active: true,
+        },
+      ],
+      shifts: [{ id: 'shift-1', code: 'D' }],
+      site_requirements: [{ id: 'req-1', organization_id: AUTH_CONTEXT.operatorOrganizationId }],
+      employees: [{ id: 'emp-1' }],
+      off_request_policy_rules: [
+        {
+          id: 'policy-monthly',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'monthly',
+          limit_count: 2,
+          is_active: true,
+        },
+        {
+          id: 'policy-annual',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'annual',
+          limit_count: 12,
+          is_active: true,
+        },
+      ],
+      schedules: [
+        {
+          id: 'schedule-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          month: '2026-04',
+          finalized_version_id: null,
+        },
+      ],
+      fairness_ledger_monthly: [],
+    });
+
+    const response = await updateChecklist(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.operatorOrganizationId,
+      checklistCursor: 'schedule_review',
+    });
+
+    expect(updateCalls).toEqual([
+      {
+        table: 'onboarding_progress',
+        payload: {
+          current_step: 5,
+          current_step_key: 'schedule_review',
+          last_actor_user_id: AUTH_CONTEXT.operatorUserId,
+        },
+        filters: [['organization_id', AUTH_CONTEXT.operatorOrganizationId]],
+      },
+    ]);
+    expect((rowsByTable.onboarding_progress as Record<string, unknown>).current_step_key).toBe('schedule_review');
+    expect(response.checklistCursor).toBe('schedule_review');
+    expect(response.ready).toBe(true);
   });
 });

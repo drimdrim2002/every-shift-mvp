@@ -123,8 +123,33 @@ export interface FairnessLedgerWindowSummary {
   proofSummary: FairnessLedgerProofSummary;
 }
 
+export type ChecklistItemKey =
+  | 'organization_profile'
+  | 'schedule_foundation'
+  | 'employee_roster'
+  | 'off_request_policy'
+  | 'schedule_review';
+
+export type ChecklistItemStatus = 'ready' | 'blocked';
+
+export interface ChecklistItem {
+  key: ChecklistItemKey;
+  title: string;
+  status: ChecklistItemStatus;
+  route: string | null;
+  blockedReason: string | null;
+}
+
+export interface ChecklistUpdateRequest {
+  organizationId: string;
+  checklistCursor: string | null;
+}
+
 export interface ChecklistResponse {
   organizationId: string;
+  checklistCursor: string | null;
+  ready: boolean;
+  items: ChecklistItem[];
   fairnessSummary: FairnessLedgerWindowSummary[];
 }
 
@@ -173,7 +198,7 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
   },
   {
     name: 'checklist',
-    methods: ['GET'],
+    methods: ['GET', 'PATCH'],
     segments: ['checklist'],
   },
 ];
@@ -802,6 +827,77 @@ function parseFairnessLedgerWindowSummary(payload: unknown): FairnessLedgerWindo
   };
 }
 
+function parseChecklistItemKey(value: unknown): ChecklistItemKey {
+  switch (value) {
+    case 'organization_profile':
+    case 'schedule_foundation':
+    case 'employee_roster':
+    case 'off_request_policy':
+    case 'schedule_review':
+      return value;
+    default:
+      throw new ContractError('bad_request', 'checklist item key is invalid', 400);
+  }
+}
+
+function parseChecklistItemStatus(value: unknown): ChecklistItemStatus {
+  switch (value) {
+    case 'ready':
+    case 'blocked':
+      return value;
+    default:
+      throw new ContractError('bad_request', 'checklist item status is invalid', 400);
+  }
+}
+
+function parseChecklistItem(payload: unknown): ChecklistItem {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'checklist item must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const title = typeof record.title === 'string' ? record.title.trim() : '';
+  const route = typeof record.route === 'string' ? record.route.trim() : null;
+  const blockedReason =
+    typeof record.blockedReason === 'string' && record.blockedReason.trim().length > 0
+      ? record.blockedReason.trim()
+      : null;
+
+  if (!title) {
+    throw new ContractError('bad_request', 'checklist item title is required', 400);
+  }
+
+  return {
+    key: parseChecklistItemKey(record.key),
+    title,
+    status: parseChecklistItemStatus(record.status),
+    route: route && route.length > 0 ? route : null,
+    blockedReason,
+  };
+}
+
+export function parseChecklistUpdateRequest(payload: unknown): ChecklistUpdateRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'checklist request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const checklistCursor =
+    typeof record.checklistCursor === 'string' && record.checklistCursor.trim().length > 0
+      ? parseChecklistItemKey(record.checklistCursor.trim())
+      : null;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  return {
+    organizationId,
+    checklistCursor,
+  };
+}
+
 export function parseChecklistResponse(payload: unknown): ChecklistResponse {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw new ContractError('bad_request', 'checklist response must be a JSON object', 400);
@@ -809,6 +905,12 @@ export function parseChecklistResponse(payload: unknown): ChecklistResponse {
 
   const record = payload as Record<string, unknown>;
   const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const checklistCursor =
+    typeof record.checklistCursor === 'string' && record.checklistCursor.trim().length > 0
+      ? parseChecklistItemKey(record.checklistCursor.trim())
+      : null;
+  const ready = record.ready;
+  const items = Array.isArray(record.items) ? record.items.map((item) => parseChecklistItem(item)) : null;
   const fairnessSummary = Array.isArray(record.fairnessSummary)
     ? record.fairnessSummary.map((item) => parseFairnessLedgerWindowSummary(item))
     : null;
@@ -817,12 +919,23 @@ export function parseChecklistResponse(payload: unknown): ChecklistResponse {
     throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
   }
 
+  if (typeof ready !== 'boolean') {
+    throw new ContractError('bad_request', 'ready must be a boolean', 400);
+  }
+
+  if (!items) {
+    throw new ContractError('bad_request', 'items must be an array', 400);
+  }
+
   if (!fairnessSummary) {
     throw new ContractError('bad_request', 'fairnessSummary must be an array', 400);
   }
 
   return {
     organizationId,
+    checklistCursor,
+    ready,
+    items,
     fairnessSummary,
   };
 }

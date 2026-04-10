@@ -12,6 +12,7 @@ import {
   parseBootstrapAdminRequest,
   parseBootstrapAdminResponse,
   parseChecklistResponse,
+  parseChecklistUpdateRequest,
   parseOffRequestPolicySetupRequest,
   parseOffRequestPolicySetupResponse,
   parseJsonBody,
@@ -24,6 +25,7 @@ import {
   getChecklist,
   getOffRequestPolicySetup,
   saveOffRequestPolicySetup,
+  updateChecklist,
   validateEmployeeImport,
 } from './repository.ts';
 
@@ -181,9 +183,18 @@ Deno.serve(async (request) => {
     }
 
     if (route.route === 'checklist') {
-      const organizationId = parseOrganizationIdQueryParam(request);
-      const result = await getChecklist(repositoryClient, auth, organizationId);
-      return createResponse(request, parseChecklistResponse(result), 200);
+      if (method === 'GET') {
+        const organizationId = parseOrganizationIdQueryParam(request);
+        const result = await getChecklist(repositoryClient, auth, organizationId);
+        return createResponse(request, parseChecklistResponse(result), 200);
+      }
+
+      if (method === 'PATCH') {
+        const payload = await parseJsonBody(request);
+        const input = parseChecklistUpdateRequest(payload);
+        const result = await updateChecklist(repositoryClient, auth, input);
+        return createResponse(request, parseChecklistResponse(result), 200);
+      }
     }
 
     return createResponse(request, { code: 'not_found', message: 'Not found' }, 404);
