@@ -243,11 +243,12 @@ Notes:
 
 ### 4.4 Phase2A-2 - Go-Live Ops Layer
 
-Current implementation note:
+Scope note:
 
-- The current implementation revision actively targets the Trust Layer only.
-- `bootstrap` that already exists in code means automatic `V1` schedule-version bootstrap inside a month container, not administrator account onboarding.
-- Rank policy, off-request policy management, rolling fairness ledger writes, and pilot onboarding guidance remain deferred slices.
+- Phase2A-2 completion is defined as an operator-assisted pilot go-live, not a fully self-serve launch.
+- An operator or internal team may provision the first pilot administrator and help complete initial setup.
+- Browser users do not create organizations, invite themselves, or grant themselves access in this phase.
+- `site_requirements` remains the canonical staffing source for schedule generation. `sites` can support pilot metadata and active-site selection, but Phase2A-2 does not migrate staffing to `site_staffing_requirements`.
 
 #### A. Administrator Bootstrap and Initial Operational Setup
 
@@ -284,12 +285,14 @@ Fairness should be managed on a cumulative basis rather than as a single-month m
 - Cumulative N/E/weekend shifts over the last 3 months
 - Cumulative N/E/weekend shifts over the last 6 months
 - Cumulative N/E/weekend shifts over the last 12 months
-- Apply cumulative imbalance to the cost function when generating the next month
+- Read-only cumulative fairness summaries for operator review
 
 Notes:
 
 - The rolling fairness ledger should only be written from finalized versions.
 - Drafts, review-in-progress versions, and compare-only candidates must not pollute the ledger.
+- Phase2A-2 includes finalized-only ledger writes and read-only aggregate summaries.
+- Solver optimization from rolling fairness history is separated into a later phase.
 
 #### D. Pilot Entry Guidance
 
@@ -302,6 +305,22 @@ Notes:
 
 - In Phase2A, a guided checklist is sufficient.
 - A full self-serve onboarding wizard belongs to Phase2B.
+
+#### E. Phase2A-2 Assisted Pilot Scope and Deferred Items
+
+The following items are not missing requirements. They are intentionally deferred because Phase2A-2 is limited to an operator-assisted pilot go-live.
+
+| Item                                                                         | Why deferred from Phase2A-2                                                                                                            | Next-step direction                                                                                                |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Solver consumption of rolling fairness context                               | Phase2A-2 records finalized-only ledger data and exposes read-only summaries, but does not tune solver behavior from that history yet. | Reopen after ledger integrity and finalized-history semantics are proven in pilot usage.                           |
+| Canonical migration from `site_requirements` to `site_staffing_requirements` | Switching the staffing source during pilot setup would risk duplicate scheduling inputs.                                               | Evaluate only when a multi-site or richer staffing model requires a new canonical source.                          |
+| Reopen/unfinalize or fairness correction workflow                            | Phase2A-2 keeps finalized months read-only and avoids changing the Trust Layer finalization lifecycle.                                 | Define reversal semantics, audit trail, and ledger correction rules before allowing finalized schedules to reopen. |
+| Self-signup or invite-driven onboarding                                      | Assisted pilot launch can rely on operator-provisioned access and does not need self-serve acquisition flows.                          | Move to Phase2B self-serve onboarding once hospitals need to create their own organizations and users.             |
+| Approval queue semantics                                                     | There is no end-user approval queue in the assisted pilot scope.                                                                       | Add only when self-signup, invite acceptance, or organization membership requests exist.                           |
+| Membership-based auth rewrite                                                | Existing organization-scoped access is sufficient for assisted pilot operations.                                                       | Revisit when multi-organization membership, invite flows, or per-organization role assignment becomes necessary.   |
+| Full RBAC                                                                    | Phase2A-2 requires narrow operator/admin access, not a complete permission matrix.                                                     | Expand with Phase2B scale-up needs across super/admin/user roles and multi-organization administration.            |
+| Advanced operations dashboard or analytics                                   | Phase2A-2 needs a guided readiness checklist, not a broad analytics surface.                                                           | Build after pilot metrics prove which operational questions must be answered repeatedly.                           |
+| Any Phase2B self-serve feature                                               | Phase2B is the self-serve and scale-up stage, separate from the assisted pilot go-live.                                                | Keep in Phase2B unless a pilot-blocking dependency is explicitly proven.                                           |
 
 ### 4.5 Phase2A Success Criteria
 
@@ -334,11 +353,6 @@ Go-Live Ops Layer deliverables:
 - Administrator bootstrap and pilot entry guidance
 - An off-request policy-management surface
 - A cumulative fairness data structure based on rolling fairness
-
-Current implementation note:
-
-- In the current revision, the active implementation target is the Trust Layer.
-- Go-Live Ops Layer items remain planned but deferred.
 
 ### 4.7 Engineering-Ready Rules
 
