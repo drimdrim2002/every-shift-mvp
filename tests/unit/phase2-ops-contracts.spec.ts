@@ -190,6 +190,31 @@ describe('phase2 ops contracts', () => {
     expect(allowedMethods('offRequestPolicies' as any)).toEqual(['GET', 'PUT']);
   });
 
+  it('matches organization foundation routes used by the browser API', () => {
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-ops/organization-profile'))
+    ).toEqual({
+      route: 'organizationProfile',
+      params: {},
+    });
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-ops/sites'))
+    ).toEqual({
+      route: 'sites',
+      params: {},
+    });
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-ops/shifts-constraints'))
+    ).toEqual({
+      route: 'shiftsConstraints',
+      params: {},
+    });
+
+    expect(allowedMethods('organizationProfile' as any)).toEqual(['GET', 'PATCH']);
+    expect(allowedMethods('sites' as any)).toEqual(['GET', 'PUT']);
+    expect(allowedMethods('shiftsConstraints' as any)).toEqual(['GET', 'PUT']);
+  });
+
   it('parses off-request policy setup payloads with rank codes and policy rules', () => {
     expect(
       (phase2OpsContracts as any).parseOffRequestPolicySetupRequest({

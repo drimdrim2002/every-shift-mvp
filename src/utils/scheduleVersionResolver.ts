@@ -56,6 +56,14 @@ export function resolveStep4VersionState(
   selectedVersionId: string | null;
   previewVersionId: string | null;
   versions: ScheduleVersionSummary[];
+}
+export function resolveStep4VersionState(
+  compare: ScheduleCompareResponse,
+  preferredPreviewVersionId?: string | null
+): {
+  selectedVersionId: string | null;
+  previewVersionId: string | null;
+  versions: ScheduleVersionSummary[];
 } {
   let previewVersionId = hasVersionId(compare.versions, preferredPreviewVersionId ?? null)
     ? preferredPreviewVersionId ?? null

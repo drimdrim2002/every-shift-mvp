@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { resolveOperatorAuthContext } from './auth.ts';
+import { resolveOperatorAuthContext, resolvePhase2OpsAuthContext } from './auth.ts';
 import {
   allowedMethods,
   ContractError,
@@ -13,18 +13,31 @@ import {
   parseBootstrapAdminResponse,
   parseChecklistResponse,
   parseChecklistUpdateRequest,
+  parseOrganizationProfileRequest,
+  parseOrganizationProfileResponse,
+  parseSitesRequest,
+  parseSitesResponse,
+  parseShiftsConstraintsRequest,
+  parseShiftsConstraintsResponse,
   parseOffRequestPolicySetupRequest,
   parseOffRequestPolicySetupResponse,
   parseJsonBody,
   type ErrorEnvelope,
   type HttpMethod,
 } from './contracts.ts';
+import { createCorsHeaders } from './cors.ts';
 import {
   applyEmployeeImport,
   bootstrapAdmin,
   getChecklist,
   getOffRequestPolicySetup,
+  getOrganizationProfile,
+  getShiftsConstraints,
+  getSites,
   saveOffRequestPolicySetup,
+  saveOrganizationProfile,
+  saveShiftsConstraints,
+  saveSites,
   updateChecklist,
   validateEmployeeImport,
 } from './repository.ts';
@@ -32,17 +45,28 @@ import {
 type ApiResponseBody =
   | ErrorEnvelope
   | ReturnType<typeof parseBootstrapAdminResponse>
+  | ReturnType<typeof parseOrganizationProfileResponse>
+  | ReturnType<typeof parseSitesResponse>
+  | ReturnType<typeof parseShiftsConstraintsResponse>
   | ReturnType<typeof parseEmployeeImportValidateResponse>
   | ReturnType<typeof parseEmployeeImportApplyResponse>
   | ReturnType<typeof parseOffRequestPolicySetupResponse>
   | ReturnType<typeof parseChecklistResponse>;
 
-function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
+function withCorsHeaders(request: Request, init: ResponseInit = {}): ResponseInit {
+  return {
+    ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...createCorsHeaders(request),
+      ...(init.headers || {}),
     },
+  };
+}
+
+function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    ...withCorsHeaders(request, { status }),
   });
 }
 
@@ -126,6 +150,10 @@ function createRepositoryClient() {
 }
 
 Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, withCorsHeaders(request, { status: 200 }));
+  }
+
   const route = matchRoute(normalizePathSegments(new URL(request.url).pathname));
 
   if (!route) {
@@ -144,13 +172,60 @@ Deno.serve(async (request) => {
 
     const authClient = createAuthClient();
     const repositoryClient = createRepositoryClient();
-    const auth = await resolveOperatorAuthContext(authClient, repositoryClient, request);
+    const auth = route.route === 'bootstrapAdmin'
+      ? await resolveOperatorAuthContext(authClient, repositoryClient, request)
+      : await resolvePhase2OpsAuthContext(authClient, repositoryClient, request);
 
     if (route.route === 'bootstrapAdmin') {
       const payload = await parseJsonBody(request);
       const input = parseBootstrapAdminRequest(payload);
       const result = await bootstrapAdmin(repositoryClient, auth, input);
       return createResponse(request, parseBootstrapAdminResponse(result), 200);
+    }
+
+    if (route.route === 'organizationProfile') {
+      if (method === 'GET') {
+        const organizationId = parseOrganizationIdQueryParam(request);
+        const result = await getOrganizationProfile(repositoryClient, auth, organizationId);
+        return createResponse(request, parseOrganizationProfileResponse(result), 200);
+      }
+
+      if (method === 'PATCH') {
+        const payload = await parseJsonBody(request);
+        const input = parseOrganizationProfileRequest(payload);
+        const result = await saveOrganizationProfile(repositoryClient, auth, input);
+        return createResponse(request, parseOrganizationProfileResponse(result), 200);
+      }
+    }
+
+    if (route.route === 'sites') {
+      if (method === 'GET') {
+        const organizationId = parseOrganizationIdQueryParam(request);
+        const result = await getSites(repositoryClient, auth, organizationId);
+        return createResponse(request, parseSitesResponse(result), 200);
+      }
+
+      if (method === 'PUT') {
+        const payload = await parseJsonBody(request);
+        const input = parseSitesRequest(payload);
+        const result = await saveSites(repositoryClient, auth, input);
+        return createResponse(request, parseSitesResponse(result), 200);
+      }
+    }
+
+    if (route.route === 'shiftsConstraints') {
+      if (method === 'GET') {
+        const organizationId = parseOrganizationIdQueryParam(request);
+        const result = await getShiftsConstraints(repositoryClient, auth, organizationId);
+        return createResponse(request, parseShiftsConstraintsResponse(result), 200);
+      }
+
+      if (method === 'PUT') {
+        const payload = await parseJsonBody(request);
+        const input = parseShiftsConstraintsRequest(payload);
+        const result = await saveShiftsConstraints(repositoryClient, auth, input);
+        return createResponse(request, parseShiftsConstraintsResponse(result), 200);
+      }
     }
 
     if (route.route === 'employeeImportValidate') {

@@ -12,11 +12,19 @@ import {
   type EmployeeImportPreviewEmployee,
   type EmployeeImportPreviewResponse,
   type EmployeeImportRequest,
+  type OrganizationProfileRequest,
+  type OrganizationProfileResponse,
   type OffRequestPolicyPeriodType,
   type OffRequestPolicyRankCodeRecord,
   type OffRequestPolicyRuleRecord,
   type OffRequestPolicySetupRequest,
   type OffRequestPolicySetupResponse,
+  type ShiftsConstraintsRequest,
+  type ShiftsConstraintsResponse,
+  type SiteRequest,
+  type SiteResponse,
+  type SitesRequest,
+  type SitesResponse,
 } from './contracts.ts';
 import {
   emitPhase2OpsEvent,
@@ -93,6 +101,8 @@ interface OrganizationRow {
 interface SiteRow {
   id: string;
   organization_id: string;
+  code: string;
+  name: string;
   is_active: boolean;
   is_schedule_active: boolean;
 }
@@ -386,6 +396,37 @@ function assertBootstrapOrganizationAccess(
   if (
     auth.operatorGlobalRole === 'admin' &&
     auth.operatorOrganizationId &&
+    auth.operatorOrganizationId === organizationId
+  ) {
+    return;
+  }
+
+  throw new ContractError(
+    'organization_access_denied',
+    'Authenticated user is not authorized for the requested organization',
+    403
+  );
+}
+
+function assertOrganizationAccess(
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): void {
+  if (auth.operatorGlobalRole === 'super') {
+    return;
+  }
+
+  if (
+    auth.operatorGlobalRole === 'admin' &&
+    auth.operatorOrganizationId &&
+    auth.operatorOrganizationId === organizationId
+  ) {
+    return;
+  }
+
+  if (
+    auth.operatorRole === 'admin' &&
+    auth.operatorStatus === 'active' &&
     auth.operatorOrganizationId === organizationId
   ) {
     return;
@@ -845,7 +886,10 @@ function ensureNoOffRequestPolicyOverlap(request: OffRequestPolicySetupRequest):
 
 function ensureOffRequestPolicyRuleRankCodesExist(request: OffRequestPolicySetupRequest): void {
   const availableRankCodes = new Set(
-    request.rankCodes.map((rankCode) => rankCode.code.trim()).filter((code) => code.length > 0)
+    request.rankCodes
+      .filter((rankCode) => rankCode.isActive)
+      .map((rankCode) => rankCode.code.trim())
+      .filter((code) => code.length > 0)
   );
 
   for (const rule of request.policyRules) {
@@ -857,7 +901,7 @@ function ensureOffRequestPolicyRuleRankCodesExist(request: OffRequestPolicySetup
     if (!availableRankCodes.has(normalizedRankCode)) {
       throw new ContractError(
         'bad_request',
-        `Unknown rank code in off-request policy rule: ${normalizedRankCode}`,
+        `Unknown or inactive rank code in off-request policy rule: ${normalizedRankCode}`,
         400
       );
     }
@@ -1025,12 +1069,279 @@ function toPolicyRuleInsertPayload(request: OffRequestPolicySetupRequest): Recor
   }));
 }
 
+function toSiteResponse(row: SiteRow): SiteResponse {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    code: row.code,
+    name: row.name,
+    isActive: row.is_active,
+    isScheduleActive: row.is_schedule_active,
+  };
+}
+
+async function loadOpsSites(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string
+): Promise<SiteRow[]> {
+  const result = await client
+    .from('sites')
+    .select('id, organization_id, code, name, is_active, is_schedule_active')
+    .eq('organization_id', organizationId)
+    .order('code', { ascending: true });
+
+  if ((result as QueryResult<SiteRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<SiteRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return Array.isArray((result as QueryResult<SiteRow[]>).data)
+    ? ((result as QueryResult<SiteRow[]>).data ?? [])
+    : [];
+}
+
+function assertExactlyOneScheduleActiveSite(sites: SiteRequest[]): void {
+  const activeCount = sites.filter((site) => site.isScheduleActive === true).length;
+
+  if (activeCount !== 1) {
+    throw new ContractError('bad_request', 'Exactly one schedule-active site is required', 400);
+  }
+}
+
+function toSiteUpsertPayload(request: SitesRequest): Record<string, unknown>[] {
+  return request.sites.map((site) => ({
+    organization_id: request.organizationId,
+    code: site.code,
+    name: site.name,
+    is_active: site.isActive,
+    is_schedule_active: site.isScheduleActive,
+  }));
+}
+
+export async function getOrganizationProfile(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<OrganizationProfileResponse> {
+  assertOrganizationAccess(auth, organizationId);
+  const organization = await loadChecklistOrganization(client, organizationId);
+
+  if (!organization) {
+    throw new ContractError('not_found', 'Organization not found', 404);
+  }
+
+  return {
+    organizationId: organization.id,
+    name: organization.name ?? '',
+    type: organization.type ?? '',
+  };
+}
+
+export async function saveOrganizationProfile(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: OrganizationProfileRequest
+): Promise<OrganizationProfileResponse> {
+  assertOrganizationAccess(auth, request.organizationId);
+
+  const { error } = await client
+    .from('organizations')
+    .update({
+      name: request.name,
+      type: request.type,
+    })
+    .eq('id', request.organizationId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+
+  await ensureOnboardingProgress(client, auth, request.organizationId);
+
+  const progressResult = await client
+    .from('onboarding_progress')
+    .update({
+      current_step: mapChecklistCursorToStep('schedule_foundation'),
+      current_step_key: 'schedule_foundation',
+      organization_info_confirmed_at: new Date().toISOString(),
+      organization_info_confirmed_by: auth.operatorUserId,
+      last_actor_user_id: auth.operatorUserId,
+    })
+    .eq('organization_id', request.organizationId);
+
+  if (progressResult.error) {
+    throw new ContractError('internal_error', progressResult.error.message, 500);
+  }
+
+  return {
+    organizationId: request.organizationId,
+    name: request.name,
+    type: request.type,
+  };
+}
+
+export async function getSites(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<SitesResponse> {
+  assertOrganizationAccess(auth, organizationId);
+  const [settings, sites] = await Promise.all([
+    loadOrganizationSettings(client, organizationId),
+    loadOpsSites(client, organizationId),
+  ]);
+
+  return {
+    organizationId,
+    pilotSiteId: settings?.pilot_site_id ?? null,
+    sites: sites.map((site) => toSiteResponse(site)),
+  };
+}
+
+export async function saveSites(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: SitesRequest
+): Promise<SitesResponse> {
+  assertOrganizationAccess(auth, request.organizationId);
+  assertExactlyOneScheduleActiveSite(request.sites);
+
+  const [settings, existingSites] = await Promise.all([
+    loadOrganizationSettings(client, request.organizationId),
+    loadOpsSites(client, request.organizationId),
+  ]);
+  const activeSiteRequest = request.sites.find((site) => site.isScheduleActive);
+  const currentActiveSite = existingSites.find((site) => site.is_schedule_active);
+
+  if (
+    settings?.pilot_site_id &&
+    currentActiveSite &&
+    activeSiteRequest &&
+    currentActiveSite.code !== activeSiteRequest.code
+  ) {
+    throw new ContractError(
+      'bad_request',
+      'Changing the schedule-active pilot site code is not supported in Phase2A',
+      400
+    );
+  }
+
+  if (!settings) {
+    const resetActiveResult = await client
+      .from('sites')
+      .update({ is_schedule_active: false })
+      .eq('organization_id', request.organizationId);
+
+    if (resetActiveResult.error) {
+      throw new ContractError('internal_error', resetActiveResult.error.message, 500);
+    }
+  }
+
+  const upsertResult = await (client.from('sites') as any)
+    .upsert(toSiteUpsertPayload(request), { onConflict: 'organization_id,code' })
+    .select('id, organization_id, code, name, is_active, is_schedule_active');
+
+  if ((upsertResult as QueryResult<SiteRow[]>).error) {
+    throw new ContractError(
+      'internal_error',
+      (upsertResult as QueryResult<SiteRow[]>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const savedSites = Array.isArray((upsertResult as QueryResult<SiteRow[]>).data)
+    ? ((upsertResult as QueryResult<SiteRow[]>).data ?? [])
+    : [];
+  const activeSite = savedSites.find((site) => site.is_schedule_active);
+
+  if (!activeSite) {
+    throw new ContractError('internal_error', 'Schedule-active site was not saved', 500);
+  }
+
+  const settingsPayload = {
+    organization_id: request.organizationId,
+    pilot_site_id: activeSite.id,
+    minimum_rest_hours: settings?.minimum_rest_hours ?? 11,
+    checklist_cursor: normalizeChecklistCursor(settings?.checklist_cursor) ?? 'employee_roster',
+  };
+  const settingsResult = await (client.from('organization_settings') as any)
+    .upsert(settingsPayload, { onConflict: 'organization_id' });
+
+  if ((settingsResult as QueryResult<unknown>).error) {
+    throw new ContractError(
+      'internal_error',
+      (settingsResult as QueryResult<unknown>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  return {
+    organizationId: request.organizationId,
+    pilotSiteId: activeSite.id,
+    sites: savedSites.map((site) => toSiteResponse(site)),
+  };
+}
+
+export async function getShiftsConstraints(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<ShiftsConstraintsResponse> {
+  assertOrganizationAccess(auth, organizationId);
+  const settings = await loadOrganizationSettings(client, organizationId);
+
+  return {
+    organizationId,
+    minimumRestHours: settings?.minimum_rest_hours ?? 11,
+    checklistCursor: normalizeChecklistCursor(settings?.checklist_cursor) ?? '',
+  };
+}
+
+export async function saveShiftsConstraints(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: ShiftsConstraintsRequest
+): Promise<ShiftsConstraintsResponse> {
+  assertOrganizationAccess(auth, request.organizationId);
+  const settings = await loadOrganizationSettings(client, request.organizationId);
+
+  if (!settings?.pilot_site_id) {
+    throw new ContractError(
+      'bad_request',
+      'A schedule-active pilot site is required before saving shift constraints',
+      400
+    );
+  }
+
+  const normalizedCursor = normalizeChecklistCursor(request.checklistCursor) ?? 'employee_roster';
+  const { error } = await client
+    .from('organization_settings')
+    .update({
+      minimum_rest_hours: request.minimumRestHours,
+      checklist_cursor: normalizedCursor,
+    })
+    .eq('organization_id', request.organizationId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+
+  return {
+    organizationId: request.organizationId,
+    minimumRestHours: request.minimumRestHours,
+    checklistCursor: normalizedCursor,
+  };
+}
+
 export async function getOffRequestPolicySetup(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
 ): Promise<OffRequestPolicySetupResponse> {
-  assertBootstrapOrganizationAccess(auth, organizationId);
+  assertOrganizationAccess(auth, organizationId);
   return loadOffRequestPolicySetupRows(client, organizationId);
 }
 
@@ -1039,7 +1350,7 @@ export async function saveOffRequestPolicySetup(
   auth: Phase2OpsOperatorAuthContext,
   request: OffRequestPolicySetupRequest
 ): Promise<OffRequestPolicySetupResponse> {
-  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  assertOrganizationAccess(auth, request.organizationId);
   const normalizedRequest = normalizeOffRequestPolicySetupRequest(request);
   ensureOffRequestPolicyRuleRankCodesExist(normalizedRequest);
   ensureNoOffRequestPolicyOverlap(normalizedRequest);
@@ -1291,7 +1602,7 @@ async function loadChecklistSites(
 ): Promise<SiteRow[]> {
   const result = await client
     .from('sites')
-    .select('id, organization_id, is_active, is_schedule_active')
+    .select('id, organization_id, code, name, is_active, is_schedule_active')
     .eq('organization_id', organizationId);
 
   if ((result as QueryResult<SiteRow[]>).error) {
@@ -1524,7 +1835,7 @@ export async function getChecklist(
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
 ): Promise<ChecklistResponse> {
-  assertBootstrapOrganizationAccess(auth, organizationId);
+  assertOrganizationAccess(auth, organizationId);
   return buildChecklistResponse(await loadChecklistSnapshot(client, organizationId));
 }
 
@@ -1533,7 +1844,7 @@ export async function updateChecklist(
   auth: Phase2OpsOperatorAuthContext,
   request: ChecklistUpdateRequest
 ): Promise<ChecklistResponse> {
-  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  assertOrganizationAccess(auth, request.organizationId);
   await saveChecklistCursor(client, auth, request.organizationId, request.checklistCursor);
   return buildChecklistResponse(await loadChecklistSnapshot(client, request.organizationId));
 }
@@ -1573,7 +1884,7 @@ export async function validateEmployeeImport(
   auth: Phase2OpsOperatorAuthContext,
   request: EmployeeImportRequest
 ): Promise<EmployeeImportPreviewResponse> {
-  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  assertOrganizationAccess(auth, request.organizationId);
   const state = await validateEmployeeImportRequest(client, request);
   return toEmployeeImportPreviewResponse(state);
 }
@@ -1583,7 +1894,7 @@ export async function applyEmployeeImport(
   auth: Phase2OpsOperatorAuthContext,
   request: EmployeeImportRequest
 ): Promise<EmployeeImportApplyResponse> {
-  assertBootstrapOrganizationAccess(auth, request.organizationId);
+  assertOrganizationAccess(auth, request.organizationId);
   const state = await validateEmployeeImportRequest(client, request);
 
   if (!state.isValid) {

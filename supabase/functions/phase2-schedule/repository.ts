@@ -744,6 +744,7 @@ async function loadCanonicalAnnualPreferenceCounts(
       .from('schedule_preferences')
       .select('employee_id')
       .in('schedule_version_id', finalizedVersionIds)
+      .eq('request_code', 'O')
   );
 
   const countsByEmployeeId = new Map<string, number>();
@@ -879,6 +880,15 @@ async function refreshOffRequestPolicyResults(
   });
 
   for (const preference of sortedPreferences) {
+    if (preference.request_code !== 'O') {
+      policyUpdates.push({
+        id: preference.id,
+        policy_check_status: null,
+        policy_rejection_reason: null,
+      });
+      continue;
+    }
+
     const rankCode = rankCodeByEmployeeId.get(preference.employee_id) ?? null;
     const monthlyRule = resolveApplicableOffRequestPolicyRule(
       normalizedPolicyRules,

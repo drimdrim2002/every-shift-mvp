@@ -1188,7 +1188,43 @@ describe('phase2 ops repository', () => {
       })
     ).rejects.toMatchObject({
       code: 'bad_request',
-      message: 'Unknown rank code in off-request policy rule: RN',
+      message: 'Unknown or inactive rank code in off-request policy rule: RN',
+      status: 400,
+    });
+
+    expect(deleteCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it('rejects off-request policy rules that reference inactive rank codes before any writes', async () => {
+    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+      rankCodes: [],
+      policyRules: [],
+    });
+
+    await expect(
+      (phase2OpsRepository as any).saveOffRequestPolicySetup(client, AUTH_CONTEXT, {
+        organizationId: POLICY_ORGANIZATION_ID,
+        rankCodes: [
+          {
+            code: 'RN',
+            label: 'Registered Nurse',
+            displayOrder: 1,
+            isActive: false,
+          },
+        ],
+        policyRules: [
+          {
+            rankCode: 'RN',
+            periodType: 'monthly',
+            limitCount: 4,
+            isActive: true,
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      message: 'Unknown or inactive rank code in off-request policy rule: RN',
       status: 400,
     });
 

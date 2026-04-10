@@ -213,15 +213,14 @@ const periodOptions = [
   { label: '연간', value: 'annual' },
 ];
 
-const rankOptions = computed(() => [
-  { label: '조직 기본', value: null },
-  ...localRankCodes.value
+const rankOptions = computed(() =>
+  localRankCodes.value
     .filter((rankCode) => rankCode.isActive)
     .map((rankCode) => ({
       label: `${rankCode.code} · ${rankCode.label}`,
       value: rankCode.code,
-    })),
-]);
+    }))
+);
 
 function createEmptyRankCode(): RankCodeDraft {
   return {

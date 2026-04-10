@@ -1024,6 +1024,19 @@ describe('phase2 schedule repository', () => {
               resolved_at: null,
             },
             {
+              id: 'pref-holiday',
+              schedule_id: 'schedule-recheck',
+              schedule_version_id: 'version-recheck',
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              request_code: 'H',
+              request_note: null,
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+            },
+            {
               id: 'pref-2',
               schedule_id: 'schedule-recheck',
               schedule_version_id: 'version-recheck',
@@ -1136,6 +1149,11 @@ describe('phase2 schedule repository', () => {
         expect.objectContaining({
           id: 'pref-1',
           policy_check_status: 'passed',
+          policy_rejection_reason: null,
+        }),
+        expect.objectContaining({
+          id: 'pref-holiday',
+          policy_check_status: null,
           policy_rejection_reason: null,
         }),
         expect.objectContaining({

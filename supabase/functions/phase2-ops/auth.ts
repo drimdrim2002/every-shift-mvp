@@ -17,6 +17,8 @@ interface Phase2OpsGetUserResult {
 
 interface OperatorProfileRow {
   global_role: string | null;
+  role: string | null;
+  status: string | null;
   account_status: string | null;
   organization_id: string | null;
 }
@@ -46,9 +48,12 @@ export interface Phase2OpsOperatorAuthContext {
   operatorUserId: string;
   operatorOrganizationId: string | null;
   operatorGlobalRole: string;
+  operatorRole?: string | null;
+  operatorStatus?: string | null;
+  operatorAccountStatus?: string | null;
 }
 
-export async function resolveOperatorAuthContext(
+async function resolveAuthenticatedProfileContext(
   authClient: Phase2OpsAuthClient,
   repositoryClient: Phase2OpsAuthRepositoryClient,
   request: Request
@@ -62,7 +67,7 @@ export async function resolveOperatorAuthContext(
 
   const { data: profile, error: profileError } = await repositoryClient
     .from('profiles')
-    .select('global_role, account_status, organization_id')
+    .select('global_role, role, status, account_status, organization_id')
     .eq('id', data.user.id)
     .limit(1)
     .maybeSingle();
@@ -72,12 +77,14 @@ export async function resolveOperatorAuthContext(
   }
 
   const globalRole = profile?.global_role?.trim() ?? '';
+  const role = profile?.role?.trim() ?? '';
+  const status = profile?.status?.trim() ?? '';
   const accountStatus = profile?.account_status?.trim() ?? '';
 
-  if (!profile || !['super', 'admin'].includes(globalRole) || accountStatus !== 'active') {
+  if (!profile || accountStatus !== 'active') {
     throw new ContractError(
       'organization_access_denied',
-      'Authenticated user is not authorized to bootstrap pilot admins',
+      'Authenticated user is not active for phase2 ops',
       403
     );
   }
@@ -86,5 +93,34 @@ export async function resolveOperatorAuthContext(
     operatorUserId: data.user.id,
     operatorOrganizationId: profile.organization_id,
     operatorGlobalRole: globalRole,
+    operatorRole: role || null,
+    operatorStatus: status || null,
+    operatorAccountStatus: accountStatus || null,
   };
+}
+
+export async function resolvePhase2OpsAuthContext(
+  authClient: Phase2OpsAuthClient,
+  repositoryClient: Phase2OpsAuthRepositoryClient,
+  request: Request
+): Promise<Phase2OpsOperatorAuthContext> {
+  return resolveAuthenticatedProfileContext(authClient, repositoryClient, request);
+}
+
+export async function resolveOperatorAuthContext(
+  authClient: Phase2OpsAuthClient,
+  repositoryClient: Phase2OpsAuthRepositoryClient,
+  request: Request
+): Promise<Phase2OpsOperatorAuthContext> {
+  const auth = await resolveAuthenticatedProfileContext(authClient, repositoryClient, request);
+
+  if (!['super', 'admin'].includes(auth.operatorGlobalRole)) {
+    throw new ContractError(
+      'organization_access_denied',
+      'Authenticated user is not authorized to bootstrap pilot admins',
+      403
+    );
+  }
+
+  return auth;
 }
