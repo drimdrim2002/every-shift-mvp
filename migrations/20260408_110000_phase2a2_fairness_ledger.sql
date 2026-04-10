@@ -20,6 +20,196 @@ CREATE TABLE IF NOT EXISTS fairness_ledger_monthly (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE fairness_ledger_monthly
+  ADD COLUMN IF NOT EXISTS finalized_version_id UUID,
+  ADD COLUMN IF NOT EXISTS finalized_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS finalized_by UUID,
+  ADD COLUMN IF NOT EXISTS evaluation_id UUID,
+  ADD COLUMN IF NOT EXISTS result_status TEXT,
+  ADD COLUMN IF NOT EXISTS proof_summary JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS comparison_metrics JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS finalization_gate JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS snapshot JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'employee_id'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ALTER COLUMN employee_id DROP NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'schedule_version_id'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ALTER COLUMN schedule_version_id DROP NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'night_count'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ALTER COLUMN night_count DROP NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'evening_count'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ALTER COLUMN evening_count DROP NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'weekend_count'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ALTER COLUMN weekend_count DROP NOT NULL;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fairness_ledger_monthly'
+      AND column_name = 'schedule_version_id'
+  ) THEN
+    EXECUTE $sql$
+      UPDATE fairness_ledger_monthly flm
+      SET
+        finalized_version_id = COALESCE(flm.finalized_version_id, s.finalized_version_id, flm.schedule_version_id),
+        finalized_at = COALESCE(flm.finalized_at, s.finalized_at, flm.created_at, NOW()),
+        finalized_by = COALESCE(flm.finalized_by, s.finalized_by),
+        result_status = COALESCE(flm.result_status, 'passed'),
+        proof_summary = COALESCE(flm.proof_summary, '{}'::jsonb),
+        comparison_metrics = COALESCE(flm.comparison_metrics, '{}'::jsonb),
+        finalization_gate = COALESCE(flm.finalization_gate, '{}'::jsonb),
+        snapshot = COALESCE(flm.snapshot, '{}'::jsonb),
+        created_at = COALESCE(flm.created_at, NOW())
+      FROM schedules s
+      WHERE s.id = flm.schedule_id
+        AND flm.finalized_version_id IS NULL
+    $sql$;
+  ELSE
+    UPDATE fairness_ledger_monthly flm
+    SET
+      finalized_version_id = COALESCE(flm.finalized_version_id, s.finalized_version_id),
+      finalized_at = COALESCE(flm.finalized_at, s.finalized_at, flm.created_at, NOW()),
+      finalized_by = COALESCE(flm.finalized_by, s.finalized_by),
+      result_status = COALESCE(flm.result_status, 'passed'),
+      proof_summary = COALESCE(flm.proof_summary, '{}'::jsonb),
+      comparison_metrics = COALESCE(flm.comparison_metrics, '{}'::jsonb),
+      finalization_gate = COALESCE(flm.finalization_gate, '{}'::jsonb),
+      snapshot = COALESCE(flm.snapshot, '{}'::jsonb),
+      created_at = COALESCE(flm.created_at, NOW())
+    FROM schedules s
+    WHERE s.id = flm.schedule_id
+      AND flm.finalized_version_id IS NULL;
+  END IF;
+END $$;
+
+ALTER TABLE fairness_ledger_monthly
+  ALTER COLUMN proof_summary SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN proof_summary SET NOT NULL,
+  ALTER COLUMN comparison_metrics SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN comparison_metrics SET NOT NULL,
+  ALTER COLUMN finalization_gate SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN finalization_gate SET NOT NULL,
+  ALTER COLUMN snapshot SET DEFAULT '{}'::jsonb,
+  ALTER COLUMN snapshot SET NOT NULL,
+  ALTER COLUMN created_at SET DEFAULT NOW(),
+  ALTER COLUMN created_at SET NOT NULL;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM fairness_ledger_monthly
+    WHERE finalized_version_id IS NULL
+      OR finalized_at IS NULL
+      OR evaluation_id IS NULL
+      OR result_status IS NULL
+  ) THEN
+    RAISE EXCEPTION USING
+      ERRCODE = 'P0001',
+      MESSAGE = 'fairness_ledger_monthly_legacy_rows_require_manual_migration';
+  END IF;
+END $$;
+
+ALTER TABLE fairness_ledger_monthly
+  ALTER COLUMN finalized_version_id SET NOT NULL,
+  ALTER COLUMN finalized_at SET NOT NULL,
+  ALTER COLUMN evaluation_id SET NOT NULL,
+  ALTER COLUMN result_status SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fairness_ledger_monthly_finalized_version_id_key'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ADD CONSTRAINT fairness_ledger_monthly_finalized_version_id_key
+      UNIQUE (finalized_version_id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fairness_ledger_monthly_finalized_version_id_fkey'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ADD CONSTRAINT fairness_ledger_monthly_finalized_version_id_fkey
+      FOREIGN KEY (finalized_version_id)
+      REFERENCES schedule_versions(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'fairness_ledger_monthly_evaluation_id_fkey'
+  ) THEN
+    ALTER TABLE fairness_ledger_monthly
+      ADD CONSTRAINT fairness_ledger_monthly_evaluation_id_fkey
+      FOREIGN KEY (evaluation_id)
+      REFERENCES schedule_evaluations(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS fairness_ledger_monthly_organization_month_idx
   ON fairness_ledger_monthly (organization_id, month, finalized_at DESC);
 

@@ -127,6 +127,49 @@ CREATE TABLE IF NOT EXISTS organization_rank_codes (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE organization_rank_codes
+  ADD COLUMN IF NOT EXISTS display_order INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'organization_rank_codes'
+      AND column_name = 'sort_order'
+  ) THEN
+    EXECUTE $sql$
+      UPDATE organization_rank_codes
+      SET
+        display_order = COALESCE(display_order, sort_order, 0),
+        is_active = COALESCE(is_active, TRUE),
+        created_at = COALESCE(created_at, NOW()),
+        updated_at = COALESCE(updated_at, NOW())
+    $sql$;
+  ELSE
+    UPDATE organization_rank_codes
+    SET
+      display_order = COALESCE(display_order, 0),
+      is_active = COALESCE(is_active, TRUE),
+      created_at = COALESCE(created_at, NOW()),
+      updated_at = COALESCE(updated_at, NOW());
+  END IF;
+END $$;
+
+ALTER TABLE organization_rank_codes
+  ALTER COLUMN display_order SET DEFAULT 0,
+  ALTER COLUMN display_order SET NOT NULL,
+  ALTER COLUMN is_active SET DEFAULT TRUE,
+  ALTER COLUMN is_active SET NOT NULL,
+  ALTER COLUMN created_at SET DEFAULT NOW(),
+  ALTER COLUMN created_at SET NOT NULL,
+  ALTER COLUMN updated_at SET DEFAULT NOW(),
+  ALTER COLUMN updated_at SET NOT NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -156,6 +199,103 @@ CREATE TABLE IF NOT EXISTS off_request_policy_rules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE off_request_policy_rules
+  ADD COLUMN IF NOT EXISTS period_type TEXT,
+  ADD COLUMN IF NOT EXISTS limit_count INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'off_request_policy_rules'
+      AND column_name = 'monthly_limit'
+  ) THEN
+    EXECUTE $sql$
+      UPDATE off_request_policy_rules
+      SET
+        period_type = COALESCE(period_type, 'monthly'),
+        limit_count = COALESCE(limit_count, monthly_limit, 0),
+        is_active = COALESCE(is_active, TRUE),
+        created_at = COALESCE(created_at, NOW()),
+        updated_at = COALESCE(updated_at, NOW())
+    $sql$;
+  ELSE
+    UPDATE off_request_policy_rules
+    SET
+      period_type = COALESCE(period_type, 'monthly'),
+      limit_count = COALESCE(limit_count, 0),
+      is_active = COALESCE(is_active, TRUE),
+      created_at = COALESCE(created_at, NOW()),
+      updated_at = COALESCE(updated_at, NOW());
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'off_request_policy_rules'
+      AND column_name = 'annual_limit'
+  ) THEN
+    EXECUTE $sql$
+      INSERT INTO off_request_policy_rules (
+        organization_id,
+        rank_code,
+        period_type,
+        limit_count,
+        is_active,
+        created_at,
+        updated_at
+      )
+      SELECT
+        source.organization_id,
+        source.rank_code,
+        'annual',
+        COALESCE(source.annual_limit, 0),
+        COALESCE(source.is_active, TRUE),
+        COALESCE(source.created_at, NOW()),
+        COALESCE(source.updated_at, NOW())
+      FROM off_request_policy_rules AS source
+      WHERE source.annual_limit IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM off_request_policy_rules AS existing
+          WHERE existing.organization_id = source.organization_id
+            AND existing.rank_code IS NOT DISTINCT FROM source.rank_code
+            AND existing.period_type = 'annual'
+        )
+    $sql$;
+  END IF;
+END $$;
+
+ALTER TABLE off_request_policy_rules
+  ALTER COLUMN period_type SET NOT NULL,
+  ALTER COLUMN limit_count SET DEFAULT 0,
+  ALTER COLUMN limit_count SET NOT NULL,
+  ALTER COLUMN is_active SET DEFAULT TRUE,
+  ALTER COLUMN is_active SET NOT NULL,
+  ALTER COLUMN created_at SET DEFAULT NOW(),
+  ALTER COLUMN created_at SET NOT NULL,
+  ALTER COLUMN updated_at SET DEFAULT NOW(),
+  ALTER COLUMN updated_at SET NOT NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'off_request_policy_rules_period_type_check'
+  ) THEN
+    ALTER TABLE off_request_policy_rules
+      ADD CONSTRAINT off_request_policy_rules_period_type_check
+      CHECK (period_type IN ('monthly', 'annual'));
+  END IF;
+END $$;
 
 DO $$
 BEGIN
