@@ -2,11 +2,21 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
+import * as opsApi from '@/api/ops'
 import * as shiftApi from '@/api/shift'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
-import { resolveAuthScope } from '@/utils/authScope'
+import type {
+  OrganizationProfileResponse,
+  ShiftsConstraintsResponse,
+  SiteResponse,
+} from '@/types/ops'
+import {
+  resolveAuthScope,
+  resolvePreferredOrganizationId,
+  type AuthScope,
+} from '@/utils/authScope'
 
 // Supabase 응답 타입 정의 (snake_case)
 interface OrganizationRow {
@@ -38,31 +48,15 @@ interface ShiftRow {
   created_at?: string
 }
 
-type OrganizationMetadata = Record<string, unknown> | null | undefined
-
 export const useOrganizationStore = defineStore('organization', () => {
   const current = ref<Organization | null>(null)
   const employees = ref<Employee[]>([])
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
-
-  function readOrganizationIdFromMetadata(metadata: OrganizationMetadata): string | null {
-    const keys = [
-      'organizationId',
-      'organization_id',
-      'currentOrganizationId',
-      'current_organization_id',
-    ] as const
-
-    for (const key of keys) {
-      const value = metadata?.[key]
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim()
-      }
-    }
-
-    return null
-  }
+  const foundationProfile = ref<OrganizationProfileResponse | null>(null)
+  const foundationSites = ref<SiteResponse[]>([])
+  const foundationShiftsConstraints = ref<ShiftsConstraintsResponse | null>(null)
+  const foundationLoading = ref(false)
 
   async function fetchOrganizationById(orgId: string): Promise<OrganizationRow | null> {
     const { data, error } = await supabase
@@ -76,7 +70,10 @@ export const useOrganizationStore = defineStore('organization', () => {
     return (data as OrganizationRow[])[0] ?? null
   }
 
-  async function resolveOrganization(orgId?: string): Promise<OrganizationRow> {
+  async function resolveOrganization(orgId?: string): Promise<{
+    organization: OrganizationRow
+    authScope: AuthScope | null
+  }> {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) throw sessionError
@@ -84,20 +81,17 @@ export const useOrganizationStore = defineStore('organization', () => {
     const sessionUser = sessionData.session?.user
     const authScope = resolveAuthScope(sessionUser)
     const explicitOrgId = typeof orgId === 'string' && orgId.trim().length > 0 ? orgId.trim() : null
-    const metadataOrgIds = [
-      readOrganizationIdFromMetadata(sessionUser?.app_metadata as OrganizationMetadata),
-      readOrganizationIdFromMetadata(sessionUser?.user_metadata as OrganizationMetadata),
-    ].filter((value): value is string => !!value)
+    const preferredOrganizationId = resolvePreferredOrganizationId(sessionUser)
 
     if (sessionUser && !authScope?.organizationId) {
       throw new Error('로그인 계정에 organization_id 메타데이터가 없습니다.')
     }
 
-    if (explicitOrgId && metadataOrgIds.length > 0 && !metadataOrgIds.includes(explicitOrgId)) {
+    if (explicitOrgId && preferredOrganizationId !== explicitOrgId) {
       throw new Error('요청한 조직과 로그인 계정의 organization_id가 일치하지 않습니다.')
     }
 
-    const resolvedOrgId = explicitOrgId ?? authScope?.organizationId ?? metadataOrgIds[0] ?? null
+    const resolvedOrgId = explicitOrgId ?? authScope?.organizationId ?? null
 
     if (!resolvedOrgId) {
       throw new Error('접근 가능한 조직 정보가 없습니다.')
@@ -109,7 +103,10 @@ export const useOrganizationStore = defineStore('organization', () => {
       throw new Error('로그인 계정의 organization_id에 해당하는 조직을 찾을 수 없습니다.')
     }
 
-    return organization
+    return {
+      organization,
+      authScope,
+    }
   }
 
   /**
@@ -119,7 +116,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     loading.value = true
     try {
       // 조직 정보
-      const org = await resolveOrganization(orgId)
+      const resolved = await resolveOrganization(orgId)
+      const org = resolved.organization
       const resolvedOrgId = org.id
 
       current.value = {
@@ -128,6 +126,7 @@ export const useOrganizationStore = defineStore('organization', () => {
         type: org.type,
         createdAt: org.created_at,
         updatedAt: org.updated_at,
+        foundation: resolved.authScope?.foundation ?? null,
       }
 
       // 직원 목록
@@ -183,6 +182,57 @@ export const useOrganizationStore = defineStore('organization', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function loadFoundationData(orgId?: string) {
+    const organizationId = orgId ?? current.value?.id ?? null
+
+    if (!organizationId) {
+      return { success: false, error: '기본 설정을 불러올 조직이 없습니다.' }
+    }
+
+    foundationLoading.value = true
+
+    try {
+      const [profile, sites, shiftsConstraints] = await Promise.all([
+        opsApi.getOrganizationProfile(organizationId),
+        opsApi.getSites(organizationId),
+        opsApi.getShiftsConstraints(organizationId),
+      ])
+
+      foundationProfile.value = profile
+      foundationSites.value = sites.sites
+      foundationShiftsConstraints.value = shiftsConstraints
+
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    } finally {
+      foundationLoading.value = false
+    }
+  }
+
+  function updateFoundationProfileCache(profile: OrganizationProfileResponse) {
+    foundationProfile.value = profile
+
+    if (current.value) {
+      current.value = {
+        ...current.value,
+        name: profile.name,
+        type: profile.type,
+        foundation: {
+          currentStepKey: current.value.foundation?.currentStepKey ?? 'organization_profile',
+          organizationInfoConfirmedAt:
+            current.value.foundation?.organizationInfoConfirmedAt ?? new Date().toISOString(),
+          organizationInfoConfirmedBy: current.value.foundation?.organizationInfoConfirmedBy ?? null,
+        },
+      }
+    }
+  }
+
+  function updateFoundationSitesCache(sites: SiteResponse[]) {
+    foundationSites.value = sites
   }
 
   /**
@@ -351,6 +401,10 @@ export const useOrganizationStore = defineStore('organization', () => {
     employees.value = []
     shifts.value = []
     loading.value = false
+    foundationProfile.value = null
+    foundationSites.value = []
+    foundationShiftsConstraints.value = null
+    foundationLoading.value = false
   }
 
   return {
@@ -359,8 +413,15 @@ export const useOrganizationStore = defineStore('organization', () => {
     employees,
     shifts,
     loading,
+    foundationProfile,
+    foundationSites,
+    foundationShiftsConstraints,
+    foundationLoading,
     // Actions - Organization
     loadOrganization,
+    loadFoundationData,
+    updateFoundationProfileCache,
+    updateFoundationSitesCache,
     createOrganization,
     updateCurrentOrganization,
     // Actions - Shifts (DB)

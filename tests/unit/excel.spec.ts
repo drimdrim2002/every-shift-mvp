@@ -1,8 +1,11 @@
+import { mount } from '@vue/test-utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as XLSX from 'xlsx';
 import { exportToExcel } from '@/utils/excel';
 import type { Employee } from '@/types/employee';
 import type { GridColumn, AssignmentMap } from '@/types/schedule';
+import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
+import type { EmployeeImportValidateResponse } from '@/types/ops';
 
 // Mock XLSX
 vi.mock('xlsx', () => ({
@@ -13,6 +16,34 @@ vi.mock('xlsx', () => ({
   },
   writeFile: vi.fn(),
 }));
+
+function createEmployeeExcelUploadWrapper(validationPreview: EmployeeImportValidateResponse | null) {
+  return mount(EmployeeExcelUpload, {
+    props: {
+      shifts: [
+        {
+          id: 'shift-d',
+          code: 'D',
+          name: 'Day',
+          colorCode: '#123456',
+          startTime: '09:00:00',
+          endTime: '18:00:00',
+        },
+      ],
+      validationPreview,
+    },
+    global: {
+      stubs: {
+        NUpload: { template: '<div><slot /></div>' },
+        NUploadDragger: { template: '<div><slot /></div>' },
+        NButton: { template: '<button><slot /></button>' },
+        NAlert: { template: '<div><slot /></div>' },
+        NCollapse: { template: '<div><slot /></div>' },
+        NCollapseItem: { template: '<div><slot /></div>' },
+      },
+    },
+  });
+}
 
 describe('exportToExcel', () => {
   let mockEmployees: Employee[];
@@ -253,5 +284,38 @@ describe('exportToExcel', () => {
       .calls[0][0] as Record<string, string>[];
     expect(callArgs).toHaveLength(30);
     expect(Object.keys(callArgs[0])).toHaveLength(38); // 직번 + 이름 + 36일
+  });
+});
+
+describe('EmployeeExcelUpload', () => {
+  it('surfaces validation preview results without mutating db state', () => {
+    const wrapper = createEmployeeExcelUploadWrapper({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employeeCount: 2,
+      duplicateEmployeeIds: ['EMP-1'],
+      missingShiftCodes: ['X'],
+      isFinalized: false,
+      isValid: false,
+      previewEmployees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: null,
+        },
+        {
+          employeeId: 'EMP-2',
+          name: 'Lee',
+          availableShifts: ['E'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+
+    expect(wrapper.text()).toContain('검증 결과');
+    expect(wrapper.text()).toContain('직원 2명');
+    expect(wrapper.text()).toContain('중복 직원 ID: EMP-1');
+    expect(wrapper.text()).toContain('누락 시프트: X');
   });
 });

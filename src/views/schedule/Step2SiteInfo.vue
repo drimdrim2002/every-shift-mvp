@@ -7,6 +7,14 @@
         {{ scheduleStore.basicInfo?.month }} 요일별 필요 인력을 확인하고 수정합니다
       </p>
 
+      <n-alert
+        v-if="primarySiteLabel"
+        type="info"
+        class="mb-4"
+      >
+        현재 스케줄 대상 사이트: {{ primarySiteLabel }}
+      </n-alert>
+
       <div class="overflow-x-auto">
         <table class="w-full border-collapse border border-gray-300">
           <thead>
@@ -109,7 +117,8 @@ import { NCard, NButton, NAlert, NInputNumber, NPopconfirm } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { replaceSiteRequirements, loadSiteRequirements } from '@/api/employee';
+import { loadCanonicalSiteRequirements, replaceCanonicalSiteRequirements } from '@/api/employee';
+import { getSchedulingShifts } from '@/api/shift';
 import { showError, showSuccess } from '@/utils/message';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
@@ -127,13 +136,22 @@ const loading = ref(false);
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {
   const shifts = scheduleStore.basicInfo?.shifts || orgStore.shifts || [];
-  return shifts
-    .filter((s) => s.code.toUpperCase() !== 'O') // 휴무(O)는 제외
+  return getSchedulingShifts(shifts)
     .map((s) => ({
       code: s.code,
       name: s.name,
       colorCode: s.colorCode,
     }));
+});
+
+const primarySiteLabel = computed(() => {
+  const primarySite = orgStore.foundationSites?.find((site) => site.isActive && site.isScheduleActive);
+
+  if (!primarySite) {
+    return '';
+  }
+
+  return `${primarySite.name} (${primarySite.code})`;
 });
 
 // 가로형 데이터: Record<dayOfWeek, Record<shiftCode, requiredCount>>
@@ -157,7 +175,7 @@ onMounted(async () => {
 
   try {
     // 1. Supabase에서 기존 데이터 로드
-    const savedRequirements = await loadSiteRequirements(scheduleStore.basicInfo.organizationId);
+    const savedRequirements = await loadCanonicalSiteRequirements(scheduleStore.basicInfo.organizationId);
 
     // 2. 데이터가 있으면 변환하여 표시
     if (savedRequirements && savedRequirements.length > 0) {
@@ -321,7 +339,7 @@ async function handleNext() {
     const verticalData = convertHorizontalToVertical();
 
     // Supabase에 저장
-    await replaceSiteRequirements(scheduleStore.basicInfo.organizationId, verticalData);
+    await replaceCanonicalSiteRequirements(scheduleStore.basicInfo.organizationId, verticalData);
 
     // Schedule Store 업데이트
     scheduleStore.setSiteRequirements(verticalData);

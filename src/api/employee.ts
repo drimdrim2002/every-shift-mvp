@@ -134,6 +134,13 @@ export async function replaceSiteRequirements(
   }
 }
 
+export async function replaceCanonicalSiteRequirements(
+  orgId: string,
+  requirements: SiteRequirementRow[]
+): Promise<void> {
+  return replaceSiteRequirements(orgId, requirements);
+}
+
 /**
  * 조직의 사이트 요구사항 조회
  *
@@ -165,4 +172,8 @@ export async function loadSiteRequirements(orgId: string): Promise<SiteRequireme
   }
 
   return normalizeSiteRequirementList(data);
+}
+
+export async function loadCanonicalSiteRequirements(orgId: string): Promise<SiteRequirementRow[]> {
+  return loadSiteRequirements(orgId);
 }

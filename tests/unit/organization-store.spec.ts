@@ -163,6 +163,7 @@ describe('useOrganizationStore', () => {
       type: 'hospital',
       createdAt: undefined,
       updatedAt: undefined,
+      foundation: null,
     });
     expect(store.employees).toHaveLength(1);
     expect(store.employees[0]?.organizationId).toBe('org-correct');
@@ -176,6 +177,31 @@ describe('useOrganizationStore', () => {
         session: {
           user: createSessionUser({
             user_metadata: {},
+            app_metadata: {},
+          }),
+        },
+      },
+      error: null,
+    });
+
+    const store = useOrganizationStore();
+    const result = await store.loadOrganization();
+
+    expect(result).toEqual({
+      success: false,
+      error: '로그인 계정에 organization_id 메타데이터가 없습니다.',
+    });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it('fails fast when only user metadata has organization_id', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser({
+            user_metadata: {
+              organization_id: 'org-user',
+            },
             app_metadata: {},
           }),
         },
@@ -218,6 +244,31 @@ describe('useOrganizationStore', () => {
     expect(fromMock).not.toHaveBeenCalled();
   });
 
+  it('does not trust user metadata fallback when validating an explicit organization id', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser({
+            user_metadata: {
+              organization_id: 'org-user',
+            },
+            app_metadata: {},
+          }),
+        },
+      },
+      error: null,
+    });
+
+    const store = useOrganizationStore();
+    const result = await store.loadOrganization('org-user');
+
+    expect(result).toEqual({
+      success: false,
+      error: '로그인 계정에 organization_id 메타데이터가 없습니다.',
+    });
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
   it('prefers app metadata when user metadata points at a different organization', async () => {
     organizationRowsById.set('org-app', {
       id: 'org-app',
@@ -246,5 +297,49 @@ describe('useOrganizationStore', () => {
 
     expect(result).toEqual({ success: true });
     expect(store.current?.id).toBe('org-app');
+  });
+
+  it('hydrates organization foundation metadata from authenticated app metadata on first login', async () => {
+    organizationRowsById.set('org-foundation', {
+      id: 'org-foundation',
+      name: 'Foundation Org',
+      type: 'hospital',
+    });
+
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser({
+            app_metadata: {
+              organization_id: 'org-foundation',
+              foundation: {
+                current_step_key: 'organization_info',
+                organization_info_confirmed_at: '2026-04-08T10:30:00Z',
+                organization_info_confirmed_by: 'operator-1',
+              },
+            },
+            user_metadata: {},
+          }),
+        },
+      },
+      error: null,
+    });
+
+    const store = useOrganizationStore();
+    const result = await store.loadOrganization();
+
+    expect(result).toEqual({ success: true });
+    expect(store.current).toEqual({
+      id: 'org-foundation',
+      name: 'Foundation Org',
+      type: 'hospital',
+      createdAt: undefined,
+      updatedAt: undefined,
+      foundation: {
+        currentStepKey: 'organization_info',
+        organizationInfoConfirmedAt: '2026-04-08T10:30:00Z',
+        organizationInfoConfirmedBy: 'operator-1',
+      },
+    });
   });
 });

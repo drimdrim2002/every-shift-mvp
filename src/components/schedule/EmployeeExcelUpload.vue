@@ -53,6 +53,36 @@
       </n-button>
     </div>
 
+    <n-alert
+      v-if="validationPreview"
+      :type="validationPreview.isFinalized ? 'error' : validationPreview.isValid ? 'success' : 'warning'"
+      class="mt-4"
+    >
+      <div class="space-y-1">
+        <p class="font-medium">
+          검증 결과
+        </p>
+        <p>
+          직원 {{ validationPreview.employeeCount }}명 미리보기를 완료했습니다.
+        </p>
+        <p v-if="validationPreview.duplicateEmployeeIds.length > 0">
+          중복 직원 ID: {{ validationPreview.duplicateEmployeeIds.join(', ') }}
+        </p>
+        <p v-if="validationPreview.missingShiftCodes.length > 0">
+          누락 시프트: {{ validationPreview.missingShiftCodes.join(', ') }}
+        </p>
+        <p v-if="validationPreview.isFinalized">
+          현재 월은 확정되어 적용할 수 없습니다.
+        </p>
+        <p v-else-if="validationPreview.isValid">
+          적용 가능 상태입니다.
+        </p>
+        <p v-else>
+          적용 전에 오류를 수정해주세요.
+        </p>
+      </div>
+    </n-alert>
+
     <!-- 엑셀 형식 안내 -->
     <n-collapse class="mt-4">
       <n-collapse-item
@@ -125,10 +155,12 @@ import {
 import * as XLSX from 'xlsx';
 import type { Shift } from '@/types/shift';
 import type { EmployeeInput } from '@/types/employee';
+import type { EmployeeImportValidateResponse } from '@/types/ops';
 
 // Props
 interface Props {
   shifts: Shift[];
+  validationPreview: EmployeeImportValidateResponse | null;
 }
 
 const props = defineProps<Props>();
@@ -351,4 +383,3 @@ function downloadTemplate() {
   }
 }
 </script>
-
