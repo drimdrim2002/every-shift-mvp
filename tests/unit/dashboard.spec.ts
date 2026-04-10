@@ -10,6 +10,7 @@ const {
   loadCanonicalSiteRequirementsMock,
   resetMock,
   setBasicInfoMock,
+  setSiteRequirementsMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
   showErrorMock,
@@ -21,6 +22,7 @@ const {
   loadCanonicalSiteRequirementsMock: vi.fn(),
   resetMock: vi.fn(),
   setBasicInfoMock: vi.fn(),
+  setSiteRequirementsMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -89,6 +91,7 @@ const organizationStoreMock = reactive({
 const scheduleStoreMock = reactive({
   reset: resetMock,
   setBasicInfo: setBasicInfoMock,
+  setSiteRequirements: setSiteRequirementsMock,
   setSelectedVersionId: setSelectedVersionIdMock,
   setPreviewVersionId: setPreviewVersionIdMock,
 })
@@ -399,6 +402,14 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
     await flushPromises()
     expect(loadCanonicalSiteRequirementsMock).toHaveBeenCalledWith('org-1')
+    expect(setSiteRequirementsMock).toHaveBeenCalledWith([
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ])
     expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
 
     pushMock.mockClear()
