@@ -1050,7 +1050,6 @@ function toRankCodeInsertPayload(
 ): Record<string, unknown>[] {
   return request.rankCodes.map((rankCode) => ({
     id: rankCode.id,
-    organization_id: request.organizationId,
     code: rankCode.code,
     label: rankCode.label,
     display_order: rankCode.displayOrder,
@@ -1061,7 +1060,6 @@ function toRankCodeInsertPayload(
 function toPolicyRuleInsertPayload(request: OffRequestPolicySetupRequest): Record<string, unknown>[] {
   return request.policyRules.map((rule) => ({
     id: rule.id,
-    organization_id: request.organizationId,
     rank_code: normalizeOffRequestPolicyRankCode(rule.rankCode),
     period_type: rule.periodType,
     limit_count: rule.limitCount,
@@ -1355,46 +1353,14 @@ export async function saveOffRequestPolicySetup(
   ensureOffRequestPolicyRuleRankCodesExist(normalizedRequest);
   ensureNoOffRequestPolicyOverlap(normalizedRequest);
 
-  const deleteRankCodesResult = await client
-    .from('organization_rank_codes')
-    .delete()
-    .eq('organization_id', normalizedRequest.organizationId);
+  const { error } = await client.rpc('replace_off_request_policy_setup_atomic', {
+    p_organization_id: normalizedRequest.organizationId,
+    p_rank_codes: toRankCodeInsertPayload(normalizedRequest),
+    p_policy_rules: toPolicyRuleInsertPayload(normalizedRequest),
+  });
 
-  if ((deleteRankCodesResult as QueryResult<unknown>).error) {
-    throw new ContractError(
-      'internal_error',
-      (deleteRankCodesResult as QueryResult<unknown>).error?.message ?? 'Internal error',
-      500
-    );
-  }
-
-  const deletePolicyRulesResult = await client
-    .from('off_request_policy_rules')
-    .delete()
-    .eq('organization_id', normalizedRequest.organizationId);
-
-  if ((deletePolicyRulesResult as QueryResult<unknown>).error) {
-    throw new ContractError(
-      'internal_error',
-      (deletePolicyRulesResult as QueryResult<unknown>).error?.message ?? 'Internal error',
-      500
-    );
-  }
-
-  const rankCodePayload = toRankCodeInsertPayload(normalizedRequest);
-  if (rankCodePayload.length > 0) {
-    const { error } = await client.from('organization_rank_codes').insert(rankCodePayload);
-    if (error) {
-      throw new ContractError('internal_error', error.message, 500);
-    }
-  }
-
-  const policyRulePayload = toPolicyRuleInsertPayload(normalizedRequest);
-  if (policyRulePayload.length > 0) {
-    const { error } = await client.from('off_request_policy_rules').insert(policyRulePayload);
-    if (error) {
-      throw new ContractError('internal_error', error.message, 500);
-    }
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
   }
 
   return loadOffRequestPolicySetupRows(client, normalizedRequest.organizationId);

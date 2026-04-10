@@ -199,6 +199,87 @@ BEFORE UPDATE ON off_request_policy_rules
 FOR EACH ROW
 EXECUTE FUNCTION set_ops_updated_at();
 
+CREATE OR REPLACE FUNCTION public.replace_off_request_policy_setup_atomic(
+  p_organization_id uuid,
+  p_rank_codes jsonb DEFAULT '[]'::jsonb,
+  p_policy_rules jsonb DEFAULT '[]'::jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_rank_codes IS NULL OR jsonb_typeof(p_rank_codes) <> 'array' THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'bad_request';
+  END IF;
+
+  IF p_policy_rules IS NULL OR jsonb_typeof(p_policy_rules) <> 'array' THEN
+    RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE = 'bad_request';
+  END IF;
+
+  DELETE FROM off_request_policy_rules
+  WHERE organization_id = p_organization_id;
+
+  DELETE FROM organization_rank_codes
+  WHERE organization_id = p_organization_id;
+
+  INSERT INTO organization_rank_codes (
+    id,
+    organization_id,
+    code,
+    label,
+    display_order,
+    is_active
+  )
+  SELECT
+    COALESCE(NULLIF(btrim(row.id), '')::uuid, gen_random_uuid()),
+    p_organization_id,
+    btrim(row.code),
+    btrim(row.label),
+    row.display_order,
+    COALESCE(row.is_active, TRUE)
+  FROM jsonb_to_recordset(COALESCE(p_rank_codes, '[]'::jsonb)) AS row(
+    id text,
+    code text,
+    label text,
+    display_order integer,
+    is_active boolean
+  )
+  WHERE NULLIF(btrim(row.code), '') IS NOT NULL
+    AND NULLIF(btrim(row.label), '') IS NOT NULL;
+
+  INSERT INTO off_request_policy_rules (
+    id,
+    organization_id,
+    rank_code,
+    period_type,
+    limit_count,
+    is_active
+  )
+  SELECT
+    COALESCE(NULLIF(btrim(row.id), '')::uuid, gen_random_uuid()),
+    p_organization_id,
+    NULLIF(btrim(row.rank_code), ''),
+    row.period_type,
+    row.limit_count,
+    COALESCE(row.is_active, TRUE)
+  FROM jsonb_to_recordset(COALESCE(p_policy_rules, '[]'::jsonb)) AS row(
+    id text,
+    rank_code text,
+    period_type text,
+    limit_count integer,
+    is_active boolean
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.replace_off_request_policy_setup_atomic(uuid, jsonb, jsonb)
+FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.replace_off_request_policy_setup_atomic(uuid, jsonb, jsonb)
+TO service_role;
+
 ALTER TABLE schedule_preferences
   ADD COLUMN IF NOT EXISTS policy_check_status TEXT;
 

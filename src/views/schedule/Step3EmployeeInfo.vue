@@ -173,10 +173,12 @@ onMounted(async () => {
         employee_id: string;
         name: string;
         available_shifts: string[];
+        rank_code?: string | null;
       }) => ({
         employeeId: emp.employee_id,
         name: emp.name,
         availableShifts: emp.available_shifts,
+        rankCode: emp.rank_code ?? null,
       }));
       
       // DB에서 불러온 데이터는 저장된 상태

@@ -252,9 +252,11 @@ class PolicySelectBuilder<T> {
 function createPolicyRepositoryClient(params: {
   rankCodes?: Array<Record<string, unknown>>;
   policyRules?: Array<Record<string, unknown>>;
+  policyRpcError?: { message: string } | null;
 }) {
   const deleteCalls: Array<{ table: string; filters: Array<[string, string]> }> = [];
   const insertCalls: Array<{ table: string; payload: unknown }> = [];
+  const rpcCalls: Array<{ fn: string; params: Record<string, unknown> }> = [];
   const rankCodes = [...(params.rankCodes ?? [])];
   const policyRules = [...(params.policyRules ?? [])];
 
@@ -341,7 +343,32 @@ function createPolicyRepositoryClient(params: {
         updateUserById: vi.fn(),
       },
     },
-    rpc: vi.fn(),
+    rpc: vi.fn().mockImplementation(async (fn: string, rpcParams: Record<string, unknown>) => {
+      rpcCalls.push({ fn, params: rpcParams });
+
+      if (fn !== 'replace_off_request_policy_setup_atomic') {
+        return { data: null, error: null };
+      }
+
+      if (params.policyRpcError) {
+        return { data: null, error: params.policyRpcError };
+      }
+
+      const rankRows = Array.isArray(rpcParams.p_rank_codes) ? rpcParams.p_rank_codes : [];
+      const policyRows = Array.isArray(rpcParams.p_policy_rules) ? rpcParams.p_policy_rules : [];
+      rankCodes.splice(
+        0,
+        rankCodes.length,
+        ...rankRows.map((row, index) => normalizeRankCodeRow(row as Record<string, unknown>, index))
+      );
+      policyRules.splice(
+        0,
+        policyRules.length,
+        ...policyRows.map((row, index) => normalizePolicyRuleRow(row as Record<string, unknown>, index))
+      );
+
+      return { data: null, error: null };
+    }),
     from(table: string) {
       if (table === 'organization_rank_codes') {
         return {
@@ -415,7 +442,7 @@ function createPolicyRepositoryClient(params: {
     },
   } as unknown as Phase2OpsRepositoryClient;
 
-  return { client, deleteCalls, insertCalls };
+  return { client, deleteCalls, insertCalls, rpcCalls };
 }
 
 describe('phase2 ops repository', () => {
@@ -1048,7 +1075,7 @@ describe('phase2 ops repository', () => {
   });
 
   it('saves rank/default off-request policies through the repository', async () => {
-    const { client, deleteCalls, insertCalls } = createPolicyRepositoryClient({
+    const { client, deleteCalls, insertCalls, rpcCalls } = createPolicyRepositoryClient({
       rankCodes: [],
       policyRules: [],
     });
@@ -1088,50 +1115,39 @@ describe('phase2 ops repository', () => {
       request
     );
 
-    expect(deleteCalls).toEqual([
+    expect(deleteCalls).toHaveLength(0);
+    expect(insertCalls).toHaveLength(0);
+    expect(rpcCalls).toEqual([
       {
-        table: 'organization_rank_codes',
-        filters: [['organization_id', POLICY_ORGANIZATION_ID]],
-      },
-      {
-        table: 'off_request_policy_rules',
-        filters: [['organization_id', POLICY_ORGANIZATION_ID]],
-      },
-    ]);
-    expect(insertCalls).toEqual([
-      {
-        table: 'organization_rank_codes',
-        payload: [
-          {
-            id: 'rank-code-1',
-            organization_id: POLICY_ORGANIZATION_ID,
-            code: 'RN',
-            label: 'Registered Nurse',
-            display_order: 1,
-            is_active: true,
-          },
-        ],
-      },
-      {
-        table: 'off_request_policy_rules',
-        payload: [
-          {
-            id: 'policy-rule-default',
-            organization_id: POLICY_ORGANIZATION_ID,
-            rank_code: null,
-            period_type: 'monthly',
-            limit_count: 4,
-            is_active: true,
-          },
-          {
-            id: 'policy-rule-rn',
-            organization_id: POLICY_ORGANIZATION_ID,
-            rank_code: 'RN',
-            period_type: 'monthly',
-            limit_count: 6,
-            is_active: true,
-          },
-        ],
+        fn: 'replace_off_request_policy_setup_atomic',
+        params: {
+          p_organization_id: POLICY_ORGANIZATION_ID,
+          p_rank_codes: [
+            {
+              id: 'rank-code-1',
+              code: 'RN',
+              label: 'Registered Nurse',
+              display_order: 1,
+              is_active: true,
+            },
+          ],
+          p_policy_rules: [
+            {
+              id: 'policy-rule-default',
+              rank_code: null,
+              period_type: 'monthly',
+              limit_count: 4,
+              is_active: true,
+            },
+            {
+              id: 'policy-rule-rn',
+              rank_code: 'RN',
+              period_type: 'monthly',
+              limit_count: 6,
+              is_active: true,
+            },
+          ],
+        },
       },
     ]);
     expect(result).toEqual({

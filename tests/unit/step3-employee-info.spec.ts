@@ -16,6 +16,7 @@ const {
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
   showErrorMock,
+  showInfoMock,
   showSuccessMock,
   showWarningMock,
 } = vi.hoisted(() => ({
@@ -39,6 +40,7 @@ const {
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
   showErrorMock: vi.fn(),
+  showInfoMock: vi.fn(),
   showSuccessMock: vi.fn(),
   showWarningMock: vi.fn(),
 }))
@@ -68,6 +70,7 @@ vi.mock('@/api/supabase', () => ({
 
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
+  showInfo: showInfoMock,
   showSuccess: showSuccessMock,
   showWarning: showWarningMock,
 }))
@@ -375,6 +378,84 @@ describe('Step3EmployeeInfo', () => {
       query: {
         version: 'version-2',
       },
+    })
+  })
+
+  it('preserves rank codes loaded from the database when validating and applying', async () => {
+    scheduleStoreMock.employees = []
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'employees') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    employee_id: 'E001',
+                    name: 'Kim',
+                    available_shifts: ['D'],
+                    rank_code: 'RN',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
+        }),
+      }
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('저장'))
+      ?.trigger('click')
+    await flushPromises()
+
+    expect(validateEmployeeImportMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employees: [
+        {
+          employeeId: 'E001',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
+    })
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('적용'))
+      ?.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(applyEmployeeImportMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+      employees: [
+        {
+          employeeId: 'E001',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
     })
   })
 

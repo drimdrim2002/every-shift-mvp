@@ -277,6 +277,7 @@ function handleAdd() {
     availableShifts: props.shifts
       .filter((s) => s.code !== 'O')
       .map((s) => s.code),
+    rankCode: null,
   };
   showModal.value = true;
 }
@@ -291,6 +292,7 @@ function handleEdit(index: number) {
     employeeId: employee.employeeId,
     name: employee.name,
     availableShifts: [...employee.availableShifts],
+    rankCode: employee.rankCode ?? null,
   };
   showModal.value = true;
 }
@@ -318,6 +320,7 @@ async function handleConfirm() {
     employeeId: formData.value.employeeId || generateEmployeeId(),
     name: formData.value.name,
     availableShifts: [...formData.value.availableShifts],
+    rankCode: formData.value.rankCode ?? null,
   };
 
   if (isEditing.value) {
@@ -347,4 +350,3 @@ function generateEmployeeId(): string {
   return `EMP${timestamp}${random}`;
 }
 </script>
-

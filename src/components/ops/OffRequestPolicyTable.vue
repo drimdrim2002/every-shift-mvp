@@ -269,13 +269,15 @@ function removePolicyRule(index: number) {
 function emitSave() {
   emit('save', {
     organizationId: props.modelValue.organizationId,
-    rankCodes: localRankCodes.value.map((rankCode) => ({
-      id: rankCode.id,
-      code: rankCode.code.trim(),
-      label: rankCode.label.trim(),
-      displayOrder: rankCode.displayOrder,
-      isActive: rankCode.isActive,
-    })),
+    rankCodes: localRankCodes.value
+      .map((rankCode) => ({
+        id: rankCode.id,
+        code: rankCode.code.trim(),
+        label: rankCode.label.trim(),
+        displayOrder: rankCode.displayOrder,
+        isActive: rankCode.isActive,
+      }))
+      .filter((rankCode) => rankCode.code.length > 0 || rankCode.label.length > 0),
     policyRules: localPolicyRules.value.map((rule) => ({
       id: rule.id,
       rankCode: rule.rankCode,
