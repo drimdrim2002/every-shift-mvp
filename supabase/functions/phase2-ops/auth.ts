@@ -23,6 +23,12 @@ interface OperatorProfileRow {
   organization_id: string | null;
 }
 
+interface OrganizationMembershipRow {
+  organization_id: string | null;
+  role: string | null;
+  status: string | null;
+}
+
 export interface Phase2OpsAuthClient {
   auth: {
     getUser(token: string): Promise<Phase2OpsGetUserResult>;
@@ -38,6 +44,20 @@ export interface Phase2OpsAuthRepositoryClient {
             data: OperatorProfileRow | null;
             error: { message: string } | null;
           }>;
+        };
+      };
+    };
+  };
+  from(table: 'organization_memberships'): {
+    select(columns: string): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): {
+          limit(count: number): {
+            maybeSingle(): Promise<{
+              data: OrganizationMembershipRow | null;
+              error: { message: string } | null;
+            }>;
+          };
         };
       };
     };
@@ -89,12 +109,36 @@ async function resolveAuthenticatedProfileContext(
     );
   }
 
+  let organizationId = profile.organization_id;
+  let resolvedRole = role || null;
+  let resolvedStatus = status || null;
+
+  if (!organizationId) {
+    const { data: membership, error: membershipError } = await repositoryClient
+      .from('organization_memberships')
+      .select('organization_id, role, status')
+      .eq('user_id', data.user.id)
+      .eq('status', 'approved')
+      .limit(1)
+      .maybeSingle();
+
+    if (membershipError) {
+      throw new ContractError('internal_error', membershipError.message, 500);
+    }
+
+    if (membership?.organization_id) {
+      organizationId = membership.organization_id;
+      resolvedRole = resolvedRole ?? membership.role?.trim() ?? null;
+      resolvedStatus = resolvedStatus ?? 'active';
+    }
+  }
+
   return {
     operatorUserId: data.user.id,
-    operatorOrganizationId: profile.organization_id,
+    operatorOrganizationId: organizationId,
     operatorGlobalRole: globalRole,
-    operatorRole: role || null,
-    operatorStatus: status || null,
+    operatorRole: resolvedRole,
+    operatorStatus: resolvedStatus,
     operatorAccountStatus: accountStatus || null,
   };
 }

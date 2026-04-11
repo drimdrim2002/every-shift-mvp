@@ -32,7 +32,32 @@ describe('resolveOperatorAuthContext', () => {
       },
     };
     const repositoryClient = {
-      from() {
+      from(table: 'profiles' | 'organization_memberships') {
+        if (table === 'organization_memberships') {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    eq() {
+                      return {
+                        limit() {
+                          return {
+                            maybeSingle: async () => ({
+                              data: null,
+                              error: null,
+                            }),
+                          };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+
         return {
           select() {
             return {
@@ -88,7 +113,32 @@ describe('resolveOperatorAuthContext', () => {
       },
     };
     const repositoryClient = {
-      from() {
+      from(table: 'profiles' | 'organization_memberships') {
+        if (table === 'organization_memberships') {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    eq() {
+                      return {
+                        limit() {
+                          return {
+                            maybeSingle: async () => ({
+                              data: null,
+                              error: null,
+                            }),
+                          };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+
         return {
           select() {
             return {
@@ -124,6 +174,95 @@ describe('resolveOperatorAuthContext', () => {
 
     expect(result).toEqual({
       operatorUserId: '22222222-2222-4222-8222-222222222222',
+      operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
+      operatorGlobalRole: 'user',
+      operatorRole: 'admin',
+      operatorStatus: 'active',
+      operatorAccountStatus: 'active',
+    });
+  });
+
+  it('falls back to approved organization membership when profile organization is missing', async () => {
+    const authClient = {
+      auth: {
+        getUser: async () => ({
+          data: {
+            user: {
+              id: '33333333-3333-4333-8333-333333333333',
+              app_metadata: {},
+              user_metadata: {},
+            },
+          },
+          error: null,
+        }),
+      },
+    };
+    const repositoryClient = {
+      from(table: 'profiles' | 'organization_memberships') {
+        if (table === 'organization_memberships') {
+          return {
+            select() {
+              return {
+                eq() {
+                  return {
+                    eq() {
+                      return {
+                        limit() {
+                          return {
+                            maybeSingle: async () => ({
+                              data: {
+                                organization_id: '00000000-0000-0000-0000-000000000001',
+                                role: 'admin',
+                                status: 'approved',
+                              },
+                              error: null,
+                            }),
+                          };
+                        },
+                      };
+                    },
+                  };
+                },
+              };
+            },
+          };
+        }
+
+        return {
+          select() {
+            return {
+              eq() {
+                return {
+                  limit() {
+                    return {
+                      maybeSingle: async () => ({
+                        data: {
+                          global_role: 'user',
+                          role: 'admin',
+                          status: 'active',
+                          account_status: 'active',
+                          organization_id: null,
+                        },
+                        error: null,
+                      }),
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    };
+
+    const result = await resolvePhase2OpsAuthContext(
+      authClient,
+      repositoryClient,
+      createRequest()
+    );
+
+    expect(result).toEqual({
+      operatorUserId: '33333333-3333-4333-8333-333333333333',
       operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
       operatorGlobalRole: 'user',
       operatorRole: 'admin',
