@@ -7,105 +7,114 @@
         {{ scheduleStore.basicInfo?.month }} 요일별 필요 인력을 확인하고 수정합니다
       </p>
 
-      <n-alert
-        v-if="primarySiteLabel"
-        type="info"
-        class="mb-4"
+      <div
+        v-if="loading"
+        class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500"
       >
-        현재 스케줄 대상 사이트: {{ primarySiteLabel }}
-      </n-alert>
+        요일별 필요 인력을 불러오는 중입니다.
+      </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse border border-gray-300">
-          <thead>
-            <tr class="bg-gray-50">
-              <th class="border border-gray-300 px-4 py-3 text-left font-semibold">
-                요일
-              </th>
-              <th
-                v-for="shift in shiftCodes"
-                :key="shift.code"
-                class="border border-gray-300 px-4 py-3 text-center font-semibold"
-                :style="{ backgroundColor: shift.colorCode + '20' }"
-              >
-                <span
-                  class="inline-flex items-center gap-1"
-                  :style="{ color: shift.colorCode }"
+      <template v-else>
+        <n-alert
+          v-if="primarySiteLabel"
+          type="info"
+          class="mb-4"
+        >
+          현재 스케줄 대상 사이트: {{ primarySiteLabel }}
+        </n-alert>
+
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse border border-gray-300">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">
+                  요일
+                </th>
+                <th
+                  v-for="shift in shiftCodes"
+                  :key="shift.code"
+                  class="border border-gray-300 px-4 py-3 text-center font-semibold"
+                  :style="{ backgroundColor: shift.colorCode + '20' }"
                 >
                   <span
-                    class="inline-block size-3 rounded"
-                    :style="{ backgroundColor: shift.colorCode }"
-                  />
-                  {{ shift.code }} ({{ shift.name }})
-                </span>
-              </th>
-              <th class="border border-gray-300 bg-gray-100 px-4 py-3 text-center font-semibold">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="dayOfWeek in dayOrder"
-              :key="dayOfWeek"
-              class="hover:bg-gray-50"
-            >
-              <td class="border border-gray-300 px-4 py-3 font-medium">
-                {{ dayNames[dayOfWeek] }}
-              </td>
-              <td
-                v-for="shift in shiftCodes"
-                :key="shift.code"
-                class="border border-gray-300 p-2 text-center"
+                    class="inline-flex items-center gap-1"
+                    :style="{ color: shift.colorCode }"
+                  >
+                    <span
+                      class="inline-block size-3 rounded"
+                      :style="{ backgroundColor: shift.colorCode }"
+                    />
+                    {{ shift.code }} ({{ shift.name }})
+                  </span>
+                </th>
+                <th class="border border-gray-300 bg-gray-100 px-4 py-3 text-center font-semibold">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="dayOfWeek in dayOrder"
+                :key="dayOfWeek"
+                class="hover:bg-gray-50"
               >
-                <n-input-number
-                  :value="getRequirement(dayOfWeek, shift.code)"
-                  :min="0"
-                  :precision="0"
-                  :show-button="false"
-                  class="w-full"
-                  @update:value="(val) => setRequirement(dayOfWeek, shift.code, val)"
-                />
-              </td>
-              <td class="border border-gray-300 bg-gray-50 px-4 py-3 text-center font-bold">
-                {{ getDayTotal(dayOfWeek) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+                <td class="border border-gray-300 px-4 py-3 font-medium">
+                  {{ dayNames[dayOfWeek] }}
+                </td>
+                <td
+                  v-for="shift in shiftCodes"
+                  :key="shift.code"
+                  class="border border-gray-300 p-2 text-center"
+                >
+                  <n-input-number
+                    :value="getRequirement(dayOfWeek, shift.code)"
+                    :min="0"
+                    :precision="0"
+                    :show-button="false"
+                    class="w-full"
+                    @update:value="(val) => setRequirement(dayOfWeek, shift.code, val)"
+                  />
+                </td>
+                <td class="border border-gray-300 bg-gray-50 px-4 py-3 text-center font-bold">
+                  {{ getDayTotal(dayOfWeek) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <n-alert
-        type="info"
-        class="mt-6"
-      >
-        각 요일별로 필요한 시프트별 인력 수를 입력하세요. 이 패턴이 해당 월의 모든 날짜에 적용됩니다.
-      </n-alert>
+        <n-alert
+          type="info"
+          class="mt-6"
+        >
+          각 요일별로 필요한 시프트별 인력 수를 입력하세요. 이 패턴이 해당 월의 모든 날짜에 적용됩니다.
+        </n-alert>
 
-      <!-- 버튼 -->
-      <div class="flex justify-between pt-6">
-        <n-popconfirm
-          @positive-click="handlePrev"
-        >
-          <template #trigger>
-            <n-button
-              size="medium"
-              :disabled="isSaving || loading"
-            >
-              ← 이전
-            </n-button>
-          </template>
-          {{ prevConfirmMessage }}
-        </n-popconfirm>
-        <n-button
-          type="primary"
-          size="medium"
-          :loading="isSaving || loading"
-          @click="handleNext"
-        >
-          다음 단계 →
-        </n-button>
-      </div>
+        <!-- 버튼 -->
+        <div class="flex justify-between pt-6">
+          <n-popconfirm
+            @positive-click="handlePrev"
+          >
+            <template #trigger>
+              <n-button
+                size="medium"
+                :disabled="isSaving || loading"
+              >
+                ← 이전
+              </n-button>
+            </template>
+            {{ prevConfirmMessage }}
+          </n-popconfirm>
+          <n-button
+            type="primary"
+            size="medium"
+            :loading="isSaving || loading"
+            @click="handleNext"
+          >
+            다음 단계 →
+          </n-button>
+        </div>
+      </template>
     </n-card>
   </div>
 </template>
@@ -132,7 +141,7 @@ const dayNames = DAY_NAMES;
 const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 
 const isSaving = ref(false);
-const loading = ref(false);
+const loading = ref(true);
 
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {

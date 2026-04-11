@@ -3,50 +3,31 @@
     <StepIndicator :current-step="3" />
 
     <n-card title="근무표 생성 - 직원 정보 입력">
-      <n-alert
-        type="info"
-        class="mb-6"
+      <div
+        v-if="isInitialLoading"
+        class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500"
       >
-        직원 정보를 입력하세요. 엑셀 파일을 업로드하거나 직접 입력할 수 있습니다.
-      </n-alert>
+        직원 정보를 불러오는 중입니다.
+      </div>
 
-      <!-- 탭 UI -->
-      <n-tabs
-        v-model:value="activeTab"
-        type="line"
-        class="mb-6"
-      >
-        <n-tab-pane
-          name="manual"
-          tab="직접 입력"
+      <template v-else>
+        <n-alert
+          type="info"
+          class="mb-6"
         >
-          <EmployeeTable
-            :employees="employees"
-            :shifts="shifts"
-            @add="handleAddEmployee"
-            @edit="handleEditEmployee"
-            @delete="handleDeleteEmployee"
-          />
-        </n-tab-pane>
+          직원 정보를 입력하세요. 엑셀 파일을 업로드하거나 직접 입력할 수 있습니다.
+        </n-alert>
 
-        <n-tab-pane
-          name="excel"
-          tab="엑셀 업로드"
+        <!-- 탭 UI -->
+        <n-tabs
+          v-model:value="activeTab"
+          type="line"
+          class="mb-6"
         >
-          <EmployeeExcelUpload
-            :shifts="shifts"
-            :validation-preview="validationPreview"
-            @upload="handleExcelUpload"
-          />
-
-          <!-- 업로드된 데이터 미리보기 -->
-          <div
-            v-if="employees.length > 0"
-            class="mt-6"
+          <n-tab-pane
+            name="manual"
+            tab="직접 입력"
           >
-            <h4 class="mb-4 text-lg font-medium">
-              업로드된 직원 목록 ({{ employees.length }}명)
-            </h4>
             <EmployeeTable
               :employees="employees"
               :shifts="shifts"
@@ -54,40 +35,68 @@
               @edit="handleEditEmployee"
               @delete="handleDeleteEmployee"
             />
-          </div>
-        </n-tab-pane>
-      </n-tabs>
+          </n-tab-pane>
 
-      <!-- 버튼 -->
-      <div class="flex justify-between pt-6">
-        <n-popconfirm @positive-click="handlePrev">
-          <template #trigger>
-            <n-button size="medium">
-              ← 이전
+          <n-tab-pane
+            name="excel"
+            tab="엑셀 업로드"
+          >
+            <EmployeeExcelUpload
+              :shifts="shifts"
+              :validation-preview="validationPreview"
+              @upload="handleExcelUpload"
+            />
+
+            <!-- 업로드된 데이터 미리보기 -->
+            <div
+              v-if="employees.length > 0"
+              class="mt-6"
+            >
+              <h4 class="mb-4 text-lg font-medium">
+                업로드된 직원 목록 ({{ employees.length }}명)
+              </h4>
+              <EmployeeTable
+                :employees="employees"
+                :shifts="shifts"
+                @add="handleAddEmployee"
+                @edit="handleEditEmployee"
+                @delete="handleDeleteEmployee"
+              />
+            </div>
+          </n-tab-pane>
+        </n-tabs>
+
+        <!-- 버튼 -->
+        <div class="flex justify-between pt-6">
+          <n-popconfirm @positive-click="handlePrev">
+            <template #trigger>
+              <n-button size="medium">
+                ← 이전
+              </n-button>
+            </template>
+            이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+          </n-popconfirm>
+          <div class="flex gap-4">
+            <n-button
+              size="medium"
+              :disabled="!canProceed || isValidating || isApplying"
+              :loading="isValidating"
+              @click="handleSave"
+            >
+              {{ hasUnsavedChanges ? '저장 *' : '저장' }}
             </n-button>
-          </template>
-          이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
-        </n-popconfirm>
-        <div class="flex gap-4">
-          <n-button
-            size="medium"
-            :disabled="!canProceed || isValidating || isApplying"
-            :loading="isValidating"
-            @click="handleSave"
-          >
-            {{ hasUnsavedChanges ? '저장 *' : '저장' }}
-          </n-button>
-          <n-button
-            type="primary"
-            size="medium"
-            :disabled="!canProceed || !validationPreview || isValidating || isApplying"
-            :loading="isApplying"
-            @click="handleApply"
-          >
-            적용 →
-          </n-button>
+            <n-button
+              type="primary"
+              size="medium"
+              :disabled="!canProceed || !validationPreview || isValidating || isApplying"
+              :loading="isApplying"
+              @click="handleApply"
+            >
+              적용 →
+            </n-button>
+          </div>
         </div>
-      </div>
+      </template>
     </n-card>
   </div>
 </template>
@@ -125,6 +134,7 @@ const activeTab = ref<'manual' | 'excel'>('manual');
 const employees = ref<EmployeeInput[]>([]);
 const isValidating = ref(false);
 const isApplying = ref(false);
+const isInitialLoading = ref(true);
 const validationPreview = ref<EmployeeImportValidateResponse | null>(null);
 const hasUnsavedChanges = ref(false); // 저장되지 않은 변경사항 추적
 
@@ -150,6 +160,7 @@ onMounted(async () => {
     employees.value = [...scheduleStore.employees];
     hasUnsavedChanges.value = false;
     validationPreview.value = null;
+    isInitialLoading.value = false;
     return;
   }
 
@@ -193,6 +204,8 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('[Step3] Failed to load employees:', error);
+  } finally {
+    isInitialLoading.value = false;
   }
 });
 
