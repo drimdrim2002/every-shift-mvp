@@ -127,10 +127,20 @@ function createEmptySite(): SiteDraft {
   };
 }
 
-function resolveSelectedDraftKey(sites: SiteDraft[]) {
-  const pilotDraftKey = props.pilotSiteId
+function getPilotDraftKey(sites: SiteDraft[]) {
+  return props.pilotSiteId
     ? sites.find((site) => site.id === props.pilotSiteId)?.draftKey ?? null
     : null;
+}
+
+function resolveSelectedDraftKey(sites: SiteDraft[]) {
+  const pilotDraftKey = getPilotDraftKey(sites);
+
+  if (props.scheduleTargetLocked) {
+    selectedDraftKey.value = pilotDraftKey;
+    return;
+  }
+
   const activeDraftKey = sites.find((site) => site.isScheduleActive)?.draftKey ?? null;
   const currentDraftKey = selectedDraftKey.value && sites.some((site) => site.draftKey === selectedDraftKey.value)
     ? selectedDraftKey.value
@@ -157,17 +167,22 @@ function addSite() {
   };
 
   localSites.value = [...localSites.value, newSite];
-  selectedDraftKey.value ??= newSite.draftKey;
+
+  if (!props.scheduleTargetLocked && selectedDraftKey.value === null) {
+    selectedDraftKey.value = newSite.draftKey;
+  }
 }
 
 function saveSites() {
+  const targetDraftKey = props.scheduleTargetLocked ? getPilotDraftKey(localSites.value) : selectedDraftKey.value;
+
   emit(
     'save',
     localSites.value.map((site) => ({
       code: site.code,
       name: site.name,
       isActive: site.isActive,
-      isScheduleActive: site.draftKey === selectedDraftKey.value,
+      isScheduleActive: site.draftKey === targetDraftKey,
     }))
   );
 }
@@ -179,7 +194,7 @@ watch(
 );
 
 watch(
-  () => props.pilotSiteId,
+  () => [props.pilotSiteId, props.scheduleTargetLocked],
   () => {
     resolveSelectedDraftKey(localSites.value);
   }
