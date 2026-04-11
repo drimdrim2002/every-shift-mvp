@@ -93,6 +93,24 @@ const siteSetup = ref<SitesResponse>({
 });
 const scheduleTargetLocked = computed(() => siteSetup.value.pilotSiteId !== null);
 
+function toSiteSaveErrorMessage(error: unknown): string {
+  const fallback = '사이트 설정 저장에 실패했습니다.';
+
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  if (error.message.includes('Changing the schedule-active pilot site code is not supported')) {
+    return '현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.';
+  }
+
+  if (error.message.includes('Exactly one schedule-active site is required')) {
+    return '스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.';
+  }
+
+  return fallback;
+}
+
 async function ensureOrganizationId(): Promise<string> {
   if (organizationStore.current?.id) {
     return organizationStore.current.id;
@@ -158,7 +176,7 @@ async function handleSaveSites(value: SiteRequest[]) {
     organizationStore.updateFoundationSitesCache(saved.sites);
     showSuccess('사이트 설정을 저장했습니다.');
   } catch (error) {
-    showError(error instanceof Error ? error.message : '사이트 설정 저장에 실패했습니다.');
+    showError(toSiteSaveErrorMessage(error));
   } finally {
     siteSaving.value = false;
   }

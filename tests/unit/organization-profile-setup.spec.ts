@@ -63,12 +63,24 @@ vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
   default: {
     name: 'SiteFoundationForm',
     props: ['modelValue', 'pilotSiteId', 'scheduleTargetLocked'],
+    emits: ['save'],
     template: `
-      <div
-        data-test="site-foundation-form"
-        :data-pilot-site-id="pilotSiteId ?? ''"
-        :data-locked="String(scheduleTargetLocked)"
-      />
+      <div>
+        <div
+          data-test="site-foundation-form"
+          :data-pilot-site-id="pilotSiteId ?? ''"
+          :data-locked="String(scheduleTargetLocked)"
+        />
+        <button
+          data-test="emit-site-save"
+          @click="$emit('save', [
+            { code: 'MAIN', name: '본관', isActive: true, isScheduleActive: false },
+            { code: 'SUB', name: '별관', isActive: true, isScheduleActive: true }
+          ])"
+        >
+          save
+        </button>
+      </div>
     `,
   },
 }));
@@ -204,5 +216,62 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.text()).toContain('프로필 로드 실패');
     expect(wrapper.text()).not.toContain('기본 설정을 불러오는 중입니다.');
     expect(showErrorMock).toHaveBeenCalledWith('프로필 로드 실패');
+  });
+
+  it('maps the locked pilot-site backend error to Korean guidance', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      pilotSiteId: 'site-1',
+      sites: [
+        {
+          id: 'site-1',
+          organizationId: 'org-1',
+          code: 'MAIN',
+          name: '본관',
+          isActive: true,
+          isScheduleActive: true,
+        },
+      ],
+    });
+    updateSitesMock.mockRejectedValue(
+      new Error('Changing the schedule-active pilot site code is not supported in Phase2A')
+    );
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-site-save"]').trigger('click');
+    await flushPromises();
+
+    expect(showErrorMock).toHaveBeenCalledWith(
+      '현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.'
+    );
+  });
+
+  it('maps the exactly-one schedule-active site error to Korean guidance', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      pilotSiteId: null,
+      sites: [],
+    });
+    updateSitesMock.mockRejectedValue(new Error('Exactly one schedule-active site is required'));
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-site-save"]').trigger('click');
+    await flushPromises();
+
+    expect(showErrorMock).toHaveBeenCalledWith('스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.');
   });
 });
