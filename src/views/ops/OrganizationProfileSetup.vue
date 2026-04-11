@@ -93,6 +93,25 @@ const siteSetup = ref<SitesResponse>({
 });
 const scheduleTargetLocked = computed(() => siteSetup.value.pilotSiteId !== null);
 
+const internalSiteSaveErrorPatterns = [
+  /duplicate key/i,
+  /violat(?:es|ion)/i,
+  /constraint/i,
+  /postgres/i,
+  /sql/i,
+  /relation/i,
+  /column/i,
+  /row/i,
+  /uuid/i,
+  /null value/i,
+  /foreign key/i,
+  /unique constraint/i,
+];
+
+function isInternalSiteSaveErrorMessage(message: string): boolean {
+  return internalSiteSaveErrorPatterns.some((pattern) => pattern.test(message));
+}
+
 function toSiteSaveErrorMessage(error: unknown): string {
   const fallback = '사이트 설정 저장에 실패했습니다.';
 
@@ -114,7 +133,7 @@ function toSiteSaveErrorMessage(error: unknown): string {
   }
 
   console.error('[OrganizationProfileSetup] Unexpected site save error:', error);
-  if (/[가-힣]/.test(message) && !/[A-Za-z]/.test(message)) {
+  if (/[가-힣]/.test(message) && !isInternalSiteSaveErrorMessage(message)) {
     return message;
   }
 
