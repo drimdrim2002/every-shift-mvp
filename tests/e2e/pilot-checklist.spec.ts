@@ -50,7 +50,7 @@ test.describe('pilot checklist entry surface', () => {
             },
             {
               key: 'off_request_policy',
-              title: 'Off 요청 정책 설정',
+              title: 'Off 사용 기준 설정',
               status: 'ready',
               route: '/ops/off-request-policy-setup',
               blockedReason: null,
@@ -75,7 +75,7 @@ test.describe('pilot checklist entry surface', () => {
     await expect(page.getByRole('heading', { name: '조직 기본 정보 확인' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '사이트/근무 기본 설정' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '직원 로스터 준비' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Off 요청 정책 설정' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Off 사용 기준 설정' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '최종 검토 진입' })).toBeVisible()
 
     await page.getByTestId('pilot-checklist-link-organization_profile').click()
@@ -98,7 +98,7 @@ test.describe('pilot checklist entry surface', () => {
     await waitForDashboard(page)
     await page.getByTestId('pilot-checklist-link-off_request_policy').click()
     await expect(page).toHaveURL(/\/ops\/off-request-policy-setup$/)
-    await expect(page.getByRole('heading', { name: 'Off 요청 정책 설정' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Off 사용 기준 설정' })).toBeVisible()
 
     await page.goto('/')
     await waitForDashboard(page)

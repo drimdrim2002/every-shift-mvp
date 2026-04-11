@@ -81,10 +81,10 @@ export function buildChecklistResponse(snapshot: ChecklistSnapshot): ChecklistRe
     ),
     buildChecklistItem(
       'off_request_policy',
-      'Off 요청 정책 설정',
+      'Off 사용 기준 설정',
       '/ops/off-request-policy-setup',
       offRequestPolicyReady,
-      '기본 월간/연간 Off 요청 정책이 아직 없습니다.'
+      '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.'
     ),
     buildChecklistItem(
       'schedule_review',

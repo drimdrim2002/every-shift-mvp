@@ -1,18 +1,18 @@
 <template>
-  <n-card title="Off 요청 정책">
+  <n-card title="Off 사용 기준">
     <div class="space-y-8">
       <section class="space-y-4">
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-base font-semibold text-gray-800">
-              조직별 rank 코드
+              직급 구분
             </h2>
             <p class="text-sm text-gray-500">
-              신규 직원이나 기본 정책과 연결할 rank 코드 목록입니다.
+              직급별로 다른 기준을 적용하려면 직급 구분을 등록하세요.
             </p>
           </div>
           <n-button @click="addRankCode">
-            rank 코드 추가
+            직급 구분 추가
           </n-button>
         </div>
 
@@ -21,10 +21,10 @@
             <thead class="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th class="px-3 py-2">
-                  코드
+                  직급 코드
                 </th>
                 <th class="px-3 py-2">
-                  라벨
+                  직급명
                 </th>
                 <th class="w-24 px-3 py-2">
                   표시 순서
@@ -38,7 +38,7 @@
             <tbody class="divide-y divide-gray-100 bg-white">
               <tr
                 v-for="(rankCode, index) in localRankCodes"
-                :key="rankCode.id ?? `${rankCode.code}-${index}`"
+                :key="rankCode.draftKey"
               >
                 <td class="px-3 py-2">
                   <n-input
@@ -49,7 +49,7 @@
                 <td class="px-3 py-2">
                   <n-input
                     v-model:value="rankCode.label"
-                    placeholder="Registered Nurse"
+                    placeholder="일반 간호사"
                   />
                 </td>
                 <td class="px-3 py-2">
@@ -81,14 +81,14 @@
         <div class="flex items-center justify-between">
           <div>
             <h2 class="text-base font-semibold text-gray-800">
-              정책 규칙
+              Off 사용 기준
             </h2>
             <p class="text-sm text-gray-500">
-              rank 코드가 없으면 조직 기본 정책이 적용됩니다.
+              직급을 선택하면 해당 직급에만 적용되고, 비워두면 공통 기준으로 적용됩니다.
             </p>
           </div>
           <n-button @click="addPolicyRule">
-            정책 규칙 추가
+            기준 추가
           </n-button>
         </div>
 
@@ -97,13 +97,13 @@
             <thead class="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th class="px-3 py-2">
-                  대상 rank
+                  적용 대상
                 </th>
                 <th class="w-32 px-3 py-2">
                   기간
                 </th>
                 <th class="w-28 px-3 py-2">
-                  제한 횟수
+                  허용 횟수
                 </th>
                 <th class="w-24 px-3 py-2">
                   사용
@@ -114,14 +114,14 @@
             <tbody class="divide-y divide-gray-100 bg-white">
               <tr
                 v-for="(rule, index) in localPolicyRules"
-                :key="rule.id ?? `${rule.periodType}-${rule.rankCode ?? 'default'}-${index}`"
+                :key="rule.draftKey"
               >
                 <td class="px-3 py-2">
                   <n-select
                     v-model:value="rule.rankCode"
                     :options="rankOptions"
                     clearable
-                    placeholder="조직 기본"
+                    placeholder="공통 기준"
                   />
                 </td>
                 <td class="px-3 py-2">
@@ -157,14 +157,14 @@
 
       <div class="flex items-center justify-between border-t border-gray-200 pt-4">
         <p class="text-sm text-gray-500">
-          저장하면 rank 코드와 정책 규칙이 함께 갱신됩니다.
+          저장하면 직급 구분과 Off 사용 기준이 함께 업데이트됩니다.
         </p>
         <n-button
           type="primary"
           :loading="saving"
           @click="emitSave"
         >
-          정책 저장
+          기준 저장
         </n-button>
       </div>
     </div>
@@ -181,6 +181,7 @@ import type {
 } from '@/types/ops';
 
 type RankCodeDraft = {
+  draftKey: string;
   id?: string;
   code: string;
   label: string;
@@ -189,6 +190,7 @@ type RankCodeDraft = {
 };
 
 type PolicyRuleDraft = {
+  draftKey: string;
   id?: string;
   rankCode: string | null;
   periodType: OffRequestPolicyPeriodType;
@@ -207,6 +209,7 @@ const emit = defineEmits<{
 
 const localRankCodes = ref<RankCodeDraft[]>([]);
 const localPolicyRules = ref<PolicyRuleDraft[]>([]);
+let draftKeySeed = 0;
 
 const periodOptions = [
   { label: '월간', value: 'monthly' },
@@ -224,6 +227,7 @@ const rankOptions = computed(() =>
 
 function createEmptyRankCode(): RankCodeDraft {
   return {
+    draftKey: createDraftKey('rank'),
     code: '',
     label: '',
     displayOrder: localRankCodes.value.length + 1,
@@ -233,6 +237,7 @@ function createEmptyRankCode(): RankCodeDraft {
 
 function createEmptyPolicyRule(): PolicyRuleDraft {
   return {
+    draftKey: createDraftKey('policy'),
     rankCode: null,
     periodType: 'monthly',
     limitCount: 4,
@@ -240,14 +245,44 @@ function createEmptyPolicyRule(): PolicyRuleDraft {
   };
 }
 
+function createDraftKey(prefix: 'rank' | 'policy') {
+  draftKeySeed += 1;
+  return `${prefix}-${draftKeySeed}`;
+}
+
+function createDefaultPolicyRules(): PolicyRuleDraft[] {
+  return [
+    {
+      draftKey: createDraftKey('policy'),
+      rankCode: null,
+      periodType: 'annual',
+      limitCount: 16,
+      isActive: true,
+    },
+    {
+      draftKey: createDraftKey('policy'),
+      rankCode: null,
+      periodType: 'monthly',
+      limitCount: 4,
+      isActive: true,
+    },
+  ];
+}
+
 function syncModel(value: OffRequestPolicySetupResponse) {
   localRankCodes.value = value.rankCodes.length > 0
-    ? value.rankCodes.map((rankCode) => ({ ...rankCode }))
+    ? value.rankCodes.map((rankCode) => ({
+        ...rankCode,
+        draftKey: rankCode.id ?? createDraftKey('rank'),
+      }))
     : [createEmptyRankCode()];
 
   localPolicyRules.value = value.policyRules.length > 0
-    ? value.policyRules.map((rule) => ({ ...rule }))
-    : [createEmptyPolicyRule()];
+    ? value.policyRules.map((rule) => ({
+        ...rule,
+        draftKey: rule.id ?? createDraftKey('policy'),
+      }))
+    : createDefaultPolicyRules();
 }
 
 function addRankCode() {

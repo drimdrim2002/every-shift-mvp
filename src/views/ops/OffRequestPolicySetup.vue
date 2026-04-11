@@ -3,10 +3,10 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">
-          Off 요청 정책 설정
+          Off 사용 기준 설정
         </h1>
         <p class="mt-1 text-sm text-gray-500">
-          조직 기본 정책과 rank별 제한 규칙을 관리합니다.
+          직급별로 Off 사용 가능 횟수를 관리합니다.
         </p>
       </div>
 
@@ -25,7 +25,7 @@
       type="error"
     >
       <template #header>
-        정책 설정을 불러오지 못했습니다
+        Off 사용 기준을 불러오지 못했습니다
       </template>
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm">
@@ -53,7 +53,7 @@
       :show="loading"
     >
       <n-card class="text-sm text-gray-500">
-        정책 설정을 불러오는 중입니다.
+        Off 사용 기준을 불러오는 중입니다.
       </n-card>
     </n-spin>
   </div>
@@ -102,7 +102,7 @@ async function loadPolicySetup() {
     const organizationId = await ensureOrganizationId();
     policySetup.value = await getOffRequestPolicies(organizationId);
   } catch (error) {
-    loadErrorMessage.value = error instanceof Error ? error.message : '정책 설정을 불러오지 못했습니다.';
+    loadErrorMessage.value = error instanceof Error ? error.message : 'Off 사용 기준을 불러오지 못했습니다.';
     showError(loadErrorMessage.value);
   } finally {
     loading.value = false;
@@ -115,9 +115,9 @@ async function handleSave(value: OffRequestPolicySetupRequest) {
   try {
     const saved = await updateOffRequestPolicies(value);
     policySetup.value = saved;
-    showSuccess('Off 요청 정책을 저장했습니다.');
+    showSuccess('Off 사용 기준을 저장했습니다.');
   } catch (error) {
-    showError(error instanceof Error ? error.message : 'Off 요청 정책 저장에 실패했습니다.');
+    showError(error instanceof Error ? error.message : 'Off 사용 기준 저장에 실패했습니다.');
   } finally {
     saving.value = false;
   }

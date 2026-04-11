@@ -195,7 +195,7 @@ describe('Dashboard', () => {
         },
         {
           key: 'off_request_policy',
-          title: 'Off 요청 정책 설정',
+          title: 'Off 사용 기준 설정',
           status: 'ready',
           route: '/ops/off-request-policy-setup',
           blockedReason: null,
@@ -386,7 +386,7 @@ describe('Dashboard', () => {
     expect(wrapper.text()).toContain('조직 기본 정보 확인')
     expect(wrapper.text()).toContain('사이트/근무 기본 설정')
     expect(wrapper.text()).toContain('직원 로스터 준비')
-    expect(wrapper.text()).toContain('Off 요청 정책 설정')
+    expect(wrapper.text()).toContain('Off 사용 기준 설정')
     expect(wrapper.text()).toContain('최종 검토 진입')
 
     await wrapper.get('[data-test="pilot-checklist-link-organization_profile"]').trigger('click')

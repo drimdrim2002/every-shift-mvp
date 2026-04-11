@@ -58,7 +58,7 @@ const baseRoutes: RouteRecordRaw[] = [
         path: 'ops/off-request-policy-setup',
         name: 'OffRequestPolicySetup',
         component: () => import('@/views/ops/OffRequestPolicySetup.vue'),
-        meta: { title: 'Off 요청 정책 설정' },
+        meta: { title: 'Off 사용 기준 설정' },
       },
       {
         path: 'schedule/step1',
