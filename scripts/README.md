@@ -70,6 +70,25 @@ Essential development workflow scripts for quality assurance and validation.
 ./scripts/quality-gate.sh
 ```
 
+### Ops Verification 🧪
+
+#### `ops/run-phase2a-go-live-ops-checks.sh`
+
+**Purpose**: Runs the internal Phase2A-2 Go-Live Ops verification suite that is intentionally excluded from third-party manual UI QA.
+
+**Actions**:
+
+- ✅ `phase2-ops` contracts, auth, CORS, repository, checklist unit tests
+- ✅ Step2, Step3, Step5, dashboard, Off policy, fairness-related regression tests
+- ✅ Optional Playwright smoke tests when `TEST_USER_EMAIL` and `TEST_USER_PASSWORD` are set
+- ✅ Optional live `bootstrap-admin` smoke when operator/bootstrap env vars are set
+
+**Usage**:
+
+```bash
+./scripts/ops/run-phase2a-go-live-ops-checks.sh
+```
+
 ## 🛠️ Setup Instructions
 
 ### Make Scripts Executable
