@@ -90,6 +90,9 @@ Use `README.md` and `docs/prd/*` as the source of truth for full product and arc
 - Components use PascalCase. Composables use `useX`. Stores stay focused and explicit.
 - Prefer Tailwind utilities over custom CSS unless custom styling is clearly justified.
 - Step 3 grid is the critical surface: 30 employees x 36 days, with the previous month's last 5 days required for generation.
+- Editable rows must not key by user-editable fields.
+- Async-loaded editors must not render inputs until first preload resolves.
+- Local form copies must sync from prop replacement, not deep nested prop mutation.
 
 ## Naive UI Rule
 
