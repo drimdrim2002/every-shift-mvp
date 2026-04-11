@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { defineComponent, h, reactive } from 'vue'
 import { describe, expect, it } from 'vitest'
 import OffRequestPolicyTable from '@/components/ops/OffRequestPolicyTable.vue'
 
@@ -182,5 +183,46 @@ describe('OffRequestPolicyTable', () => {
         },
       ],
     })
+  })
+
+  it('does not reset local drafts when the parent mutates policy data in place', async () => {
+    const parentState = reactive({
+      modelValue: {
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        rankCodes: [],
+        policyRules: [],
+      },
+    })
+
+    const Harness = defineComponent({
+      setup() {
+        return () => h(OffRequestPolicyTable, {
+          modelValue: parentState.modelValue,
+        })
+      },
+    })
+
+    const wrapper = mount(Harness, {
+      global: {
+        stubs: globalStubs,
+      },
+    })
+
+    const firstCodeInput = wrapper.find('tbody input')
+    await firstCodeInput.setValue('R')
+
+    parentState.modelValue.policyRules.push({
+      id: 'policy-default',
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      rankCode: null,
+      periodType: 'monthly',
+      limitCount: 4,
+      isActive: true,
+    })
+
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('tbody input').element).toBe(firstCodeInput.element)
+    expect((wrapper.find('tbody input').element as HTMLInputElement).value).toBe('R')
   })
 })

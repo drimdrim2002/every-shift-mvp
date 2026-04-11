@@ -34,6 +34,10 @@ vi.mock('@/api/employee', () => ({
   loadCanonicalSiteRequirements: loadSiteRequirementsMock,
 }))
 
+vi.mock('@/api/shift', () => ({
+  getSchedulingShifts: (shifts: Array<{ code: string; name: string; colorCode: string }>) => shifts,
+}))
+
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
   showSuccess: showSuccessMock,
@@ -90,6 +94,18 @@ vi.mock('@/components/schedule/StepIndicator.vue', () => ({
 
 import Step2SiteInfo from '@/views/schedule/Step2SiteInfo.vue'
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
+
 function createWrapper() {
   return mount(Step2SiteInfo, {
     global: {
@@ -115,6 +131,25 @@ describe('Step2SiteInfo', () => {
     organizationStoreMock.foundationSites = []
     loadSiteRequirementsMock.mockResolvedValue([])
     replaceSiteRequirementsMock.mockResolvedValue(undefined)
+  })
+
+  it('waits for the initial requirements preload before rendering the editable table', async () => {
+    const requirementsDeferred = createDeferred<
+      Array<{ dayOfWeek: number; dayName: string; shiftCode: string; requiredCount: number }>
+    >()
+
+    loadSiteRequirementsMock.mockReturnValue(requirementsDeferred.promise)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('table').exists()).toBe(false)
+    expect(wrapper.text()).toContain('요일별 필요 인력을 불러오는 중입니다.')
+
+    requirementsDeferred.resolve([])
+    await flushPromises()
+
+    expect(wrapper.find('table').exists()).toBe(true)
   })
 
   it('initializes all shift requirements to zero by default', async () => {

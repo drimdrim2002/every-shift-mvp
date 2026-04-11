@@ -142,14 +142,26 @@ vi.mock('@/components/schedule/StepIndicator.vue', () => ({
 }))
 
 vi.mock('@/components/schedule/EmployeeTable.vue', () => ({
-  default: { template: '<div />' },
+  default: { template: '<div data-test="employee-table" />' },
 }))
 
 vi.mock('@/components/schedule/EmployeeExcelUpload.vue', () => ({
-  default: { template: '<div />' },
+  default: { template: '<div data-test="employee-upload" />' },
 }))
 
 import Step3EmployeeInfo from '@/views/schedule/Step3EmployeeInfo.vue'
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
 
 function createWrapper() {
   return mount(Step3EmployeeInfo, {
@@ -306,6 +318,54 @@ describe('Step3EmployeeInfo', () => {
         },
       ],
     })
+  })
+
+  it('waits for the initial employee preload before rendering the editor surface', async () => {
+    const employeesDeferred = createDeferred<{
+      data: Array<{
+        employee_id: string
+        name: string
+        available_shifts: string[]
+        rank_code?: string | null
+      }>
+      error: null
+    }>()
+
+    scheduleStoreMock.employees = []
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'employees') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue(employeesDeferred.promise),
+            }),
+          }),
+        }
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
+        }),
+      }
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="employee-table"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="employee-upload"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('직원 정보를 불러오는 중입니다.')
+
+    employeesDeferred.resolve({
+      data: [],
+      error: null,
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="employee-table"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('직원 정보를 불러오는 중입니다.')
+    expect(wrapper.text()).toContain('저장')
   })
 
   it('validates first and applies second with explicit confirmation', async () => {
