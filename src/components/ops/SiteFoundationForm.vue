@@ -135,13 +135,13 @@ function getPilotDraftKey(sites: SiteDraft[]) {
 
 function resolveSelectedDraftKey(sites: SiteDraft[]) {
   const pilotDraftKey = getPilotDraftKey(sites);
+  const activeDraftKey = sites.find((site) => site.isScheduleActive)?.draftKey ?? null;
 
   if (props.scheduleTargetLocked) {
-    selectedDraftKey.value = pilotDraftKey;
+    selectedDraftKey.value = pilotDraftKey ?? activeDraftKey;
     return;
   }
 
-  const activeDraftKey = sites.find((site) => site.isScheduleActive)?.draftKey ?? null;
   const currentDraftKey = selectedDraftKey.value && sites.some((site) => site.draftKey === selectedDraftKey.value)
     ? selectedDraftKey.value
     : null;
@@ -174,7 +174,10 @@ function addSite() {
 }
 
 function saveSites() {
-  const targetDraftKey = props.scheduleTargetLocked ? getPilotDraftKey(localSites.value) : selectedDraftKey.value;
+  const activeDraftKey = localSites.value.find((site) => site.isScheduleActive)?.draftKey ?? null;
+  const targetDraftKey = props.scheduleTargetLocked
+    ? getPilotDraftKey(localSites.value) ?? activeDraftKey
+    : selectedDraftKey.value;
 
   emit(
     'save',

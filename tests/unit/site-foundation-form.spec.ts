@@ -226,7 +226,7 @@ describe('SiteFoundationForm', () => {
     expect(payload[1].isScheduleActive).toBe(true);
   });
 
-  it('keeps the schedule target unset when locked and the pilot site is missing', async () => {
+  it('preserves the existing active site when locked and the pilot site is missing', async () => {
     const wrapper = mount(SiteFoundationForm, {
       props: {
         modelValue: [
@@ -264,13 +264,15 @@ describe('SiteFoundationForm', () => {
     });
 
     const radios = wrapper.findAll('input[type="radio"]');
-    expect(radios.every((radio) => (radio.element as HTMLInputElement).checked === false)).toBe(true);
+    expect((radios[0].element as HTMLInputElement).checked).toBe(true);
+    expect((radios[1].element as HTMLInputElement).checked).toBe(false);
 
-    await radios[1].trigger('change');
     await wrapper.findAll('button')[1].trigger('click');
 
     const payload = wrapper.emitted('save')?.[0]?.[0] as Array<{ isScheduleActive: boolean }>;
-    expect(payload.every((site) => site.isScheduleActive === false)).toBe(true);
+    expect(payload.filter((site) => site.isScheduleActive)).toHaveLength(1);
+    expect(payload[0].isScheduleActive).toBe(true);
+    expect(payload[1].isScheduleActive).toBe(false);
   });
 
   it('resyncs the selected target when pilotSiteId changes without replacing the sites array', async () => {
