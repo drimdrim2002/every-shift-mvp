@@ -275,7 +275,7 @@ describe('OrganizationProfileSetup', () => {
     expect(showErrorMock).toHaveBeenCalledWith('스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.');
   });
 
-  it('shows the generic Korean fallback for unknown save errors', async () => {
+  it('shows the generic Korean fallback for unknown English save errors', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -288,6 +288,7 @@ describe('OrganizationProfileSetup', () => {
     });
     updateSitesMock.mockRejectedValue(new Error('Unexpected site save failure'));
 
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const wrapper = createWrapper();
     await flushPromises();
 
@@ -295,5 +296,32 @@ describe('OrganizationProfileSetup', () => {
     await flushPromises();
 
     expect(showErrorMock).toHaveBeenCalledWith('사이트 설정 저장에 실패했습니다.');
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('preserves unknown Korean save errors', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      pilotSiteId: null,
+      sites: [],
+    });
+    updateSitesMock.mockRejectedValue(new Error('사이트 저장 중 예상치 못한 오류가 발생했습니다.'));
+
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-site-save"]').trigger('click');
+    await flushPromises();
+
+    expect(showErrorMock).toHaveBeenCalledWith('사이트 저장 중 예상치 못한 오류가 발생했습니다.');
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 });

@@ -114,6 +114,10 @@ function toSiteSaveErrorMessage(error: unknown): string {
   }
 
   console.error('[OrganizationProfileSetup] Unexpected site save error:', error);
+  if (/[가-힣]/.test(message)) {
+    return message;
+  }
+
   return fallback;
 }
 
