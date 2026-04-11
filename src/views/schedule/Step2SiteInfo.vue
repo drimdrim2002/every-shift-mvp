@@ -95,7 +95,7 @@
               ← 이전
             </n-button>
           </template>
-          이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+          {{ prevConfirmMessage }}
         </n-popconfirm>
         <n-button
           type="primary"
@@ -112,7 +112,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NAlert, NInputNumber, NPopconfirm } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useScheduleStore } from '@/stores/schedule';
@@ -124,6 +124,7 @@ import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
 const router = useRouter();
+const route = useRoute();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 
@@ -152,6 +153,16 @@ const primarySiteLabel = computed(() => {
   }
 
   return `${primarySite.name} (${primarySite.code})`;
+});
+
+const cameFromDashboard = computed(() => route.query.from === 'dashboard');
+
+const prevConfirmMessage = computed(() => {
+  if (cameFromDashboard.value) {
+    return '근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?';
+  }
+
+  return '이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?';
 });
 
 // 가로형 데이터: Record<dayOfWeek, Record<shiftCode, requiredCount>>
@@ -314,7 +325,7 @@ function validateBeforeSave(): string | null {
  */
 function handlePrev() {
   scheduleStore.prevStep();
-  router.push('/schedule/step1');
+  router.push(cameFromDashboard.value ? '/' : '/schedule/step1');
 }
 
 /**

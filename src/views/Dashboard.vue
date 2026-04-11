@@ -346,6 +346,17 @@ async function handleChecklistNavigate(item: ChecklistItem) {
   }
 
   await seedChecklistScheduleContext(item);
+
+  if (item.route === '/schedule/step2') {
+    await router.push({
+      path: item.route,
+      query: {
+        from: 'dashboard',
+      },
+    });
+    return;
+  }
+
   await router.push(item.route);
 }
 

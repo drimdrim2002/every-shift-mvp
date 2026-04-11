@@ -396,7 +396,12 @@ describe('Dashboard', () => {
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-schedule_foundation"]').trigger('click')
     await flushPromises()
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step2')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        from: 'dashboard',
+      },
+    })
 
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')

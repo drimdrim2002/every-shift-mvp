@@ -8,17 +8,22 @@ const {
   loadSiteRequirementsMock,
   showErrorMock,
   showSuccessMock,
+  routeQueryMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceSiteRequirementsMock: vi.fn(),
   loadSiteRequirementsMock: vi.fn(),
   showErrorMock: vi.fn(),
   showSuccessMock: vi.fn(),
+  routeQueryMock: {} as Record<string, string>,
 }))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
+  }),
+  useRoute: () => ({
+    query: routeQueryMock,
   }),
 }))
 
@@ -93,7 +98,7 @@ function createWrapper() {
         NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
         NAlert: { template: '<div><slot /></div>' },
         NInputNumber: { template: '<div />' },
-        NPopconfirm: { template: '<div><slot name="trigger" /></div>' },
+        NPopconfirm: { template: '<div><slot name="trigger" /><slot /></div>' },
       },
     },
   })
@@ -102,6 +107,9 @@ function createWrapper() {
 describe('Step2SiteInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    Object.keys(routeQueryMock).forEach((key) => {
+      delete routeQueryMock[key]
+    })
     scheduleStoreMock.siteRequirements = []
     scheduleStoreMock.currentStep = 2
     organizationStoreMock.foundationSites = []
@@ -204,5 +212,23 @@ describe('Step2SiteInfo', () => {
         }),
       ])
     )
+  })
+
+  it('returns to the dashboard when Step 2 was opened from the checklist shortcut', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const prevButton = wrapper.findAll('button').find((button) => button.text().includes('이전'))
+    expect(prevButton).toBeTruthy()
+    expect(wrapper.vm.prevConfirmMessage).toBe(
+      '근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?'
+    )
+
+    wrapper.vm.handlePrev()
+
+    expect(scheduleStoreMock.prevStep).toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith('/')
   })
 })
