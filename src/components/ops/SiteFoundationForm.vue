@@ -1,8 +1,12 @@
 <template>
-  <n-card title="스케줄 대상 사이트">
+  <n-card title="사이트 목록">
     <div class="space-y-4">
+      <p class="text-sm text-gray-500">
+        여러 사이트를 등록할 수 있지만, 현재 스케줄 생성에는 1개 사이트만 사용합니다.
+      </p>
+
       <div
-        v-for="(site, index) in localSites"
+        v-for="site in localSites"
         :key="site.draftKey"
         class="rounded border border-gray-200 p-4"
       >
@@ -19,17 +23,46 @@
               placeholder="본관"
             />
           </n-form-item>
+          <n-form-item label="사용 중">
+            <n-checkbox v-model:checked="site.isActive">
+              사용 중
+            </n-checkbox>
+          </n-form-item>
         </div>
-        <div class="flex flex-wrap gap-4">
-          <n-checkbox v-model:checked="site.isActive">
-            사용 중
-          </n-checkbox>
-          <n-checkbox
-            :checked="site.isScheduleActive"
-            @update:checked="setScheduleActive(index)"
+      </div>
+
+      <div class="rounded border border-gray-200 p-4">
+        <div class="space-y-2">
+          <div>
+            <h3 class="text-base font-medium text-gray-900">
+              현재 스케줄 생성 대상
+            </h3>
+            <p
+              v-if="scheduleTargetLocked"
+              class="mt-1 text-sm text-amber-700"
+            >
+              현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.
+            </p>
+          </div>
+
+          <n-radio-group
+            v-model:value="selectedDraftKey"
+            :disabled="scheduleTargetLocked"
+            class="space-y-2"
           >
-            스케줄 대상 사이트
-          </n-checkbox>
+            <div
+              v-for="site in localSites"
+              :key="site.draftKey"
+              class="flex items-center gap-3"
+            >
+              <n-radio
+                :value="site.draftKey"
+                :disabled="scheduleTargetLocked"
+              >
+                {{ site.name || site.code || '새 사이트' }}
+              </n-radio>
+            </div>
+          </n-radio-group>
         </div>
       </div>
 
@@ -40,17 +73,7 @@
         <n-button
           type="primary"
           :loading="saving"
-          @click="
-            emit(
-              'save',
-              localSites.map((site) => ({
-                code: site.code,
-                name: site.name,
-                isActive: site.isActive,
-                isScheduleActive: site.isScheduleActive,
-              }))
-            )
-          "
+          @click="saveSites"
         >
           사이트 설정 저장
         </n-button>
@@ -61,7 +84,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { NButton, NCard, NCheckbox, NFormItem, NInput } from 'naive-ui';
+import { NButton, NCard, NCheckbox, NFormItem, NInput, NRadio, NRadioGroup } from 'naive-ui';
 import type { SiteRequest, SiteResponse } from '@/types/ops';
 
 type SiteDraft = SiteRequest & {
@@ -70,16 +93,23 @@ type SiteDraft = SiteRequest & {
   draftKey: string;
 };
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: SiteResponse[];
+  pilotSiteId?: string | null;
+  scheduleTargetLocked?: boolean;
   saving?: boolean;
-}>();
+}>(), {
+  pilotSiteId: null,
+  scheduleTargetLocked: false,
+  saving: false,
+});
 
 const emit = defineEmits<{
   save: [value: SiteRequest[]];
 }>();
 
 const localSites = ref<SiteDraft[]>([]);
+const selectedDraftKey = ref<string | null>(null);
 let draftKeySeed = 0;
 
 function createDraftKey() {
@@ -93,8 +123,20 @@ function createEmptySite(): SiteDraft {
     code: '',
     name: '',
     isActive: true,
-    isScheduleActive: localSites.value.length === 0,
+    isScheduleActive: false,
   };
+}
+
+function resolveSelectedDraftKey(sites: SiteDraft[]) {
+  const pilotDraftKey = props.pilotSiteId
+    ? sites.find((site) => site.id === props.pilotSiteId)?.draftKey ?? null
+    : null;
+  const activeDraftKey = sites.find((site) => site.isScheduleActive)?.draftKey ?? null;
+  const currentDraftKey = selectedDraftKey.value && sites.some((site) => site.draftKey === selectedDraftKey.value)
+    ? selectedDraftKey.value
+    : null;
+
+  selectedDraftKey.value = pilotDraftKey ?? currentDraftKey ?? activeDraftKey ?? sites[0]?.draftKey ?? null;
 }
 
 function syncSites(sites: SiteResponse[]) {
@@ -104,23 +146,30 @@ function syncSites(sites: SiteResponse[]) {
         draftKey: site.id ?? createDraftKey(),
       }))
     : [createEmptySite()];
+
+  resolveSelectedDraftKey(localSites.value);
 }
 
 function addSite() {
-  localSites.value = [
-    ...localSites.value,
-    {
-      ...createEmptySite(),
-      isScheduleActive: false,
-    },
-  ];
+  const newSite = {
+    ...createEmptySite(),
+    isScheduleActive: false,
+  };
+
+  localSites.value = [...localSites.value, newSite];
+  selectedDraftKey.value ??= newSite.draftKey;
 }
 
-function setScheduleActive(index: number) {
-  localSites.value = localSites.value.map((site, currentIndex) => ({
-    ...site,
-    isScheduleActive: currentIndex === index,
-  }));
+function saveSites() {
+  emit(
+    'save',
+    localSites.value.map((site) => ({
+      code: site.code,
+      name: site.name,
+      isActive: site.isActive,
+      isScheduleActive: site.draftKey === selectedDraftKey.value,
+    }))
+  );
 }
 
 watch(
