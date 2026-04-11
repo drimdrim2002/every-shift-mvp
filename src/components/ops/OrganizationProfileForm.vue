@@ -49,13 +49,15 @@ const localValue = reactive<OrganizationProfileRequest>({
   type: props.modelValue.type,
 });
 
+function syncFromProps(value: OrganizationProfileRequest) {
+  localValue.organizationId = value.organizationId;
+  localValue.name = value.name;
+  localValue.type = value.type;
+}
+
 watch(
   () => props.modelValue,
-  (value) => {
-    localValue.organizationId = value.organizationId;
-    localValue.name = value.name;
-    localValue.type = value.type;
-  },
-  { deep: true }
+  syncFromProps,
+  { immediate: true }
 );
 </script>

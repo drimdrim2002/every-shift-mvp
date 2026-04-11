@@ -325,9 +325,7 @@ function emitSave() {
 
 watch(
   () => props.modelValue,
-  (value) => {
-    syncModel(value);
-  },
-  { deep: true, immediate: true }
+  syncModel,
+  { immediate: true }
 );
 </script>

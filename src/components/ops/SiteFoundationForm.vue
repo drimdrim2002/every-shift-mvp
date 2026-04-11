@@ -125,9 +125,7 @@ function setScheduleActive(index: number) {
 
 watch(
   () => props.modelValue,
-  (value) => {
-    syncSites(value);
-  },
-  { deep: true, immediate: true }
+  syncSites,
+  { immediate: true }
 );
 </script>
