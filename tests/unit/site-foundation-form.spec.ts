@@ -143,6 +143,61 @@ describe('SiteFoundationForm', () => {
     expect(wrapper.findAll('input[type="radio"]').every((radio) => radio.attributes('disabled') !== undefined)).toBe(true);
   });
 
+  it('resyncs the selected target when pilotSiteId changes without replacing the sites array', async () => {
+    const parentState = reactive({
+      modelValue: [
+        {
+          id: 'site-1',
+          organizationId: 'org-1',
+          code: 'MAIN',
+          name: '본관',
+          isActive: true,
+          isScheduleActive: true,
+        },
+        {
+          id: 'site-2',
+          organizationId: 'org-1',
+          code: 'SUB',
+          name: '별관',
+          isActive: true,
+          isScheduleActive: false,
+        },
+      ],
+      pilotSiteId: 'site-1',
+    });
+
+    const Harness = defineComponent({
+      setup() {
+        return () => h(SiteFoundationForm, {
+          modelValue: parentState.modelValue,
+          pilotSiteId: parentState.pilotSiteId,
+        });
+      },
+    });
+
+    const wrapper = mount(Harness, {
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NButton: NButtonStub,
+          NFormItem: NFormItemStub,
+          NInput: NInputStub,
+          NCheckbox: NCheckboxStub,
+          NRadioGroup: NRadioGroupStub,
+          NRadio: NRadioStub,
+        },
+      },
+    });
+
+    expect((wrapper.findComponent(SiteFoundationForm).vm as Record<string, unknown>).selectedDraftKey).toBe('site-1');
+
+    parentState.pilotSiteId = 'site-2';
+
+    await wrapper.vm.$nextTick();
+
+    expect((wrapper.findComponent(SiteFoundationForm).vm as Record<string, unknown>).selectedDraftKey).toBe('site-2');
+  });
+
   it('keeps the site code input mounted while typing into a new draft row', async () => {
     const wrapper = mount(SiteFoundationForm, {
       props: {

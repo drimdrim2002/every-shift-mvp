@@ -177,4 +177,11 @@ watch(
   syncSites,
   { immediate: true }
 );
+
+watch(
+  () => props.pilotSiteId,
+  () => {
+    resolveSelectedDraftKey(localSites.value);
+  }
+);
 </script>
