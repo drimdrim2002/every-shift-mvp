@@ -275,7 +275,7 @@ describe('OrganizationProfileSetup', () => {
     expect(showErrorMock).toHaveBeenCalledWith('스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.');
   });
 
-  it('preserves unknown save error messages for debuggability', async () => {
+  it('shows the generic Korean fallback for unknown save errors', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -294,6 +294,6 @@ describe('OrganizationProfileSetup', () => {
     await wrapper.get('[data-test="emit-site-save"]').trigger('click');
     await flushPromises();
 
-    expect(showErrorMock).toHaveBeenCalledWith('Unexpected site save failure');
+    expect(showErrorMock).toHaveBeenCalledWith('사이트 설정 저장에 실패했습니다.');
   });
 });

@@ -113,7 +113,8 @@ function toSiteSaveErrorMessage(error: unknown): string {
     return '스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.';
   }
 
-  return error.message;
+  console.error('[OrganizationProfileSetup] Unexpected site save error:', error);
+  return fallback;
 }
 
 async function ensureOrganizationId(): Promise<string> {
