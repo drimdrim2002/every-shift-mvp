@@ -3,7 +3,7 @@
     <div class="space-y-4">
       <div
         v-for="(site, index) in localSites"
-        :key="site.id ?? `${site.code}-${index}`"
+        :key="site.draftKey"
         class="rounded border border-gray-200 p-4"
       >
         <div class="grid gap-4 md:grid-cols-2">
@@ -67,6 +67,7 @@ import type { SiteRequest, SiteResponse } from '@/types/ops';
 type SiteDraft = SiteRequest & {
   id?: string;
   organizationId?: string;
+  draftKey: string;
 };
 
 const props = defineProps<{
@@ -79,9 +80,16 @@ const emit = defineEmits<{
 }>();
 
 const localSites = ref<SiteDraft[]>([]);
+let draftKeySeed = 0;
+
+function createDraftKey() {
+  draftKeySeed += 1;
+  return `site-${draftKeySeed}`;
+}
 
 function createEmptySite(): SiteDraft {
   return {
+    draftKey: createDraftKey(),
     code: '',
     name: '',
     isActive: true,
@@ -90,7 +98,12 @@ function createEmptySite(): SiteDraft {
 }
 
 function syncSites(sites: SiteResponse[]) {
-  localSites.value = sites.length > 0 ? sites.map((site) => ({ ...site })) : [createEmptySite()];
+  localSites.value = sites.length > 0
+    ? sites.map((site) => ({
+        ...site,
+        draftKey: site.id ?? createDraftKey(),
+      }))
+    : [createEmptySite()];
 }
 
 function addSite() {

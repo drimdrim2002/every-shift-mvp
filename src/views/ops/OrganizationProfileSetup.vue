@@ -14,24 +14,56 @@
       </n-button>
     </div>
 
-    <organization-profile-form
-      :model-value="organizationProfile"
-      :saving="organizationSaving"
-      @save="handleSaveOrganizationProfile"
-    />
+    <n-alert
+      v-if="loadErrorMessage"
+      type="error"
+    >
+      <template #header>
+        기본 설정을 불러오지 못했습니다
+      </template>
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm">
+          {{ loadErrorMessage }}
+        </p>
+        <n-button
+          size="small"
+          :loading="loading"
+          @click="loadFoundationSetup"
+        >
+          다시 시도
+        </n-button>
+      </div>
+    </n-alert>
 
-    <site-foundation-form
-      :model-value="siteRecords"
-      :saving="siteSaving"
-      @save="handleSaveSites"
-    />
+    <template v-if="hasLoaded">
+      <organization-profile-form
+        :model-value="organizationProfile"
+        :saving="organizationSaving"
+        @save="handleSaveOrganizationProfile"
+      />
+
+      <site-foundation-form
+        :model-value="siteRecords"
+        :saving="siteSaving"
+        @save="handleSaveSites"
+      />
+    </template>
+
+    <n-spin
+      v-else-if="loading"
+      :show="loading"
+    >
+      <n-card class="text-sm text-gray-500">
+        기본 설정을 불러오는 중입니다.
+      </n-card>
+    </n-spin>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { NButton } from 'naive-ui';
+import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
@@ -42,6 +74,9 @@ import { showError, showSuccess } from '@/utils/message';
 const router = useRouter();
 const organizationStore = useOrganizationStore();
 
+const loading = ref(true);
+const hasLoaded = ref(false);
+const loadErrorMessage = ref<string | null>(null);
 const organizationSaving = ref(false);
 const siteSaving = ref(false);
 const organizationProfile = ref<OrganizationProfileRequest>({
@@ -65,6 +100,9 @@ async function ensureOrganizationId(): Promise<string> {
 }
 
 async function loadFoundationSetup() {
+  loading.value = true;
+  loadErrorMessage.value = null;
+
   try {
     const organizationId = await ensureOrganizationId();
     const [profile, sites] = await Promise.all([
@@ -76,8 +114,12 @@ async function loadFoundationSetup() {
     siteRecords.value = sites.sites;
     organizationStore.updateFoundationProfileCache(profile);
     organizationStore.updateFoundationSitesCache(sites.sites);
+    hasLoaded.value = true;
   } catch (error) {
-    showError(error instanceof Error ? error.message : '기본 설정을 불러오지 못했습니다.');
+    loadErrorMessage.value = error instanceof Error ? error.message : '기본 설정을 불러오지 못했습니다.';
+    showError(loadErrorMessage.value);
+  } finally {
+    loading.value = false;
   }
 }
 
