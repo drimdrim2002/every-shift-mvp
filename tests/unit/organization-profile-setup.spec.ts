@@ -62,7 +62,14 @@ vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
 vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
   default: {
     name: 'SiteFoundationForm',
-    template: '<div data-test="site-foundation-form" />',
+    props: ['modelValue', 'pilotSiteId', 'scheduleTargetLocked'],
+    template: `
+      <div
+        data-test="site-foundation-form"
+        :data-pilot-site-id="pilotSiteId ?? ''"
+        :data-locked="String(scheduleTargetLocked)"
+      />
+    `,
   },
 }));
 
@@ -150,6 +157,35 @@ describe('OrganizationProfileSetup', () => {
 
     expect(wrapper.find('[data-test="organization-profile-form"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(true);
+  });
+
+  it('passes pilot-site metadata into the site foundation form', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      pilotSiteId: 'site-1',
+      sites: [
+        {
+          id: 'site-1',
+          organizationId: 'org-1',
+          code: 'MAIN',
+          name: '본관',
+          isActive: true,
+          isScheduleActive: true,
+        },
+      ],
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    const siteForm = wrapper.get('[data-test="site-foundation-form"]');
+    expect(siteForm.attributes('data-pilot-site-id')).toBe('site-1');
+    expect(siteForm.attributes('data-locked')).toBe('true');
   });
 
   it('shows only the error state when the initial foundation load fails', async () => {

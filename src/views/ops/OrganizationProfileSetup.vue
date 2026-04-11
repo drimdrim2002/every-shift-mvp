@@ -43,7 +43,9 @@
       />
 
       <site-foundation-form
-        :model-value="siteRecords"
+        :model-value="siteSetup.sites"
+        :pilot-site-id="siteSetup.pilotSiteId"
+        :schedule-target-locked="scheduleTargetLocked"
         :saving="siteSaving"
         @save="handleSaveSites"
       />
@@ -61,14 +63,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
-import type { OrganizationProfileRequest, SiteRequest, SiteResponse } from '@/types/ops';
+import type { OrganizationProfileRequest, SiteRequest, SitesResponse } from '@/types/ops';
 import { showError, showSuccess } from '@/utils/message';
 
 const router = useRouter();
@@ -84,7 +86,12 @@ const organizationProfile = ref<OrganizationProfileRequest>({
   name: '',
   type: '',
 });
-const siteRecords = ref<SiteResponse[]>([]);
+const siteSetup = ref<SitesResponse>({
+  organizationId: '',
+  pilotSiteId: null,
+  sites: [],
+});
+const scheduleTargetLocked = computed(() => siteSetup.value.pilotSiteId !== null);
 
 async function ensureOrganizationId(): Promise<string> {
   if (organizationStore.current?.id) {
@@ -111,7 +118,7 @@ async function loadFoundationSetup() {
     ]);
 
     organizationProfile.value = profile;
-    siteRecords.value = sites.sites;
+    siteSetup.value = sites;
     organizationStore.updateFoundationProfileCache(profile);
     organizationStore.updateFoundationSitesCache(sites.sites);
     hasLoaded.value = true;
@@ -147,7 +154,7 @@ async function handleSaveSites(value: SiteRequest[]) {
       organizationId,
       sites: value,
     });
-    siteRecords.value = saved.sites;
+    siteSetup.value = saved;
     organizationStore.updateFoundationSitesCache(saved.sites);
     showSuccess('사이트 설정을 저장했습니다.');
   } catch (error) {
