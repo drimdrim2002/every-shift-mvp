@@ -94,6 +94,7 @@ const scheduleStoreMock = reactive({
   setSiteRequirements: setSiteRequirementsMock,
   setSelectedVersionId: setSelectedVersionIdMock,
   setPreviewVersionId: setPreviewVersionIdMock,
+  currentStep: 0,
 })
 
 vi.mock('@/stores/organization', () => ({
@@ -402,6 +403,7 @@ describe('Dashboard', () => {
         from: 'dashboard',
       },
     })
+    expect(scheduleStoreMock.currentStep).toBe(2)
 
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
@@ -415,7 +417,13 @@ describe('Dashboard', () => {
         requiredCount: 1,
       },
     ])
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step3',
+      query: {
+        from: 'dashboard',
+      },
+    })
+    expect(scheduleStoreMock.currentStep).toBe(3)
 
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-off_request_policy"]').trigger('click')

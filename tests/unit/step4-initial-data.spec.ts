@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   pushMock,
+  routeQueryMock,
   createPhase2ScheduleVersionMock,
   ensurePhase2ScheduleMock,
   getScheduleVersionPreferencesMock,
@@ -16,6 +17,7 @@ const {
   showErrorMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  routeQueryMock: {} as { from?: string },
   createPhase2ScheduleVersionMock: vi.fn(),
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
@@ -31,6 +33,9 @@ const {
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
+  }),
+  useRoute: () => ({
+    query: routeQueryMock,
   }),
 }))
 
@@ -52,6 +57,16 @@ vi.mock('@/api/supabase', () => ({
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
     })),
+  },
+}))
+
+vi.mock('naive-ui', () => ({
+  NButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+  NSpin: { template: '<div><slot /></div>' },
+  NAlert: { template: '<div><slot /><slot name="header" /></div>' },
+  NPopconfirm: {
+    template:
+      '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
   },
 }))
 
@@ -91,6 +106,7 @@ const scheduleStoreMock = reactive({
   setPreviewVersionId: vi.fn((versionId: string | null) => {
     scheduleStoreMock.previewVersionId = versionId
   }),
+  reset: vi.fn(),
   prevStep: vi.fn(() => {
     scheduleStoreMock.currentStep -= 1
   }),
@@ -171,17 +187,7 @@ import Step4InitialData from '@/views/schedule/Step4InitialData.vue'
 function createWrapper() {
   return mount(Step4InitialData, {
     global: {
-      stubs: {
-        NButton: {
-          template: '<button @click="$emit(\'click\')"><slot /></button>',
-        },
-        NSpin: {
-          template: '<div><slot /></div>',
-        },
-        NAlert: {
-          template: '<div><slot /><slot name="header" /></div>',
-        },
-      },
+      stubs: {},
     },
   })
 }
@@ -196,6 +202,7 @@ describe('Step4InitialData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
+    routeQueryMock.from = undefined
 
     scheduleStoreMock.basicInfo = {
       scheduleId: undefined,
@@ -211,6 +218,7 @@ describe('Step4InitialData', () => {
     scheduleStoreMock.comments = {}
     scheduleStoreMock.selectedVersionId = null
     scheduleStoreMock.previewVersionId = null
+    scheduleStoreMock.reset.mockClear()
     authStoreMock.user = {
       id: 'user-1',
     }
@@ -390,6 +398,122 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).toContain('정책상 거부된 요청')
     expect(wrapper.text()).toContain('월 한도 초과')
     expect(wrapper.text()).toContain('Kim (2025-12-01)')
+  })
+
+  it('shows the dashboard return CTA only for dashboard-origin sessions', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('근무표 관리로 돌아가기')
+  })
+
+  it('hides the dashboard return CTA when the step was not opened from the dashboard', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
+  })
+
+  it('resets wizard state after confirming return to the dashboard', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '근무표 관리로 돌아가기')
+    expect(pushMock).not.toHaveBeenCalledWith('/')
+
+    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
+    expect(confirmButtons).toHaveLength(1)
+    await confirmButtons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/')
+  })
+
+  it('clears scoped temp preference storage after confirming return to the dashboard', async () => {
+    routeQueryMock.from = 'dashboard'
+    localStorage.setItem(
+      'everyshift_temp_preferences_v2:user-1:org-1:2025-12',
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-1',
+        month: '2025-12',
+        savedAt: new Date().toISOString(),
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+        },
+        constraintNotes: {
+          'emp-1': {
+            '2025-12-01': '연차',
+          },
+        },
+      })
+    )
+    localStorage.setItem('everyshift_temp_preferences_2025-12', JSON.stringify({}))
+    localStorage.setItem('everyshift_temp_schedule_2025-12', JSON.stringify({}))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
+    expect(confirmButtons).toHaveLength(1)
+    await confirmButtons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(localStorage.getItem('everyshift_temp_preferences_v2:user-1:org-1:2025-12')).toBeNull()
+    expect(localStorage.getItem('everyshift_temp_preferences_2025-12')).toBeNull()
+    expect(localStorage.getItem('everyshift_temp_schedule_2025-12')).toBeNull()
+  })
+
+  it('does not recreate scoped temp preference storage after dashboard return clears it', async () => {
+    vi.useFakeTimers()
+    routeQueryMock.from = 'dashboard'
+
+    try {
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      await wrapper.vm.handleAssignmentUpdate({
+        employeeId: 'emp-1',
+        date: '2025-12-01',
+        shiftCode: 'O',
+      })
+      await flushPromises()
+
+      const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
+      expect(confirmButtons).toHaveLength(1)
+      await confirmButtons[0]!.trigger('click')
+      await flushPromises()
+
+      await vi.advanceTimersByTimeAsync(2100)
+
+      expect(localStorage.getItem('everyshift_temp_preferences_v2:user-1:org-1:2025-12')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('preserves the dashboard origin query when navigating back to Step3', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handlePrev()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step3',
+      query: {
+        from: 'dashboard',
+      },
+    })
   })
 
   it('saves Step4 preferences into the active preview version', async () => {

@@ -68,14 +68,30 @@
 
         <!-- 버튼 -->
         <div class="flex justify-between pt-6">
-          <n-popconfirm @positive-click="handlePrev">
-            <template #trigger>
-              <n-button size="medium">
-                ← 이전
-              </n-button>
-            </template>
-            이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
-          </n-popconfirm>
+          <div class="flex gap-3">
+            <n-popconfirm
+              v-if="cameFromDashboard"
+              @positive-click="handleReturnToDashboard"
+            >
+              <template #trigger>
+                <n-button size="medium">
+                  근무표 관리로 돌아가기
+                </n-button>
+              </template>
+              근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+            </n-popconfirm>
+            <n-popconfirm
+              v-if="!cameFromDashboard"
+              @positive-click="handlePrev"
+            >
+              <template #trigger>
+                <n-button size="medium">
+                  ← 이전
+                </n-button>
+              </template>
+              이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+            </n-popconfirm>
+          </div>
           <div class="flex gap-4">
             <n-button
               size="medium"
@@ -103,7 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NAlert, NTabs, NTabPane, NPopconfirm } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import EmployeeTable from '@/components/schedule/EmployeeTable.vue';
@@ -125,6 +141,7 @@ import type { EmployeeImportValidateResponse } from '@/types/ops';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
@@ -147,6 +164,8 @@ const shifts = computed<Shift[]>(() => {
 const canProceed = computed(() => {
   return employees.value.length > 0;
 });
+
+const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
 // 초기화
 onMounted(async () => {
@@ -346,6 +365,16 @@ async function performEmployeeApply(orgId: string) {
 
     showSuccess('직원 정보가 적용되었습니다.');
     scheduleStore.nextStep();
+    if (cameFromDashboard.value) {
+      router.push({
+        path: '/schedule/step4',
+        query: {
+          from: 'dashboard',
+        },
+      });
+      return;
+    }
+
     router.push('/schedule/step4');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '적용 중 오류가 발생했습니다.';
@@ -373,7 +402,22 @@ async function handleSave() {
 // 이전 버튼 핸들러
 function handlePrev() {
   scheduleStore.prevStep();
+  if (cameFromDashboard.value) {
+    router.push({
+      path: '/schedule/step2',
+      query: {
+        from: 'dashboard',
+      },
+    });
+    return;
+  }
+
   router.push('/schedule/step2');
+}
+
+function handleReturnToDashboard() {
+  scheduleStore.reset();
+  router.push('/');
 }
 
 // 적용 핸들러

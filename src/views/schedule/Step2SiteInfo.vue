@@ -92,19 +92,37 @@
 
         <!-- 버튼 -->
         <div class="flex justify-between pt-6">
-          <n-popconfirm
-            @positive-click="handlePrev"
-          >
-            <template #trigger>
-              <n-button
-                size="medium"
-                :disabled="isSaving || loading"
-              >
-                ← 이전
-              </n-button>
-            </template>
-            {{ prevConfirmMessage }}
-          </n-popconfirm>
+          <div class="flex gap-3">
+            <n-popconfirm
+              v-if="!cameFromDashboard"
+              @positive-click="handlePrev"
+            >
+              <template #trigger>
+                <n-button
+                  size="medium"
+                  :disabled="isSaving || loading"
+                >
+                  ← 이전
+                </n-button>
+              </template>
+              {{ prevConfirmMessage }}
+            </n-popconfirm>
+            <n-popconfirm
+              v-if="cameFromDashboard"
+              @positive-click="handleReturnToDashboard"
+            >
+              <template #trigger>
+                <n-button
+                  size="medium"
+                  secondary
+                  :disabled="isSaving || loading"
+                >
+                  근무표 관리로 돌아가기
+                </n-button>
+              </template>
+              근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+            </n-popconfirm>
+          </div>
           <n-button
             type="primary"
             size="medium"
@@ -167,10 +185,6 @@ const primarySiteLabel = computed(() => {
 const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
 const prevConfirmMessage = computed(() => {
-  if (cameFromDashboard.value) {
-    return '근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?';
-  }
-
   return '이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?';
 });
 
@@ -334,7 +348,12 @@ function validateBeforeSave(): string | null {
  */
 function handlePrev() {
   scheduleStore.prevStep();
-  router.push(cameFromDashboard.value ? '/' : '/schedule/step1');
+  router.push('/schedule/step1');
+}
+
+function handleReturnToDashboard() {
+  scheduleStore.reset();
+  router.push('/');
 }
 
 /**
@@ -369,6 +388,16 @@ async function handleNext() {
     showSuccess('요일별 인력이 저장되었습니다.');
 
     // Step 3로 이동
+    if (cameFromDashboard.value) {
+      router.push({
+        path: '/schedule/step3',
+        query: {
+          from: 'dashboard',
+        },
+      });
+      return;
+    }
+
     router.push('/schedule/step3');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';

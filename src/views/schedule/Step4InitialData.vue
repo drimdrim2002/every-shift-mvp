@@ -104,12 +104,26 @@
 
     <!-- Bottom Actions -->
     <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
-      <n-button
-        size="large"
-        @click="handlePrev"
-      >
-        ← 이전 단계
-      </n-button>
+      <div class="flex gap-3">
+        <n-popconfirm
+          v-if="cameFromDashboard"
+          @positive-click="handleReturnToDashboard"
+        >
+          <template #trigger>
+            <n-button size="large">
+              근무표 관리로 돌아가기
+            </n-button>
+          </template>
+          근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+        </n-popconfirm>
+        <n-button
+          v-if="!cameFromDashboard"
+          size="large"
+          @click="handlePrev"
+        >
+          ← 이전 단계
+        </n-button>
+      </div>
 
       <div class="flex gap-3">
         <n-button
@@ -153,7 +167,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useAuthStore } from '@/stores/auth';
@@ -167,7 +181,7 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NSpin } from 'naive-ui';
+import { NAlert, NButton, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -179,12 +193,14 @@ import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule
 import {
   buildTempPreferencesStorageKey,
   buildTempPreferencesStorageScope,
+  clearScopedTempPreferencesStorage,
   migrateLegacyTempPreferencesToV2,
   readTempPreferencesEnvelopeV2,
   writeTempPreferencesEnvelopeV2,
 } from '@/utils/tempPreferencesStorage';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
@@ -193,6 +209,8 @@ const grid = useScheduleGrid();
 const isSubmitting = ref(false);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
+const isReturningToDashboard = ref(false);
+const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
@@ -521,6 +539,7 @@ function handleHeaderClick(date: string) {
 watchDebounced(
   [() => constraints.value, () => constraintNotes.value],
   ([latestConstraints, latestNotes]) => {
+    if (isReturningToDashboard.value) return;
     const scope = tempPreferenceScope.value;
     if (!scope) return;
     writeTempPreferencesEnvelopeV2(scope, latestConstraints, latestNotes);
@@ -969,7 +988,27 @@ function handlePrev() {
   scheduleStore.setAssignments(constraints.value);
   scheduleStore.setComments(constraintNotes.value);
   scheduleStore.prevStep();
-  router.push('/schedule/step3');
+  router.push(
+    cameFromDashboard.value
+      ? {
+          path: '/schedule/step3',
+          query: {
+            from: 'dashboard',
+          },
+        }
+      : '/schedule/step3'
+  );
+}
+
+function handleReturnToDashboard() {
+  isReturningToDashboard.value = true;
+  clearScopedTempPreferencesStorage({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
+  });
+  scheduleStore.reset();
+  router.push('/');
 }
 
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {

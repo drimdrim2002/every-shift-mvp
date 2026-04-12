@@ -38,6 +38,17 @@ vi.mock('@/api/shift', () => ({
   getSchedulingShifts: (shifts: Array<{ code: string; name: string; colorCode: string }>) => shifts,
 }))
 
+vi.mock('naive-ui', () => ({
+  NCard: { template: '<div><slot /></div>' },
+  NButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+  NAlert: { template: '<div><slot /></div>' },
+  NInputNumber: { template: '<div />' },
+  NPopconfirm: {
+    template:
+      '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
+  },
+}))
+
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
   showSuccess: showSuccessMock,
@@ -59,6 +70,7 @@ const scheduleStoreMock = reactive({
   },
   siteRequirements: [] as Array<{ dayOfWeek: number; dayName: string; shiftCode: string; requiredCount: number }>,
   currentStep: 2,
+  reset: vi.fn(),
   prevStep: vi.fn(() => {
     scheduleStoreMock.currentStep -= 1
   }),
@@ -109,13 +121,7 @@ function createDeferred<T>() {
 function createWrapper() {
   return mount(Step2SiteInfo, {
     global: {
-      stubs: {
-        NCard: { template: '<div><slot /></div>' },
-        NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
-        NAlert: { template: '<div><slot /></div>' },
-        NInputNumber: { template: '<div />' },
-        NPopconfirm: { template: '<div><slot name="trigger" /><slot /></div>' },
-      },
+      stubs: {},
     },
   })
 }
@@ -209,6 +215,55 @@ describe('Step2SiteInfo', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('요일별 인력이 저장되었습니다.')
   })
 
+  it('preserves the dashboard origin when advancing to Step 3 from the checklist shortcut', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('근무표 관리로 돌아가기')
+
+    for (const day of [1, 2, 3, 4, 5, 6, 0]) {
+      wrapper.vm.setRequirement(day, 'D', 1)
+      wrapper.vm.setRequirement(day, 'E', 0)
+      wrapper.vm.setRequirement(day, 'N', 0)
+    }
+
+    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step3',
+      query: {
+        from: 'dashboard',
+      },
+    })
+  })
+
+  it('protects the dashboard return CTA behind confirmation before routing home', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const returnButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('근무표 관리로 돌아가기')
+    )
+    expect(returnButton).toBeTruthy()
+
+    await returnButton!.trigger('click')
+    expect(pushMock).not.toHaveBeenCalled()
+
+    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
+    expect(confirmButtons).toHaveLength(1)
+    await confirmButtons[0]!.trigger('click')
+    await flushPromises()
+    expect(scheduleStoreMock.reset).toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith('/')
+  })
+
   it('shows the primary site context while still reading and writing canonical site_requirements', async () => {
     organizationStoreMock.foundationSites = [
       {
@@ -249,21 +304,13 @@ describe('Step2SiteInfo', () => {
     )
   })
 
-  it('returns to the dashboard when Step 2 was opened from the checklist shortcut', async () => {
+  it('hides the wizard previous CTA when Step 2 was opened from the checklist shortcut', async () => {
     routeQueryMock.from = 'dashboard'
 
     const wrapper = createWrapper()
     await flushPromises()
 
     const prevButton = wrapper.findAll('button').find((button) => button.text().includes('이전'))
-    expect(prevButton).toBeTruthy()
-    expect(wrapper.vm.prevConfirmMessage).toBe(
-      '근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?'
-    )
-
-    wrapper.vm.handlePrev()
-
-    expect(scheduleStoreMock.prevStep).toHaveBeenCalled()
-    expect(pushMock).toHaveBeenCalledWith('/')
+    expect(prevButton).toBeUndefined()
   })
 })

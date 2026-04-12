@@ -312,6 +312,7 @@ async function seedChecklistScheduleContext(item: ChecklistItem) {
   if (item.route === '/schedule/step2') {
     scheduleStore.reset();
     scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
+    scheduleStore.currentStep = 2;
     return;
   }
 
@@ -325,6 +326,8 @@ async function seedChecklistScheduleContext(item: ChecklistItem) {
     } catch (error) {
       console.warn('체크리스트 Step3 요구사항 로드 실패:', error);
     }
+
+    scheduleStore.currentStep = 3;
 
     return;
   }
@@ -348,6 +351,16 @@ async function handleChecklistNavigate(item: ChecklistItem) {
   await seedChecklistScheduleContext(item);
 
   if (item.route === '/schedule/step2') {
+    await router.push({
+      path: item.route,
+      query: {
+        from: 'dashboard',
+      },
+    });
+    return;
+  }
+
+  if (item.route === '/schedule/step3') {
     await router.push({
       path: item.route,
       query: {

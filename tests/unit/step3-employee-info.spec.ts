@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   pushMock,
+  routeQueryMock,
   getScheduleStatusMock,
   getLatestScheduleByOrganizationMonthMock,
   getPhase2ScheduleCompareMock,
@@ -21,6 +22,7 @@ const {
   showWarningMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  routeQueryMock: {} as { from?: string },
   getScheduleStatusMock: vi.fn(),
   getLatestScheduleByOrganizationMonthMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
@@ -49,6 +51,9 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
   }),
+  useRoute: () => ({
+    query: routeQueryMock,
+  }),
 }))
 
 vi.mock('@/api/schedule', () => ({
@@ -65,6 +70,18 @@ vi.mock('@/api/ops', () => ({
 vi.mock('@/api/supabase', () => ({
   supabase: {
     from: supabaseFromMock,
+  },
+}))
+
+vi.mock('naive-ui', () => ({
+  NCard: { template: '<div><slot /></div>' },
+  NButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+  NAlert: { template: '<div><slot /></div>' },
+  NTabs: { template: '<div><slot /></div>' },
+  NTabPane: { template: '<div><slot /></div>' },
+  NPopconfirm: {
+    template:
+      '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
   },
 }))
 
@@ -104,6 +121,7 @@ const scheduleStoreMock = reactive({
   setBasicInfo: setBasicInfoMock,
   setSelectedVersionId: setSelectedVersionIdMock,
   setPreviewVersionId: setPreviewVersionIdMock,
+  reset: vi.fn(),
 })
 
 const organizationStoreMock = reactive({
@@ -166,14 +184,7 @@ function createDeferred<T>() {
 function createWrapper() {
   return mount(Step3EmployeeInfo, {
     global: {
-      stubs: {
-        NCard: { template: '<div><slot /></div>' },
-        NButton: { template: '<button @click="$emit(\'click\')"><slot /></button>' },
-        NAlert: { template: '<div><slot /></div>' },
-        NTabs: { template: '<div><slot /></div>' },
-        NTabPane: { template: '<div><slot /></div>' },
-        NPopconfirm: { template: '<div><slot name="trigger" /></div>' },
-      },
+      stubs: {},
     },
   })
 }
@@ -181,6 +192,7 @@ function createWrapper() {
 describe('Step3EmployeeInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    routeQueryMock.from = undefined
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-123',
       month: '2025-12',
@@ -201,6 +213,7 @@ describe('Step3EmployeeInfo', () => {
     authStoreMock.user = {
       id: 'user-1',
     }
+    scheduleStoreMock.reset.mockClear()
 
     const eqMock = vi.fn().mockResolvedValue({ count: 1, error: null })
     const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
@@ -437,6 +450,81 @@ describe('Step3EmployeeInfo', () => {
       path: '/schedule/step5/schedule-123',
       query: {
         version: 'version-2',
+      },
+    })
+  })
+
+  it('shows the dashboard return CTA and requires confirmation before resetting state', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const returnButton = wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('근무표 관리로 돌아가기'))
+    expect(returnButton?.exists()).toBe(true)
+
+    await returnButton?.trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.reset).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalledWith('/')
+
+    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
+    expect(confirmButtons).toHaveLength(1)
+    await confirmButtons[0]!.trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/')
+  })
+
+  it('hides the dashboard return CTA when the step was not opened from the dashboard', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
+  })
+
+  it('hides the wizard previous CTA when the step was opened from the dashboard', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const prevButton = wrapper.findAll('button').find((button) => button.text().includes('이전'))
+    expect(prevButton).toBeUndefined()
+  })
+
+  it('preserves the dashboard origin query when applying and moving to Step4', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('저장'))
+      ?.trigger('click')
+    await flushPromises()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text().includes('적용'))
+      ?.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step4',
+      query: {
+        from: 'dashboard',
       },
     })
   })
