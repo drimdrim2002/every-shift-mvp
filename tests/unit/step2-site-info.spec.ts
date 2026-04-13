@@ -7,6 +7,7 @@ const {
   replaceSiteRequirementsMock,
   loadSiteRequirementsMock,
   showErrorMock,
+  showInfoMock,
   showSuccessMock,
   routeQueryMock,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   replaceSiteRequirementsMock: vi.fn(),
   loadSiteRequirementsMock: vi.fn(),
   showErrorMock: vi.fn(),
+  showInfoMock: vi.fn(),
   showSuccessMock: vi.fn(),
   routeQueryMock: {} as Record<string, string>,
 }))
@@ -51,6 +53,7 @@ vi.mock('naive-ui', () => ({
 
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
+  showInfo: showInfoMock,
   showSuccess: showSuccessMock,
 }))
 
@@ -83,7 +86,7 @@ const scheduleStoreMock = reactive({
 })
 
 const organizationStoreMock = reactive({
-  foundationSites: [],
+  foundationSite: null,
   shifts: [
     { code: 'D', name: 'Day', colorCode: '#111111' },
     { code: 'E', name: 'Evening', colorCode: '#222222' },
@@ -126,6 +129,15 @@ function createWrapper() {
   })
 }
 
+function buildWeeklyRequirements(requiredCount: number) {
+  return [1, 2, 3, 4, 5, 6, 0].flatMap((dayOfWeek) => [
+    { dayOfWeek, dayName: '요일', shiftCode: 'D', requiredCount },
+    { dayOfWeek, dayName: '요일', shiftCode: 'E', requiredCount: 0 },
+    { dayOfWeek, dayName: '요일', shiftCode: 'N', requiredCount: 0 },
+    { dayOfWeek, dayName: '요일', shiftCode: 'O', requiredCount: 0 },
+  ])
+}
+
 describe('Step2SiteInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -134,7 +146,7 @@ describe('Step2SiteInfo', () => {
     })
     scheduleStoreMock.siteRequirements = []
     scheduleStoreMock.currentStep = 2
-    organizationStoreMock.foundationSites = []
+    organizationStoreMock.foundationSite = null
     loadSiteRequirementsMock.mockResolvedValue([])
     replaceSiteRequirementsMock.mockResolvedValue(undefined)
   })
@@ -181,20 +193,46 @@ describe('Step2SiteInfo', () => {
     expect(wrapper.vm.getRequirement(1, 'N')).toBe(0)
   })
 
-  it('blocks save when any day total is zero', async () => {
+  it('blocks save with a validation error when changed data still leaves a day total at zero', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
-    expect(nextButton).toBeTruthy()
-    await nextButton!.trigger('click')
+    wrapper.vm.setRequirement(1, 'D', 1)
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('월요일 요일의 총 필요 인원은 1명 이상이어야 합니다.')
+    expect(showErrorMock).toHaveBeenCalledWith('화요일 요일의 총 필요 인원은 1명 이상이어야 합니다.')
   })
 
-  it('saves when every day total is at least one', async () => {
+  it('renders a save CTA instead of the next-step CTA', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('저장')
+    expect(wrapper.text()).not.toContain('다음 단계')
+    expect(wrapper.text()).not.toContain('이전')
+    expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
+  })
+
+  it('shows an info message instead of saving when nothing changed', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(showSuccessMock).not.toHaveBeenCalled()
+  })
+
+  it('saves when every day total is at least one without advancing to Step 3', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -204,18 +242,43 @@ describe('Step2SiteInfo', () => {
       wrapper.vm.setRequirement(day, 'N', 0)
     }
 
-    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
-    expect(nextButton).toBeTruthy()
-    await nextButton!.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
-    expect(scheduleStoreMock.nextStep).toHaveBeenCalled()
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+    expect(scheduleStoreMock.setSiteRequirements).toHaveBeenCalled()
+    expect(scheduleStoreMock.nextStep).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('요일별 인력이 저장되었습니다.')
   })
 
-  it('preserves the dashboard origin when advancing to Step 3 from the checklist shortcut', async () => {
+  it('shows a no-op info message when saving again without additional edits', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    for (const day of [1, 2, 3, 4, 5, 6, 0]) {
+      wrapper.vm.setRequirement(day, 'D', 1)
+      wrapper.vm.setRequirement(day, 'E', 0)
+      wrapper.vm.setRequirement(day, 'N', 0)
+    }
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+    expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+  })
+
+  it('keeps the dashboard return CTA and stays on Step 2 after save', async () => {
     routeQueryMock.from = 'dashboard'
 
     const wrapper = createWrapper()
@@ -229,20 +292,16 @@ describe('Step2SiteInfo', () => {
       wrapper.vm.setRequirement(day, 'N', 0)
     }
 
-    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
-    expect(nextButton).toBeTruthy()
-    await nextButton!.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step3',
-      query: {
-        from: 'dashboard',
-      },
-    })
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.nextStep).not.toHaveBeenCalled()
   })
 
-  it('protects the dashboard return CTA behind confirmation before routing home', async () => {
+  it('returns to the dashboard immediately when nothing changed', async () => {
     routeQueryMock.from = 'dashboard'
 
     const wrapper = createWrapper()
@@ -254,27 +313,43 @@ describe('Step2SiteInfo', () => {
     expect(returnButton).toBeTruthy()
 
     await returnButton!.trigger('click')
-    expect(pushMock).not.toHaveBeenCalled()
-
-    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
-    expect(confirmButtons).toHaveLength(1)
-    await confirmButtons[0]!.trigger('click')
     await flushPromises()
+
     expect(scheduleStoreMock.reset).toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith('/')
+    expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
+  })
+
+  it('blocks dashboard return when there are unsaved changes', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.setRequirement(1, 'D', 1)
+
+    const returnButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('근무표 관리로 돌아가기')
+    )
+    expect(returnButton).toBeTruthy()
+
+    await returnButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 진행하세요')
+    expect(scheduleStoreMock.reset).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('shows the primary site context while still reading and writing canonical site_requirements', async () => {
-    organizationStoreMock.foundationSites = [
-      {
-        id: 'site-1',
-        organizationId: 'org-1',
-        code: 'MAIN',
-        name: '본관',
-        isActive: true,
-        isScheduleActive: true,
-      },
-    ]
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -286,9 +361,9 @@ describe('Step2SiteInfo', () => {
       wrapper.vm.setRequirement(day, 'D', 1)
     }
 
-    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
-    expect(nextButton).toBeTruthy()
-    await nextButton!.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
@@ -304,13 +379,43 @@ describe('Step2SiteInfo', () => {
     )
   })
 
-  it('hides the wizard previous CTA when Step 2 was opened from the checklist shortcut', async () => {
+  it('shows only save plus dashboard return on dashboard entry', async () => {
     routeQueryMock.from = 'dashboard'
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('저장')
+    expect(wrapper.text()).toContain('근무표 관리로 돌아가기')
+    expect(wrapper.text()).not.toContain('이전')
+  })
+
+  it('treats store-preloaded requirements as unchanged baseline data', async () => {
+    scheduleStoreMock.siteRequirements = buildWeeklyRequirements(1)
 
     const wrapper = createWrapper()
     await flushPromises()
 
-    const prevButton = wrapper.findAll('button').find((button) => button.text().includes('이전'))
-    expect(prevButton).toBeUndefined()
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
+  })
+
+  it('treats DB-preloaded requirements as unchanged baseline data', async () => {
+    loadSiteRequirementsMock.mockResolvedValue(buildWeeklyRequirements(1))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
   })
 })
