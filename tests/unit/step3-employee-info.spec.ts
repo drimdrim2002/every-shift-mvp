@@ -11,7 +11,6 @@ const {
   validateEmployeeImportMock,
   applyEmployeeImportMock,
   supabaseFromMock,
-  messageMock,
   dialogMock,
   setBasicInfoMock,
   setSelectedVersionIdMock,
@@ -29,12 +28,6 @@ const {
   validateEmployeeImportMock: vi.fn(),
   applyEmployeeImportMock: vi.fn(),
   supabaseFromMock: vi.fn(),
-  messageMock: {
-    info: vi.fn(),
-    success: vi.fn(),
-    warning: vi.fn(),
-    error: vi.fn(),
-  },
   dialogMock: {
     warning: vi.fn(),
   },
@@ -79,10 +72,6 @@ vi.mock('naive-ui', () => ({
   NAlert: { template: '<div><slot /></div>' },
   NTabs: { template: '<div><slot /></div>' },
   NTabPane: { template: '<div><slot /></div>' },
-  NPopconfirm: {
-    template:
-      '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
-  },
 }))
 
 vi.mock('@/utils/message', () => ({
@@ -107,6 +96,7 @@ const scheduleStoreMock = reactive({
       employeeId: 'E001',
       name: 'Kim',
       availableShifts: ['D'],
+      rankCode: null,
     },
   ],
   currentStep: 3,
@@ -207,31 +197,13 @@ describe('Step3EmployeeInfo', () => {
         employeeId: 'E001',
         name: 'Kim',
         availableShifts: ['D'],
+        rankCode: null,
       },
     ]
     scheduleStoreMock.currentStep = 3
     authStoreMock.user = {
       id: 'user-1',
     }
-    scheduleStoreMock.reset.mockClear()
-
-    const eqMock = vi.fn().mockResolvedValue({ count: 1, error: null })
-    const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'schedule_assignments') {
-        return {
-          select: selectMock,
-        }
-      }
-
-      if (table === 'schedules') {
-        return {
-          select: selectMock,
-        }
-      }
-
-      return { select: selectMock }
-    })
 
     getScheduleStatusMock.mockResolvedValue({
       id: 'schedule-123',
@@ -244,29 +216,6 @@ describe('Step3EmployeeInfo', () => {
       finalizedVersionId: null,
       activeSolvingVersionId: null,
       versions: [
-        {
-          id: 'version-1',
-          scheduleId: 'schedule-123',
-          versionNo: 1,
-          name: 'V1',
-          sourceType: 'initial_solve',
-          baseVersionId: null,
-          status: 'review_ready',
-          currentRevision: 1,
-          manualEditCount: 0,
-          inputDiffSummary: {
-            changedOffRequests: 0,
-            changedLockedAssignments: 0,
-            changedSiteRequirements: 0,
-            note: null,
-          },
-          latestEvaluationId: null,
-          latestEvaluationResultStatus: null,
-          comparisonMetrics: null,
-          finalizationGate: null,
-          isSelected: false,
-          isFinalized: false,
-        },
         {
           id: 'version-2',
           scheduleId: 'schedule-123',
@@ -292,25 +241,29 @@ describe('Step3EmployeeInfo', () => {
         },
       ],
     })
-    ;(window as typeof window & { $message?: typeof messageMock }).$message = messageMock
-    ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = dialogMock
 
-    validateEmployeeImportMock.mockResolvedValue({
-      organizationId: 'org-1',
-      month: '2025-12',
-      employeeCount: 1,
-      duplicateEmployeeIds: [],
-      missingShiftCodes: [],
-      isFinalized: false,
-      isValid: true,
-      previewEmployees: [
-        {
-          employeeId: 'E001',
-          name: 'Kim',
-          availableShifts: ['D'],
-          rankCode: null,
-        },
-      ],
+    const eqMock = vi.fn().mockResolvedValue({ count: 1, error: null })
+    const orderMock = vi.fn().mockResolvedValue({
+      data: [],
+      error: null,
+    })
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'employees') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: orderMock,
+            }),
+          }),
+        }
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: eqMock,
+        }),
+      }
     })
 
     applyEmployeeImportMock.mockResolvedValue({
@@ -331,6 +284,8 @@ describe('Step3EmployeeInfo', () => {
         },
       ],
     })
+
+    ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = dialogMock
   })
 
   it('waits for the initial employee preload before rendering the editor surface', async () => {
@@ -377,52 +332,73 @@ describe('Step3EmployeeInfo', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="employee-table"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('직원 정보를 불러오는 중입니다.')
     expect(wrapper.text()).toContain('저장')
   })
 
-  it('validates first and applies second with explicit confirmation', async () => {
+  it('shows save only on normal entry and removes previous/apply CTAs', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('저장'))
-      ?.trigger('click')
+    expect(wrapper.text()).toContain('저장')
+    expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
+    expect(wrapper.text()).not.toContain('이전')
+    expect(wrapper.text()).not.toContain('적용')
+  })
+
+  it('shows dashboard return plus save only on dashboard entry', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
     await flushPromises()
 
-    expect(validateEmployeeImportMock).toHaveBeenCalledWith({
-      organizationId: 'org-1',
-      month: '2025-12',
-      employees: expect.arrayContaining([
-        expect.objectContaining({
-          employeeId: 'E001',
-          name: 'Kim',
-          availableShifts: ['D'],
-        }),
-      ]),
-    })
-    expect(applyEmployeeImportMock).not.toHaveBeenCalled()
-    expect(showSuccessMock).toHaveBeenCalledWith(
-      '직원 정보 검증이 완료되었습니다. 적용 전에 결과를 확인하세요.'
-    )
+    expect(wrapper.text()).toContain('저장')
+    expect(wrapper.text()).toContain('근무표 관리로 돌아가기')
+    expect(wrapper.text()).not.toContain('이전')
+    expect(wrapper.text()).not.toContain('적용')
+  })
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('적용'))
-      ?.trigger('click')
+  it('shows an info message instead of saving when nothing changed', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(applyEmployeeImportMock).not.toHaveBeenCalled()
+    expect(validateEmployeeImportMock).not.toHaveBeenCalled()
+  })
+
+  it('saves dirty employee changes without navigating to Step4', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleAddEmployee({
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     expect(dialogMock.warning).toHaveBeenCalledTimes(1)
+    expect(dialogMock.warning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '직원 정보 저장 확인',
+        positiveText: '저장',
+        negativeText: '취소',
+      })
+    )
+
     const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
       onPositiveClick?: () => Promise<void> | void
     }
-    expect(warningConfig).toMatchObject({
-      title: '직원 정보 적용 확인',
-      positiveText: '계속 적용',
-      negativeText: '취소',
-    })
-
     await warningConfig.onPositiveClick?.()
     await flushPromises()
 
@@ -433,86 +409,41 @@ describe('Step3EmployeeInfo', () => {
         expect.objectContaining({
           employeeId: 'E001',
           name: 'Kim',
-          availableShifts: ['D'],
+        }),
+        expect.objectContaining({
+          employeeId: 'E002',
+          name: 'Lee',
         }),
       ]),
     })
     expect(setBasicInfoMock).toHaveBeenCalledWith(
       expect.objectContaining({
         scheduleId: undefined,
-        employeeCount: 1,
+        employeeCount: 2,
       })
     )
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith(null)
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith(null)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
-    expect(pushMock).not.toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-123',
-      query: {
-        version: 'version-2',
-      },
+    expect(scheduleStoreMock.nextStep).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
+    expect(validateEmployeeImportMock).not.toHaveBeenCalled()
+  })
+
+  it('shows a no-op info message when saving again without additional edits', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleAddEmployee({
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
     })
-  })
 
-  it('shows the dashboard return CTA and requires confirmation before resetting state', async () => {
-    routeQueryMock.from = 'dashboard'
-
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    const returnButton = wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('근무표 관리로 돌아가기'))
-    expect(returnButton?.exists()).toBe(true)
-
-    await returnButton?.trigger('click')
-    await flushPromises()
-
-    expect(scheduleStoreMock.reset).not.toHaveBeenCalled()
-    expect(pushMock).not.toHaveBeenCalledWith('/')
-
-    const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
-    expect(confirmButtons).toHaveLength(1)
-    await confirmButtons[0]!.trigger('click')
-    await flushPromises()
-
-    expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/')
-  })
-
-  it('hides the dashboard return CTA when the step was not opened from the dashboard', async () => {
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
-  })
-
-  it('hides the wizard previous CTA when the step was opened from the dashboard', async () => {
-    routeQueryMock.from = 'dashboard'
-
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    const prevButton = wrapper.findAll('button').find((button) => button.text().includes('이전'))
-    expect(prevButton).toBeUndefined()
-  })
-
-  it('preserves the dashboard origin query when applying and moving to Step4', async () => {
-    routeQueryMock.from = 'dashboard'
-
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('저장'))
-      ?.trigger('click')
-    await flushPromises()
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('적용'))
-      ?.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
@@ -521,15 +452,74 @@ describe('Step3EmployeeInfo', () => {
     await warningConfig.onPositiveClick?.()
     await flushPromises()
 
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step4',
-      query: {
-        from: 'dashboard',
-      },
-    })
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(applyEmployeeImportMock).toHaveBeenCalledTimes(1)
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
   })
 
-  it('preserves rank codes loaded from the database when validating and applying', async () => {
+  it('returns to the dashboard immediately when nothing changed', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const returnButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('근무표 관리로 돌아가기')
+    )
+    expect(returnButton).toBeTruthy()
+
+    await returnButton!.trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/')
+  })
+
+  it('blocks dashboard return when there are unsaved changes', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleAddEmployee({
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
+    })
+
+    const returnButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('근무표 관리로 돌아가기')
+    )
+    expect(returnButton).toBeTruthy()
+
+    await returnButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 진행하세요')
+    expect(scheduleStoreMock.reset).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks save when dirty data leaves zero employees', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleDeleteEmployee(0)
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showWarningMock).toHaveBeenCalledWith('최소 1명 이상의 직원을 등록해주세요.')
+    expect(dialogMock.warning).not.toHaveBeenCalled()
+    expect(applyEmployeeImportMock).not.toHaveBeenCalled()
+  })
+
+  it('treats DB-preloaded employees as unchanged baseline data', async () => {
     scheduleStoreMock.employees = []
     supabaseFromMock.mockImplementation((table: string) => {
       if (table === 'employees') {
@@ -562,55 +552,19 @@ describe('Step3EmployeeInfo', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('저장'))
-      ?.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
-    expect(validateEmployeeImportMock).toHaveBeenCalledWith({
-      organizationId: 'org-1',
-      month: '2025-12',
-      employees: [
-        {
-          employeeId: 'E001',
-          name: 'Kim',
-          availableShifts: ['D'],
-          rankCode: 'RN',
-        },
-      ],
-    })
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('적용'))
-      ?.trigger('click')
-    await flushPromises()
-
-    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
-      onPositiveClick?: () => Promise<void> | void
-    }
-    await warningConfig.onPositiveClick?.()
-    await flushPromises()
-
-    expect(applyEmployeeImportMock).toHaveBeenCalledWith({
-      organizationId: 'org-1',
-      month: '2025-12',
-      employees: [
-        {
-          employeeId: 'E001',
-          name: 'Kim',
-          availableShifts: ['D'],
-          rankCode: 'RN',
-        },
-      ],
-    })
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(applyEmployeeImportMock).not.toHaveBeenCalled()
   })
 
-  it('blocks finalized month on apply even after preview validation succeeds', async () => {
+  it('blocks finalized month on the save path before showing the confirm dialog', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',
-      selectedVersionId: 'version-2',
+      selectedVersionId: 'version-final',
       finalizedVersionId: 'version-final',
       activeSolvingVersionId: null,
       versions: [
@@ -643,93 +597,22 @@ describe('Step3EmployeeInfo', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('저장'))
-      ?.trigger('click')
-    await flushPromises()
+    wrapper.vm.handleAddEmployee({
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
+    })
 
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('적용'))
-      ?.trigger('click')
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
     await flushPromises()
 
     expect(showErrorMock).toHaveBeenCalledWith(
-      '현재 월에 확정된 근무표가 있어 직원 정보를 적용할 수 없습니다.'
+      '현재 월에 확정된 근무표가 있어 직원 정보를 저장할 수 없습니다.'
     )
     expect(dialogMock.warning).not.toHaveBeenCalled()
     expect(applyEmployeeImportMock).not.toHaveBeenCalled()
-  })
-
-  it('falls back to the latest schedule when the stored schedule id is stale before apply confirmation', async () => {
-    getScheduleStatusMock.mockResolvedValueOnce(null)
-    getLatestScheduleByOrganizationMonthMock.mockResolvedValue({
-      id: 'schedule-456',
-      organization_id: 'org-1',
-      month: '2025-12',
-      status: 'complete',
-      hard_score: null,
-      soft_score: null,
-      solver_execution_id: null,
-      created_at: '2025-12-01T00:00:00Z',
-      updated_at: '2025-12-01T00:00:00Z',
-    })
-    getPhase2ScheduleCompareMock.mockResolvedValue({
-      scheduleId: 'schedule-456',
-      selectedVersionId: 'version-9',
-      finalizedVersionId: null,
-      activeSolvingVersionId: null,
-      versions: [
-        {
-          id: 'version-9',
-          scheduleId: 'schedule-456',
-          versionNo: 1,
-          name: 'V1',
-          sourceType: 'initial_solve',
-          baseVersionId: null,
-          status: 'review_ready',
-          currentRevision: 1,
-          manualEditCount: 0,
-          inputDiffSummary: {
-            changedOffRequests: 0,
-            changedLockedAssignments: 0,
-            changedSiteRequirements: 0,
-            note: null,
-          },
-          latestEvaluationId: null,
-          latestEvaluationResultStatus: null,
-          comparisonMetrics: null,
-          finalizationGate: null,
-          isSelected: true,
-          isFinalized: false,
-        },
-      ],
-    })
-
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('저장'))
-      ?.trigger('click')
-    await flushPromises()
-
-    await wrapper
-      .findAll('button')
-      .find((button) => button.text().includes('적용'))
-      ?.trigger('click')
-    await flushPromises()
-
-    expect(getScheduleStatusMock).toHaveBeenCalledWith('schedule-123')
-    expect(getLatestScheduleByOrganizationMonthMock).toHaveBeenCalledWith('org-1', '2025-12')
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-456')
-    expect(dialogMock.warning).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: '직원 정보 적용 확인',
-        content: '현재 월의 근무표와 버전이 모두 삭제됩니다. 계속 적용하시겠습니까?',
-      })
-    )
   })
 })

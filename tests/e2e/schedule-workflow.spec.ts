@@ -111,7 +111,7 @@ async function mockStep3Network(
       body: JSON.stringify({
         scheduleId,
         selectedVersionId: mockVersionId,
-        finalizedVersionId: null,
+        finalizedVersionId: options.finalized ? mockVersionId : null,
         activeSolvingVersionId: null,
         versions: [
           {
@@ -121,7 +121,7 @@ async function mockStep3Network(
             name: 'V1',
             sourceType: 'initial_solve',
             baseVersionId: null,
-            status: 'draft',
+            status: options.finalized ? 'finalized' : 'draft',
             currentRevision: 1,
             manualEditCount: 0,
             inputDiffSummary: {
@@ -136,7 +136,7 @@ async function mockStep3Network(
             finalizationGate: null,
             activeSolverExecutionId: null,
             isSelected: true,
-            isFinalized: false,
+            isFinalized: options.finalized ?? false,
           },
         ],
       }),
@@ -157,16 +157,10 @@ async function completeStep3WithEmployeeImport(page: Page) {
   await expect(page.getByText('업로드된 직원 목록 (19명)')).toBeVisible()
 
   await page.getByRole('button', { name: '저장' }).click()
-
-  await expect(page.getByText('검증 결과')).toBeVisible()
-  await expect(page.getByText('직원 19명 미리보기를 완료했습니다.')).toBeVisible()
-  await expect(page.getByText('적용 가능 상태입니다.')).toBeVisible()
-  await expect(page.getByRole('button', { name: '적용 →' })).toBeEnabled()
-
-  await page.getByRole('button', { name: '적용 →' }).click()
-  await expect(page.getByText('직원 정보 적용 확인')).toBeVisible()
-  await page.getByRole('button', { name: '계속 적용' }).click()
-  await page.waitForURL(/\/schedule\/step4$/)
+  await expect(page.getByText('직원 정보 저장 확인')).toBeVisible()
+  await page.getByRole('button', { name: '저장', exact: true }).last().click()
+  await expect(page.getByText('직원 정보가 저장되었습니다.')).toBeVisible()
+  await expect(page).toHaveURL(/\/schedule\/step3$/)
 }
 
 test.describe('스케줄 생성 전체 워크플로우', () => {
@@ -184,6 +178,8 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       await completeStep1(page)
       await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
       await completeStep3WithEmployeeImport(page)
+      await page.goto('/schedule/step4')
+      await expect(page.getByText(/근무 조정 일정 입력/)).toBeVisible()
       await completeStep4InitialData(page, [{ rowIndex: 0, colIndex: 0, shift: 'O' }])
     })
 
@@ -223,7 +219,7 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       expect(selectedMonth).toMatch(/^\d{4}-\d{2}$/)
     })
 
-    await test.step('Step3 저장 후 finalized 경고가 보이고 적용은 차단된다', async () => {
+    await test.step('Step3 저장 시 finalized 경고가 보이고 저장은 차단된다', async () => {
       await completeStep1(page)
       await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
 
@@ -235,12 +231,7 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
 
       await page.getByRole('button', { name: '저장' }).click()
 
-      await expect(page.getByText('현재 월은 확정되어 적용할 수 없습니다.')).toBeVisible()
-      await expect(page.getByRole('button', { name: '적용 →' })).toBeEnabled()
-
-      await page.getByRole('button', { name: '적용 →' }).click()
-
-      await expect(page.getByText('현재 월에 확정된 근무표가 있어 직원 정보를 적용할 수 없습니다.')).toBeVisible()
+      await expect(page.getByText('현재 월에 확정된 근무표가 있어 직원 정보를 저장할 수 없습니다.')).toBeVisible()
       await expect(page).toHaveURL(/\/schedule\/step3$/)
       expect(step3Network.getApplyCallCount()).toBe(0)
     })
