@@ -2,6 +2,7 @@ import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { supabase } from '@/api/supabase';
 import { showWarning } from '@/utils/message';
+import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
 
 /**
  * Step 진행 순서 검증 가드
@@ -16,9 +17,15 @@ export async function stepProgressGuard(
   next: NavigationGuardNext,
 ) {
   const scheduleStore = useScheduleStore();
+  const isSetupEntry = isSetupEntryMode((to.query as Record<string, unknown> | undefined)?.entry);
 
   // Step 2 접근 시 Step 1 완료 확인
   if (to.path === '/schedule/step2') {
+    if (isSetupEntry) {
+      next();
+      return;
+    }
+
     if (!scheduleStore.basicInfo?.month) {
       showWarning('먼저 기본 정보를 입력해주세요.');
       next('/schedule/step1');
@@ -28,6 +35,11 @@ export async function stepProgressGuard(
 
   // Step 3 (직원 정보) 접근 시 Step 2 완료 확인
   if (to.path === '/schedule/step3') {
+    if (isSetupEntry) {
+      next();
+      return;
+    }
+
     if (!scheduleStore.basicInfo?.month) {
       showWarning('먼저 기본 정보를 입력해주세요.');
       next('/schedule/step1');

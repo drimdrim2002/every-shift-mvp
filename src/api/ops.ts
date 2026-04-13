@@ -3,6 +3,8 @@ import type {
   ChecklistResponse,
   EmployeeImportApplyRequest,
   EmployeeImportApplyResponse,
+  EmployeeRosterReplaceRequest,
+  EmployeeRosterReplaceResponse,
   EmployeeImportValidateRequest,
   EmployeeImportValidateResponse,
   OffRequestPolicySetupRequest,
@@ -11,10 +13,14 @@ import type {
   OrganizationProfileResponse,
   ShiftsConstraintsRequest,
   ShiftsConstraintsResponse,
-  SitesRequest,
-  SitesResponse,
+  SiteFoundationRequest,
+  SiteFoundationResponse,
   SiteRequest,
 } from '@/types/ops';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 function getPhase2OpsBaseUrl(): string {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -98,13 +104,39 @@ async function callPhase2Ops<T>(
   return payload as T;
 }
 
-function countScheduleActiveSites(sites: SiteRequest[]): number {
-  return sites.filter((site) => site.isScheduleActive).length;
+function assertValidSiteRequest(site: SiteRequest): void {
+  if (!site.code.trim()) {
+    throw new Error('site.code is required');
+  }
+
+  if (!site.name.trim()) {
+    throw new Error('site.name is required');
+  }
 }
 
-function assertExactlyOneScheduleActiveSite(sites: SiteRequest[]): void {
-  if (countScheduleActiveSites(sites) !== 1) {
-    throw new Error('Exactly one schedule-active site is required');
+function assertValidSiteFoundationResponse(payload: unknown): asserts payload is SiteFoundationResponse {
+  if (!isRecord(payload) || typeof payload.organizationId !== 'string') {
+    throw new Error('Invalid phase2-ops sites response: organizationId is required');
+  }
+
+  if (payload.site === null) {
+    return;
+  }
+
+  if (!isRecord(payload.site)) {
+    throw new Error('Invalid phase2-ops sites response: site must be an object or null');
+  }
+
+  const site = payload.site;
+  if (
+    typeof site.id !== 'string' ||
+    typeof site.organizationId !== 'string' ||
+    typeof site.code !== 'string' ||
+    typeof site.name !== 'string' ||
+    typeof site.isActive !== 'boolean' ||
+    typeof site.isScheduleActive !== 'boolean'
+  ) {
+    throw new Error('Invalid phase2-ops sites response: site payload shape is invalid');
   }
 }
 
@@ -123,13 +155,20 @@ export async function updateOrganizationProfile(
   return callPhase2Ops<OrganizationProfileResponse>('/organization-profile', 'PATCH', request);
 }
 
-export async function getSites(organizationId: string): Promise<SitesResponse> {
-  return callPhase2Ops<SitesResponse>(`/sites?organizationId=${encodeURIComponent(organizationId)}`, 'GET');
+export async function getSites(organizationId: string): Promise<SiteFoundationResponse> {
+  const response = await callPhase2Ops<SiteFoundationResponse>(
+    `/sites?organizationId=${encodeURIComponent(organizationId)}`,
+    'GET'
+  );
+  assertValidSiteFoundationResponse(response);
+  return response;
 }
 
-export async function updateSites(request: SitesRequest): Promise<SitesResponse> {
-  assertExactlyOneScheduleActiveSite(request.sites);
-  return callPhase2Ops<SitesResponse>('/sites', 'PUT', request);
+export async function updateSites(request: SiteFoundationRequest): Promise<SiteFoundationResponse> {
+  assertValidSiteRequest(request.site);
+  const response = await callPhase2Ops<SiteFoundationResponse>('/sites', 'PUT', request);
+  assertValidSiteFoundationResponse(response);
+  return response;
 }
 
 export async function getShiftsConstraints(
@@ -161,6 +200,12 @@ export async function applyEmployeeImport(
   request: EmployeeImportApplyRequest
 ): Promise<EmployeeImportApplyResponse> {
   return callPhase2Ops<EmployeeImportApplyResponse>('/employee-import/apply', 'POST', request);
+}
+
+export async function replaceOrganizationRoster(
+  request: EmployeeRosterReplaceRequest
+): Promise<EmployeeRosterReplaceResponse> {
+  return callPhase2Ops<EmployeeRosterReplaceResponse>('/employee-roster/replace', 'POST', request);
 }
 
 export async function getOffRequestPolicies(

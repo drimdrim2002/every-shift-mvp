@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
+  EmployeeRosterReplaceRequest,
+  EmployeeRosterReplaceResponse,
   OrganizationProfileRequest,
   OrganizationProfileResponse,
   ShiftsConstraintsRequest,
   ShiftsConstraintsResponse,
   SiteRequest,
-  SiteResponse,
-  SitesRequest,
-  SitesResponse,
+  SiteFoundationRequest,
+  SiteFoundationResponse,
 } from '@/types/ops';
 
 const getSessionMock = vi.fn();
@@ -105,8 +106,9 @@ describe('phase2 ops api helpers', () => {
   });
 
   it('loads sites through the phase2-ops edge function', async () => {
-    const responseSites = [
-      {
+    const response = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      site: {
         id: 'site-1',
         organizationId: '00000000-0000-0000-0000-000000000001',
         code: 'MAIN',
@@ -114,12 +116,7 @@ describe('phase2 ops api helpers', () => {
         isActive: true,
         isScheduleActive: true,
       },
-    ] satisfies SiteResponse[];
-    const response = {
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      pilotSiteId: 'site-1',
-      sites: responseSites,
-    } satisfies SitesResponse;
+    } satisfies SiteFoundationResponse;
 
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify(response), {
@@ -142,29 +139,40 @@ describe('phase2 ops api helpers', () => {
     expect(result).toEqual(response);
   });
 
-  it('rejects site payloads that do not contain exactly one schedule-active site', async () => {
+  it('rejects legacy sites responses that do not include the site field', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        pilotSiteId: 'site-1',
+        sites: [],
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+
+    const { getSites } = await import('@/api/ops');
+
+    await expect(getSites('00000000-0000-0000-0000-000000000001')).rejects.toThrow(
+      'Invalid phase2-ops sites response: site must be an object or null'
+    );
+  });
+
+  it('rejects site payloads with a blank code before issuing the request', async () => {
     const { updateSites } = await import('@/api/ops');
-    const invalidSites = [
-      {
-        code: 'A',
-        name: 'Alpha',
-        isActive: true,
-        isScheduleActive: true,
-      },
-      {
-        code: 'B',
-        name: 'Bravo',
-        isActive: true,
-        isScheduleActive: true,
-      },
-    ] satisfies SiteRequest[];
+    const invalidSite = {
+      code: '   ',
+      name: 'Alpha',
+    } satisfies SiteRequest;
 
     await expect(
       updateSites({
         organizationId: '00000000-0000-0000-0000-000000000001',
-        sites: invalidSites,
+        site: invalidSite,
       })
-    ).rejects.toThrow('Exactly one schedule-active site is required');
+    ).rejects.toThrow('site.code is required');
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -172,30 +180,23 @@ describe('phase2 ops api helpers', () => {
   it('saves valid sites and shift constraints through the phase2-ops edge function', async () => {
     const siteRequest = {
       organizationId: '00000000-0000-0000-0000-000000000001',
-      sites: [
-        {
-          code: 'MAIN',
-          name: 'Main Ward',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
-    } satisfies SitesRequest;
+      site: {
+        code: 'MAIN',
+        name: 'Main Ward',
+      },
+    } satisfies SiteFoundationRequest;
 
     const sitesResponse = {
       organizationId: '00000000-0000-0000-0000-000000000001',
-      pilotSiteId: 'site-1',
-      sites: [
-        {
-          id: 'site-1',
-          organizationId: '00000000-0000-0000-0000-000000000001',
-          code: 'MAIN',
-          name: 'Main Ward',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
-    } satisfies SitesResponse;
+      site: {
+        id: 'site-1',
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        code: 'MAIN',
+        name: 'Main Ward',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    } satisfies SiteFoundationResponse;
 
     const shiftsConstraintsRequest = {
       organizationId: '00000000-0000-0000-0000-000000000001',
@@ -278,6 +279,49 @@ describe('phase2 ops api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-ops/shifts-constraints?organizationId=00000000-0000-0000-0000-000000000001',
       expect.objectContaining({
         method: 'GET',
+      })
+    );
+    expect(result).toEqual(response);
+  });
+
+  it('replaces the org roster through the dedicated phase2-ops edge function boundary', async () => {
+    const request = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      employees: [
+        {
+          employeeId: 'E001',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
+    } satisfies EmployeeRosterReplaceRequest;
+
+    const response = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      employeeCount: 1,
+    } satisfies EmployeeRosterReplaceResponse;
+
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify(response), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+
+    const { replaceOrganizationRoster } = await import('@/api/ops');
+    const result = await replaceOrganizationRoster(request);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-ops/employee-roster/replace',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify(request),
       })
     );
     expect(result).toEqual(response);

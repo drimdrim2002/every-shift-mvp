@@ -140,7 +140,7 @@
           :disabled="isSubmitting || !canPersistStep4"
           @click="handleNext"
         >
-          다음 단계 →
+          결과 확인으로 이동
         </n-button>
       </div>
     </div>

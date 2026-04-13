@@ -13,24 +13,25 @@ export interface OrganizationProfileRequest {
 export interface SiteRequest {
   code: string;
   name: string;
+}
+
+export interface SiteResponse {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
   isActive: boolean;
   isScheduleActive: boolean;
 }
 
-export interface SiteResponse extends SiteRequest {
-  id: string;
+export interface SiteFoundationRequest {
   organizationId: string;
+  site: SiteRequest;
 }
 
-export interface SitesRequest {
+export interface SiteFoundationResponse {
   organizationId: string;
-  sites: SiteRequest[];
-}
-
-export interface SitesResponse {
-  organizationId: string;
-  pilotSiteId: string | null;
-  sites: SiteResponse[];
+  site: SiteResponse | null;
 }
 
 export interface ShiftsConstraintsResponse {
@@ -154,4 +155,14 @@ export type EmployeeImportApplyRequest = EmployeeImportValidateRequest;
 
 export interface EmployeeImportApplyResponse extends EmployeeImportValidateResponse {
   deletedScheduleId: string | null;
+}
+
+export interface EmployeeRosterReplaceRequest {
+  organizationId: string;
+  employees: EmployeeImportEmployeePreview[];
+}
+
+export interface EmployeeRosterReplaceResponse {
+  organizationId: string;
+  employeeCount: number;
 }

@@ -160,7 +160,8 @@ async function completeStep3WithEmployeeImport(page: Page) {
   await expect(page.getByText('직원 정보 저장 확인')).toBeVisible()
   await page.getByRole('button', { name: '저장', exact: true }).last().click()
   await expect(page.getByText('직원 정보가 저장되었습니다.')).toBeVisible()
-  await expect(page).toHaveURL(/\/schedule\/step3$/)
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await expect(page).toHaveURL(/\/schedule\/step4$/)
 }
 
 test.describe('스케줄 생성 전체 워크플로우', () => {
@@ -178,7 +179,6 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       await completeStep1(page)
       await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
       await completeStep3WithEmployeeImport(page)
-      await page.goto('/schedule/step4')
       await expect(page.getByText(/근무 조정 일정 입력/)).toBeVisible()
       await completeStep4InitialData(page, [{ rowIndex: 0, colIndex: 0, shift: 'O' }])
     })

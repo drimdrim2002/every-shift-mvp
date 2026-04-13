@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   applyEmployeeImport,
   bootstrapAdmin,
+  replaceOrganizationRoster,
+  saveOrganizationProfile,
   validateEmployeeImport,
 } from '@/../supabase/functions/phase2-ops/repository.ts';
 import * as phase2OpsRepository from '@/../supabase/functions/phase2-ops/repository.ts';
@@ -709,6 +711,179 @@ describe('phase2 ops repository', () => {
     expect(updateCalls).toHaveLength(0);
   });
 
+  it('replaces the organization roster through the dedicated atomic RPC boundary', async () => {
+    const { client, rpcCalls, insertCalls, updateCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+        { id: 'shift-e', code: 'E' },
+      ],
+    });
+
+    const result = await replaceOrganizationRoster(client, AUTH_CONTEXT, {
+      organizationId: REQUEST.organizationId,
+      employees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+        {
+          employeeId: 'EMP-2',
+          name: 'Lee',
+          availableShifts: ['E'],
+          rankCode: null,
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      organizationId: REQUEST.organizationId,
+      employeeCount: 2,
+    });
+    expect(rpcCalls).toEqual([
+      {
+        fn: 'replace_organization_roster_atomic',
+        params: {
+          p_organization_id: REQUEST.organizationId,
+          p_employees: [
+            {
+              employee_id: 'EMP-1',
+              name: 'Kim',
+              available_shifts: ['D'],
+              rank_code: 'RN',
+            },
+            {
+              employee_id: 'EMP-2',
+              name: 'Lee',
+              available_shifts: ['E'],
+              rank_code: null,
+            },
+          ],
+        },
+      },
+    ]);
+    expect(insertCalls).toHaveLength(0);
+    expect(updateCalls).toHaveLength(0);
+  });
+
+  it('uses normalized employee fields and shift codes for the org-level roster replace RPC payload', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+      ],
+    });
+
+    await replaceOrganizationRoster(client, AUTH_CONTEXT, {
+      organizationId: REQUEST.organizationId,
+      employees: [
+        {
+          employeeId: ' EMP-1 ',
+          name: ' Kim ',
+          availableShifts: [' d '],
+          rankCode: ' RN ',
+        },
+      ],
+    });
+
+    expect(rpcCalls).toEqual([
+      {
+        fn: 'replace_organization_roster_atomic',
+        params: {
+          p_organization_id: REQUEST.organizationId,
+          p_employees: [
+            {
+              employee_id: 'EMP-1',
+              name: 'Kim',
+              available_shifts: ['D'],
+              rank_code: 'RN',
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('rejects org-level roster replace when duplicate employee IDs are present', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+      ],
+    });
+
+    await expect(
+      replaceOrganizationRoster(client, AUTH_CONTEXT, {
+        organizationId: REQUEST.organizationId,
+        employees: [
+          {
+            employeeId: 'EMP-1',
+            name: 'Kim',
+            availableShifts: ['D'],
+          },
+          {
+            employeeId: 'EMP-1',
+            name: 'Lee',
+            availableShifts: ['D'],
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      message: 'Duplicate employee IDs: EMP-1',
+      status: 400,
+    });
+
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it('rejects org-level roster replace when the roster payload is empty', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+      ],
+    });
+
+    await expect(
+      replaceOrganizationRoster(client, AUTH_CONTEXT, {
+        organizationId: REQUEST.organizationId,
+        employees: [],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      message: 'At least one employee is required',
+      status: 400,
+    });
+
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it('rejects org-level roster replace when unknown shift codes are present', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+      ],
+    });
+
+    await expect(
+      replaceOrganizationRoster(client, AUTH_CONTEXT, {
+        organizationId: REQUEST.organizationId,
+        employees: [
+          {
+            employeeId: 'EMP-1',
+            name: 'Kim',
+            availableShifts: ['X'],
+          },
+        ],
+      })
+    ).rejects.toMatchObject({
+      code: 'bad_request',
+      message: 'Unknown shift codes: X',
+      status: 400,
+    });
+
+    expect(rpcCalls).toHaveLength(0);
+  });
+
   it('blocks employee import apply when the current month is finalized', async () => {
     const { client, rpcCalls } = createRepositoryClient({
       shifts: [
@@ -1312,5 +1487,54 @@ describe('phase2 ops repository', () => {
 
     expect(deleteCalls).toHaveLength(0);
     expect(insertCalls).toHaveLength(0);
+  });
+
+  it('keeps completed onboarding rows closed when saving organization profile', async () => {
+    const organizationId = '00000000-0000-0000-0000-000000000001';
+    const { client, updateCalls } = createRepositoryClient({
+      onboardingProgress: {
+        id: 'progress-1',
+        organization_id: organizationId,
+        current_step: 4,
+        current_step_key: null,
+        completed_at: '2026-04-01T00:00:00.000Z',
+        organization_info_confirmed_at: '2026-03-01T00:00:00.000Z',
+        organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+      },
+    });
+
+    const response = await saveOrganizationProfile(client, {
+      ...ADMIN_AUTH_CONTEXT,
+      operatorOrganizationId: organizationId,
+    }, {
+      organizationId,
+      name: '서울병원',
+      type: 'hospital',
+    });
+
+    expect(response).toEqual({
+      organizationId,
+      name: '서울병원',
+      type: 'hospital',
+    });
+    expect(updateCalls).toEqual([
+      {
+        table: 'organizations',
+        payload: {
+          name: '서울병원',
+          type: 'hospital',
+        },
+        filters: [['id', organizationId]],
+      },
+      {
+        table: 'onboarding_progress',
+        payload: {
+          organization_info_confirmed_at: expect.any(String),
+          organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+          last_actor_user_id: AUTH_CONTEXT.operatorUserId,
+        },
+        filters: [['organization_id', organizationId]],
+      },
+    ]);
   });
 });

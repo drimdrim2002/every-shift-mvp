@@ -125,6 +125,7 @@ import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { createShift, updateShift, deleteShift } from '@/api/shift';
+import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
@@ -393,7 +394,15 @@ async function handleNext() {
     } else {
       window.$message?.success('기본 정보가 저장되었습니다.');
     }
-    router.push('/schedule/step2');
+    const entryQuery = buildScheduleEntryQuery('wizard');
+    if (entryQuery) {
+      router.push({
+        path: '/schedule/step2',
+        query: entryQuery,
+      });
+    } else {
+      router.push('/schedule/step2');
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '데이터 저장 중 오류가 발생했습니다.';
     window.$message?.error(errorMessage);

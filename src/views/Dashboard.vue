@@ -19,134 +19,168 @@
         </div>
       </template>
 
-      <n-card
-        data-test="dashboard-foundation-card"
-        :bordered="true"
-        class="mb-6"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="text-base font-semibold text-gray-900">
-              {{
-                foundationReady
-                  ? '조직/사이트 기본 설정이 완료되었습니다'
-                  : '조직/사이트 기본 설정이 아직 완료되지 않았습니다'
-              }}
-            </p>
-            <p class="mt-1 text-sm text-gray-500">
-              {{
-                foundationReady
-                  ? '대시보드와 근무표 생성 흐름에서 동일한 기본 설정 정보를 사용합니다.'
-                  : '조직 기본 정보 확인과 스케줄 대상 사이트 지정을 먼저 완료해주세요.'
-              }}
-            </p>
+      <div class="space-y-8">
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+          <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium tracking-wide text-slate-500">
+                운영 준비
+              </p>
+              <h2 class="mt-1 text-xl font-semibold text-slate-900">
+                근무표 생성 전에 기준을 먼저 맞춥니다
+              </h2>
+              <p class="mt-2 text-sm text-slate-600">
+                조직 기본 설정과 체크리스트 항목은 월별 생성 흐름의 공통 입력값입니다.
+              </p>
+            </div>
+            <div class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
+              Setup
+            </div>
           </div>
-          <n-button
-            v-if="!foundationReady"
-            data-test="dashboard-foundation-setup"
-            secondary
-            type="primary"
-            @click="handleOpenFoundationSetup"
+
+          <n-card
+            data-test="dashboard-foundation-card"
+            :bordered="true"
+            class="mb-4"
           >
-            기본 설정 열기
-          </n-button>
-        </div>
-      </n-card>
-
-      <PilotChecklistCard
-        v-if="checklist"
-        class="mb-6"
-        :checklist="checklist"
-        @navigate="handleChecklistNavigate"
-      />
-
-      <!-- 로딩 상태 -->
-      <div
-        v-if="loading"
-        class="py-12 text-center"
-      >
-        <n-spin size="large" />
-        <p class="mt-4 text-gray-500">
-          근무표 목록을 불러오는 중...
-        </p>
-      </div>
-
-      <!-- 목록이 비어있을 때 -->
-      <div
-        v-else-if="schedules.length === 0"
-        class="py-16 text-center"
-      >
-        <div class="mb-4 text-6xl">
-          📅
-        </div>
-        <h2 class="mb-2 text-xl font-semibold text-gray-700">
-          생성된 근무표가 없습니다
-        </h2>
-        <p class="mb-6 text-gray-500">
-          새 근무표를 생성하여 시작하세요
-        </p>
-        <n-button
-          data-test="dashboard-create-schedule"
-          type="primary"
-          size="large"
-          @click="handleCreateNew"
-        >
-          첫 근무표 생성하기
-        </n-button>
-      </div>
-
-      <!-- 근무표 목록 -->
-      <div
-        v-else
-        class="space-y-4"
-      >
-        <n-card
-          v-for="schedule in schedules"
-          :key="schedule.id"
-          data-test="schedule-card"
-          :bordered="true"
-          class="cursor-pointer transition-shadow hover:shadow-md"
-          @click="handleViewSchedule(schedule)"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-3">
-                <h3
-                  data-test="schedule-card-month"
-                  class="text-lg font-semibold"
-                >
-                  {{ schedule.month }} 근무표
-                </h3>
-                <n-badge
-                  data-test="schedule-card-status"
-                  :value="getStatusText(schedule.status)"
-                  :type="getStatusType(schedule.status)"
-                />
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="text-base font-semibold text-gray-900">
+                  {{
+                    foundationReady
+                      ? '조직/사이트 기본 설정이 완료되었습니다'
+                      : '조직/사이트 기본 설정이 아직 완료되지 않았습니다'
+                  }}
+                </p>
+                <p class="mt-1 text-sm text-gray-500">
+                  {{
+                    foundationReady
+                      ? '대시보드와 근무표 생성 흐름에서 동일한 기본 설정 정보를 사용합니다.'
+                      : '조직 기본 정보 확인과 스케줄 대상 사이트 지정을 먼저 완료해주세요.'
+                  }}
+                </p>
               </div>
-              <div class="mt-2 flex gap-6 text-sm text-gray-600">
-                <span>생성일: {{ formatDate(schedule.created_at) }}</span>
-                <span v-if="schedule.hard_score !== null && schedule.soft_score !== null">
-                  Hard Score: {{ schedule.hard_score }} / Soft Score: {{ schedule.soft_score }}
-                </span>
-              </div>
-            </div>
-            <div class="flex gap-2">
               <n-button
+                v-if="!foundationReady"
+                data-test="dashboard-foundation-setup"
                 secondary
-                @click.stop="handleEdit(schedule)"
+                type="primary"
+                @click="handleOpenFoundationSetup"
               >
-                수정
-              </n-button>
-              <n-button
-                secondary
-                type="error"
-                @click.stop="handleDelete(schedule)"
-              >
-                삭제
+                기본 설정 열기
               </n-button>
             </div>
+          </n-card>
+
+          <PilotChecklistCard
+            v-if="checklist"
+            :checklist="checklist"
+            @navigate="handleChecklistNavigate"
+          />
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="mb-4">
+            <p class="text-sm font-medium tracking-wide text-slate-500">
+              월별 근무표 작업
+            </p>
+            <h2 class="mt-1 text-xl font-semibold text-slate-900">
+              이번 달 근무표를 생성하거나 확인합니다
+            </h2>
+            <p class="mt-2 text-sm text-slate-600">
+              새 근무표 생성, 기존 결과 확인, 수정은 이 영역에서 시작합니다.
+            </p>
           </div>
-        </n-card>
+
+          <!-- 로딩 상태 -->
+          <div
+            v-if="loading"
+            class="py-12 text-center"
+          >
+            <n-spin size="large" />
+            <p class="mt-4 text-gray-500">
+              근무표 목록을 불러오는 중...
+            </p>
+          </div>
+
+          <!-- 목록이 비어있을 때 -->
+          <div
+            v-else-if="schedules.length === 0"
+            class="py-16 text-center"
+          >
+            <div class="mb-4 text-6xl">
+              📅
+            </div>
+            <h2 class="mb-2 text-xl font-semibold text-gray-700">
+              생성된 근무표가 없습니다
+            </h2>
+            <p class="mb-6 text-gray-500">
+              새 근무표를 생성하여 시작하세요
+            </p>
+            <n-button
+              data-test="dashboard-create-schedule"
+              type="primary"
+              size="large"
+              @click="handleCreateNew"
+            >
+              첫 근무표 생성하기
+            </n-button>
+          </div>
+
+          <!-- 근무표 목록 -->
+          <div
+            v-else
+            class="space-y-4"
+          >
+            <n-card
+              v-for="schedule in schedules"
+              :key="schedule.id"
+              data-test="schedule-card"
+              :bordered="true"
+              class="cursor-pointer transition-shadow hover:shadow-md"
+              @click="handleViewSchedule(schedule)"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex-1">
+                  <div class="flex items-center gap-3">
+                    <h3
+                      data-test="schedule-card-month"
+                      class="text-lg font-semibold"
+                    >
+                      {{ schedule.month }} 근무표
+                    </h3>
+                    <n-badge
+                      data-test="schedule-card-status"
+                      :value="getStatusText(schedule.status)"
+                      :type="getStatusType(schedule.status)"
+                    />
+                  </div>
+                  <div class="mt-2 flex gap-6 text-sm text-gray-600">
+                    <span>생성일: {{ formatDate(schedule.created_at) }}</span>
+                    <span v-if="schedule.hard_score !== null && schedule.soft_score !== null">
+                      Hard Score: {{ schedule.hard_score }} / Soft Score: {{ schedule.soft_score }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <n-button
+                    secondary
+                    @click.stop="handleEdit(schedule)"
+                  >
+                    수정
+                  </n-button>
+                  <n-button
+                    secondary
+                    type="error"
+                    @click.stop="handleDelete(schedule)"
+                  >
+                    삭제
+                  </n-button>
+                </div>
+              </div>
+            </n-card>
+          </div>
+        </section>
       </div>
     </n-card>
 
@@ -190,13 +224,13 @@ import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from
 import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
 import { useScheduleStore } from '@/stores/schedule';
-import { loadCanonicalSiteRequirements } from '@/api/employee';
 import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
 import { getAvailableMonths, getNextMonth } from '@/utils/date';
 import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
+import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
@@ -237,8 +271,8 @@ const monthOptions = computed(() => {
 
 const foundationReady = computed(() => {
   const organizationConfirmed = Boolean(orgStore.current?.foundation?.organizationInfoConfirmedAt);
-  const hasScheduleActiveSite = orgStore.foundationSites.some(
-    (site) => site.isActive && site.isScheduleActive
+  const hasScheduleActiveSite = Boolean(
+    orgStore.foundationSite?.isActive && orgStore.foundationSite?.isScheduleActive
   );
 
   return organizationConfirmed && hasScheduleActiveSite;
@@ -309,29 +343,6 @@ function buildChecklistBasicInfo(month: string, scheduleId?: string) {
 async function seedChecklistScheduleContext(item: ChecklistItem) {
   const nextMonth = getAvailableMonths()[1] || getNextMonth();
 
-  if (item.route === '/schedule/step2') {
-    scheduleStore.reset();
-    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
-    scheduleStore.currentStep = 2;
-    return;
-  }
-
-  if (item.route === '/schedule/step3') {
-    scheduleStore.reset();
-    scheduleStore.setBasicInfo(buildChecklistBasicInfo(nextMonth));
-
-    try {
-      const requirements = await loadCanonicalSiteRequirements(orgStore.current!.id);
-      scheduleStore.setSiteRequirements(requirements);
-    } catch (error) {
-      console.warn('체크리스트 Step3 요구사항 로드 실패:', error);
-    }
-
-    scheduleStore.currentStep = 3;
-
-    return;
-  }
-
   if (item.route?.startsWith('/schedule/step5/')) {
     const scheduleId = item.route.split('/').pop() || undefined;
     const schedule = scheduleId ? schedules.value.find((entry) => entry.id === scheduleId) : null;
@@ -348,14 +359,10 @@ async function handleChecklistNavigate(item: ChecklistItem) {
     return;
   }
 
-  await seedChecklistScheduleContext(item);
-
   if (item.route === '/schedule/step2') {
     await router.push({
       path: item.route,
-      query: {
-        from: 'dashboard',
-      },
+      query: buildScheduleEntryQuery('setup'),
     });
     return;
   }
@@ -363,13 +370,12 @@ async function handleChecklistNavigate(item: ChecklistItem) {
   if (item.route === '/schedule/step3') {
     await router.push({
       path: item.route,
-      query: {
-        from: 'dashboard',
-      },
+      query: buildScheduleEntryQuery('setup'),
     });
     return;
   }
 
+  await seedChecklistScheduleContext(item);
   await router.push(item.route);
 }
 

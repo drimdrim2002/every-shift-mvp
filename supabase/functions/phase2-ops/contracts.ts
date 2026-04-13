@@ -6,6 +6,7 @@ export type RouteName =
   | 'shiftsConstraints'
   | 'employeeImportValidate'
   | 'employeeImportApply'
+  | 'employeeRosterReplace'
   | 'offRequestPolicies'
   | 'checklist';
 
@@ -49,24 +50,25 @@ export type OrganizationProfileResponse = OrganizationProfileRequest;
 export interface SiteRequest {
   code: string;
   name: string;
+}
+
+export interface SiteResponse {
+  id: string;
+  organizationId: string;
+  code: string;
+  name: string;
   isActive: boolean;
   isScheduleActive: boolean;
 }
 
-export interface SiteResponse extends SiteRequest {
-  id: string;
+export interface SiteFoundationRequest {
   organizationId: string;
+  site: SiteRequest;
 }
 
-export interface SitesRequest {
+export interface SiteFoundationResponse {
   organizationId: string;
-  sites: SiteRequest[];
-}
-
-export interface SitesResponse {
-  organizationId: string;
-  pilotSiteId: string | null;
-  sites: SiteResponse[];
+  site: SiteResponse | null;
 }
 
 export interface ShiftsConstraintsRequest {
@@ -105,6 +107,16 @@ export interface EmployeeImportPreviewResponse {
 
 export interface EmployeeImportApplyResponse extends EmployeeImportPreviewResponse {
   deletedScheduleId: string | null;
+}
+
+export interface EmployeeRosterReplaceRequest {
+  organizationId: string;
+  employees: EmployeeImportEmployeePayload[];
+}
+
+export interface EmployeeRosterReplaceResponse {
+  organizationId: string;
+  employeeCount: number;
 }
 
 export type OffRequestPolicyPeriodType = 'monthly' | 'annual';
@@ -247,6 +259,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'employeeImportApply',
     methods: ['POST'],
     segments: ['employee-import', 'apply'],
+  },
+  {
+    name: 'employeeRosterReplace',
+    methods: ['POST'],
+    segments: ['employee-roster', 'replace'],
   },
   {
     name: 'offRequestPolicies',
@@ -509,9 +526,6 @@ function parseSiteRequest(value: unknown): SiteRequest {
   const record = value as Record<string, unknown>;
   const code = typeof record.code === 'string' ? record.code.trim() : '';
   const name = typeof record.name === 'string' ? record.name.trim() : '';
-  const isActive = typeof record.isActive === 'boolean' ? record.isActive : null;
-  const isScheduleActive =
-    typeof record.isScheduleActive === 'boolean' ? record.isScheduleActive : null;
 
   if (!code) {
     throw new ContractError('bad_request', 'site.code is required', 400);
@@ -519,6 +533,44 @@ function parseSiteRequest(value: unknown): SiteRequest {
 
   if (!name) {
     throw new ContractError('bad_request', 'site.name is required', 400);
+  }
+
+  return {
+    code,
+    name,
+  };
+}
+
+export function parseSitesRequest(payload: unknown): SiteFoundationRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'sites request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  if (typeof record.site !== 'object' || record.site === null || Array.isArray(record.site)) {
+    throw new ContractError('bad_request', 'site must be a JSON object', 400);
+  }
+
+  return {
+    organizationId: readOrganizationId(record),
+    site: parseSiteRequest(record.site),
+  };
+}
+
+function parseSiteResponse(value: unknown): SiteResponse {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'site response must be a JSON object', 400);
+  }
+
+  const record = value as Record<string, unknown>;
+  const site = parseSiteRequest(value);
+  const id = typeof record.id === 'string' ? record.id.trim() : '';
+  const isActive = typeof record.isActive === 'boolean' ? record.isActive : null;
+  const isScheduleActive =
+    typeof record.isScheduleActive === 'boolean' ? record.isScheduleActive : null;
+
+  if (!id || !isValidUuid(id)) {
+    throw new ContractError('bad_request', 'site.id must be a valid UUID', 400);
   }
 
   if (isActive === null || isScheduleActive === null) {
@@ -530,75 +582,35 @@ function parseSiteRequest(value: unknown): SiteRequest {
   }
 
   return {
-    code,
-    name,
+    id,
+    organizationId: readOrganizationId(record),
+    code: site.code,
+    name: site.name,
     isActive,
     isScheduleActive,
   };
 }
 
-export function parseSitesRequest(payload: unknown): SitesRequest {
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
-    throw new ContractError('bad_request', 'sites request must be a JSON object', 400);
-  }
-
-  const record = payload as Record<string, unknown>;
-  if (!Array.isArray(record.sites)) {
-    throw new ContractError('bad_request', 'sites must be an array', 400);
-  }
-
-  return {
-    organizationId: readOrganizationId(record),
-    sites: record.sites.map((site) => parseSiteRequest(site)),
-  };
-}
-
-function parseSiteResponse(value: unknown): SiteResponse {
-  const site = parseSiteRequest(value);
-
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new ContractError('bad_request', 'site response must be a JSON object', 400);
-  }
-
-  const record = value as Record<string, unknown>;
-  const id = typeof record.id === 'string' ? record.id.trim() : '';
-
-  if (!id || !isValidUuid(id)) {
-    throw new ContractError('bad_request', 'site.id must be a valid UUID', 400);
-  }
-
-  return {
-    ...site,
-    id,
-    organizationId: readOrganizationId(record),
-  };
-}
-
-export function parseSitesResponse(payload: unknown): SitesResponse {
+export function parseSitesResponse(payload: unknown): SiteFoundationResponse {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw new ContractError('bad_request', 'sites response must be a JSON object', 400);
   }
 
   const record = payload as Record<string, unknown>;
-  const pilotSiteId =
-    typeof record.pilotSiteId === 'string' && record.pilotSiteId.trim().length > 0
-      ? record.pilotSiteId.trim()
-      : record.pilotSiteId === null
-        ? null
+  const site =
+    record.site === null
+      ? null
+      : typeof record.site === 'object' && !Array.isArray(record.site)
+        ? parseSiteResponse(record.site)
         : undefined;
 
-  if (pilotSiteId === undefined || (pilotSiteId !== null && !isValidUuid(pilotSiteId))) {
-    throw new ContractError('bad_request', 'pilotSiteId must be a UUID or null', 400);
-  }
-
-  if (!Array.isArray(record.sites)) {
-    throw new ContractError('bad_request', 'sites must be an array', 400);
+  if (site === undefined) {
+    throw new ContractError('bad_request', 'site must be a JSON object or null', 400);
   }
 
   return {
     organizationId: readOrganizationId(record),
-    pilotSiteId,
-    sites: record.sites.map((site) => parseSiteResponse(site)),
+    site,
   };
 }
 
@@ -917,6 +929,28 @@ export function parseEmployeeImportApplyRequest(payload: unknown): EmployeeImpor
   return parseEmployeeImportRequest(payload);
 }
 
+export function parseEmployeeRosterReplaceRequest(payload: unknown): EmployeeRosterReplaceRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee roster replace request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!Array.isArray(record.employees)) {
+    throw new ContractError('bad_request', 'employees must be an array', 400);
+  }
+
+  return {
+    organizationId,
+    employees: record.employees.map((employee) => parseEmployeeImportEmployeePayload(employee)),
+  };
+}
+
 function parseEmployeeImportPreviewEmployee(value: unknown): EmployeeImportPreviewEmployee {
   return parseEmployeeImportEmployeePayload(value);
 }
@@ -996,6 +1030,29 @@ export function parseEmployeeImportApplyResponse(payload: unknown): EmployeeImpo
   return {
     ...preview,
     deletedScheduleId,
+  };
+}
+
+export function parseEmployeeRosterReplaceResponse(payload: unknown): EmployeeRosterReplaceResponse {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee roster replace response must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId.trim() : '';
+  const employeeCount = typeof record.employeeCount === 'number' ? record.employeeCount : NaN;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!Number.isInteger(employeeCount) || employeeCount < 0) {
+    throw new ContractError('bad_request', 'employeeCount must be a non-negative integer', 400);
+  }
+
+  return {
+    organizationId,
+    employeeCount,
   };
 }
 

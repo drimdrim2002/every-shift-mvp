@@ -242,7 +242,7 @@
             size="medium"
             @click="handleBack"
           >
-            ← 이전
+            입력 수정
           </n-button>
           <n-button
             size="medium"
@@ -258,7 +258,7 @@
             v-if="isFinished"
             class="text-xs leading-5 text-slate-500"
           >
-            같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력을 바꿔 비교안을 만들려면 이전 단계로 돌아가세요.
+            같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
           </p>
 
           <div class="flex flex-col gap-4 sm:flex-row">

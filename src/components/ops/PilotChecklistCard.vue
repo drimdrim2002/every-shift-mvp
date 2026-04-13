@@ -1,13 +1,16 @@
 <template>
   <n-card
     data-test="pilot-checklist-card"
-    title="파일럿 준비 체크리스트"
+    title="운영 준비 체크리스트"
   >
     <div class="space-y-4">
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-sm text-gray-500">
-            조직 설정부터 최종 검토까지 필요한 항목을 순서대로 확인합니다.
+            근무표를 만들기 전에 조직, 사이트, 직원 기준을 먼저 정리합니다.
+          </p>
+          <p class="mt-1 text-xs text-gray-400">
+            이 체크리스트는 월별 생성 wizard가 아니라 운영 준비 단계입니다.
           </p>
           <p
             v-if="checklist.checklistCursor"

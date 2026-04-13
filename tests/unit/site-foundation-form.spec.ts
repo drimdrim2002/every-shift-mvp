@@ -1,5 +1,4 @@
 import { mount } from '@vue/test-utils';
-import { defineComponent, h, inject, provide, reactive, toRef } from 'vue';
 import { describe, expect, it } from 'vitest';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 
@@ -27,374 +26,33 @@ const NInputStub = {
   template: '<input :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
 };
 
-const NCheckboxStub = {
-  props: {
-    checked: {
-      type: Boolean,
-      default: false,
+function createWrapper(modelValue = null) {
+  return mount(SiteFoundationForm, {
+    props: {
+      modelValue,
+      saving: false,
     },
-  },
-  emits: ['update:checked'],
-  template: '<input type="checkbox" :checked="checked" @change="$emit(\'update:checked\', $event.target.checked)" />',
-};
-
-const radioGroupKey = Symbol('radio-group');
-
-const NRadioGroupStub = defineComponent({
-  props: {
-    value: {
-      type: String,
-      default: null,
+    global: {
+      stubs: {
+        NCard: NCardStub,
+        NButton: NButtonStub,
+        NFormItem: NFormItemStub,
+        NInput: NInputStub,
+      },
     },
-    disabled: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  emits: ['update:value'],
-  setup(props, { emit, slots }) {
-    provide(radioGroupKey, {
-      value: toRef(props, 'value'),
-      disabled: toRef(props, 'disabled'),
-      setValue: (next: string) => emit('update:value', next),
-    });
-
-    return () => h('div', slots.default?.());
-  },
-});
-
-const NRadioStub = defineComponent({
-  props: {
-    value: {
-      type: String,
-      default: '',
-    },
-    disabled: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  setup(props, { slots }) {
-    const group = inject<{
-      value: ReturnType<typeof toRef<string | null>>;
-      disabled: ReturnType<typeof toRef<boolean>>;
-      setValue: (next: string) => void;
-    } | null>(radioGroupKey, null);
-
-    return () => h('label', [
-      h('input', {
-        type: 'radio',
-        value: props.value,
-        disabled: props.disabled || group?.disabled.value,
-        checked: group?.value.value === props.value,
-        onChange: () => {
-          if (!props.disabled && !group?.disabled.value) {
-            group?.setValue(props.value);
-          }
-        },
-      }),
-      slots.default?.(),
-    ]);
-  },
-});
+  });
+}
 
 describe('SiteFoundationForm', () => {
-  it('explains that multiple sites can be registered while only one schedule target is used', () => {
-    const wrapper = mount(SiteFoundationForm, {
-      props: {
-        modelValue: [
-          {
-            id: 'site-1',
-            organizationId: 'org-1',
-            code: 'MAIN',
-            name: '본관',
-            isActive: true,
-            isScheduleActive: true,
-          },
-        ],
-        pilotSiteId: null,
-        scheduleTargetLocked: false,
-      },
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
+  it('renders the single-site pilot copy', () => {
+    const wrapper = createWrapper();
 
-    expect(wrapper.text()).toContain('사이트 목록');
-    expect(wrapper.text()).toContain('여러 사이트를 등록할 수 있지만, 현재 스케줄 생성에는 1개 사이트만 사용합니다.');
-    expect(wrapper.text()).toContain('현재 스케줄 생성 대상');
+    expect(wrapper.text()).toContain('파일럿 사이트 설정');
+    expect(wrapper.text()).toContain('현재 제품에서는 스케줄 생성에 사용할 파일럿 사이트 1개만 설정합니다.');
   });
 
-  it('renders the schedule target as locked when a pilot site already exists', () => {
-    const wrapper = mount(SiteFoundationForm, {
-      props: {
-        modelValue: [
-          {
-            id: 'site-1',
-            organizationId: 'org-1',
-            code: 'MAIN',
-            name: '본관',
-            isActive: true,
-            isScheduleActive: true,
-          },
-          {
-            id: 'site-2',
-            organizationId: 'org-1',
-            code: 'SUB',
-            name: '별관',
-            isActive: true,
-            isScheduleActive: false,
-          },
-        ],
-        pilotSiteId: 'site-1',
-        scheduleTargetLocked: true,
-      },
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    expect(wrapper.text()).toContain('현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.');
-    expect(wrapper.findAll('input[type="radio"]').every((radio) => radio.attributes('disabled') !== undefined)).toBe(true);
-  });
-
-  it('emits the selected site as the only schedule target when saving', async () => {
-    const wrapper = mount(SiteFoundationForm, {
-      props: {
-        modelValue: [
-          {
-            id: 'site-1',
-            organizationId: 'org-1',
-            code: 'MAIN',
-            name: '본관',
-            isActive: true,
-            isScheduleActive: true,
-          },
-          {
-            id: 'site-2',
-            organizationId: 'org-1',
-            code: 'SUB',
-            name: '별관',
-            isActive: true,
-            isScheduleActive: false,
-          },
-        ],
-        pilotSiteId: null,
-        scheduleTargetLocked: false,
-      },
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    const radios = wrapper.findAll('input[type="radio"]');
-    expect((radios[0].element as HTMLInputElement).checked).toBe(true);
-
-    await radios[1].trigger('change');
-    await wrapper.findAll('button')[1].trigger('click');
-
-    const emitted = wrapper.emitted('save');
-    expect(emitted).toHaveLength(1);
-
-    const payload = emitted?.[0]?.[0] as Array<{ isScheduleActive: boolean }>;
-    expect(payload.filter((site) => site.isScheduleActive)).toHaveLength(1);
-    expect(payload[0].isScheduleActive).toBe(false);
-    expect(payload[1].isScheduleActive).toBe(true);
-  });
-
-  it('preserves the existing active site when locked and the pilot site is missing', async () => {
-    const wrapper = mount(SiteFoundationForm, {
-      props: {
-        modelValue: [
-          {
-            id: 'site-1',
-            organizationId: 'org-1',
-            code: 'MAIN',
-            name: '본관',
-            isActive: true,
-            isScheduleActive: true,
-          },
-          {
-            id: 'site-2',
-            organizationId: 'org-1',
-            code: 'SUB',
-            name: '별관',
-            isActive: true,
-            isScheduleActive: false,
-          },
-        ],
-        pilotSiteId: 'missing-site',
-        scheduleTargetLocked: true,
-      },
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    const radios = wrapper.findAll('input[type="radio"]');
-    expect((radios[0].element as HTMLInputElement).checked).toBe(true);
-    expect((radios[1].element as HTMLInputElement).checked).toBe(false);
-
-    await wrapper.findAll('button')[1].trigger('click');
-
-    const payload = wrapper.emitted('save')?.[0]?.[0] as Array<{ isScheduleActive: boolean }>;
-    expect(payload.filter((site) => site.isScheduleActive)).toHaveLength(1);
-    expect(payload[0].isScheduleActive).toBe(true);
-    expect(payload[1].isScheduleActive).toBe(false);
-  });
-
-  it('resyncs the selected target when pilotSiteId changes without replacing the sites array', async () => {
-    const parentState = reactive({
-      modelValue: [
-        {
-          id: 'site-1',
-          organizationId: 'org-1',
-          code: 'MAIN',
-          name: '본관',
-          isActive: true,
-          isScheduleActive: true,
-        },
-        {
-          id: 'site-2',
-          organizationId: 'org-1',
-          code: 'SUB',
-          name: '별관',
-          isActive: true,
-          isScheduleActive: false,
-        },
-      ],
-      pilotSiteId: 'site-1',
-    });
-
-    const Harness = defineComponent({
-      setup() {
-        return () => h(SiteFoundationForm, {
-          modelValue: parentState.modelValue,
-          pilotSiteId: parentState.pilotSiteId,
-        });
-      },
-    });
-
-    const wrapper = mount(Harness, {
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    expect((wrapper.findComponent(SiteFoundationForm).vm as Record<string, unknown>).selectedDraftKey).toBe('site-1');
-
-    parentState.pilotSiteId = 'site-2';
-
-    await wrapper.vm.$nextTick();
-
-    expect((wrapper.findComponent(SiteFoundationForm).vm as Record<string, unknown>).selectedDraftKey).toBe('site-2');
-  });
-
-  it('keeps the site code input mounted while typing into a new draft row', async () => {
-    const wrapper = mount(SiteFoundationForm, {
-      props: {
-        modelValue: [],
-      },
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    const firstCodeInput = wrapper.find('input:not([type="checkbox"])');
-    const firstCodeInputElement = firstCodeInput.element;
-
-    await firstCodeInput.setValue('M');
-
-    expect(wrapper.find('input:not([type="checkbox"])').element).toBe(firstCodeInputElement);
-  });
-
-  it('does not reset local drafts when the parent mutates the sites array in place', async () => {
-    const parentState = reactive({
-      modelValue: [] as Array<{
-        id: string;
-        organizationId: string;
-        code: string;
-        name: string;
-        isActive: boolean;
-        isScheduleActive: boolean;
-      }>,
-    });
-
-    const Harness = defineComponent({
-      setup() {
-        return () => h(SiteFoundationForm, {
-          modelValue: parentState.modelValue,
-          pilotSiteId: null,
-        });
-      },
-    });
-
-    const wrapper = mount(Harness, {
-      global: {
-        stubs: {
-          NCard: NCardStub,
-          NButton: NButtonStub,
-          NFormItem: NFormItemStub,
-          NInput: NInputStub,
-          NCheckbox: NCheckboxStub,
-          NRadioGroup: NRadioGroupStub,
-          NRadio: NRadioStub,
-        },
-      },
-    });
-
-    const firstCodeInput = wrapper.find('input:not([type="checkbox"])');
-    await firstCodeInput.setValue('M');
-
-    parentState.modelValue.push({
+  it('hydrates the existing site into the local form', () => {
+    const wrapper = createWrapper({
       id: 'site-1',
       organizationId: 'org-1',
       code: 'MAIN',
@@ -403,9 +61,52 @@ describe('SiteFoundationForm', () => {
       isScheduleActive: true,
     });
 
-    await wrapper.vm.$nextTick();
+    const inputs = wrapper.findAll('input');
+    expect((inputs[0].element as HTMLInputElement).value).toBe('MAIN');
+    expect((inputs[1].element as HTMLInputElement).value).toBe('본관');
+  });
 
-    expect(wrapper.find('input:not([type="checkbox"])').element).toBe(firstCodeInput.element);
-    expect((wrapper.find('input:not([type="checkbox"])').element as HTMLInputElement).value).toBe('M');
+  it('emits the trimmed site payload when saving', async () => {
+    const wrapper = createWrapper();
+    const inputs = wrapper.findAll('input');
+
+    await inputs[0].setValue(' MAIN ');
+    await inputs[1].setValue(' 본관 ');
+    await wrapper.find('button').trigger('click');
+
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          code: 'MAIN',
+          name: '본관',
+        },
+      ],
+    ]);
+  });
+
+  it('resyncs the local form when the site prop is replaced', async () => {
+    const wrapper = createWrapper({
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    });
+
+    await wrapper.setProps({
+      modelValue: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'ER',
+        name: '응급병동',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    });
+
+    const inputs = wrapper.findAll('input');
+    expect((inputs[0].element as HTMLInputElement).value).toBe('ER');
+    expect((inputs[1].element as HTMLInputElement).value).toBe('응급병동');
   });
 });

@@ -82,7 +82,7 @@ const organizationStoreMock = reactive({
     },
   ],
   foundationProfile: null,
-  foundationSites: [],
+  foundationSite: null,
   foundationLoading: false,
   loadOrganization: vi.fn(),
   loadFoundationData: vi.fn(),
@@ -152,10 +152,11 @@ describe('Dashboard', () => {
       foundation: null,
     }
     organizationStoreMock.foundationProfile = null
-    organizationStoreMock.foundationSites = []
+    organizationStoreMock.foundationSite = null
     organizationStoreMock.foundationLoading = false
     organizationStoreMock.loadOrganization.mockResolvedValue({ success: true })
     organizationStoreMock.loadFoundationData.mockResolvedValue({ success: true })
+    scheduleStoreMock.currentStep = 0
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
@@ -360,16 +361,14 @@ describe('Dashboard', () => {
       name: '서울병원',
       type: 'hospital',
     }
-    organizationStoreMock.foundationSites = [
-      {
-        id: 'site-1',
-        organizationId: 'org-1',
-        code: 'MAIN',
-        name: '본관',
-        isActive: true,
-        isScheduleActive: true,
-      },
-    ]
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -383,7 +382,9 @@ describe('Dashboard', () => {
     await flushPromises()
 
     expect(getChecklistMock).toHaveBeenCalledWith('org-1')
-    expect(wrapper.text()).toContain('파일럿 준비 체크리스트')
+    expect(wrapper.text()).toContain('운영 준비')
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.text()).toContain('운영 준비 체크리스트')
     expect(wrapper.text()).toContain('조직 기본 정보 확인')
     expect(wrapper.text()).toContain('사이트/근무 기본 설정')
     expect(wrapper.text()).toContain('직원 로스터 준비')
@@ -395,35 +396,39 @@ describe('Dashboard', () => {
     expect(pushMock).toHaveBeenCalledWith('/ops/organization-setup')
 
     pushMock.mockClear()
+    setBasicInfoMock.mockClear()
+    setSiteRequirementsMock.mockClear()
+    resetMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-schedule_foundation"]').trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step2',
       query: {
-        from: 'dashboard',
+        entry: 'setup',
       },
     })
-    expect(scheduleStoreMock.currentStep).toBe(2)
+    expect(resetMock).not.toHaveBeenCalled()
+    expect(setBasicInfoMock).not.toHaveBeenCalled()
+    expect(setSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.currentStep).toBe(0)
 
     pushMock.mockClear()
+    setBasicInfoMock.mockClear()
+    setSiteRequirementsMock.mockClear()
+    resetMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
     await flushPromises()
-    expect(loadCanonicalSiteRequirementsMock).toHaveBeenCalledWith('org-1')
-    expect(setSiteRequirementsMock).toHaveBeenCalledWith([
-      {
-        dayOfWeek: 1,
-        dayName: '월요일',
-        shiftCode: 'D',
-        requiredCount: 1,
-      },
-    ])
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step3',
       query: {
-        from: 'dashboard',
+        entry: 'setup',
       },
     })
-    expect(scheduleStoreMock.currentStep).toBe(3)
+    expect(resetMock).not.toHaveBeenCalled()
+    expect(setBasicInfoMock).not.toHaveBeenCalled()
+    expect(setSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(loadCanonicalSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.currentStep).toBe(0)
 
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-off_request_policy"]').trigger('click')

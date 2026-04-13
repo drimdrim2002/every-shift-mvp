@@ -54,7 +54,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
   const foundationProfile = ref<OrganizationProfileResponse | null>(null)
-  const foundationSites = ref<SiteResponse[]>([])
+  const foundationSite = ref<SiteResponse | null>(null)
   const foundationShiftsConstraints = ref<ShiftsConstraintsResponse | null>(null)
   const foundationLoading = ref(false)
 
@@ -201,7 +201,7 @@ export const useOrganizationStore = defineStore('organization', () => {
       ])
 
       foundationProfile.value = profile
-      foundationSites.value = sites.sites
+      foundationSite.value = sites.site
       foundationShiftsConstraints.value = shiftsConstraints
 
       return { success: true }
@@ -231,8 +231,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
   }
 
-  function updateFoundationSitesCache(sites: SiteResponse[]) {
-    foundationSites.value = sites
+  function updateFoundationSiteCache(site: SiteResponse | null) {
+    foundationSite.value = site
   }
 
   /**
@@ -402,7 +402,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     shifts.value = []
     loading.value = false
     foundationProfile.value = null
-    foundationSites.value = []
+    foundationSite.value = null
     foundationShiftsConstraints.value = null
     foundationLoading.value = false
   }
@@ -414,14 +414,14 @@ export const useOrganizationStore = defineStore('organization', () => {
     shifts,
     loading,
     foundationProfile,
-    foundationSites,
+    foundationSite,
     foundationShiftsConstraints,
     foundationLoading,
     // Actions - Organization
     loadOrganization,
     loadFoundationData,
     updateFoundationProfileCache,
-    updateFoundationSitesCache,
+    updateFoundationSiteCache,
     createOrganization,
     updateCurrentOrganization,
     // Actions - Shifts (DB)

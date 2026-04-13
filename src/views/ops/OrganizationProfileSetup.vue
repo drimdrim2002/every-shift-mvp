@@ -43,9 +43,7 @@
       />
 
       <site-foundation-form
-        :model-value="siteSetup.sites"
-        :pilot-site-id="siteSetup.pilotSiteId"
-        :schedule-target-locked="scheduleTargetLocked"
+        :model-value="siteSetup.site"
         :saving="siteSaving"
         @save="handleSaveSites"
       />
@@ -63,14 +61,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
-import type { OrganizationProfileRequest, SiteRequest, SitesResponse } from '@/types/ops';
+import type { OrganizationProfileRequest, SiteFoundationResponse, SiteRequest } from '@/types/ops';
 import { showError, showSuccess } from '@/utils/message';
 
 const router = useRouter();
@@ -86,12 +84,10 @@ const organizationProfile = ref<OrganizationProfileRequest>({
   name: '',
   type: '',
 });
-const siteSetup = ref<SitesResponse>({
+const siteSetup = ref<SiteFoundationResponse>({
   organizationId: '',
-  pilotSiteId: null,
-  sites: [],
+  site: null,
 });
-const scheduleTargetLocked = computed(() => siteSetup.value.pilotSiteId !== null);
 
 const internalSiteSaveErrorPatterns = [
   /duplicate key/i,
@@ -122,14 +118,6 @@ function toSiteSaveErrorMessage(error: unknown): string {
   const message = error.message.trim();
   if (!message) {
     return fallback;
-  }
-
-  if (message.includes('Changing the schedule-active pilot site code is not supported')) {
-    return '현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.';
-  }
-
-  if (message.includes('Exactly one schedule-active site is required')) {
-    return '스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.';
   }
 
   console.error('[OrganizationProfileSetup] Unexpected site save error:', error);
@@ -167,7 +155,7 @@ async function loadFoundationSetup() {
     organizationProfile.value = profile;
     siteSetup.value = sites;
     organizationStore.updateFoundationProfileCache(profile);
-    organizationStore.updateFoundationSitesCache(sites.sites);
+    organizationStore.updateFoundationSiteCache(sites.site);
     hasLoaded.value = true;
   } catch (error) {
     loadErrorMessage.value = error instanceof Error ? error.message : '기본 설정을 불러오지 못했습니다.';
@@ -192,17 +180,17 @@ async function handleSaveOrganizationProfile(value: OrganizationProfileRequest) 
   }
 }
 
-async function handleSaveSites(value: SiteRequest[]) {
+async function handleSaveSites(value: SiteRequest) {
   siteSaving.value = true;
 
   try {
     const organizationId = await ensureOrganizationId();
     const saved = await updateSites({
       organizationId,
-      sites: value,
+      site: value,
     });
     siteSetup.value = saved;
-    organizationStore.updateFoundationSitesCache(saved.sites);
+    organizationStore.updateFoundationSiteCache(saved.site);
     showSuccess('사이트 설정을 저장했습니다.');
   } catch (error) {
     showError(toSiteSaveErrorMessage(error));

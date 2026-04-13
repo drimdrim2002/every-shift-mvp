@@ -552,7 +552,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, '다음 단계')
+    await clickButtonByText(wrapper, '결과 확인으로 이동')
     await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
@@ -577,7 +577,7 @@ describe('Step4InitialData', () => {
     })
     await flushPromises()
 
-    await clickButtonByText(wrapper, '다음 단계')
+    await clickButtonByText(wrapper, '결과 확인으로 이동')
     await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {

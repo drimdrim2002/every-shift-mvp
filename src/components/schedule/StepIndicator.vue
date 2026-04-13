@@ -1,6 +1,9 @@
 <template>
   <div class="flex items-center justify-center gap-8 py-6">
-    <template v-for="step in steps" :key="step.number">
+    <template
+      v-for="step in steps"
+      :key="step.number"
+    >
       <div class="flex flex-col items-center">
         <div
           :class="getStepCircleClass(step.number)"
@@ -8,7 +11,10 @@
         >
           {{ step.number }}
         </div>
-        <div class="mt-2 text-sm" :class="getStepLabelClass(step.number)">
+        <div
+          class="mt-2 text-sm"
+          :class="getStepLabelClass(step.number)"
+        >
           {{ step.label }}
         </div>
       </div>
@@ -31,10 +37,10 @@ const props = defineProps<Props>();
 
 const steps = [
   { number: 1, label: '기본 정보' },
-  { number: 2, label: '사이트 정보' },
-  { number: 3, label: '직원 정보' },
-  { number: 4, label: '근무 제외 정보' },
-  { number: 5, label: '결과 확인' },
+  { number: 2, label: '사이트 기준' },
+  { number: 3, label: '직원 기준' },
+  { number: 4, label: '입력 조정' },
+  { number: 5, label: '결과 검토' },
 ];
 
 function getStepCircleClass(stepNumber: number) {

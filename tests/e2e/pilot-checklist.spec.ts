@@ -71,7 +71,7 @@ test.describe('pilot checklist entry surface', () => {
     await page.goto('/')
     await waitForDashboard(page)
 
-    await expect(page.getByText('파일럿 준비 체크리스트')).toBeVisible()
+    await expect(page.getByText('운영 준비 체크리스트')).toBeVisible()
     await expect(page.getByRole('heading', { name: '조직 기본 정보 확인' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '사이트/근무 기본 설정' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '직원 로스터 준비' })).toBeVisible()

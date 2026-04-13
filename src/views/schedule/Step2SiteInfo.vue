@@ -1,10 +1,39 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="2" />
+    <StepIndicator
+      v-if="!isSetupEntry"
+      :current-step="2"
+    />
 
-    <n-card title="근무표 생성 - 요일별 인력 설정">
-      <p class="mb-2 text-base text-gray-600">
+    <n-card :title="pageTitle">
+      <p
+        v-if="!isSetupEntry"
+        class="mb-2 text-base text-gray-600"
+      >
         {{ scheduleStore.basicInfo?.month }} 요일별 필요 인력을 확인하고 수정합니다
+      </p>
+      <div
+        v-else
+        class="mb-4"
+      >
+        <p class="text-base text-gray-600">
+          조직의 공통 사이트 기준을 정리합니다.
+        </p>
+        <n-alert
+          type="warning"
+          class="mt-3"
+        >
+          이 설정은 이번 달만이 아니라 조직의 기본값에 적용됩니다.
+        </n-alert>
+      </div>
+      <p
+        v-if="!isSetupEntry"
+        class="mb-4 text-sm text-gray-500"
+      >
+        이 단계는 저장만 해도 되고, 바로 다음 단계로 이어서 진행할 수도 있습니다.
+        <span v-if="cameFromDashboard">
+          대시보드에서 다시 열어 이어서 작업할 수도 있습니다.
+        </span>
       </p>
 
       <div
@@ -84,6 +113,14 @@
         </div>
 
         <n-alert
+          v-if="isSetupEntry"
+          type="warning"
+          class="mt-6"
+        >
+          조직 전체에 적용되는 요일별 필요 인력을 입력하세요. 이 값은 이후 생성되는 근무표의 기준이 됩니다.
+        </n-alert>
+        <n-alert
+          v-else
           type="info"
           class="mt-6"
         >
@@ -91,24 +128,74 @@
         </n-alert>
 
         <!-- 버튼 -->
-        <div class="flex justify-end gap-3 pt-6">
+        <div
+          v-if="isSetupEntry"
+          class="flex justify-center gap-3 pt-6"
+        >
           <n-button
-            v-if="cameFromDashboard"
+            size="medium"
+            :disabled="isSaving || loading"
+            @click="handleSave"
+          >
+            저장
+          </n-button>
+          <n-button
             size="medium"
             secondary
             :disabled="isSaving || loading"
             @click="handleReturnToDashboard"
           >
-            근무표 관리로 돌아가기
+            대시보드로 돌아가기
           </n-button>
           <n-button
             type="primary"
             size="medium"
             :loading="isSaving || loading"
-            @click="handleSave"
+            @click="handleNext"
           >
-            저장
+            저장 후 직원 정보로 이동
           </n-button>
+        </div>
+        <div
+          v-else
+          class="flex items-center justify-between gap-3 pt-6"
+        >
+          <div class="flex gap-3">
+            <n-button
+              v-if="!cameFromDashboard"
+              size="medium"
+              :disabled="isSaving || loading"
+              @click="handlePrev"
+            >
+              ← 이전
+            </n-button>
+            <n-button
+              v-if="cameFromDashboard"
+              size="medium"
+              secondary
+              :disabled="isSaving || loading"
+              @click="handleReturnToDashboard"
+            >
+              근무표 관리로 돌아가기
+            </n-button>
+          </div>
+          <div class="flex gap-3">
+            <n-button
+              size="medium"
+              :disabled="isSaving || loading"
+              @click="handleSave"
+            >
+              저장
+            </n-button>
+            <n-button
+              type="primary"
+              size="medium"
+              :loading="isSaving || loading"
+              @click="handleNext"
+            >
+              다음 단계 →
+            </n-button>
+          </div>
         </div>
       </template>
     </n-card>
@@ -125,6 +212,7 @@ import { useOrganizationStore } from '@/stores/organization';
 import { loadCanonicalSiteRequirements, replaceCanonicalSiteRequirements } from '@/api/employee';
 import { getSchedulingShifts } from '@/api/shift';
 import { showError, showInfo, showSuccess } from '@/utils/message';
+import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
@@ -139,6 +227,13 @@ const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 const isSaving = ref(false);
 const loading = ref(true);
 const baselineRequirementsSnapshot = ref('');
+const isSetupEntry = computed(() => isSetupEntryMode(route.query.entry));
+const pageTitle = computed(() =>
+  isSetupEntry.value ? '운영 준비 - 사이트 기준 설정' : '근무표 생성 - 요일별 인력 설정'
+);
+const resolvedOrganizationId = computed(
+  () => scheduleStore.basicInfo?.organizationId ?? orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null
+);
 
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {
@@ -178,7 +273,7 @@ const horizontalData = reactive<Record<number, Record<string, number>>>({
 });
 
 onMounted(async () => {
-  if (!scheduleStore.basicInfo) {
+  if (!isSetupEntry.value && !scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
@@ -186,26 +281,39 @@ onMounted(async () => {
   loading.value = true;
 
   try {
-    // 1. Supabase에서 기존 데이터 로드
-    const savedRequirements = await loadCanonicalSiteRequirements(scheduleStore.basicInfo.organizationId);
+    const organizationId = resolvedOrganizationId.value;
 
-    // 2. 데이터가 있으면 변환하여 표시
-    if (savedRequirements && savedRequirements.length > 0) {
-      convertVerticalToHorizontal(savedRequirements);
-      // 스토어에도 저장
-      scheduleStore.setSiteRequirements(savedRequirements);
-      setBaselineRequirementsSnapshot(savedRequirements);
-    } else {
-      // 3. 스케줄 스토어 확인 (메모리에 있을 수도 있음)
-      const siteReqs = scheduleStore.siteRequirements;
-      if (siteReqs && Array.isArray(siteReqs) && siteReqs.length > 0) {
-        convertVerticalToHorizontal(siteReqs as SiteRequirementRow[]);
-        setBaselineRequirementsSnapshot(siteReqs as SiteRequirementRow[]);
+    // 1. Supabase에서 기존 데이터 로드
+    if (organizationId) {
+      const savedRequirements = await loadCanonicalSiteRequirements(organizationId);
+
+      // 2. 데이터가 있으면 변환하여 표시
+      if (savedRequirements && savedRequirements.length > 0) {
+        convertVerticalToHorizontal(savedRequirements);
+        // 스토어에도 저장
+        scheduleStore.setSiteRequirements(savedRequirements);
+        setBaselineRequirementsSnapshot(savedRequirements);
       } else {
-        // 4. 아무것도 없으면 기본값 초기화
-        initDefaultValues();
-        setBaselineRequirementsSnapshot(convertHorizontalToVertical());
+        if (isSetupEntry.value) {
+          // setup mode always starts from canonical defaults, not wizard memory.
+          initDefaultValues();
+          setBaselineRequirementsSnapshot(convertHorizontalToVertical());
+        } else {
+          // 3. 스케줄 스토어 확인 (메모리에 있을 수도 있음)
+          const siteReqs = scheduleStore.siteRequirements;
+          if (siteReqs && Array.isArray(siteReqs) && siteReqs.length > 0) {
+            convertVerticalToHorizontal(siteReqs as SiteRequirementRow[]);
+            setBaselineRequirementsSnapshot(siteReqs as SiteRequirementRow[]);
+          } else {
+            // 4. 아무것도 없으면 기본값 초기화
+            initDefaultValues();
+            setBaselineRequirementsSnapshot(convertHorizontalToVertical());
+          }
+        }
       }
+    } else {
+      initDefaultValues();
+      setBaselineRequirementsSnapshot(convertHorizontalToVertical());
     }
   } catch (error) {
     console.error('[Step2SiteInfo] Load error:', error);
@@ -353,7 +461,11 @@ function validateBeforeSave(): string | null {
 
 function handleReturnToDashboard() {
   if (hasChanges.value) {
-    showInfo('변경된 데이터가 있습니다. 저장 후 진행하세요');
+    showInfo(
+      isSetupEntry.value
+        ? '변경된 데이터가 있습니다. 저장 후 이동하세요.'
+        : '변경된 데이터가 있습니다. 저장 후 진행하세요'
+    );
     return;
   }
 
@@ -361,18 +473,44 @@ function handleReturnToDashboard() {
   router.push('/');
 }
 
-/**
- * 저장 버튼 핸들러
- */
-async function handleSave() {
-  if (!scheduleStore.basicInfo) {
-    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+function handlePrev() {
+  scheduleStore.prevStep();
+  router.push('/schedule/step1');
+}
+
+function navigateToStep3() {
+  if (isSetupEntry.value) {
+    router.push({
+      path: '/schedule/step3',
+      query: {
+        entry: 'setup',
+      },
+    });
     return;
   }
 
-  if (!hasChanges.value) {
-    showInfo('변경된 데이터가 없습니다');
+  if (cameFromDashboard.value) {
+    router.push({
+      path: '/schedule/step3',
+      query: {
+        from: 'dashboard',
+      },
+    });
     return;
+  }
+
+  router.push('/schedule/step3');
+}
+
+/**
+ * 저장 수행
+ */
+async function saveRequirements(): Promise<boolean> {
+  const organizationId = resolvedOrganizationId.value;
+
+  if (!organizationId) {
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+    return false;
   }
 
   isSaving.value = true;
@@ -381,14 +519,14 @@ async function handleSave() {
     const validationError = validateBeforeSave();
     if (validationError) {
       showError(validationError);
-      return;
+      return false;
     }
 
     // 가로형 → 세로형 변환
     const verticalData = convertHorizontalToVertical();
 
     // Supabase에 저장
-    await replaceCanonicalSiteRequirements(scheduleStore.basicInfo.organizationId, verticalData);
+    await replaceCanonicalSiteRequirements(organizationId, verticalData);
 
     // Schedule Store 업데이트
     scheduleStore.setSiteRequirements(verticalData);
@@ -396,11 +534,57 @@ async function handleSave() {
 
     // 성공 메시지 표시
     showSuccess('요일별 인력이 저장되었습니다.');
+    return true;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
     showError(errorMessage);
+    return false;
   } finally {
     isSaving.value = false;
   }
+}
+
+/**
+ * 저장 버튼 핸들러
+ */
+async function handleSave() {
+  if (!hasChanges.value) {
+    showInfo('변경된 데이터가 없습니다');
+    return;
+  }
+
+  await saveRequirements();
+}
+
+async function handleNext() {
+  if (isSetupEntry.value) {
+    if (!hasChanges.value) {
+      navigateToStep3();
+      return;
+    }
+
+    const saved = await saveRequirements();
+    if (!saved) return;
+
+    navigateToStep3();
+    return;
+  }
+
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+    return;
+  }
+
+  if (!hasChanges.value) {
+    scheduleStore.nextStep();
+    navigateToStep3();
+    return;
+  }
+
+  const saved = await saveRequirements();
+  if (!saved) return;
+
+  scheduleStore.nextStep();
+  navigateToStep3();
 }
 </script>

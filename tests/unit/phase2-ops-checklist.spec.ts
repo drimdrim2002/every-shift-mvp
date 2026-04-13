@@ -379,6 +379,41 @@ describe('phase2 ops checklist', () => {
     expect(response.checklistCursor).toBe('organization_profile');
   });
 
+  it('normalizes the legacy schedule_request cursor on GET', async () => {
+    const { client } = createRepositoryClient({
+      organizations: {
+        id: AUTH_CONTEXT.operatorOrganizationId,
+        name: '서울병원',
+        type: 'hospital',
+      },
+      onboarding_progress: {
+        id: 'progress-1',
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        current_step: 3,
+        current_step_key: 'schedule_request',
+        organization_info_confirmed_at: '2026-04-09T00:00:00Z',
+        organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+      },
+      organization_settings: {
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        pilot_site_id: null,
+        minimum_rest_hours: 11,
+        checklist_cursor: '',
+      },
+      sites: [],
+      shifts: [],
+      site_requirements: [],
+      employees: [],
+      off_request_policy_rules: [],
+      schedules: [],
+      fairness_ledger_monthly: [],
+    });
+
+    const response = await getChecklist(client, AUTH_CONTEXT, AUTH_CONTEXT.operatorOrganizationId);
+
+    expect(response.checklistCursor).toBe('off_request_policy');
+  });
+
   it('patches checklist cursor through onboarding_progress and returns the full derived response', async () => {
     const { client, updateCalls, rowsByTable } = createRepositoryClient({
       organizations: {
@@ -455,9 +490,117 @@ describe('phase2 ops checklist', () => {
         },
         filters: [['organization_id', AUTH_CONTEXT.operatorOrganizationId]],
       },
+      {
+        table: 'organization_settings',
+        payload: {
+          checklist_cursor: 'schedule_review',
+        },
+        filters: [['organization_id', AUTH_CONTEXT.operatorOrganizationId]],
+      },
     ]);
     expect((rowsByTable.onboarding_progress as Record<string, unknown>).current_step_key).toBe('schedule_review');
+    expect((rowsByTable.organization_settings as Record<string, unknown>).checklist_cursor).toBe('schedule_review');
     expect(response.checklistCursor).toBe('schedule_review');
     expect(response.ready).toBe(true);
+  });
+
+  it('keeps completed onboarding rows closed while mirroring checklist cursor into organization_settings', async () => {
+    const { client, updateCalls, rowsByTable } = createRepositoryClient({
+      organizations: {
+        id: AUTH_CONTEXT.operatorOrganizationId,
+        name: '서울병원',
+        type: 'hospital',
+      },
+      onboarding_progress: {
+        id: 'progress-1',
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        current_step: 4,
+        current_step_key: null,
+        completed_at: '2026-04-01T00:00:00.000Z',
+        organization_info_confirmed_at: '2026-03-01T00:00:00.000Z',
+        organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+      },
+      organization_settings: {
+        organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        pilot_site_id: 'site-1',
+        minimum_rest_hours: 11,
+        checklist_cursor: 'employee_roster',
+      },
+      sites: [
+        {
+          id: 'site-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          code: 'MAIN',
+          name: '본관',
+          is_active: true,
+          is_schedule_active: true,
+        },
+      ],
+      shifts: [
+        {
+          id: 'shift-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          code: 'D',
+          name: 'Day',
+        },
+      ],
+      site_requirements: [
+        {
+          id: 'requirement-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        },
+      ],
+      employees: [
+        {
+          id: 'employee-1',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          id: 'policy-monthly',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'monthly',
+          limit_count: 2,
+          is_active: true,
+        },
+        {
+          id: 'policy-annual',
+          organization_id: AUTH_CONTEXT.operatorOrganizationId,
+          rank_code: null,
+          period_type: 'annual',
+          limit_count: 12,
+          is_active: true,
+        },
+      ],
+      schedules: [],
+      fairness_ledger_monthly: [],
+    });
+
+    const response = await updateChecklist(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.operatorOrganizationId,
+      checklistCursor: 'schedule_review',
+    });
+
+    expect(updateCalls).toEqual([
+      {
+        table: 'onboarding_progress',
+        payload: {
+          last_actor_user_id: AUTH_CONTEXT.operatorUserId,
+        },
+        filters: [['organization_id', AUTH_CONTEXT.operatorOrganizationId]],
+      },
+      {
+        table: 'organization_settings',
+        payload: {
+          checklist_cursor: 'schedule_review',
+        },
+        filters: [['organization_id', AUTH_CONTEXT.operatorOrganizationId]],
+      },
+    ]);
+    expect((rowsByTable.onboarding_progress as Record<string, unknown>).current_step_key).toBeNull();
+    expect((rowsByTable.organization_settings as Record<string, unknown>).checklist_cursor).toBe('schedule_review');
+    expect(response.checklistCursor).toBe('schedule_review');
   });
 });

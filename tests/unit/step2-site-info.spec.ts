@@ -44,7 +44,12 @@ vi.mock('naive-ui', () => ({
   NCard: { template: '<div><slot /></div>' },
   NButton: { template: '<button v-bind="$attrs"><slot /></button>' },
   NAlert: { template: '<div><slot /></div>' },
-  NInputNumber: { template: '<div />' },
+  NInputNumber: {
+    props: ['value'],
+    emits: ['update:value'],
+    template:
+      '<input data-test="n-input-number" type="number" :value="value" @input="$emit(\'update:value\', Number($event.target.value))" />',
+  },
   NPopconfirm: {
     template:
       '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
@@ -104,7 +109,7 @@ vi.mock('@/stores/organization', () => ({
 }))
 
 vi.mock('@/components/schedule/StepIndicator.vue', () => ({
-  default: { template: '<div />' },
+  default: { name: 'StepIndicator', template: '<div data-test="step-indicator" />' },
 }))
 
 import Step2SiteInfo from '@/views/schedule/Step2SiteInfo.vue'
@@ -144,9 +149,27 @@ describe('Step2SiteInfo', () => {
     Object.keys(routeQueryMock).forEach((key) => {
       delete routeQueryMock[key]
     })
+    scheduleStoreMock.basicInfo = {
+      month: '2025-12',
+      organizationId: 'org-1',
+      organizationName: '서울병원',
+      organizationType: 'hospital',
+      employeeCount: 10,
+      shifts: [
+        { code: 'D', name: 'Day', colorCode: '#111111' },
+        { code: 'E', name: 'Evening', colorCode: '#222222' },
+        { code: 'N', name: 'Night', colorCode: '#333333' },
+        { code: 'O', name: 'Off', colorCode: '#444444' },
+      ],
+    }
     scheduleStoreMock.siteRequirements = []
     scheduleStoreMock.currentStep = 2
     organizationStoreMock.foundationSite = null
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    }
     loadSiteRequirementsMock.mockResolvedValue([])
     replaceSiteRequirementsMock.mockResolvedValue(undefined)
   })
@@ -184,9 +207,13 @@ describe('Step2SiteInfo', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    wrapper.vm.setRequirement(1, 'D', 1.9)
-    wrapper.vm.setRequirement(1, 'E', -3)
-    wrapper.vm.setRequirement(1, 'N', null)
+    const inputs = wrapper.findAll('[data-test="n-input-number"]')
+    expect(inputs.length).toBeGreaterThan(0)
+
+    await inputs[0].setValue('1.9')
+    await inputs[1].setValue('-3')
+    await inputs[2].setValue('')
+    await flushPromises()
 
     expect(wrapper.vm.getRequirement(1, 'D')).toBe(1)
     expect(wrapper.vm.getRequirement(1, 'E')).toBe(0)
@@ -208,14 +235,45 @@ describe('Step2SiteInfo', () => {
     expect(showErrorMock).toHaveBeenCalledWith('화요일 요일의 총 필요 인원은 1명 이상이어야 합니다.')
   })
 
-  it('renders a save CTA instead of the next-step CTA', async () => {
+  it('shows previous, save, and next-step CTAs on normal entry', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.text()).toContain('저장')
-    expect(wrapper.text()).not.toContain('다음 단계')
-    expect(wrapper.text()).not.toContain('이전')
+    expect(wrapper.text()).toContain('다음 단계')
+    expect(wrapper.text()).toContain('이전')
     expect(wrapper.text()).not.toContain('근무표 관리로 돌아가기')
+  })
+
+  it('renders setup-mode copy without the wizard indicator when basic info is missing', async () => {
+    routeQueryMock.entry = 'setup'
+    scheduleStoreMock.basicInfo = null
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step1')
+    expect(wrapper.vm.pageTitle).toBe('운영 준비 - 사이트 기준 설정')
+    expect(wrapper.text()).toContain('이 설정은 이번 달만이 아니라 조직의 기본값에 적용됩니다.')
+    expect(wrapper.text()).toContain('대시보드로 돌아가기')
+    expect(wrapper.text()).toContain('저장 후 직원 정보로 이동')
+    expect(wrapper.text()).not.toContain('이전')
+    expect(wrapper.text()).not.toContain('이 단계는 저장만 해도 되고')
+    expect(wrapper.findComponent({ name: 'StepIndicator' }).exists()).toBe(false)
+  })
+
+  it('uses canonical defaults in setup mode when the database has no site requirements', async () => {
+    routeQueryMock.entry = 'setup'
+    scheduleStoreMock.basicInfo = null
+    scheduleStoreMock.siteRequirements = buildWeeklyRequirements(5)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.vm.getRequirement(1, 'D')).toBe(0)
+    expect(wrapper.vm.getRequirement(1, 'E')).toBe(0)
+    expect(wrapper.vm.getRequirement(1, 'N')).toBe(0)
+    expect(scheduleStoreMock.setSiteRequirements).not.toHaveBeenCalled()
   })
 
   it('shows an info message instead of saving when nothing changed', async () => {
@@ -251,6 +309,43 @@ describe('Step2SiteInfo', () => {
     expect(scheduleStoreMock.setSiteRequirements).toHaveBeenCalled()
     expect(scheduleStoreMock.nextStep).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
+    expect(showSuccessMock).toHaveBeenCalledWith('요일별 인력이 저장되었습니다.')
+  })
+
+  it('moves to Step 3 without showing a no-change message when nothing changed', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+  })
+
+  it('saves dirty data and then moves to Step 3 when next-step is clicked', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    for (const day of [1, 2, 3, 4, 5, 6, 0]) {
+      wrapper.vm.setRequirement(day, 'D', 1)
+      wrapper.vm.setRequirement(day, 'E', 0)
+      wrapper.vm.setRequirement(day, 'N', 0)
+    }
+
+    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
+    expect(scheduleStoreMock.setSiteRequirements).toHaveBeenCalled()
+    expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
     expect(showSuccessMock).toHaveBeenCalledWith('요일별 인력이 저장되었습니다.')
   })
 
@@ -299,6 +394,26 @@ describe('Step2SiteInfo', () => {
 
     expect(pushMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.nextStep).not.toHaveBeenCalled()
+  })
+
+  it('preserves the dashboard origin when moving to Step 3', async () => {
+    routeQueryMock.from = 'dashboard'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('다음 단계'))
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step3',
+      query: {
+        from: 'dashboard',
+      },
+    })
   })
 
   it('returns to the dashboard immediately when nothing changed', async () => {
@@ -379,12 +494,13 @@ describe('Step2SiteInfo', () => {
     )
   })
 
-  it('shows only save plus dashboard return on dashboard entry', async () => {
+  it('shows save, next-step, and dashboard return on dashboard entry', async () => {
     routeQueryMock.from = 'dashboard'
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.text()).toContain('저장')
+    expect(wrapper.text()).toContain('다음 단계')
     expect(wrapper.text()).toContain('근무표 관리로 돌아가기')
     expect(wrapper.text()).not.toContain('이전')
   })

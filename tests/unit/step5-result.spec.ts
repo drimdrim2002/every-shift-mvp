@@ -661,8 +661,10 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
+    expect(wrapper.text()).toContain('입력 수정으로 돌아가면 비교안을 만들 수 있습니다.')
+
     const step4Button = wrapper.findAll('button')
-      .find((button) => button.text().includes('입력 변경 후 비교안 만들기'))
+      .find((button) => button.text().includes('입력 수정'))
     expect(step4Button).toBeTruthy()
 
     await step4Button!.trigger('click')

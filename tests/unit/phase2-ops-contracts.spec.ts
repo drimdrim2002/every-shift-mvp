@@ -215,6 +215,51 @@ describe('phase2 ops contracts', () => {
     expect(allowedMethods('shiftsConstraints' as any)).toEqual(['GET', 'PUT']);
   });
 
+  it('matches the org-level roster replace route and parses its payloads', () => {
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-ops/employee-roster/replace'))
+    ).toEqual({
+      route: 'employeeRosterReplace',
+      params: {},
+    });
+
+    expect(allowedMethods('employeeRosterReplace' as any)).toEqual(['POST']);
+
+    expect(
+      (phase2OpsContracts as any).parseEmployeeRosterReplaceRequest({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        employees: [
+          {
+            employeeId: 'E001',
+            name: 'Kim',
+            availableShifts: ['D'],
+            rankCode: 'RN',
+          },
+        ],
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      employees: [
+        {
+          employeeId: 'E001',
+          name: 'Kim',
+          availableShifts: ['D'],
+          rankCode: 'RN',
+        },
+      ],
+    });
+
+    expect(
+      (phase2OpsContracts as any).parseEmployeeRosterReplaceResponse({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        employeeCount: 1,
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      employeeCount: 1,
+    });
+  });
+
   it('parses off-request policy setup payloads with rank codes and policy rules', () => {
     expect(
       (phase2OpsContracts as any).parseOffRequestPolicySetupRequest({

@@ -12,6 +12,8 @@ import {
   type EmployeeImportPreviewEmployee,
   type EmployeeImportPreviewResponse,
   type EmployeeImportRequest,
+  type EmployeeRosterReplaceRequest,
+  type EmployeeRosterReplaceResponse,
   type OrganizationProfileRequest,
   type OrganizationProfileResponse,
   type OffRequestPolicyPeriodType,
@@ -21,10 +23,9 @@ import {
   type OffRequestPolicySetupResponse,
   type ShiftsConstraintsRequest,
   type ShiftsConstraintsResponse,
-  type SiteRequest,
+  type SiteFoundationRequest,
+  type SiteFoundationResponse,
   type SiteResponse,
-  type SitesRequest,
-  type SitesResponse,
 } from './contracts.ts';
 import {
   emitPhase2OpsEvent,
@@ -88,6 +89,7 @@ interface OnboardingProgressRow {
   organization_id: string;
   current_step: number;
   current_step_key: string | null;
+  completed_at?: string | null;
   organization_info_confirmed_at?: string | null;
   organization_info_confirmed_by?: string | null;
 }
@@ -166,6 +168,14 @@ interface EmployeeImportValidationState {
   missingShiftCodes: string[];
   isFinalized: boolean;
   isValid: boolean;
+  previewEmployees: EmployeeImportPreviewEmployee[];
+}
+
+interface RosterValidationState {
+  organizationId: string;
+  employeeCount: number;
+  duplicateEmployeeIds: string[];
+  missingShiftCodes: string[];
   previewEmployees: EmployeeImportPreviewEmployee[];
 }
 
@@ -266,6 +276,10 @@ function normalizeChecklistCursor(value: string | null | undefined): string | nu
   switch (normalized) {
     case 'organization_info':
       return INITIAL_CHECKLIST_CURSOR;
+    case 'employee_seed':
+      return 'employee_roster';
+    case 'schedule_request':
+      return 'off_request_policy';
     case 'organization_profile':
     case 'schedule_foundation':
     case 'employee_roster':
@@ -551,21 +565,37 @@ async function validateEmployeeImportRequest(
   client: Phase2OpsRepositoryClient,
   request: EmployeeImportRequest
 ): Promise<EmployeeImportValidationState> {
-  const previewEmployees = request.employees.map((employee) => normalizeEmployeeImportEmployee(employee));
-  const allowedShiftCodes = await loadShiftCodes(client, request.organizationId);
+  const rosterState = await validateRosterEmployees(client, request.organizationId, request.employees);
   const schedule = await loadScheduleForImport(client, request.organizationId, request.month);
-  const duplicateEmployeeIds = collectDuplicateEmployeeIds(previewEmployees);
-  const missingShiftCodes = collectMissingShiftCodes(previewEmployees, allowedShiftCodes);
   const isFinalized = Boolean(schedule?.finalized_version_id);
 
   return {
     organizationId: request.organizationId,
     month: request.month,
+    employeeCount: rosterState.employeeCount,
+    duplicateEmployeeIds: rosterState.duplicateEmployeeIds,
+    missingShiftCodes: rosterState.missingShiftCodes,
+    isFinalized,
+    isValid: !isFinalized && rosterState.duplicateEmployeeIds.length === 0 && rosterState.missingShiftCodes.length === 0,
+    previewEmployees: rosterState.previewEmployees,
+  };
+}
+
+async function validateRosterEmployees(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string,
+  employees: EmployeeImportEmployeePayload[]
+): Promise<RosterValidationState> {
+  const previewEmployees = employees.map((employee) => normalizeEmployeeImportEmployee(employee));
+  const allowedShiftCodes = await loadShiftCodes(client, organizationId);
+  const duplicateEmployeeIds = collectDuplicateEmployeeIds(previewEmployees);
+  const missingShiftCodes = collectMissingShiftCodes(previewEmployees, allowedShiftCodes);
+
+  return {
+    organizationId,
     employeeCount: previewEmployees.length,
     duplicateEmployeeIds,
     missingShiftCodes,
-    isFinalized,
-    isValid: !isFinalized && duplicateEmployeeIds.length === 0 && missingShiftCodes.length === 0,
     previewEmployees,
   };
 }
@@ -639,7 +669,7 @@ async function loadOnboardingProgress(
   const { data, error } = await client
     .from('onboarding_progress')
     .select(
-      'id, organization_id, current_step, current_step_key, organization_info_confirmed_at, organization_info_confirmed_by'
+      'id, organization_id, current_step, current_step_key, completed_at, organization_info_confirmed_at, organization_info_confirmed_by'
     )
     .eq('organization_id', organizationId)
     .limit(1)
@@ -794,6 +824,32 @@ function remapEmployeeImportFailure(
   throw new ContractError('bad_request', 'Employee import preview is invalid', 400);
 }
 
+function remapRosterValidationFailure(
+  state: RosterValidationState
+): never {
+  if (state.employeeCount === 0) {
+    throw new ContractError('bad_request', 'At least one employee is required', 400);
+  }
+
+  if (state.duplicateEmployeeIds.length > 0) {
+    throw new ContractError(
+      'bad_request',
+      `Duplicate employee IDs: ${state.duplicateEmployeeIds.join(', ')}`,
+      400
+    );
+  }
+
+  if (state.missingShiftCodes.length > 0) {
+    throw new ContractError(
+      'bad_request',
+      `Unknown shift codes: ${state.missingShiftCodes.join(', ')}`,
+      400
+    );
+  }
+
+  throw new ContractError('bad_request', 'Employee roster payload is invalid', 400);
+}
+
 function toApplyResponse(
   state: EmployeeImportValidationState,
   applied: { deletedScheduleId: string | null; employeeCount: number }
@@ -833,6 +889,36 @@ async function callResetRosterBoundary(
   return {
     deletedScheduleId:
       typeof row?.deleted_schedule_id === 'string' ? row.deleted_schedule_id : null,
+    employeeCount: typeof row?.employee_count === 'number' ? row.employee_count : 0,
+  };
+}
+
+async function callReplaceOrganizationRosterBoundary(
+  client: Phase2OpsRepositoryClient,
+  organizationId: string,
+  employees: EmployeeImportPreviewEmployee[]
+): Promise<{ employeeCount: number }> {
+  const { data, error } = await client.rpc('replace_organization_roster_atomic', {
+    p_organization_id: organizationId,
+    p_employees: employees.map((employee) => ({
+      employee_id: employee.employeeId,
+      name: employee.name,
+      available_shifts: employee.availableShifts,
+      rank_code: employee.rankCode ?? null,
+    })),
+  });
+
+  if (error) {
+    if (/not_found|organization_not_found/i.test(error.message)) {
+      throw new ContractError('not_found', 'Organization not found', 404);
+    }
+
+    throw new ContractError('internal_error', error.message, 500);
+  }
+
+  const row = Array.isArray(data) ? (data[0] as Record<string, unknown> | null) : data;
+
+  return {
     employeeCount: typeof row?.employee_count === 'number' ? row.employee_count : 0,
   };
 }
@@ -1101,22 +1187,173 @@ async function loadOpsSites(
     : [];
 }
 
-function assertExactlyOneScheduleActiveSite(sites: SiteRequest[]): void {
-  const activeCount = sites.filter((site) => site.isScheduleActive === true).length;
+function resolvePrimarySite(
+  settings: OrganizationSettingsRow | null,
+  sites: SiteRow[]
+): SiteRow | null {
+  if (settings?.pilot_site_id) {
+    return (
+      sites.find((site) => site.id === settings.pilot_site_id)
+      ?? sites.find((site) => site.is_schedule_active)
+      ?? sites[0]
+      ?? null
+    );
+  }
 
-  if (activeCount !== 1) {
-    throw new ContractError('bad_request', 'Exactly one schedule-active site is required', 400);
+  return sites.find((site) => site.is_schedule_active) ?? sites[0] ?? null;
+}
+
+function buildIncompleteProgressUpdatePayload(
+  checklistCursor: string,
+  auth: Phase2OpsOperatorAuthContext,
+  updates: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    current_step: mapChecklistCursorToStep(checklistCursor),
+    current_step_key: checklistCursor,
+    last_actor_user_id: auth.operatorUserId,
+    ...updates,
+  };
+}
+
+async function updateOnboardingProgressForOrganizationProfile(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): Promise<void> {
+  const progress = await ensureOnboardingProgress(client, auth, organizationId);
+  const organizationInfoConfirmedAt = new Date().toISOString();
+
+  const payload = progress.completed_at
+    ? {
+        organization_info_confirmed_at: organizationInfoConfirmedAt,
+        organization_info_confirmed_by: auth.operatorUserId,
+        last_actor_user_id: auth.operatorUserId,
+      }
+    : buildIncompleteProgressUpdatePayload('schedule_foundation', auth, {
+        organization_info_confirmed_at: organizationInfoConfirmedAt,
+        organization_info_confirmed_by: auth.operatorUserId,
+      });
+
+  const { error } = await client
+    .from('onboarding_progress')
+    .update(payload)
+    .eq('organization_id', organizationId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
   }
 }
 
-function toSiteUpsertPayload(request: SitesRequest): Record<string, unknown>[] {
-  return request.sites.map((site) => ({
-    organization_id: request.organizationId,
-    code: site.code,
-    name: site.name,
-    is_active: site.isActive,
-    is_schedule_active: site.isScheduleActive,
-  }));
+async function saveChecklistCursorProgress(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string,
+  checklistCursor: string | null
+): Promise<void> {
+  const progress = await ensureOnboardingProgress(client, auth, organizationId);
+  const normalizedChecklistCursor = checklistCursor ?? INITIAL_CHECKLIST_CURSOR;
+
+  const payload = progress.completed_at
+    ? {
+        last_actor_user_id: auth.operatorUserId,
+      }
+    : buildIncompleteProgressUpdatePayload(normalizedChecklistCursor, auth);
+
+  const { error } = await client
+    .from('onboarding_progress')
+    .update(payload)
+    .eq('organization_id', organizationId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+}
+
+async function deactivateSite(
+  client: Phase2OpsRepositoryClient,
+  siteId: string
+): Promise<void> {
+  const { error } = await client
+    .from('sites')
+    .update({
+      is_active: false,
+      is_schedule_active: false,
+    })
+    .eq('id', siteId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+}
+
+async function deactivateNonPrimarySites(
+  client: Phase2OpsRepositoryClient,
+  sites: SiteRow[],
+  primarySiteId: string
+): Promise<void> {
+  for (const site of sites) {
+    if (site.id === primarySiteId) {
+      continue;
+    }
+
+    if (!site.is_active && !site.is_schedule_active) {
+      continue;
+    }
+
+    await deactivateSite(client, site.id);
+  }
+}
+
+async function updatePrimarySite(
+  client: Phase2OpsRepositoryClient,
+  siteId: string,
+  request: SiteFoundationRequest
+): Promise<void> {
+  const { error } = await client
+    .from('sites')
+    .update({
+      code: request.site.code,
+      name: request.site.name,
+      is_active: true,
+      is_schedule_active: true,
+    })
+    .eq('id', siteId);
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+}
+
+async function insertPrimarySite(
+  client: Phase2OpsRepositoryClient,
+  request: SiteFoundationRequest
+): Promise<string> {
+  const result = await (client.from('sites') as any)
+    .insert({
+      organization_id: request.organizationId,
+      code: request.site.code,
+      name: request.site.name,
+      is_active: true,
+      is_schedule_active: true,
+    })
+    .select('id')
+    .single();
+
+  if ((result as QueryResult<{ id: string }>).error) {
+    throw new ContractError(
+      'internal_error',
+      (result as QueryResult<{ id: string }>).error?.message ?? 'Internal error',
+      500
+    );
+  }
+
+  const data = (result as QueryResult<{ id: string }>).data;
+  if (!data?.id) {
+    throw new ContractError('internal_error', 'Primary site was not saved', 500);
+  }
+
+  return data.id;
 }
 
 export async function getOrganizationProfile(
@@ -1157,22 +1394,7 @@ export async function saveOrganizationProfile(
     throw new ContractError('internal_error', error.message, 500);
   }
 
-  await ensureOnboardingProgress(client, auth, request.organizationId);
-
-  const progressResult = await client
-    .from('onboarding_progress')
-    .update({
-      current_step: mapChecklistCursorToStep('schedule_foundation'),
-      current_step_key: 'schedule_foundation',
-      organization_info_confirmed_at: new Date().toISOString(),
-      organization_info_confirmed_by: auth.operatorUserId,
-      last_actor_user_id: auth.operatorUserId,
-    })
-    .eq('organization_id', request.organizationId);
-
-  if (progressResult.error) {
-    throw new ContractError('internal_error', progressResult.error.message, 500);
-  }
+  await updateOnboardingProgressForOrganizationProfile(client, auth, request.organizationId);
 
   return {
     organizationId: request.organizationId,
@@ -1185,83 +1407,45 @@ export async function getSites(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
-): Promise<SitesResponse> {
+): Promise<SiteFoundationResponse> {
   assertOrganizationAccess(auth, organizationId);
   const [settings, sites] = await Promise.all([
     loadOrganizationSettings(client, organizationId),
     loadOpsSites(client, organizationId),
   ]);
+  const primarySite = resolvePrimarySite(settings, sites);
 
   return {
     organizationId,
-    pilotSiteId: settings?.pilot_site_id ?? null,
-    sites: sites.map((site) => toSiteResponse(site)),
+    site: primarySite ? toSiteResponse(primarySite) : null,
   };
 }
 
 export async function saveSites(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
-  request: SitesRequest
-): Promise<SitesResponse> {
+  request: SiteFoundationRequest
+): Promise<SiteFoundationResponse> {
   assertOrganizationAccess(auth, request.organizationId);
-  assertExactlyOneScheduleActiveSite(request.sites);
 
   const [settings, existingSites] = await Promise.all([
     loadOrganizationSettings(client, request.organizationId),
     loadOpsSites(client, request.organizationId),
   ]);
-  const activeSiteRequest = request.sites.find((site) => site.isScheduleActive);
-  const currentActiveSite = existingSites.find((site) => site.is_schedule_active);
+  const currentPrimarySite = resolvePrimarySite(settings, existingSites);
+  let primarySiteId = currentPrimarySite?.id ?? null;
 
-  if (
-    settings?.pilot_site_id &&
-    currentActiveSite &&
-    activeSiteRequest &&
-    currentActiveSite.code !== activeSiteRequest.code
-  ) {
-    throw new ContractError(
-      'bad_request',
-      'Changing the schedule-active pilot site code is not supported in Phase2A',
-      400
-    );
+  if (primarySiteId) {
+    await updatePrimarySite(client, primarySiteId, request);
+  } else {
+    primarySiteId = await insertPrimarySite(client, request);
   }
 
-  if (!settings) {
-    const resetActiveResult = await client
-      .from('sites')
-      .update({ is_schedule_active: false })
-      .eq('organization_id', request.organizationId);
-
-    if (resetActiveResult.error) {
-      throw new ContractError('internal_error', resetActiveResult.error.message, 500);
-    }
-  }
-
-  const upsertResult = await (client.from('sites') as any)
-    .upsert(toSiteUpsertPayload(request), { onConflict: 'organization_id,code' })
-    .select('id, organization_id, code, name, is_active, is_schedule_active');
-
-  if ((upsertResult as QueryResult<SiteRow[]>).error) {
-    throw new ContractError(
-      'internal_error',
-      (upsertResult as QueryResult<SiteRow[]>).error?.message ?? 'Internal error',
-      500
-    );
-  }
-
-  const savedSites = Array.isArray((upsertResult as QueryResult<SiteRow[]>).data)
-    ? ((upsertResult as QueryResult<SiteRow[]>).data ?? [])
-    : [];
-  const activeSite = savedSites.find((site) => site.is_schedule_active);
-
-  if (!activeSite) {
-    throw new ContractError('internal_error', 'Schedule-active site was not saved', 500);
-  }
+  await deactivateNonPrimarySites(client, existingSites, primarySiteId);
 
   const settingsPayload = {
     organization_id: request.organizationId,
-    pilot_site_id: activeSite.id,
+    pilot_site_id: primarySiteId,
     minimum_rest_hours: settings?.minimum_rest_hours ?? 11,
     checklist_cursor: normalizeChecklistCursor(settings?.checklist_cursor) ?? 'employee_roster',
   };
@@ -1276,10 +1460,12 @@ export async function saveSites(
     );
   }
 
+  const savedSites = await loadOpsSites(client, request.organizationId);
+  const primarySite = savedSites.find((site) => site.id === primarySiteId) ?? null;
+
   return {
     organizationId: request.organizationId,
-    pilotSiteId: activeSite.id,
-    sites: savedSites.map((site) => toSiteResponse(site)),
+    site: primarySite ? toSiteResponse(primarySite) : null,
   };
 }
 
@@ -1780,14 +1966,19 @@ async function saveChecklistCursor(
   organizationId: string,
   checklistCursor: string | null
 ): Promise<void> {
-  await ensureOnboardingProgress(client, auth, organizationId);
+  const normalizedChecklistCursor = checklistCursor ?? INITIAL_CHECKLIST_CURSOR;
+
+  await saveChecklistCursorProgress(client, auth, organizationId, normalizedChecklistCursor);
+
+  const settings = await loadOrganizationSettings(client, organizationId);
+  if (!settings) {
+    return;
+  }
 
   const { error } = await client
-    .from('onboarding_progress')
+    .from('organization_settings')
     .update({
-      current_step: mapChecklistCursorToStep(checklistCursor),
-      current_step_key: checklistCursor ?? INITIAL_CHECKLIST_CURSOR,
-      last_actor_user_id: auth.operatorUserId,
+      checklist_cursor: normalizedChecklistCursor,
     })
     .eq('organization_id', organizationId);
 
@@ -1869,4 +2060,32 @@ export async function applyEmployeeImport(
 
   const applied = await callResetRosterBoundary(client, request);
   return toApplyResponse(state, applied);
+}
+
+export async function replaceOrganizationRoster(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  request: EmployeeRosterReplaceRequest
+): Promise<EmployeeRosterReplaceResponse> {
+  assertOrganizationAccess(auth, request.organizationId);
+  const rosterState = await validateRosterEmployees(client, request.organizationId, request.employees);
+
+  if (
+    rosterState.employeeCount === 0 ||
+    rosterState.duplicateEmployeeIds.length > 0 ||
+    rosterState.missingShiftCodes.length > 0
+  ) {
+    remapRosterValidationFailure(rosterState);
+  }
+
+  const applied = await callReplaceOrganizationRosterBoundary(
+    client,
+    request.organizationId,
+    rosterState.previewEmployees
+  );
+
+  return {
+    organizationId: request.organizationId,
+    employeeCount: applied.employeeCount,
+  };
 }

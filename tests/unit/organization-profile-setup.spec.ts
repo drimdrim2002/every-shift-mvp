@@ -1,7 +1,10 @@
 import { mount, flushPromises } from '@vue/test-utils';
 import { reactive } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OrganizationProfileResponse, SitesResponse } from '@/types/ops';
+import type {
+  OrganizationProfileResponse,
+  SiteFoundationResponse,
+} from '@/types/ops';
 
 const {
   pushMock,
@@ -10,6 +13,7 @@ const {
   updateOrganizationProfileMock,
   updateSitesMock,
   showErrorMock,
+  showSuccessMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   getOrganizationProfileMock: vi.fn(),
@@ -17,6 +21,7 @@ const {
   updateOrganizationProfileMock: vi.fn(),
   updateSitesMock: vi.fn(),
   showErrorMock: vi.fn(),
+  showSuccessMock: vi.fn(),
 }));
 
 vi.mock('vue-router', () => ({
@@ -34,7 +39,7 @@ vi.mock('@/api/ops', () => ({
 
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
-  showSuccess: vi.fn(),
+  showSuccess: showSuccessMock,
 }));
 
 const organizationStoreMock = reactive({
@@ -45,7 +50,7 @@ const organizationStoreMock = reactive({
   },
   loadOrganization: vi.fn(),
   updateFoundationProfileCache: vi.fn(),
-  updateFoundationSitesCache: vi.fn(),
+  updateFoundationSiteCache: vi.fn(),
 });
 
 vi.mock('@/stores/organization', () => ({
@@ -55,30 +60,43 @@ vi.mock('@/stores/organization', () => ({
 vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
   default: {
     name: 'OrganizationProfileForm',
-    template: '<div data-test="organization-profile-form" />',
+    props: ['modelValue', 'saving'],
+    emits: ['save'],
+    template: `
+      <div>
+        <div
+          data-test="organization-profile-form"
+          :data-name="modelValue.name"
+          :data-type="modelValue.type"
+        />
+        <button
+          data-test="emit-profile-save"
+          @click="$emit('save', modelValue)"
+        >
+          save-profile
+        </button>
+      </div>
+    `,
   },
 }));
 
 vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
   default: {
     name: 'SiteFoundationForm',
-    props: ['modelValue', 'pilotSiteId', 'scheduleTargetLocked'],
+    props: ['modelValue', 'saving'],
     emits: ['save'],
     template: `
       <div>
         <div
           data-test="site-foundation-form"
-          :data-pilot-site-id="pilotSiteId ?? ''"
-          :data-locked="String(scheduleTargetLocked)"
+          :data-site-code="modelValue?.code ?? ''"
+          :data-site-name="modelValue?.name ?? ''"
         />
         <button
           data-test="emit-site-save"
-          @click="$emit('save', [
-            { code: 'MAIN', name: '본관', isActive: true, isScheduleActive: false },
-            { code: 'SUB', name: '별관', isActive: true, isScheduleActive: true }
-          ])"
+          @click="$emit('save', { code: 'MAIN', name: '본관' })"
         >
-          save
+          save-site
         </button>
       </div>
     `,
@@ -133,7 +151,7 @@ describe('OrganizationProfileSetup', () => {
 
   it('waits for initial foundation data before rendering editable forms', async () => {
     const profileDeferred = createDeferred<OrganizationProfileResponse>();
-    const sitesDeferred = createDeferred<SitesResponse>();
+    const sitesDeferred = createDeferred<SiteFoundationResponse>();
 
     getOrganizationProfileMock.mockReturnValue(profileDeferred.promise);
     getSitesMock.mockReturnValue(sitesDeferred.promise);
@@ -152,17 +170,14 @@ describe('OrganizationProfileSetup', () => {
     });
     sitesDeferred.resolve({
       organizationId: 'org-1',
-      pilotSiteId: 'site-1',
-      sites: [
-        {
-          id: 'site-1',
-          organizationId: 'org-1',
-          code: 'MAIN',
-          name: '본관',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
+      site: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'MAIN',
+        name: '본관',
+        isActive: true,
+        isScheduleActive: true,
+      },
     });
 
     await flushPromises();
@@ -171,7 +186,7 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(true);
   });
 
-  it('passes pilot-site metadata into the site foundation form', async () => {
+  it('passes the single foundation site into the site form', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -179,33 +194,29 @@ describe('OrganizationProfileSetup', () => {
     });
     getSitesMock.mockResolvedValue({
       organizationId: 'org-1',
-      pilotSiteId: 'site-1',
-      sites: [
-        {
-          id: 'site-1',
-          organizationId: 'org-1',
-          code: 'MAIN',
-          name: '본관',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
+      site: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'MAIN',
+        name: '본관',
+        isActive: true,
+        isScheduleActive: true,
+      },
     });
 
     const wrapper = createWrapper();
     await flushPromises();
 
     const siteForm = wrapper.get('[data-test="site-foundation-form"]');
-    expect(siteForm.attributes('data-pilot-site-id')).toBe('site-1');
-    expect(siteForm.attributes('data-locked')).toBe('true');
+    expect(siteForm.attributes('data-site-code')).toBe('MAIN');
+    expect(siteForm.attributes('data-site-name')).toBe('본관');
   });
 
   it('shows only the error state when the initial foundation load fails', async () => {
     getOrganizationProfileMock.mockRejectedValue(new Error('프로필 로드 실패'));
     getSitesMock.mockResolvedValue({
       organizationId: 'org-1',
-      pilotSiteId: null,
-      sites: [],
+      site: null,
     });
 
     const wrapper = createWrapper();
@@ -214,11 +225,10 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.find('[data-test="organization-profile-form"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('프로필 로드 실패');
-    expect(wrapper.text()).not.toContain('기본 설정을 불러오는 중입니다.');
     expect(showErrorMock).toHaveBeenCalledWith('프로필 로드 실패');
   });
 
-  it('maps the locked pilot-site backend error to Korean guidance', async () => {
+  it('saves the single site foundation and updates the local cache', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -226,21 +236,19 @@ describe('OrganizationProfileSetup', () => {
     });
     getSitesMock.mockResolvedValue({
       organizationId: 'org-1',
-      pilotSiteId: 'site-1',
-      sites: [
-        {
-          id: 'site-1',
-          organizationId: 'org-1',
-          code: 'MAIN',
-          name: '본관',
-          isActive: true,
-          isScheduleActive: true,
-        },
-      ],
+      site: null,
     });
-    updateSitesMock.mockRejectedValue(
-      new Error('Changing the schedule-active pilot site code is not supported in Phase2A')
-    );
+    updateSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'MAIN',
+        name: '본관',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    });
 
     const wrapper = createWrapper();
     await flushPromises();
@@ -248,12 +256,25 @@ describe('OrganizationProfileSetup', () => {
     await wrapper.get('[data-test="emit-site-save"]').trigger('click');
     await flushPromises();
 
-    expect(showErrorMock).toHaveBeenCalledWith(
-      '현재 버전에서는 최초 설정한 스케줄 대상 사이트를 변경할 수 없습니다.'
-    );
+    expect(updateSitesMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      site: {
+        code: 'MAIN',
+        name: '본관',
+      },
+    });
+    expect(organizationStoreMock.updateFoundationSiteCache).toHaveBeenCalledWith({
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    });
+    expect(showSuccessMock).toHaveBeenCalledWith('사이트 설정을 저장했습니다.');
   });
 
-  it('maps the exactly-one schedule-active site error to Korean guidance', async () => {
+  it('maps unknown English site save errors to the Korean fallback', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -261,30 +282,7 @@ describe('OrganizationProfileSetup', () => {
     });
     getSitesMock.mockResolvedValue({
       organizationId: 'org-1',
-      pilotSiteId: null,
-      sites: [],
-    });
-    updateSitesMock.mockRejectedValue(new Error('Exactly one schedule-active site is required'));
-
-    const wrapper = createWrapper();
-    await flushPromises();
-
-    await wrapper.get('[data-test="emit-site-save"]').trigger('click');
-    await flushPromises();
-
-    expect(showErrorMock).toHaveBeenCalledWith('스케줄 생성 대상 사이트는 1개만 선택할 수 있습니다.');
-  });
-
-  it('shows the generic Korean fallback for unknown English save errors', async () => {
-    getOrganizationProfileMock.mockResolvedValue({
-      organizationId: 'org-1',
-      name: '서울병원',
-      type: 'hospital',
-    });
-    getSitesMock.mockResolvedValue({
-      organizationId: 'org-1',
-      pilotSiteId: null,
-      sites: [],
+      site: null,
     });
     updateSitesMock.mockRejectedValue(new Error('Unexpected site save failure'));
 
@@ -300,7 +298,7 @@ describe('OrganizationProfileSetup', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('preserves unknown Korean save errors', async () => {
+  it('preserves user-facing Korean site save errors', async () => {
     getOrganizationProfileMock.mockResolvedValue({
       organizationId: 'org-1',
       name: '서울병원',
@@ -308,8 +306,7 @@ describe('OrganizationProfileSetup', () => {
     });
     getSitesMock.mockResolvedValue({
       organizationId: 'org-1',
-      pilotSiteId: null,
-      sites: [],
+      site: null,
     });
     updateSitesMock.mockRejectedValue(new Error('사이트 저장 중 예상치 못한 오류가 발생했습니다.'));
 
@@ -321,31 +318,6 @@ describe('OrganizationProfileSetup', () => {
     await flushPromises();
 
     expect(showErrorMock).toHaveBeenCalledWith('사이트 저장 중 예상치 못한 오류가 발생했습니다.');
-    expect(consoleErrorSpy).toHaveBeenCalled();
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('falls back for mixed Korean and English internal save errors', async () => {
-    getOrganizationProfileMock.mockResolvedValue({
-      organizationId: 'org-1',
-      name: '서울병원',
-      type: 'hospital',
-    });
-    getSitesMock.mockResolvedValue({
-      organizationId: 'org-1',
-      pilotSiteId: null,
-      sites: [],
-    });
-    updateSitesMock.mockRejectedValue(new Error('사이트 저장 실패: duplicate key value violates unique constraint'));
-
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const wrapper = createWrapper();
-    await flushPromises();
-
-    await wrapper.get('[data-test="emit-site-save"]').trigger('click');
-    await flushPromises();
-
-    expect(showErrorMock).toHaveBeenCalledWith('사이트 설정 저장에 실패했습니다.');
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
