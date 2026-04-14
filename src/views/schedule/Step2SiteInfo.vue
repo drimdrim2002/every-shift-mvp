@@ -128,34 +128,39 @@
         </n-alert>
 
         <!-- 버튼 -->
-        <div
+        <PageActionBar
           v-if="isSetupEntry"
-          class="flex justify-center gap-3 pt-6"
+          data-test="setup-action-bar"
         >
-          <n-button
-            size="medium"
-            :disabled="isSaving || loading"
-            @click="handleSave"
-          >
-            저장
-          </n-button>
-          <n-button
-            size="medium"
-            secondary
-            :disabled="isSaving || loading"
-            @click="handleReturnToDashboard"
-          >
-            대시보드로 돌아가기
-          </n-button>
-          <n-button
-            type="primary"
-            size="medium"
-            :loading="isSaving || loading"
-            @click="handleNext"
-          >
-            저장 후 직원 정보로 이동
-          </n-button>
-        </div>
+          <template #left>
+            <n-button
+              data-test="dashboard-return-button"
+              size="medium"
+              secondary
+              :disabled="isSaving || loading"
+              @click="handleReturnToDashboard"
+            >
+              대시보드로 돌아가기
+            </n-button>
+          </template>
+          <template #right>
+            <n-button
+              size="medium"
+              :disabled="isSaving || loading"
+              @click="handleSave"
+            >
+              저장
+            </n-button>
+            <n-button
+              type="primary"
+              size="medium"
+              :loading="isSaving || loading"
+              @click="handleNext"
+            >
+              저장 후 직원 정보로 이동
+            </n-button>
+          </template>
+        </PageActionBar>
         <div
           v-else
           class="flex items-center justify-between gap-3 pt-6"
@@ -206,6 +211,7 @@
 import { ref, reactive, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NAlert, NInputNumber } from 'naive-ui';
+import PageActionBar from '@/components/ui/PageActionBar.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
