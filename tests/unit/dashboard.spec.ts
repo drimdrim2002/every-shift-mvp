@@ -335,6 +335,50 @@ describe('Dashboard', () => {
   })
 
   it('renders a foundation readiness card and deep-links to the setup screen when setup is incomplete', async () => {
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'organization_profile',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '조직 기본 정보 확인',
+          status: 'blocked',
+          route: '/ops/organization-setup',
+          blockedReason: '조직 기본 정보 확인이 아직 완료되지 않았습니다.',
+        },
+        {
+          key: 'schedule_foundation',
+          title: '사이트/근무 기본 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '사이트, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+        },
+      ],
+      fairnessSummary: [],
+    })
+
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -374,6 +418,102 @@ describe('Dashboard', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('조직/사이트 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+  })
+
+  it('renders foundation completion from checklist readiness even when auth metadata is stale', async () => {
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: null,
+    }
+    organizationStoreMock.foundationSite = null
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+  })
+
+  it('renders foundation incomplete from checklist readiness even when local foundation cache looks complete', async () => {
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: {
+        currentStepKey: 'site_foundation',
+        organizationInfoConfirmedAt: '2026-04-08T10:30:00Z',
+        organizationInfoConfirmedBy: 'operator-1',
+      },
+    }
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '조직 기본 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '사이트/근무 기본 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '사이트, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+  })
+
+  it('hides the foundation card when checklist readiness cannot be loaded', async () => {
+    getChecklistMock.mockRejectedValue(new Error('checklist failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-foundation-card"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
   })
 

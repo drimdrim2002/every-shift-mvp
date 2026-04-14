@@ -365,6 +365,65 @@ function buildFoundationMetadata(
   };
 }
 
+function buildAuthoritativeFoundationMetadata(
+  onboardingProgress: OnboardingProgressRow | null,
+  fallbackUser: TargetAuthUser
+): FoundationMetadata {
+  const existing = readFoundationMetadata(fallbackUser);
+
+  return {
+    current_step_key: onboardingProgress
+      ? onboardingProgress.current_step_key
+      : (existing?.current_step_key ?? INITIAL_FOUNDATION_STEP_KEY),
+    organization_info_confirmed_at: onboardingProgress
+      ? (onboardingProgress.organization_info_confirmed_at ?? null)
+      : (existing?.organization_info_confirmed_at ?? null),
+    organization_info_confirmed_by: onboardingProgress
+      ? (onboardingProgress.organization_info_confirmed_by ?? null)
+      : (existing?.organization_info_confirmed_by ?? null),
+  };
+}
+
+function buildAlignedAppMetadata(
+  targetUser: TargetAuthUser,
+  organizationId: string,
+  foundationMetadata: FoundationMetadata
+): Record<string, unknown> {
+  return {
+    ...asRecord(targetUser.app_metadata),
+    organization_id: organizationId,
+    organizationId: organizationId,
+    current_organization_id: organizationId,
+    currentOrganizationId: organizationId,
+    foundation: foundationMetadata,
+  };
+}
+
+function buildFoundationOnlyAppMetadata(
+  targetUser: TargetAuthUser,
+  foundationMetadata: FoundationMetadata
+): Record<string, unknown> {
+  return {
+    ...asRecord(targetUser.app_metadata),
+    foundation: foundationMetadata,
+  };
+}
+
+function toTargetAuthUserFromOperatorContext(auth: Phase2OpsOperatorAuthContext): TargetAuthUser {
+  return {
+    id: auth.operatorUserId,
+    app_metadata: auth.operatorAppMetadata ?? {},
+    user_metadata: auth.operatorUserMetadata ?? {},
+  };
+}
+
+function shouldSyncOperatorAuthMetadata(
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string
+): boolean {
+  return auth.operatorGlobalRole !== 'super' && auth.operatorOrganizationId === organizationId;
+}
+
 function buildProfilePayload(
   targetUserId: string,
   request: BootstrapAdminRequest
@@ -780,16 +839,38 @@ async function alignAuthMetadata(
     return;
   }
 
-  const appMetadata = {
-    ...asRecord(targetUser.app_metadata),
-    organization_id: organizationId,
-    organizationId: organizationId,
-    current_organization_id: organizationId,
-    currentOrganizationId: organizationId,
-    foundation: buildFoundationMetadata(targetUser, onboardingProgress),
-  };
+  const appMetadata = buildAlignedAppMetadata(
+    targetUser,
+    organizationId,
+    buildFoundationMetadata(targetUser, onboardingProgress)
+  );
 
   const { error } = await client.auth.admin.updateUserById(targetUser.id, {
+    app_metadata: appMetadata,
+  });
+
+  if (error) {
+    throw new ContractError('internal_error', error.message, 500);
+  }
+}
+
+async function syncOperatorAuthMetadata(
+  client: Phase2OpsRepositoryClient,
+  auth: Phase2OpsOperatorAuthContext,
+  organizationId: string,
+  onboardingProgress: OnboardingProgressRow | null
+): Promise<void> {
+  if (!shouldSyncOperatorAuthMetadata(auth, organizationId)) {
+    return;
+  }
+
+  const operatorUser = toTargetAuthUserFromOperatorContext(auth);
+  const appMetadata = buildFoundationOnlyAppMetadata(
+    operatorUser,
+    buildAuthoritativeFoundationMetadata(onboardingProgress, operatorUser)
+  );
+
+  const { error } = await client.auth.admin.updateUserById(operatorUser.id, {
     app_metadata: appMetadata,
   });
 
@@ -1220,7 +1301,7 @@ async function updateOnboardingProgressForOrganizationProfile(
   client: Phase2OpsRepositoryClient,
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
-): Promise<void> {
+): Promise<OnboardingProgressRow> {
   const progress = await ensureOnboardingProgress(client, auth, organizationId);
   const organizationInfoConfirmedAt = new Date().toISOString();
 
@@ -1243,6 +1324,11 @@ async function updateOnboardingProgressForOrganizationProfile(
   if (error) {
     throw new ContractError('internal_error', error.message, 500);
   }
+
+  return {
+    ...progress,
+    ...payload,
+  };
 }
 
 async function saveChecklistCursorProgress(
@@ -1394,7 +1480,12 @@ export async function saveOrganizationProfile(
     throw new ContractError('internal_error', error.message, 500);
   }
 
-  await updateOnboardingProgressForOrganizationProfile(client, auth, request.organizationId);
+  const onboardingProgress = await updateOnboardingProgressForOrganizationProfile(
+    client,
+    auth,
+    request.organizationId
+  );
+  await syncOperatorAuthMetadata(client, auth, request.organizationId, onboardingProgress);
 
   return {
     organizationId: request.organizationId,

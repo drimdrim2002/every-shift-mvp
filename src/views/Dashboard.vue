@@ -39,6 +39,7 @@
           </div>
 
           <n-card
+            v-if="showFoundationCard"
             data-test="dashboard-foundation-card"
             :bordered="true"
             class="mb-4"
@@ -269,13 +270,32 @@ const monthOptions = computed(() => {
   }));
 });
 
-const foundationReady = computed(() => {
-  const organizationConfirmed = Boolean(orgStore.current?.foundation?.organizationInfoConfirmedAt);
-  const hasScheduleActiveSite = Boolean(
-    orgStore.foundationSite?.isActive && orgStore.foundationSite?.isScheduleActive
-  );
+const foundationChecklistItems = computed(() => {
+  const checklistItems = checklist.value?.items ?? [];
+  const organizationProfileItem =
+    checklistItems.find((item) => item.key === 'organization_profile') ?? null;
+  const scheduleFoundationItem =
+    checklistItems.find((item) => item.key === 'schedule_foundation') ?? null;
 
-  return organizationConfirmed && hasScheduleActiveSite;
+  if (!organizationProfileItem || !scheduleFoundationItem) {
+    return null;
+  }
+
+  return {
+    organizationProfileItem,
+    scheduleFoundationItem,
+  };
+});
+
+const showFoundationCard = computed(() => foundationChecklistItems.value !== null);
+
+const foundationReady = computed(() => {
+  if (!foundationChecklistItems.value) {
+    return false;
+  }
+
+  return foundationChecklistItems.value.organizationProfileItem.status === 'ready'
+    && foundationChecklistItems.value.scheduleFoundationItem.status === 'ready';
 });
 
 onMounted(async () => {

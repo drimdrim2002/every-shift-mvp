@@ -94,6 +94,10 @@ describe('resolveOperatorAuthContext', () => {
       operatorRole: null,
       operatorStatus: null,
       operatorAccountStatus: 'active',
+      operatorAppMetadata: {},
+      operatorUserMetadata: {
+        organization_id: 'org-from-user-metadata',
+      },
     });
   });
 
@@ -179,6 +183,8 @@ describe('resolveOperatorAuthContext', () => {
       operatorRole: 'admin',
       operatorStatus: 'active',
       operatorAccountStatus: 'active',
+      operatorAppMetadata: {},
+      operatorUserMetadata: {},
     });
   });
 
@@ -268,6 +274,8 @@ describe('resolveOperatorAuthContext', () => {
       operatorRole: 'admin',
       operatorStatus: 'active',
       operatorAccountStatus: 'active',
+      operatorAppMetadata: {},
+      operatorUserMetadata: {},
     });
   });
 });

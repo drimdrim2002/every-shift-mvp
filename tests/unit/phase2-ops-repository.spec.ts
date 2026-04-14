@@ -206,12 +206,16 @@ const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorUserId: '11111111-1111-4111-8111-111111111111',
   operatorOrganizationId: null,
   operatorGlobalRole: 'super',
+  operatorAppMetadata: {},
+  operatorUserMetadata: {},
 };
 
 const ADMIN_AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorUserId: '11111111-1111-4111-8111-111111111111',
   operatorOrganizationId: '00000000-0000-0000-0000-000000000009',
   operatorGlobalRole: 'admin',
+  operatorAppMetadata: {},
+  operatorUserMetadata: {},
 };
 
 const REQUEST: BootstrapAdminRequest = {
@@ -1491,7 +1495,7 @@ describe('phase2 ops repository', () => {
 
   it('keeps completed onboarding rows closed when saving organization profile', async () => {
     const organizationId = '00000000-0000-0000-0000-000000000001';
-    const { client, updateCalls } = createRepositoryClient({
+    const { client, updateCalls, updateUserById } = createRepositoryClient({
       onboardingProgress: {
         id: 'progress-1',
         organization_id: organizationId,
@@ -1506,6 +1510,12 @@ describe('phase2 ops repository', () => {
     const response = await saveOrganizationProfile(client, {
       ...ADMIN_AUTH_CONTEXT,
       operatorOrganizationId: organizationId,
+      operatorAppMetadata: {
+        organization_id: organizationId,
+        organizationId,
+        current_organization_id: organizationId,
+        currentOrganizationId: organizationId,
+      },
     }, {
       organizationId,
       name: '서울병원',
@@ -1536,5 +1546,81 @@ describe('phase2 ops repository', () => {
         filters: [['organization_id', organizationId]],
       },
     ]);
+    expect(updateUserById).toHaveBeenCalledWith(AUTH_CONTEXT.operatorUserId, {
+      app_metadata: expect.objectContaining({
+        organization_id: organizationId,
+        organizationId,
+        current_organization_id: organizationId,
+        currentOrganizationId: organizationId,
+        foundation: expect.objectContaining({
+          organization_info_confirmed_at: expect.any(String),
+          organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+        }),
+      }),
+    });
+  });
+
+  it('refreshes stale operator foundation metadata when saving organization profile', async () => {
+    const organizationId = '00000000-0000-0000-0000-000000000001';
+    const { client, updateUserById } = createRepositoryClient({
+      onboardingProgress: {
+        id: 'progress-1',
+        organization_id: organizationId,
+        current_step: 1,
+        current_step_key: 'organization_profile',
+        organization_info_confirmed_at: null,
+        organization_info_confirmed_by: null,
+      },
+    });
+
+    await saveOrganizationProfile(client, {
+      ...ADMIN_AUTH_CONTEXT,
+      operatorOrganizationId: organizationId,
+      operatorAppMetadata: {
+        organization_id: organizationId,
+        foundation: {
+          current_step_key: 'organization_profile',
+          organization_info_confirmed_at: '2026-03-01T00:00:00.000Z',
+          organization_info_confirmed_by: 'stale-user',
+        },
+      },
+    }, {
+      organizationId,
+      name: '서울병원',
+      type: 'hospital',
+    });
+
+    expect(updateUserById).toHaveBeenCalledWith(AUTH_CONTEXT.operatorUserId, {
+      app_metadata: expect.objectContaining({
+        organization_id: organizationId,
+        foundation: expect.objectContaining({
+          current_step_key: 'schedule_foundation',
+          organization_info_confirmed_at: expect.any(String),
+          organization_info_confirmed_by: AUTH_CONTEXT.operatorUserId,
+        }),
+      }),
+    });
+  });
+
+  it('does not sync operator metadata when a super user saves another organization profile', async () => {
+    const organizationId = '00000000-0000-0000-0000-000000000001';
+    const { client, updateUserById } = createRepositoryClient({
+      onboardingProgress: {
+        id: 'progress-1',
+        organization_id: organizationId,
+        current_step: 1,
+        current_step_key: 'organization_profile',
+        organization_info_confirmed_at: null,
+        organization_info_confirmed_by: null,
+      },
+    });
+
+    await saveOrganizationProfile(client, AUTH_CONTEXT, {
+      organizationId,
+      name: '서울병원',
+      type: 'hospital',
+    });
+
+    expect(updateUserById).not.toHaveBeenCalled();
   });
 });

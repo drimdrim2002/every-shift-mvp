@@ -71,6 +71,8 @@ export interface Phase2OpsOperatorAuthContext {
   operatorRole?: string | null;
   operatorStatus?: string | null;
   operatorAccountStatus?: string | null;
+  operatorAppMetadata?: Record<string, unknown> | null;
+  operatorUserMetadata?: Record<string, unknown> | null;
 }
 
 async function resolveAuthenticatedProfileContext(
@@ -140,6 +142,18 @@ async function resolveAuthenticatedProfileContext(
     operatorRole: resolvedRole,
     operatorStatus: resolvedStatus,
     operatorAccountStatus: accountStatus || null,
+    operatorAppMetadata:
+      typeof data.user.app_metadata === 'object'
+      && data.user.app_metadata !== null
+      && !Array.isArray(data.user.app_metadata)
+        ? data.user.app_metadata
+        : null,
+    operatorUserMetadata:
+      typeof data.user.user_metadata === 'object'
+      && data.user.user_metadata !== null
+      && !Array.isArray(data.user.user_metadata)
+        ? data.user.user_metadata
+        : null,
   };
 }
 
