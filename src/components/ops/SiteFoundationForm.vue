@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { NButton, NCard, NFormItem, NInput } from 'naive-ui';
 import type { SiteRequest, SiteResponse } from '@/types/ops';
 
@@ -49,6 +49,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   save: [value: SiteRequest];
+  'dirty-change': [value: boolean];
 }>();
 
 const localSite = reactive<SiteRequest>({
@@ -61,6 +62,17 @@ function syncSite(site: SiteResponse | null) {
   localSite.name = site?.name ?? '';
 }
 
+function normalize(value: string) {
+  return value.trim();
+}
+
+const isDirty = computed(() => {
+  const site = props.modelValue;
+
+  return normalize(localSite.code) !== normalize(site?.code ?? '')
+    || normalize(localSite.name) !== normalize(site?.name ?? '');
+});
+
 function saveSites() {
   emit('save', {
     code: localSite.code.trim(),
@@ -71,6 +83,18 @@ function saveSites() {
 watch(
   () => props.modelValue,
   syncSite,
+  { immediate: true }
+);
+
+watch(
+  isDirty,
+  (value, previous) => {
+    if (previous === undefined || value === previous) {
+      return;
+    }
+
+    emit('dirty-change', value);
+  },
   { immediate: true }
 );
 </script>

@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui';
 import type { OrganizationProfileRequest } from '@/types/ops';
 
@@ -41,6 +41,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [value: OrganizationProfileRequest];
+  'dirty-change': [value: boolean];
 }>();
 
 const localValue = reactive<OrganizationProfileRequest>({
@@ -55,9 +56,33 @@ function syncFromProps(value: OrganizationProfileRequest) {
   localValue.type = value.type;
 }
 
+function normalize(value: string) {
+  return value.trim();
+}
+
+const isDirty = computed(() => {
+  const modelValue = props.modelValue;
+
+  return normalize(localValue.organizationId) !== normalize(modelValue.organizationId)
+    || normalize(localValue.name) !== normalize(modelValue.name)
+    || normalize(localValue.type) !== normalize(modelValue.type);
+});
+
 watch(
   () => props.modelValue,
   syncFromProps,
+  { immediate: true }
+);
+
+watch(
+  isDirty,
+  (value, previous) => {
+    if (previous === undefined || value === previous) {
+      return;
+    }
+
+    emit('dirty-change', value);
+  },
   { immediate: true }
 );
 </script>
