@@ -20,7 +20,7 @@
         <n-button
           type="primary"
           :loading="saving"
-          @click="emit('save', { ...localValue })"
+          @click="saveOrganizationProfile"
         >
           조직 정보 저장
         </n-button>
@@ -68,6 +68,14 @@ function syncFromProps(value: OrganizationProfileRequest) {
 
 function normalize(value: string) {
   return value.trim();
+}
+
+function saveOrganizationProfile() {
+  emit('save', {
+    organizationId: normalize(localValue.organizationId),
+    name: normalize(localValue.name),
+    type: normalize(localValue.type),
+  });
 }
 
 const isDirty = computed(() => {

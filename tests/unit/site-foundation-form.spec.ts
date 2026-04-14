@@ -178,4 +178,30 @@ describe('SiteFoundationForm', () => {
 
     expect(wrapper.emitted('dirty-change')).toEqual([[true], [false]]);
   });
+
+  it('treats surrounding whitespace as a no-op when baseline values already exist', async () => {
+    const wrapper = createWrapper({
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    });
+
+    const inputs = wrapper.findAll('input');
+    await inputs[0].setValue('  MAIN  ');
+    await inputs[1].setValue('  본관  ');
+    await wrapper.find('button').trigger('click');
+
+    expect(wrapper.emitted('dirty-change')).toBeUndefined();
+    expect(wrapper.emitted('save')).toEqual([
+      [
+        {
+          code: 'MAIN',
+          name: '본관',
+        },
+      ],
+    ]);
+  });
 });
