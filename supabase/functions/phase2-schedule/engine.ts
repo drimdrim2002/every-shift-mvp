@@ -508,7 +508,7 @@ export function cloneSchedulePreferences(
     resolved_shift_id: row.resolved_shift_id,
     resolved_at: row.resolved_at,
     request_source: row.request_source ?? 'employee_off',
-    policy_check_status: null,
+    policy_check_status: 'pending',
     policy_rejection_reason: null,
   }));
 }

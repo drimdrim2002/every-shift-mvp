@@ -636,7 +636,7 @@ async function saveSchedulePreferencesByScope(
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
-        policy_check_status: null,
+        policy_check_status: 'pending',
         policy_rejection_reason: null,
       });
     });

@@ -1098,12 +1098,12 @@ describe('phase2 schedule write repository', () => {
       [
         expect.objectContaining({
           id: 'pref-default-1',
-          policy_check_status: 'passed',
+          policy_check_status: 'accepted',
           policy_rejection_reason: null,
         }),
         expect.objectContaining({
           id: 'pref-rn-1',
-          policy_check_status: 'passed',
+          policy_check_status: 'accepted',
           policy_rejection_reason: null,
         }),
         expect.objectContaining({
@@ -1113,7 +1113,7 @@ describe('phase2 schedule write repository', () => {
         }),
         expect.objectContaining({
           id: 'pref-rn-2',
-          policy_check_status: 'passed',
+          policy_check_status: 'accepted',
           policy_rejection_reason: null,
         }),
       ],

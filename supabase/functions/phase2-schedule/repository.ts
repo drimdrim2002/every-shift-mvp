@@ -913,7 +913,7 @@ async function refreshOffRequestPolicyResults(
     if (preference.request_code !== 'O') {
       policyUpdates.push({
         id: preference.id,
-        policy_check_status: null,
+        policy_check_status: 'accepted',
         policy_rejection_reason: null,
       });
       continue;
@@ -937,7 +937,7 @@ async function refreshOffRequestPolicyResults(
     monthlyCountByPeriod.set(monthlyKey, nextMonthlyCount);
     annualCountByEmployeeId.set(preference.employee_id, nextAnnualCount);
 
-    let policyCheckStatus: string | null = null;
+    let policyCheckStatus = 'accepted';
     let policyRejectionReason: string | null = null;
 
     if (monthlyRule && nextMonthlyCount > monthlyRule.limitCount) {
@@ -946,8 +946,6 @@ async function refreshOffRequestPolicyResults(
     } else if (annualRule && nextAnnualCount > annualRule.limitCount) {
       policyCheckStatus = 'rejected';
       policyRejectionReason = getPolicyRejectionReason('annual');
-    } else if (monthlyRule || annualRule) {
-      policyCheckStatus = 'passed';
     }
 
     policyUpdates.push({
@@ -967,7 +965,7 @@ async function refreshOffRequestPolicyResults(
 
   return sortedPreferences.map((preference) => {
     const policyState = policyUpdates.find((row) => row.id === preference.id) ?? {
-      policy_check_status: null,
+      policy_check_status: preference.policy_check_status ?? 'pending',
       policy_rejection_reason: null,
     };
 
