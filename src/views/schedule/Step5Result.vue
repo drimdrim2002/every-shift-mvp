@@ -120,7 +120,7 @@
       </n-alert>
 
       <div
-        v-if="isPreRun"
+        v-if="shouldShowResultDetails"
         class="mb-6"
       >
         <div class="mb-2 flex items-center justify-between">
