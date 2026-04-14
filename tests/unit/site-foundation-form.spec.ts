@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils';
+import { defineComponent, h, reactive } from 'vue';
 import { describe, expect, it } from 'vitest';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 
@@ -108,6 +109,64 @@ describe('SiteFoundationForm', () => {
     const inputs = wrapper.findAll('input');
     expect((inputs[0].element as HTMLInputElement).value).toBe('ER');
     expect((inputs[1].element as HTMLInputElement).value).toBe('응급병동');
+  });
+
+  it('keeps the dirty baseline stable through in-place mutation and refreshes it on replacement', async () => {
+    const parentState = reactive({
+      modelValue: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'MAIN',
+        name: '본관',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    });
+
+    const Harness = defineComponent({
+      setup() {
+        return () => h(SiteFoundationForm, {
+          modelValue: parentState.modelValue,
+          saving: false,
+        });
+      },
+    });
+
+    const wrapper = mount(Harness, {
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NButton: NButtonStub,
+          NFormItem: NFormItemStub,
+          NInput: NInputStub,
+        },
+      },
+    });
+
+    const inputs = wrapper.findAll('input');
+    await inputs[0].setValue('ER');
+
+    parentState.modelValue.name = '변경된 이름';
+    await wrapper.vm.$nextTick();
+
+    expect((wrapper.findAll('input')[0].element as HTMLInputElement).value).toBe('ER');
+    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[true]]);
+
+    parentState.modelValue = {
+      id: 'site-2',
+      organizationId: 'org-1',
+      code: 'ICU',
+      name: '중환자실',
+      isActive: true,
+      isScheduleActive: true,
+    };
+
+    await wrapper.vm.$nextTick();
+
+    const refreshedInputs = wrapper.findAll('input');
+    expect((refreshedInputs[0].element as HTMLInputElement).value).toBe('ICU');
+    expect((refreshedInputs[1].element as HTMLInputElement).value).toBe('중환자실');
+    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[true], [false]]);
   });
 
   it('emits dirty-change when the local site diverges and returns to pristine', async () => {

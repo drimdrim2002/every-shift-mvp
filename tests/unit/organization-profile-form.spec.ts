@@ -42,11 +42,9 @@ describe('OrganizationProfileForm', () => {
     });
 
     const Harness = defineComponent({
-      emits: ['dirty-change'],
-      setup(_, { emit }) {
+      setup() {
         return () => h(OrganizationProfileForm, {
           modelValue: parentState.modelValue,
-          onDirtyChange: (value: boolean) => emit('dirty-change', value),
         });
       },
     });
@@ -71,6 +69,11 @@ describe('OrganizationProfileForm', () => {
     await wrapper.vm.$nextTick();
 
     expect((wrapper.find('input').element as HTMLInputElement).value).toBe('서울병원');
+    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[true]]);
+
+    await firstInput.setValue('');
+
+    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[true], [false]]);
   });
 
   it('emits dirty-change when the local state diverges and returns to pristine', async () => {

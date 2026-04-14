@@ -50,10 +50,20 @@ const localValue = reactive<OrganizationProfileRequest>({
   type: props.modelValue.type,
 });
 
+const pristineValue = reactive<OrganizationProfileRequest>({
+  organizationId: props.modelValue.organizationId,
+  name: props.modelValue.name,
+  type: props.modelValue.type,
+});
+
 function syncFromProps(value: OrganizationProfileRequest) {
   localValue.organizationId = value.organizationId;
   localValue.name = value.name;
   localValue.type = value.type;
+
+  pristineValue.organizationId = value.organizationId;
+  pristineValue.name = value.name;
+  pristineValue.type = value.type;
 }
 
 function normalize(value: string) {
@@ -61,11 +71,9 @@ function normalize(value: string) {
 }
 
 const isDirty = computed(() => {
-  const modelValue = props.modelValue;
-
-  return normalize(localValue.organizationId) !== normalize(modelValue.organizationId)
-    || normalize(localValue.name) !== normalize(modelValue.name)
-    || normalize(localValue.type) !== normalize(modelValue.type);
+  return normalize(localValue.organizationId) !== normalize(pristineValue.organizationId)
+    || normalize(localValue.name) !== normalize(pristineValue.name)
+    || normalize(localValue.type) !== normalize(pristineValue.type);
 });
 
 watch(

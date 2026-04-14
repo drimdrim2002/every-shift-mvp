@@ -57,9 +57,17 @@ const localSite = reactive<SiteRequest>({
   name: '',
 });
 
+const pristineSite = reactive<SiteRequest>({
+  code: '',
+  name: '',
+});
+
 function syncSite(site: SiteResponse | null) {
   localSite.code = site?.code ?? '';
   localSite.name = site?.name ?? '';
+
+  pristineSite.code = site?.code ?? '';
+  pristineSite.name = site?.name ?? '';
 }
 
 function normalize(value: string) {
@@ -67,10 +75,8 @@ function normalize(value: string) {
 }
 
 const isDirty = computed(() => {
-  const site = props.modelValue;
-
-  return normalize(localSite.code) !== normalize(site?.code ?? '')
-    || normalize(localSite.name) !== normalize(site?.name ?? '');
+  return normalize(localSite.code) !== normalize(pristineSite.code)
+    || normalize(localSite.name) !== normalize(pristineSite.name);
 });
 
 function saveSites() {
