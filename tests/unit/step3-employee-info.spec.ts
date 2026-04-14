@@ -544,6 +544,12 @@ describe('Step3EmployeeInfo', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    expect(wrapper.find('[data-test="setup-action-bar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="dashboard-return-button"]').text()).toContain('대시보드로 돌아가기')
+    expect(wrapper.find('[data-test="page-action-bar-left"]').text()).toContain('대시보드로 돌아가기')
+    expect(wrapper.find('[data-test="page-action-bar-right"]').text()).toContain('저장')
+    expect(wrapper.findAll('[data-test="dashboard-return-button"]')).toHaveLength(1)
+
     const nextButton = wrapper.findAll('button').find((button) =>
       button.text().includes('저장 후 근무표 생성 시작')
     )

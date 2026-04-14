@@ -109,4 +109,14 @@ describe('SiteFoundationForm', () => {
     expect((inputs[0].element as HTMLInputElement).value).toBe('ER');
     expect((inputs[1].element as HTMLInputElement).value).toBe('응급병동');
   });
+
+  it('emits dirty-change when the local site diverges and returns to pristine', async () => {
+    const wrapper = createWrapper();
+    const inputs = wrapper.findAll('input');
+
+    await inputs[0].setValue(' MAIN ');
+    await inputs[0].setValue('');
+
+    expect(wrapper.emitted('dirty-change')).toEqual([[true], [false]]);
+  });
 });

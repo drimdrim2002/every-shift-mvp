@@ -13,6 +13,7 @@ const {
   updateOrganizationProfileMock,
   updateSitesMock,
   showErrorMock,
+  showInfoMock,
   showSuccessMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
@@ -21,6 +22,7 @@ const {
   updateOrganizationProfileMock: vi.fn(),
   updateSitesMock: vi.fn(),
   showErrorMock: vi.fn(),
+  showInfoMock: vi.fn(),
   showSuccessMock: vi.fn(),
 }));
 
@@ -39,6 +41,7 @@ vi.mock('@/api/ops', () => ({
 
 vi.mock('@/utils/message', () => ({
   showError: showErrorMock,
+  showInfo: showInfoMock,
   showSuccess: showSuccessMock,
 }));
 
@@ -61,7 +64,7 @@ vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
   default: {
     name: 'OrganizationProfileForm',
     props: ['modelValue', 'saving'],
-    emits: ['save'],
+    emits: ['save', 'dirty-change'],
     template: `
       <div>
         <div
@@ -69,6 +72,18 @@ vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
           :data-name="modelValue.name"
           :data-type="modelValue.type"
         />
+        <button
+          data-test="emit-profile-dirty"
+          @click="$emit('dirty-change', true)"
+        >
+          dirty-profile
+        </button>
+        <button
+          data-test="emit-profile-pristine"
+          @click="$emit('dirty-change', false)"
+        >
+          clean-profile
+        </button>
         <button
           data-test="emit-profile-save"
           @click="$emit('save', modelValue)"
@@ -84,7 +99,7 @@ vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
   default: {
     name: 'SiteFoundationForm',
     props: ['modelValue', 'saving'],
-    emits: ['save'],
+    emits: ['save', 'dirty-change'],
     template: `
       <div>
         <div
@@ -92,6 +107,18 @@ vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
           :data-site-code="modelValue?.code ?? ''"
           :data-site-name="modelValue?.name ?? ''"
         />
+        <button
+          data-test="emit-site-dirty"
+          @click="$emit('dirty-change', true)"
+        >
+          dirty-site
+        </button>
+        <button
+          data-test="emit-site-pristine"
+          @click="$emit('dirty-change', false)"
+        >
+          clean-site
+        </button>
         <button
           data-test="emit-site-save"
           @click="$emit('save', { code: 'MAIN', name: '본관' })"
@@ -122,7 +149,7 @@ function createWrapper() {
     global: {
       stubs: {
         NButton: {
-          template: '<button @click="$emit(\'click\')"><slot /></button>',
+          template: '<button v-bind="$attrs" @click="$emit(\'click\')"><slot /></button>',
         },
         NAlert: {
           template: '<div><slot name="header" /><slot /></div>',
@@ -225,7 +252,38 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.find('[data-test="organization-profile-form"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('프로필 로드 실패');
+    expect(wrapper.find('[data-test="dashboard-return-button"]').exists()).toBe(true);
     expect(showErrorMock).toHaveBeenCalledWith('프로필 로드 실패');
+  });
+
+  it('keeps the dashboard return CTA available while loading and still routes home', async () => {
+    const profileDeferred = createDeferred<OrganizationProfileResponse>();
+    const sitesDeferred = createDeferred<SiteFoundationResponse>();
+
+    getOrganizationProfileMock.mockReturnValue(profileDeferred.promise);
+    getSitesMock.mockReturnValue(sitesDeferred.promise);
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    expect(wrapper.find('[data-test="dashboard-return-button"]').exists()).toBe(true);
+
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(pushMock).toHaveBeenCalledWith('/');
+
+    profileDeferred.resolve({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    sitesDeferred.resolve({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    await flushPromises();
   });
 
   it('saves the single site foundation and updates the local cache', async () => {
@@ -320,5 +378,29 @@ describe('OrganizationProfileSetup', () => {
     expect(showErrorMock).toHaveBeenCalledWith('사이트 저장 중 예상치 못한 오류가 발생했습니다.');
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('blocks dashboard return when the child forms report dirty state', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-profile-dirty"]').trigger('click');
+    const returnButton = wrapper.find('[data-test="dashboard-return-button"]');
+    expect(returnButton.exists()).toBe(true);
+    await returnButton.trigger('click');
+    await flushPromises();
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(pushMock).not.toHaveBeenCalledWith('/');
   });
 });

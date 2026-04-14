@@ -70,4 +70,40 @@ describe('OrganizationProfileForm', () => {
 
     expect((wrapper.find('input').element as HTMLInputElement).value).toBe('서울병원');
   });
+
+  it('emits dirty-change when the local state diverges and returns to pristine', async () => {
+    const parentState = reactive({
+      modelValue: {
+        organizationId: 'org-1',
+        name: '',
+        type: 'hospital',
+      },
+    });
+
+    const Harness = defineComponent({
+      setup() {
+        return () => h(OrganizationProfileForm, {
+          modelValue: parentState.modelValue,
+        });
+      },
+    });
+
+    const wrapper = mount(Harness, {
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NForm: NFormStub,
+          NFormItem: NFormItemStub,
+          NButton: NButtonStub,
+          NInput: NInputStub,
+        },
+      },
+    });
+
+    const firstInput = wrapper.find('input');
+    await firstInput.setValue('서울병원');
+    await firstInput.setValue('');
+
+    expect(wrapper.emitted('dirty-change')).toEqual([[true], [false]]);
+  });
 });
