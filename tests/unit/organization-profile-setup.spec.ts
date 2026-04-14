@@ -260,6 +260,8 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.find('[data-test="organization-profile-form"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('프로필 로드 실패');
+    expect(wrapper.find('[data-test="setup-action-bar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-test="dashboard-return-button"]')).toHaveLength(1);
     expect(wrapper.find('[data-test="dashboard-return-button"]').exists()).toBe(true);
     await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
     await flushPromises();
@@ -277,6 +279,8 @@ describe('OrganizationProfileSetup', () => {
     const wrapper = createWrapper();
     await flushPromises();
 
+    expect(wrapper.find('[data-test="setup-action-bar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-test="dashboard-return-button"]')).toHaveLength(1);
     expect(wrapper.find('[data-test="dashboard-return-button"]').exists()).toBe(true);
 
     await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');

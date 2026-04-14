@@ -1,17 +1,12 @@
 <template>
   <div class="mx-auto max-w-4xl space-y-6 px-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold">
-          조직/사이트 기본 설정
-        </h1>
-        <p class="mt-1 text-sm text-gray-500">
-          대시보드와 Step2에서 공통으로 사용할 기본 설정을 관리합니다.
-        </p>
-      </div>
-      <n-button @click="router.push('/')">
-        대시보드로 돌아가기
-      </n-button>
+    <div>
+      <h1 class="text-2xl font-bold">
+        조직/사이트 기본 설정
+      </h1>
+      <p class="mt-1 text-sm text-gray-500">
+        대시보드와 Step2에서 공통으로 사용할 기본 설정을 관리합니다.
+      </p>
     </div>
 
     <n-alert
@@ -39,12 +34,14 @@
       <organization-profile-form
         :model-value="organizationProfile"
         :saving="organizationSaving"
+        @dirty-change="handleOrganizationDirtyChange"
         @save="handleSaveOrganizationProfile"
       />
 
       <site-foundation-form
         :model-value="siteSetup.site"
         :saving="siteSaving"
+        @dirty-change="handleSiteDirtyChange"
         @save="handleSaveSites"
       />
     </template>
@@ -57,19 +54,31 @@
         기본 설정을 불러오는 중입니다.
       </n-card>
     </n-spin>
+
+    <PageActionBar data-test="setup-action-bar">
+      <template #left>
+        <n-button
+          data-test="dashboard-return-button"
+          @click="handleReturnToDashboard"
+        >
+          대시보드로 돌아가기
+        </n-button>
+      </template>
+    </PageActionBar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
+import PageActionBar from '@/components/ui/PageActionBar.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
 import type { OrganizationProfileRequest, SiteFoundationResponse, SiteRequest } from '@/types/ops';
-import { showError, showSuccess } from '@/utils/message';
+import { showError, showInfo, showSuccess } from '@/utils/message';
 
 const router = useRouter();
 const organizationStore = useOrganizationStore();
@@ -79,6 +88,8 @@ const hasLoaded = ref(false);
 const loadErrorMessage = ref<string | null>(null);
 const organizationSaving = ref(false);
 const siteSaving = ref(false);
+const organizationDirty = ref(false);
+const siteDirty = ref(false);
 const organizationProfile = ref<OrganizationProfileRequest>({
   organizationId: '',
   name: '',
@@ -88,6 +99,7 @@ const siteSetup = ref<SiteFoundationResponse>({
   organizationId: '',
   site: null,
 });
+const hasUnsavedChanges = computed(() => organizationDirty.value || siteDirty.value);
 
 const internalSiteSaveErrorPatterns = [
   /duplicate key/i,
@@ -197,6 +209,23 @@ async function handleSaveSites(value: SiteRequest) {
   } finally {
     siteSaving.value = false;
   }
+}
+
+function handleOrganizationDirtyChange(isDirty: boolean) {
+  organizationDirty.value = isDirty;
+}
+
+function handleSiteDirtyChange(isDirty: boolean) {
+  siteDirty.value = isDirty;
+}
+
+function handleReturnToDashboard() {
+  if (hasUnsavedChanges.value) {
+    showInfo('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    return;
+  }
+
+  void router.push('/');
 }
 
 onMounted(() => {
