@@ -418,4 +418,64 @@ describe('OrganizationProfileSetup', () => {
     expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
     expect(pushMock).not.toHaveBeenCalledWith('/');
   });
+
+  it('blocks dashboard return when only the site form reports dirty state', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(pushMock).not.toHaveBeenCalledWith('/');
+  });
+
+  it('keeps dirty aggregation blocked until both child forms reset to pristine', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    await wrapper.get('[data-test="emit-profile-dirty"]').trigger('click');
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(showInfoMock).toHaveBeenCalledTimes(1);
+    expect(showInfoMock).toHaveBeenLastCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(pushMock).not.toHaveBeenCalledWith('/');
+
+    await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
+    await wrapper.get('[data-test="emit-profile-pristine"]').trigger('click');
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(showInfoMock).toHaveBeenCalledTimes(2);
+    expect(showInfoMock).toHaveBeenLastCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(pushMock).not.toHaveBeenCalledWith('/');
+
+    await wrapper.get('[data-test="emit-site-pristine"]').trigger('click');
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(pushMock).toHaveBeenCalledWith('/');
+  });
 });
