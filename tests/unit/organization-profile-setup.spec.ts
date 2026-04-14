@@ -234,9 +234,17 @@ describe('OrganizationProfileSetup', () => {
     const wrapper = createWrapper();
     await flushPromises();
 
+    expect(wrapper.find('[data-test="setup-action-bar"]').exists()).toBe(true);
+    expect(wrapper.findAll('[data-test="dashboard-return-button"]')).toHaveLength(1);
+
     const siteForm = wrapper.get('[data-test="site-foundation-form"]');
     expect(siteForm.attributes('data-site-code')).toBe('MAIN');
     expect(siteForm.attributes('data-site-name')).toBe('본관');
+
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+
+    expect(pushMock).toHaveBeenCalledWith('/');
   });
 
   it('shows only the error state when the initial foundation load fails', async () => {
@@ -253,6 +261,9 @@ describe('OrganizationProfileSetup', () => {
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(false);
     expect(wrapper.text()).toContain('프로필 로드 실패');
     expect(wrapper.find('[data-test="dashboard-return-button"]').exists()).toBe(true);
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+    expect(pushMock).toHaveBeenCalledWith('/');
     expect(showErrorMock).toHaveBeenCalledWith('프로필 로드 실패');
   });
 

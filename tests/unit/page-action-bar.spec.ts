@@ -1,16 +1,6 @@
 import { mount } from '@vue/test-utils'
-import { defineComponent } from 'vue'
 import { describe, expect, it } from 'vitest'
-
-const PageActionBar = defineComponent({
-  name: 'PageActionBar',
-  template: `
-    <div>
-      <slot name="left" />
-      <slot name="right" />
-    </div>
-  `,
-})
+import PageActionBar from '@/components/ui/PageActionBar.vue'
 
 describe('PageActionBar', () => {
   it('keeps the left and right action regions separate', () => {
