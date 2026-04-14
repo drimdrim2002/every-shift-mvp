@@ -150,7 +150,7 @@ describe('SiteFoundationForm', () => {
     await wrapper.vm.$nextTick();
 
     expect((wrapper.findAll('input')[0].element as HTMLInputElement).value).toBe('ER');
-    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[true]]);
+    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[false], [true]]);
 
     parentState.modelValue = {
       id: 'site-2',
@@ -166,7 +166,7 @@ describe('SiteFoundationForm', () => {
     const refreshedInputs = wrapper.findAll('input');
     expect((refreshedInputs[0].element as HTMLInputElement).value).toBe('ICU');
     expect((refreshedInputs[1].element as HTMLInputElement).value).toBe('중환자실');
-    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[true], [false]]);
+    expect(wrapper.findComponent(SiteFoundationForm).emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
   it('emits dirty-change when the local site diverges and returns to pristine', async () => {
@@ -176,7 +176,7 @@ describe('SiteFoundationForm', () => {
     await inputs[0].setValue(' MAIN ');
     await inputs[0].setValue('');
 
-    expect(wrapper.emitted('dirty-change')).toEqual([[true], [false]]);
+    expect(wrapper.emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
   it('treats surrounding whitespace as a no-op when baseline values already exist', async () => {
@@ -194,7 +194,7 @@ describe('SiteFoundationForm', () => {
     await inputs[1].setValue('  본관  ');
     await wrapper.find('button').trigger('click');
 
-    expect(wrapper.emitted('dirty-change')).toBeUndefined();
+    expect(wrapper.emitted('dirty-change')).toEqual([[false]]);
     expect(wrapper.emitted('save')).toEqual([
       [
         {

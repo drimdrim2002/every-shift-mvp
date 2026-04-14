@@ -95,7 +95,7 @@ watch(
 watch(
   isDirty,
   (value, previous) => {
-    if (previous === undefined || value === previous) {
+    if (value === previous) {
       return;
     }
 

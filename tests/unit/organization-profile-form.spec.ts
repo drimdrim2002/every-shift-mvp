@@ -69,11 +69,11 @@ describe('OrganizationProfileForm', () => {
     await wrapper.vm.$nextTick();
 
     expect((wrapper.find('input').element as HTMLInputElement).value).toBe('서울병원');
-    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[true]]);
+    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[false], [true]]);
 
     await firstInput.setValue('');
 
-    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[true], [false]]);
+    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
   it('resyncs the local form and dirty baseline when the prop object is replaced', async () => {
@@ -99,7 +99,7 @@ describe('OrganizationProfileForm', () => {
     const inputs = wrapper.findAll('input');
     await inputs[0].setValue('서울중앙병원');
 
-    expect(wrapper.emitted('dirty-change')).toEqual([[true]]);
+    expect(wrapper.emitted('dirty-change')).toEqual([[false], [true]]);
 
     await wrapper.setProps({
       modelValue: {
@@ -112,7 +112,7 @@ describe('OrganizationProfileForm', () => {
     const refreshedInputs = wrapper.findAll('input');
     expect((refreshedInputs[0].element as HTMLInputElement).value).toBe('부산병원');
     expect((refreshedInputs[1].element as HTMLInputElement).value).toBe('general-hospital');
-    expect(wrapper.emitted('dirty-change')).toEqual([[true], [false]]);
+    expect(wrapper.emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
   it('emits dirty-change when the local state diverges and returns to pristine', async () => {
@@ -148,7 +148,7 @@ describe('OrganizationProfileForm', () => {
     await firstInput.setValue('서울병원');
     await firstInput.setValue('');
 
-    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[true], [false]]);
+    expect(wrapper.findComponent(OrganizationProfileForm).emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
   it('treats surrounding whitespace as a no-op when baseline values already exist', async () => {
@@ -176,7 +176,7 @@ describe('OrganizationProfileForm', () => {
     await inputs[1].setValue('  hospital  ');
     await wrapper.find('button').trigger('click');
 
-    expect(wrapper.emitted('dirty-change')).toBeUndefined();
+    expect(wrapper.emitted('dirty-change')).toEqual([[false]]);
     expect(wrapper.emitted('save')).toEqual([
       [
         {
