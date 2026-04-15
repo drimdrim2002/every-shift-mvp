@@ -126,15 +126,17 @@
 ### TC-N05: Site foundation and single schedule-active site
 
 - ID: TC-N05
-- 목적: 사이트 metadata 저장 시 정확히 하나의 schedule-active site만 허용되고 `organization_settings.pilot_site_id`가 그 site를 참조하는지 확인한다.
-- 사전 조건: 대상 조직에 site가 없거나 기존 schedule-active site가 하나 있다.
+- 목적: 파일럿 사이트 1개를 저장하거나 수정할 때 같은 site가 유지되고 `organization_settings.pilot_site_id`가 그 site를 참조하는지 확인한다.
+- 사전 조건: 대상 조직에 site가 없거나 기존 pilot site가 하나 있다.
 - 테스트 단계:
-  1. `PUT /sites`로 site 2개를 보내되 하나만 `isScheduleActive=true`로 저장한다.
-  2. `GET /sites`로 저장 결과와 `pilotSiteId`를 확인한다.
-  3. UI에서 primary site 문구가 표시되는지 확인한다.
+  1. `PUT /sites`로 단일 site payload를 저장한다.
+  2. 같은 route로 code/name을 수정 저장한다.
+  3. `GET /sites`로 저장 결과를 확인한다.
+  4. UI에서 primary site 문구가 표시되는지 확인한다.
 - 기대 결과:
   - 저장은 성공한다.
-  - 응답에는 하나의 `isScheduleActive=true` site와 해당 `pilotSiteId`가 있다.
+  - 응답에는 단일 pilot site가 반환되고 해당 row는 `isScheduleActive=true` 상태다.
+  - 수정 저장은 새 row를 누적 생성하지 않는다.
   - 기존 `site_requirements` staffing 데이터는 변경되지 않는다.
 - 관련 자동화 테스트: `tests/unit/phase2-ops-api.spec.ts`, `tests/unit/dashboard.spec.ts`
 

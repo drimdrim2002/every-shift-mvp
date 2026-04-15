@@ -36,8 +36,8 @@ Hard locks for this plan:
 - The first pilot admin is provisioned by an internal operator or assisted internal workflow.
 - Browser users do not create organizations or grant themselves access in this phase.
 - Browser users operate within a single `organization_id` auth scope resolved from existing auth metadata.
-- The product continues to behave like a single pilot ward/site scheduling workflow even if `sites` stores multiple rows.
-- If multiple sites are entered, exactly one site is marked as the schedule-active pilot site; all scheduling reads continue to use organization-scoped `site_requirements`.
+- The product behaves like a single pilot ward/site scheduling workflow.
+- `sites` is treated as a single pilot-site metadata record in the browser and API layer; scheduling reads continue to use organization-scoped `site_requirements`.
 
 ## What Already Exists
 
@@ -449,7 +449,7 @@ Test ownership:
 
 - Step2 writes foundation data that scheduling does not read
 - introducing `sites` accidentally forks staffing truth
-- multi-site metadata appears supported while only one site is schedule-active
+- browser/API behavior drifts away from the single-site assisted-pilot scope
 
 **Files to Create/Modify:**
 
