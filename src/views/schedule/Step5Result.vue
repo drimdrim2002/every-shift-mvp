@@ -305,6 +305,19 @@
             </n-button>
 
             <n-button
+              v-if="scheduleId && scheduleStore.basicInfo"
+              size="medium"
+              type="error"
+              ghost
+              data-test="delete-month-schedule-button"
+              :loading="isDeletingMonthSchedule"
+              :disabled="isDeleteMonthScheduleDisabled"
+              @click="handleDeleteMonthSchedule"
+            >
+              이번 달 근무표 삭제
+            </n-button>
+
+            <n-button
               v-if="isFinished && shouldShowResultDetails"
               size="medium"
               :disabled="isVersionReadOnly"
@@ -391,6 +404,7 @@ import {
   getScheduleVersionAssignments,
   getScheduleVersionPreferences,
   resetPhase2ScheduleActiveFlow,
+  deletePhase2ScheduleMonth,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
   selectPhase2ScheduleVersion,
@@ -467,6 +481,7 @@ const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
+const isDeletingMonthSchedule = ref(false);
 const isSelectingPreview = computed(() => hub.isSelecting.value);
 const isPrimaryActionRunning = ref(false);
 const isComparisonToolsCollapsed = ref(false);
@@ -554,6 +569,19 @@ const isInputEditDisabled = computed(() => {
 });
 const isResetActiveFlowDisabled = computed(() => {
   return Boolean(lockedVersionId.value) || !scheduleId.value;
+});
+const isDeleteMonthScheduleDisabled = computed(() => {
+  const basicInfo = scheduleStore.basicInfo;
+  return (
+    isDeletingMonthSchedule.value
+    || Boolean(lockedVersionId.value)
+    || isRunning.value
+    || previewVersionStatus.value === 'solving'
+    || getActiveSolvingVersionId() !== null
+    || !scheduleId.value
+    || !basicInfo?.organizationId
+    || !basicInfo.month
+  );
 });
 const previousMonthPrefix = computed(() => {
   if (!scheduleStore.basicInfo?.month) return '';
@@ -2260,6 +2288,66 @@ async function handleResetActiveMonthFlow() {
       } catch (error) {
         console.error('Reset active flow error:', error);
         showError(error instanceof Error ? error.message : '이번 달 새로 시작 중 오류가 발생했습니다.');
+      }
+    },
+  });
+}
+
+async function handleDeleteMonthSchedule() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo?.organizationId || !basicInfo.month) {
+    showError('조직 또는 월 정보를 찾을 수 없습니다.');
+    return;
+  }
+
+  if (isDeleteMonthScheduleDisabled.value) {
+    showInfo('확정본이 있거나 생성 중인 월은 삭제할 수 없습니다.');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '이번 달 근무표 삭제',
+    content: `${basicInfo.month} 근무표의 비교안, 입력 요청, 생성 결과를 모두 삭제합니다.\n\n확정본이 있는 월은 삭제할 수 없습니다. 이 작업은 되돌릴 수 없습니다.`,
+    positiveText: '삭제',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      isDeletingMonthSchedule.value = true;
+
+      try {
+        await deletePhase2ScheduleMonth({
+          organizationId: basicInfo.organizationId,
+          month: basicInfo.month,
+        });
+
+        solver.stopPolling();
+        stopAssignmentsRefresh();
+        resetRealtimeState();
+
+        currentScheduleAssignments.value = {};
+        previousMonthAssignments.value = {};
+        changedCells.value.clear();
+        originalCurrentAssignments.value = {};
+        offRequestsCurrentMonth.value = {};
+        offRequestNotesCurrentMonth.value = {};
+        policyRejectionSummariesCurrentMonth.value = [];
+        rebuildDisplayAssignments({});
+
+        clearTempPreferenceStorage();
+        scheduleStore.setBasicInfo({
+          ...basicInfo,
+          scheduleId: undefined,
+        });
+        scheduleStore.resetReviewState();
+        scheduleStore.setAssignments({});
+        scheduleStore.setComments({});
+
+        showSuccess('이번 달 근무표를 삭제했습니다.');
+        await router.replace('/');
+      } catch (error) {
+        console.error('Delete month schedule error:', error);
+        showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');
+      } finally {
+        isDeletingMonthSchedule.value = false;
       }
     },
   });
