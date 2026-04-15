@@ -324,6 +324,18 @@ describe('scheduleVersionResolver', () => {
         compare: 'version-2,version-3',
       },
     })
+    expect(
+      buildStep5Route('schedule-1', 'version-2', ['version-3', 'version-2'], {
+        autoStart: true,
+      })
+    ).toEqual({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+        compare: 'version-2,version-3',
+        autoStart: '1',
+      },
+    })
   })
 
   it('finds the single authoritative running version for Step5 resume', () => {

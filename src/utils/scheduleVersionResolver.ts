@@ -235,7 +235,8 @@ export function resolveStep5RunningVersion(compare: ScheduleCompareResponse): {
 export function buildStep5Route(
   scheduleId: string,
   previewVersionId: string | null,
-  compareVersionIds?: string[]
+  compareVersionIds?: string[],
+  options?: { autoStart?: boolean }
 ) {
   const canonicalCompareVersionIds = previewVersionId
     ? getCanonicalCompareVersionIds(compareVersionIds ?? [], previewVersionId)
@@ -260,6 +261,10 @@ export function buildStep5Route(
 
   if (canonicalCompareVersionIds.length > 1) {
     query.compare = canonicalCompareVersionIds.join(',');
+  }
+
+  if (options?.autoStart) {
+    query.autoStart = '1';
   }
 
   return {

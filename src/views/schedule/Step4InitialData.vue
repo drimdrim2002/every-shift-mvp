@@ -140,7 +140,7 @@
           :disabled="isSubmitting || !canPersistStep4"
           @click="handleNext"
         >
-          결과 확인으로 이동
+          {{ nextStepLabel }}
         </n-button>
       </div>
     </div>
@@ -176,6 +176,7 @@ import {
   createPhase2ScheduleVersion,
   ensurePhase2Schedule,
   deleteThisMonthVersionAssignments,
+  getScheduleVersionAssignments,
   getScheduleVersionPreferences,
   getSchedulePreferences,
   recheckPhase2ScheduleVersion,
@@ -189,7 +190,7 @@ import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import { buildStep5Route, resolveStep4VersionState } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
-import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
+import type { AssignmentMap, CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
 import {
   buildTempPreferencesStorageKey,
   buildTempPreferencesStorageScope,
@@ -229,11 +230,18 @@ type PreferenceSnapshot = {
   notes: CommentMap;
 };
 
-const baselineState = ref<{
+type BaselineState = {
   scheduleId: string;
   previewVersionId: string;
   selectedVersionId: string | null;
-} | null>(null);
+  hasCurrentMonthAssignments: boolean;
+};
+
+function createBaselineState(input: BaselineState): BaselineState {
+  return input;
+}
+
+const baselineState = ref<BaselineState | null>(null);
 const baselinePreferenceSnapshot = ref<{
   previewVersionId: string;
   snapshot: PreferenceSnapshot;
@@ -246,6 +254,35 @@ const canPersistStep4 = computed(() => {
     !!baselineState.value &&
     grid.employees.value.length > 0
   );
+});
+
+const hasPendingStep4Changes = computed(() => {
+  if (
+    !baselineState.value
+    || !baselinePreferenceSnapshot.value
+    || baselinePreferenceSnapshot.value.previewVersionId !== baselineState.value.previewVersionId
+  ) {
+    return false;
+  }
+
+  return !arePreferenceSnapshotsEqual(
+    baselinePreferenceSnapshot.value.snapshot,
+    getCurrentPreferenceSnapshot()
+  );
+});
+
+const nextStepLabel = computed(() => {
+  if (!baselineState.value?.hasCurrentMonthAssignments) {
+    return '근무표 생성(AI)';
+  }
+
+  if (hasPendingStep4Changes.value) {
+    return '생성 시작으로 이동';
+  }
+
+  return baselineState.value?.hasCurrentMonthAssignments
+    ? '결과 확인으로 이동'
+    : '생성 시작으로 이동';
 });
 
 const selectedCellComment = computed(() => {
@@ -302,6 +339,14 @@ function ensureEmployeeMaps(): void {
     if (!constraintNotes.value[employee.id]) {
       constraintNotes.value[employee.id] = {};
     }
+  });
+}
+
+function hasCurrentMonthAssignments(assignments: AssignmentMap, month: string): boolean {
+  return Object.values(assignments).some((dateMap) => {
+    return Object.entries(dateMap || {}).some(([date, shiftCode]) => {
+      return date.startsWith(month) && Boolean(shiftCode);
+    });
   });
 }
 
@@ -779,11 +824,7 @@ function migrateLegacyTempPreferencesIfNeeded(): void {
   }
 }
 
-async function ensureBaselineVersion(forceRefresh = false): Promise<{
-  scheduleId: string;
-  previewVersionId: string;
-  selectedVersionId: string | null;
-}> {
+async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineState> {
   const preferredPreviewVersionId = getPreferredPreviewVersionId();
   if (
     !forceRefresh &&
@@ -819,11 +860,17 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
     scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
     scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
-    baselineState.value = {
+    const assignmentData = await getScheduleVersionAssignments(resolvedState.previewVersionId);
+
+    baselineState.value = createBaselineState({
       scheduleId: compareResponse.scheduleId,
       previewVersionId: resolvedState.previewVersionId,
       selectedVersionId: resolvedState.selectedVersionId,
-    };
+      hasCurrentMonthAssignments: hasCurrentMonthAssignments(
+        assignmentData.assignments,
+        scheduleStore.basicInfo.month
+      ),
+    });
     baselinePreferenceSnapshot.value = null;
 
     return baselineState.value;
@@ -1081,13 +1128,23 @@ async function handleNext() {
     if (!baseline.previewVersionId) {
       throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
     }
+    const shouldAutoStartSolver = !baseline.hasCurrentMonthAssignments;
     const currentSnapshot = getCurrentPreferenceSnapshot();
     const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
     const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
 
     if (!hasStep4Changes) {
       scheduleStore.currentStep = 5;
-      router.push(buildStep5Route(baseline.scheduleId, baseline.previewVersionId));
+      router.push(
+        buildStep5Route(
+          baseline.scheduleId,
+          baseline.previewVersionId,
+          undefined,
+          {
+            autoStart: shouldAutoStartSolver,
+          }
+        )
+      );
       return;
     }
 
@@ -1109,15 +1166,15 @@ async function handleNext() {
       createResponse.createdVersionId,
       scheduleStore.basicInfo!.month
     );
-    await recheckPhase2ScheduleVersion(createResponse.createdVersionId);
 
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    baselineState.value = {
+    baselineState.value = createBaselineState({
       scheduleId: baseline.scheduleId,
       previewVersionId: createResponse.createdVersionId,
       selectedVersionId: createResponse.selectedVersionId,
-    };
+      hasCurrentMonthAssignments: false,
+    });
     setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
     scheduleStore.currentStep = 5;
     router.push(
@@ -1126,7 +1183,10 @@ async function handleNext() {
         createResponse.createdVersionId,
         [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
           (versionId): versionId is string => !!versionId
-        )
+        ),
+        {
+          autoStart: shouldAutoStartSolver,
+        }
       )
     );
   } catch (error) {

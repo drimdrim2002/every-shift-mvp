@@ -7,6 +7,7 @@ const {
   routeQueryMock,
   createPhase2ScheduleVersionMock,
   ensurePhase2ScheduleMock,
+  getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferencesMock,
   getSchedulePreferencesMock,
   recheckPhase2ScheduleVersionMock,
@@ -20,6 +21,7 @@ const {
   routeQueryMock: {} as { from?: string },
   createPhase2ScheduleVersionMock: vi.fn(),
   ensurePhase2ScheduleMock: vi.fn(),
+  getScheduleVersionAssignmentsMock: vi.fn(),
   getScheduleVersionPreferencesMock: vi.fn(),
   getSchedulePreferencesMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
@@ -42,6 +44,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   createPhase2ScheduleVersion: createPhase2ScheduleVersionMock,
   ensurePhase2Schedule: ensurePhase2ScheduleMock,
+  getScheduleVersionAssignments: getScheduleVersionAssignmentsMock,
   getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
   getSchedulePreferences: getSchedulePreferencesMock,
   recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
@@ -308,6 +311,17 @@ describe('Step4InitialData', () => {
       notes: {},
       preferences: [],
     })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-2'
+        ? {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          }
+        : {},
+      offReasons: {},
+      comments: {},
+    }))
     getSchedulePreferencesMock.mockResolvedValue({
       constraints: {},
       notes: {},
@@ -566,6 +580,110 @@ describe('Step4InitialData', () => {
     })
   })
 
+  it('shows the direct AI-generate label instead of result-check when no solver run history exists', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('근무표 생성(AI)')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
+  })
+
+  it('shows the direct AI-generate label when the current preview version has no current-month assignments', async () => {
+    getScheduleVersionAssignmentsMock.mockResolvedValueOnce({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('근무표 생성(AI)')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
+  })
+
+  it('adds autoStart to the Step5 route when the first run starts from Step4', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '근무표 생성(AI)')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-1',
+        autoStart: '1',
+      },
+    })
+  })
+
   it('creates a new candidate version when Step4 input changes before returning to Step5', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -577,7 +695,10 @@ describe('Step4InitialData', () => {
     })
     await flushPromises()
 
-    await clickButtonByText(wrapper, '결과 확인으로 이동')
+    expect(wrapper.text()).toContain('생성 시작으로 이동')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
     await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
@@ -610,7 +731,7 @@ describe('Step4InitialData', () => {
       'version-3',
       '2025-12'
     )
-    expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-3')
+    expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalledWith('version-3')
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {
@@ -618,6 +739,8 @@ describe('Step4InitialData', () => {
         compare: 'version-3,version-2',
       },
     })
+    expect(wrapper.text()).toContain('근무표 생성(AI)')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
   })
 
   it('keeps selected unset and restores preview from the single available V1 when selection is missing', async () => {

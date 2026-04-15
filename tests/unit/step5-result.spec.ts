@@ -492,7 +492,11 @@ describe('Step5Result', () => {
       solver_execution_id: null,
     })
     getScheduleVersionAssignmentsMock.mockResolvedValue({
-      assignments: {},
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+      },
       offReasons: {},
       comments: {},
     })
@@ -606,6 +610,142 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('공정성 요약')
     expect(wrapper.text()).toContain('최근 3개월')
     expect(wrapper.text()).toContain('확정 1건')
+  })
+
+  it('hides result-only UI and shows the empty state when the preview version has no current-month assignments', async () => {
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('공정성 요약')
+    expect(wrapper.text()).not.toContain('Hard Score:')
+    expect(wrapper.text()).toContain('근무표 생성 (AI)')
+  })
+
+  it('keeps the running status visible while result details stay hidden until assignments arrive', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-1',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValueOnce(
+      createReviewResponse('version-1', {
+        selectedVersionId: 'version-1',
+        version: {
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+          isSelected: true,
+        },
+      })
+    )
+    getScheduleStatusMock.mockResolvedValueOnce({
+      status: 'running',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: 'exec-1',
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Hard Score:')
+    expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('공정성 요약')
+  })
+
+  it('keeps execution-history status visible without showing the first-run empty state when solver ran but assignments are empty', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1 }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'solve_failed',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        version: {
+          status: 'solve_failed',
+          isSelected: true,
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'solve_failed',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 0,
+          },
+          violationDetails: [],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: null,
+          finalizationGate: null,
+          assignmentHash: 'sha256:failed',
+          solverExecutionId: 'exec-failed',
+          evaluatorVersion: 'phase2a-trust-gate-v1',
+          createdAt: '2026-04-14T00:00:00Z',
+        },
+      })
+    )
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'error',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: null,
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('실패')
+    expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('공정성 요약')
+    expect(wrapper.text()).not.toContain('Hard Score:')
+    expect(wrapper.text()).toContain('근무표 생성 (AI)')
   })
 
   it('navigates to dashboard directly when the go-dashboard button is clicked', async () => {
@@ -1789,6 +1929,63 @@ describe('Step5Result', () => {
         version: 'version-3',
       },
     })
+  })
+
+  it('consumes autoStart from the Step4 handoff and starts the solver once', async () => {
+    routeMock.query = {
+      version: 'version-1',
+      autoStart: '1',
+    }
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-1'
+        ? {}
+        : {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+      offReasons: {},
+      comments: {},
+    }))
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-1',
+      },
+    })
+    expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
+    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+  })
+
+  it('strips autoStart without starting the solver when current-month assignments already exist', async () => {
+    routeMock.query = {
+      version: 'version-2',
+      autoStart: '1',
+    }
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+      query: {
+        version: 'version-2',
+      },
+    })
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
   it('blocks re-solve when there are unsaved manual changes', async () => {

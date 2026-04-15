@@ -4,7 +4,7 @@
 
     <n-card title="근무표 생성 - 결과 확인">
       <ComparisonToolsSection
-        v-if="shouldShowComparisonTools"
+        v-if="shouldShowResultDetails && shouldShowComparisonTools"
         :collapsed="isComparisonToolsCollapsed"
         :candidate-count="comparisonCandidateVersions.length"
         :compare-count="compareVersionIds.length"
@@ -34,6 +34,7 @@
       </ComparisonToolsSection>
 
       <FocusedVersionActionBar
+        v-if="shouldShowResultDetails"
         :focused-version="previewVersionSummary"
         :selected-version="selectedVersionSummary"
         :primary-action="primaryAction"
@@ -45,7 +46,10 @@
       />
 
       <!-- 상태 표시 -->
-      <div class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4">
+      <div
+        v-if="shouldShowStatusCard"
+        class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
+      >
         <div class="flex items-center gap-4">
           <n-badge
             :value="statusText"
@@ -58,14 +62,17 @@
             class="w-48"
           />
         </div>
-        <div class="text-sm">
+        <div
+          v-if="shouldShowScoreSummary"
+          class="text-sm"
+        >
           <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
           <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
         </div>
       </div>
 
       <n-card
-        v-if="fairnessSummary.length > 0"
+        v-if="shouldShowResultDetails && fairnessSummary.length > 0"
         title="공정성 요약"
         size="small"
         class="mb-6"
@@ -118,6 +125,18 @@
           </li>
         </ul>
       </n-alert>
+
+      <div
+        v-if="shouldShowFirstRunEmptyState"
+        data-test="result-empty-state"
+      >
+        <n-alert
+          type="info"
+          class="mb-6"
+        >
+          아직 생성 결과가 없습니다. 아래에서 AI 생성을 시작하세요.
+        </n-alert>
+      </div>
 
       <div
         v-if="shouldShowResultDetails"
@@ -188,6 +207,7 @@
 
       <div class="my-6">
         <VersionReviewDetail
+          v-if="shouldShowResultDetails"
           :review="review"
           :active-tab="activeReviewTab"
           :focus-title="reviewFocusTitle"
@@ -255,7 +275,7 @@
 
         <div class="flex flex-col items-start gap-3">
           <p
-            v-if="isFinished"
+            v-if="isFinished && shouldShowResultDetails"
             class="text-xs leading-5 text-slate-500"
           >
             같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
@@ -263,7 +283,7 @@
 
           <div class="flex flex-col gap-4 sm:flex-row">
             <n-button
-              v-if="canCancel"
+              v-if="canCancel && shouldShowResultDetails"
               size="medium"
               type="warning"
               :disabled="isVersionReadOnly"
@@ -273,7 +293,7 @@
             </n-button>
 
             <n-button
-              v-if="canCancel"
+              v-if="canCancel && shouldShowResultDetails"
               size="medium"
               type="error"
               :disabled="isResetActiveFlowDisabled"
@@ -283,7 +303,7 @@
             </n-button>
 
             <n-button
-              v-if="isFinished"
+              v-if="isFinished && shouldShowResultDetails"
               size="medium"
               :disabled="isVersionReadOnly"
               @click="handleCreateCompareCandidate"
@@ -292,7 +312,7 @@
             </n-button>
 
             <n-button
-              v-if="isPreRun"
+              v-if="!isRunning && (isPreRun || !hasCurrentMonthAssignments)"
               data-test="start-solver-button"
               :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
               size="medium"
@@ -304,7 +324,7 @@
             </n-button>
 
             <n-button
-              v-if="isFinished && changedCells.size > 0"
+              v-if="isFinished && shouldShowResultDetails && changedCells.size > 0"
               size="medium"
               :disabled="isVersionReadOnly"
               @click="handleReset"
@@ -313,7 +333,7 @@
             </n-button>
 
             <n-button
-              v-if="isFinished"
+              v-if="isFinished && shouldShowResultDetails"
               size="medium"
               :disabled="isVersionReadOnly"
               @click="handleRegenerate"
@@ -322,7 +342,7 @@
             </n-button>
 
             <n-button
-              v-if="isFinished"
+              v-if="isFinished && shouldShowResultDetails"
               size="medium"
               @click="handleExport"
             >
@@ -330,7 +350,7 @@
             </n-button>
 
             <n-button
-              v-if="isFinished"
+              v-if="isFinished && shouldShowResultDetails"
               size="medium"
               :disabled="isVersionReadOnly"
               @click="handleSave"
@@ -437,6 +457,7 @@ const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
 const isDbRefreshing = ref(false);
+const hasConsumedRouteAutoStart = ref(false);
 const lastMemoryAppliedAt = ref(0);
 const lastMemoryHash = ref('');
 const hasIntermediateResult = ref(false);
@@ -533,25 +554,39 @@ const previousMonthPrefix = computed(() => {
 });
 
 const statusText = computed(() => {
-  const map: Record<string, string> = {
-    running: '생성 중',
-    complete: '완료',
-    error: '오류 (재시도 가능)',
-    changed: '수정됨',
-    created: '생성 전',
+  if (solver.status.value === 'running') {
+    return '생성 중';
+  }
+
+  const map: Record<ScheduleVersionStatus, string> = {
+    draft: '생성 전',
+    solving: '생성 중',
+    solve_failed: '실패',
+    review_pending: '입력 수정됨',
+    review_ready: '완료',
+    review_blocked: '재검토 차단',
+    infeasible: '해 없음',
+    finalized: '확정',
   };
-  return map[solver.status.value] || '알 수 없음';
+  return map[previewVersionStatus.value] || '알 수 없음';
 });
 
 const statusType = computed(() => {
-  const map: Record<string, 'info' | 'success' | 'error' | 'warning' | 'default'> = {
-    running: 'info',
-    complete: 'success',
-    error: 'error',
-    changed: 'warning',
-    created: 'default',
+  if (solver.status.value === 'running') {
+    return 'info';
+  }
+
+  const map: Record<ScheduleVersionStatus, 'info' | 'success' | 'error' | 'warning' | 'default'> = {
+    draft: 'default',
+    solving: 'info',
+    solve_failed: 'error',
+    review_pending: 'warning',
+    review_ready: 'success',
+    review_blocked: 'warning',
+    infeasible: 'error',
+    finalized: 'success',
   };
-  return map[solver.status.value] || 'default';
+  return map[previewVersionStatus.value] || 'default';
 });
 
 const isReadonlyGrid = computed(() => {
@@ -568,6 +603,33 @@ const showIntermediateWaitingHint = computed(() => {
     && !hasIntermediateResult.value
     && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
   );
+});
+const hasCurrentMonthAssignments = computed(() => {
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) return false;
+
+  return Object.values(currentScheduleAssignments.value).some((dateMap) => {
+    return Object.entries(dateMap || {}).some(([date, shiftCode]) => {
+      return date.startsWith(currentMonth) && Boolean(shiftCode);
+    });
+  });
+});
+const hasSolverExecutionHistory = computed(() => {
+  return Boolean(
+    isRunning.value
+    || previewVersionExecutionId.value
+    || review.value?.latestEvaluation?.solverExecutionId
+  );
+});
+const shouldShowResultDetails = computed(() => hasCurrentMonthAssignments.value);
+const shouldShowStatusCard = computed(() => {
+  return isRunning.value || hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value;
+});
+const shouldShowScoreSummary = computed(() => {
+  return isRunning.value || hasCurrentMonthAssignments.value;
+});
+const shouldShowFirstRunEmptyState = computed(() => {
+  return !isRunning.value && !hasCurrentMonthAssignments.value && !hasSolverExecutionHistory.value;
 });
 
 function formatVersionLabel(version: ScheduleVersionSummary | null): string {
@@ -1403,6 +1465,35 @@ async function handleStartSolver() {
   }
 }
 
+async function consumeRouteAutoStart() {
+  if (hasConsumedRouteAutoStart.value || route.query.autoStart !== '1') {
+    return;
+  }
+
+  hasConsumedRouteAutoStart.value = true;
+
+  const targetScheduleId = scheduleId.value;
+  const targetPreviewVersionId = previewVersionId.value;
+
+  if (!targetScheduleId || !targetPreviewVersionId) {
+    return;
+  }
+
+  await router.replace(
+    buildStep5Route(targetScheduleId, targetPreviewVersionId, compareVersionIds.value)
+  );
+
+  if (isStartingSolver.value || solver.status.value === 'running') {
+    return;
+  }
+
+  if (!canMutatePreviewVersion.value || hasCurrentMonthAssignments.value) {
+    return;
+  }
+
+  await handleStartSolver();
+}
+
 async function syncSolverStateInternal() {
   solver.stopPolling();
   stopAssignmentsRefresh();
@@ -1559,6 +1650,7 @@ onMounted(async () => {
       clearChanges: true,
     });
     await loadFairnessSummary();
+    await consumeRouteAutoStart();
   } catch (error) {
     console.warn('데이터 로드 중 오류:', error);
     showError('데이터 로드 중 오류가 발생했습니다.');
