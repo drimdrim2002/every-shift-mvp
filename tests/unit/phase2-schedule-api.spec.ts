@@ -1018,4 +1018,41 @@ describe('phase2 schedule api helpers', () => {
       })
     );
   });
+
+  it('calls the delete-month mutation route through phase2-schedule edge function', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-delete-month',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          deletedScheduleId: 'schedule-33',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { deletePhase2ScheduleMonth } = await import('@/api/schedule');
+
+    await deletePhase2ScheduleMonth({
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/delete-month',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          month: '2026-04',
+        }),
+      })
+    );
+  });
 });

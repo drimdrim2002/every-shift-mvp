@@ -314,6 +314,15 @@ export interface ResetScheduleRosterResponse {
   employeeCount: number;
 }
 
+export interface DeleteScheduleMonthRequest {
+  organizationId: string;
+  month: string;
+}
+
+export interface DeleteScheduleMonthResponse {
+  deletedScheduleId: string | null;
+}
+
 export interface ResetScheduleActiveFlowResponse {
   scheduleId: string;
   selectedVersionId: string | null;

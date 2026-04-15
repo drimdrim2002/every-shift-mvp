@@ -28,6 +28,8 @@ import type {
   PlanningEmployee,
   PlanningAssignment,
   PreviousMonthFinalizedContext,
+  DeleteScheduleMonthRequest,
+  DeleteScheduleMonthResponse,
   ResetScheduleRosterRequest,
   ResetScheduleRosterResponse,
   ResetScheduleActiveFlowResponse,
@@ -417,6 +419,15 @@ export async function resetPhase2ScheduleRoster(
   request: ResetScheduleRosterRequest
 ): Promise<ResetScheduleRosterResponse> {
   return callPhase2Schedule<ResetScheduleRosterResponse>('/schedules/reset-roster', {
+    method: 'POST',
+    body: request,
+  });
+}
+
+export async function deletePhase2ScheduleMonth(
+  request: DeleteScheduleMonthRequest
+): Promise<DeleteScheduleMonthResponse> {
+  return callPhase2Schedule<DeleteScheduleMonthResponse>('/schedules/delete-month', {
     method: 'POST',
     body: request,
   });
