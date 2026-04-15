@@ -7,6 +7,7 @@ export type RouteName =
   | 'createVersion'
   | 'resetRoster'
   | 'resetActiveFlow'
+  | 'deleteMonth'
   | 'solve'
   | 'solverResult'
   | 'patchAssignments'
@@ -223,6 +224,15 @@ export interface ResetActiveFlowResponse {
   versions: ScheduleVersionSummary[];
 }
 
+export interface DeleteMonthRequest {
+  organizationId: string;
+  month: string;
+}
+
+export interface DeleteMonthResponse {
+  deletedScheduleId: string | null;
+}
+
 export interface SolveRequest {
   solverExecutionId: string;
 }
@@ -342,6 +352,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'resetActiveFlow',
     methods: ['POST'],
     segments: ['schedules', ':scheduleId', 'reset-active-flow'],
+  },
+  {
+    name: 'deleteMonth',
+    methods: ['POST'],
+    segments: ['schedules', 'delete-month'],
   },
   {
     name: 'review',
@@ -716,6 +731,26 @@ export function parseResetRosterRequest(payload: unknown): ResetRosterRequest {
     month,
     employees: parsedEmployees,
   };
+}
+
+export function parseDeleteMonthRequest(payload: unknown): DeleteMonthRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'delete month request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId : '';
+  const month = typeof record.month === 'string' ? record.month : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!isValidMonth(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  return { organizationId, month };
 }
 
 export function parseScheduleVersionSolveRequest(payload: unknown): SolveRequest {

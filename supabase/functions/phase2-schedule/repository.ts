@@ -3,6 +3,8 @@ import {
   type CompareResponse,
   type CreateVersionRequest,
   type CreateVersionResponse,
+  type DeleteMonthRequest,
+  type DeleteMonthResponse,
   type EnsureRequest,
   type EnsureResponse,
   type PatchAssignmentsRequest,
@@ -141,6 +143,10 @@ interface ReplaceRosterAndResetScheduleAtomicRow {
 
 interface ResetScheduleActiveFlowAtomicRow {
   schedule_id: string;
+}
+
+interface DeleteScheduleMonthAtomicRow {
+  deleted_schedule_id: string | null;
 }
 
 interface SchedulePreferenceRow {
@@ -679,6 +685,26 @@ function remapResetRosterRpcConflict(error: unknown): never {
 function remapResetActiveFlowRpcConflict(error: unknown): never {
   if (error instanceof DatabaseError && error.dbError.message === 'already_finalized') {
     throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+  }
+
+  throw error;
+}
+
+function remapDeleteMonthRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    const { message } = error.dbError;
+
+    if (message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (message === 'version_locked_for_solving') {
+      throw new ContractError(
+        'version_locked_for_solving',
+        'Version is locked while solving is active',
+        409
+      );
+    }
   }
 
   throw error;
@@ -1809,6 +1835,36 @@ export async function resetActiveFlow(
 
   const refreshedSchedule = await loadAuthorizedSchedule(client, auth, scheduleId);
   return buildCompareResponse(client, refreshedSchedule);
+}
+
+export async function deleteScheduleMonth(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  request: DeleteMonthRequest
+): Promise<DeleteMonthResponse> {
+  if (request.organizationId !== auth.organizationId) {
+    throw new ContractError(
+      'organization_access_denied',
+      'Authenticated user cannot delete another organization schedule month',
+      403
+    );
+  }
+
+  try {
+    const row = await rpcSingle<DeleteScheduleMonthAtomicRow>(
+      client,
+      'delete_schedule_month_atomic',
+      {
+        p_organization_id: request.organizationId,
+        p_month: request.month,
+        p_deleted_by: auth.userId,
+      }
+    );
+
+    return { deletedScheduleId: row.deleted_schedule_id };
+  } catch (error: unknown) {
+    remapDeleteMonthRpcConflict(error);
+  }
 }
 
 export async function ensure(

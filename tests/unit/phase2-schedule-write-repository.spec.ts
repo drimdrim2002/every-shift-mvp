@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createVersion,
+  deleteScheduleMonth,
   finalizeVersion,
   markVersionSolving,
   patchVersionAssignments,
@@ -1671,6 +1672,87 @@ describe('phase2 schedule write repository', () => {
           availableShifts: ['N', 'O'],
         },
       ],
+    });
+  });
+
+  it('deletes a non-finalized month schedule through the atomic trust boundary rpc', async () => {
+    const { client, rpcSpies } = createClient({}, {
+      delete_schedule_month_atomic: [
+        {
+          data: {
+            deleted_schedule_id: 'schedule-2',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await deleteScheduleMonth(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+    });
+
+    expect(result).toEqual({ deletedScheduleId: 'schedule-2' });
+    expect(rpcSpies.delete_schedule_month_atomic).toHaveBeenCalledWith({
+      p_organization_id: AUTH_CONTEXT.organizationId,
+      p_month: '2026-04',
+      p_deleted_by: AUTH_CONTEXT.userId,
+    });
+  });
+
+  it('rejects schedule month deletion for another organization', async () => {
+    const { client } = createClient({}, {});
+
+    await expect(deleteScheduleMonth(client, AUTH_CONTEXT, {
+      organizationId: '99999999-9999-4999-8999-999999999999',
+      month: '2026-04',
+    })).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
+    });
+  });
+
+  it('maps delete-month finalized conflicts to 409 already_finalized contract errors', async () => {
+    const { client } = createClient({}, {
+      delete_schedule_month_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'already_finalized',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    await expect(deleteScheduleMonth(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+    })).rejects.toMatchObject({
+      code: 'already_finalized',
+      status: 409,
+    });
+  });
+
+  it('maps delete-month active solver conflicts to 409 version_locked_for_solving contract errors', async () => {
+    const { client } = createClient({}, {
+      delete_schedule_month_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'version_locked_for_solving',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    await expect(deleteScheduleMonth(client, AUTH_CONTEXT, {
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+    })).rejects.toMatchObject({
+      code: 'version_locked_for_solving',
+      status: 409,
     });
   });
 

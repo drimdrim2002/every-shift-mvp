@@ -4,6 +4,7 @@ import {
   allowedMethods,
   ContractError,
   parseCreateVersionRequest,
+  parseDeleteMonthRequest,
   type ErrorEnvelope,
   type HttpMethod,
   matchRoute,
@@ -20,6 +21,7 @@ import { createCorsHeaders } from './cors.ts';
 import {
   compare as compareVersion,
   createVersion,
+  deleteScheduleMonth,
   ensure as ensureSchedule,
   finalizeVersion,
   markVersionSolving,
@@ -34,6 +36,7 @@ import {
 import type {
   CompareResponse,
   CreateVersionResponse,
+  DeleteMonthResponse,
   EnsureResponse,
   PatchAssignmentsResponse,
   ResetRosterResponse,
@@ -49,6 +52,7 @@ import type {
 type ApiResponseBody =
   | CompareResponse
   | CreateVersionResponse
+  | DeleteMonthResponse
   | EnsureResponse
   | PatchAssignmentsResponse
   | ResetRosterResponse
@@ -264,6 +268,17 @@ Deno.serve(async (request) => {
         repositoryClient,
         auth,
         scheduleId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'deleteMonth') {
+      const payload = await parseJsonBody(request);
+      const deleteMonthInput = parseDeleteMonthRequest(payload);
+      const result: DeleteMonthResponse = await deleteScheduleMonth(
+        repositoryClient,
+        auth,
+        deleteMonthInput
       );
       return createResponse(request, result, 200);
     }

@@ -4,6 +4,7 @@ import {
   isValidUuid,
   matchRoute,
   normalizePathSegments,
+  parseDeleteMonthRequest,
   parseEnsureRequest,
   parseCreateVersionRequest,
   parsePatchScheduleVersionAssignmentsRequest,
@@ -41,6 +42,13 @@ describe('phase2 schedule contracts', () => {
       params: {
         scheduleId: '11111111-1111-4111-8111-111111111111',
       },
+    });
+
+    expect(
+      matchRoute(normalizePathSegments('/functions/v1/phase2-schedule/schedules/delete-month'))
+    ).toEqual({
+      route: 'deleteMonth',
+      params: {},
     });
 
     expect(
@@ -109,6 +117,7 @@ describe('phase2 schedule contracts', () => {
     expect(allowedMethods('createVersion')).toEqual(['POST']);
     expect(allowedMethods('resetRoster')).toEqual(['POST']);
     expect(allowedMethods('resetActiveFlow')).toEqual(['POST']);
+    expect(allowedMethods('deleteMonth')).toEqual(['POST']);
     expect(allowedMethods('solve')).toEqual(['POST']);
     expect(allowedMethods('solverResult')).toEqual(['POST']);
     expect(allowedMethods('patchAssignments')).toEqual(['PATCH']);
@@ -166,6 +175,24 @@ describe('phase2 schedule contracts', () => {
         },
       ],
     });
+  });
+
+  it('parses delete month request bodies', () => {
+    expect(
+      parseDeleteMonthRequest({
+        organizationId: '11111111-1111-4111-8111-111111111111',
+        month: '2026-04',
+      })
+    ).toEqual({
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      month: '2026-04',
+    });
+
+    expect(() => parseDeleteMonthRequest({ organizationId: 'bad', month: '2026-04' })).toThrow();
+    expect(() => parseDeleteMonthRequest({
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      month: '2026-13',
+    })).toThrow();
   });
 
   it('accepts canonical postgres uuids used by seeded organizations', () => {
