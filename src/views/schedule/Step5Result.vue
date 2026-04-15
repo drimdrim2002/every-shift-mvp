@@ -260,6 +260,8 @@
         <div class="flex flex-col gap-2 sm:flex-row">
           <n-button
             size="medium"
+            data-test="edit-input-button"
+            :disabled="isInputEditDisabled"
             @click="handleBack"
           >
             입력 수정
@@ -544,6 +546,11 @@ const isVersionReadOnly = computed(() => {
 });
 const canMutatePreviewVersion = computed(() => {
   return !!previewVersionId.value && !isVersionReadOnly.value;
+});
+const isInputEditDisabled = computed(() => {
+  return isRunning.value
+    || previewVersionStatus.value === 'solving'
+    || getActiveSolvingVersionId() !== null;
 });
 const isResetActiveFlowDisabled = computed(() => {
   return Boolean(lockedVersionId.value) || !scheduleId.value;
@@ -1751,6 +1758,11 @@ function navigateToStep4() {
 }
 
 function handleBack() {
+  if (isInputEditDisabled.value) {
+    showInfo('근무표 생성 중에는 입력을 수정할 수 없습니다. 완료 후 다시 시도해주세요.');
+    return;
+  }
+
   if (changedCells.value.size === 0) {
     navigateToStep4();
     return;

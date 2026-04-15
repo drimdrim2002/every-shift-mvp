@@ -811,7 +811,7 @@ async function loadEvaluationPreferenceRows(
     client
       .from('schedule_preferences')
       .select(
-        'id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason'
+        'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, request_source, policy_check_status, policy_rejection_reason'
       )
       .eq('schedule_version_id', versionId)
       .gte('date', startDate)
@@ -874,9 +874,36 @@ function getPolicyRejectionReason(periodType: OffRequestPolicyPeriodType): strin
   return periodType === 'annual' ? '연간 한도 초과' : '월 한도 초과';
 }
 
+async function updateSchedulePreferencePolicyResults(
+  client: Phase2ScheduleRepositoryClient,
+  scheduleId: string,
+  scheduleVersionId: string,
+  policyUpdates: SchedulePreferenceRow[]
+): Promise<void> {
+  const updateResults = await Promise.all(
+    policyUpdates.map((row) => (
+      client
+        .from('schedule_preferences')
+        .update({
+          policy_check_status: row.policy_check_status,
+          policy_rejection_reason: row.policy_rejection_reason,
+        })
+        .eq('id', row.id)
+        .eq('schedule_id', scheduleId)
+        .eq('schedule_version_id', scheduleVersionId)
+    ))
+  );
+
+  const failedUpdate = updateResults.find((result) => result.error);
+  if (failedUpdate?.error) {
+    throw new DatabaseError(failedUpdate.error);
+  }
+}
+
 async function refreshOffRequestPolicyResults(
   client: Phase2ScheduleRepositoryClient,
   schedule: ScheduleRow,
+  version: ScheduleVersionRow,
   preferences: SchedulePreferenceRow[],
   employees: EmployeeRow[],
   policyRules: OffRequestPolicyRuleRow[],
@@ -896,11 +923,7 @@ async function refreshOffRequestPolicyResults(
     limitCount: rule.limit_count,
     isActive: rule.is_active,
   }));
-  const policyUpdates: Array<{
-    id: string;
-    policy_check_status: string | null;
-    policy_rejection_reason: string | null;
-  }> = [];
+  const policyUpdates: SchedulePreferenceRow[] = [];
   const monthlyCountByPeriod = new Map<string, number>();
   const annualCountByEmployeeId = new Map(historicalAnnualCountByEmployeeId);
   const sortedPreferences = [...preferences].sort((left, right) => {
@@ -912,7 +935,7 @@ async function refreshOffRequestPolicyResults(
   for (const preference of sortedPreferences) {
     if (preference.request_code !== 'O') {
       policyUpdates.push({
-        id: preference.id,
+        ...preference,
         policy_check_status: 'accepted',
         policy_rejection_reason: null,
       });
@@ -949,22 +972,26 @@ async function refreshOffRequestPolicyResults(
     }
 
     policyUpdates.push({
-      id: preference.id,
+      ...preference,
       policy_check_status: policyCheckStatus,
       policy_rejection_reason: policyRejectionReason,
     });
   }
 
-  const { error } = await client
-    .from('schedule_preferences')
-    .upsert(policyUpdates, { onConflict: 'id' });
+  await updateSchedulePreferencePolicyResults(client, schedule.id, version.id, policyUpdates);
 
-  if (error) {
-    throw new DatabaseError(error);
-  }
+  const policyStateByPreferenceId = new Map(
+    policyUpdates.map((row) => [
+      row.id,
+      {
+        policy_check_status: row.policy_check_status,
+        policy_rejection_reason: row.policy_rejection_reason,
+      },
+    ])
+  );
 
   return sortedPreferences.map((preference) => {
-    const policyState = policyUpdates.find((row) => row.id === preference.id) ?? {
+    const policyState = policyStateByPreferenceId.get(preference.id) ?? {
       policy_check_status: preference.policy_check_status ?? 'pending',
       policy_rejection_reason: null,
     };
@@ -1008,6 +1035,7 @@ async function buildVersionEvaluation(
   const refreshedPreferences = await refreshOffRequestPolicyResults(
     client,
     schedule,
+    version,
     preferences,
     employees,
     policyRules,

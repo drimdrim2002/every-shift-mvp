@@ -821,6 +821,57 @@ describe('Step5Result', () => {
     expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
   })
 
+  it('blocks input editing while the focused version is solving', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-2',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'draft',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+          isSelected: true,
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId, {
+        version: {
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+        },
+      }))
+    })
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'running',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: 'exec-1',
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const step4Button = wrapper.findAll('button')
+      .find((button) => button.text().includes('입력 수정'))
+    expect(step4Button).toBeTruthy()
+    expect(step4Button!.attributes('disabled')).toBeDefined()
+
+    await step4Button!.trigger('click')
+    await flushPromises()
+
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step4')
+  })
+
   it('splits reset actions and resets the active month flow through the new API', async () => {
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {

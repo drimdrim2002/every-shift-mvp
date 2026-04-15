@@ -607,7 +607,7 @@ describe('phase2 schedule write repository', () => {
   });
 
   it('syncs completed solver results by replacing only the current month rows for that version', async () => {
-    const { client, rpcSpies } = createClient({
+    const { client, rpcSpies, updateSpies, upsertSpies, eqSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -658,7 +658,24 @@ describe('phase2 schedule write repository', () => {
       ],
       schedule_preferences: [
         {
-          data: [],
+          data: [
+            {
+              id: 'pref-1',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              employee_id: 'employee-1',
+              date: '2026-04-01',
+              request_code: 'O',
+              request_note: 'requested off',
+              is_soft: true,
+              resolution_status: 'pending',
+              resolved_shift_id: null,
+              resolved_at: null,
+              request_source: 'employee_off',
+              policy_check_status: 'pending',
+              policy_rejection_reason: null,
+            },
+          ],
           error: null,
         },
       ],
@@ -773,6 +790,14 @@ describe('phase2 schedule write repository', () => {
     expect(
       rpcSpies.commit_schedule_version_solver_result_atomic.mock.calls[0]?.[0]?.p_assignment_hash
     ).toMatch(/^sha256:/);
+    expect(upsertSpies.schedule_preferences).not.toHaveBeenCalled();
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledWith({
+      policy_check_status: 'accepted',
+      policy_rejection_reason: null,
+    });
+    expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('id', 'pref-1');
+    expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('schedule_id', 'schedule-1');
+    expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('schedule_version_id', 'version-2');
   });
 
   it('marks only the target version as solve_failed when solver sync fails', async () => {
@@ -906,7 +931,7 @@ describe('phase2 schedule write repository', () => {
   });
 
   it('evaluates and persists off-request policy results from active rules on recheck', async () => {
-    const { client, rpcSpies, upsertSpies } = createClient({
+    const { client, rpcSpies, updateSpies, upsertSpies, eqSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -1094,33 +1119,17 @@ describe('phase2 schedule write repository', () => {
 
     await recheckVersion(client, AUTH_CONTEXT, 'version-2');
 
-    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          id: 'pref-default-1',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-        expect.objectContaining({
-          id: 'pref-rn-1',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-        expect.objectContaining({
-          id: 'pref-default-2',
-          policy_check_status: 'rejected',
-          policy_rejection_reason: '월 한도 초과',
-        }),
-        expect.objectContaining({
-          id: 'pref-rn-2',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-      ],
-      {
-        onConflict: 'id',
-      }
-    );
+    expect(upsertSpies.schedule_preferences).not.toHaveBeenCalled();
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledTimes(4);
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledWith({
+      policy_check_status: 'rejected',
+      policy_rejection_reason: '월 한도 초과',
+    });
+    for (const preferenceId of ['pref-default-1', 'pref-rn-1', 'pref-default-2', 'pref-rn-2']) {
+      expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('id', preferenceId);
+    }
+    expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('schedule_id', 'schedule-1');
+    expect(eqSpies.schedule_preferences).toHaveBeenCalledWith('schedule_version_id', 'version-2');
     expect(rpcSpies.save_schedule_version_evaluation_atomic).toHaveBeenCalledWith(
       expect.objectContaining({
         p_version_id: 'version-2',

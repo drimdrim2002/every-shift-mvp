@@ -1140,7 +1140,7 @@ describe('phase2 schedule repository', () => {
   });
 
   it('runs recheck by appending a new immutable evaluation and updating latest pointer', async () => {
-    const { client, rpc, upsertSpies } = createClient({
+    const { client, rpc, updateSpies, upsertSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -1337,32 +1337,16 @@ describe('phase2 schedule repository', () => {
         ]),
       })
     );
-    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          id: 'pref-1',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-        expect.objectContaining({
-          id: 'pref-holiday',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-        expect.objectContaining({
-          id: 'pref-2',
-          policy_check_status: 'rejected',
-          policy_rejection_reason: '연간 한도 초과',
-        }),
-      ],
-      {
-        onConflict: 'id',
-      }
-    );
+    expect(upsertSpies.schedule_preferences).not.toHaveBeenCalled();
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledTimes(3);
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledWith({
+      policy_check_status: 'rejected',
+      policy_rejection_reason: '연간 한도 초과',
+    });
   });
 
   it('ignores draft or compare-only rows from other months when counting annual policy limits', async () => {
-    const { client, rpc, upsertSpies } = createClient({
+    const { client, rpc, updateSpies, upsertSpies } = createClient({
       schedule_versions: [
         {
           data: {
@@ -1513,18 +1497,11 @@ describe('phase2 schedule repository', () => {
       resultStatus: 'review_ready',
       evaluationResultStatus: 'passed',
     });
-    expect(upsertSpies.schedule_preferences).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          id: 'pref-draft-1',
-          policy_check_status: 'accepted',
-          policy_rejection_reason: null,
-        }),
-      ],
-      {
-        onConflict: 'id',
-      }
-    );
+    expect(upsertSpies.schedule_preferences).not.toHaveBeenCalled();
+    expect(updateSpies.schedule_preferences).toHaveBeenCalledWith({
+      policy_check_status: 'accepted',
+      policy_rejection_reason: null,
+    });
     expect(rpc).toHaveBeenCalledWith(
       'save_schedule_version_evaluation_atomic',
       expect.objectContaining({
