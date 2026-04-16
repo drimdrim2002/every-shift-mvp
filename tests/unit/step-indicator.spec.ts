@@ -13,7 +13,7 @@ describe('StepIndicator', () => {
 
     expect(wrapper.text()).toContain('사이트 기준')
     expect(wrapper.text()).toContain('직원 기준')
-    expect(wrapper.text()).toContain('입력 조정')
+    expect(wrapper.text()).toContain('오프 입력')
     expect(wrapper.text()).toContain('결과 검토')
   })
 })

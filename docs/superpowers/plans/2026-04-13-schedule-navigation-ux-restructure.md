@@ -308,7 +308,7 @@ expect(wrapper.findComponent({ name: 'StepIndicator' }).exists()).toBe(false);
 ```ts
 expect(wrapper.text()).toContain('사이트 기준');
 expect(wrapper.text()).toContain('직원 기준');
-expect(wrapper.text()).toContain('입력 조정');
+expect(wrapper.text()).toContain('오프 입력');
 expect(wrapper.text()).toContain('결과 검토');
 ```
 
@@ -542,7 +542,7 @@ expect(wrapper.text()).toContain('조직 공통 기준을 먼저 정리하세요
 
 <section>
   <h2 class="text-lg font-semibold text-gray-900">월별 근무표 작업</h2>
-  <p class="text-sm text-gray-500">월별 입력 조정과 결과 검토는 여기서 이어집니다.</p>
+  <p class="text-sm text-gray-500">월별 오프 입력과 결과 검토는 여기서 이어집니다.</p>
 </section>
 ```
 

@@ -39,7 +39,7 @@ const steps = [
   { number: 1, label: '기본 정보' },
   { number: 2, label: '사이트 기준' },
   { number: 3, label: '직원 기준' },
-  { number: 4, label: '입력 조정' },
+  { number: 4, label: '오프 입력' },
   { number: 5, label: '결과 검토' },
 ];
 
