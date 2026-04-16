@@ -98,6 +98,16 @@ class FakeQueryBuilder<T> implements PromiseLike<QueryResult<T>> {
   }
 
   maybeSingle(): Promise<QueryResult<T extends Array<infer R> ? R : T>> {
+    if (Array.isArray(this.listResult.data) && this.listResult.data.length > 1) {
+      return Promise.resolve({
+        data: null,
+        error: {
+          message: 'JSON object requested, multiple rows returned',
+          details: 'Results contain multiple rows, application/vnd.pgrst.object+json requires 1 row',
+        },
+      });
+    }
+
     const data = Array.isArray(this.listResult.data)
       ? ((this.listResult.data[0] ?? null) as T extends Array<infer R> ? R : T)
       : ((this.listResult.data ?? null) as T extends Array<infer R> ? R : T);
@@ -2017,6 +2027,205 @@ describe('phase2 schedule write repository', () => {
       hardScore: 12,
       softScore: 34,
       failureReason: null,
+    });
+  });
+
+  it('returns the latest saved evaluation when duplicate callbacks produced multiple evaluation rows', async () => {
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'solve_failed',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-latest',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'solve_failed',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-latest',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'error',
+            solver_execution_id: null,
+            hard_score: null,
+            soft_score: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: [],
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'error',
+            solver_execution_id: null,
+            hard_score: null,
+            soft_score: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: [
+            {
+              id: 'evaluation-latest',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              revision_no: 0,
+              result_status: 'solve_failed',
+              proof_summary: {},
+              violation_details: [],
+              infeasibility: {
+                summary: 'latest duplicate',
+              },
+              off_request_results: [],
+              comparison_metrics: {},
+              finalization_gate: {
+                allowed: false,
+                blockingReasons: ['latest'],
+              },
+              assignment_hash: 'sha256:latest',
+              solver_execution_id: 'exec-duplicate',
+              evaluator_version: 'phase2a-trust-gate-v1',
+              created_at: '2026-04-01T01:00:00Z',
+            },
+            {
+              id: 'evaluation-earlier',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              revision_no: 0,
+              result_status: 'solve_failed',
+              proof_summary: {},
+              violation_details: [],
+              infeasibility: {
+                summary: 'older duplicate',
+              },
+              off_request_results: [],
+              comparison_metrics: {},
+              finalization_gate: {
+                allowed: false,
+                blockingReasons: ['older'],
+              },
+              assignment_hash: 'sha256:older',
+              solver_execution_id: 'exec-duplicate',
+              evaluator_version: 'phase2a-trust-gate-v1',
+              created_at: '2026-04-01T00:00:00Z',
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+    }, {
+      commit_schedule_version_solver_result_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'stale_solver_callback',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    const result = await syncVersionSolverResult(client, AUTH_CONTEXT, 'version-2', {
+      status: 'failed',
+      solverExecutionId: 'exec-duplicate',
+      assignments: [],
+      score: null,
+      failureReason: 'solver failed',
+      failureType: 'worker_crash',
+      failureContext: {
+        traceId: 'trace-1',
+      },
+    });
+
+    expect(result).toEqual({
+      scheduleVersionId: 'version-2',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'latest duplicate',
     });
   });
 });

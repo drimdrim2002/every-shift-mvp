@@ -248,6 +248,26 @@ describe('solver api', () => {
       expect(result).toEqual(expected);
     });
 
+    it('passes an abort signal to the status request when provided', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(expected), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const controller = new AbortController();
+
+      await getSolverStatus('exec-1', directApiEnv, {
+        signal: controller.signal,
+      });
+
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(init).toMatchObject({
+        signal: controller.signal,
+      });
+    });
+
     it('retries with vite proxy path for status polling in development mode', async () => {
       const expected = createSolverStatus('RUNNING');
       const fetchMock = vi
@@ -299,6 +319,19 @@ describe('solver api', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('error', { status: 500 }));
 
       await expect(getSolverStatus('exec-1')).rejects.toThrow('상태 조회 실패');
+    });
+
+    it('does not retry with proxy fallback after an aborted status request', async () => {
+      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(abortError);
+
+      await expect(
+        getSolverStatus('exec-1', directApiEnv, {
+          signal: new AbortController().signal,
+        })
+      ).rejects.toThrow('The operation was aborted.');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 

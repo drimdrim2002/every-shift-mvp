@@ -1294,7 +1294,7 @@ async function loadEvaluationByVersionRevisionExecution(
   revisionNo: number,
   solverExecutionId: string
 ): Promise<ScheduleEvaluationRow | null> {
-  return maybeSingle<ScheduleEvaluationRow>(
+  const rows = await list<ScheduleEvaluationRow>(
     client
       .from('schedule_evaluations')
       .select('*')
@@ -1303,6 +1303,8 @@ async function loadEvaluationByVersionRevisionExecution(
       .eq('solver_execution_id', solverExecutionId)
       .order('created_at', { ascending: false })
   );
+
+  return rows[0] ?? null;
 }
 
 async function recoverDuplicateSolverResult(

@@ -81,6 +81,15 @@ function createCompletedStatusResponse(executionId: string): SolverStatusRespons
   };
 }
 
+function createRunningStatusResponse(executionId: string): SolverStatusResponse {
+  return {
+    execution_id: executionId,
+    status: 'RUNNING',
+    result: null,
+    score: null,
+  };
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -224,7 +233,7 @@ describe('useAISolver', () => {
     await flushPromises();
     expect(getSolverStatus).toHaveBeenCalledTimes(1);
 
-    await vi.advanceTimersByTimeAsync(10000);
+    await vi.advanceTimersByTimeAsync(9000);
     await flushPromises();
     expect(getSolverStatus).toHaveBeenCalledTimes(1);
 
@@ -232,6 +241,77 @@ describe('useAISolver', () => {
     await flushPromises();
 
     expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks polling as unreachable after repeated status request timeouts', async () => {
+    vi.mocked(getSolverStatus).mockImplementation(
+      () => new Promise<SolverStatusResponse>(() => undefined)
+    );
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-timeout',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'polling_status_unreachable',
+    });
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-timeout', 'version-timeout');
+
+    await vi.advanceTimersByTimeAsync(255000);
+    await flushPromises();
+
+    expect(solver.status.value).toBe('error');
+    expect(solver.error.value).toBe('AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.');
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-timeout', {
+      status: 'failed',
+      solverExecutionId: 'exec-timeout',
+      assignments: [],
+      score: null,
+      failureReason: 'polling_status_unreachable',
+      failureType: 'polling_unreachable',
+      failureContext: null,
+    });
+  });
+
+  it('stops polling after 20 minutes of wall-clock time even when slow status requests keep succeeding', async () => {
+    vi.mocked(getSolverStatus).mockImplementation(
+      (executionId) => new Promise((resolve) => {
+        setTimeout(() => {
+          resolve(createRunningStatusResponse(executionId));
+        }, 74000);
+      })
+    );
+    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('running');
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-wall-clock-timeout',
+      status: 'solve_failed',
+      solverExecutionId: null,
+      hardScore: null,
+      softScore: null,
+      failureReason: 'polling_timeout',
+    });
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-wall-clock-timeout', 'version-wall-clock-timeout');
+
+    await vi.advanceTimersByTimeAsync(1_260_000);
+    await flushPromises();
+
+    expect(solver.status.value).toBe('error');
+    expect(solver.error.value).toBe('Timeout: 근무표 생성이 20분을 초과했습니다.');
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledWith('version-wall-clock-timeout', {
+      status: 'failed',
+      solverExecutionId: 'exec-wall-clock-timeout',
+      assignments: [],
+      score: null,
+      failureReason: 'polling_timeout',
+      failureType: 'timeout',
+      failureContext: null,
+    });
   });
 
   it('stops running and marks failure after repeated polling errors', async () => {

@@ -11,6 +11,10 @@ interface SolverRuntimeEnv {
   VITE_API_BASE_URL?: string;
 }
 
+interface SolverRequestOptions {
+  signal?: AbortSignal;
+}
+
 export class SolverApiError extends Error {
   code?: string;
   status?: number;
@@ -43,6 +47,17 @@ function shouldRetryWithDevProxy(env: SolverRuntimeEnv): boolean {
   return Boolean(env.DEV && resolveApiBaseUrl(env));
 }
 
+function isAbortError(error: unknown): boolean {
+  if (error instanceof DOMException) {
+    return error.name === 'AbortError';
+  }
+
+  return typeof error === 'object'
+    && error !== null
+    && 'name' in error
+    && (error as { name?: unknown }).name === 'AbortError';
+}
+
 async function fetchSolverApiWithDevProxyFallback(
   path: string,
   fallbackProxyPaths: string[],
@@ -54,6 +69,10 @@ async function fetchSolverApiWithDevProxyFallback(
   try {
     return await fetch(directUrl, init);
   } catch (error) {
+    if (isAbortError(error)) {
+      throw error;
+    }
+
     if (!shouldRetryWithDevProxy(env)) {
       throw error;
     }
@@ -170,12 +189,15 @@ export async function createSolverExecution(
 export async function getSolverStatus(
   executionId: string,
   env: SolverRuntimeEnv = import.meta.env,
+  options: SolverRequestOptions = {},
 ): Promise<SolverStatusResponse> {
   const path = `/api/status/${executionId}`;
   const response = await fetchSolverApiWithDevProxyFallback(
     path,
     [`/status/${executionId}`],
-    {},
+    {
+      signal: options.signal,
+    },
     env
   );
   

@@ -13,6 +13,10 @@ import type { AssignmentMap, SolverApiScore, SolverRequest } from '@/types/sched
 import { onUnmounted, ref } from 'vue';
 
 type SolverLocalStatus = 'created' | 'running' | 'complete' | 'error' | 'changed';
+const pollingIntervalMs = 10000;
+const pollRequestTimeoutMs = 75000;
+const maxPollingDurationMs = 20 * 60 * 1000;
+const pollingRequestTimeoutCode = 'polling_request_timeout';
 
 function toSolverWriteRows(assignments: AssignmentMap) {
   const rows: Array<{
@@ -58,6 +62,10 @@ function readErrorCode(error: unknown): string | null {
 
 function isStaleSolverCallbackError(error: unknown): boolean {
   return readErrorCode(error) === 'stale_solver_callback';
+}
+
+function isPollingRequestTimeoutError(error: unknown): boolean {
+  return readErrorCode(error) === pollingRequestTimeoutCode;
 }
 
 function toErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -115,12 +123,13 @@ export function useAISolver() {
   // Intermediate polling result uses shift UUIDs (not shift codes). UI must map before rendering.
   const intermediateResults = ref<AssignmentMap | null>(null);
 
-  const maxPollingAttempts = 120; // 20 minutes (10s * 120)
   const maxConsecutivePollingErrors = 3;
-  let pollingAttempts = 0;
   let consecutivePollingErrors = 0;
   let pollingTimeout: number | null = null;
+  let pollingRequestTimeout: number | null = null;
   let pollingSessionId = 0;
+  let pollingAbortController: AbortController | null = null;
+  let pollingStartedAt = 0;
 
   function clearPollingTimeout() {
     if (pollingTimeout !== null) {
@@ -129,15 +138,52 @@ export function useAISolver() {
     }
   }
 
+  function clearPollingRequestTimeout() {
+    if (pollingRequestTimeout !== null) {
+      clearTimeout(pollingRequestTimeout);
+      pollingRequestTimeout = null;
+    }
+  }
+
+  function abortInFlightPollingRequest() {
+    clearPollingRequestTimeout();
+    if (pollingAbortController) {
+      pollingAbortController.abort();
+      pollingAbortController = null;
+    }
+  }
+
   function isActivePollingSession(sessionId: number) {
     return pollingSessionId === sessionId;
+  }
+
+  function hasPollingExceededDuration() {
+    return pollingStartedAt > 0 && (Date.now() - pollingStartedAt) >= maxPollingDurationMs;
+  }
+
+  async function failPollingTimeout(
+    scheduleVersionId: string,
+    executionId: string
+  ) {
+    clearPollingTimeout();
+    clearPollingRequestTimeout();
+    error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
+    status.value = 'error';
+    await markSolveFailedIfCurrent(
+      scheduleVersionId,
+      executionId,
+      null,
+      'polling_timeout',
+      'timeout',
+      null
+    );
   }
 
   function scheduleNextPoll(
     sessionId: number,
     executionId: string,
     scheduleVersionId: string,
-    delayMs = 10000
+    delayMs = pollingIntervalMs
   ) {
     if (!isActivePollingSession(sessionId)) {
       return;
@@ -149,6 +195,42 @@ export function useAISolver() {
     }, delayMs);
   }
 
+  async function getSolverStatusWithTimeout(
+    sessionId: number,
+    executionId: string
+  ) {
+    abortInFlightPollingRequest();
+    const controller = new AbortController();
+    pollingAbortController = controller;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () => {
+        reject({
+          code: pollingRequestTimeoutCode,
+          message: pollingRequestTimeoutCode,
+        });
+      }, { once: true });
+      pollingRequestTimeout = window.setTimeout(() => {
+        if (isActivePollingSession(sessionId)) {
+          controller.abort();
+        }
+      }, pollRequestTimeoutMs);
+    });
+
+    try {
+      return await Promise.race([
+        getSolverStatus(executionId, import.meta.env, {
+          signal: controller.signal,
+        }),
+        timeoutPromise,
+      ]);
+    } finally {
+      clearPollingRequestTimeout();
+      if (pollingAbortController === controller) {
+        pollingAbortController = null;
+      }
+    }
+  }
+
   async function pollSolverStatus(
     sessionId: number,
     executionId: string,
@@ -158,25 +240,19 @@ export function useAISolver() {
       return;
     }
 
-    pollingAttempts++;
-    if (pollingAttempts > maxPollingAttempts) {
-      clearPollingTimeout();
-      error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
-      status.value = 'error';
-      await markSolveFailedIfCurrent(
-        scheduleVersionId,
-        executionId,
-        null,
-        'polling_timeout',
-        'timeout',
-        null
-      );
+    if (hasPollingExceededDuration()) {
+      await failPollingTimeout(scheduleVersionId, executionId);
       return;
     }
 
     try {
-      const response = await getSolverStatus(executionId);
+      const response = await getSolverStatusWithTimeout(sessionId, executionId);
       if (!isActivePollingSession(sessionId)) {
+        return;
+      }
+
+      if (hasPollingExceededDuration()) {
+        await failPollingTimeout(scheduleVersionId, executionId);
         return;
       }
 
@@ -267,6 +343,11 @@ export function useAISolver() {
         return;
       }
 
+      if (hasPollingExceededDuration()) {
+        await failPollingTimeout(scheduleVersionId, executionId);
+        return;
+      }
+
       if (isStaleSolverCallbackError(pollingError)) {
         clearPollingTimeout();
         status.value = 'created';
@@ -275,7 +356,11 @@ export function useAISolver() {
       }
 
       consecutivePollingErrors += 1;
-      console.error('Polling error:', pollingError);
+      if (isPollingRequestTimeoutError(pollingError)) {
+        console.warn('[useAISolver] Polling request timed out');
+      } else {
+        console.error('Polling error:', pollingError);
+      }
 
       if (consecutivePollingErrors >= maxConsecutivePollingErrors) {
         clearPollingTimeout();
@@ -335,7 +420,6 @@ export function useAISolver() {
     status.value = 'running';
     error.value = null;
     progress.value = 0;
-    pollingAttempts = 0;
     consecutivePollingErrors = 0;
     hardScore.value = 0;
     softScore.value = 0;
@@ -363,15 +447,17 @@ export function useAISolver() {
   function startPolling(executionId: string, scheduleVersionId: string) {
     stopPolling();
     executionIdRef.value = executionId;
-    pollingAttempts = 0;
     consecutivePollingErrors = 0;
+    pollingStartedAt = Date.now();
     const sessionId = pollingSessionId;
     scheduleNextPoll(sessionId, executionId, scheduleVersionId);
   }
 
   function stopPolling() {
     pollingSessionId += 1;
+    pollingStartedAt = 0;
     clearPollingTimeout();
+    abortInFlightPollingRequest();
   }
 
   onUnmounted(() => {
