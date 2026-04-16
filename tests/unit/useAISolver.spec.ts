@@ -81,6 +81,17 @@ function createCompletedStatusResponse(executionId: string): SolverStatusRespons
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe('useAISolver', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -186,6 +197,41 @@ describe('useAISolver', () => {
     expect(refreshPreferenceResolutionByVersion).toHaveBeenCalledWith('version-3');
     expect(solver.status.value).toBe('complete');
     expect(solver.progress.value).toBe(100);
+  });
+
+  it('does not start a second polling request while the previous status check is still pending', async () => {
+    const pendingStatus = createDeferred<SolverStatusResponse>();
+    vi.mocked(getSolverStatus).mockReturnValue(pendingStatus.promise);
+    vi.mocked(mapApiStatusToAppStatus).mockReturnValue('complete');
+    vi.mocked(parseSolverResult).mockReturnValue({
+      'emp-1': { '2025-12-01': 'shift-d' },
+    });
+    vi.mocked(submitPhase2ScheduleVersionSolverResult).mockResolvedValue({
+      scheduleVersionId: 'version-6',
+      status: 'review_ready',
+      solverExecutionId: null,
+      hardScore: 10,
+      softScore: 20,
+      failureReason: null,
+    });
+    vi.mocked(refreshPreferenceResolutionByVersion).mockResolvedValue([]);
+
+    const solver = useAISolver();
+    solver.status.value = 'running';
+    solver.startPolling('exec-slow-complete', 'version-6');
+
+    await vi.advanceTimersByTimeAsync(10000);
+    await flushPromises();
+    expect(getSolverStatus).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10000);
+    await flushPromises();
+    expect(getSolverStatus).toHaveBeenCalledTimes(1);
+
+    pendingStatus.resolve(createCompletedStatusResponse('exec-slow-complete'));
+    await flushPromises();
+
+    expect(submitPhase2ScheduleVersionSolverResult).toHaveBeenCalledTimes(1);
   });
 
   it('stops running and marks failure after repeated polling errors', async () => {

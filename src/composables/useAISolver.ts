@@ -119,7 +119,182 @@ export function useAISolver() {
   const maxConsecutivePollingErrors = 3;
   let pollingAttempts = 0;
   let consecutivePollingErrors = 0;
-  let pollingInterval: number | null = null;
+  let pollingTimeout: number | null = null;
+  let pollingSessionId = 0;
+
+  function clearPollingTimeout() {
+    if (pollingTimeout !== null) {
+      clearTimeout(pollingTimeout);
+      pollingTimeout = null;
+    }
+  }
+
+  function isActivePollingSession(sessionId: number) {
+    return pollingSessionId === sessionId;
+  }
+
+  function scheduleNextPoll(
+    sessionId: number,
+    executionId: string,
+    scheduleVersionId: string,
+    delayMs = 10000
+  ) {
+    if (!isActivePollingSession(sessionId)) {
+      return;
+    }
+
+    clearPollingTimeout();
+    pollingTimeout = window.setTimeout(() => {
+      void pollSolverStatus(sessionId, executionId, scheduleVersionId);
+    }, delayMs);
+  }
+
+  async function pollSolverStatus(
+    sessionId: number,
+    executionId: string,
+    scheduleVersionId: string
+  ) {
+    if (!isActivePollingSession(sessionId)) {
+      return;
+    }
+
+    pollingAttempts++;
+    if (pollingAttempts > maxPollingAttempts) {
+      clearPollingTimeout();
+      error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
+      status.value = 'error';
+      await markSolveFailedIfCurrent(
+        scheduleVersionId,
+        executionId,
+        null,
+        'polling_timeout',
+        'timeout',
+        null
+      );
+      return;
+    }
+
+    try {
+      const response = await getSolverStatus(executionId);
+      if (!isActivePollingSession(sessionId)) {
+        return;
+      }
+
+      consecutivePollingErrors = 0;
+      const appStatus = mapApiStatusToAppStatus(response.status);
+      const normalizedScore = normalizeSolverScore(response.score);
+
+      if (normalizedScore) {
+        hardScore.value = normalizedScore.hardScore;
+        softScore.value = normalizedScore.softScore;
+      }
+
+      if (appStatus === 'running') {
+        status.value = 'running';
+        if (progress.value < 90) progress.value += 2;
+
+        if (response.result) {
+          const assignments = parseSolverResult(response.result);
+          intermediateResults.value = assignments;
+        }
+
+        scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+        return;
+      }
+
+      if (appStatus === 'complete') {
+        clearPollingTimeout();
+
+        if (!response.result) {
+          throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
+        }
+
+        const assignments = parseSolverResult(response.result);
+        await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
+          status: 'completed',
+          solverExecutionId: executionId,
+          assignments: toSolverWriteRows(assignments),
+          score: normalizedScore
+            ? {
+              hardScore: normalizedScore.hardScore,
+              softScore: normalizedScore.softScore,
+            }
+            : null,
+          failureReason: null,
+          failureType: null,
+          failureContext: null,
+        });
+
+        if (!isActivePollingSession(sessionId)) {
+          return;
+        }
+
+        await refreshPreferenceResolutionByVersion(scheduleVersionId);
+        if (!isActivePollingSession(sessionId)) {
+          return;
+        }
+
+        progress.value = 100;
+        status.value = 'complete';
+        return;
+      }
+
+      if (appStatus === 'error') {
+        clearPollingTimeout();
+        error.value = response.error_message || 'AI Solver 오류';
+        status.value = 'error';
+        const failureType = response.failure_type
+          ?? response.failureType
+          ?? null;
+        const failureContext = response.failure_context
+          ?? response.failureContext
+          ?? null;
+        await markSolveFailedIfCurrent(
+          scheduleVersionId,
+          executionId,
+          response.score,
+          response.error_message ?? null,
+          failureType,
+          failureContext
+        );
+        return;
+      }
+
+      status.value = appStatus;
+      scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+    } catch (pollingError) {
+      if (!isActivePollingSession(sessionId)) {
+        return;
+      }
+
+      if (isStaleSolverCallbackError(pollingError)) {
+        clearPollingTimeout();
+        status.value = 'created';
+        error.value = '최신 버전 상태가 변경되어 이전 실행 결과를 무시했습니다.';
+        return;
+      }
+
+      consecutivePollingErrors += 1;
+      console.error('Polling error:', pollingError);
+
+      if (consecutivePollingErrors >= maxConsecutivePollingErrors) {
+        clearPollingTimeout();
+        status.value = 'error';
+        error.value = 'AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.';
+        await markSolveFailedIfCurrent(
+          scheduleVersionId,
+          executionId,
+          null,
+          'polling_status_unreachable',
+          'polling_unreachable',
+          null
+        );
+        return;
+      }
+
+      scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+    }
+  }
 
   async function markSolveFailedIfCurrent(
     scheduleVersionId: string,
@@ -186,136 +361,17 @@ export function useAISolver() {
   }
 
   function startPolling(executionId: string, scheduleVersionId: string) {
-    if (pollingInterval) clearInterval(pollingInterval);
+    stopPolling();
     executionIdRef.value = executionId;
     pollingAttempts = 0;
     consecutivePollingErrors = 0;
-
-    pollingInterval = window.setInterval(async () => {
-      pollingAttempts++;
-      if (pollingAttempts > maxPollingAttempts) {
-        stopPolling();
-        error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
-        status.value = 'error';
-        await markSolveFailedIfCurrent(
-          scheduleVersionId,
-          executionId,
-          null,
-          'polling_timeout',
-          'timeout',
-          null
-        );
-        return;
-      }
-
-      try {
-        const response = await getSolverStatus(executionId);
-        consecutivePollingErrors = 0;
-        const appStatus = mapApiStatusToAppStatus(response.status);
-        const normalizedScore = normalizeSolverScore(response.score);
-
-        if (normalizedScore) {
-          hardScore.value = normalizedScore.hardScore;
-          softScore.value = normalizedScore.softScore;
-        }
-
-        if (appStatus === 'running') {
-          status.value = 'running';
-          if (progress.value < 90) progress.value += 2;
-
-          if (response.result) {
-            const assignments = parseSolverResult(response.result);
-            intermediateResults.value = assignments;
-          }
-
-          return;
-        }
-
-        if (appStatus === 'complete') {
-          stopPolling();
-
-          if (!response.result) {
-            throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
-          }
-
-          const assignments = parseSolverResult(response.result);
-          await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
-            status: 'completed',
-            solverExecutionId: executionId,
-            assignments: toSolverWriteRows(assignments),
-            score: normalizedScore
-              ? {
-                hardScore: normalizedScore.hardScore,
-                softScore: normalizedScore.softScore,
-              }
-              : null,
-            failureReason: null,
-            failureType: null,
-            failureContext: null,
-          });
-          await refreshPreferenceResolutionByVersion(scheduleVersionId);
-
-          progress.value = 100;
-          status.value = 'complete';
-          return;
-        }
-
-        if (appStatus === 'error') {
-          stopPolling();
-          error.value = response.error_message || 'AI Solver 오류';
-          status.value = 'error';
-          const failureType = response.failure_type
-            ?? response.failureType
-            ?? null;
-          const failureContext = response.failure_context
-            ?? response.failureContext
-            ?? null;
-          await markSolveFailedIfCurrent(
-            scheduleVersionId,
-            executionId,
-            response.score,
-            response.error_message ?? null,
-            failureType,
-            failureContext
-          );
-          return;
-        }
-
-        status.value = appStatus;
-      } catch (pollingError) {
-        if (isStaleSolverCallbackError(pollingError)) {
-          stopPolling();
-          status.value = 'created';
-          error.value = '최신 버전 상태가 변경되어 이전 실행 결과를 무시했습니다.';
-          return;
-        }
-
-        consecutivePollingErrors += 1;
-        console.error('Polling error:', pollingError);
-
-        if (consecutivePollingErrors >= maxConsecutivePollingErrors) {
-          stopPolling();
-          status.value = 'error';
-          error.value = 'AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.';
-          await markSolveFailedIfCurrent(
-            scheduleVersionId,
-            executionId,
-            null,
-            'polling_status_unreachable',
-            'polling_unreachable',
-            null
-          );
-          return;
-        }
-      }
-    }, 10000);
+    const sessionId = pollingSessionId;
+    scheduleNextPoll(sessionId, executionId, scheduleVersionId);
   }
 
   function stopPolling() {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
-    }
+    pollingSessionId += 1;
+    clearPollingTimeout();
   }
 
   onUnmounted(() => {

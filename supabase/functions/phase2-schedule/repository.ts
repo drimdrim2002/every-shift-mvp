@@ -58,6 +58,8 @@ interface ScheduleRow {
   month: string;
   status: string | null;
   solver_execution_id: string | null;
+  hard_score?: number | null;
+  soft_score?: number | null;
   created_at: string | null;
   updated_at: string | null;
   selected_version_id: string | null;
@@ -265,6 +267,10 @@ const EMPTY_BOOTSTRAP_COUNTS: BootstrapSnapshotCounts = {
 
 const SCHEDULE_UNIQUE_CONSTRAINTS = ['schedules_organization_id_month_key'];
 const VERSION_UNIQUE_CONSTRAINTS = ['schedule_versions_schedule_id_version_no_key'];
+const EVALUATION_VERSION_REVISION_UNIQUE_CONSTRAINTS = [
+  'idx_schedule_evaluations_version_revision',
+  'schedule_evaluations_schedule_version_id_revision_no_key',
+];
 
 function asRecord(value: unknown): DbRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -542,6 +548,11 @@ function isUniqueViolation(
 
   const haystack = `${details ?? ''} ${message ?? ''}`.toLowerCase();
   return fieldNames.every((fieldName) => haystack.includes(fieldName.toLowerCase()));
+}
+
+function extractFailureReasonFromEvaluationRow(row: ScheduleEvaluationRow): string | null {
+  const infeasibility = asRecord(row.infeasibility);
+  return asString(readFirst(infeasibility, ['summary'], null));
 }
 
 async function maybeSingle<T>(query: any): Promise<T | null> {
@@ -1277,6 +1288,60 @@ async function loadEvaluationById(
   return row ? toEvaluation(row) : null;
 }
 
+async function loadEvaluationByVersionRevisionExecution(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string,
+  revisionNo: number,
+  solverExecutionId: string
+): Promise<ScheduleEvaluationRow | null> {
+  return maybeSingle<ScheduleEvaluationRow>(
+    client
+      .from('schedule_evaluations')
+      .select('*')
+      .eq('schedule_version_id', versionId)
+      .eq('revision_no', revisionNo)
+      .eq('solver_execution_id', solverExecutionId)
+      .order('created_at', { ascending: false })
+  );
+}
+
+async function recoverDuplicateSolverResult(
+  client: Phase2ScheduleRepositoryClient,
+  versionId: string,
+  revisionNo: number,
+  solverExecutionId: string
+): Promise<SolverResultResponse | null> {
+  const evaluationRow = await loadEvaluationByVersionRevisionExecution(
+    client,
+    versionId,
+    revisionNo,
+    solverExecutionId
+  );
+
+  if (!evaluationRow) {
+    return null;
+  }
+
+  const recoveredVersion = await loadVersionById(client, versionId);
+  if (!recoveredVersion) {
+    return null;
+  }
+
+  const recoveredSchedule = await loadScheduleById(client, evaluationRow.schedule_id);
+  if (!recoveredSchedule) {
+    return null;
+  }
+
+  return {
+    scheduleVersionId: recoveredVersion.id,
+    status: recoveredVersion.status as ScheduleVersionStatus,
+    solverExecutionId: recoveredVersion.active_solver_execution_id ?? null,
+    hardScore: recoveredSchedule.hard_score ?? null,
+    softScore: recoveredSchedule.soft_score ?? null,
+    failureReason: extractFailureReasonFromEvaluationRow(evaluationRow),
+  };
+}
+
 function emitFairnessLedgerWriteEvent(
   event: 'fairness_ledger_write_attempted' | 'fairness_ledger_write_succeeded' | 'fairness_ledger_write_blocked',
   payload: Record<string, unknown>
@@ -1739,6 +1804,27 @@ export async function syncVersionSolverResult(
       }
     );
   } catch (error: unknown) {
+    if (
+      (error instanceof DatabaseError
+        && error.dbError.message === 'stale_solver_callback')
+      || isUniqueViolation(
+        error,
+        EVALUATION_VERSION_REVISION_UNIQUE_CONSTRAINTS,
+        ['schedule_version_id', 'revision_no']
+      )
+    ) {
+      const recovered = await recoverDuplicateSolverResult(
+        client,
+        version.id,
+        version.current_revision,
+        request.solverExecutionId
+      );
+
+      if (recovered) {
+        return recovered;
+      }
+    }
+
     remapSlice5RpcConflict(error);
   }
 

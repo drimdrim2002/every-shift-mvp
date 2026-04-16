@@ -1843,4 +1843,180 @@ describe('phase2 schedule write repository', () => {
       status: 409,
     });
   });
+
+  it('returns the already-committed solver result when a duplicate callback arrives after completion', async () => {
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_ready',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-2',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_ready',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: 'evaluation-2',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            hard_score: 12,
+            soft_score: 34,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+        {
+          data: [],
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            hard_score: 12,
+            soft_score: 34,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      schedule_assignments: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_preferences: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      site_requirements: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      shifts: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      employees: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+      schedule_evaluations: [
+        {
+          data: [
+            {
+              id: 'evaluation-2',
+              schedule_id: 'schedule-1',
+              schedule_version_id: 'version-2',
+              revision_no: 0,
+              result_status: 'passed',
+              proof_summary: {},
+              violation_details: [],
+              infeasibility: null,
+              off_request_results: [],
+              comparison_metrics: {},
+              finalization_gate: {
+                allowed: true,
+                blockingReasons: [],
+              },
+              assignment_hash: 'sha256:abc',
+              solver_execution_id: 'exec-final',
+              evaluator_version: 'phase2a-trust-gate-v1',
+              created_at: '2026-04-01T00:00:00Z',
+            },
+          ],
+          error: null,
+        },
+      ],
+      off_request_policy_rules: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+    }, {
+      commit_schedule_version_solver_result_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'stale_solver_callback',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    const result = await syncVersionSolverResult(client, AUTH_CONTEXT, 'version-2', {
+      status: 'completed',
+      solverExecutionId: 'exec-final',
+      assignments: [],
+      score: {
+        hardScore: 12,
+        softScore: 34,
+      },
+      failureReason: null,
+      failureType: null,
+      failureContext: null,
+    });
+
+    expect(result).toEqual({
+      scheduleVersionId: 'version-2',
+      status: 'review_ready',
+      solverExecutionId: null,
+      hardScore: 12,
+      softScore: 34,
+      failureReason: null,
+    });
+  });
 });
