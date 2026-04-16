@@ -70,7 +70,18 @@
         </div>
 
         <div class="relative flex-1 overflow-hidden">
+          <div
+            v-if="isStep4Initializing"
+            data-test="step4-initial-loading"
+            class="absolute inset-0 flex items-center justify-center bg-gray-50"
+          >
+            <div class="flex flex-col items-center gap-3 px-6 text-center text-sm text-gray-500">
+              <n-spin size="large" />
+              <p>초기 입력 데이터를 불러오는 중입니다.</p>
+            </div>
+          </div>
           <n-spin
+            v-else
             :show="grid.loading.value"
             class="h-full"
           >
@@ -208,6 +219,7 @@ const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
 
 const isSubmitting = ref(false);
+const isStep4Initializing = ref(true);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
 const isReturningToDashboard = ref(false);
@@ -884,30 +896,40 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
   }
 }
 
-// Lifecycle
-onMounted(async () => {
+async function initializeStep4(forceRefresh = false) {
+  isStep4Initializing.value = true;
+
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
-  if (!orgStore.current || orgStore.employees.length === 0) {
-    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
-    if (!loadResult.success) {
-      baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
+  try {
+    if (!orgStore.current || orgStore.employees.length === 0) {
+      const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+      if (!loadResult.success) {
+        baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
+        showError(baselineErrorMessage.value);
+        return;
+      }
+    }
+    grid.employees.value = orgStore.employees;
+    if (grid.employees.value.length === 0) {
+      baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
       showError(baselineErrorMessage.value);
       return;
     }
+    grid.generateDates(scheduleStore.basicInfo.month, 0);
+    ensureEmployeeMaps();
+    await restoreData(forceRefresh);
+  } finally {
+    isStep4Initializing.value = false;
   }
-  grid.employees.value = orgStore.employees;
-  if (grid.employees.value.length === 0) {
-    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
-    showError(baselineErrorMessage.value);
-    return;
-  }
-  grid.generateDates(scheduleStore.basicInfo.month, 0);
-  ensureEmployeeMaps();
-  await restoreData();
+}
+
+// Lifecycle
+onMounted(async () => {
+  await initializeStep4();
 });
 
 async function restoreData(forceRefresh = false) {
@@ -1027,7 +1049,7 @@ async function restoreData(forceRefresh = false) {
 }
 
 async function handleRetryBaseline() {
-  await restoreData(true);
+  await initializeStep4(true);
 }
 
 // Actions

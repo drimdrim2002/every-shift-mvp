@@ -187,6 +187,17 @@ vi.mock('@/components/schedule/DaySummaryModal.vue', () => ({
 
 import Step4InitialData from '@/views/schedule/Step4InitialData.vue'
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
+
 function createWrapper() {
   return mount(Step4InitialData, {
     global: {
@@ -372,6 +383,81 @@ describe('Step4InitialData', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+  })
+
+  it('shows a dedicated initial loading placeholder until Step4 restore completes', async () => {
+    const deferredEnsure = createDeferred<{
+      scheduleId: string
+      selectedVersionId: string | null
+      finalizedVersionId: string | null
+      activeSolvingVersionId: string | null
+      versions: Array<Record<string, unknown>>
+    }>()
+
+    ensurePhase2ScheduleMock.mockImplementationOnce(() => deferredEnsure.promise)
+
+    const wrapper = createWrapper()
+
+    expect(wrapper.find('[data-test="step4-initial-loading"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('직원 데이터 또는 날짜 데이터가 없습니다.')
+
+    deferredEnsure.resolve({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step4-initial-loading"]').exists()).toBe(false)
   })
 
   it('shows policy rejection reasons while keeping Step4 request rows visible', async () => {

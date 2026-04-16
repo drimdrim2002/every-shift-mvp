@@ -266,6 +266,17 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
 import Step5Result from '@/views/schedule/Step5Result.vue'
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+
+  return { promise, resolve, reject }
+}
+
 function createWrapper() {
   const wrapper = mount(Step5Result, {
     global: {
@@ -276,6 +287,7 @@ function createWrapper() {
         NProgress: { template: '<div />' },
         NAlert: { template: '<div><slot /></div>' },
         NSlider: { template: '<div />' },
+        NSpin: { template: '<div><slot /></div>' },
       },
     },
   })
@@ -625,6 +637,71 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('공정성 요약')
     expect(wrapper.text()).toContain('최근 3개월')
     expect(wrapper.text()).toContain('확정 1건')
+  })
+
+  it('shows a dedicated initial loading placeholder before Step5 hydration completes', async () => {
+    const deferredCompare = createDeferred<{
+      scheduleId: string
+      selectedVersionId: string | null
+      finalizedVersionId: string | null
+      activeSolvingVersionId: string | null
+      versions: Array<Record<string, unknown>>
+    }>()
+
+    getPhase2ScheduleCompareMock.mockImplementationOnce(() => deferredCompare.promise)
+
+    const wrapper = createWrapper()
+
+    expect(wrapper.find('[data-test="step5-initial-loading"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+
+    deferredCompare.resolve({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1 }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_ready',
+        }),
+      ],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step5-initial-loading"]').exists()).toBe(false)
+  })
+
+  it('shows an inline initialization error instead of the empty state when Step5 first load fails', async () => {
+    getPhase2ScheduleCompareMock.mockRejectedValueOnce(new Error('Step5 failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step5-initial-load-error"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Step5 failed')
+    expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+    expect(showErrorMock).toHaveBeenCalledWith('Step5 failed')
+  })
+
+  it('retries Step5 initial loading from the inline error state', async () => {
+    getPhase2ScheduleCompareMock.mockRejectedValueOnce(new Error('Step5 failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const retryButton = wrapper.findAll('button').find((button) => button.text().includes('다시 시도'))
+    expect(retryButton).toBeTruthy()
+
+    await retryButton?.trigger('click')
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock.mock.calls.length).toBeGreaterThanOrEqual(2)
+    expect(wrapper.find('[data-test="step5-initial-load-error"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('공정성 요약')
   })
 
   it('hides result-only UI and shows the empty state when the preview version has no current-month assignments', async () => {

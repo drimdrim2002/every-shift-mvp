@@ -3,378 +3,414 @@
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
-      <ComparisonToolsSection
-        v-if="shouldShowResultDetails && shouldShowComparisonTools"
-        :collapsed="isComparisonToolsCollapsed"
-        :candidate-count="comparisonCandidateVersions.length"
-        :compare-count="compareVersionIds.length"
-        @toggle-collapsed="handleToggleComparisonTools"
-      >
-        <VersionCandidateShelf
-          :versions="comparisonCandidateVersions"
-          :compare-version-ids="compareVersionIds"
-          :focused-version-id="previewVersionId"
-          :selected-version-id="selectedVersionId"
-          :locked-version-id="lockedVersionId"
-          @toggle-compare="handleToggleCompareVersion"
-          @focus-version="handleFocusVersionChange"
-          @select-version="handleSelectCandidateVersion"
-        />
-
-        <div class="my-6">
-          <ComparisonWorkspace
-            :left-version="leftComparedVersion"
-            :right-version="rightComparedVersion"
-            :left-review="leftComparedReview"
-            :right-review="rightComparedReview"
-            :focused-version-id="previewVersionId"
-            @focus-version="handleFocusVersionChange"
-          />
-        </div>
-      </ComparisonToolsSection>
-
-      <FocusedVersionActionBar
-        v-if="shouldShowResultDetails"
-        :focused-version="previewVersionSummary"
-        :selected-version="selectedVersionSummary"
-        :primary-action="primaryAction"
-        :support-copy="primaryActionSupportCopy"
-        :selecting="isSelectingPreview"
-        :acting="isPrimaryActionRunning"
-        :show-version-context="shouldShowComparisonTools"
-        @primary-action="handlePrimaryAction"
-      />
-
-      <!-- 상태 표시 -->
-      <div
-        v-if="shouldShowStatusCard"
-        class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
-      >
-        <div class="flex items-center gap-4">
-          <n-badge
-            :value="statusText"
-            :type="statusType"
-          />
-          <n-progress
-            v-if="isRunning"
-            type="line"
-            :percentage="solver.progress.value"
-            class="w-48"
-          />
-        </div>
-        <div
-          v-if="shouldShowScoreSummary"
-          class="text-sm"
-        >
-          <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
-          <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
-        </div>
-      </div>
-
-      <n-card
-        v-if="shouldShowResultDetails && fairnessSummary.length > 0"
-        title="공정성 요약"
-        size="small"
-        class="mb-6"
-      >
-        <p class="mb-4 text-xs text-slate-500">
-          이 요약은 확정된 이력만 읽는 읽기 전용 정보입니다.
-        </p>
-        <div class="grid gap-3 md:grid-cols-3">
-          <div
-            v-for="window in fairnessSummary"
-            :key="window.months"
-            class="rounded-lg border border-slate-200 bg-white p-3"
-          >
-            <div class="flex items-baseline justify-between gap-3">
-              <h3 class="text-sm font-semibold text-slate-800">
-                최근 {{ window.months }}개월
-              </h3>
-              <span class="text-xs text-slate-500">
-                {{ window.windowStartMonth ?? '미정' }} ~ {{ window.windowEndMonth ?? '미정' }}
-              </span>
-            </div>
-            <p class="mt-2 text-sm text-slate-700">
-              확정 {{ window.finalizedVersionCount }}건
-            </p>
-            <p class="mt-2 text-xs leading-5 text-slate-500">
-              주간 {{ window.proofSummary.weeklyHoursViolations }} ·
-              야간 {{ window.proofSummary.nnnViolations }} ·
-              주말 {{ window.proofSummary.nodViolations }} ·
-              최소휴식 {{ window.proofSummary.minimumRestViolations }} ·
-              인력부족 {{ window.proofSummary.staffingShortfalls }}
-            </p>
-          </div>
-        </div>
-      </n-card>
-
       <n-alert
-        v-if="policyRejectionSummariesCurrentMonth.length > 0"
-        type="warning"
+        v-if="initialLoadErrorMessage"
+        type="error"
         class="mb-6"
+        data-test="step5-initial-load-error"
       >
         <template #header>
-          정책상 거부된 Off 요청 {{ policyRejectionSummariesCurrentMonth.length }}건
+          결과 화면 초기화 실패
         </template>
-        <ul class="space-y-1 text-sm">
-          <li
-            v-for="summary in policyRejectionSummariesCurrentMonth.slice(0, 3)"
-            :key="summary"
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm">
+            {{ initialLoadErrorMessage }}
+          </p>
+          <n-button
+            size="small"
+            :loading="isInitialLoading"
+            @click="handleRetryInitialLoad"
           >
-            {{ summary }}
-          </li>
-        </ul>
+            다시 시도
+          </n-button>
+        </div>
       </n-alert>
 
       <div
-        v-if="shouldShowFirstRunEmptyState"
-        data-test="result-empty-state"
+        v-else-if="isInitialLoading"
+        data-test="step5-initial-loading"
+        class="mb-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10"
       >
+        <div class="flex flex-col items-center gap-3 text-center text-sm text-gray-500">
+          <n-spin size="large" />
+          <p>근무표 결과 데이터를 불러오는 중입니다.</p>
+        </div>
+      </div>
+
+      <template v-else>
+        <ComparisonToolsSection
+          v-if="shouldShowResultDetails && shouldShowComparisonTools"
+          :collapsed="isComparisonToolsCollapsed"
+          :candidate-count="comparisonCandidateVersions.length"
+          :compare-count="compareVersionIds.length"
+          @toggle-collapsed="handleToggleComparisonTools"
+        >
+          <VersionCandidateShelf
+            :versions="comparisonCandidateVersions"
+            :compare-version-ids="compareVersionIds"
+            :focused-version-id="previewVersionId"
+            :selected-version-id="selectedVersionId"
+            :locked-version-id="lockedVersionId"
+            @toggle-compare="handleToggleCompareVersion"
+            @focus-version="handleFocusVersionChange"
+            @select-version="handleSelectCandidateVersion"
+          />
+
+          <div class="my-6">
+            <ComparisonWorkspace
+              :left-version="leftComparedVersion"
+              :right-version="rightComparedVersion"
+              :left-review="leftComparedReview"
+              :right-review="rightComparedReview"
+              :focused-version-id="previewVersionId"
+              @focus-version="handleFocusVersionChange"
+            />
+          </div>
+        </ComparisonToolsSection>
+
+        <FocusedVersionActionBar
+          v-if="shouldShowResultDetails"
+          :focused-version="previewVersionSummary"
+          :selected-version="selectedVersionSummary"
+          :primary-action="primaryAction"
+          :support-copy="primaryActionSupportCopy"
+          :selecting="isSelectingPreview"
+          :acting="isPrimaryActionRunning"
+          :show-version-context="shouldShowComparisonTools"
+          @primary-action="handlePrimaryAction"
+        />
+
+        <!-- 상태 표시 -->
+        <div
+          v-if="shouldShowStatusCard"
+          class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
+        >
+          <div class="flex items-center gap-4">
+            <n-badge
+              :value="statusText"
+              :type="statusType"
+            />
+            <n-progress
+              v-if="isRunning"
+              type="line"
+              :percentage="solver.progress.value"
+              class="w-48"
+            />
+          </div>
+          <div
+            v-if="shouldShowScoreSummary"
+            class="text-sm"
+          >
+            <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
+            <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
+          </div>
+        </div>
+
+        <n-card
+          v-if="shouldShowResultDetails && fairnessSummary.length > 0"
+          title="공정성 요약"
+          size="small"
+          class="mb-6"
+        >
+          <p class="mb-4 text-xs text-slate-500">
+            이 요약은 확정된 이력만 읽는 읽기 전용 정보입니다.
+          </p>
+          <div class="grid gap-3 md:grid-cols-3">
+            <div
+              v-for="window in fairnessSummary"
+              :key="window.months"
+              class="rounded-lg border border-slate-200 bg-white p-3"
+            >
+              <div class="flex items-baseline justify-between gap-3">
+                <h3 class="text-sm font-semibold text-slate-800">
+                  최근 {{ window.months }}개월
+                </h3>
+                <span class="text-xs text-slate-500">
+                  {{ window.windowStartMonth ?? '미정' }} ~ {{ window.windowEndMonth ?? '미정' }}
+                </span>
+              </div>
+              <p class="mt-2 text-sm text-slate-700">
+                확정 {{ window.finalizedVersionCount }}건
+              </p>
+              <p class="mt-2 text-xs leading-5 text-slate-500">
+                주간 {{ window.proofSummary.weeklyHoursViolations }} ·
+                야간 {{ window.proofSummary.nnnViolations }} ·
+                주말 {{ window.proofSummary.nodViolations }} ·
+                최소휴식 {{ window.proofSummary.minimumRestViolations }} ·
+                인력부족 {{ window.proofSummary.staffingShortfalls }}
+              </p>
+            </div>
+          </div>
+        </n-card>
+
         <n-alert
+          v-if="policyRejectionSummariesCurrentMonth.length > 0"
+          type="warning"
+          class="mb-6"
+        >
+          <template #header>
+            정책상 거부된 Off 요청 {{ policyRejectionSummariesCurrentMonth.length }}건
+          </template>
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="summary in policyRejectionSummariesCurrentMonth.slice(0, 3)"
+              :key="summary"
+            >
+              {{ summary }}
+            </li>
+          </ul>
+        </n-alert>
+
+        <div
+          v-if="shouldShowFirstRunEmptyState"
+          data-test="result-empty-state"
+        >
+          <n-alert
+            type="info"
+            class="mb-6"
+          >
+            아직 생성 결과가 없습니다. 아래에서 AI 생성을 시작하세요.
+          </n-alert>
+        </div>
+
+        <div
+          v-if="shouldShowResultDetails"
+          class="mb-6"
+        >
+          <div class="mb-2 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-700">
+              전월 데이터 표시 일수
+            </h3>
+            <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
+          </div>
+          <n-slider
+            v-model:value="lastMonthDays"
+            :min="0"
+            :max="maxVisibleLastMonthDays"
+            :step="1"
+            :disabled="maxVisibleLastMonthDays === 0"
+          />
+        </div>
+
+        <n-alert
+          v-if="isVersionReadOnly"
+          type="warning"
+          class="mb-6"
+        >
+          현재 자세히 보고 있는 안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
+        </n-alert>
+
+        <n-alert
+          v-if="showIntermediateWaitingHint"
           type="info"
           class="mb-6"
         >
-          아직 생성 결과가 없습니다. 아래에서 AI 생성을 시작하세요.
+          중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
         </n-alert>
-      </div>
 
-      <div
-        v-if="shouldShowResultDetails"
-        class="mb-6"
-      >
-        <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-700">
-            전월 데이터 표시 일수
-          </h3>
-          <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
-        </div>
-        <n-slider
-          v-model:value="lastMonthDays"
-          :min="0"
-          :max="maxVisibleLastMonthDays"
-          :step="1"
-          :disabled="maxVisibleLastMonthDays === 0"
-        />
-      </div>
-
-      <n-alert
-        v-if="isVersionReadOnly"
-        type="warning"
-        class="mb-6"
-      >
-        현재 자세히 보고 있는 안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
-      </n-alert>
-
-      <n-alert
-        v-if="showIntermediateWaitingHint"
-        type="info"
-        class="mb-6"
-      >
-        중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
-      </n-alert>
-
-      <div
-        v-if="canRecoverSolverState"
-        class="mb-6 flex flex-wrap gap-2"
-      >
-        <n-button
-          size="small"
-          :loading="isRecoveringSolver"
-          :disabled="isRecoveringSolver"
-          @click="handleSyncSolverState"
+        <div
+          v-if="canRecoverSolverState"
+          class="mb-6 flex flex-wrap gap-2"
         >
-          상태 재동기화
-        </n-button>
-        <n-button
-          size="small"
+          <n-button
+            size="small"
+            :loading="isRecoveringSolver"
+            :disabled="isRecoveringSolver"
+            @click="handleSyncSolverState"
+          >
+            상태 재동기화
+          </n-button>
+          <n-button
+            size="small"
+            type="warning"
+            :loading="isRecoveringSolver"
+            :disabled="isRecoveringSolver"
+            @click="handleForceResetSolverState"
+          >
+            생성 중단 후 초기화
+          </n-button>
+        </div>
+
+        <!-- 변경 사항 알림 -->
+        <n-alert
+          v-if="changedCells.size > 0"
           type="warning"
-          :loading="isRecoveringSolver"
-          :disabled="isRecoveringSolver"
-          @click="handleForceResetSolverState"
+          class="mb-6"
         >
-          생성 중단 후 초기화
-        </n-button>
-      </div>
+          <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
+        </n-alert>
 
-      <!-- 변경 사항 알림 -->
-      <n-alert
-        v-if="changedCells.size > 0"
-        type="warning"
-        class="mb-6"
-      >
-        <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
-      </n-alert>
-
-      <div class="my-6">
-        <VersionReviewDetail
-          v-if="shouldShowResultDetails"
-          :review="review"
-          :active-tab="activeReviewTab"
-          :focus-title="reviewFocusTitle"
-          @update:tab="handleReviewTabChange"
-        >
-          <template #grid>
-            <ScheduleGrid
-              v-if="grid.employees.value.length > 0"
-              mode="result"
-              :employees="grid.employees.value"
-              :dates="grid.dates.value"
-              :assignments="grid.assignments.value"
-              :shift-colors="shiftColors"
-              :off-requests="offRequestsCurrentMonth"
-              :off-request-notes="offRequestNotesCurrentMonth"
-              :preference-display-mode="preferenceDisplayMode"
-              :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
-              :readonly="isReadonlyGrid"
-              :show-last-month="true"
-              result-cell-layout="single-box"
-              @update:assignment="handleAssignmentUpdate"
-            />
-            <div
-              v-else
-              class="text-center text-gray-500"
-            >
-              결과 로딩 중...
-            </div>
-          </template>
-
-          <template #proof>
-            <p
-              v-if="review?.latestEvaluation?.violationDetails.length"
-              class="text-sm text-slate-700"
-            >
-              {{ review.latestEvaluation.violationDetails[0]?.message }}
-            </p>
-          </template>
-
-          <template #offRequests>
-            <p class="text-sm text-slate-700">
-              미충족 Off 요청 {{ review?.latestEvaluation?.offRequestResults.length ?? 0 }}건
-            </p>
-          </template>
-        </VersionReviewDetail>
-      </div>
-
-      <!-- 버튼 -->
-      <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
-        <div class="flex flex-col gap-2 sm:flex-row">
-          <n-button
-            size="medium"
-            data-test="edit-input-button"
-            :disabled="isInputEditDisabled"
-            @click="handleBack"
+        <div class="my-6">
+          <VersionReviewDetail
+            v-if="shouldShowResultDetails"
+            :review="review"
+            :active-tab="activeReviewTab"
+            :focus-title="reviewFocusTitle"
+            @update:tab="handleReviewTabChange"
           >
-            입력 수정
-          </n-button>
-          <n-button
-            size="medium"
-            data-test="go-dashboard-button"
-            @click="handleGoDashboard"
-          >
-            근무표 관리로
-          </n-button>
+            <template #grid>
+              <ScheduleGrid
+                v-if="grid.employees.value.length > 0"
+                mode="result"
+                :employees="grid.employees.value"
+                :dates="grid.dates.value"
+                :assignments="grid.assignments.value"
+                :shift-colors="shiftColors"
+                :off-requests="offRequestsCurrentMonth"
+                :off-request-notes="offRequestNotesCurrentMonth"
+                :preference-display-mode="preferenceDisplayMode"
+                :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
+                :readonly="isReadonlyGrid"
+                :show-last-month="true"
+                result-cell-layout="single-box"
+                @update:assignment="handleAssignmentUpdate"
+              />
+              <div
+                v-else
+                class="text-center text-gray-500"
+              >
+                결과 로딩 중...
+              </div>
+            </template>
+
+            <template #proof>
+              <p
+                v-if="review?.latestEvaluation?.violationDetails.length"
+                class="text-sm text-slate-700"
+              >
+                {{ review.latestEvaluation.violationDetails[0]?.message }}
+              </p>
+            </template>
+
+            <template #offRequests>
+              <p class="text-sm text-slate-700">
+                미충족 Off 요청 {{ review?.latestEvaluation?.offRequestResults.length ?? 0 }}건
+              </p>
+            </template>
+          </VersionReviewDetail>
         </div>
 
-        <div class="flex flex-col items-start gap-3">
-          <p
-            v-if="isFinished && shouldShowResultDetails"
-            class="text-xs leading-5 text-slate-500"
-          >
-            같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
-          </p>
-
-          <div class="flex flex-col gap-4 sm:flex-row">
+        <!-- 버튼 -->
+        <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
+          <div class="flex flex-col gap-2 sm:flex-row">
             <n-button
-              v-if="canCancel && shouldShowResultDetails"
               size="medium"
-              type="warning"
-              :disabled="isVersionReadOnly"
-              @click="handleResetCurrentVersion"
+              data-test="edit-input-button"
+              :disabled="isInputEditDisabled"
+              @click="handleBack"
             >
-              현재 안 초기화
+              입력 수정
             </n-button>
-
             <n-button
-              v-if="canCancel && shouldShowResultDetails"
               size="medium"
-              type="error"
-              :disabled="isResetActiveFlowDisabled"
-              @click="handleResetActiveMonthFlow"
+              data-test="go-dashboard-button"
+              @click="handleGoDashboard"
             >
-              이번 달 새로 시작
-            </n-button>
-
-            <n-button
-              v-if="scheduleId && scheduleStore.basicInfo"
-              size="medium"
-              type="error"
-              ghost
-              data-test="delete-month-schedule-button"
-              :loading="isDeletingMonthSchedule"
-              :disabled="isDeleteMonthScheduleDisabled"
-              @click="handleDeleteMonthSchedule"
-            >
-              이번 달 근무표 삭제
-            </n-button>
-
-            <n-button
-              v-if="isFinished && shouldShowResultDetails"
-              size="medium"
-              :disabled="isVersionReadOnly"
-              @click="handleCreateCompareCandidate"
-            >
-              입력 변경 후 비교안 만들기
-            </n-button>
-
-            <n-button
-              v-if="!isRunning && (isPreRun || !hasCurrentMonthAssignments)"
-              data-test="start-solver-button"
-              :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
-              size="medium"
-              :loading="isStartingSolver"
-              :disabled="isStartingSolver || isVersionReadOnly"
-              @click="handleStartSolver"
-            >
-              근무표 생성 (AI)
-            </n-button>
-
-            <n-button
-              v-if="isFinished && shouldShowResultDetails && changedCells.size > 0"
-              size="medium"
-              :disabled="isVersionReadOnly"
-              @click="handleReset"
-            >
-              변경 사항 취소
-            </n-button>
-
-            <n-button
-              v-if="isFinished && shouldShowResultDetails"
-              size="medium"
-              :disabled="isVersionReadOnly"
-              @click="handleRegenerate"
-            >
-              더 개선하기
-            </n-button>
-
-            <n-button
-              v-if="isFinished && shouldShowResultDetails"
-              size="medium"
-              @click="handleExport"
-            >
-              엑셀 다운로드
-            </n-button>
-
-            <n-button
-              v-if="isFinished && shouldShowResultDetails"
-              size="medium"
-              :disabled="isVersionReadOnly"
-              @click="handleSave"
-            >
-              저장
+              근무표 관리로
             </n-button>
           </div>
+
+          <div class="flex flex-col items-start gap-3">
+            <p
+              v-if="isFinished && shouldShowResultDetails"
+              class="text-xs leading-5 text-slate-500"
+            >
+              같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
+            </p>
+
+            <div class="flex flex-col gap-4 sm:flex-row">
+              <n-button
+                v-if="canCancel && shouldShowResultDetails"
+                size="medium"
+                type="warning"
+                :disabled="isVersionReadOnly"
+                @click="handleResetCurrentVersion"
+              >
+                현재 안 초기화
+              </n-button>
+
+              <n-button
+                v-if="canCancel && shouldShowResultDetails"
+                size="medium"
+                type="error"
+                :disabled="isResetActiveFlowDisabled"
+                @click="handleResetActiveMonthFlow"
+              >
+                이번 달 새로 시작
+              </n-button>
+
+              <n-button
+                v-if="scheduleId && scheduleStore.basicInfo"
+                size="medium"
+                type="error"
+                ghost
+                data-test="delete-month-schedule-button"
+                :loading="isDeletingMonthSchedule"
+                :disabled="isDeleteMonthScheduleDisabled"
+                @click="handleDeleteMonthSchedule"
+              >
+                이번 달 근무표 삭제
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleCreateCompareCandidate"
+              >
+                입력 변경 후 비교안 만들기
+              </n-button>
+
+              <n-button
+                v-if="!isRunning && (isPreRun || !hasCurrentMonthAssignments)"
+                data-test="start-solver-button"
+                :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
+                size="medium"
+                :loading="isStartingSolver"
+                :disabled="isStartingSolver || isVersionReadOnly"
+                @click="handleStartSolver"
+              >
+                근무표 생성 (AI)
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails && changedCells.size > 0"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleReset"
+              >
+                변경 사항 취소
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleRegenerate"
+              >
+                더 개선하기
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                @click="handleExport"
+              >
+                엑셀 다운로드
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleSave"
+              >
+                저장
+              </n-button>
+            </div>
+          </div>
         </div>
-      </div>
+      </template>
     </n-card>
   </div>
 </template>
@@ -383,7 +419,7 @@
 import dayjs from 'dayjs';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NSlider } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NSlider, NSpin } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -479,6 +515,9 @@ const lastMemoryHash = ref('');
 const hasIntermediateResult = ref(false);
 const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
+const isInitialLoading = ref(true);
+const hasInitialLoadCompleted = ref(false);
+const initialLoadErrorMessage = ref<string | null>(null);
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
 const isDeletingMonthSchedule = ref(false);
@@ -664,7 +703,12 @@ const shouldShowScoreSummary = computed(() => {
   return isRunning.value || hasCurrentMonthAssignments.value;
 });
 const shouldShowFirstRunEmptyState = computed(() => {
-  return !isRunning.value && !hasCurrentMonthAssignments.value && !hasSolverExecutionHistory.value;
+  return (
+    hasInitialLoadCompleted.value
+    && !isRunning.value
+    && !hasCurrentMonthAssignments.value
+    && !hasSolverExecutionHistory.value
+  );
 });
 
 function formatVersionLabel(version: ScheduleVersionSummary | null): string {
@@ -1668,7 +1712,18 @@ async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<b
   return true;
 }
 
-onMounted(async () => {
+function toInitialLoadErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return '데이터 로드 중 오류가 발생했습니다.';
+}
+
+async function loadStep5InitialData() {
+  isInitialLoading.value = true;
+  initialLoadErrorMessage.value = null;
+
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
@@ -1686,10 +1741,24 @@ onMounted(async () => {
     });
     await loadFairnessSummary();
     await consumeRouteAutoStart();
+    hasInitialLoadCompleted.value = true;
   } catch (error) {
+    const errorMessage = toInitialLoadErrorMessage(error);
     console.warn('데이터 로드 중 오류:', error);
-    showError('데이터 로드 중 오류가 발생했습니다.');
+    initialLoadErrorMessage.value = errorMessage;
+    hasInitialLoadCompleted.value = true;
+    showError(errorMessage);
+  } finally {
+    isInitialLoading.value = false;
   }
+}
+
+async function handleRetryInitialLoad() {
+  await loadStep5InitialData();
+}
+
+onMounted(async () => {
+  await loadStep5InitialData();
 });
 
 onUnmounted(() => {
