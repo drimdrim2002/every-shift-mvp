@@ -100,6 +100,67 @@ export interface ScheduleInputDiffSummary {
   note: string | null;
 }
 
+export interface ScheduleInputSnapshotEmployee {
+  employeeId: string;
+  availableShifts: string[];
+  skillSet: string[];
+}
+
+export interface ScheduleInputSnapshotAssignment {
+  employeeId: string;
+  date: string;
+  shiftId: string;
+  isLocked: boolean;
+}
+
+export interface ScheduleInputSnapshotEmployeeConstraint {
+  employeeId: string;
+  date: string;
+  isLocked: boolean;
+}
+
+export interface ScheduleInputSnapshotShiftRule {
+  id: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface ScheduleInputSnapshotHospitalRules {
+  organizationType: string;
+  shifts: ScheduleInputSnapshotShiftRule[];
+  lastHistoricalDate: string;
+  firstDraftDate: string;
+  publishLength: number;
+  draftLength: number;
+}
+
+export interface ScheduleInputSnapshotMonthlyRequirement {
+  shiftId: string;
+  dayIndex: number;
+  employeeCount: number;
+}
+
+export interface ScheduleInputSnapshotSolverInput {
+  scheduleId: string;
+  organizationId: string;
+  siteId: string | null;
+  month: string;
+  lastMonthDays: number;
+  employees: ScheduleInputSnapshotEmployee[];
+  assignments: ScheduleInputSnapshotAssignment[];
+  employeeConstraints: ScheduleInputSnapshotEmployeeConstraint[];
+  hospitalRules: ScheduleInputSnapshotHospitalRules;
+  monthlyRequirements: ScheduleInputSnapshotMonthlyRequirement[];
+}
+
+export interface ScheduleInputSnapshot {
+  solverInputHash: string;
+  solverInput: ScheduleInputSnapshotSolverInput;
+  generatorVersion: string;
+  createdAt: string;
+}
+
 export interface ScheduleCompareMetrics {
   offRequestReflectionRate: number | null;
   nightShiftMin: number | null;
@@ -225,6 +286,7 @@ export interface CreateScheduleVersionRequest {
   name: string | null;
   sourceType: ScheduleVersionSourceType;
   inputDiffSummary: ScheduleInputDiffSummary;
+  inputSnapshot?: ScheduleInputSnapshot;
 }
 
 export interface CreateScheduleVersionResponse {
@@ -233,6 +295,7 @@ export interface CreateScheduleVersionResponse {
   organizationId: string;
   month: string;
   createdVersionId: string;
+  wasCreated: boolean;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   versions: ScheduleVersionSummary[];
@@ -240,6 +303,7 @@ export interface CreateScheduleVersionResponse {
 
 export interface ScheduleVersionSolveRequest {
   solverExecutionId: string;
+  inputSnapshot?: ScheduleInputSnapshot;
 }
 
 export interface ScheduleVersionSolveResponse {

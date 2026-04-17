@@ -625,12 +625,7 @@ describe('Step5Result', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-1')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-2',
-      },
-    })
+    expect(replaceMock).not.toHaveBeenCalled()
   })
 
   it('renders the read-only fairness summary from checklist data', async () => {
@@ -2196,7 +2191,7 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
       query: {
-        version: 'version-2',
+        autoStart: '1',
       },
     })
     expect(solverMock.startSolver).not.toHaveBeenCalled()

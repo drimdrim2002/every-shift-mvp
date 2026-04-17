@@ -129,6 +129,7 @@ describe('scheduleVersionResolver', () => {
 
   it('preserves a valid preview deep link even when preview differs from selected', () => {
     expect(resolveStep5VersionState(initialEntryCompareResponse, 'version-1')).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-1',
       compareVersionIds: [],
@@ -145,6 +146,7 @@ describe('scheduleVersionResolver', () => {
         requestedCompareVersionIds: ['version-3', 'version-2', 'missing-version'],
       })
     ).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-3',
       compareVersionIds: ['version-3', 'version-2'],
@@ -161,6 +163,7 @@ describe('scheduleVersionResolver', () => {
         requestedCompareVersionIds: ['version-3', 'version-2'],
       })
     ).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: ['version-2', 'version-3'],
@@ -180,6 +183,7 @@ describe('scheduleVersionResolver', () => {
         'version-1'
       )
     ).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
@@ -191,17 +195,19 @@ describe('scheduleVersionResolver', () => {
 
   it('keeps first-entry Step5 in single-version mode when there is no compare candidate', () => {
     expect(resolveStep5VersionState(initialEntryCompareResponse, null)).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: initialEntryCompareResponse.versions,
-      shouldCanonicalize: true,
+      shouldCanonicalize: false,
     })
   })
 
   it('replaces invalid preview queries with the selected version', () => {
     expect(resolveStep5VersionState(initialEntryCompareResponse, 'missing-version')).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
@@ -221,23 +227,25 @@ describe('scheduleVersionResolver', () => {
         null
       )
     ).toEqual({
+      defaultPreviewVersionId: 'version-1',
       selectedVersionId: null,
       previewVersionId: 'version-1',
       compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: initialEntryCompareResponse.versions,
-      shouldCanonicalize: true,
+      shouldCanonicalize: false,
     })
   })
 
   it('does not auto-seed compare ids without an explicit compare route', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
-      shouldCanonicalize: true,
+      shouldCanonicalize: false,
     })
   })
 
@@ -264,6 +272,7 @@ describe('scheduleVersionResolver', () => {
         null
       )
     ).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
@@ -282,7 +291,7 @@ describe('scheduleVersionResolver', () => {
           },
         },
       ],
-      shouldCanonicalize: true,
+      shouldCanonicalize: false,
     })
   })
 
@@ -298,17 +307,25 @@ describe('scheduleVersionResolver', () => {
     }
 
     expect(resolveStep5VersionState(solvingCompare, 'version-2')).toEqual({
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
       compareVersionIds: [],
       activeSolvingVersionId: 'version-2',
       versions: solvingCompare.versions,
-      shouldCanonicalize: false,
+      shouldCanonicalize: true,
     })
   })
 
   it('returns the canonical Step5 route payload', () => {
     expect(getDefaultScheduleVersionId(compareResponse.versions)).toBe('version-1')
+    expect(
+      buildStep5Route('schedule-1', 'version-2', [], {
+        defaultVersionId: 'version-2',
+      })
+    ).toEqual({
+      path: '/schedule/step5/schedule-1',
+    })
     expect(buildStep5Route('schedule-1', 'version-2')).toEqual({
       path: '/schedule/step5/schedule-1',
       query: {
@@ -316,23 +333,25 @@ describe('scheduleVersionResolver', () => {
       },
     })
     expect(
-      buildStep5Route('schedule-1', 'version-2', ['version-3', 'version-2'])
+      buildStep5Route('schedule-1', 'version-3', ['version-3', 'version-2'], {
+        defaultVersionId: 'version-2',
+      })
     ).toEqual({
       path: '/schedule/step5/schedule-1',
       query: {
-        version: 'version-2',
-        compare: 'version-2,version-3',
+        version: 'version-3',
+        compare: 'version-2',
       },
     })
     expect(
       buildStep5Route('schedule-1', 'version-2', ['version-3', 'version-2'], {
+        defaultVersionId: 'version-2',
         autoStart: true,
       })
     ).toEqual({
       path: '/schedule/step5/schedule-1',
       query: {
-        version: 'version-2',
-        compare: 'version-2,version-3',
+        compare: 'version-3',
         autoStart: '1',
       },
     })
@@ -362,18 +381,11 @@ describe('scheduleVersionResolver', () => {
     expect(
       resolveStep5RunningVersion({
         ...compareResponse,
-        versions: [
-          {
-            ...compareResponse.versions[0],
-            status: 'solving',
-            activeSolverExecutionId: 'exec-1',
-          },
-          {
-            ...compareResponse.versions[1],
-            status: 'solving',
-            activeSolverExecutionId: 'exec-2',
-          },
-        ],
+        versions: compareResponse.versions.map((version) => ({
+          ...version,
+          status: 'solving' as const,
+          activeSolverExecutionId: `${version.id}-exec`,
+        })),
       })
     ).toEqual({
       issue: 'multiple',
