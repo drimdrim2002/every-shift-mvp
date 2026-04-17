@@ -166,6 +166,7 @@ describe('phase2 schedule repository', () => {
         {
           data: {
             id: '11111111-1111-4111-8111-111111111111',
+            public_id: 'sch_a1b2c3d4e5f6',
             organization_id: '33333333-3333-4333-8333-333333333333',
             month: '2026-04',
             status: 'created',
@@ -185,6 +186,7 @@ describe('phase2 schedule repository', () => {
         {
           data: {
             id: '11111111-1111-4111-8111-111111111111',
+            public_id: 'sch_a1b2c3d4e5f6',
             organization_id: '33333333-3333-4333-8333-333333333333',
             month: '2026-04',
             status: 'created',
@@ -274,6 +276,9 @@ describe('phase2 schedule repository', () => {
     );
     expect(result).toEqual({
       scheduleId: '11111111-1111-4111-8111-111111111111',
+      schedulePublicId: 'sch_a1b2c3d4e5f6',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
       selectedVersionId: '33333333-3333-4333-8333-333333333333',
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -292,6 +297,7 @@ describe('phase2 schedule repository', () => {
         {
           data: {
             id: '11111111-1111-4111-8111-111111111111',
+            public_id: 'sch_a1b2c3d4e5f6',
             organization_id: '33333333-3333-4333-8333-333333333333',
             month: '2026-04',
             status: 'created',
@@ -345,10 +351,69 @@ describe('phase2 schedule repository', () => {
     const result = await compare(client, AUTH_CONTEXT, '11111111-1111-4111-8111-111111111111');
 
     expect(result.versions).toHaveLength(1);
+    expect(result.schedulePublicId).toBe('sch_a1b2c3d4e5f6');
+    expect(result.organizationId).toBe('33333333-3333-4333-8333-333333333333');
+    expect(result.month).toBe('2026-04');
     expect(result.versions[0]).toEqual(
       expect.objectContaining({
         id: '33333333-3333-4333-8333-333333333333',
         versionNo: 3,
+      })
+    );
+  });
+
+  it('resolves compare requests by public schedule id', async () => {
+    const { client } = createClient({
+      schedules: [
+        {
+          data: {
+            id: '12121212-1212-4212-8212-121212121212',
+            public_id: 'sch_abcdef123456',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-05',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-05-01T00:00:00Z',
+            updated_at: '2026-05-01T00:00:00Z',
+            selected_version_id: '13131313-1313-4313-8313-131313131313',
+            finalized_version_id: null,
+            latest_version_no: 1,
+          },
+          error: null,
+        },
+      ],
+      schedule_versions: [
+        {
+          data: [
+            {
+              id: '13131313-1313-4313-8313-131313131313',
+              schedule_id: '12121212-1212-4212-8212-121212121212',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'review_ready',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              archived_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const result = await compare(client, AUTH_CONTEXT, 'sch_abcdef123456');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        scheduleId: '12121212-1212-4212-8212-121212121212',
+        schedulePublicId: 'sch_abcdef123456',
+        organizationId: AUTH_CONTEXT.organizationId,
+        month: '2026-05',
+        selectedVersionId: '13131313-1313-4313-8313-131313131313',
       })
     );
   });
@@ -359,6 +424,7 @@ describe('phase2 schedule repository', () => {
         {
           data: {
             id: '11111111-1111-4111-8111-111111111111',
+            public_id: 'sch_a1b2c3d4e5f6',
             organization_id: '33333333-3333-4333-8333-333333333333',
             month: '2026-04',
             status: 'created',
@@ -374,6 +440,7 @@ describe('phase2 schedule repository', () => {
         {
           data: {
             id: '11111111-1111-4111-8111-111111111111',
+            public_id: 'sch_a1b2c3d4e5f6',
             organization_id: '33333333-3333-4333-8333-333333333333',
             month: '2026-04',
             status: 'created',
@@ -437,6 +504,9 @@ describe('phase2 schedule repository', () => {
 
     expect(result).toEqual({
       scheduleId: '11111111-1111-4111-8111-111111111111',
+      schedulePublicId: 'sch_a1b2c3d4e5f6',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
       selectedVersionId: '22222222-2222-4222-8222-222222222222',
       finalizedVersionId: null,
       activeSolvingVersionId: null,

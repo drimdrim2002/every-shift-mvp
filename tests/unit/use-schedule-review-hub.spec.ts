@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routeMock = reactive({
   params: {
-    id: 'schedule-1',
+    scheduleKey: 'sch_a1b2c3d4e5f6',
   },
   query: {} as Record<string, string | undefined>,
 });
+
+const SCHEDULE_PUBLIC_ID = 'sch_a1b2c3d4e5f6';
 
 const {
   replaceMock,
@@ -36,6 +38,7 @@ vi.mock('@/api/schedule', () => ({
 const scheduleStoreMock = reactive({
   basicInfo: {
     scheduleId: 'schedule-1',
+    schedulePublicId: SCHEDULE_PUBLIC_ID,
     month: '2025-12',
     organizationId: 'org-1',
     organizationName: '서울병원',
@@ -134,6 +137,9 @@ function createCompareResponse(
 ): ScheduleCompareResponse {
   return {
     scheduleId: 'schedule-1',
+    schedulePublicId: SCHEDULE_PUBLIC_ID,
+    organizationId: 'org-1',
+    month: '2025-12',
     selectedVersionId,
     finalizedVersionId: null,
     activeSolvingVersionId: null,
@@ -211,10 +217,11 @@ async function mountUseScheduleReviewHub(options: { previewVersionId?: string | 
 describe('useScheduleReviewHub', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    routeMock.params.id = 'schedule-1';
+    routeMock.params.scheduleKey = SCHEDULE_PUBLIC_ID;
     routeMock.query = {};
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
       month: '2025-12',
       organizationId: 'org-1',
       organizationName: '서울병원',
@@ -250,8 +257,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.reviewTab).toBe('grid');
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledWith('version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: { version: 'version-2' },
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
   });
 
@@ -267,12 +273,7 @@ describe('useScheduleReviewHub', () => {
     expect(hub.compareVersionIds.value).toEqual([]);
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(1);
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledWith('version-2');
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-2',
-      },
-    });
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it('hydrates compare slots and focused review state from the query', async () => {
@@ -299,11 +300,7 @@ describe('useScheduleReviewHub', () => {
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(1, 'version-3');
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(2, 'version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-3',
-        compare: 'version-3,version-2',
-      },
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
   });
 
@@ -354,13 +351,7 @@ describe('useScheduleReviewHub', () => {
 
     expect(hub.previewVersionId.value).toBe('version-2');
     expect(hub.compareVersionIds.value).toEqual(['version-2', 'version-3']);
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-2',
-        compare: 'version-2,version-3',
-      },
-    });
+    expect(replaceMock).not.toHaveBeenCalled();
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledTimes(2);
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(4);
   });
@@ -383,8 +374,7 @@ describe('useScheduleReviewHub', () => {
     expect(hub.previewVersionId.value).toBe('version-2');
     expect(scheduleStoreMock.previewVersionId).toBe('version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: { version: 'version-2' },
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
 
     await hub.setPreviewVersion('version-1');
@@ -423,6 +413,7 @@ describe('useScheduleReviewHub', () => {
     });
 
     const hub = await mountUseScheduleReviewHub({ previewVersionId: 'version-1' });
+    replaceMock.mockClear();
 
     await hub.selectPreviewVersion();
 

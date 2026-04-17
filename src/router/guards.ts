@@ -9,7 +9,7 @@ import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
  * - Step 2: Step 1 완료 필요 (basicInfo.month 필수)
  * - Step 3: Step 2 완료 필요 (siteRequirements)
  * - Step 4: Step 3 완료 필요 (employees)
- * - Step 5: scheduleId 필수 (params.id)
+ * - Step 5: scheduleKey 필수 (params.scheduleKey)
  */
 export async function stepProgressGuard(
   to: RouteLocationNormalized,
@@ -80,9 +80,9 @@ export async function stepProgressGuard(
     }
   }
 
-  // Step 5 (결과 확인) 접근 시 scheduleId 필수 (params.id)
+  // Step 5 (결과 확인) 접근 시 scheduleKey 필수 (params.scheduleKey)
   if (to.path.startsWith('/schedule/step5')) {
-    if (!to.params.id) {
+    if (!to.params.scheduleKey) {
       showWarning('잘못된 접근입니다.');
       next('/');
       return;

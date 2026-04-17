@@ -155,6 +155,9 @@ export interface EnsureRequest {
 
 export interface EnsureResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   activeSolvingVersionId: string | null;
@@ -163,6 +166,9 @@ export interface EnsureResponse {
 
 export interface CompareResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   activeSolvingVersionId: string | null;
@@ -193,6 +199,9 @@ export interface CreateVersionRequest {
 
 export interface CreateVersionResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   createdVersionId: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
@@ -218,6 +227,9 @@ export interface ResetRosterResponse {
 
 export interface ResetActiveFlowResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   activeSolvingVersionId: string | null;
@@ -336,7 +348,7 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     name: 'compare',
     methods: ['GET'],
-    segments: ['schedules', ':scheduleId', 'compare'],
+    segments: ['schedules', ':scheduleKey', 'compare'],
   },
   {
     name: 'createVersion',
@@ -399,6 +411,10 @@ export function isValidUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+export function isValidSchedulePublicId(value: string): boolean {
+  return /^sch_[0-9a-f]{12}$/i.test(value);
+}
+
 export function isValidMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 }
@@ -410,6 +426,18 @@ export function isValidDate(value: string): boolean {
 export function parseUuidParam(name: string, value: string): string {
   if (!isValidUuid(value)) {
     throw new ContractError('bad_request', `${name} must be a valid UUID`, 400);
+  }
+
+  return value;
+}
+
+export function parseScheduleKeyParam(name: string, value: string): string {
+  if (!isValidUuid(value) && !isValidSchedulePublicId(value)) {
+    throw new ContractError(
+      'bad_request',
+      `${name} must be a valid UUID or schedule public id`,
+      400
+    );
   }
 
   return value;

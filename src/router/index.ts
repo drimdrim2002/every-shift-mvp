@@ -85,7 +85,7 @@ const baseRoutes: RouteRecordRaw[] = [
         meta: { title: '초기 데이터' },
       },
       {
-        path: 'schedule/step5/:id',
+        path: 'schedule/step5/:scheduleKey',
         name: 'Step5',
         component: () => import('@/views/schedule/Step5Result.vue'),
         meta: { title: '결과 확인' },

@@ -5,6 +5,7 @@ import type { Shift } from './shift';
 // 기본 정보 (Step 1)
 export interface ScheduleBasicInfo {
   scheduleId?: string; // Schedule UUID (Step1에서 생성)
+  schedulePublicId?: string; // URL-safe public schedule key
   month: string; // "2025-12"
   organizationId: string; // UUID
   organizationName: string;
@@ -210,6 +211,9 @@ export interface ScheduleEvaluation {
 
 export interface ScheduleCompareResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   activeSolvingVersionId: string | null;
@@ -225,6 +229,9 @@ export interface CreateScheduleVersionRequest {
 
 export interface CreateScheduleVersionResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   createdVersionId: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
@@ -325,6 +332,9 @@ export interface DeleteScheduleMonthResponse {
 
 export interface ResetScheduleActiveFlowResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   activeSolvingVersionId: string | null;

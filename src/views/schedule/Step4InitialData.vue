@@ -70,18 +70,7 @@
         </div>
 
         <div class="relative flex-1 overflow-hidden">
-          <div
-            v-if="isStep4Initializing"
-            data-test="step4-initial-loading"
-            class="absolute inset-0 flex items-center justify-center bg-gray-50"
-          >
-            <div class="flex flex-col items-center gap-3 px-6 text-center text-sm text-gray-500">
-              <n-spin size="large" />
-              <p>초기 입력 데이터를 불러오는 중입니다.</p>
-            </div>
-          </div>
           <n-spin
-            v-else
             :show="grid.loading.value"
             class="h-full"
           >
@@ -183,6 +172,7 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import {
   createPhase2ScheduleVersion,
   ensurePhase2Schedule,
@@ -199,7 +189,11 @@ import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
-import { buildStep5Route, resolveStep4VersionState } from '@/utils/scheduleVersionResolver';
+import {
+  buildStep5Route,
+  getDefaultStep5FocusVersionId,
+  resolveStep4VersionState,
+} from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
 import type { AssignmentMap, CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
 import {
@@ -217,9 +211,9 @@ const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
+const solverRequestBuilder = useScheduleSolverRequest();
 
 const isSubmitting = ref(false);
-const isStep4Initializing = ref(true);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
 const isReturningToDashboard = ref(false);
@@ -244,8 +238,10 @@ type PreferenceSnapshot = {
 
 type BaselineState = {
   scheduleId: string;
+  schedulePublicId: string;
   previewVersionId: string;
   selectedVersionId: string | null;
+  defaultRouteFocusVersionId: string | null;
   hasCurrentMonthAssignments: boolean;
 };
 
@@ -720,6 +716,14 @@ function arePreferenceSnapshotsEqual(left: PreferenceSnapshot, right: Preference
   );
 }
 
+function areConstraintSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return serializeConstraintMap(left.constraints) === serializeConstraintMap(right.constraints);
+}
+
+function areNoteSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return serializeCommentMap(left.notes) === serializeCommentMap(right.notes);
+}
+
 function countChangedEntries<T extends string>(left: Record<string, Record<string, T>>, right: Record<string, Record<string, T>>): number {
   const employeeIds = new Set([...Object.keys(left), ...Object.keys(right)]);
   let changedCount = 0;
@@ -858,6 +862,7 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
       organizationId: scheduleStore.basicInfo.organizationId,
       month: scheduleStore.basicInfo.month,
     });
+    const schedulePublicId = compareResponse.schedulePublicId ?? compareResponse.scheduleId;
 
     const resolvedState = resolveStep4VersionState(compareResponse, preferredPreviewVersionId);
 
@@ -868,6 +873,7 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
       scheduleId: compareResponse.scheduleId,
+      schedulePublicId,
     });
     scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
     scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
@@ -876,8 +882,10 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
 
     baselineState.value = createBaselineState({
       scheduleId: compareResponse.scheduleId,
+      schedulePublicId,
       previewVersionId: resolvedState.previewVersionId,
       selectedVersionId: resolvedState.selectedVersionId,
+      defaultRouteFocusVersionId: getDefaultStep5FocusVersionId(compareResponse),
       hasCurrentMonthAssignments: hasCurrentMonthAssignments(
         assignmentData.assignments,
         scheduleStore.basicInfo.month
@@ -896,40 +904,30 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
   }
 }
 
-async function initializeStep4(forceRefresh = false) {
-  isStep4Initializing.value = true;
-
+// Lifecycle
+onMounted(async () => {
   if (!scheduleStore.basicInfo) {
     router.push('/schedule/step1');
     return;
   }
 
-  try {
-    if (!orgStore.current || orgStore.employees.length === 0) {
-      const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
-      if (!loadResult.success) {
-        baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
-        showError(baselineErrorMessage.value);
-        return;
-      }
-    }
-    grid.employees.value = orgStore.employees;
-    if (grid.employees.value.length === 0) {
-      baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+  if (!orgStore.current || orgStore.employees.length === 0) {
+    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    if (!loadResult.success) {
+      baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
       showError(baselineErrorMessage.value);
       return;
     }
-    grid.generateDates(scheduleStore.basicInfo.month, 0);
-    ensureEmployeeMaps();
-    await restoreData(forceRefresh);
-  } finally {
-    isStep4Initializing.value = false;
   }
-}
-
-// Lifecycle
-onMounted(async () => {
-  await initializeStep4();
+  grid.employees.value = orgStore.employees;
+  if (grid.employees.value.length === 0) {
+    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+    showError(baselineErrorMessage.value);
+    return;
+  }
+  grid.generateDates(scheduleStore.basicInfo.month, 0);
+  ensureEmployeeMaps();
+  await restoreData();
 });
 
 async function restoreData(forceRefresh = false) {
@@ -1049,7 +1047,7 @@ async function restoreData(forceRefresh = false) {
 }
 
 async function handleRetryBaseline() {
-  await initializeStep4(true);
+  await restoreData(true);
 }
 
 // Actions
@@ -1154,28 +1152,119 @@ async function handleNext() {
     const currentSnapshot = getCurrentPreferenceSnapshot();
     const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
     const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
+    const hasConstraintChanges = !areConstraintSnapshotsEqual(baselineSnapshot, currentSnapshot);
+    const hasNoteChanges = !areNoteSnapshotsEqual(baselineSnapshot, currentSnapshot);
 
     if (!hasStep4Changes) {
       scheduleStore.currentStep = 5;
       router.push(
         buildStep5Route(
-          baseline.scheduleId,
+          baseline.schedulePublicId ?? baseline.scheduleId,
           baseline.previewVersionId,
           undefined,
           {
             autoStart: shouldAutoStartSolver,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
           }
         )
       );
       return;
     }
 
+    if (!hasConstraintChanges) {
+      if (hasNoteChanges) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          baseline.previewVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+      }
+
+      setBaselinePreferenceSnapshot(baseline.previewVersionId, currentSnapshot);
+      scheduleStore.currentStep = 5;
+      router.push(
+        buildStep5Route(
+          baseline.schedulePublicId ?? baseline.scheduleId,
+          baseline.previewVersionId,
+          undefined,
+          {
+            autoStart: shouldAutoStartSolver,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
+          }
+        )
+      );
+      return;
+    }
+
+    const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
+      basicInfo: {
+        ...scheduleStore.basicInfo!,
+        scheduleId: baseline.scheduleId,
+      },
+      scheduleId: baseline.scheduleId,
+      versionId: baseline.previewVersionId,
+      constraints: constraints.value,
+      siteRequirements: scheduleStore.siteRequirements,
+      shifts: orgStore.shifts,
+      lastMonthDays: 5,
+      siteId: orgStore.foundationSite?.id ?? null,
+      onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
+    });
+
     const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
       baseVersionId: baseline.previewVersionId,
       name: null,
       sourceType: 're_solve',
       inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
+      inputSnapshot,
     });
+
+    if (!createResponse.wasCreated) {
+      const nextSchedulePublicId =
+        createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+      const reusedAssignmentData = await getScheduleVersionAssignments(createResponse.createdVersionId);
+      const reusedHasCurrentMonthAssignments = hasCurrentMonthAssignments(
+        reusedAssignmentData.assignments,
+        scheduleStore.basicInfo!.month
+      );
+
+      if (hasNoteChanges) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          createResponse.createdVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+      }
+
+      scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+      scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+      baselineState.value = createBaselineState({
+        scheduleId: baseline.scheduleId,
+        schedulePublicId: nextSchedulePublicId,
+        previewVersionId: createResponse.createdVersionId,
+        selectedVersionId: createResponse.selectedVersionId,
+        defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+        hasCurrentMonthAssignments: reusedHasCurrentMonthAssignments,
+      });
+      setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
+      scheduleStore.currentStep = 5;
+      router.push(
+        buildStep5Route(
+          nextSchedulePublicId,
+          createResponse.createdVersionId,
+          [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+            (versionId): versionId is string => !!versionId
+          ),
+          {
+            autoStart: !reusedHasCurrentMonthAssignments,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
+          }
+        )
+      );
+      return;
+    }
 
     await saveScheduleVersionPreferences(
       baseline.scheduleId,
@@ -1191,23 +1280,28 @@ async function handleNext() {
 
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+    const nextSchedulePublicId =
+      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
     baselineState.value = createBaselineState({
       scheduleId: baseline.scheduleId,
+      schedulePublicId: nextSchedulePublicId,
       previewVersionId: createResponse.createdVersionId,
       selectedVersionId: createResponse.selectedVersionId,
+      defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
       hasCurrentMonthAssignments: false,
     });
     setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
     scheduleStore.currentStep = 5;
     router.push(
       buildStep5Route(
-        baseline.scheduleId,
+        nextSchedulePublicId,
         createResponse.createdVersionId,
         [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
           (versionId): versionId is string => !!versionId
         ),
         {
           autoStart: shouldAutoStartSolver,
+          defaultVersionId: baseline.defaultRouteFocusVersionId,
         }
       )
     );

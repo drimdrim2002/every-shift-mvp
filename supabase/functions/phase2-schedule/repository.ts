@@ -54,6 +54,7 @@ type DbQueryResult<T> = { data: T | null; error: DbError | null };
 
 interface ScheduleRow {
   id: string;
+  public_id: string;
   organization_id: string;
   month: string;
   status: string | null;
@@ -265,7 +266,10 @@ const EMPTY_BOOTSTRAP_COUNTS: BootstrapSnapshotCounts = {
   lockedAssignmentCount: 0,
 };
 
-const SCHEDULE_UNIQUE_CONSTRAINTS = ['schedules_organization_id_month_key'];
+const SCHEDULE_UNIQUE_CONSTRAINTS = [
+  'schedules_organization_id_month_key',
+  'schedules_public_id_key',
+];
 const VERSION_UNIQUE_CONSTRAINTS = ['schedule_versions_schedule_id_version_no_key'];
 const EVALUATION_VERSION_REVISION_UNIQUE_CONSTRAINTS = [
   'idx_schedule_evaluations_version_revision',
@@ -1239,6 +1243,26 @@ async function loadScheduleById(
   return maybeSingle<ScheduleRow>(client.from('schedules').select('*').eq('id', scheduleId));
 }
 
+async function loadScheduleByPublicId(
+  client: Phase2ScheduleRepositoryClient,
+  schedulePublicId: string
+): Promise<ScheduleRow | null> {
+  return maybeSingle<ScheduleRow>(
+    client.from('schedules').select('*').eq('public_id', schedulePublicId)
+  );
+}
+
+async function loadScheduleByKey(
+  client: Phase2ScheduleRepositoryClient,
+  scheduleKey: string
+): Promise<ScheduleRow | null> {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scheduleKey)) {
+    return loadScheduleById(client, scheduleKey);
+  }
+
+  return loadScheduleByPublicId(client, scheduleKey);
+}
+
 async function loadScheduleByOrgMonth(
   client: Phase2ScheduleRepositoryClient,
   organizationId: string,
@@ -1527,41 +1551,51 @@ async function ensureScheduleContainer(
     };
   }
 
-  try {
-    const insertedSchedule = await single<ScheduleRow>(
-      client
-        .from('schedules')
-        .insert({
-          organization_id: request.organizationId,
-          month: request.month,
-          status: 'created',
-          selected_version_id: null,
-          finalized_version_id: null,
-          latest_version_no: 0,
-        })
-        .select()
-    );
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const insertedSchedule = await single<ScheduleRow>(
+        client
+          .from('schedules')
+          .insert({
+            organization_id: request.organizationId,
+            month: request.month,
+            status: 'created',
+            selected_version_id: null,
+            finalized_version_id: null,
+            latest_version_no: 0,
+          })
+          .select()
+      );
 
-    return {
-      schedule: insertedSchedule,
-      existedBeforeRequest: false,
-    };
-  } catch (error: unknown) {
-    if (!isUniqueViolation(error, SCHEDULE_UNIQUE_CONSTRAINTS, ['organization_id', 'month'])) {
-      throw error;
+      return {
+        schedule: insertedSchedule,
+        existedBeforeRequest: false,
+      };
+    } catch (error: unknown) {
+      if (!isUniqueViolation(error, SCHEDULE_UNIQUE_CONSTRAINTS, ['organization_id', 'month'])) {
+        throw error;
+      }
+
+      const recoveredSchedule = await loadScheduleByOrgMonth(
+        client,
+        request.organizationId,
+        request.month
+      );
+
+      if (recoveredSchedule) {
+        return {
+          schedule: recoveredSchedule,
+          existedBeforeRequest: true,
+        };
+      }
+
+      if (!isUniqueViolation(error, ['schedules_public_id_key'], ['public_id']) || attempt === 2) {
+        throw error;
+      }
     }
-
-    const recoveredSchedule = await loadScheduleByOrgMonth(client, request.organizationId, request.month);
-
-    if (!recoveredSchedule) {
-      throw error;
-    }
-
-    return {
-      schedule: recoveredSchedule,
-      existedBeforeRequest: true,
-    };
   }
+
+  throw new Error('Failed to create schedule container');
 }
 
 async function ensureBootstrapVersion(
@@ -1646,6 +1680,9 @@ async function buildCompareResponse(
 
   return {
     scheduleId: schedule.id,
+    schedulePublicId: schedule.public_id,
+    organizationId: schedule.organization_id,
+    month: schedule.month,
     selectedVersionId: schedule.selected_version_id,
     finalizedVersionId: schedule.finalized_version_id,
     activeSolvingVersionId: solvingVersions[0]?.id ?? null,
@@ -1659,6 +1696,21 @@ async function loadAuthorizedSchedule(
   scheduleId: string
 ): Promise<ScheduleRow> {
   const schedule = await loadScheduleById(client, scheduleId);
+
+  if (!schedule) {
+    throw new ContractError('schedule_not_found', 'Schedule not found', 404);
+  }
+
+  assertOrganizationAccess(auth, schedule);
+  return schedule;
+}
+
+async function loadAuthorizedScheduleByKey(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  scheduleKey: string
+): Promise<ScheduleRow> {
+  const schedule = await loadScheduleByKey(client, scheduleKey);
 
   if (!schedule) {
     throw new ContractError('schedule_not_found', 'Schedule not found', 404);
@@ -1978,9 +2030,9 @@ export async function ensure(
 export async function compare(
   client: Phase2ScheduleRepositoryClient,
   auth: Phase2ScheduleAuthContext,
-  scheduleId: string
+  scheduleKey: string
 ): Promise<CompareResponse> {
-  const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
+  const schedule = await loadAuthorizedScheduleByKey(client, auth, scheduleKey);
   return buildCompareResponse(client, schedule);
 }
 

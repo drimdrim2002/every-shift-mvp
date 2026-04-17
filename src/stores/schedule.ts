@@ -47,6 +47,10 @@ function isScheduleBasicInfo(value: unknown): value is ScheduleBasicInfo {
     return false;
   }
 
+  if (record.schedulePublicId !== undefined && typeof record.schedulePublicId !== 'string') {
+    return false;
+  }
+
   return (
     typeof record.month === 'string' &&
     typeof record.organizationId === 'string' &&
@@ -161,6 +165,7 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   // scheduleId computed getter
   const scheduleId = computed(() => basicInfo.value?.scheduleId ?? null);
+  const schedulePublicId = computed(() => basicInfo.value?.schedulePublicId ?? null);
   const activeAuthScope = ref<AuthScope | null>(null);
   const hasInitializedAuthScope = ref(false);
 
@@ -380,6 +385,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     isExcelUpload,
     isExcelUploadMode,
     scheduleId,
+    schedulePublicId,
     selectedVersionId,
     previewVersionId,
     versions,

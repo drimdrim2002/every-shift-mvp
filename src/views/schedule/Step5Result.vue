@@ -460,7 +460,7 @@ import {
   buildPrimaryActionSupportCopy,
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
-import { buildStep5Route } from '@/utils/scheduleVersionResolver';
+import { buildCanonicalStep5Route } from '@/utils/scheduleVersionResolver';
 import {
   buildRollingHistoryWindow,
   mergeAssignmentMapsWithFallback,
@@ -491,11 +491,19 @@ const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
-const routeScheduleId = computed(() => {
-  const paramId = route.params.id;
+const routeScheduleKey = computed(() => {
+  const paramId = route.params.scheduleKey;
   return typeof paramId === 'string' && paramId.length > 0 ? paramId : null;
 });
-const scheduleId = computed(() => routeScheduleId.value ?? scheduleStore.basicInfo?.scheduleId ?? null);
+const scheduleId = computed(() => scheduleStore.basicInfo?.scheduleId ?? null);
+const scheduleRouteKey = computed(() => {
+  return (
+    scheduleStore.basicInfo?.schedulePublicId
+    ?? routeScheduleKey.value
+    ?? scheduleStore.basicInfo?.scheduleId
+    ?? null
+  );
+});
 const previewVersionId = computed(() => hub.previewVersionId.value);
 const selectedVersionId = computed(() => hub.selectedVersionId.value);
 const compareVersionIds = computed(() => hub.compareVersionIds.value);
@@ -550,14 +558,32 @@ function getRequestedPreviewVersionId(): string | null {
     : null;
 }
 
-function syncScheduleIdToStore(nextScheduleId: string) {
-  if (!scheduleStore.basicInfo || scheduleStore.basicInfo.scheduleId === nextScheduleId) {
+function hasTransientStep5RouteState(): boolean {
+  const routeQueryCompare = route.query.compare;
+  const hasCompareQuery = typeof routeQueryCompare === 'string'
+    ? routeQueryCompare.length > 0
+    : Array.isArray(routeQueryCompare) && routeQueryCompare.length > 0;
+
+  return getRequestedPreviewVersionId() !== null || hasCompareQuery;
+}
+
+function syncScheduleContextToStore(nextScheduleId: string, nextSchedulePublicId?: string | null) {
+  if (!scheduleStore.basicInfo) {
+    return;
+  }
+
+  if (
+    scheduleStore.basicInfo.scheduleId === nextScheduleId &&
+    (nextSchedulePublicId === undefined
+      || scheduleStore.basicInfo.schedulePublicId === nextSchedulePublicId)
+  ) {
     return;
   }
 
   scheduleStore.setBasicInfo({
     ...scheduleStore.basicInfo,
     scheduleId: nextScheduleId,
+    schedulePublicId: nextSchedulePublicId ?? scheduleStore.basicInfo.schedulePublicId,
   });
 }
 
@@ -568,8 +594,54 @@ function ensureScheduleId(): string {
     throw new Error('스케줄 ID를 확인할 수 없습니다. Step4부터 다시 시도해주세요.');
   }
 
-  syncScheduleIdToStore(currentScheduleId);
+  syncScheduleContextToStore(currentScheduleId);
   return currentScheduleId;
+}
+
+function ensureScheduleRouteKey(): string {
+  const currentScheduleRouteKey = scheduleRouteKey.value;
+
+  if (!currentScheduleRouteKey) {
+    throw new Error('스케줄 URL 키를 확인할 수 없습니다. Step5를 다시 불러주세요.');
+  }
+
+  return currentScheduleRouteKey;
+}
+
+function syncBasicInfoFromOrganizationStore() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo) {
+    return;
+  }
+
+  const organizationEmployees = Array.isArray(organizationStore.employees)
+    ? organizationStore.employees
+    : [];
+  const organizationShifts = Array.isArray(organizationStore.shifts)
+    ? organizationStore.shifts
+    : [];
+
+  const nextBasicInfo = {
+    ...basicInfo,
+    organizationName: organizationStore.current?.name ?? basicInfo.organizationName,
+    organizationType: organizationStore.current?.type ?? basicInfo.organizationType,
+    employeeCount:
+      organizationEmployees.length > 0
+        ? organizationEmployees.length
+        : basicInfo.employeeCount,
+    shifts: organizationShifts.length > 0 ? organizationShifts : basicInfo.shifts,
+  };
+
+  if (
+    nextBasicInfo.organizationName === basicInfo.organizationName &&
+    nextBasicInfo.organizationType === basicInfo.organizationType &&
+    nextBasicInfo.employeeCount === basicInfo.employeeCount &&
+    nextBasicInfo.shifts === basicInfo.shifts
+  ) {
+    return;
+  }
+
+  scheduleStore.setBasicInfo(nextBasicInfo);
 }
 
 interface ScheduleStatusRow {
@@ -1559,7 +1631,7 @@ async function consumeRouteAutoStart() {
   }
 
   await router.replace(
-    buildStep5Route(targetScheduleId, targetPreviewVersionId, compareVersionIds.value)
+    buildCanonicalStep5Route(ensureScheduleRouteKey())
   );
 
   if (isStartingSolver.value || solver.status.value === 'running') {
@@ -1724,14 +1796,18 @@ async function loadStep5InitialData() {
   isInitialLoading.value = true;
   initialLoadErrorMessage.value = null;
 
-  if (!scheduleStore.basicInfo) {
+  if (!scheduleStore.basicInfo && !routeScheduleKey.value) {
     router.push('/schedule/step1');
     return;
   }
 
   try {
     await hub.hydrate();
+    if (!scheduleStore.basicInfo) {
+      throw new Error('Step5에 필요한 스케줄 컨텍스트를 복원하지 못했습니다.');
+    }
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    syncBasicInfoFromOrganizationStore();
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);
     await loadPreviousMonthFallback();
@@ -1924,9 +2000,12 @@ async function syncComparisonWorkspace(
   nextCompareVersionIds: string[]
 ) {
   await router.replace(
-    buildStep5Route(ensureScheduleId(), focusVersionId, nextCompareVersionIds)
+    buildCanonicalStep5Route(ensureScheduleRouteKey())
   );
-  await hub.hydrate();
+  await hub.hydrate({
+    requestedFocusVersionId: focusVersionId,
+    requestedCompareVersionIds: nextCompareVersionIds,
+  });
 }
 
 function buildNextCompareVersionIds(versionId: string): string[] {
@@ -2207,7 +2286,6 @@ function handleSave() {
     return;
   }
   const targetVersionId = previewVersionId.value;
-  const targetScheduleId = ensureScheduleId();
 
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
@@ -2261,8 +2339,10 @@ function handleSave() {
           changes,
         });
 
-        if (getRequestedPreviewVersionId() !== targetVersionId) {
-          await router.replace(buildStep5Route(targetScheduleId, targetVersionId));
+        if (hasTransientStep5RouteState()) {
+          await router.replace(
+            buildCanonicalStep5Route(ensureScheduleRouteKey())
+          );
         }
 
         await hub.hydrate();
@@ -2405,6 +2485,7 @@ async function handleDeleteMonthSchedule() {
         scheduleStore.setBasicInfo({
           ...basicInfo,
           scheduleId: undefined,
+          schedulePublicId: undefined,
         });
         scheduleStore.resetReviewState();
         scheduleStore.setAssignments({});

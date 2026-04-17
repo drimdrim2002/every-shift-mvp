@@ -160,6 +160,7 @@ describe('Dashboard', () => {
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -206,7 +207,7 @@ describe('Dashboard', () => {
           key: 'schedule_review',
           title: '최종 검토 진입',
           status: 'ready',
-          route: '/schedule/step5/schedule-123',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
           blockedReason: null,
         },
       ],
@@ -222,6 +223,9 @@ describe('Dashboard', () => {
     ])
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',
+      schedulePublicId: 'sch_a1b2c3d4e5f6',
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -283,6 +287,7 @@ describe('Dashboard', () => {
     await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
       .handleViewSchedule({
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -293,15 +298,47 @@ describe('Dashboard', () => {
       })
     await flushPromises()
 
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-123',
-      query: {
-        version: 'version-2',
-      },
+      path: '/schedule/step5/sch_a1b2c3d4e5f6',
     })
+  })
+
+  it('falls back to the legacy uuid route key when a public id is unavailable', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      {
+        id: 'schedule-legacy',
+        public_id: null,
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
+      .handleViewSchedule({
+        id: 'schedule-legacy',
+        public_id: null,
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-legacy')
   })
 
   it('blocks navigation and shows an error when compare fails', async () => {
@@ -313,6 +350,7 @@ describe('Dashboard', () => {
     await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
       .handleViewSchedule({
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -323,14 +361,11 @@ describe('Dashboard', () => {
       })
     await flushPromises()
 
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
-    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/schedule-123')
+    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/sch_a1b2c3d4e5f6')
     expect(pushMock).not.toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-123',
-      query: {
-        version: 'version-2',
-      },
+      path: '/schedule/step5/sch_a1b2c3d4e5f6',
     })
   })
 
@@ -578,6 +613,8 @@ describe('Dashboard', () => {
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-schedule_review"]').trigger('click')
     await flushPromises()
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step5/schedule-123')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/sch_a1b2c3d4e5f6',
+    })
   })
 })

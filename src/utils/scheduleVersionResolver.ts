@@ -41,7 +41,22 @@ function getCanonicalCompareVersionIds(
 export function getDefaultScheduleVersionId(
   versions: ScheduleVersionSummary[]
 ): string | null {
-  return versions.find((version) => version.versionNo === 1)?.id ?? null;
+  return versions[0]?.id ?? null;
+}
+
+export function getDefaultStep5FocusVersionId(compare: Pick<
+  ScheduleCompareResponse,
+  'versions' | 'selectedVersionId' | 'finalizedVersionId'
+>): string | null {
+  if (hasVersionId(compare.versions, compare.finalizedVersionId)) {
+    return compare.finalizedVersionId;
+  }
+
+  if (hasVersionId(compare.versions, compare.selectedVersionId)) {
+    return compare.selectedVersionId;
+  }
+
+  return getDefaultScheduleVersionId(compare.versions);
 }
 
 export function resolveStep4VersionState(compare: ScheduleCompareResponse): {
@@ -90,6 +105,7 @@ export interface Step5QueryState {
 }
 
 export interface ResolvedStep5VersionState {
+  defaultPreviewVersionId: string | null;
   selectedVersionId: string | null;
   previewVersionId: string | null;
   compareVersionIds: string[];
@@ -128,13 +144,16 @@ function resolvePreferredCompareVersionIds(args: {
     args.requestedCompareVersionIds.filter((versionId) => hasVersionId(args.compare.versions, versionId))
   );
 
-  if (requestedCompareVersionIds.length > 0) {
-    const canonicalCompareVersionIds = getCanonicalCompareVersionIds(
-      requestedCompareVersionIds,
-      args.resolvedFocusVersionId
-    );
+  if (!args.resolvedFocusVersionId || requestedCompareVersionIds.length === 0) {
+    return [];
+  }
 
-    return canonicalCompareVersionIds.length >= 2 ? canonicalCompareVersionIds : [];
+  const otherVersionId = requestedCompareVersionIds.find(
+    (versionId) => versionId !== args.resolvedFocusVersionId
+  );
+
+  if (otherVersionId) {
+    return [args.resolvedFocusVersionId, otherVersionId];
   }
 
   return [];
@@ -148,18 +167,15 @@ export function resolveStep5VersionState(
   const finalizedVersionId = hasVersionId(compare.versions, compare.finalizedVersionId)
     ? compare.finalizedVersionId
     : null;
+  const defaultFocusVersionId = getDefaultStep5FocusVersionId(compare);
   let previewVersionId = finalizedVersionId;
 
   if (!previewVersionId && hasVersionId(compare.versions, normalizedQuery.requestedFocusVersionId)) {
     previewVersionId = normalizedQuery.requestedFocusVersionId;
   }
 
-  if (!previewVersionId && hasVersionId(compare.versions, compare.selectedVersionId)) {
-    previewVersionId = compare.selectedVersionId;
-  }
-
   if (!previewVersionId) {
-    previewVersionId = getDefaultScheduleVersionId(compare.versions);
+    previewVersionId = defaultFocusVersionId;
   }
 
   const activeSolvingVersionId = hasVersionId(compare.versions, compare.activeSolvingVersionId)
@@ -171,33 +187,26 @@ export function resolveStep5VersionState(
     resolvedFocusVersionId: previewVersionId,
     finalizedVersionId,
   });
-  const requestedCompareVersionIds = normalizedQuery.requestedCompareVersionIds.filter(isNonEmptyString);
+  const requestedCompareVersionIds = normalizedQuery.requestedCompareVersionIds
+    .filter(isNonEmptyString);
   const validRequestedCompareVersionIds = dedupeVersionIds(
     requestedCompareVersionIds.filter((versionId) => hasVersionId(compare.versions, versionId))
   );
-  const shouldCanonicalize = (() => {
-    if (normalizedQuery.requestedFocusVersionId !== previewVersionId) {
-      return true;
+  const canonicalQuery = buildStep5RouteQuery(
+    previewVersionId,
+    compareVersionIds,
+    {
+      defaultVersionId: defaultFocusVersionId,
     }
-
-    if (requestedCompareVersionIds.length === 0) {
-      return normalizedQuery.requestedFocusVersionId === null;
-    }
-
-    if (requestedCompareVersionIds.length !== validRequestedCompareVersionIds.length) {
-      return true;
-    }
-
-    if (validRequestedCompareVersionIds.length !== compareVersionIds.length) {
-      return true;
-    }
-
-    return validRequestedCompareVersionIds.some(
-      (versionId, index) => compareVersionIds[index] !== versionId
-    );
-  })();
+  );
+  const shouldCanonicalize =
+    (normalizedQuery.requestedFocusVersionId ?? undefined) !== canonicalQuery.version
+    || requestedCompareVersionIds.length !== validRequestedCompareVersionIds.length
+    || validRequestedCompareVersionIds.length !== (canonicalQuery.compare ? 1 : 0)
+    || (canonicalQuery.compare ?? '') !== (validRequestedCompareVersionIds[0] ?? '');
 
   return {
+    defaultPreviewVersionId: defaultFocusVersionId,
     selectedVersionId: compare.selectedVersionId,
     previewVersionId,
     compareVersionIds,
@@ -233,42 +242,69 @@ export function resolveStep5RunningVersion(compare: ScheduleCompareResponse): {
 }
 
 export function buildStep5Route(
-  scheduleId: string,
+  scheduleKey: string,
   previewVersionId: string | null,
   compareVersionIds?: string[],
+  options?: { autoStart?: boolean; defaultVersionId?: string | null }
+) {
+  const query = buildStep5RouteQuery(previewVersionId, compareVersionIds, options);
+
+  return Object.keys(query).length > 0
+    ? {
+        path: `/schedule/step5/${scheduleKey}`,
+        query,
+      }
+    : {
+        path: `/schedule/step5/${scheduleKey}`,
+      };
+}
+
+export function buildCanonicalStep5Route(
+  scheduleKey: string,
   options?: { autoStart?: boolean }
 ) {
+  const query: Record<string, string> = {};
+
+  if (options?.autoStart) {
+    query.autoStart = '1';
+  }
+
+  return Object.keys(query).length > 0
+    ? {
+        path: `/schedule/step5/${scheduleKey}`,
+        query,
+      }
+    : {
+        path: `/schedule/step5/${scheduleKey}`,
+      };
+}
+
+function buildStep5RouteQuery(
+  previewVersionId: string | null,
+  compareVersionIds?: string[],
+  options?: { autoStart?: boolean; defaultVersionId?: string | null }
+): Record<string, string> {
   const canonicalCompareVersionIds = previewVersionId
     ? getCanonicalCompareVersionIds(compareVersionIds ?? [], previewVersionId)
     : dedupeVersionIds(compareVersionIds ?? []).slice(0, 2);
+  const query: Record<string, string> = {};
+  const isDefaultFocus =
+    previewVersionId === null || previewVersionId === (options?.defaultVersionId ?? null);
 
-  if (!previewVersionId) {
-    return canonicalCompareVersionIds.length > 1
-      ? {
-          path: `/schedule/step5/${scheduleId}`,
-          query: {
-            compare: canonicalCompareVersionIds.join(','),
-          },
-        }
-      : {
-        path: `/schedule/step5/${scheduleId}`,
-      };
+  if (previewVersionId && !isDefaultFocus) {
+    query.version = previewVersionId;
   }
 
-  const query: Record<string, string> = {
-    version: previewVersionId,
-  };
-
-  if (canonicalCompareVersionIds.length > 1) {
-    query.compare = canonicalCompareVersionIds.join(',');
+  const compareVersionId = previewVersionId
+    ? canonicalCompareVersionIds.find((versionId) => versionId !== previewVersionId) ?? null
+    : canonicalCompareVersionIds[0] ?? null;
+  if (compareVersionId) {
+    query.compare = compareVersionId;
   }
 
   if (options?.autoStart) {
     query.autoStart = '1';
   }
 
-  return {
-    path: `/schedule/step5/${scheduleId}`,
-    query,
-  };
+  return query;
 }

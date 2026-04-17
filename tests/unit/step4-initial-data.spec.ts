@@ -13,6 +13,7 @@ const {
   recheckPhase2ScheduleVersionMock,
   saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignmentsMock,
+  buildScheduleSolverRequestMock,
   showSuccessMock,
   showInfoMock,
   showErrorMock,
@@ -27,6 +28,7 @@ const {
   recheckPhase2ScheduleVersionMock: vi.fn(),
   saveScheduleVersionPreferencesMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
+  buildScheduleSolverRequestMock: vi.fn(),
   showSuccessMock: vi.fn(),
   showInfoMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -82,6 +84,7 @@ vi.mock('@/utils/message', () => ({
 const scheduleStoreMock = reactive({
   basicInfo: {
     scheduleId: undefined as string | undefined,
+    schedulePublicId: undefined as string | undefined,
     month: '2025-12',
     organizationId: 'org-1',
     organizationName: '서울병원',
@@ -169,6 +172,12 @@ vi.mock('@/composables/useScheduleGrid', () => ({
   useScheduleGrid: () => gridMock,
 }))
 
+vi.mock('@/composables/useScheduleSolverRequest', () => ({
+  useScheduleSolverRequest: () => ({
+    buildScheduleSolverRequest: buildScheduleSolverRequestMock,
+  }),
+}))
+
 vi.mock('@/components/schedule/StepIndicator.vue', () => ({
   default: { template: '<div />' },
 }))
@@ -187,16 +196,38 @@ vi.mock('@/components/schedule/DaySummaryModal.vue', () => ({
 
 import Step4InitialData from '@/views/schedule/Step4InitialData.vue'
 
-function createDeferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-
-  return { promise, resolve, reject }
+const inputSnapshot = {
+  solverInputHash: 'sha256:step4-solver-input',
+  solverInput: {
+    scheduleId: 'schedule-1',
+    organizationId: 'org-1',
+    siteId: null,
+    month: '2025-12',
+    lastMonthDays: 5,
+    employees: [],
+    assignments: [],
+    employeeConstraints: [
+      {
+        employeeId: 'emp-1',
+        date: '2025-12-01',
+        isLocked: false,
+      },
+    ],
+    hospitalRules: {
+      organizationType: 'hospital',
+      shifts: [],
+      lastHistoricalDate: '2025-11-26',
+      firstDraftDate: '2025-12-01',
+      publishLength: 4,
+      draftLength: 31,
+    },
+    monthlyRequirements: [],
+  },
+  generatorVersion: 'test-generator',
+  createdAt: '2026-04-16T00:00:00.000Z',
 }
+
+const SCHEDULE_PUBLIC_ID = 'sch_a1b2c3d4e5f6'
 
 function createWrapper() {
   return mount(Step4InitialData, {
@@ -220,6 +251,7 @@ describe('Step4InitialData', () => {
 
     scheduleStoreMock.basicInfo = {
       scheduleId: undefined,
+      schedulePublicId: undefined,
       month: '2025-12',
       organizationId: 'org-1',
       organizationName: '서울병원',
@@ -265,6 +297,9 @@ describe('Step4InitialData', () => {
 
     ensurePhase2ScheduleMock.mockResolvedValue({
       scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -347,9 +382,17 @@ describe('Step4InitialData', () => {
     })
     saveScheduleVersionPreferencesMock.mockResolvedValue(undefined)
     deleteThisMonthVersionAssignmentsMock.mockResolvedValue(undefined)
+    buildScheduleSolverRequestMock.mockResolvedValue({
+      solverRequest: {},
+      inputSnapshot,
+    })
     createPhase2ScheduleVersionMock.mockResolvedValue({
       scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
       createdVersionId: 'version-3',
+      wasCreated: true,
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
       versions: [],
@@ -385,83 +428,8 @@ describe('Step4InitialData', () => {
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
   })
 
-  it('shows a dedicated initial loading placeholder until Step4 restore completes', async () => {
-    const deferredEnsure = createDeferred<{
-      scheduleId: string
-      selectedVersionId: string | null
-      finalizedVersionId: string | null
-      activeSolvingVersionId: string | null
-      versions: Array<Record<string, unknown>>
-    }>()
-
-    ensurePhase2ScheduleMock.mockImplementationOnce(() => deferredEnsure.promise)
-
-    const wrapper = createWrapper()
-
-    expect(wrapper.find('[data-test="step4-initial-loading"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('직원 데이터 또는 날짜 데이터가 없습니다.')
-
-    deferredEnsure.resolve({
-      scheduleId: 'schedule-1',
-      selectedVersionId: 'version-2',
-      finalizedVersionId: null,
-      activeSolvingVersionId: null,
-      versions: [
-        {
-          id: 'version-1',
-          scheduleId: 'schedule-1',
-          versionNo: 1,
-          name: 'V1',
-          sourceType: 'initial_solve',
-          baseVersionId: null,
-          status: 'draft',
-          currentRevision: 1,
-          manualEditCount: 0,
-          inputDiffSummary: {
-            changedOffRequests: 0,
-            changedLockedAssignments: 0,
-            changedSiteRequirements: 0,
-            note: null,
-          },
-          latestEvaluationId: null,
-          latestEvaluationResultStatus: null,
-          comparisonMetrics: null,
-          finalizationGate: null,
-          isSelected: false,
-          isFinalized: false,
-        },
-        {
-          id: 'version-2',
-          scheduleId: 'schedule-1',
-          versionNo: 2,
-          name: 'V2',
-          sourceType: 're_solve',
-          baseVersionId: 'version-1',
-          status: 'review_ready',
-          currentRevision: 2,
-          manualEditCount: 0,
-          inputDiffSummary: {
-            changedOffRequests: 0,
-            changedLockedAssignments: 0,
-            changedSiteRequirements: 0,
-            note: null,
-          },
-          latestEvaluationId: null,
-          latestEvaluationResultStatus: null,
-          comparisonMetrics: null,
-          finalizationGate: null,
-          isSelected: true,
-          isFinalized: false,
-        },
-      ],
-    })
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="step4-initial-loading"]').exists()).toBe(false)
-  })
-
   it('shows policy rejection reasons while keeping Step4 request rows visible', async () => {
-    getScheduleVersionPreferencesMock.mockResolvedValueOnce({
+    getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {
         'emp-1': {
           '2025-12-01': 'O',
@@ -659,16 +627,16 @@ describe('Step4InitialData', () => {
     expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
     expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-2',
-      },
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     })
   })
 
   it('shows the direct AI-generate label instead of result-check when no solver run history exists', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: null,
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -724,6 +692,9 @@ describe('Step4InitialData', () => {
   it('adds autoStart to the Step5 route when the first run starts from Step4', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: null,
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -762,9 +733,8 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
-        version: 'version-1',
         autoStart: '1',
       },
     })
@@ -797,7 +767,26 @@ describe('Step4InitialData', () => {
         changedSiteRequirements: 0,
         note: null,
       },
+      inputSnapshot,
     })
+    expect(buildScheduleSolverRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basicInfo: expect.objectContaining({
+          scheduleId: 'schedule-1',
+          month: '2025-12',
+          organizationId: 'org-1',
+        }),
+        versionId: 'version-2',
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+          'emp-2': {},
+        },
+        lastMonthDays: 5,
+        siteId: null,
+      })
+    )
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
       'schedule-1',
       'version-3',
@@ -819,19 +808,227 @@ describe('Step4InitialData', () => {
     )
     expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalledWith('version-3')
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-1',
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
         version: 'version-3',
-        compare: 'version-3,version-2',
+        compare: 'version-2',
       },
     })
     expect(wrapper.text()).toContain('근무표 생성(AI)')
     expect(wrapper.text()).not.toContain('결과 확인으로 이동')
   })
 
+  it('saves note-only changes onto the current preview version without creating a new version', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {},
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          shift_code: 'O',
+          request_note: null,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleContextMenu({
+      event: new MouseEvent('contextmenu'),
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+    })
+    await flushPromises()
+
+    wrapper.vm.handleSaveComment('연차')
+    await flushPromises()
+
+    await wrapper.vm.handleNext()
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(buildScheduleSolverRequestMock).not.toHaveBeenCalled()
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+        'emp-2': {},
+      }
+    )
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+    })
+  })
+
+  it('routes to an existing snapshot-matched version without rewriting assignments', async () => {
+    createPhase2ScheduleVersionMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      createdVersionId: 'version-existing',
+      wasCreated: false,
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [],
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-existing'
+        ? {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          }
+        : versionId === 'version-2'
+          ? {
+              'emp-1': {
+                '2025-12-01': 'D',
+              },
+            }
+          : {},
+      offReasons: {},
+      comments: {},
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith(
+      'schedule-1',
+      expect.objectContaining({
+        inputSnapshot,
+      })
+    )
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalledWith(
+      'schedule-1',
+      'version-existing',
+      expect.any(Object),
+      expect.any(Object)
+    )
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalledWith(
+      'schedule-1',
+      'version-existing',
+      '2025-12'
+    )
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-existing')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        version: 'version-existing',
+        compare: 'version-2',
+      },
+    })
+  })
+
+  it('persists note changes onto a reused snapshot-matched version without deleting assignments', async () => {
+    createPhase2ScheduleVersionMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      createdVersionId: 'version-existing',
+      wasCreated: false,
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [],
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-existing'
+        ? {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          }
+        : versionId === 'version-2'
+          ? {
+              'emp-1': {
+                '2025-12-01': 'D',
+              },
+            }
+          : {},
+      offReasons: {},
+      comments: {},
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await wrapper.vm.handleContextMenu({
+      event: new MouseEvent('contextmenu'),
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+    })
+    await flushPromises()
+
+    wrapper.vm.handleSaveComment('연차')
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-existing',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+        'emp-2': {},
+      }
+    )
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalledWith(
+      'schedule-1',
+      'version-existing',
+      '2025-12'
+    )
+  })
+
   it('keeps selected unset and restores preview from the single available V1 when selection is missing', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-2',
+      schedulePublicId: 'sch_b1b2c3d4e5f6',
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: null,
       finalizedVersionId: null,
       activeSolvingVersionId: null,

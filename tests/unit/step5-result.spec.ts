@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const routeMock = reactive({
   params: {
-    id: 'schedule-1',
+    scheduleKey: 'schedule-1',
   },
   query: {} as Record<string, string | undefined>,
 })
@@ -130,6 +130,7 @@ vi.mock('@/api/supabase', () => ({
 const scheduleStoreMock = reactive({
   basicInfo: {
     scheduleId: 'schedule-1',
+    schedulePublicId: undefined as string | undefined,
     month: '2025-12',
     organizationId: 'org-1',
     organizationName: '서울병원',
@@ -363,19 +364,20 @@ describe('Step5Result', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    routeMock.params.id = 'schedule-1'
+    routeMock.params.scheduleKey = 'schedule-1'
     routeMock.query = {}
     replaceMock.mockImplementation(async (location: { path?: string; query?: Record<string, string> }) => {
       const nextPath = location.path ?? ''
       const pathParts = nextPath.split('/')
       const nextId = pathParts.at(-1)
       if (nextId) {
-        routeMock.params.id = nextId
+        routeMock.params.scheduleKey = nextId
       }
       routeMock.query = location.query ?? {}
     })
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-1',
+      schedulePublicId: undefined,
       month: '2025-12',
       organizationId: 'org-1',
       organizationName: '서울병원',
@@ -611,7 +613,9 @@ describe('Step5Result', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-1')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
-    expect(replaceMock).not.toHaveBeenCalled()
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: '/schedule/step5/schedule-1',
+    })
   })
 
   it('self-heals legacy Step5 URLs without a preview query', async () => {
@@ -2174,9 +2178,6 @@ describe('Step5Result', () => {
 
     expect(replaceMock).toHaveBeenCalledWith({
       path: '/schedule/step5/schedule-1',
-      query: {
-        version: 'version-1',
-      },
     })
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
     expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})

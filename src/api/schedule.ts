@@ -91,6 +91,7 @@ interface RawScopedSchedulePreference extends RawSchedulePreference {
 
 export interface ScheduleSummary {
   id: string;
+  public_id: string | null;
   organization_id: string;
   month: string;
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -313,8 +314,8 @@ export async function ensurePhase2Schedule(
   });
 }
 
-export async function getPhase2ScheduleCompare(scheduleId: string): Promise<ScheduleCompareResponse> {
-  return callPhase2Schedule<ScheduleCompareResponse>(`/schedules/${scheduleId}/compare`, {
+export async function getPhase2ScheduleCompare(scheduleKey: string): Promise<ScheduleCompareResponse> {
+  return callPhase2Schedule<ScheduleCompareResponse>(`/schedules/${scheduleKey}/compare`, {
     method: 'GET',
   });
 }
@@ -513,7 +514,7 @@ export async function getLatestScheduleByOrganizationMonth(
 ): Promise<ScheduleSummary | null> {
   const { data, error } = await supabase
     .from('schedules')
-    .select('id, organization_id, month, status, hard_score, soft_score, solver_execution_id, created_at, updated_at')
+    .select('id, public_id, organization_id, month, status, hard_score, soft_score, solver_execution_id, created_at, updated_at')
     .eq('organization_id', orgId)
     .eq('month', month)
     .order('created_at', { ascending: false })

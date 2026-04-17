@@ -123,6 +123,7 @@ interface SiteRequirementRow {
 
 interface ScheduleRow {
   id: string;
+  public_id: string | null;
   organization_id: string;
   month: string;
   finalized_version_id: string | null;
@@ -1973,7 +1974,7 @@ async function loadChecklistSchedules(
 ): Promise<ScheduleRow[]> {
   const result = await client
     .from('schedules')
-    .select('id, organization_id, month, finalized_version_id')
+    .select('id, public_id, organization_id, month, finalized_version_id')
     .eq('organization_id', organizationId)
     .order('month', { ascending: false });
 
@@ -2044,8 +2045,10 @@ async function loadChecklistSnapshot(
       && normalizeOffRequestPolicyRankCode(rule.rank_code) === null
     ),
     scheduleReviewRoute:
-      typeof schedules[0]?.id === 'string' && schedules[0].id.length > 0
-        ? `/schedule/step5/${schedules[0].id}`
+      typeof schedules[0]?.public_id === 'string' && schedules[0].public_id.length > 0
+        ? `/schedule/step5/${schedules[0].public_id}`
+        : typeof schedules[0]?.id === 'string' && schedules[0].id.length > 0
+          ? `/schedule/step5/${schedules[0].id}`
         : null,
     fairnessSummary: buildFairnessLedgerSummary(fairnessLedgerRows),
   };

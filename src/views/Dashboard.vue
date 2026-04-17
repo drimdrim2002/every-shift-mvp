@@ -230,13 +230,18 @@ import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
 import { getAvailableMonths, getNextMonth } from '@/utils/date';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
+import {
+  buildStep5Route,
+  getDefaultStep5FocusVersionId,
+  resolveStep5VersionState,
+} from '@/utils/scheduleVersionResolver';
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
 interface Schedule {
   id: string;
+  public_id: string | null;
   organization_id: string;
   month: string;
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -348,9 +353,14 @@ function handleOpenFoundationSetup() {
   router.push('/ops/organization-setup');
 }
 
-function buildChecklistBasicInfo(month: string, scheduleId?: string) {
+function buildChecklistBasicInfo(
+  month: string,
+  scheduleId?: string,
+  schedulePublicId?: string
+) {
   return {
     scheduleId,
+    schedulePublicId,
     month,
     organizationId: orgStore.current!.id,
     organizationName: orgStore.current!.name,
@@ -364,14 +374,47 @@ async function seedChecklistScheduleContext(item: ChecklistItem) {
   const nextMonth = getAvailableMonths()[1] || getNextMonth();
 
   if (item.route?.startsWith('/schedule/step5/')) {
-    const scheduleId = item.route.split('/').pop() || undefined;
-    const schedule = scheduleId ? schedules.value.find((entry) => entry.id === scheduleId) : null;
+    const scheduleKey = item.route.split('/').pop() || undefined;
+    const schedule = scheduleKey
+      ? schedules.value.find((entry) => entry.public_id === scheduleKey || entry.id === scheduleKey)
+      : null;
 
     scheduleStore.reset();
     scheduleStore.setBasicInfo(
-      buildChecklistBasicInfo(schedule?.month || nextMonth, scheduleId)
+      buildChecklistBasicInfo(
+        schedule?.month || nextMonth,
+        schedule?.id,
+        schedule?.public_id ?? scheduleKey
+      )
     );
   }
+}
+
+async function navigateToCanonicalStep5(scheduleKey: string) {
+  const compareResponse = await getPhase2ScheduleCompare(scheduleKey);
+  const resolvedState = resolveStep5VersionState(compareResponse, null);
+  const schedulePublicId = compareResponse.schedulePublicId ?? compareResponse.scheduleId;
+
+  scheduleStore.setBasicInfo({
+    ...(scheduleStore.basicInfo ?? buildChecklistBasicInfo(compareResponse.month)),
+    scheduleId: compareResponse.scheduleId,
+    schedulePublicId,
+    month: compareResponse.month ?? scheduleStore.basicInfo?.month ?? '',
+    organizationId: compareResponse.organizationId ?? scheduleStore.basicInfo?.organizationId ?? orgStore.current!.id,
+  });
+  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+  await router.push(
+    buildStep5Route(
+      schedulePublicId,
+      resolvedState.previewVersionId,
+      resolvedState.compareVersionIds,
+      {
+        defaultVersionId: getDefaultStep5FocusVersionId(compareResponse),
+      }
+    )
+  );
 }
 
 async function handleChecklistNavigate(item: ChecklistItem) {
@@ -396,6 +439,22 @@ async function handleChecklistNavigate(item: ChecklistItem) {
   }
 
   await seedChecklistScheduleContext(item);
+
+  if (item.route.startsWith('/schedule/step5/')) {
+    const scheduleKey = item.route.split('/').pop();
+    if (!scheduleKey) {
+      return;
+    }
+
+    try {
+      await navigateToCanonicalStep5(scheduleKey);
+    } catch (error) {
+      console.warn('Checklist Step5 preview version resolve 실패:', error);
+      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+    return;
+  }
+
   await router.push(item.route);
 }
 
@@ -448,8 +507,9 @@ async function handleMonthConfirm() {
 async function handleViewSchedule(schedule: Schedule) {
   // scheduleStore에 기본 정보 로드
   scheduleStore.reset();
-  scheduleStore.setBasicInfo({
-    scheduleId: schedule.id,
+    scheduleStore.setBasicInfo({
+      scheduleId: schedule.id,
+      schedulePublicId: schedule.public_id ?? undefined,
     month: schedule.month,
     organizationId: orgStore.current!.id,
     organizationName: orgStore.current!.name,
@@ -460,12 +520,7 @@ async function handleViewSchedule(schedule: Schedule) {
   
   if (schedule.status === 'complete' || schedule.status === 'changed') {
     try {
-      const compareResponse = await getPhase2ScheduleCompare(schedule.id);
-      const resolvedState = resolveStep5VersionState(compareResponse, null);
-
-      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-      router.push(buildStep5Route(schedule.id, resolvedState.previewVersionId));
+      await navigateToCanonicalStep5(schedule.public_id ?? schedule.id);
       return;
     } catch (error) {
       console.warn('Step5 preview version resolve 실패:', error);
@@ -474,12 +529,7 @@ async function handleViewSchedule(schedule: Schedule) {
     }
   } else if (schedule.status === 'created' || schedule.status === 'running') {
     try {
-      const compareResponse = await getPhase2ScheduleCompare(schedule.id);
-      const resolvedState = resolveStep5VersionState(compareResponse, null);
-
-      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-      router.push(buildStep5Route(schedule.id, resolvedState.previewVersionId));
+      await navigateToCanonicalStep5(schedule.public_id ?? schedule.id);
       return;
     } catch (error) {
       console.warn('Step5 preview version resolve 실패:', error);
@@ -499,6 +549,7 @@ async function handleEdit(schedule: Schedule) {
   scheduleStore.reset();
   scheduleStore.setBasicInfo({
     scheduleId: schedule.id,
+    schedulePublicId: schedule.public_id ?? undefined,
     month: schedule.month,
     organizationId: orgStore.current!.id,
     organizationName: orgStore.current!.name,

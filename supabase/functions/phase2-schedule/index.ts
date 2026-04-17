@@ -13,6 +13,7 @@ import {
   parseResetRosterRequest,
   parseEnsureRequest,
   parseJsonBody,
+  parseScheduleKeyParam,
   parseUuidParam,
   parseScheduleVersionSolveRequest,
   parseScheduleVersionSolverResultRequest,
@@ -221,8 +222,8 @@ Deno.serve(async (request) => {
     }
 
     if (route.route === 'compare') {
-      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
-      const result: CompareResponse = await compareVersion(repositoryClient, auth, scheduleId);
+      const scheduleKey = parseScheduleKeyParam('scheduleKey', route.params.scheduleKey);
+      const result: CompareResponse = await compareVersion(repositoryClient, auth, scheduleKey);
       return createResponse(request, result, 200);
     }
 

@@ -6,8 +6,16 @@ import {
   selectPhase2ScheduleVersion,
 } from '@/api/schedule';
 import { useScheduleStore } from '@/stores/schedule';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
-import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
+import {
+  buildCanonicalStep5Route,
+  resolveStep5VersionState,
+} from '@/utils/scheduleVersionResolver';
+import type { Step5QueryState } from '@/utils/scheduleVersionResolver';
+import type {
+  ScheduleCompareResponse,
+  ScheduleReviewResponse,
+  ScheduleVersionSummary,
+} from '@/types/schedule';
 
 function getQueryPreviewVersionId(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
@@ -52,36 +60,56 @@ export function useScheduleReviewHub() {
   const compareVersionIds = ref<string[]>([]);
   const isLoading = ref(false);
   const isSelecting = ref(false);
+  const hasHydratedOnce = ref(false);
 
   const focusVersionId = computed(() => scheduleStore.previewVersionId);
   const selectedVersionId = computed(() => scheduleStore.selectedVersionId);
   const previewVersionId = computed(() => scheduleStore.previewVersionId);
 
-  const routeScheduleId = computed(() => {
-    const paramId = route.params.id;
+  const routeScheduleKey = computed(() => {
+    const paramId = route.params.scheduleKey;
     return typeof paramId === 'string' && paramId.length > 0 ? paramId : null;
   });
 
-  function syncScheduleIdToStore(nextScheduleId: string) {
-    if (!scheduleStore.basicInfo || scheduleStore.basicInfo.scheduleId === nextScheduleId) {
+  function syncScheduleContextToStore(compareResponse: ScheduleCompareResponse) {
+    const currentBasicInfo = scheduleStore.basicInfo;
+    const resolvedSchedulePublicId =
+      compareResponse.schedulePublicId ?? currentBasicInfo?.schedulePublicId ?? compareResponse.scheduleId;
+    const nextBasicInfo = {
+      scheduleId: compareResponse.scheduleId,
+      schedulePublicId: resolvedSchedulePublicId,
+      month: compareResponse.month ?? currentBasicInfo?.month ?? '',
+      organizationId: compareResponse.organizationId ?? currentBasicInfo?.organizationId ?? '',
+      organizationName: currentBasicInfo?.organizationName ?? '',
+      organizationType: currentBasicInfo?.organizationType ?? '',
+      employeeCount: currentBasicInfo?.employeeCount ?? 0,
+      shifts: currentBasicInfo?.shifts ?? [],
+    };
+
+    if (
+      currentBasicInfo?.scheduleId === nextBasicInfo.scheduleId &&
+      currentBasicInfo?.schedulePublicId === nextBasicInfo.schedulePublicId &&
+      currentBasicInfo?.month === nextBasicInfo.month &&
+      currentBasicInfo?.organizationId === nextBasicInfo.organizationId
+    ) {
       return;
     }
 
-    scheduleStore.setBasicInfo({
-      ...scheduleStore.basicInfo,
-      scheduleId: nextScheduleId,
-    });
+    scheduleStore.setBasicInfo(nextBasicInfo);
   }
 
-  function getScheduleId(): string {
-    const currentScheduleId = routeScheduleId.value ?? scheduleStore.basicInfo?.scheduleId ?? null;
+  function getScheduleKey(): string {
+    const currentScheduleKey =
+      routeScheduleKey.value
+      ?? scheduleStore.basicInfo?.schedulePublicId
+      ?? scheduleStore.basicInfo?.scheduleId
+      ?? null;
 
-    if (!currentScheduleId) {
-      throw new Error('스케줄 ID를 확인할 수 없습니다. Step5를 다시 불러주세요.');
+    if (!currentScheduleKey) {
+      throw new Error('스케줄 키를 확인할 수 없습니다. Step5를 다시 불러주세요.');
     }
 
-    syncScheduleIdToStore(currentScheduleId);
-    return currentScheduleId;
+    return currentScheduleKey;
   }
 
   function syncReviewState(nextReview: ScheduleReviewResponse | null) {
@@ -95,6 +123,33 @@ export function useScheduleReviewHub() {
     }
 
     return getQueryCompareVersionIds(route.query.compare);
+  }
+
+  function hasTransientStep5QueryState(): boolean {
+    return getQueryPreviewVersionId(route.query.version) !== null
+      || getQueryCompareVersionIds(route.query.compare).length > 0;
+  }
+
+  function getRouteRequestedQueryState(): Step5QueryState | null {
+    if (!hasTransientStep5QueryState()) {
+      return null;
+    }
+
+    return {
+      requestedFocusVersionId: getQueryPreviewVersionId(route.query.version),
+      requestedCompareVersionIds: getQueryCompareVersionIds(route.query.compare),
+    };
+  }
+
+  function getInMemoryRequestedQueryState(): Step5QueryState | null {
+    if (!hasHydratedOnce.value) {
+      return null;
+    }
+
+    return {
+      requestedFocusVersionId: focusVersionId.value,
+      requestedCompareVersionIds: compareVersionIds.value,
+    };
   }
 
   async function loadReviews(versionIds: string[], focusReviewVersionId: string | null) {
@@ -131,10 +186,13 @@ export function useScheduleReviewHub() {
     return focusReview;
   }
 
-  async function loadCompare(requestedQuery: string | { requestedFocusVersionId: string | null; requestedCompareVersionIds: string[] } | null) {
-    const currentScheduleId = getScheduleId();
-    const compareResponse = await getPhase2ScheduleCompare(currentScheduleId);
-    syncScheduleIdToStore(compareResponse.scheduleId);
+  async function loadCompare(
+    requestedQuery: string | Step5QueryState | null,
+    options?: { canonicalizeRoute?: boolean }
+  ) {
+    const currentScheduleKey = getScheduleKey();
+    const compareResponse = await getPhase2ScheduleCompare(currentScheduleKey);
+    syncScheduleContextToStore(compareResponse);
 
     const resolvedState = resolveStep5VersionState(compareResponse, requestedQuery);
     versions.value = resolvedState.versions;
@@ -143,28 +201,60 @@ export function useScheduleReviewHub() {
     scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
     scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
-    if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
+    if (
+      options?.canonicalizeRoute ||
+      routeScheduleKey.value !== (compareResponse.schedulePublicId ?? compareResponse.scheduleId)
+    ) {
       await router.replace(
-        buildStep5Route(
-          compareResponse.scheduleId,
-          resolvedState.previewVersionId,
-          resolvedState.compareVersionIds
-        )
+        buildCanonicalStep5Route(compareResponse.schedulePublicId ?? compareResponse.scheduleId, {
+          autoStart: route.query.autoStart === '1',
+        })
       );
     }
 
     return resolvedState;
   }
 
-  async function hydrate() {
+  function resolveHydrateRequestedQuery(
+    requestedQuery?: Step5QueryState | null
+  ): {
+    requestedQuery: Step5QueryState | null;
+    canonicalizeRoute: boolean;
+  } {
+    if (requestedQuery !== undefined) {
+      return {
+        requestedQuery,
+        canonicalizeRoute: false,
+      };
+    }
+
+    const routeRequestedQuery = getRouteRequestedQueryState();
+    if (routeRequestedQuery) {
+      return {
+        requestedQuery: routeRequestedQuery,
+        canonicalizeRoute: true,
+      };
+    }
+
+    return {
+      requestedQuery: getInMemoryRequestedQueryState(),
+      canonicalizeRoute: false,
+    };
+  }
+
+  async function hydrate(requestedQuery?: Step5QueryState | null) {
     isLoading.value = true;
 
     try {
-      const resolvedState = await loadCompare({
-        requestedFocusVersionId: getQueryPreviewVersionId(route.query.version),
-        requestedCompareVersionIds: getQueryCompareVersionIds(route.query.compare),
-      });
+      const nextRequestedQuery = resolveHydrateRequestedQuery(requestedQuery);
+      const resolvedState = await loadCompare(
+        nextRequestedQuery.requestedQuery,
+        {
+          canonicalizeRoute: nextRequestedQuery.canonicalizeRoute,
+        }
+      );
       await loadReviews(resolvedState.compareVersionIds, resolvedState.previewVersionId);
+      hasHydratedOnce.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -174,11 +264,17 @@ export function useScheduleReviewHub() {
     isLoading.value = true;
 
     try {
-      const resolvedState = await loadCompare({
-        requestedFocusVersionId: versionId,
-        requestedCompareVersionIds: getRequestedCompareVersionIds(),
-      });
+      const resolvedState = await loadCompare(
+        {
+          requestedFocusVersionId: versionId,
+          requestedCompareVersionIds: getRequestedCompareVersionIds(),
+        },
+        {
+          canonicalizeRoute: false,
+        }
+      );
       await loadReviews(resolvedState.compareVersionIds, resolvedState.previewVersionId);
+      hasHydratedOnce.value = true;
     } finally {
       isLoading.value = false;
     }
@@ -198,8 +294,17 @@ export function useScheduleReviewHub() {
 
     try {
       await selectPhase2ScheduleVersion(versionId);
-      const resolvedState = await loadCompare(versionId);
+      const resolvedState = await loadCompare(
+        {
+          requestedFocusVersionId: versionId,
+          requestedCompareVersionIds: getRequestedCompareVersionIds(),
+        },
+        {
+          canonicalizeRoute: false,
+        }
+      );
       await loadReviews(resolvedState.compareVersionIds, resolvedState.previewVersionId);
+      hasHydratedOnce.value = true;
     } finally {
       isSelecting.value = false;
     }
