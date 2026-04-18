@@ -49,12 +49,22 @@ interface ShiftRow {
 }
 
 function resolveSelectedOrganizationId(explicitOrgId?: string): string {
+  const rbacStore = useRbacStore()
+  const activeOrganizationIds = new Set(
+    [rbacStore.selectedOrganizationId, rbacStore.effectiveMembership?.organizationId].filter(
+      (organizationId): organizationId is string => Boolean(organizationId),
+    ),
+  )
   const trimmedExplicitOrgId = explicitOrgId?.trim()
+
   if (trimmedExplicitOrgId) {
-    return trimmedExplicitOrgId
+    if (activeOrganizationIds.has(trimmedExplicitOrgId)) {
+      return trimmedExplicitOrgId
+    }
+
+    throw new Error('선택한 조직에 접근할 수 없습니다.')
   }
 
-  const rbacStore = useRbacStore()
   const selectedOrganizationId =
     rbacStore.selectedOrganizationId ?? rbacStore.effectiveMembership?.organizationId ?? null
 

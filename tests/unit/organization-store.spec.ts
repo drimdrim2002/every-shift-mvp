@@ -224,7 +224,7 @@ describe('useOrganizationStore', () => {
     expect(store.current?.id).toBe('org-user');
   });
 
-  it('allows an explicit organization id to override the active RBAC selection', async () => {
+  it('rejects an explicit organization id outside the active RBAC scope', async () => {
     organizationRowsById.set('org-explicit', {
       id: 'org-explicit',
       name: 'Explicit Org',
@@ -248,8 +248,57 @@ describe('useOrganizationStore', () => {
     const store = useOrganizationStore();
     const result = await store.loadOrganization('org-explicit');
 
+    expect(result).toEqual({
+      success: false,
+      error: '선택한 조직에 접근할 수 없습니다.',
+    });
+    expect(fromMock).not.toHaveBeenCalledWith('organizations');
+  });
+
+  it('allows an explicit organization id when it matches the RBAC-selected organization', async () => {
+    organizationRowsById.set('org-selected', {
+      id: 'org-selected',
+      name: 'Selected Org',
+      type: 'hospital',
+    });
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser(),
+        },
+      },
+      error: null,
+    });
+    rbacStoreState.selectedOrganizationId = 'org-selected';
+
+    const store = useOrganizationStore();
+    const result = await store.loadOrganization('org-selected');
+
     expect(result).toEqual({ success: true });
-    expect(store.current?.id).toBe('org-explicit');
+    expect(store.current?.id).toBe('org-selected');
+  });
+
+  it('allows an explicit organization id when it matches the effective membership organization', async () => {
+    organizationRowsById.set('org-effective', {
+      id: 'org-effective',
+      name: 'Effective Org',
+      type: 'hospital',
+    });
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser(),
+        },
+      },
+      error: null,
+    });
+    rbacStoreState.effectiveMembership = { organizationId: 'org-effective' };
+
+    const store = useOrganizationStore();
+    const result = await store.loadOrganization('org-effective');
+
+    expect(result).toEqual({ success: true });
+    expect(store.current?.id).toBe('org-effective');
   });
 
   it('hydrates organization foundation metadata from authenticated app metadata on first login', async () => {

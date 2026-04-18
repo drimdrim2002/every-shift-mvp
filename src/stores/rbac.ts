@@ -229,25 +229,6 @@ function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRo
     .filter((membership): membership is AuthContextMembership => Boolean(membership))
 }
 
-function readCurrentOrganizationId(user: User | null): string | null {
-  if (!user) {
-    return null
-  }
-
-  return (
-    readString(asRecord(user.app_metadata), [
-      'currentOrganizationId',
-      'current_organization_id',
-      'organizationId',
-      'organization_id',
-    ]) ??
-    readString(asRecord(user.user_metadata), [
-      'currentOrganizationId',
-      'current_organization_id',
-    ])
-  )
-}
-
 function readTopLevelMembership(
   metadata: MetadataRecord | null,
   fallbackRole: GlobalRole | null,
@@ -258,7 +239,7 @@ function readTopLevelMembership(
   }
 
   const organizationId =
-    readString(metadata, ['organizationId', 'organization_id', 'currentOrganizationId', 'current_organization_id']) ??
+    readString(metadata, ['organizationId', 'organization_id']) ??
     fallbackOrganizationId
   const status = normalizeMembershipStatus(readString(metadata, ['status']))
 
@@ -396,7 +377,6 @@ function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null
 
   const appMetadata = asRecord(user.app_metadata)
   const userMetadata = asRecord(user.user_metadata)
-  const currentOrganizationId = readCurrentOrganizationId(user)
   const globalRole =
     readGlobalRole(readString(appMetadata, ['global_role', 'globalRole'])) ??
     readGlobalRole(readString(userMetadata, ['global_role', 'globalRole']))
@@ -411,8 +391,8 @@ function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null
 
   if (memberships.length === 0) {
     const topLevelMembership =
-      readTopLevelMembership(appMetadata, globalRole, currentOrganizationId) ??
-      readTopLevelMembership(userMetadata, globalRole, currentOrganizationId)
+      readTopLevelMembership(appMetadata, globalRole, null) ??
+      readTopLevelMembership(userMetadata, globalRole, null)
 
     if (topLevelMembership) {
       memberships.push(topLevelMembership)
@@ -426,7 +406,7 @@ function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null
       accountStatus,
     },
     memberships,
-    currentOrganizationId,
+    currentOrganizationId: null,
   }
 }
 

@@ -191,7 +191,6 @@ describe('RBAC access hydration', () => {
           global_role: 'user',
           account_status: 'active',
           organization_id: 'org-1',
-          current_organization_id: 'org-1',
           organization_memberships: [
             {
               organization_id: 'org-1',

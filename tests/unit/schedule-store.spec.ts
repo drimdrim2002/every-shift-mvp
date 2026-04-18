@@ -368,6 +368,44 @@ describe('useScheduleStore', () => {
     expect(store.currentStep).toBe(4);
   });
 
+  it('does not hydrate persisted wizard context when the access scope organization is unknown', () => {
+    localStorage.setItem(
+      USER_SCOPED_STORAGE_KEY,
+      JSON.stringify({
+        schemaVersion: 2,
+        ownerUserId: 'user-1',
+        ownerOrganizationId: 'org-restore',
+        context: {
+          basicInfo: {
+            scheduleId: 'schedule-restored',
+            month: '2026-05',
+            organizationId: 'org-restore',
+            organizationName: 'Restore Hospital',
+            organizationType: 'hospital',
+            employeeCount: 8,
+            shifts: [],
+          },
+          selectedVersionId: 'version-selected',
+          previewVersionId: 'version-preview',
+          currentStep: 4,
+        },
+      })
+    );
+
+    const store = useScheduleStore();
+
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: null,
+    });
+
+    expect(store.basicInfo).toBeNull();
+    expect(store.selectedVersionId).toBeNull();
+    expect(store.previewVersionId).toBeNull();
+    expect(store.currentStep).toBe(1);
+    expect(localStorage.getItem(USER_SCOPED_STORAGE_KEY)).toBeTruthy();
+  });
+
   it('syncs persisted wizard context against the explicit access scope organization', () => {
     localStorage.setItem(
       USER_SCOPED_STORAGE_KEY,

@@ -193,4 +193,23 @@ describe('useAuthStore', () => {
     });
     expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1);
   });
+
+  it('passes a null organization scope through after RBAC hydration when no org is active', async () => {
+    const user = createAuthUser();
+    rbacStoreState.selectedOrganizationId = null;
+    rbacStoreState.effectiveMembership = null;
+    signInWithPasswordMock.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const store = useAuthStore();
+    const result = await store.login('admin@everyshift.com', 'password');
+
+    expect(result).toEqual({ success: true });
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      organizationId: null,
+    });
+  });
 });

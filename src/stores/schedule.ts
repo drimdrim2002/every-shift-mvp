@@ -198,6 +198,10 @@ export const useScheduleStore = defineStore('schedule', () => {
     persisted: PersistedWizardContextEnvelope,
     scope: AccessScope
   ): boolean {
+    if (!scope.organizationId) {
+      return false;
+    }
+
     if (persisted.schemaVersion !== WIZARD_CONTEXT_SCHEMA_VERSION) {
       return false;
     }
@@ -278,7 +282,13 @@ export const useScheduleStore = defineStore('schedule', () => {
       return;
     }
 
-    if (previousScope) {
+    if (!nextScope && previousScope) {
+      clearPersistedWizardContext(previousScope);
+    } else if (
+      previousScope &&
+      nextScope &&
+      previousScope.userId !== nextScope.userId
+    ) {
       clearPersistedWizardContext(previousScope);
     }
 
@@ -286,7 +296,7 @@ export const useScheduleStore = defineStore('schedule', () => {
     activeAccessScope.value = nextScope;
     hasInitializedAccessScope.value = true;
 
-    if (!nextScope) {
+    if (!nextScope || !nextScope.organizationId) {
       return;
     }
 
