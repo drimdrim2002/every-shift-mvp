@@ -7,6 +7,7 @@
             근무표 관리
           </h1>
           <n-button
+            v-if="canManageSchedules"
             data-test="dashboard-create-schedule"
             type="primary"
             @click="handleCreateNew"
@@ -19,7 +20,29 @@
         </div>
       </template>
 
-      <div class="space-y-8">
+      <div
+        v-if="!hasAdminDashboardAccess"
+        class="space-y-8"
+      >
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+          <div class="space-y-2">
+            <p class="text-sm font-medium tracking-wide text-slate-500">
+              권한 안내
+            </p>
+            <h2 class="text-xl font-semibold text-slate-900">
+              운영 권한이 없는 계정입니다
+            </h2>
+            <p class="text-sm text-slate-600">
+              현재 계정은 운영 기능 권한이 없습니다.
+            </p>
+          </div>
+        </section>
+      </div>
+
+      <div
+        v-else
+        class="space-y-8"
+      >
         <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
           <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -119,6 +142,7 @@
               새 근무표를 생성하여 시작하세요
             </p>
             <n-button
+              v-if="canManageSchedules"
               data-test="dashboard-create-schedule"
               type="primary"
               size="large"
@@ -224,6 +248,7 @@ import { useRouter } from 'vue-router';
 import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
 import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
+import { useRbacStore } from '@/stores/rbac';
 import { useScheduleStore } from '@/stores/schedule';
 import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
@@ -253,6 +278,7 @@ interface Schedule {
 
 const router = useRouter();
 const orgStore = useOrganizationStore();
+const rbacStore = useRbacStore();
 const scheduleStore = useScheduleStore();
 
 const loading = ref(true);
@@ -303,7 +329,22 @@ const foundationReady = computed(() => {
     && foundationChecklistItems.value.scheduleFoundationItem.status === 'ready';
 });
 
+const hasAdminDashboardAccess = computed(() =>
+  rbacStore.abilities.canManageOrganizationSetup
+  || rbacStore.abilities.canManageEmployees
+  || rbacStore.abilities.canManageSchedules
+);
+
+const canManageSchedules = computed(() => rbacStore.abilities.canManageSchedules);
+
 onMounted(async () => {
+  if (!hasAdminDashboardAccess.value) {
+    loading.value = false;
+    schedules.value = [];
+    checklist.value = null;
+    return;
+  }
+
   const result = await orgStore.loadOrganization();
 
   if (!result.success) {
@@ -344,12 +385,20 @@ async function loadChecklist() {
 }
 
 function handleCreateNew() {
+  if (!canManageSchedules.value) {
+    return;
+  }
+
   // 기본값: 다음 달
   monthForm.value.month = monthOptions.value[1]?.value || '';
   showMonthModal.value = true;
 }
 
 function handleOpenFoundationSetup() {
+  if (!rbacStore.abilities.canManageOrganizationSetup) {
+    return;
+  }
+
   router.push('/ops/organization-setup');
 }
 
@@ -418,6 +467,10 @@ async function navigateToCanonicalStep5(scheduleKey: string) {
 }
 
 async function handleChecklistNavigate(item: ChecklistItem) {
+  if (!hasAdminDashboardAccess.value) {
+    return;
+  }
+
   if (!item.route) {
     return;
   }

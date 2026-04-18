@@ -6,6 +6,7 @@ export const SIGNUP_ROUTE_PATH = '/signup'
 export const ACCESS_PENDING_ROUTE_PATH = '/access/pending'
 export const ACCESS_REJECTED_ROUTE_PATH = '/access/rejected'
 export const APPROVAL_QUEUE_ROUTE_PATH = '/admin/approval-queue'
+export const USER_HOME_ROUTE_PATH = '/home/user'
 
 const AUTH_PAGE_PATH_SET = new Set([LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH])
 
@@ -26,8 +27,9 @@ export function resolvePostAuthRedirectPath(accessState: AccessState | null): st
     case 'super_active':
       return APPROVAL_QUEUE_ROUTE_PATH
     case 'admin_active':
-    case 'user_active':
       return HOME_ROUTE_PATH
+    case 'user_active':
+      return USER_HOME_ROUTE_PATH
     case 'no_membership_or_inactive':
     case 'unauthenticated':
       return LOGIN_ROUTE_PATH

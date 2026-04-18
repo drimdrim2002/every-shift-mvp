@@ -3,11 +3,14 @@ import { useScheduleStore } from '@/stores/schedule';
 import { supabase } from '@/api/supabase';
 import { showWarning } from '@/utils/message';
 import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
-import type { AccessState } from '@/types/rbac';
+import type { AccessAbilities, AccessState } from '@/types/rbac';
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
+  APPROVAL_QUEUE_ROUTE_PATH,
   HOME_ROUTE_PATH,
+  LOGIN_ROUTE_PATH,
+  USER_HOME_ROUTE_PATH,
   isAccessStateRoutePath,
   isAuthPagePath,
   resolvePostAuthRedirectPath,
@@ -48,6 +51,91 @@ export function resolveAuthNavigationTarget({
   if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath) || toPath === HOME_ROUTE_PATH) {
     const redirectPath = resolvePostAuthRedirectPath(accessState);
     return redirectPath === toPath ? null : redirectPath;
+  }
+
+  return null;
+}
+
+interface ResolveRouteAccessTargetInput {
+  toPath: string;
+  accessState: AccessState | null;
+  abilities: AccessAbilities;
+  selectedOrganizationId?: string | null;
+  requiresOrgContext?: boolean;
+  requiredOrgRole?: 'admin';
+}
+
+function resolveAuthenticatedFallbackPath(
+  accessState: AccessState | null,
+  abilities: AccessAbilities,
+): string {
+  if (abilities.canViewApprovalQueue) {
+    return APPROVAL_QUEUE_ROUTE_PATH;
+  }
+
+  if (abilities.canViewRestrictedUserHome) {
+    return USER_HOME_ROUTE_PATH;
+  }
+
+  return resolvePostAuthRedirectPath(accessState);
+}
+
+function hasOrgAdminAccess(abilities: AccessAbilities) {
+  return (
+    abilities.canManageOrganizationSetup
+    || abilities.canManageEmployees
+    || abilities.canManageSchedules
+  );
+}
+
+export function resolveRouteAccessTarget({
+  toPath,
+  accessState,
+  abilities,
+  selectedOrganizationId = null,
+  requiresOrgContext = false,
+  requiredOrgRole,
+}: ResolveRouteAccessTargetInput): string | null {
+  const fallbackPath = resolveAuthenticatedFallbackPath(accessState, abilities);
+
+  if (toPath === HOME_ROUTE_PATH) {
+    if (abilities.canViewApprovalQueue && !hasOrgAdminAccess(abilities)) {
+      return APPROVAL_QUEUE_ROUTE_PATH;
+    }
+
+    if (abilities.canViewRestrictedUserHome) {
+      return USER_HOME_ROUTE_PATH;
+    }
+
+    return null;
+  }
+
+  if (toPath === USER_HOME_ROUTE_PATH) {
+    if (abilities.canViewRestrictedUserHome) {
+      return null;
+    }
+
+    return fallbackPath === USER_HOME_ROUTE_PATH ? HOME_ROUTE_PATH : fallbackPath;
+  }
+
+  if (toPath === APPROVAL_QUEUE_ROUTE_PATH) {
+    if (abilities.canViewApprovalQueue) {
+      return null;
+    }
+
+    return fallbackPath === APPROVAL_QUEUE_ROUTE_PATH ? HOME_ROUTE_PATH : fallbackPath;
+  }
+
+  if (requiresOrgContext && !selectedOrganizationId) {
+    return fallbackPath === toPath ? HOME_ROUTE_PATH : fallbackPath;
+  }
+
+  if (requiredOrgRole === 'admin' && !hasOrgAdminAccess(abilities)) {
+    return fallbackPath === toPath ? HOME_ROUTE_PATH : fallbackPath;
+  }
+
+  if (accessState === 'no_membership_or_inactive') {
+    return LOGIN_ROUTE_PATH;
   }
 
   return null;

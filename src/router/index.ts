@@ -2,13 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useRbacStore } from '@/stores/rbac';
-import { resolveAuthNavigationTarget, stepProgressGuard } from './guards';
+import { resolveAuthNavigationTarget, resolveRouteAccessTarget, stepProgressGuard } from './guards';
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
   APPROVAL_QUEUE_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
+  USER_HOME_ROUTE_PATH,
 } from '@/constants/routes';
 
 const devOnlyRoutes: RouteRecordRaw[] = [
@@ -78,49 +79,90 @@ const baseRoutes: RouteRecordRaw[] = [
         path: APPROVAL_QUEUE_ROUTE_PATH.slice(1),
         name: 'ApprovalQueue',
         component: () => import('@/views/admin/ApprovalQueueView.vue'),
-        meta: { title: '관리자 가입 승인' },
+        meta: { requiresAuth: true, title: '관리자 가입 승인' },
+      },
+      {
+        path: USER_HOME_ROUTE_PATH,
+        name: 'UserHome',
+        component: () => import('@/views/UserHome.vue'),
+        meta: { requiresAuth: true, title: '내 홈' },
       },
       {
         path: 'ops/organization-setup',
         name: 'OrganizationProfileSetup',
         component: () => import('@/views/ops/OrganizationProfileSetup.vue'),
-        meta: { title: '조직/사이트 기본 설정' },
+        meta: {
+          requiresAuth: true,
+          title: '조직/사이트 기본 설정',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'ops/off-request-policy-setup',
         name: 'OffRequestPolicySetup',
         component: () => import('@/views/ops/OffRequestPolicySetup.vue'),
-        meta: { title: 'Off 사용 기준 설정' },
+        meta: {
+          requiresAuth: true,
+          title: 'Off 사용 기준 설정',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'schedule/step1',
         name: 'Step1',
         component: () => import('@/views/schedule/Step1BasicInfo.vue'),
-        meta: { title: '기본 정보' },
+        meta: {
+          requiresAuth: true,
+          title: '기본 정보',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'schedule/step2',
         name: 'Step2',
         component: () => import('@/views/schedule/Step2SiteInfo.vue'),
-        meta: { title: '사이트 정보' },
+        meta: {
+          requiresAuth: true,
+          title: '사이트 정보',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'schedule/step3',
         name: 'Step3',
         component: () => import('@/views/schedule/Step3EmployeeInfo.vue'),
-        meta: { title: '직원 정보' },
+        meta: {
+          requiresAuth: true,
+          title: '직원 정보',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'schedule/step4',
         name: 'Step4',
         component: () => import('@/views/schedule/Step4InitialData.vue'),
-        meta: { title: '초기 데이터' },
+        meta: {
+          requiresAuth: true,
+          title: '초기 데이터',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
       {
         path: 'schedule/step5/:scheduleKey',
         name: 'Step5',
         component: () => import('@/views/schedule/Step5Result.vue'),
-        meta: { title: '결과 확인' },
+        meta: {
+          requiresAuth: true,
+          title: '결과 확인',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
       },
     ],
   },
@@ -169,6 +211,22 @@ router.beforeEach(async (to, from, next) => {
 
   if (authRedirect) {
     next(authRedirect);
+    return;
+  }
+
+  const routeAccessRedirect = resolveRouteAccessTarget({
+    toPath: to.path,
+    accessState: rbacStore.accessState,
+    abilities: rbacStore.abilities,
+    selectedOrganizationId: rbacStore.selectedOrganizationId,
+    requiresOrgContext: to.matched.some((record) => record.meta.requiresOrgContext),
+    requiredOrgRole: to.matched.some((record) => record.meta.requiredOrgRole === 'admin')
+      ? 'admin'
+      : undefined,
+  });
+
+  if (routeAccessRedirect) {
+    next(routeAccessRedirect);
     return;
   }
 

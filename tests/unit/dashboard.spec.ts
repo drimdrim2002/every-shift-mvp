@@ -97,8 +97,23 @@ const scheduleStoreMock = reactive({
   currentStep: 0,
 })
 
+const rbacStoreMock = reactive({
+  abilities: {
+    canViewApprovalQueue: false,
+    canSwitchOrganization: true,
+    canViewRestrictedUserHome: false,
+    canManageOrganizationSetup: true,
+    canManageEmployees: true,
+    canManageSchedules: true,
+  },
+})
+
 vi.mock('@/stores/organization', () => ({
   useOrganizationStore: () => organizationStoreMock,
+}))
+
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
 }))
 
 vi.mock('@/stores/schedule', () => ({
@@ -157,6 +172,14 @@ describe('Dashboard', () => {
     organizationStoreMock.loadOrganization.mockResolvedValue({ success: true })
     organizationStoreMock.loadFoundationData.mockResolvedValue({ success: true })
     scheduleStoreMock.currentStep = 0
+    Object.assign(rbacStoreMock.abilities, {
+      canViewApprovalQueue: false,
+      canSwitchOrganization: true,
+      canViewRestrictedUserHome: false,
+      canManageOrganizationSetup: true,
+      canManageEmployees: true,
+      canManageSchedules: true,
+    })
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
@@ -616,5 +639,25 @@ describe('Dashboard', () => {
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/sch_a1b2c3d4e5f6',
     })
+  })
+
+  it('renders a restricted fallback without schedule creation actions for user-only access', async () => {
+    Object.assign(rbacStoreMock.abilities, {
+      canViewApprovalQueue: false,
+      canSwitchOrganization: true,
+      canViewRestrictedUserHome: true,
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('현재 계정은 운영 기능 권한이 없습니다.')
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(false)
+    expect(organizationStoreMock.loadOrganization).not.toHaveBeenCalled()
+    expect(getChecklistMock).not.toHaveBeenCalled()
+    expect(getScheduleListMock).not.toHaveBeenCalled()
   })
 })
