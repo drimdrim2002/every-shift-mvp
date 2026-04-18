@@ -1,5 +1,5 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -98,6 +98,7 @@ const scheduleStoreMock = reactive({
 })
 
 const rbacStoreMock = reactive({
+  selectedOrganizationId: 'org-1',
   abilities: {
     canViewApprovalQueue: false,
     canSwitchOrganization: true,
@@ -180,6 +181,7 @@ describe('Dashboard', () => {
       canManageEmployees: true,
       canManageSchedules: true,
     })
+    rbacStoreMock.selectedOrganizationId = 'org-1'
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
@@ -659,5 +661,77 @@ describe('Dashboard', () => {
     expect(organizationStoreMock.loadOrganization).not.toHaveBeenCalled()
     expect(getChecklistMock).not.toHaveBeenCalled()
     expect(getScheduleListMock).not.toHaveBeenCalled()
+  })
+
+  it('reloads organization-scoped dashboard data when the active organization changes', async () => {
+    organizationStoreMock.loadOrganization.mockImplementation(async () => {
+      if (rbacStoreMock.selectedOrganizationId === 'org-2') {
+        organizationStoreMock.current = {
+          id: 'org-2',
+          name: '부산병원',
+          type: 'hospital',
+          foundation: null,
+        }
+      } else {
+        organizationStoreMock.current = {
+          id: 'org-1',
+          name: '서울병원',
+          type: 'hospital',
+          foundation: null,
+        }
+      }
+
+      return { success: true }
+    })
+
+    getScheduleListMock.mockImplementation(async (organizationId: string) => [
+      {
+        id: `schedule-${organizationId}`,
+        public_id: `sch-${organizationId}`,
+        organization_id: organizationId,
+        month: organizationId === 'org-2' ? '2026-01' : '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    ])
+
+    getChecklistMock.mockImplementation(async (organizationId: string) => ({
+      organizationId,
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [],
+      fairnessSummary: [],
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(1)
+    expect(getScheduleListMock).toHaveBeenCalledWith('org-1')
+    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
+    expect(wrapper.text()).toContain('2025-12 근무표')
+
+    const initialLoadOrganizationCalls = organizationStoreMock.loadOrganization.mock.calls.length
+    const initialFoundationCalls = organizationStoreMock.loadFoundationData.mock.calls.length
+    const initialScheduleCalls = getScheduleListMock.mock.calls.length
+    const initialChecklistCalls = getChecklistMock.mock.calls.length
+
+    rbacStoreMock.selectedOrganizationId = 'org-2'
+    await nextTick()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization.mock.calls.length)
+      .toBeGreaterThan(initialLoadOrganizationCalls)
+    expect(organizationStoreMock.loadFoundationData.mock.calls.length)
+      .toBeGreaterThan(initialFoundationCalls)
+    expect(getScheduleListMock.mock.calls.length).toBeGreaterThan(initialScheduleCalls)
+    expect(getChecklistMock.mock.calls.length).toBeGreaterThan(initialChecklistCalls)
+    expect(organizationStoreMock.loadFoundationData).toHaveBeenCalledWith('org-2')
+    expect(getScheduleListMock).toHaveBeenCalledWith('org-2')
+    expect(getChecklistMock).toHaveBeenCalledWith('org-2')
+    expect(wrapper.text()).toContain('2026-01 근무표')
   })
 })

@@ -32,12 +32,14 @@ interface ResolveAuthNavigationTargetInput {
   toPath: string;
   isAuthenticated: boolean;
   accessState: AccessState | null;
+  abilities?: AccessAbilities;
 }
 
 export function resolveAuthNavigationTarget({
   toPath,
   isAuthenticated,
   accessState,
+  abilities,
 }: ResolveAuthNavigationTargetInput): string | null {
   if (!isAuthenticated) {
     return null;
@@ -48,7 +50,16 @@ export function resolveAuthNavigationTarget({
     return toPath === blockedStatePath ? null : blockedStatePath;
   }
 
-  if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath) || toPath === HOME_ROUTE_PATH) {
+  if (toPath === HOME_ROUTE_PATH) {
+    if (accessState === 'super_active' && abilities && hasOrgAdminAccess(abilities)) {
+      return null;
+    }
+
+    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    return redirectPath === toPath ? null : redirectPath;
+  }
+
+  if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath)) {
     const redirectPath = resolvePostAuthRedirectPath(accessState);
     return redirectPath === toPath ? null : redirectPath;
   }

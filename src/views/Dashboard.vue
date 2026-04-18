@@ -243,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
 import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
@@ -337,13 +337,21 @@ const hasAdminDashboardAccess = computed(() =>
 
 const canManageSchedules = computed(() => rbacStore.abilities.canManageSchedules);
 
-onMounted(async () => {
+function resetDashboardData() {
+  schedules.value = [];
+  checklist.value = null;
+  loading.value = false;
+}
+
+async function reloadDashboardData() {
   if (!hasAdminDashboardAccess.value) {
-    loading.value = false;
-    schedules.value = [];
-    checklist.value = null;
+    resetDashboardData();
     return;
   }
+
+  schedules.value = [];
+  checklist.value = null;
+  loading.value = true;
 
   const result = await orgStore.loadOrganization();
 
@@ -360,7 +368,22 @@ onMounted(async () => {
   // 근무표 목록 로드
   await loadSchedules();
   await loadChecklist();
+}
+
+onMounted(async () => {
+  await reloadDashboardData();
 });
+
+watch(
+  () => rbacStore.selectedOrganizationId,
+  async (nextOrganizationId, previousOrganizationId) => {
+    if (nextOrganizationId === previousOrganizationId) {
+      return;
+    }
+
+    await reloadDashboardData();
+  },
+);
 
 async function loadSchedules() {
   try {

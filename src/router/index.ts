@@ -207,6 +207,7 @@ router.beforeEach(async (to, from, next) => {
     toPath: to.path,
     isAuthenticated: Boolean(authStore.user),
     accessState: rbacStore.accessState,
+    abilities: rbacStore.abilities,
   });
 
   if (authRedirect) {

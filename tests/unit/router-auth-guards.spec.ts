@@ -70,6 +70,42 @@ describe('resolveAuthNavigationTarget', () => {
 
     expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
   })
+
+  it('keeps super users approval-first at the root path when org-admin abilities are not unlocked', () => {
+    const redirect = resolveAuthNavigationTarget({
+      toPath: HOME_ROUTE_PATH,
+      isAuthenticated: true,
+      accessState: 'super_active',
+      abilities: {
+        canViewApprovalQueue: true,
+        canSwitchOrganization: true,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: false,
+        canManageEmployees: false,
+        canManageSchedules: false,
+      },
+    })
+
+    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
+  })
+
+  it('allows super users with unlocked org-admin abilities through the auth layer at the root path', () => {
+    const redirect = resolveAuthNavigationTarget({
+      toPath: HOME_ROUTE_PATH,
+      isAuthenticated: true,
+      accessState: 'super_active',
+      abilities: {
+        canViewApprovalQueue: true,
+        canSwitchOrganization: true,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: true,
+        canManageEmployees: true,
+        canManageSchedules: true,
+      },
+    })
+
+    expect(redirect).toBeNull()
+  })
 })
 
 describe('resolveRouteAccessTarget', () => {
@@ -140,5 +176,23 @@ describe('resolveRouteAccessTarget', () => {
         requiredOrgRole: 'admin',
       }),
     ).toBe(USER_HOME_ROUTE_PATH)
+  })
+
+  it('allows super users with unlocked org-admin abilities to remain on the dashboard', () => {
+    const redirect = resolveRouteAccessTarget({
+      toPath: HOME_ROUTE_PATH,
+      accessState: 'super_active',
+      abilities: {
+        canViewApprovalQueue: true,
+        canSwitchOrganization: true,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: true,
+        canManageEmployees: true,
+        canManageSchedules: true,
+      },
+      selectedOrganizationId: 'org-1',
+    })
+
+    expect(redirect).toBeNull()
   })
 })
