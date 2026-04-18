@@ -3,6 +3,55 @@ import { useScheduleStore } from '@/stores/schedule';
 import { supabase } from '@/api/supabase';
 import { showWarning } from '@/utils/message';
 import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import type { AccessState } from '@/types/rbac';
+import {
+  ACCESS_PENDING_ROUTE_PATH,
+  ACCESS_REJECTED_ROUTE_PATH,
+  HOME_ROUTE_PATH,
+  isAccessStateRoutePath,
+  isAuthPagePath,
+  resolvePostAuthRedirectPath,
+} from '@/constants/routes';
+
+export function resolveBlockedStatePath(accessState: AccessState | null): string | null {
+  if (accessState === 'admin_pending') {
+    return ACCESS_PENDING_ROUTE_PATH;
+  }
+
+  if (accessState === 'admin_rejected') {
+    return ACCESS_REJECTED_ROUTE_PATH;
+  }
+
+  return null;
+}
+
+interface ResolveAuthNavigationTargetInput {
+  toPath: string;
+  isAuthenticated: boolean;
+  accessState: AccessState | null;
+}
+
+export function resolveAuthNavigationTarget({
+  toPath,
+  isAuthenticated,
+  accessState,
+}: ResolveAuthNavigationTargetInput): string | null {
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const blockedStatePath = resolveBlockedStatePath(accessState);
+  if (blockedStatePath) {
+    return toPath === blockedStatePath ? null : blockedStatePath;
+  }
+
+  if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath) || toPath === HOME_ROUTE_PATH) {
+    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    return redirectPath === toPath ? null : redirectPath;
+  }
+
+  return null;
+}
 
 /**
  * Step 진행 순서 검증 가드

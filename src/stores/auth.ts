@@ -3,10 +3,17 @@ import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import type { User } from '@supabase/supabase-js'
 import { useScheduleStore } from '@/stores/schedule'
+import { useRbacStore } from '@/stores/rbac'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const loading = ref(false)
+
+  function syncAuthUser(nextUser: User | null) {
+    user.value = nextUser
+    useScheduleStore().syncWithAuthUser(nextUser)
+    useRbacStore().setSessionUser(nextUser)
+  }
 
   /**
    * 이메일/비밀번호 로그인
@@ -21,8 +28,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (error) throw error
 
-      user.value = data.user
-      useScheduleStore().syncWithAuthUser(user.value)
+      syncAuthUser(data.user)
       return { success: true }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error'
@@ -36,9 +42,13 @@ export const useAuthStore = defineStore('auth', () => {
    * 로그아웃
    */
   async function logout() {
-    await supabase.auth.signOut()
-    user.value = null
-    useScheduleStore().syncWithAuthUser(null)
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      throw error
+    }
+
+    syncAuthUser(null)
+    return { success: true }
   }
 
   /**
@@ -46,8 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
    */
   async function checkSession() {
     const { data } = await supabase.auth.getSession()
-    user.value = data.session?.user ?? null
-    useScheduleStore().syncWithAuthUser(user.value)
+    syncAuthUser(data.session?.user ?? null)
   }
 
   return {
