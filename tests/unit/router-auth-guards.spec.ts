@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
+  APPROVAL_QUEUE_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
 } from '@/constants/routes'
 import { resolveAuthNavigationTarget } from '@/router/guards'
@@ -46,5 +47,15 @@ describe('resolveAuthNavigationTarget', () => {
     })
 
     expect(redirect).toBe('/')
+  })
+
+  it('redirects super users away from login into the approval queue', () => {
+    const redirect = resolveAuthNavigationTarget({
+      toPath: LOGIN_ROUTE_PATH,
+      isAuthenticated: true,
+      accessState: 'super_active',
+    })
+
+    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
   })
 })

@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { supabase } from '@/api/supabase'
 import { resolvePreferredOrganizationId } from '@/utils/authScope'
 import type {
   AccessResolution,
@@ -17,6 +18,43 @@ import type {
 } from '@/types/rbac'
 
 type MetadataRecord = Record<string, unknown>
+
+interface AuthContextSeedProfile {
+  userId: string
+  globalRole: GlobalRole | null
+  accountStatus: AccountStatus | null
+}
+
+interface AuthContextSeed {
+  profile: AuthContextSeedProfile
+  memberships: AuthContextMembership[]
+  currentOrganizationId: string | null
+}
+
+interface ProfileAccessRow {
+  global_role: string | null
+  account_status: string | null
+  organization_id: string | null
+  role: string | null
+  status: string | null
+}
+
+interface OrganizationMembershipAccessRow {
+  id: string
+  organization_id: string | null
+  role: string | null
+  status: string | null
+  approved_at: string | null
+  created_at: string | null
+  rejection_reason: string | null
+}
+
+interface SignupRequestAccessRow {
+  organization_id: string | null
+  status: 'pending' | 'rejected' | 'approved' | 'expired' | 'withdrawn' | null
+  review_note: string | null
+  created_at: string | null
+}
 
 function compareMembershipTimestamps(
   leftTimestamp: string | null | undefined,
@@ -159,7 +197,10 @@ export function deriveAccessState({
     }
   }
 
-  if (context.profile.accountStatus !== 'active') {
+  if (
+    context.profile.accountStatus === 'suspended' ||
+    context.profile.accountStatus === 'withdrawn'
+  ) {
     return {
       accessState: 'no_membership_or_inactive',
       effectiveMembership: null,
@@ -199,7 +240,7 @@ export function deriveAccessState({
     }
   }
 
-  if (fallbackLegacyOrganizationId) {
+  if (fallbackLegacyOrganizationId && context.profile.accountStatus === 'active') {
     const legacyMembership = createEffectiveMembership(
       {
         organizationId: fallbackLegacyOrganizationId,
@@ -244,15 +285,15 @@ function readString(record: MetadataRecord | null, keys: readonly string[]): str
   return null
 }
 
-function normalizeGlobalRole(value: string | null): GlobalRole {
+function readGlobalRole(value: string | null): GlobalRole | null {
   if (value === 'super' || value === 'admin' || value === 'user') {
     return value
   }
 
-  return 'user'
+  return null
 }
 
-function normalizeAccountStatus(value: string | null): AccountStatus {
+function readAccountStatus(value: string | null): AccountStatus | null {
   if (
     value === 'active' ||
     value === 'pending' ||
@@ -263,12 +304,12 @@ function normalizeAccountStatus(value: string | null): AccountStatus {
     return value
   }
 
-  return 'active'
+  return null
 }
 
 function normalizeMembershipRole(
   value: string | null,
-  fallbackRole: GlobalRole,
+  fallbackRole: GlobalRole | null,
 ): OrganizationMembershipRole {
   if (value === 'admin' || value === 'user') {
     return value
@@ -289,7 +330,7 @@ function normalizeMembershipStatus(value: string | null): OrganizationMembership
   return null
 }
 
-function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRole) {
+function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRole | null) {
   if (!metadata) {
     return [] as AuthContextMembership[]
   }
@@ -333,7 +374,7 @@ function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRo
 
 function readTopLevelMembership(
   metadata: MetadataRecord | null,
-  fallbackRole: GlobalRole,
+  fallbackRole: GlobalRole | null,
   fallbackOrganizationId: string | null,
 ): AuthContextMembership | null {
   if (!metadata) {
@@ -359,7 +400,120 @@ function readTopLevelMembership(
   }
 }
 
-function buildAuthContextFromUser(user: User | null): AuthContext | null {
+function mergeMembership(existing: AuthContextMembership, next: AuthContextMembership): AuthContextMembership {
+  return {
+    membershipId: existing.membershipId ?? next.membershipId,
+    organizationId: existing.organizationId,
+    role: existing.role,
+    status: existing.status,
+    approvedAt: existing.approvedAt ?? next.approvedAt,
+    createdAt: existing.createdAt ?? next.createdAt,
+    rejectionReason: existing.rejectionReason ?? next.rejectionReason,
+  }
+}
+
+function mergeMemberships(
+  primaryMemberships: AuthContextMembership[],
+  secondaryMemberships: AuthContextMembership[],
+): AuthContextMembership[] {
+  const mergedMemberships = new Map<string, AuthContextMembership>()
+
+  for (const membership of [...primaryMemberships, ...secondaryMemberships]) {
+    const key =
+      membership.membershipId ??
+      `${membership.organizationId}:${membership.role}:${membership.status}`
+    const existingMembership = mergedMemberships.get(key)
+    mergedMemberships.set(
+      key,
+      existingMembership ? mergeMembership(existingMembership, membership) : membership,
+    )
+  }
+
+  return [...mergedMemberships.values()]
+}
+
+function hasApprovedMembership(memberships: AuthContextMembership[]): boolean {
+  return memberships.some((membership) => membership.status === 'approved')
+}
+
+function hasBlockedAdminMembership(memberships: AuthContextMembership[]): boolean {
+  return memberships.some(
+    (membership) =>
+      membership.role === 'admin' &&
+      (membership.status === 'pending' || membership.status === 'rejected'),
+  )
+}
+
+function resolveMergedAccountStatus(
+  explicitAccountStatus: AccountStatus | null,
+  globalRole: GlobalRole | null,
+  memberships: AuthContextMembership[],
+): AccountStatus {
+  if (explicitAccountStatus === 'suspended' || explicitAccountStatus === 'withdrawn') {
+    return explicitAccountStatus
+  }
+
+  if (
+    explicitAccountStatus === 'active' ||
+    hasApprovedMembership(memberships) ||
+    hasBlockedAdminMembership(memberships) ||
+    globalRole === 'super'
+  ) {
+    return 'active'
+  }
+
+  return explicitAccountStatus ?? 'active'
+}
+
+function buildAuthContextFromSeed(seed: AuthContextSeed | null): AuthContext | null {
+  if (!seed) {
+    return null
+  }
+
+  return {
+    profile: {
+      userId: seed.profile.userId,
+      globalRole: seed.profile.globalRole ?? 'user',
+      accountStatus: seed.profile.accountStatus ?? 'active',
+    },
+    memberships: seed.memberships,
+    currentOrganizationId: seed.currentOrganizationId,
+  }
+}
+
+function mergeAuthContextSeeds(
+  primarySeed: AuthContextSeed | null,
+  secondarySeed: AuthContextSeed | null,
+): AuthContext | null {
+  const userId = primarySeed?.profile.userId ?? secondarySeed?.profile.userId
+  if (!userId) {
+    return null
+  }
+
+  const memberships = mergeMemberships(
+    primarySeed?.memberships ?? [],
+    secondarySeed?.memberships ?? [],
+  )
+  const globalRole = primarySeed?.profile.globalRole ?? secondarySeed?.profile.globalRole ?? null
+  const accountStatus = resolveMergedAccountStatus(
+    primarySeed?.profile.accountStatus ?? secondarySeed?.profile.accountStatus ?? null,
+    globalRole,
+    memberships,
+  )
+
+  return buildAuthContextFromSeed({
+    profile: {
+      userId,
+      globalRole,
+      accountStatus,
+    },
+    memberships,
+    currentOrganizationId:
+      primarySeed?.currentOrganizationId ?? secondarySeed?.currentOrganizationId ?? null,
+  })
+}
+
+function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null {
   if (!user?.id) {
     return null
   }
@@ -367,16 +521,12 @@ function buildAuthContextFromUser(user: User | null): AuthContext | null {
   const appMetadata = asRecord(user.app_metadata)
   const userMetadata = asRecord(user.user_metadata)
   const currentOrganizationId = resolvePreferredOrganizationId(user)
-
-  const globalRole = normalizeGlobalRole(
-    readString(appMetadata, ['global_role', 'globalRole']) ??
-      readString(userMetadata, ['global_role', 'globalRole']),
-  )
-
-  const accountStatus = normalizeAccountStatus(
-    readString(appMetadata, ['account_status', 'accountStatus']) ??
-      readString(userMetadata, ['account_status', 'accountStatus']),
-  )
+  const globalRole =
+    readGlobalRole(readString(appMetadata, ['global_role', 'globalRole'])) ??
+    readGlobalRole(readString(userMetadata, ['global_role', 'globalRole']))
+  const accountStatus =
+    readAccountStatus(readString(appMetadata, ['account_status', 'accountStatus'])) ??
+    readAccountStatus(readString(userMetadata, ['account_status', 'accountStatus']))
 
   const memberships = [
     ...readMemberships(appMetadata, globalRole),
@@ -404,11 +554,130 @@ function buildAuthContextFromUser(user: User | null): AuthContext | null {
   }
 }
 
+async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContextSeed | null> {
+  const [{ data: profile, error: profileError }, { data: memberships, error: membershipsError }] =
+    await Promise.all([
+      supabase
+        .from('profiles')
+        .select('global_role, account_status, organization_id, role, status')
+        .eq('id', userId)
+        .limit(1)
+        .maybeSingle<ProfileAccessRow>(),
+      supabase
+        .from('organization_memberships')
+        .select('id, organization_id, role, status, approved_at, created_at, rejection_reason')
+        .eq('user_id', userId) as Promise<{
+          data: OrganizationMembershipAccessRow[] | null
+          error: { message: string } | null
+        }>,
+    ])
+
+  if (profileError) {
+    throw new Error(profileError.message)
+  }
+
+  if (membershipsError) {
+    throw new Error(membershipsError.message)
+  }
+
+  const { data: signupRequest, error: signupRequestError } = await supabase
+    .from('signup_requests')
+    .select('organization_id, status, review_note, created_at')
+    .eq('requester_user_id', userId)
+    .eq('requested_role', 'admin')
+    .in('status', ['pending', 'rejected'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle<SignupRequestAccessRow>()
+
+  if (signupRequestError) {
+    throw new Error(signupRequestError.message)
+  }
+
+  const profileGlobalRole = readGlobalRole(profile?.global_role?.trim() ?? null)
+  const membershipsFromDatabase = (memberships ?? [])
+    .map((membership) => {
+      const organizationId = membership.organization_id?.trim() ?? null
+      const status = normalizeMembershipStatus(membership.status?.trim() ?? null)
+      if (!organizationId || !status) {
+        return null
+      }
+
+      return {
+        membershipId: membership.id,
+        organizationId,
+        role: normalizeMembershipRole(membership.role?.trim() ?? null, profileGlobalRole),
+        status,
+        approvedAt: membership.approved_at,
+        createdAt: membership.created_at,
+        rejectionReason: membership.rejection_reason,
+      } satisfies AuthContextMembership
+    })
+    .filter((membership): membership is AuthContextMembership => Boolean(membership))
+
+  if (
+    membershipsFromDatabase.length === 0 &&
+    profile?.organization_id &&
+    profile.status?.trim() === 'active'
+  ) {
+    membershipsFromDatabase.push({
+      organizationId: profile.organization_id,
+      role: normalizeMembershipRole(profile.role?.trim() ?? null, profileGlobalRole),
+      status: 'approved',
+    })
+  }
+
+  if (
+    signupRequest?.organization_id &&
+    (signupRequest.status === 'pending' || signupRequest.status === 'rejected') &&
+    !membershipsFromDatabase.some(
+      (membership) =>
+        membership.organizationId === signupRequest.organization_id &&
+        membership.role === 'admin' &&
+        membership.status === signupRequest.status,
+    )
+  ) {
+    membershipsFromDatabase.push({
+      organizationId: signupRequest.organization_id,
+      role: 'admin',
+      status: signupRequest.status,
+      createdAt: signupRequest.created_at,
+      rejectionReason: signupRequest.review_note,
+    })
+  }
+
+  if (!profile && membershipsFromDatabase.length === 0) {
+    return null
+  }
+
+  return {
+    profile: {
+      userId,
+      globalRole: profileGlobalRole,
+      accountStatus: readAccountStatus(profile?.account_status?.trim() ?? null),
+    },
+    memberships: membershipsFromDatabase,
+    currentOrganizationId:
+      profile?.organization_id ??
+      membershipsFromDatabase.find((membership) => membership.status === 'approved')?.organizationId ??
+      membershipsFromDatabase[0]?.organizationId ??
+      signupRequest?.organization_id ??
+      null,
+  }
+}
+
 export const useRbacStore = defineStore('rbac', () => {
   const sessionUser = ref<User | null>(null)
   const selectedOrganizationId = ref<string | null>(null)
+  const hydratedContext = ref<AuthContext | null>(null)
+  const accessContextLoaded = ref(false)
 
-  const context = computed(() => buildAuthContextFromUser(sessionUser.value))
+  let pendingAccessContextLoad: Promise<void> | null = null
+
+  const metadataContext = computed(() => buildAuthContextFromSeed(buildAuthContextSeedFromUser(sessionUser.value)))
+  const context = computed(() =>
+    accessContextLoaded.value ? hydratedContext.value : metadataContext.value,
+  )
 
   const resolution = computed<AccessResolution>(() =>
     deriveAccessState({
@@ -422,8 +691,55 @@ export const useRbacStore = defineStore('rbac', () => {
   const accessState = computed<AccessState>(() => resolution.value.accessState)
   const effectiveMembership = computed(() => resolution.value.effectiveMembership)
 
+  async function ensureAccessContextLoaded() {
+    const userId = sessionUser.value?.id ?? null
+    if (!userId) {
+      hydratedContext.value = null
+      accessContextLoaded.value = true
+      return
+    }
+
+    if (accessContextLoaded.value) {
+      return
+    }
+
+    if (pendingAccessContextLoad) {
+      await pendingAccessContextLoad
+      return
+    }
+
+    pendingAccessContextLoad = (async () => {
+      const metadataSeed = buildAuthContextSeedFromUser(sessionUser.value)
+      try {
+        const databaseSeed = await loadDatabaseAccessContextSeed(userId)
+        if (sessionUser.value?.id !== userId) {
+          return
+        }
+
+        hydratedContext.value = mergeAuthContextSeeds(metadataSeed, databaseSeed)
+      } catch (error) {
+        console.warn('[rbac] Failed to hydrate access context from DB:', error)
+        if (sessionUser.value?.id !== userId) {
+          return
+        }
+
+        hydratedContext.value = buildAuthContextFromSeed(metadataSeed)
+      } finally {
+        if (sessionUser.value?.id === userId) {
+          accessContextLoaded.value = true
+        }
+      }
+    })().finally(() => {
+      pendingAccessContextLoad = null
+    })
+
+    await pendingAccessContextLoad
+  }
+
   function setSessionUser(user: User | null) {
     sessionUser.value = user
+    hydratedContext.value = null
+    accessContextLoaded.value = false
     if (!user) {
       selectedOrganizationId.value = null
     }
@@ -436,11 +752,14 @@ export const useRbacStore = defineStore('rbac', () => {
   function clearContext() {
     sessionUser.value = null
     selectedOrganizationId.value = null
+    hydratedContext.value = null
+    accessContextLoaded.value = false
   }
 
   return {
     accessState,
     effectiveMembership,
+    ensureAccessContextLoaded,
     setSessionUser,
     setSelectedOrganizationId,
     clearContext,

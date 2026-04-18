@@ -72,4 +72,50 @@ describe('deriveAccessState', () => {
       status: 'approved',
     })
   })
+
+  it('keeps approved memberships active even when the profile account status is stale', () => {
+    const resolution = deriveAccessState({
+      sessionUserId: 'user-1',
+      context: {
+        profile: {
+          userId: 'user-1',
+          globalRole: 'user',
+          accountStatus: 'pending',
+        },
+        memberships: [
+          {
+            organizationId: 'org-1',
+            role: 'user',
+            status: 'approved',
+          },
+        ],
+        currentOrganizationId: 'org-1',
+      },
+    })
+
+    expect(resolution.accessState).toBe('user_active')
+  })
+
+  it('keeps blocked admin access visible even when the profile account status is not active', () => {
+    const resolution = deriveAccessState({
+      sessionUserId: 'user-1',
+      context: {
+        profile: {
+          userId: 'user-1',
+          globalRole: 'user',
+          accountStatus: 'rejected',
+        },
+        memberships: [
+          {
+            organizationId: 'org-1',
+            role: 'admin',
+            status: 'rejected',
+            rejectionReason: '반려',
+          },
+        ],
+      },
+    })
+
+    expect(resolution.accessState).toBe('admin_rejected')
+  })
 })

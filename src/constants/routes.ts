@@ -23,8 +23,9 @@ export function resolvePostAuthRedirectPath(accessState: AccessState | null): st
       return ACCESS_PENDING_ROUTE_PATH
     case 'admin_rejected':
       return ACCESS_REJECTED_ROUTE_PATH
-    case 'admin_active':
     case 'super_active':
+      return APPROVAL_QUEUE_ROUTE_PATH
+    case 'admin_active':
     case 'user_active':
       return HOME_ROUTE_PATH
     case 'no_membership_or_inactive':

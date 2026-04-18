@@ -157,6 +157,10 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
+  if (authStore.user) {
+    await rbacStore.ensureAccessContextLoaded();
+  }
+
   const authRedirect = resolveAuthNavigationTarget({
     toPath: to.path,
     isAuthenticated: Boolean(authStore.user),

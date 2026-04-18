@@ -1,0 +1,208 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import type { User } from '@supabase/supabase-js'
+
+type TableName = 'profiles' | 'organization_memberships' | 'signup_requests'
+
+interface ProfileRow {
+  global_role: string | null
+  account_status: string | null
+  organization_id: string | null
+  role: string | null
+  status: string | null
+}
+
+interface MembershipRow {
+  id: string
+  organization_id: string | null
+  role: string | null
+  status: string | null
+  approved_at?: string | null
+  created_at?: string | null
+  rejection_reason?: string | null
+}
+
+interface SignupRequestRow {
+  organization_id: string | null
+  status: 'pending' | 'rejected' | 'approved'
+  review_note: string | null
+  created_at: string
+}
+
+const {
+  fromMock,
+  profileByUserId,
+  membershipsByUserId,
+  signupRequestByUserId,
+} = vi.hoisted(() => ({
+  fromMock: vi.fn(),
+  profileByUserId: new Map<string, ProfileRow | null>(),
+  membershipsByUserId: new Map<string, MembershipRow[]>(),
+  signupRequestByUserId: new Map<string, SignupRequestRow | null>(),
+}))
+
+vi.mock('@/api/supabase', () => ({
+  supabase: {
+    from: fromMock,
+  },
+}))
+
+import { useRbacStore } from '@/stores/rbac'
+
+function createAuthUser(overrides: Partial<User> = {}): User {
+  return {
+    id: 'user-1',
+    aud: 'authenticated',
+    created_at: '2026-04-18T00:00:00Z',
+    app_metadata: {},
+    user_metadata: {
+      email_verified: true,
+    },
+    ...overrides,
+  } as User
+}
+
+function createQueryBuilder(table: TableName) {
+  const filters = new Map<string, unknown>()
+
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn((column: string, value: unknown) => {
+      filters.set(column, value)
+      return query
+    }),
+    in: vi.fn((column: string, value: unknown[]) => {
+      filters.set(column, value)
+      return query
+    }),
+    order: vi.fn(() => query),
+    limit: vi.fn(() => query),
+    maybeSingle: vi.fn(async () => {
+      if (table === 'profiles') {
+        return {
+          data: profileByUserId.get(String(filters.get('id'))) ?? null,
+          error: null,
+        }
+      }
+
+      return {
+        data: signupRequestByUserId.get(String(filters.get('requester_user_id'))) ?? null,
+        error: null,
+      }
+    }),
+    then: undefined,
+  }
+
+  if (table === 'organization_memberships') {
+    query.eq = vi.fn(async (column: string, value: unknown) => {
+      filters.set(column, value)
+      return {
+        data: membershipsByUserId.get(String(value)) ?? [],
+        error: null,
+      }
+    })
+  }
+
+  return query
+}
+
+describe('RBAC access hydration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    setActivePinia(createPinia())
+    profileByUserId.clear()
+    membershipsByUserId.clear()
+    signupRequestByUserId.clear()
+
+    fromMock.mockImplementation((table: TableName) => createQueryBuilder(table))
+  })
+
+  it('hydrates active admin access from DB when auth metadata is incomplete', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'user',
+      account_status: 'active',
+      organization_id: 'org-1',
+      role: 'admin',
+      status: 'active',
+    })
+    membershipsByUserId.set('user-1', [
+      {
+        id: 'membership-1',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'approved',
+        approved_at: '2026-04-18T01:00:00Z',
+      },
+    ])
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('admin_active')
+    expect(store.effectiveMembership).toMatchObject({
+      membershipId: 'membership-1',
+      organizationId: 'org-1',
+      role: 'admin',
+      status: 'approved',
+    })
+  })
+
+  it('hydrates super access from DB when JWT metadata is missing', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'super',
+      account_status: 'active',
+      organization_id: null,
+      role: null,
+      status: null,
+    })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('super_active')
+    expect(store.effectiveMembership).toBeNull()
+  })
+
+  it('falls back to the latest pending admin signup request when no membership metadata exists', async () => {
+    signupRequestByUserId.set('user-1', {
+      organization_id: 'org-pending',
+      status: 'pending',
+      review_note: null,
+      created_at: '2026-04-18T02:00:00Z',
+    })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('admin_pending')
+    expect(store.effectiveMembership).toMatchObject({
+      organizationId: 'org-pending',
+      role: 'admin',
+      status: 'pending',
+    })
+  })
+
+  it('falls back to the latest rejected admin signup request and preserves the review note', async () => {
+    signupRequestByUserId.set('user-1', {
+      organization_id: 'org-rejected',
+      status: 'rejected',
+      review_note: '증빙 서류를 다시 제출해주세요.',
+      created_at: '2026-04-18T03:00:00Z',
+    })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('admin_rejected')
+    expect(store.effectiveMembership).toMatchObject({
+      organizationId: 'org-rejected',
+      role: 'admin',
+      status: 'rejected',
+      rejectionReason: '증빙 서류를 다시 제출해주세요.',
+    })
+  })
+})
