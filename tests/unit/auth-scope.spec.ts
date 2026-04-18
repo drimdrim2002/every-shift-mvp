@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { User } from '@supabase/supabase-js';
-import { resolveAuthScope, resolvePreferredOrganizationId } from '@/utils/authScope';
+import { resolveAuthScope } from '@/utils/authScope';
 
 function createAuthUser(
   overrides: Partial<User> & {
@@ -19,80 +19,33 @@ function createAuthUser(
 }
 
 describe('resolveAuthScope', () => {
-  it('prefers organization_id from app metadata over user metadata', () => {
+  it('returns only the user id and foundation metadata', () => {
     const scope = resolveAuthScope(
       createAuthUser({
         app_metadata: {
-          organization_id: 'org-app',
+          current_step_key: 'organization_info',
         },
         user_metadata: {
-          organization_id: 'org-user',
+          current_step_key: 'seed_data',
         },
       })
     );
 
     expect(scope).toEqual({
       userId: 'user-1',
-      organizationId: 'org-app',
-      foundation: null,
+      foundation: {
+        currentStepKey: 'organization_info',
+        organizationInfoConfirmedAt: null,
+        organizationInfoConfirmedBy: null,
+      },
     });
   });
 
-  it('does not trust user metadata when app metadata has no organization id', () => {
-    const scope = resolveAuthScope(
-      createAuthUser({
-        app_metadata: {},
-        user_metadata: {
-          organization_id: 'org-user',
-        },
-      })
-    );
-
-    expect(scope).toEqual({
-      userId: 'user-1',
-      organizationId: null,
-      foundation: null,
-    });
-  });
-
-  it('accepts current_organization_id metadata keys', () => {
-    const scope = resolveAuthScope(
-      createAuthUser({
-        app_metadata: {
-          current_organization_id: 'org-current',
-        },
-      })
-    );
-
-    expect(scope).toEqual({
-      userId: 'user-1',
-      organizationId: 'org-current',
-      foundation: null,
-    });
-  });
-
-  it('accepts currentOrganizationId metadata keys', () => {
-    const scope = resolveAuthScope(
-      createAuthUser({
-        app_metadata: {
-          currentOrganizationId: '00000000-0000-0000-0000-000000000001',
-        },
-      })
-    );
-
-    expect(scope).toEqual({
-      userId: 'user-1',
-      organizationId: '00000000-0000-0000-0000-000000000001',
-      foundation: null,
-    });
-  });
-
-  it('reads organization id from nested foundation metadata when top-level keys are missing', () => {
+  it('reads foundation metadata from nested foundation records', () => {
     const scope = resolveAuthScope(
       createAuthUser({
         app_metadata: {
           foundation: {
-            organization_id: 'org-foundation',
             current_step_key: 'organization_info',
           },
         },
@@ -101,7 +54,6 @@ describe('resolveAuthScope', () => {
 
     expect(scope).toEqual({
       userId: 'user-1',
-      organizationId: 'org-foundation',
       foundation: {
         currentStepKey: 'organization_info',
         organizationInfoConfirmedAt: null,
@@ -132,42 +84,11 @@ describe('resolveAuthScope', () => {
 
     expect(scope).toEqual({
       userId: 'user-1',
-      organizationId: null,
       foundation: {
         currentStepKey: 'organization_info',
         organizationInfoConfirmedAt: '2026-04-08T10:00:00Z',
         organizationInfoConfirmedBy: 'admin-app',
       },
     });
-  });
-});
-
-describe('resolvePreferredOrganizationId', () => {
-  it('returns the app metadata organization id when present', () => {
-    expect(
-      resolvePreferredOrganizationId(
-        createAuthUser({
-          app_metadata: {
-            organization_id: 'org-app',
-          },
-          user_metadata: {
-            organization_id: 'org-user',
-          },
-        })
-      )
-    ).toBe('org-app');
-  });
-
-  it('does not trust user metadata fallback when app metadata has no organization id', () => {
-    expect(
-      resolvePreferredOrganizationId(
-        createAuthUser({
-          app_metadata: {},
-          user_metadata: {
-            organization_id: 'org-user',
-          },
-        })
-      )
-    ).toBeNull();
   });
 });

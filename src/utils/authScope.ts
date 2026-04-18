@@ -10,49 +10,7 @@ export interface AuthFoundationMetadata {
 
 export interface AuthScope {
   userId: string;
-  organizationId: string | null;
   foundation: AuthFoundationMetadata | null;
-}
-
-export function resolvePreferredOrganizationId(user: User | null | undefined): string | null {
-  if (!user) {
-    return null;
-  }
-
-  return readOrganizationIdFromMetadata(user.app_metadata as OrganizationMetadata);
-}
-
-export function readOrganizationIdFromMetadata(metadata: OrganizationMetadata): string | null {
-  const keys = [
-    'organizationId',
-    'organization_id',
-    'currentOrganizationId',
-    'current_organization_id',
-  ] as const;
-
-  for (const key of keys) {
-    const value = metadata?.[key];
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-
-  const foundation = metadata?.foundation;
-
-  if (typeof foundation === 'object' && foundation !== null && !Array.isArray(foundation)) {
-    const foundationOrganizationId =
-      (foundation as Record<string, unknown>).organization_id ??
-      (foundation as Record<string, unknown>).organizationId;
-
-    if (
-      typeof foundationOrganizationId === 'string' &&
-      foundationOrganizationId.trim().length > 0
-    ) {
-      return foundationOrganizationId.trim();
-    }
-  }
-
-  return null;
 }
 
 function readStringFromMetadata(
@@ -118,12 +76,10 @@ export function resolveAuthScope(user: User | null | undefined): AuthScope | nul
 
   const appMetadata = user.app_metadata as OrganizationMetadata;
   const userMetadata = user.user_metadata as OrganizationMetadata;
-  const organizationId = resolvePreferredOrganizationId(user);
   const foundation = readFoundationFromMetadata(appMetadata) ?? readFoundationFromMetadata(userMetadata);
 
   return {
     userId: user.id,
-    organizationId,
     foundation,
   };
 }

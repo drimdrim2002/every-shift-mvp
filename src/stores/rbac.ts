@@ -2,7 +2,8 @@ import type { User } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { supabase } from '@/api/supabase'
-import { resolvePreferredOrganizationId } from '@/utils/authScope'
+import { useOrganizationStore } from '@/stores/organization'
+import { useScheduleStore } from '@/stores/schedule'
 import {
   buildAccessAbilities,
   buildOrganizationOptions,
@@ -75,6 +76,21 @@ function readPersistedSelectedOrganizationId(userId: string | null): string | nu
 
   const value = window.localStorage.getItem(buildSelectedOrganizationStorageKey(userId))
   return value?.trim() ? value.trim() : null
+}
+
+function persistSelectedOrganizationId(userId: string | null, organizationId: string | null) {
+  if (!userId || typeof window === 'undefined') {
+    return
+  }
+
+  const storageKey = buildSelectedOrganizationStorageKey(userId)
+  const trimmedOrganizationId = organizationId?.trim() ?? null
+  if (!trimmedOrganizationId) {
+    window.localStorage.removeItem(storageKey)
+    return
+  }
+
+  window.localStorage.setItem(storageKey, trimmedOrganizationId)
 }
 
 function validateSelectedOrganizationId(
@@ -211,6 +227,25 @@ function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRo
       } satisfies AuthContextMembership
     })
     .filter((membership): membership is AuthContextMembership => Boolean(membership))
+}
+
+function readCurrentOrganizationId(user: User | null): string | null {
+  if (!user) {
+    return null
+  }
+
+  return (
+    readString(asRecord(user.app_metadata), [
+      'currentOrganizationId',
+      'current_organization_id',
+      'organizationId',
+      'organization_id',
+    ]) ??
+    readString(asRecord(user.user_metadata), [
+      'currentOrganizationId',
+      'current_organization_id',
+    ])
+  )
 }
 
 function readTopLevelMembership(
@@ -361,7 +396,7 @@ function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null
 
   const appMetadata = asRecord(user.app_metadata)
   const userMetadata = asRecord(user.user_metadata)
-  const currentOrganizationId = resolvePreferredOrganizationId(user)
+  const currentOrganizationId = readCurrentOrganizationId(user)
   const globalRole =
     readGlobalRole(readString(appMetadata, ['global_role', 'globalRole'])) ??
     readGlobalRole(readString(userMetadata, ['global_role', 'globalRole']))
@@ -526,7 +561,6 @@ export const useRbacStore = defineStore('rbac', () => {
       sessionUserId: sessionUser.value?.id ?? null,
       context: context.value,
       selectedOrganizationId: selectedOrganizationId.value,
-      fallbackLegacyOrganizationId: resolvePreferredOrganizationId(sessionUser.value),
     }),
   )
 
@@ -552,7 +586,6 @@ export const useRbacStore = defineStore('rbac', () => {
     const selectionResolution = resolveAccessState({
       sessionUserId: userId,
       context: nextContext,
-      fallbackLegacyOrganizationId: resolvePreferredOrganizationId(sessionUser.value),
     })
 
     selectedOrganizationId.value = pickDefaultOrganizationId({
@@ -560,6 +593,7 @@ export const useRbacStore = defineStore('rbac', () => {
       memberships: nextContext?.memberships ?? [],
       persistedOrganizationId: validatedPersistedOrganizationId,
     })
+    persistSelectedOrganizationId(userId, selectedOrganizationId.value)
   }
 
   async function ensureAccessContextLoaded() {
@@ -624,21 +658,29 @@ export const useRbacStore = defineStore('rbac', () => {
     }
   }
 
-  function setSelectedOrganizationId(organizationId: string | null) {
-    if (organizationId === null) {
-      selectedOrganizationId.value = null
-      return
-    }
-
+  async function selectOrganization(organizationId: string | null) {
     const validatedOrganizationId = validateSelectedOrganizationId(
       organizationId,
       organizationOptions.value,
       context.value?.memberships ?? [],
     )
 
-    if (validatedOrganizationId) {
-      selectedOrganizationId.value = validatedOrganizationId
-    }
+    selectedOrganizationId.value = validatedOrganizationId
+    persistSelectedOrganizationId(sessionUser.value?.id ?? null, validatedOrganizationId)
+
+    useOrganizationStore().resetContext()
+    useScheduleStore().syncWithAccessScope(
+      sessionUser.value?.id
+        ? {
+            userId: sessionUser.value.id,
+            organizationId: validatedOrganizationId,
+          }
+        : null,
+    )
+  }
+
+  function setSelectedOrganizationId(organizationId: string | null) {
+    void selectOrganization(organizationId)
   }
 
   function clearContext() {
@@ -656,6 +698,7 @@ export const useRbacStore = defineStore('rbac', () => {
     ensureAccessContextLoaded,
     organizationOptions,
     selectedOrganizationId,
+    selectOrganization,
     setSessionUser,
     setSelectedOrganizationId,
     clearContext,

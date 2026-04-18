@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import type { User } from '@supabase/supabase-js'
+import { useOrganizationStore } from '@/stores/organization'
 import { useScheduleStore } from '@/stores/schedule'
 import { useRbacStore } from '@/stores/rbac'
 
@@ -25,11 +26,32 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
   let pendingSessionCheck: Promise<void> | null = null
 
+  function resolveAccessScope(userId: string | null) {
+    if (!userId) {
+      return null
+    }
+
+    const rbacStore = useRbacStore()
+    return {
+      userId,
+      organizationId:
+        rbacStore.selectedOrganizationId ?? rbacStore.effectiveMembership?.organizationId ?? null,
+    }
+  }
+
   function syncAuthUser(nextUser: User | null) {
     const rbacStore = useRbacStore()
+    const previousUserId = user.value?.id ?? null
     user.value = nextUser
-    useScheduleStore().syncWithAuthUser(nextUser)
     rbacStore.setSessionUser(nextUser)
+
+    if (previousUserId !== (nextUser?.id ?? null)) {
+      useOrganizationStore().resetContext()
+    }
+
+    if (!nextUser) {
+      useScheduleStore().syncWithAccessScope(null)
+    }
   }
 
   async function syncAndHydrateAuthUser(nextUser: User | null) {
@@ -39,7 +61,9 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
-    await useRbacStore().ensureAccessContextLoaded()
+    const rbacStore = useRbacStore()
+    await rbacStore.ensureAccessContextLoaded()
+    useScheduleStore().syncWithAccessScope(resolveAccessScope(nextUser.id))
   }
 
   /**

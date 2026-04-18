@@ -34,17 +34,33 @@ const {
   profileByUserId,
   membershipsByUserId,
   signupRequestByUserId,
+  syncWithAccessScopeMock,
+  resetContextMock,
 } = vi.hoisted(() => ({
   fromMock: vi.fn(),
   profileByUserId: new Map<string, ProfileRow | null>(),
   membershipsByUserId: new Map<string, MembershipRow[]>(),
   signupRequestByUserId: new Map<string, SignupRequestRow | null>(),
+  syncWithAccessScopeMock: vi.fn(),
+  resetContextMock: vi.fn(),
 }))
 
 vi.mock('@/api/supabase', () => ({
   supabase: {
     from: fromMock,
   },
+}))
+
+vi.mock('@/stores/schedule', () => ({
+  useScheduleStore: () => ({
+    syncWithAccessScope: syncWithAccessScopeMock,
+  }),
+}))
+
+vi.mock('@/stores/organization', () => ({
+  useOrganizationStore: () => ({
+    resetContext: resetContextMock,
+  }),
 }))
 
 import { useRbacStore } from '@/stores/rbac'
@@ -113,6 +129,8 @@ describe('RBAC access hydration', () => {
     profileByUserId.clear()
     membershipsByUserId.clear()
     signupRequestByUserId.clear()
+    syncWithAccessScopeMock.mockReset()
+    resetContextMock.mockReset()
 
     fromMock.mockImplementation((table: TableName) => createQueryBuilder(table))
   })
@@ -252,6 +270,46 @@ describe('RBAC access hydration', () => {
     ])
   })
 
+  it('persists org selection changes and propagates the active scope into dependent stores', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'user',
+      account_status: 'active',
+      organization_id: 'org-1',
+      role: 'admin',
+      status: 'active',
+    })
+    membershipsByUserId.set('user-1', [
+      {
+        id: 'membership-1',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'approved',
+        approved_at: '2026-04-18T01:00:00Z',
+      },
+      {
+        id: 'membership-2',
+        organization_id: 'org-2',
+        role: 'user',
+        status: 'approved',
+        approved_at: '2026-04-18T02:00:00Z',
+      },
+    ])
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    await store.selectOrganization('org-2')
+
+    expect(store.selectedOrganizationId).toBe('org-2')
+    expect(window.localStorage.getItem('everyshift:selected-organization:user-1')).toBe('org-2')
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      organizationId: 'org-2',
+    })
+    expect(resetContextMock).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects invalid selected organizations so super access cannot unlock admin abilities', async () => {
     profileByUserId.set('user-1', {
       global_role: 'super',
@@ -265,7 +323,7 @@ describe('RBAC access hydration', () => {
     store.setSessionUser(createAuthUser())
     await store.ensureAccessContextLoaded()
 
-    store.setSelectedOrganizationId('org-inaccessible')
+    await store.selectOrganization('org-inaccessible')
 
     expect(store.selectedOrganizationId).toBeNull()
     expect(store.abilities).toMatchObject({

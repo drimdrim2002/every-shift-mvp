@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { useScheduleStore } from '@/stores/schedule';
-import type { User } from '@supabase/supabase-js';
 import type {
   ScheduleCompareResponse,
   ScheduleEvaluation,
@@ -98,25 +97,6 @@ function createCompareMatrix(
     versions: [createVersionSummary()],
     ...overrides,
   };
-}
-
-function createAuthUser(
-  overrides: Partial<User> & {
-    id?: string;
-    app_metadata?: Record<string, unknown>;
-    user_metadata?: Record<string, unknown>;
-  } = {}
-): User {
-  return {
-    id: overrides.id ?? 'user-1',
-    app_metadata: overrides.app_metadata ?? {
-      organization_id: 'org-1',
-    },
-    user_metadata: overrides.user_metadata ?? {},
-    aud: 'authenticated',
-    created_at: '2026-03-28T00:00:00Z',
-    ...overrides,
-  } as User;
 }
 
 describe('useScheduleStore', () => {
@@ -291,10 +271,13 @@ describe('useScheduleStore', () => {
     expect(store.reviewTab).toBe('grid');
   });
 
-  it('persists wizard context needed for Step4/Step5 reload only after auth sync', async () => {
+  it('persists wizard context needed for Step4/Step5 reload only after access-scope sync', async () => {
     const store = useScheduleStore();
 
-    store.syncWithAuthUser(createAuthUser());
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: 'org-1',
+    });
     store.setBasicInfo({
       scheduleId: 'schedule-1',
       month: '2026-04',
@@ -333,7 +316,7 @@ describe('useScheduleStore', () => {
     });
   });
 
-  it('does not hydrate persisted wizard context until auth scope is synced', () => {
+  it('does not hydrate persisted wizard context until access scope is synced', () => {
     localStorage.setItem(
       USER_SCOPED_STORAGE_KEY,
       JSON.stringify({
@@ -366,14 +349,10 @@ describe('useScheduleStore', () => {
     expect(store.previewVersionId).toBeNull();
     expect(store.currentStep).toBe(1);
 
-    store.syncWithAuthUser(
-      createAuthUser({
-        id: 'user-1',
-        app_metadata: {
-          organization_id: 'org-restore',
-        },
-      })
-    );
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: 'org-restore',
+    });
 
     expect(store.basicInfo).toEqual({
       scheduleId: 'schedule-restored',
@@ -389,7 +368,7 @@ describe('useScheduleStore', () => {
     expect(store.currentStep).toBe(4);
   });
 
-  it('rejects persisted wizard context when the authenticated organization scope differs', () => {
+  it('syncs persisted wizard context against the explicit access scope organization', () => {
     localStorage.setItem(
       USER_SCOPED_STORAGE_KEY,
       JSON.stringify({
@@ -415,13 +394,10 @@ describe('useScheduleStore', () => {
 
     const store = useScheduleStore();
 
-    store.syncWithAuthUser(
-      createAuthUser({
-        app_metadata: {
-          organization_id: 'org-2',
-        },
-      })
-    );
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: 'org-2',
+    });
 
     expect(store.basicInfo).toBeNull();
     expect(store.selectedVersionId).toBeNull();
@@ -433,7 +409,10 @@ describe('useScheduleStore', () => {
   it('clears in-memory and persisted wizard context on logout sync', async () => {
     const store = useScheduleStore();
 
-    store.syncWithAuthUser(createAuthUser());
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: 'org-1',
+    });
     store.setBasicInfo({
       scheduleId: 'schedule-1',
       month: '2026-04',
@@ -451,7 +430,7 @@ describe('useScheduleStore', () => {
 
     expect(localStorage.getItem(USER_SCOPED_STORAGE_KEY)).toBeTruthy();
 
-    store.syncWithAuthUser(null);
+    store.syncWithAccessScope(null);
 
     expect(store.basicInfo).toBeNull();
     expect(store.selectedVersionId).toBeNull();
@@ -481,7 +460,10 @@ describe('useScheduleStore', () => {
 
     const store = useScheduleStore();
 
-    store.syncWithAuthUser(createAuthUser());
+    store.syncWithAccessScope({
+      userId: 'user-1',
+      organizationId: 'org-1',
+    });
 
     expect(store.basicInfo).toBeNull();
     expect(store.selectedVersionId).toBeNull();

@@ -6,16 +6,23 @@ const {
   signInWithPasswordMock,
   signOutMock,
   getSessionMock,
-  syncWithAuthUserMock,
+  syncWithAccessScopeMock,
   ensureAccessContextLoadedMock,
   setSessionUserMock,
+  resetContextMock,
+  rbacStoreState,
 } = vi.hoisted(() => ({
   signInWithPasswordMock: vi.fn(),
   signOutMock: vi.fn(),
   getSessionMock: vi.fn(),
-  syncWithAuthUserMock: vi.fn(),
+  syncWithAccessScopeMock: vi.fn(),
   ensureAccessContextLoadedMock: vi.fn(),
   setSessionUserMock: vi.fn(),
+  resetContextMock: vi.fn(),
+  rbacStoreState: {
+    selectedOrganizationId: 'org-1' as string | null,
+    effectiveMembership: null as { organizationId: string } | null,
+  },
 }));
 
 vi.mock('@/api/supabase', () => ({
@@ -30,12 +37,20 @@ vi.mock('@/api/supabase', () => ({
 
 vi.mock('@/stores/schedule', () => ({
   useScheduleStore: () => ({
-    syncWithAuthUser: syncWithAuthUserMock,
+    syncWithAccessScope: syncWithAccessScopeMock,
+  }),
+}));
+
+vi.mock('@/stores/organization', () => ({
+  useOrganizationStore: () => ({
+    resetContext: resetContextMock,
   }),
 }));
 
 vi.mock('@/stores/rbac', () => ({
   useRbacStore: () => ({
+    selectedOrganizationId: rbacStoreState.selectedOrganizationId,
+    effectiveMembership: rbacStoreState.effectiveMembership,
     setSessionUser: setSessionUserMock,
     ensureAccessContextLoaded: ensureAccessContextLoadedMock,
   }),
@@ -60,10 +75,12 @@ describe('useAuthStore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setActivePinia(createPinia());
-    ensureAccessContextLoadedMock.mockResolvedValue(undefined)
+    ensureAccessContextLoadedMock.mockResolvedValue(undefined);
+    rbacStoreState.selectedOrganizationId = 'org-1';
+    rbacStoreState.effectiveMembership = null;
   });
 
-  it('syncs schedule scope after successful login', async () => {
+  it('syncs schedule access scope after successful login', async () => {
     const user = createAuthUser();
     signInWithPasswordMock.mockResolvedValue({
       data: { user },
@@ -75,8 +92,11 @@ describe('useAuthStore', () => {
 
     expect(result).toEqual({ success: true });
     expect(store.user).toEqual(user);
-    expect(syncWithAuthUserMock).toHaveBeenCalledWith(user);
-    expect(setSessionUserMock).toHaveBeenCalledWith(user)
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      organizationId: 'org-1',
+    });
+    expect(setSessionUserMock).toHaveBeenCalledWith(user);
   });
 
   it('maps invalid credentials into a user-friendly Korean message', async () => {
@@ -97,38 +117,43 @@ describe('useAuthStore', () => {
     });
   });
 
-  it('waits for access-context hydration before resolving a successful login', async () => {
-    const user = createAuthUser()
-    let resolveHydration: (() => void) | null = null
+  it('waits for access-context hydration before syncing the scoped wizard state', async () => {
+    const user = createAuthUser();
+    let resolveHydration: (() => void) | null = null;
     signInWithPasswordMock.mockResolvedValue({
       data: { user },
       error: null,
-    })
+    });
     ensureAccessContextLoadedMock.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
-          resolveHydration = resolve
+          resolveHydration = resolve;
         }),
-    )
+    );
 
-    const store = useAuthStore()
-    let settled = false
+    const store = useAuthStore();
+    let settled = false;
     const loginPromise = store.login('admin@everyshift.com', 'password').then(() => {
-      settled = true
-    })
+      settled = true;
+    });
 
-    await Promise.resolve()
+    await Promise.resolve();
 
-    expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1)
-    expect(settled).toBe(false)
+    expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1);
+    expect(syncWithAccessScopeMock).not.toHaveBeenCalled();
+    expect(settled).toBe(false);
 
-    resolveHydration?.()
-    await loginPromise
+    resolveHydration?.();
+    await loginPromise;
 
-    expect(settled).toBe(true)
-  })
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
+      userId: 'user-1',
+      organizationId: 'org-1',
+    });
+    expect(settled).toBe(true);
+  });
 
-  it('clears schedule scope on logout', async () => {
+  it('clears schedule scope and organization context on logout', async () => {
     signOutMock.mockResolvedValue({ error: null });
 
     const store = useAuthStore();
@@ -137,17 +162,19 @@ describe('useAuthStore', () => {
     await store.logout();
 
     expect(store.user).toBeNull();
-    expect(syncWithAuthUserMock).toHaveBeenCalledWith(null);
-    expect(setSessionUserMock).toHaveBeenCalledWith(null)
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith(null);
+    expect(resetContextMock).toHaveBeenCalledTimes(1);
+    expect(setSessionUserMock).toHaveBeenCalledWith(null);
   });
 
-  it('syncs schedule scope from the existing session on checkSession', async () => {
+  it('syncs schedule access scope from the hydrated existing session on checkSession', async () => {
     const user = createAuthUser({
       id: 'user-2',
       app_metadata: {
         organization_id: 'org-2',
       },
     });
+    rbacStoreState.selectedOrganizationId = 'org-2';
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -160,7 +187,10 @@ describe('useAuthStore', () => {
     await store.checkSession();
 
     expect(store.user).toEqual(user);
-    expect(syncWithAuthUserMock).toHaveBeenCalledWith(user);
-    expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1)
+    expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
+      userId: 'user-2',
+      organizationId: 'org-2',
+    });
+    expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1);
   });
 });

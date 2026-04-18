@@ -4,6 +4,7 @@ import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
 import * as opsApi from '@/api/ops'
 import * as shiftApi from '@/api/shift'
+import { useRbacStore } from '@/stores/rbac'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
@@ -14,7 +15,6 @@ import type {
 } from '@/types/ops'
 import {
   resolveAuthScope,
-  resolvePreferredOrganizationId,
   type AuthScope,
 } from '@/utils/authScope'
 
@@ -46,6 +46,23 @@ interface ShiftRow {
   start_time: string | null
   end_time: string | null
   created_at?: string
+}
+
+function resolveSelectedOrganizationId(explicitOrgId?: string): string {
+  const trimmedExplicitOrgId = explicitOrgId?.trim()
+  if (trimmedExplicitOrgId) {
+    return trimmedExplicitOrgId
+  }
+
+  const rbacStore = useRbacStore()
+  const selectedOrganizationId =
+    rbacStore.selectedOrganizationId ?? rbacStore.effectiveMembership?.organizationId ?? null
+
+  if (!selectedOrganizationId) {
+    throw new Error('접근 가능한 조직 정보가 없습니다.')
+  }
+
+  return selectedOrganizationId
 }
 
 export const useOrganizationStore = defineStore('organization', () => {
@@ -80,27 +97,12 @@ export const useOrganizationStore = defineStore('organization', () => {
 
     const sessionUser = sessionData.session?.user
     const authScope = resolveAuthScope(sessionUser)
-    const explicitOrgId = typeof orgId === 'string' && orgId.trim().length > 0 ? orgId.trim() : null
-    const preferredOrganizationId = resolvePreferredOrganizationId(sessionUser)
-
-    if (sessionUser && !authScope?.organizationId) {
-      throw new Error('로그인 계정에 organization_id 메타데이터가 없습니다.')
-    }
-
-    if (explicitOrgId && preferredOrganizationId !== explicitOrgId) {
-      throw new Error('요청한 조직과 로그인 계정의 organization_id가 일치하지 않습니다.')
-    }
-
-    const resolvedOrgId = explicitOrgId ?? authScope?.organizationId ?? null
-
-    if (!resolvedOrgId) {
-      throw new Error('접근 가능한 조직 정보가 없습니다.')
-    }
+    const resolvedOrgId = resolveSelectedOrganizationId(orgId)
 
     const organization = await fetchOrganizationById(resolvedOrgId)
 
     if (!organization) {
-      throw new Error('로그인 계정의 organization_id에 해당하는 조직을 찾을 수 없습니다.')
+      throw new Error('선택한 조직을 찾을 수 없습니다.')
     }
 
     return {
@@ -396,7 +398,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   /**
    * 스토어 초기화
    */
-  function resetStore() {
+  function resetContext() {
     current.value = null
     employees.value = []
     shifts.value = []
@@ -406,6 +408,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     foundationShiftsConstraints.value = null
     foundationLoading.value = false
   }
+
+  const resetStore = resetContext
 
   return {
     // State
@@ -435,6 +439,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     updateLocalShift,
     deleteLocalShift,
     // Actions - Reset
+    resetContext,
     resetStore,
   }
 })
