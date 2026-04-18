@@ -99,6 +99,32 @@ function createEffectiveMembership(
   }
 }
 
+function getMembershipAccessPriority(membership: AuthContextMembership): number {
+  if (membership.status === 'approved') {
+    return membership.role === 'admin' ? 4 : 3
+  }
+
+  if (membership.role === 'admin' && membership.status === 'pending') {
+    return 2
+  }
+
+  if (membership.role === 'admin' && membership.status === 'rejected') {
+    return 1
+  }
+
+  return 0
+}
+
+function compareMembershipAccessPriority(left: AuthContextMembership, right: AuthContextMembership) {
+  const priorityDifference =
+    getMembershipAccessPriority(right) - getMembershipAccessPriority(left)
+  if (priorityDifference !== 0) {
+    return priorityDifference
+  }
+
+  return compareMembershipPriority(left, right)
+}
+
 function findMembershipByOrganization(
   memberships: AuthContextMembership[],
   organizationId: string | null | undefined,
@@ -107,7 +133,9 @@ function findMembershipByOrganization(
     return null
   }
 
-  const membership = memberships.find((candidate) => candidate.organizationId === organizationId)
+  const membership = memberships
+    .filter((candidate) => candidate.organizationId === organizationId)
+    .sort(compareMembershipAccessPriority)[0]
   if (!membership) {
     return null
   }

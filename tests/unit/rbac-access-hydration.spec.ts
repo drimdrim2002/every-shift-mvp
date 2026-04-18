@@ -148,6 +148,55 @@ describe('RBAC access hydration', () => {
     })
   })
 
+  it('prefers a DB-approved admin membership over stale pending auth metadata for the same organization', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'user',
+      account_status: 'pending',
+      organization_id: 'org-1',
+      role: 'admin',
+      status: 'inactive',
+    })
+    membershipsByUserId.set('user-1', [
+      {
+        id: 'membership-1',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'approved',
+        approved_at: '2026-04-18T04:00:00.000Z',
+      },
+    ])
+
+    const store = useRbacStore()
+    store.setSessionUser(
+      createAuthUser({
+        app_metadata: {
+          global_role: 'user',
+          account_status: 'active',
+          organization_id: 'org-1',
+          current_organization_id: 'org-1',
+          organization_memberships: [
+            {
+              organization_id: 'org-1',
+              role: 'admin',
+              status: 'pending',
+              approved_at: null,
+              created_at: '2026-04-18T03:03:58.048Z',
+            },
+          ],
+        },
+      }),
+    )
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('admin_active')
+    expect(store.effectiveMembership).toMatchObject({
+      membershipId: 'membership-1',
+      organizationId: 'org-1',
+      role: 'admin',
+      status: 'approved',
+    })
+  })
+
   it('hydrates super access from DB when JWT metadata is missing', async () => {
     profileByUserId.set('user-1', {
       global_role: 'super',

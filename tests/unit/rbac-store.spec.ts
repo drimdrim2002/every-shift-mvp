@@ -3,6 +3,43 @@ import { describe, expect, it } from 'vitest'
 import { deriveAccessState } from '@/stores/rbac'
 
 describe('deriveAccessState', () => {
+  it('prefers an approved admin membership over stale pending metadata for the same organization', () => {
+    const resolution = deriveAccessState({
+      sessionUserId: 'user-1',
+      context: {
+        profile: {
+          userId: 'user-1',
+          globalRole: 'user',
+          accountStatus: 'active',
+        },
+        memberships: [
+          {
+            organizationId: 'org-1',
+            role: 'admin',
+            status: 'pending',
+            createdAt: '2026-04-18T03:03:58.048Z',
+          },
+          {
+            membershipId: 'membership-1',
+            organizationId: 'org-1',
+            role: 'admin',
+            status: 'approved',
+            approvedAt: '2026-04-18T04:00:00.000Z',
+          },
+        ],
+        currentOrganizationId: 'org-1',
+      },
+    })
+
+    expect(resolution.accessState).toBe('admin_active')
+    expect(resolution.effectiveMembership).toMatchObject({
+      membershipId: 'membership-1',
+      organizationId: 'org-1',
+      role: 'admin',
+      status: 'approved',
+    })
+  })
+
   it('returns admin_pending when the selected membership is pending admin access', () => {
     const resolution = deriveAccessState({
       sessionUserId: 'user-1',
