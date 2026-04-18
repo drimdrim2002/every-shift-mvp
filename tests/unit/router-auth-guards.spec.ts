@@ -51,6 +51,16 @@ describe('resolveAuthNavigationTarget', () => {
     expect(redirect).toBe(USER_HOME_ROUTE_PATH)
   })
 
+  it('redirects active users away from the root path into the restricted user home', () => {
+    const redirect = resolveAuthNavigationTarget({
+      toPath: HOME_ROUTE_PATH,
+      isAuthenticated: true,
+      accessState: 'user_active',
+    })
+
+    expect(redirect).toBe(USER_HOME_ROUTE_PATH)
+  })
+
   it('redirects super users away from login into the approval queue', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: LOGIN_ROUTE_PATH,
