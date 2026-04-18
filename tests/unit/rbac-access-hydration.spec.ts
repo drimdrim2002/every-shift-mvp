@@ -36,6 +36,7 @@ const {
   signupRequestByUserId,
   syncWithAccessScopeMock,
   resetContextMock,
+  queryFailureState,
 } = vi.hoisted(() => ({
   fromMock: vi.fn(),
   profileByUserId: new Map<string, ProfileRow | null>(),
@@ -43,6 +44,11 @@ const {
   signupRequestByUserId: new Map<string, SignupRequestRow | null>(),
   syncWithAccessScopeMock: vi.fn(),
   resetContextMock: vi.fn(),
+  queryFailureState: {
+    profiles: false,
+    memberships: false,
+    signupRequests: false,
+  },
 }))
 
 vi.mock('@/api/supabase', () => ({
@@ -95,9 +101,23 @@ function createQueryBuilder(table: TableName) {
     limit: vi.fn(() => query),
     maybeSingle: vi.fn(async () => {
       if (table === 'profiles') {
+        if (queryFailureState.profiles) {
+          return {
+            data: null,
+            error: { message: 'profiles failed' },
+          }
+        }
+
         return {
           data: profileByUserId.get(String(filters.get('id'))) ?? null,
           error: null,
+        }
+      }
+
+      if (queryFailureState.signupRequests) {
+        return {
+          data: null,
+          error: { message: 'signup_requests failed' },
         }
       }
 
@@ -112,6 +132,14 @@ function createQueryBuilder(table: TableName) {
   if (table === 'organization_memberships') {
     query.eq = vi.fn(async (column: string, value: unknown) => {
       filters.set(column, value)
+
+      if (queryFailureState.memberships) {
+        return {
+          data: null,
+          error: { message: 'organization_memberships failed' },
+        }
+      }
+
       return {
         data: membershipsByUserId.get(String(value)) ?? [],
         error: null,
@@ -131,6 +159,9 @@ describe('RBAC access hydration', () => {
     signupRequestByUserId.clear()
     syncWithAccessScopeMock.mockReset()
     resetContextMock.mockReset()
+    queryFailureState.profiles = false
+    queryFailureState.memberships = false
+    queryFailureState.signupRequests = false
 
     fromMock.mockImplementation((table: TableName) => createQueryBuilder(table))
   })
@@ -248,6 +279,84 @@ describe('RBAC access hydration', () => {
     expect(store.accessState).toBe('no_membership_or_inactive')
     expect(store.effectiveMembership).toBeNull()
     expect(store.selectedOrganizationId).toBeNull()
+  })
+
+  it('stays restricted before DB hydration completes even when metadata includes memberships', () => {
+    const store = useRbacStore()
+    store.setSessionUser(
+      createAuthUser({
+        app_metadata: {
+          organization_memberships: [
+            {
+              organization_id: 'org-meta',
+              role: 'admin',
+              status: 'approved',
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(store.accessState).toBe('no_membership_or_inactive')
+    expect(store.effectiveMembership).toBeNull()
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.abilities).toMatchObject({
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+  })
+
+  it('stays restricted when DB hydration fails even if metadata includes memberships', async () => {
+    queryFailureState.memberships = true
+
+    const store = useRbacStore()
+    store.setSessionUser(
+      createAuthUser({
+        app_metadata: {
+          organization_memberships: [
+            {
+              organization_id: 'org-meta',
+              role: 'admin',
+              status: 'approved',
+            },
+          ],
+        },
+      }),
+    )
+
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('no_membership_or_inactive')
+    expect(store.effectiveMembership).toBeNull()
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.organizationOptions).toEqual([])
+  })
+
+  it('stays restricted when DB hydration fails even if metadata claims super access', async () => {
+    queryFailureState.profiles = true
+
+    const store = useRbacStore()
+    store.setSessionUser(
+      createAuthUser({
+        app_metadata: {
+          global_role: 'super',
+          account_status: 'active',
+        },
+      }),
+    )
+
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('no_membership_or_inactive')
+    expect(store.effectiveMembership).toBeNull()
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.abilities).toMatchObject({
+      canViewApprovalQueue: false,
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
   })
 
   it('restores a persisted selected organization and exposes membership-backed options', async () => {

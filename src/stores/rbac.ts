@@ -26,8 +26,6 @@ export { deriveAccessState } from '@/utils/rbacAccess'
 
 const ACTIVE_ORG_STORAGE_KEY_PREFIX = 'everyshift:selected-organization:'
 
-type MetadataRecord = Record<string, unknown>
-
 interface AuthContextSeedProfile {
   userId: string
   globalRole: GlobalRole | null
@@ -119,29 +117,6 @@ function validateSelectedOrganizationId(
   return null
 }
 
-function asRecord(value: unknown): MetadataRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null
-  }
-
-  return value as MetadataRecord
-}
-
-function readString(record: MetadataRecord | null, keys: readonly string[]): string | null {
-  if (!record) {
-    return null
-  }
-
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim()
-    }
-  }
-
-  return null
-}
-
 function readGlobalRole(value: string | null): GlobalRole | null {
   if (value === 'super' || value === 'admin' || value === 'user') {
     return value
@@ -187,113 +162,6 @@ function normalizeMembershipStatus(value: string | null): OrganizationMembership
   return null
 }
 
-function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRole | null) {
-  if (!metadata) {
-    return [] as AuthContextMembership[]
-  }
-
-  const list =
-    metadata.organization_memberships ??
-    metadata.organizationMemberships ??
-    metadata.memberships
-
-  if (!Array.isArray(list)) {
-    return []
-  }
-
-  return list
-    .map((item) => {
-      const record = asRecord(item)
-      if (!record) {
-        return null
-      }
-
-      const organizationId = readString(record, ['organizationId', 'organization_id'])
-      const role = normalizeMembershipRole(readString(record, ['role']), fallbackRole)
-      const status = normalizeMembershipStatus(readString(record, ['status']))
-
-      if (!organizationId || !status) {
-        return null
-      }
-
-      return {
-        membershipId: readString(record, ['membershipId', 'membership_id']) ?? undefined,
-        organizationId,
-        role,
-        status,
-        approvedAt: readString(record, ['approvedAt', 'approved_at']),
-        createdAt: readString(record, ['createdAt', 'created_at']),
-        rejectionReason: readString(record, ['rejectionReason', 'rejection_reason']),
-      } satisfies AuthContextMembership
-    })
-    .filter((membership): membership is AuthContextMembership => Boolean(membership))
-}
-
-function mergeMembership(existing: AuthContextMembership, next: AuthContextMembership): AuthContextMembership {
-  return {
-    membershipId: existing.membershipId ?? next.membershipId,
-    organizationId: existing.organizationId,
-    role: existing.role,
-    status: existing.status,
-    approvedAt: existing.approvedAt ?? next.approvedAt,
-    createdAt: existing.createdAt ?? next.createdAt,
-    rejectionReason: existing.rejectionReason ?? next.rejectionReason,
-  }
-}
-
-function mergeMemberships(
-  primaryMemberships: AuthContextMembership[],
-  secondaryMemberships: AuthContextMembership[],
-): AuthContextMembership[] {
-  const mergedMemberships = new Map<string, AuthContextMembership>()
-
-  for (const membership of [...primaryMemberships, ...secondaryMemberships]) {
-    const key =
-      membership.membershipId ??
-      `${membership.organizationId}:${membership.role}:${membership.status}`
-    const existingMembership = mergedMemberships.get(key)
-    mergedMemberships.set(
-      key,
-      existingMembership ? mergeMembership(existingMembership, membership) : membership,
-    )
-  }
-
-  return [...mergedMemberships.values()]
-}
-
-function hasApprovedMembership(memberships: AuthContextMembership[]): boolean {
-  return memberships.some((membership) => membership.status === 'approved')
-}
-
-function hasBlockedAdminMembership(memberships: AuthContextMembership[]): boolean {
-  return memberships.some(
-    (membership) =>
-      membership.role === 'admin' &&
-      (membership.status === 'pending' || membership.status === 'rejected'),
-  )
-}
-
-function resolveMergedAccountStatus(
-  explicitAccountStatus: AccountStatus | null,
-  globalRole: GlobalRole | null,
-  memberships: AuthContextMembership[],
-): AccountStatus {
-  if (explicitAccountStatus === 'suspended' || explicitAccountStatus === 'withdrawn') {
-    return explicitAccountStatus
-  }
-
-  if (
-    explicitAccountStatus === 'active' ||
-    hasApprovedMembership(memberships) ||
-    hasBlockedAdminMembership(memberships) ||
-    globalRole === 'super'
-  ) {
-    return 'active'
-  }
-
-  return explicitAccountStatus ?? 'active'
-}
-
 function buildAuthContextFromSeed(seed: AuthContextSeed | null): AuthContext | null {
   if (!seed) {
     return null
@@ -307,68 +175,6 @@ function buildAuthContextFromSeed(seed: AuthContextSeed | null): AuthContext | n
     },
     memberships: seed.memberships,
     currentOrganizationId: seed.currentOrganizationId,
-  }
-}
-
-function mergeAuthContextSeeds(
-  primarySeed: AuthContextSeed | null,
-  secondarySeed: AuthContextSeed | null,
-): AuthContext | null {
-  const userId = primarySeed?.profile.userId ?? secondarySeed?.profile.userId
-  if (!userId) {
-    return null
-  }
-
-  const memberships = mergeMemberships(
-    primarySeed?.memberships ?? [],
-    secondarySeed?.memberships ?? [],
-  )
-  const globalRole = primarySeed?.profile.globalRole ?? secondarySeed?.profile.globalRole ?? null
-  const accountStatus = resolveMergedAccountStatus(
-    primarySeed?.profile.accountStatus ?? secondarySeed?.profile.accountStatus ?? null,
-    globalRole,
-    memberships,
-  )
-
-  return buildAuthContextFromSeed({
-    profile: {
-      userId,
-      globalRole,
-      accountStatus,
-    },
-    memberships,
-    currentOrganizationId:
-      primarySeed?.currentOrganizationId ?? secondarySeed?.currentOrganizationId ?? null,
-  })
-}
-
-function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null {
-  if (!user?.id) {
-    return null
-  }
-
-  const appMetadata = asRecord(user.app_metadata)
-  const userMetadata = asRecord(user.user_metadata)
-  const globalRole =
-    readGlobalRole(readString(appMetadata, ['global_role', 'globalRole'])) ??
-    readGlobalRole(readString(userMetadata, ['global_role', 'globalRole']))
-  const accountStatus =
-    readAccountStatus(readString(appMetadata, ['account_status', 'accountStatus'])) ??
-    readAccountStatus(readString(userMetadata, ['account_status', 'accountStatus']))
-
-  const memberships = [
-    ...readMemberships(appMetadata, globalRole),
-    ...readMemberships(userMetadata, globalRole),
-  ]
-
-  return {
-    profile: {
-      userId: user.id,
-      globalRole,
-      accountStatus,
-    },
-    memberships,
-    currentOrganizationId: null,
   }
 }
 
@@ -493,10 +299,7 @@ export const useRbacStore = defineStore('rbac', () => {
 
   let pendingAccessContextLoad: Promise<void> | null = null
 
-  const metadataContext = computed(() => buildAuthContextFromSeed(buildAuthContextSeedFromUser(sessionUser.value)))
-  const context = computed(() =>
-    accessContextLoaded.value ? hydratedContext.value : metadataContext.value,
-  )
+  const context = computed(() => hydratedContext.value)
 
   const resolution = computed<AccessResolution>(() =>
     resolveAccessState({
@@ -558,14 +361,13 @@ export const useRbacStore = defineStore('rbac', () => {
     }
 
     pendingAccessContextLoad = (async () => {
-      const metadataSeed = buildAuthContextSeedFromUser(sessionUser.value)
       try {
         const databaseSeed = await loadDatabaseAccessContextSeed(userId)
         if (sessionUser.value?.id !== userId) {
           return
         }
 
-        const nextContext = mergeAuthContextSeeds(metadataSeed, databaseSeed)
+        const nextContext = buildAuthContextFromSeed(databaseSeed)
         hydratedContext.value = nextContext
         syncOrganizationAccessState(nextContext)
       } catch (error) {
@@ -574,9 +376,8 @@ export const useRbacStore = defineStore('rbac', () => {
           return
         }
 
-        const nextContext = buildAuthContextFromSeed(metadataSeed)
-        hydratedContext.value = nextContext
-        syncOrganizationAccessState(nextContext)
+        hydratedContext.value = null
+        syncOrganizationAccessState(null)
       } finally {
         if (sessionUser.value?.id === userId) {
           accessContextLoaded.value = true
