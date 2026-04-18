@@ -52,6 +52,33 @@ export interface AccessResolution {
   effectiveMembership: EffectiveMembership | null
 }
 
+export interface AccessAbilities {
+  canViewApprovalQueue: boolean
+  canSwitchOrganization: boolean
+  canViewRestrictedUserHome: boolean
+  canManageOrganizationSetup: boolean
+  canManageEmployees: boolean
+  canManageSchedules: boolean
+}
+
+export interface BuildAccessAbilitiesInput {
+  accessState: AccessState
+  selectedOrganizationId: string | null
+  effectiveMembership: EffectiveMembership | null
+}
+
+export interface OrganizationOption {
+  id: string
+  name: string
+  membershipRole: OrganizationMembershipRole | null
+}
+
+export interface PickDefaultOrganizationIdInput {
+  accessState: AccessState
+  memberships: AuthContextMembership[]
+  persistedOrganizationId: string | null
+}
+
 export interface ResolveAccessStateInput {
   sessionUserId?: string | null
   context: AuthContext | null

@@ -214,6 +214,44 @@ describe('RBAC access hydration', () => {
     expect(store.effectiveMembership).toBeNull()
   })
 
+  it('restores a persisted selected organization and exposes membership-backed options', async () => {
+    window.localStorage.setItem('everyshift:selected-organization:user-1', 'org-2')
+    profileByUserId.set('user-1', {
+      global_role: 'user',
+      account_status: 'active',
+      organization_id: 'org-1',
+      role: 'admin',
+      status: 'active',
+    })
+    membershipsByUserId.set('user-1', [
+      {
+        id: 'membership-1',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'approved',
+        approved_at: '2026-04-18T01:00:00Z',
+      },
+      {
+        id: 'membership-2',
+        organization_id: 'org-2',
+        role: 'user',
+        status: 'approved',
+        approved_at: '2026-04-18T02:00:00Z',
+      },
+    ])
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+
+    await store.ensureAccessContextLoaded()
+
+    expect(store.selectedOrganizationId).toBe('org-2')
+    expect(store.organizationOptions).toEqual([
+      expect.objectContaining({ id: 'org-1' }),
+      expect.objectContaining({ id: 'org-2' }),
+    ])
+  })
+
   it('falls back to the latest pending admin signup request when no membership metadata exists', async () => {
     signupRequestByUserId.set('user-1', {
       organization_id: 'org-pending',

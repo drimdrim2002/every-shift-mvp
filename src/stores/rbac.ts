@@ -3,19 +3,25 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import { resolvePreferredOrganizationId } from '@/utils/authScope'
+import {
+  buildAccessAbilities,
+  buildOrganizationOptions,
+  deriveAccessState as resolveAccessState,
+  pickDefaultOrganizationId,
+  readPersistedSelectedOrganizationId,
+} from '@/utils/rbacAccess'
 import type {
   AccessResolution,
   AccessState,
   AccountStatus,
   AuthContext,
   AuthContextMembership,
-  EffectiveMembership,
   GlobalRole,
-  MembershipSelectionSource,
+  OrganizationOption,
   OrganizationMembershipRole,
-  OrganizationMembershipStatus,
-  ResolveAccessStateInput,
 } from '@/types/rbac'
+
+export { deriveAccessState } from '@/utils/rbacAccess'
 
 type MetadataRecord = Record<string, unknown>
 
@@ -54,240 +60,6 @@ interface SignupRequestAccessRow {
   status: 'pending' | 'rejected' | 'approved' | 'expired' | 'withdrawn' | null
   review_note: string | null
   created_at: string | null
-}
-
-function compareMembershipTimestamps(
-  leftTimestamp: string | null | undefined,
-  rightTimestamp: string | null | undefined,
-) {
-  if (leftTimestamp === rightTimestamp) {
-    return 0
-  }
-
-  if (!leftTimestamp) {
-    return 1
-  }
-
-  if (!rightTimestamp) {
-    return -1
-  }
-
-  return leftTimestamp.localeCompare(rightTimestamp)
-}
-
-function compareMembershipPriority(left: AuthContextMembership, right: AuthContextMembership) {
-  const approvedAtComparison = compareMembershipTimestamps(left.approvedAt, right.approvedAt)
-  if (approvedAtComparison !== 0) {
-    return approvedAtComparison
-  }
-
-  const createdAtComparison = compareMembershipTimestamps(left.createdAt, right.createdAt)
-  if (createdAtComparison !== 0) {
-    return createdAtComparison
-  }
-
-  return left.organizationId.localeCompare(right.organizationId)
-}
-
-function createEffectiveMembership(
-  membership: AuthContextMembership,
-  selectionSource: MembershipSelectionSource,
-): EffectiveMembership {
-  return {
-    ...membership,
-    selectionSource,
-  }
-}
-
-function getMembershipAccessPriority(membership: AuthContextMembership): number {
-  if (membership.status === 'approved') {
-    return membership.role === 'admin' ? 4 : 3
-  }
-
-  if (membership.role === 'admin' && membership.status === 'pending') {
-    return 2
-  }
-
-  if (membership.role === 'admin' && membership.status === 'rejected') {
-    return 1
-  }
-
-  return 0
-}
-
-function compareMembershipAccessPriority(left: AuthContextMembership, right: AuthContextMembership) {
-  const priorityDifference =
-    getMembershipAccessPriority(right) - getMembershipAccessPriority(left)
-  if (priorityDifference !== 0) {
-    return priorityDifference
-  }
-
-  return compareMembershipPriority(left, right)
-}
-
-function findMembershipByOrganization(
-  memberships: AuthContextMembership[],
-  organizationId: string | null | undefined,
-): EffectiveMembership | null {
-  if (!organizationId) {
-    return null
-  }
-
-  const membership = memberships
-    .filter((candidate) => candidate.organizationId === organizationId)
-    .sort(compareMembershipAccessPriority)[0]
-  if (!membership) {
-    return null
-  }
-
-  return createEffectiveMembership(membership, 'current_organization')
-}
-
-function findPrioritizedApprovedMembership(
-  memberships: AuthContextMembership[],
-): EffectiveMembership | null {
-  const approvedAdmins = memberships
-    .filter((candidate) => candidate.status === 'approved' && candidate.role === 'admin')
-    .sort(compareMembershipPriority)
-
-  const approvedAdmin = approvedAdmins[0]
-  if (approvedAdmin) {
-    return createEffectiveMembership(approvedAdmin, 'role_priority')
-  }
-
-  const approvedUsers = memberships
-    .filter((candidate) => candidate.status === 'approved' && candidate.role === 'user')
-    .sort(compareMembershipPriority)
-
-  const approvedUser = approvedUsers[0]
-  if (approvedUser) {
-    return createEffectiveMembership(approvedUser, 'role_priority')
-  }
-
-  return null
-}
-
-function findAdminStatusFallback(
-  memberships: AuthContextMembership[],
-  status: OrganizationMembershipStatus,
-): EffectiveMembership | null {
-  const matchingMembership = memberships
-    .filter((candidate) => candidate.role === 'admin' && candidate.status === status)
-    .sort(compareMembershipPriority)[0]
-
-  if (!matchingMembership) {
-    return null
-  }
-
-  return createEffectiveMembership(matchingMembership, 'status_fallback')
-}
-
-function resolveAccessStateFromMembership(membership: EffectiveMembership): AccessState {
-  if (membership.status === 'approved') {
-    return membership.role === 'admin' ? 'admin_active' : 'user_active'
-  }
-
-  if (membership.role === 'admin' && membership.status === 'pending') {
-    return 'admin_pending'
-  }
-
-  if (membership.role === 'admin' && membership.status === 'rejected') {
-    return 'admin_rejected'
-  }
-
-  return 'no_membership_or_inactive'
-}
-
-export function deriveAccessState({
-  sessionUserId,
-  context,
-  selectedOrganizationId,
-  fallbackLegacyOrganizationId,
-}: ResolveAccessStateInput): AccessResolution {
-  if (!sessionUserId) {
-    return {
-      accessState: 'unauthenticated',
-      effectiveMembership: null,
-    }
-  }
-
-  if (!context) {
-    return {
-      accessState: 'no_membership_or_inactive',
-      effectiveMembership: null,
-    }
-  }
-
-  if (context.profile.globalRole === 'super' && context.profile.accountStatus === 'active') {
-    return {
-      accessState: 'super_active',
-      effectiveMembership: null,
-    }
-  }
-
-  if (
-    context.profile.accountStatus === 'suspended' ||
-    context.profile.accountStatus === 'withdrawn'
-  ) {
-    return {
-      accessState: 'no_membership_or_inactive',
-      effectiveMembership: null,
-    }
-  }
-
-  const currentOrganizationId = selectedOrganizationId ?? context.currentOrganizationId ?? null
-  const currentMembership = findMembershipByOrganization(context.memberships, currentOrganizationId)
-  if (currentMembership) {
-    return {
-      accessState: resolveAccessStateFromMembership(currentMembership),
-      effectiveMembership: currentMembership,
-    }
-  }
-
-  const prioritizedApprovedMembership = findPrioritizedApprovedMembership(context.memberships)
-  if (prioritizedApprovedMembership) {
-    return {
-      accessState: resolveAccessStateFromMembership(prioritizedApprovedMembership),
-      effectiveMembership: prioritizedApprovedMembership,
-    }
-  }
-
-  const pendingAdminMembership = findAdminStatusFallback(context.memberships, 'pending')
-  if (pendingAdminMembership) {
-    return {
-      accessState: 'admin_pending',
-      effectiveMembership: pendingAdminMembership,
-    }
-  }
-
-  const rejectedAdminMembership = findAdminStatusFallback(context.memberships, 'rejected')
-  if (rejectedAdminMembership) {
-    return {
-      accessState: 'admin_rejected',
-      effectiveMembership: rejectedAdminMembership,
-    }
-  }
-
-  if (fallbackLegacyOrganizationId && context.profile.accountStatus === 'active') {
-    const legacyMembership = createEffectiveMembership(
-      {
-        organizationId: fallbackLegacyOrganizationId,
-        role: 'admin',
-        status: 'approved',
-      },
-      'legacy_fallback',
-    )
-
-    return {
-      accessState: resolveAccessStateFromMembership(legacyMembership),
-      effectiveMembership: legacyMembership,
-    }
-  }
-
-  return {
-    accessState: 'no_membership_or_inactive',
-    effectiveMembership: null,
-  }
 }
 
 function asRecord(value: unknown): MetadataRecord | null {
@@ -697,6 +469,7 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
 export const useRbacStore = defineStore('rbac', () => {
   const sessionUser = ref<User | null>(null)
   const selectedOrganizationId = ref<string | null>(null)
+  const organizationOptions = ref<OrganizationOption[]>([])
   const hydratedContext = ref<AuthContext | null>(null)
   const accessContextLoaded = ref(false)
 
@@ -708,7 +481,7 @@ export const useRbacStore = defineStore('rbac', () => {
   )
 
   const resolution = computed<AccessResolution>(() =>
-    deriveAccessState({
+    resolveAccessState({
       sessionUserId: sessionUser.value?.id ?? null,
       context: context.value,
       selectedOrganizationId: selectedOrganizationId.value,
@@ -718,10 +491,37 @@ export const useRbacStore = defineStore('rbac', () => {
 
   const accessState = computed<AccessState>(() => resolution.value.accessState)
   const effectiveMembership = computed(() => resolution.value.effectiveMembership)
+  const abilities = computed(() =>
+    buildAccessAbilities({
+      accessState: accessState.value,
+      selectedOrganizationId: selectedOrganizationId.value,
+      effectiveMembership: effectiveMembership.value,
+    }),
+  )
+
+  function syncOrganizationAccessState(nextContext: AuthContext | null) {
+    organizationOptions.value = buildOrganizationOptions(nextContext)
+
+    const userId = sessionUser.value?.id ?? null
+    const selectionResolution = resolveAccessState({
+      sessionUserId: userId,
+      context: nextContext,
+      fallbackLegacyOrganizationId: resolvePreferredOrganizationId(sessionUser.value),
+    })
+
+    selectedOrganizationId.value = pickDefaultOrganizationId({
+      accessState: selectionResolution.accessState,
+      memberships: nextContext?.memberships ?? [],
+      persistedOrganizationId:
+        selectedOrganizationId.value ?? readPersistedSelectedOrganizationId(userId),
+    })
+  }
 
   async function ensureAccessContextLoaded() {
     const userId = sessionUser.value?.id ?? null
     if (!userId) {
+      selectedOrganizationId.value = null
+      organizationOptions.value = []
       hydratedContext.value = null
       accessContextLoaded.value = true
       return
@@ -744,14 +544,18 @@ export const useRbacStore = defineStore('rbac', () => {
           return
         }
 
-        hydratedContext.value = mergeAuthContextSeeds(metadataSeed, databaseSeed)
+        const nextContext = mergeAuthContextSeeds(metadataSeed, databaseSeed)
+        hydratedContext.value = nextContext
+        syncOrganizationAccessState(nextContext)
       } catch (error) {
         console.warn('[rbac] Failed to hydrate access context from DB:', error)
         if (sessionUser.value?.id !== userId) {
           return
         }
 
-        hydratedContext.value = buildAuthContextFromSeed(metadataSeed)
+        const nextContext = buildAuthContextFromSeed(metadataSeed)
+        hydratedContext.value = nextContext
+        syncOrganizationAccessState(nextContext)
       } finally {
         if (sessionUser.value?.id === userId) {
           accessContextLoaded.value = true
@@ -766,6 +570,8 @@ export const useRbacStore = defineStore('rbac', () => {
 
   function setSessionUser(user: User | null) {
     sessionUser.value = user
+    selectedOrganizationId.value = user ? readPersistedSelectedOrganizationId(user.id) : null
+    organizationOptions.value = []
     hydratedContext.value = null
     accessContextLoaded.value = false
     if (!user) {
@@ -780,14 +586,18 @@ export const useRbacStore = defineStore('rbac', () => {
   function clearContext() {
     sessionUser.value = null
     selectedOrganizationId.value = null
+    organizationOptions.value = []
     hydratedContext.value = null
     accessContextLoaded.value = false
   }
 
   return {
     accessState,
+    abilities,
     effectiveMembership,
     ensureAccessContextLoaded,
+    organizationOptions,
+    selectedOrganizationId,
     setSessionUser,
     setSelectedOrganizationId,
     clearContext,
