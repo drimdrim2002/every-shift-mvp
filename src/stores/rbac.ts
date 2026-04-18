@@ -77,6 +77,32 @@ function readPersistedSelectedOrganizationId(userId: string | null): string | nu
   return value?.trim() ? value.trim() : null
 }
 
+function validateSelectedOrganizationId(
+  organizationId: string | null,
+  options: OrganizationOption[],
+  memberships: AuthContextMembership[],
+): string | null {
+  const trimmedOrganizationId = organizationId?.trim() ?? null
+  if (!trimmedOrganizationId) {
+    return null
+  }
+
+  if (options.some((option) => option.id === trimmedOrganizationId)) {
+    return trimmedOrganizationId
+  }
+
+  if (
+    memberships.some(
+      (membership) =>
+        membership.organizationId === trimmedOrganizationId && membership.status === 'approved',
+    )
+  ) {
+    return trimmedOrganizationId
+  }
+
+  return null
+}
+
 function asRecord(value: unknown): MetadataRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -518,6 +544,11 @@ export const useRbacStore = defineStore('rbac', () => {
     organizationOptions.value = buildOrganizationOptions(nextContext)
 
     const userId = sessionUser.value?.id ?? null
+    const validatedPersistedOrganizationId = validateSelectedOrganizationId(
+      selectedOrganizationId.value ?? readPersistedSelectedOrganizationId(userId),
+      organizationOptions.value,
+      nextContext?.memberships ?? [],
+    )
     const selectionResolution = resolveAccessState({
       sessionUserId: userId,
       context: nextContext,
@@ -527,8 +558,7 @@ export const useRbacStore = defineStore('rbac', () => {
     selectedOrganizationId.value = pickDefaultOrganizationId({
       accessState: selectionResolution.accessState,
       memberships: nextContext?.memberships ?? [],
-      persistedOrganizationId:
-        selectedOrganizationId.value ?? readPersistedSelectedOrganizationId(userId),
+      persistedOrganizationId: validatedPersistedOrganizationId,
     })
   }
 
@@ -595,7 +625,20 @@ export const useRbacStore = defineStore('rbac', () => {
   }
 
   function setSelectedOrganizationId(organizationId: string | null) {
-    selectedOrganizationId.value = organizationId
+    if (organizationId === null) {
+      selectedOrganizationId.value = null
+      return
+    }
+
+    const validatedOrganizationId = validateSelectedOrganizationId(
+      organizationId,
+      organizationOptions.value,
+      context.value?.memberships ?? [],
+    )
+
+    if (validatedOrganizationId) {
+      selectedOrganizationId.value = validatedOrganizationId
+    }
   }
 
   function clearContext() {

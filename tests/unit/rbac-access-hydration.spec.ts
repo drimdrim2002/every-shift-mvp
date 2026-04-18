@@ -252,6 +252,29 @@ describe('RBAC access hydration', () => {
     ])
   })
 
+  it('rejects invalid selected organizations so super access cannot unlock admin abilities', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'super',
+      account_status: 'active',
+      organization_id: null,
+      role: null,
+      status: null,
+    })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    store.setSelectedOrganizationId('org-inaccessible')
+
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.abilities).toMatchObject({
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+  })
+
   it('falls back to the latest pending admin signup request when no membership metadata exists', async () => {
     signupRequestByUserId.set('user-1', {
       organization_id: 'org-pending',

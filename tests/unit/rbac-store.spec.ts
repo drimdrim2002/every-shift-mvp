@@ -111,6 +111,30 @@ describe('deriveAccessState', () => {
     ).toBe('org-a')
   })
 
+  it('keeps legacy organization-scoped pilot users active through the compatibility fallback', () => {
+    const resolution = deriveAccessState({
+      sessionUserId: 'user-1',
+      context: {
+        profile: {
+          userId: 'user-1',
+          globalRole: 'admin',
+          accountStatus: 'active',
+        },
+        memberships: [],
+        currentOrganizationId: 'org-legacy',
+      },
+      fallbackLegacyOrganizationId: 'org-legacy',
+    })
+
+    expect(resolution.accessState).toBe('admin_active')
+    expect(resolution.effectiveMembership).toMatchObject({
+      organizationId: 'org-legacy',
+      role: 'admin',
+      status: 'approved',
+      selectionSource: 'legacy_fallback',
+    })
+  })
+
   it('keeps approved memberships active even when the profile account status is stale', () => {
     const resolution = deriveAccessState({
       sessionUserId: 'user-1',
