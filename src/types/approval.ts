@@ -77,6 +77,14 @@ export interface ApprovalDecisionErrorResponse {
   error: ApprovalErrorPayload
 }
 
+export interface ApprovalQueueResponse {
+  items: ApprovalQueueItem[]
+}
+
+export interface ApprovalRequestResponse {
+  request: ApprovalRequestDetail | null
+}
+
 export type ApprovalDecisionResponse =
   | ApprovalDecisionSuccessResponse
   | ApprovalDecisionErrorResponse

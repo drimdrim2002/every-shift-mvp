@@ -7,23 +7,13 @@ import type {
   ApprovalErrorPayload,
   ApprovalQueueFilters,
   ApprovalQueueItem,
+  ApprovalQueueResponse,
+  ApprovalRequestResponse,
   ApprovalRequestDetail,
 } from '@/types/approval'
 
-interface SignupRequestRow {
-  id: string
-  requester_user_id: string | null
-  organization_id: string | null
-  requested_role: 'admin'
-  status: 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn'
-  work_type: string | null
-  shift_type: string | null
-  requested_site_name: string | null
-  requested_skill_summary: string | null
-  requested_rank_code: string | null
-  requested_credit: number | null
-  review_note: string | null
-  created_at: string
+interface ApprovalReadErrorResponse {
+  error: ApprovalErrorPayload
 }
 
 const DEFAULT_APPROVAL_ERROR_MESSAGE: Record<ApprovalErrorCode, string> = {
@@ -48,33 +38,6 @@ function normalizeApprovalErrorCode(code: unknown): ApprovalErrorCode {
   return 'INTERNAL_ERROR'
 }
 
-function mapQueueItem(row: SignupRequestRow): ApprovalQueueItem {
-  return {
-    signupRequestId: row.id,
-    requesterUserId: row.requester_user_id,
-    requesterEmail: null,
-    requesterName: null,
-    organizationId: row.organization_id,
-    organizationName: null,
-    requestedRole: row.requested_role,
-    status: row.status,
-    createdAt: row.created_at,
-  }
-}
-
-function mapQueueDetail(row: SignupRequestRow): ApprovalRequestDetail {
-  return {
-    ...mapQueueItem(row),
-    workType: row.work_type,
-    shiftType: row.shift_type,
-    requestedSiteName: row.requested_site_name,
-    requestedSkillSummary: row.requested_skill_summary,
-    requestedRankCode: row.requested_rank_code,
-    requestedCredit: row.requested_credit,
-    reviewNote: row.review_note,
-  }
-}
-
 function isApprovalErrorPayload(value: unknown): value is ApprovalErrorPayload {
   if (!value || typeof value !== 'object') {
     return false
@@ -91,6 +54,14 @@ function isApprovalErrorResponse(
   }
 
   return Reflect.get(value, 'success') === false && isApprovalErrorPayload(Reflect.get(value, 'error'))
+}
+
+function isApprovalReadErrorResponse(value: unknown): value is ApprovalReadErrorResponse {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  return isApprovalErrorPayload(Reflect.get(value, 'error'))
 }
 
 async function parseInvokeContextError(error: unknown): Promise<ApprovalApiError | null> {
@@ -132,6 +103,85 @@ export class ApprovalApiError extends Error {
   }
 }
 
+function getApprovalReadBaseUrl(): string {
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL
+  if (!baseUrl) {
+    throw new Error('Missing VITE_SUPABASE_URL for approval API.')
+  }
+
+  return baseUrl.replace(/\/$/, '')
+}
+
+function getApprovalReadAnonKey(): string {
+  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+  if (!anonKey) {
+    throw new Error('Missing VITE_SUPABASE_ANON_KEY for approval API.')
+  }
+
+  return anonKey
+}
+
+async function getApprovalReadAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.getSession()
+  if (error) {
+    throw error
+  }
+
+  const accessToken = data.session?.access_token
+  if (!accessToken) {
+    throw new Error('Authenticated session is required to call approval-read')
+  }
+
+  return accessToken
+}
+
+function buildApprovalReadUrl(path: string, searchParams?: URLSearchParams): string {
+  const query = searchParams?.toString()
+  return `${getApprovalReadBaseUrl()}/functions/v1/approval-read${path}${query ? `?${query}` : ''}`
+}
+
+async function callApprovalRead<T>(path: string, searchParams?: URLSearchParams): Promise<T> {
+  const accessToken = await getApprovalReadAccessToken()
+  const response = await fetch(buildApprovalReadUrl(path, searchParams), {
+    method: 'GET',
+    mode: 'cors',
+    credentials: 'omit',
+    headers: {
+      apikey: getApprovalReadAnonKey(),
+      Authorization: `Bearer ${accessToken}`,
+    },
+  })
+
+  const responseText = await response.text()
+  let payload: unknown = null
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText)
+    } catch {
+      payload = responseText
+    }
+  }
+
+  if (!response.ok) {
+    if (isApprovalReadErrorResponse(payload)) {
+      const errorCode = normalizeApprovalErrorCode(payload.error.code)
+      throw new ApprovalApiError(
+        errorCode,
+        payload.error.message || DEFAULT_APPROVAL_ERROR_MESSAGE[errorCode],
+        payload.error.details,
+      )
+    }
+
+    throw new ApprovalApiError(
+      'INTERNAL_ERROR',
+      `approval-read request failed with status ${response.status}`,
+    )
+  }
+
+  return payload as T
+}
+
 export async function decideApproval(input: ApprovalDecisionRequest): Promise<ApprovalDecisionSuccessData> {
   const { data, error } = await supabase.functions.invoke<ApprovalDecisionResponse>('approval-decision', {
     body: input,
@@ -163,34 +213,20 @@ export async function decideApproval(input: ApprovalDecisionRequest): Promise<Ap
 }
 
 export async function listApprovalQueue(filters: ApprovalQueueFilters = {}): Promise<ApprovalQueueItem[]> {
-  let query = supabase
-    .from('signup_requests')
-    .select(
-      'id, requester_user_id, organization_id, requested_role, status, work_type, shift_type, requested_site_name, requested_skill_summary, requested_rank_code, requested_credit, review_note, created_at',
-    )
-    .eq('requested_role', 'admin')
-    .order('created_at', { ascending: false })
-
+  const searchParams = new URLSearchParams()
   if (filters.status) {
-    query = query.eq('status', filters.status)
+    searchParams.set('status', filters.status)
   }
-
   if (filters.organizationId) {
-    query = query.eq('organization_id', filters.organizationId)
+    searchParams.set('organizationId', filters.organizationId)
   }
-
   const trimmedKeyword = filters.keyword?.trim()
   if (trimmedKeyword) {
-    query = query.ilike('requested_site_name', `%${trimmedKeyword}%`)
+    searchParams.set('keyword', trimmedKeyword)
   }
 
-  const { data, error } = await query.returns<SignupRequestRow[]>()
-
-  if (error) {
-    throw new ApprovalApiError('INTERNAL_ERROR', error.message || DEFAULT_APPROVAL_ERROR_MESSAGE.INTERNAL_ERROR)
-  }
-
-  return (data ?? []).map(mapQueueItem)
+  const payload = await callApprovalRead<ApprovalQueueResponse>('/queue', searchParams)
+  return payload.items
 }
 
 export async function getApprovalRequest(signupRequestId: string): Promise<ApprovalRequestDetail | null> {
@@ -199,22 +235,9 @@ export async function getApprovalRequest(signupRequestId: string): Promise<Appro
     throw new ApprovalApiError('VALIDATION_ERROR', 'signupRequestId is required')
   }
 
-  const { data, error } = await supabase
-    .from('signup_requests')
-    .select(
-      'id, requester_user_id, organization_id, requested_role, status, work_type, shift_type, requested_site_name, requested_skill_summary, requested_rank_code, requested_credit, review_note, created_at',
-    )
-    .eq('id', trimmedSignupRequestId)
-    .eq('requested_role', 'admin')
-    .maybeSingle<SignupRequestRow>()
-
-  if (error) {
-    throw new ApprovalApiError('INTERNAL_ERROR', error.message || DEFAULT_APPROVAL_ERROR_MESSAGE.INTERNAL_ERROR)
-  }
-
-  if (!data) {
-    return null
-  }
-
-  return mapQueueDetail(data)
+  const searchParams = new URLSearchParams({
+    signupRequestId: trimmedSignupRequestId,
+  })
+  const payload = await callApprovalRead<ApprovalRequestResponse>('/request', searchParams)
+  return payload.request
 }

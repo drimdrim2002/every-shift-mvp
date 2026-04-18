@@ -136,7 +136,16 @@ describe('approval-decision workflow', () => {
     expect(spies.approvalLogsInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         signup_request_id: 'req-1',
+        membership_id: 'membership-1',
+        organization_id: 'org-1',
+        actor_user_id: 'super-1',
+        target_user_id: 'user-1',
         action: 'approve',
+        reason: '승인',
+        metadata: {
+          requested_role: 'admin',
+          decision: 'approve',
+        },
       }),
     )
     expect(result).toEqual(
@@ -175,6 +184,21 @@ describe('approval-decision workflow', () => {
       }),
     )
     expect(spies.membershipUpsert).not.toHaveBeenCalled()
+    expect(spies.approvalLogsInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signup_request_id: 'req-1',
+        membership_id: null,
+        organization_id: 'org-1',
+        actor_user_id: 'super-1',
+        target_user_id: 'user-1',
+        action: 'reject',
+        reason: '서류 보완 필요',
+        metadata: {
+          requested_role: 'admin',
+          decision: 'reject',
+        },
+      }),
+    )
     expect(result).toEqual(
       expect.objectContaining({
         signupRequestId: 'req-1',

@@ -309,12 +309,16 @@ export async function decideApprovalRequest(
 
   await insertApprovalLog(repositoryClient, {
     signup_request_id: requestRow.id,
+    membership_id: membershipId,
     action: input.decision,
     actor_user_id: auth.actorUserId,
     target_user_id: requestRow.requester_user_id,
     organization_id: requestRow.organization_id,
-    requested_role: 'admin',
-    review_note: input.reviewNote ?? null,
+    reason: input.reviewNote ?? null,
+    metadata: {
+      requested_role: 'admin',
+      decision: input.decision,
+    },
     created_at: decidedAt,
   });
 
