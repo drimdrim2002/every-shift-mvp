@@ -13,8 +13,6 @@ import type {
   ResolveAccessStateInput,
 } from '@/types/rbac'
 
-export const ACTIVE_ORG_STORAGE_KEY_PREFIX = 'everyshift:selected-organization:'
-
 function compareMembershipTimestamps(
   leftTimestamp: string | null | undefined,
   rightTimestamp: string | null | undefined,
@@ -355,17 +353,4 @@ export function pickDefaultOrganizationId({
   }
 
   return null
-}
-
-function buildSelectedOrganizationStorageKey(userId: string) {
-  return `${ACTIVE_ORG_STORAGE_KEY_PREFIX}${userId}`
-}
-
-export function readPersistedSelectedOrganizationId(userId: string | null): string | null {
-  if (!userId || typeof window === 'undefined') {
-    return null
-  }
-
-  const value = window.localStorage.getItem(buildSelectedOrganizationStorageKey(userId))
-  return value?.trim() ? value.trim() : null
 }

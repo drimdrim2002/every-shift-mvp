@@ -13,6 +13,7 @@ describe('buildAccessAbilities', () => {
     ).toMatchObject({
       canViewApprovalQueue: true,
       canSwitchOrganization: true,
+      canManageEmployees: false,
       canManageOrganizationSetup: false,
       canManageSchedules: false,
     })

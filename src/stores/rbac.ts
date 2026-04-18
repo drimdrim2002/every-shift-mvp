@@ -8,7 +8,6 @@ import {
   buildOrganizationOptions,
   deriveAccessState as resolveAccessState,
   pickDefaultOrganizationId,
-  readPersistedSelectedOrganizationId,
 } from '@/utils/rbacAccess'
 import type {
   AccessResolution,
@@ -19,9 +18,12 @@ import type {
   GlobalRole,
   OrganizationOption,
   OrganizationMembershipRole,
+  OrganizationMembershipStatus,
 } from '@/types/rbac'
 
 export { deriveAccessState } from '@/utils/rbacAccess'
+
+const ACTIVE_ORG_STORAGE_KEY_PREFIX = 'everyshift:selected-organization:'
 
 type MetadataRecord = Record<string, unknown>
 
@@ -60,6 +62,19 @@ interface SignupRequestAccessRow {
   status: 'pending' | 'rejected' | 'approved' | 'expired' | 'withdrawn' | null
   review_note: string | null
   created_at: string | null
+}
+
+function buildSelectedOrganizationStorageKey(userId: string) {
+  return `${ACTIVE_ORG_STORAGE_KEY_PREFIX}${userId}`
+}
+
+function readPersistedSelectedOrganizationId(userId: string | null): string | null {
+  if (!userId || typeof window === 'undefined') {
+    return null
+  }
+
+  const value = window.localStorage.getItem(buildSelectedOrganizationStorageKey(userId))
+  return value?.trim() ? value.trim() : null
 }
 
 function asRecord(value: unknown): MetadataRecord | null {
