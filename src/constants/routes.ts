@@ -5,6 +5,7 @@ export const LOGIN_ROUTE_PATH = '/login'
 export const SIGNUP_ROUTE_PATH = '/signup'
 export const ACCESS_PENDING_ROUTE_PATH = '/access/pending'
 export const ACCESS_REJECTED_ROUTE_PATH = '/access/rejected'
+export const APPROVAL_QUEUE_ROUTE_PATH = '/admin/approval-queue'
 
 const AUTH_PAGE_PATH_SET = new Set([LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH])
 

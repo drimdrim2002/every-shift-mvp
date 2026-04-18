@@ -22,12 +22,14 @@ function collectRoutePaths(routes: RouteRecordRaw[]): string[] {
 describe('router dev-only routes', () => {
   it('includes /test* routes only in development mode', () => {
     const devPaths = collectRoutePaths(createAppRoutes(true))
+    expect(devPaths).toContain('admin/approval-queue')
     expect(devPaths).toContain('/test')
     expect(devPaths).toContain('/test-schedule')
     expect(devPaths).toContain('/test-step-indicator')
     expect(devPaths).toContain('/test-grid')
 
     const prodPaths = collectRoutePaths(createAppRoutes(false))
+    expect(prodPaths).toContain('admin/approval-queue')
     expect(prodPaths).not.toContain('/test')
     expect(prodPaths).not.toContain('/test-schedule')
     expect(prodPaths).not.toContain('/test-step-indicator')

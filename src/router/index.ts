@@ -6,6 +6,7 @@ import { resolveAuthNavigationTarget, stepProgressGuard } from './guards';
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
+  APPROVAL_QUEUE_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
 } from '@/constants/routes';
@@ -72,6 +73,12 @@ const baseRoutes: RouteRecordRaw[] = [
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '대시보드' },
+      },
+      {
+        path: APPROVAL_QUEUE_ROUTE_PATH.slice(1),
+        name: 'ApprovalQueue',
+        component: () => import('@/views/admin/ApprovalQueueView.vue'),
+        meta: { title: '관리자 가입 승인' },
       },
       {
         path: 'ops/organization-setup',
