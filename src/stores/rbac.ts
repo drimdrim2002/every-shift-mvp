@@ -229,34 +229,6 @@ function readMemberships(metadata: MetadataRecord | null, fallbackRole: GlobalRo
     .filter((membership): membership is AuthContextMembership => Boolean(membership))
 }
 
-function readTopLevelMembership(
-  metadata: MetadataRecord | null,
-  fallbackRole: GlobalRole | null,
-  fallbackOrganizationId: string | null,
-): AuthContextMembership | null {
-  if (!metadata) {
-    return null
-  }
-
-  const organizationId =
-    readString(metadata, ['organizationId', 'organization_id']) ??
-    fallbackOrganizationId
-  const status = normalizeMembershipStatus(readString(metadata, ['status']))
-
-  if (!organizationId || !status) {
-    return null
-  }
-
-  return {
-    organizationId,
-    role: normalizeMembershipRole(readString(metadata, ['role']), fallbackRole),
-    status,
-    approvedAt: readString(metadata, ['approvedAt', 'approved_at']),
-    createdAt: readString(metadata, ['createdAt', 'created_at']),
-    rejectionReason: readString(metadata, ['rejectionReason', 'rejection_reason']),
-  }
-}
-
 function mergeMembership(existing: AuthContextMembership, next: AuthContextMembership): AuthContextMembership {
   return {
     membershipId: existing.membershipId ?? next.membershipId,
@@ -388,16 +360,6 @@ function buildAuthContextSeedFromUser(user: User | null): AuthContextSeed | null
     ...readMemberships(appMetadata, globalRole),
     ...readMemberships(userMetadata, globalRole),
   ]
-
-  if (memberships.length === 0) {
-    const topLevelMembership =
-      readTopLevelMembership(appMetadata, globalRole, null) ??
-      readTopLevelMembership(userMetadata, globalRole, null)
-
-    if (topLevelMembership) {
-      memberships.push(topLevelMembership)
-    }
-  }
 
   return {
     profile: {

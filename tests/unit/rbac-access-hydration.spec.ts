@@ -231,6 +231,25 @@ describe('RBAC access hydration', () => {
     expect(store.effectiveMembership).toBeNull()
   })
 
+  it('does not synthesize membership from top-level JWT org metadata when DB has no access rows', async () => {
+    const store = useRbacStore()
+    store.setSessionUser(
+      createAuthUser({
+        app_metadata: {
+          organization_id: 'org-top-level',
+          role: 'admin',
+          status: 'active',
+        },
+      }),
+    )
+
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('no_membership_or_inactive')
+    expect(store.effectiveMembership).toBeNull()
+    expect(store.selectedOrganizationId).toBeNull()
+  })
+
   it('restores a persisted selected organization and exposes membership-backed options', async () => {
     window.localStorage.setItem('everyshift:selected-organization:user-1', 'org-2')
     profileByUserId.set('user-1', {
