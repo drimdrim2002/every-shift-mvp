@@ -48,4 +48,26 @@ describe('phase2 ops migrations', () => {
     expect(finalizedAtIndexIndex).toBeGreaterThan(-1);
     expect(addFinalizedAtColumnIndex).toBeLessThan(finalizedAtIndexIndex);
   });
+
+  it('backfills memberships and tightens org rls with membership-based access helpers', () => {
+    const sql = readMigration(
+      '20260418120000_phase2b_epic2_membership_auth_rbac_multi_org.sql'
+    ).toLowerCase();
+
+    expect(sql).toContain('create or replace function public.has_org_access');
+    expect(sql).toContain('insert into public.organization_memberships');
+    expect(sql).toContain("and p.account_status = 'active'");
+    expect(sql).toContain('on conflict (organization_id, user_id) do nothing');
+    expect(sql).toContain(
+      'create index if not exists idx_organization_memberships_user_status_org'
+    );
+    expect(sql).toContain('drop policy if exists "admin can do everything" on public.profiles');
+    expect(sql).toContain('create policy profiles_self_select on public.profiles');
+    expect(sql).toContain(
+      'drop policy if exists "users can view own organization schedules" on public.schedules'
+    );
+    expect(sql).toContain('create policy schedules_select_authenticated on public.schedules');
+    expect(sql).toContain('create policy schedules_admin_all on public.schedules');
+    expect(sql).toContain("has_org_access(organization_id, 'admin')");
+  });
 });
