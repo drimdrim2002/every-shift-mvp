@@ -113,7 +113,7 @@
                     관리자 가입 요청
                   </p>
                   <h2 class="mt-1 text-xl font-semibold text-slate-900">
-                    {{ approvalStore.selectedRequest.requestedHospitalName || approvalStore.selectedRequest.organizationId || '조직 미상' }}
+                    {{ resolveRequestTitle(approvalStore.selectedRequest) }}
                   </h2>
                 </div>
                 <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
@@ -123,7 +123,10 @@
             </div>
 
             <dl class="grid gap-4 sm:grid-cols-2">
-              <div class="rounded-2xl bg-white p-4">
+              <div
+                class="rounded-2xl bg-white p-4"
+                data-test="approval-detail-requester-name"
+              >
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
                   신청자 이름
                 </dt>
@@ -131,7 +134,10 @@
                   {{ approvalStore.selectedRequest.requesterName || approvalStore.selectedRequest.requesterUserId || '정보 없음' }}
                 </dd>
               </div>
-              <div class="rounded-2xl bg-white p-4">
+              <div
+                class="rounded-2xl bg-white p-4"
+                data-test="approval-detail-email"
+              >
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
                   이메일
                 </dt>
@@ -139,20 +145,27 @@
                   {{ approvalStore.selectedRequest.requesterEmail || '-' }}
                 </dd>
               </div>
-              <div class="rounded-2xl bg-white p-4">
+              <div
+                class="rounded-2xl bg-white p-4"
+                data-test="approval-detail-hospital"
+              >
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
                   신청 병원
                 </dt>
                 <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.requestedHospitalName || '-' }}
+                  {{ resolveRequestedHospitalName(approvalStore.selectedRequest) }}
                 </dd>
               </div>
-              <div class="rounded-2xl bg-white p-4">
+              <div
+                v-if="shouldShowOrganization(approvalStore.selectedRequest)"
+                class="rounded-2xl bg-white p-4"
+                data-test="approval-detail-organization"
+              >
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
                   조직
                 </dt>
                 <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.organizationName || approvalStore.selectedRequest.organizationId || '정보 없음' }}
+                  {{ resolveOrganizationName(approvalStore.selectedRequest) }}
                 </dd>
               </div>
             </dl>
@@ -209,7 +222,7 @@ import { NButton, NCard, NEmpty, NInput, NSpin } from 'naive-ui'
 import { showError, showSuccess } from '@/utils/message'
 import { useApprovalStore } from '@/stores/approval'
 import { useRbacStore } from '@/stores/rbac'
-import type { ApprovalDecision, ApprovalRequestStatus } from '@/types/approval'
+import type { ApprovalDecision, ApprovalRequestDetail, ApprovalRequestStatus } from '@/types/approval'
 
 const router = useRouter()
 const rbacStore = useRbacStore()
@@ -239,6 +252,25 @@ function getDecisionMessage(decision: ApprovalDecision) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : '승인 요청 처리 중 오류가 발생했습니다.'
+}
+
+function resolveRequestedHospitalName(request: ApprovalRequestDetail | null) {
+  return request?.requestedHospitalName?.trim() || '-'
+}
+
+function resolveOrganizationName(request: ApprovalRequestDetail | null) {
+  return request?.organizationName?.trim() || request?.organizationId || '정보 없음'
+}
+
+function resolveRequestTitle(request: ApprovalRequestDetail | null) {
+  return request?.requestedHospitalName?.trim()
+    || request?.organizationName?.trim()
+    || request?.organizationId
+    || '조직 미상'
+}
+
+function shouldShowOrganization(request: ApprovalRequestDetail | null) {
+  return !request?.requestedHospitalName?.trim()
 }
 
 async function handleSelect(signupRequestId: string) {

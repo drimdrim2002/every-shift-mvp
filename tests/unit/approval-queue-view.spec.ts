@@ -46,11 +46,11 @@ const approvalStoreState = reactive({
     requesterEmail: 'nurse1@example.com',
     requesterName: null,
     organizationId: 'org-1',
-    organizationName: null,
+    organizationName: '용인아이들병원',
     requestedRole: 'admin',
     status: 'pending',
     createdAt: '2026-04-17T01:00:00.000Z',
-    requestedHospitalName: '중환자실',
+    requestedHospitalName: '용인아이들병원',
     reviewNote: null,
   },
   loadingQueue: false,
@@ -157,11 +157,11 @@ describe('ApprovalQueueView', () => {
       requesterEmail: 'nurse1@example.com',
       requesterName: null,
       organizationId: 'org-1',
-      organizationName: null,
+      organizationName: '용인아이들병원',
       requestedRole: 'admin',
       status: 'pending',
       createdAt: '2026-04-17T01:00:00.000Z',
-      requestedHospitalName: '중환자실',
+      requestedHospitalName: '용인아이들병원',
       reviewNote: null,
     }
     loadQueueMock.mockResolvedValue(undefined)
@@ -187,6 +187,9 @@ describe('ApprovalQueueView', () => {
     expect(loadQueueMock).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('이메일')
     expect(wrapper.text()).toContain('nurse1@example.com')
+    expect(wrapper.get('[data-test="approval-detail-email"]').text()).toContain('nurse1@example.com')
+    expect(wrapper.get('[data-test="approval-detail-hospital"]').text()).toContain('용인아이들병원')
+    expect(wrapper.find('[data-test="approval-detail-organization"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('근무 형태')
     expect(wrapper.text()).not.toContain('교대 유형')
     expect(wrapper.text()).not.toContain('요청 역량')
@@ -202,5 +205,26 @@ describe('ApprovalQueueView', () => {
       reviewNote: '승인 메모',
     })
     expect(showSuccessMock).toHaveBeenCalledWith('가입 요청을 승인했습니다.')
+  })
+
+  it('shows organization only when requested hospital is missing', async () => {
+    approvalStoreState.selectedRequest = {
+      signupRequestId: 'req-1',
+      requesterUserId: 'user-1',
+      requesterEmail: 'nurse1@example.com',
+      requesterName: null,
+      organizationId: 'org-1',
+      organizationName: '용인아이들병원',
+      requestedRole: 'admin',
+      status: 'pending',
+      createdAt: '2026-04-17T01:00:00.000Z',
+      requestedHospitalName: null,
+      reviewNote: null,
+    }
+
+    const wrapper = mount(ApprovalQueueView)
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="approval-detail-organization"]').text()).toContain('용인아이들병원')
   })
 })
