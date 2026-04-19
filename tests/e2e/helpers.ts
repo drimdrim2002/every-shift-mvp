@@ -562,8 +562,9 @@ export async function selectOrganization(page: Page, organizationLabel: string) 
   }
 
   await switcher.click()
-  await page.keyboard.press('ArrowDown')
-  await page.keyboard.press('Enter')
+  const option = page.locator('.n-base-select-option').filter({ hasText: organizationLabel }).first()
+  await expect(option).toBeVisible()
+  await option.click()
   await expect(switcher).toContainText(organizationLabel)
 }
 

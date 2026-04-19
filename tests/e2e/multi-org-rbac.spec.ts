@@ -3,7 +3,7 @@ import {
   mockRbacContext,
   seedPlaywrightAuthState,
   seedScheduleWizardContext,
-  seedSelectedOrganization,
+  selectOrganization,
 } from './helpers'
 
 test.describe('multi-org RBAC regression', () => {
@@ -25,8 +25,7 @@ test.describe('multi-org RBAC regression', () => {
       employeeCount: 1,
     })
 
-    await seedSelectedOrganization(page, targetOrganization.id)
-    await page.reload()
+    await selectOrganization(page, targetOrganizationLabel)
     await expect(page.getByTestId('organization-switcher')).toContainText(targetOrganizationLabel)
 
     await page.goto('/schedule/step1')
