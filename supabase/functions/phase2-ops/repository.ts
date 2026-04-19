@@ -463,15 +463,19 @@ function assertBootstrapOrganizationAccess(
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
 ): void {
+  if (!auth.operatorOrganizationId || auth.operatorOrganizationId !== organizationId) {
+    throw new ContractError(
+      'organization_access_denied',
+      'Authenticated user is not authorized for the requested organization',
+      403
+    );
+  }
+
   if (auth.operatorGlobalRole === 'super') {
     return;
   }
 
-  if (
-    auth.operatorGlobalRole === 'admin' &&
-    auth.operatorOrganizationId &&
-    auth.operatorOrganizationId === organizationId
-  ) {
+  if (auth.operatorRole === 'admin') {
     return;
   }
 
@@ -486,23 +490,19 @@ function assertOrganizationAccess(
   auth: Phase2OpsOperatorAuthContext,
   organizationId: string
 ): void {
+  if (!auth.operatorOrganizationId || auth.operatorOrganizationId !== organizationId) {
+    throw new ContractError(
+      'organization_access_denied',
+      'Authenticated user is not authorized for the requested organization',
+      403
+    );
+  }
+
   if (auth.operatorGlobalRole === 'super') {
     return;
   }
 
-  if (
-    auth.operatorGlobalRole === 'admin' &&
-    auth.operatorOrganizationId &&
-    auth.operatorOrganizationId === organizationId
-  ) {
-    return;
-  }
-
-  if (
-    auth.operatorRole === 'admin' &&
-    auth.operatorStatus === 'active' &&
-    auth.operatorOrganizationId === organizationId
-  ) {
+  if (auth.operatorRole === 'admin') {
     return;
   }
 

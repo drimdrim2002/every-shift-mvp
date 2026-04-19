@@ -160,6 +160,23 @@ const AUTH_CONTEXT: Phase2ScheduleAuthContext = {
 };
 
 describe('phase2 schedule repository', () => {
+  it('rejects ensure requests when the body organization drifts from the authenticated organization header', async () => {
+    const { client, from, rpc } = createClient({});
+
+    await expect(
+      ensure(client, AUTH_CONTEXT, {
+        organizationId: '44444444-4444-4444-8444-444444444444',
+        month: '2026-04',
+      })
+    ).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
+    });
+
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('creates a fresh active bootstrap version when only archived versions remain', async () => {
     const { client, insertSpies, updateSpies } = createClient({
       schedules: [

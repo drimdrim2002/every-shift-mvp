@@ -1,143 +1,172 @@
 import { describe, expect, it, vi } from 'vitest';
 import { resolveAuthContext } from '@/../supabase/functions/phase2-schedule/auth.ts';
 
-describe('phase2 schedule edge auth', () => {
-  it('prefers app_metadata.organization_id over user_metadata.organization_id', async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: '11111111-1111-4111-8111-111111111111',
-          app_metadata: {
-            organization_id: '22222222-2222-4222-8222-222222222222',
-          },
-          user_metadata: {
-            organization_id: '33333333-3333-4333-8333-333333333333',
-          },
-        },
+interface ProfileRow {
+  global_role: string | null;
+  account_status: string | null;
+}
+
+interface MembershipRow {
+  organization_id: string | null;
+  role: string | null;
+  status: string | null;
+}
+
+function createAuthClient(userOverrides?: Partial<{
+  id: string;
+  app_metadata: Record<string, unknown>;
+  user_metadata: Record<string, unknown>;
+}>) {
+  const getUser = vi.fn().mockResolvedValue({
+    data: {
+      user: {
+        id: userOverrides?.id ?? '11111111-1111-4111-8111-111111111111',
+        app_metadata: userOverrides?.app_metadata ?? {},
+        user_metadata: userOverrides?.user_metadata ?? {},
       },
-      error: null,
+    },
+    error: null,
+  });
+
+  return {
+    auth: {
+      getUser,
+    },
+  };
+}
+
+function createRepositoryClient(options?: {
+  profile?: ProfileRow | null;
+  membership?: MembershipRow | null;
+}) {
+  return {
+    from(table: 'profiles' | 'organization_memberships') {
+      const result = table === 'profiles'
+        ? { data: options?.profile ?? null, error: null }
+        : { data: options?.membership ?? null, error: null };
+
+      const builder = {
+        eq() {
+          return builder;
+        },
+        limit() {
+          return builder;
+        },
+        maybeSingle: async () => result,
+      };
+
+      return {
+        select() {
+          return builder;
+        },
+      };
+    },
+  };
+}
+
+function createRequest(organizationId: string | null): Request {
+  const headers = new Headers({
+    Authorization: 'Bearer access-token-123',
+  });
+
+  if (organizationId !== null) {
+    headers.set('X-Organization-Id', organizationId);
+  }
+
+  return new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
+    method: 'POST',
+    headers,
+  });
+}
+
+describe('phase2 schedule edge auth', () => {
+  it('resolves the requested organization from the header and approved membership', async () => {
+    const authClient = createAuthClient({
+      app_metadata: {
+        organization_id: 'metadata-only-org',
+      },
     });
 
     const context = await resolveAuthContext(
-      {
-        auth: {
-          getUser,
+      authClient,
+      createRepositoryClient({
+        profile: {
+          global_role: 'user',
+          account_status: 'active',
         },
-      },
-      new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer access-token-123',
+        membership: {
+          organization_id: '22222222-2222-4222-8222-222222222222',
+          role: 'admin',
+          status: 'approved',
         },
-      })
+      }),
+      createRequest('22222222-2222-4222-8222-222222222222')
     );
 
-    expect(getUser).toHaveBeenCalledWith('access-token-123');
+    expect(authClient.auth.getUser).toHaveBeenCalledWith('access-token-123');
     expect(context).toEqual({
       userId: '11111111-1111-4111-8111-111111111111',
       organizationId: '22222222-2222-4222-8222-222222222222',
     });
   });
 
-  it('accepts camelCase and current organization metadata keys', async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: '55555555-5555-4555-8555-555555555555',
-          app_metadata: {
-            currentOrganizationId: '66666666-6666-4666-8666-666666666666',
-          },
-          user_metadata: {
-            organizationId: '77777777-7777-4777-8777-777777777777',
-          },
-        },
-      },
-      error: null,
-    });
-
-    const context = await resolveAuthContext(
-      {
-        auth: {
-          getUser,
-        },
-      },
-      new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer access-token-789',
-        },
-      })
-    );
-
-    expect(context).toEqual({
-      userId: '55555555-5555-4555-8555-555555555555',
-      organizationId: '66666666-6666-4666-8666-666666666666',
-    });
-  });
-
-  it('accepts seeded zero-prefixed organization ids from auth metadata', async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: '55555555-5555-4555-8555-555555555555',
-          app_metadata: {
-            organization_id: '00000000-0000-0000-0000-000000000001',
-          },
-          user_metadata: {},
-        },
-      },
-      error: null,
-    });
-
-    const context = await resolveAuthContext(
-      {
-        auth: {
-          getUser,
-        },
-      },
-      new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer access-token-000',
-        },
-      })
-    );
-
-    expect(context).toEqual({
-      userId: '55555555-5555-4555-8555-555555555555',
-      organizationId: '00000000-0000-0000-0000-000000000001',
-    });
-  });
-
-  it('rejects verified users without an organization claim', async () => {
-    const getUser = vi.fn().mockResolvedValue({
-      data: {
-        user: {
-          id: '44444444-4444-4444-8444-444444444444',
-          app_metadata: {},
-          user_metadata: {},
-        },
-      },
-      error: null,
-    });
-
+  it('rejects requests without the organization header', async () => {
     await expect(
       resolveAuthContext(
-        {
-          auth: {
-            getUser,
+        createAuthClient(),
+        createRepositoryClient({
+          profile: {
+            global_role: 'super',
+            account_status: 'active',
           },
-        },
-        new Request('https://example.com/functions/v1/phase2-schedule/schedules/ensure', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer access-token-456',
-          },
-        })
+        }),
+        createRequest(null)
       )
     ).rejects.toMatchObject({
       code: 'organization_context_missing',
       status: 403,
+    });
+  });
+
+  it('rejects metadata-only organization claims without an approved membership', async () => {
+    await expect(
+      resolveAuthContext(
+        createAuthClient({
+          app_metadata: {
+            organization_id: '22222222-2222-4222-8222-222222222222',
+          },
+        }),
+        createRepositoryClient({
+          profile: {
+            global_role: 'user',
+            account_status: 'active',
+          },
+          membership: null,
+        }),
+        createRequest('22222222-2222-4222-8222-222222222222')
+      )
+    ).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
+    });
+  });
+
+  it('allows active super users to scope schedule access by the requested header', async () => {
+    const context = await resolveAuthContext(
+      createAuthClient(),
+      createRepositoryClient({
+        profile: {
+          global_role: 'super',
+          account_status: 'active',
+        },
+        membership: null,
+      }),
+      createRequest('00000000-0000-0000-0000-000000000009')
+    );
+
+    expect(context).toEqual({
+      userId: '11111111-1111-4111-8111-111111111111',
+      organizationId: '00000000-0000-0000-0000-000000000009',
     });
   });
 });

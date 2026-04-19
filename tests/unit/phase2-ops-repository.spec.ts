@@ -204,7 +204,7 @@ function createRepositoryClient(params: {
 
 const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorUserId: '11111111-1111-4111-8111-111111111111',
-  operatorOrganizationId: null,
+  operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
   operatorGlobalRole: 'super',
   operatorAppMetadata: {},
   operatorUserMetadata: {},
@@ -214,6 +214,8 @@ const ADMIN_AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorUserId: '11111111-1111-4111-8111-111111111111',
   operatorOrganizationId: '00000000-0000-0000-0000-000000000009',
   operatorGlobalRole: 'admin',
+  operatorRole: 'admin',
+  operatorStatus: 'active',
   operatorAppMetadata: {},
   operatorUserMetadata: {},
 };
@@ -593,6 +595,33 @@ describe('phase2 ops repository', () => {
     });
 
     expect(listUsers).not.toHaveBeenCalled();
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('rejects organization profile writes when the request body drifts from the authenticated organization header', async () => {
+    const { client, updateCalls, updateUserById } = createRepositoryClient({
+      onboardingProgress: {
+        id: 'progress-1',
+        organization_id: REQUEST.organizationId,
+        current_step: 1,
+        current_step_key: 'organization_profile',
+        organization_info_confirmed_at: null,
+        organization_info_confirmed_by: null,
+      },
+    });
+
+    await expect(
+      saveOrganizationProfile(client, AUTH_CONTEXT, {
+        organizationId: '00000000-0000-0000-0000-000000000009',
+        name: '서울병원',
+        type: 'hospital',
+      })
+    ).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
+    });
+
+    expect(updateCalls).toHaveLength(0);
     expect(updateUserById).not.toHaveBeenCalled();
   });
 
@@ -1602,8 +1631,8 @@ describe('phase2 ops repository', () => {
     });
   });
 
-  it('does not sync operator metadata when a super user saves another organization profile', async () => {
-    const organizationId = '00000000-0000-0000-0000-000000000001';
+  it('does not sync operator metadata when a super user saves the scoped organization profile', async () => {
+    const organizationId = AUTH_CONTEXT.operatorOrganizationId!;
     const { client, updateUserById } = createRepositoryClient({
       onboardingProgress: {
         id: 'progress-1',

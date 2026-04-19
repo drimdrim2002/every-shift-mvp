@@ -1,281 +1,207 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   resolveOperatorAuthContext,
   resolvePhase2OpsAuthContext,
 } from '@/../supabase/functions/phase2-ops/auth.ts';
 
-function createRequest(token = 'token-123'): Request {
+interface ProfileRow {
+  global_role: string | null;
+  account_status: string | null;
+}
+
+interface MembershipRow {
+  organization_id: string | null;
+  role: string | null;
+  status: string | null;
+}
+
+function createRequest(options?: {
+  token?: string;
+  organizationId?: string | null;
+}): Request {
+  const headers = new Headers({
+    Authorization: `Bearer ${options?.token ?? 'token-123'}`,
+  });
+
+  if (options?.organizationId !== null) {
+    headers.set('X-Organization-Id', options?.organizationId ?? '00000000-0000-0000-0000-000000000001');
+  }
+
   return new Request('http://localhost/functions/v1/phase2-ops/bootstrap-admin', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers,
   });
 }
 
-describe('resolveOperatorAuthContext', () => {
-  it('does not fall back to user metadata for admin organization scope', async () => {
-    const authClient = {
-      auth: {
-        getUser: async () => ({
-          data: {
-            user: {
-              id: '11111111-1111-4111-8111-111111111111',
-              app_metadata: {},
-              user_metadata: {
-                organization_id: 'org-from-user-metadata',
-              },
-            },
-          },
-          error: null,
-        }),
+function createAuthClient(userOverrides?: Partial<{
+  id: string;
+  app_metadata: Record<string, unknown>;
+  user_metadata: Record<string, unknown>;
+}>) {
+  const getUser = vi.fn().mockResolvedValue({
+    data: {
+      user: {
+        id: userOverrides?.id ?? '11111111-1111-4111-8111-111111111111',
+        app_metadata: userOverrides?.app_metadata ?? {},
+        user_metadata: userOverrides?.user_metadata ?? {},
       },
-    };
-    const repositoryClient = {
-      from(table: 'profiles' | 'organization_memberships') {
-        if (table === 'organization_memberships') {
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    eq() {
-                      return {
-                        limit() {
-                          return {
-                            maybeSingle: async () => ({
-                              data: null,
-                              error: null,
-                            }),
-                          };
-                        },
-                      };
-                    },
-                  };
-                },
-              };
-            },
-          };
-        }
+    },
+    error: null,
+  });
 
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  limit() {
-                    return {
-                      maybeSingle: async () => ({
-                        data: {
-                          global_role: 'admin',
-                          role: null,
-                          status: null,
-                          account_status: 'active',
-                          organization_id: null,
-                        },
-                        error: null,
-                      }),
-                    };
-                  },
-                };
-              },
-            };
-          },
-        };
+  return {
+    auth: {
+      getUser,
+    },
+  };
+}
+
+function createRepositoryClient(options?: {
+  profile?: ProfileRow | null;
+  membership?: MembershipRow | null;
+}) {
+  return {
+    from(table: 'profiles' | 'organization_memberships') {
+      const result = table === 'profiles'
+        ? { data: options?.profile ?? null, error: null }
+        : { data: options?.membership ?? null, error: null };
+
+      const builder = {
+        eq() {
+          return builder;
+        },
+        limit() {
+          return builder;
+        },
+        maybeSingle: async () => result,
+      };
+
+      return {
+        select() {
+          return builder;
+        },
+      };
+    },
+  };
+}
+
+describe('phase2 ops auth', () => {
+  it('resolves the requested organization from the header and approved membership', async () => {
+    const authClient = createAuthClient({
+      app_metadata: {
+        organization_id: 'metadata-only-org',
       },
-    };
+    });
+    const repositoryClient = createRepositoryClient({
+      profile: {
+        global_role: 'user',
+        account_status: 'active',
+      },
+      membership: {
+        organization_id: '00000000-0000-0000-0000-000000000001',
+        role: 'admin',
+        status: 'approved',
+      },
+    });
 
-    const result = await resolveOperatorAuthContext(authClient, repositoryClient, createRequest());
+    const result = await resolvePhase2OpsAuthContext(
+      authClient,
+      repositoryClient,
+      createRequest()
+    );
 
-    expect(result).toEqual({
+    expect(authClient.auth.getUser).toHaveBeenCalledWith('token-123');
+    expect(result).toMatchObject({
       operatorUserId: '11111111-1111-4111-8111-111111111111',
-      operatorOrganizationId: null,
-      operatorGlobalRole: 'admin',
-      operatorRole: null,
-      operatorStatus: null,
-      operatorAccountStatus: 'active',
-      operatorAppMetadata: {},
-      operatorUserMetadata: {
-        organization_id: 'org-from-user-metadata',
-      },
-    });
-  });
-
-  it('allows active pilot admins through the non-bootstrap ops auth path', async () => {
-    const authClient = {
-      auth: {
-        getUser: async () => ({
-          data: {
-            user: {
-              id: '22222222-2222-4222-8222-222222222222',
-              app_metadata: {},
-              user_metadata: {},
-            },
-          },
-          error: null,
-        }),
-      },
-    };
-    const repositoryClient = {
-      from(table: 'profiles' | 'organization_memberships') {
-        if (table === 'organization_memberships') {
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    eq() {
-                      return {
-                        limit() {
-                          return {
-                            maybeSingle: async () => ({
-                              data: null,
-                              error: null,
-                            }),
-                          };
-                        },
-                      };
-                    },
-                  };
-                },
-              };
-            },
-          };
-        }
-
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  limit() {
-                    return {
-                      maybeSingle: async () => ({
-                        data: {
-                          global_role: 'user',
-                          role: 'admin',
-                          status: 'active',
-                          account_status: 'active',
-                          organization_id: '00000000-0000-0000-0000-000000000001',
-                        },
-                        error: null,
-                      }),
-                    };
-                  },
-                };
-              },
-            };
-          },
-        };
-      },
-    };
-
-    const result = await resolvePhase2OpsAuthContext(
-      authClient,
-      repositoryClient,
-      createRequest()
-    );
-
-    expect(result).toEqual({
-      operatorUserId: '22222222-2222-4222-8222-222222222222',
       operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
       operatorGlobalRole: 'user',
       operatorRole: 'admin',
-      operatorStatus: 'active',
       operatorAccountStatus: 'active',
-      operatorAppMetadata: {},
-      operatorUserMetadata: {},
     });
   });
 
-  it('falls back to approved organization membership when profile organization is missing', async () => {
-    const authClient = {
-      auth: {
-        getUser: async () => ({
-          data: {
-            user: {
-              id: '33333333-3333-4333-8333-333333333333',
-              app_metadata: {},
-              user_metadata: {},
-            },
+  it('rejects missing organization headers for org-scoped ops routes', async () => {
+    await expect(
+      resolvePhase2OpsAuthContext(
+        createAuthClient(),
+        createRepositoryClient({
+          profile: {
+            global_role: 'super',
+            account_status: 'active',
           },
-          error: null,
         }),
-      },
-    };
-    const repositoryClient = {
-      from(table: 'profiles' | 'organization_memberships') {
-        if (table === 'organization_memberships') {
-          return {
-            select() {
-              return {
-                eq() {
-                  return {
-                    eq() {
-                      return {
-                        limit() {
-                          return {
-                            maybeSingle: async () => ({
-                              data: {
-                                organization_id: '00000000-0000-0000-0000-000000000001',
-                                role: 'admin',
-                                status: 'approved',
-                              },
-                              error: null,
-                            }),
-                          };
-                        },
-                      };
-                    },
-                  };
-                },
-              };
-            },
-          };
-        }
+        createRequest({ organizationId: null })
+      )
+    ).rejects.toMatchObject({
+      code: 'organization_context_missing',
+      status: 403,
+    });
+  });
 
-        return {
-          select() {
-            return {
-              eq() {
-                return {
-                  limit() {
-                    return {
-                      maybeSingle: async () => ({
-                        data: {
-                          global_role: 'user',
-                          role: 'admin',
-                          status: 'active',
-                          account_status: 'active',
-                          organization_id: null,
-                        },
-                        error: null,
-                      }),
-                    };
-                  },
-                };
-              },
-            };
+  it('rejects metadata-only organization claims without an approved membership', async () => {
+    await expect(
+      resolvePhase2OpsAuthContext(
+        createAuthClient({
+          app_metadata: {
+            organization_id: '00000000-0000-0000-0000-000000000001',
           },
-        };
-      },
-    };
+        }),
+        createRepositoryClient({
+          profile: {
+            global_role: 'user',
+            account_status: 'active',
+          },
+          membership: null,
+        }),
+        createRequest()
+      )
+    ).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
+    });
+  });
 
+  it('allows active super operators for the requested organization header', async () => {
     const result = await resolvePhase2OpsAuthContext(
-      authClient,
-      repositoryClient,
-      createRequest()
+      createAuthClient(),
+      createRepositoryClient({
+        profile: {
+          global_role: 'super',
+          account_status: 'active',
+        },
+        membership: null,
+      }),
+      createRequest({
+        organizationId: '00000000-0000-0000-0000-000000000009',
+      })
     );
 
-    expect(result).toEqual({
-      operatorUserId: '33333333-3333-4333-8333-333333333333',
-      operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
-      operatorGlobalRole: 'user',
-      operatorRole: 'admin',
-      operatorStatus: 'active',
-      operatorAccountStatus: 'active',
-      operatorAppMetadata: {},
-      operatorUserMetadata: {},
+    expect(result).toMatchObject({
+      operatorOrganizationId: '00000000-0000-0000-0000-000000000009',
+      operatorGlobalRole: 'super',
+    });
+  });
+
+  it('keeps bootstrap auth restricted to super users or org admins', async () => {
+    await expect(
+      resolveOperatorAuthContext(
+        createAuthClient(),
+        createRepositoryClient({
+          profile: {
+            global_role: 'user',
+            account_status: 'active',
+          },
+          membership: {
+            organization_id: '00000000-0000-0000-0000-000000000001',
+            role: 'user',
+            status: 'approved',
+          },
+        }),
+        createRequest()
+      )
+    ).rejects.toMatchObject({
+      code: 'organization_access_denied',
+      status: 403,
     });
   });
 });
