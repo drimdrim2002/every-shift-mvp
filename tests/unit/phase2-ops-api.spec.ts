@@ -11,6 +11,13 @@ import type {
   SiteFoundationResponse,
 } from '@/types/ops';
 
+const rbacStoreMock = vi.hoisted(() => ({
+  selectedOrganizationId: '00000000-0000-0000-0000-000000000001' as string | null,
+  effectiveMembership: {
+    organizationId: '00000000-0000-0000-0000-000000000001',
+  } as { organizationId: string } | null,
+}));
+
 const getSessionMock = vi.fn();
 const fetchMock = vi.fn();
 
@@ -22,6 +29,10 @@ vi.mock('@/api/supabase', () => ({
   },
 }));
 
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
+}));
+
 describe('phase2 ops api helpers', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -29,6 +40,10 @@ describe('phase2 ops api helpers', () => {
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    rbacStoreMock.selectedOrganizationId = '00000000-0000-0000-0000-000000000001';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -67,6 +82,7 @@ describe('phase2 ops api helpers', () => {
         headers: expect.objectContaining({
           apikey: 'anon-key',
           Authorization: 'Bearer session-token',
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
         }),
       })
     );
@@ -98,6 +114,7 @@ describe('phase2 ops api helpers', () => {
         method: 'PATCH',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
         }),
         body: JSON.stringify(request),
       })
@@ -134,6 +151,9 @@ describe('phase2 ops api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-ops/sites?organizationId=00000000-0000-0000-0000-000000000001',
       expect.objectContaining({
         method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
+        }),
       })
     );
     expect(result).toEqual(response);
@@ -240,6 +260,7 @@ describe('phase2 ops api helpers', () => {
         method: 'PUT',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
         }),
         body: JSON.stringify(siteRequest),
       })
@@ -249,6 +270,9 @@ describe('phase2 ops api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-ops/shifts-constraints',
       expect.objectContaining({
         method: 'PUT',
+        headers: expect.objectContaining({
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
+        }),
         body: JSON.stringify(shiftsConstraintsRequest),
       })
     );
@@ -279,6 +303,9 @@ describe('phase2 ops api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-ops/shifts-constraints?organizationId=00000000-0000-0000-0000-000000000001',
       expect.objectContaining({
         method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
+        }),
       })
     );
     expect(result).toEqual(response);
@@ -320,10 +347,28 @@ describe('phase2 ops api helpers', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000001',
         }),
         body: JSON.stringify(request),
       })
     );
     expect(result).toEqual(response);
+  });
+
+  it('rejects ops requests when the active organization does not match the request payload', async () => {
+    rbacStoreMock.selectedOrganizationId = 'org-active';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-active' };
+
+    const { updateOrganizationProfile } = await import('@/api/ops');
+
+    await expect(
+      updateOrganizationProfile({
+        organizationId: 'org-other',
+        name: 'Mismatch',
+        type: 'hospital',
+      })
+    ).rejects.toThrow('요청 조직과 활성 조직이 일치하지 않습니다.');
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

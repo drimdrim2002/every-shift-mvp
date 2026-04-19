@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { buildOrganizationScopeHeaders, getRequiredOrganizationId } from './requestScope';
 import type {
   ChecklistResponse,
   EmployeeImportApplyRequest,
@@ -58,15 +59,29 @@ function buildPhase2OpsUrl(path: string): string {
   return `${getPhase2OpsBaseUrl()}/functions/v1/phase2-ops${path}`;
 }
 
+function resolveScopedOrganizationId(organizationId?: string | null): string {
+  const activeOrganizationId = getRequiredOrganizationId();
+  const requestedOrganizationId = organizationId?.trim() ?? null;
+
+  if (requestedOrganizationId && requestedOrganizationId !== activeOrganizationId) {
+    throw new Error('요청 조직과 활성 조직이 일치하지 않습니다.');
+  }
+
+  return activeOrganizationId;
+}
+
 async function callPhase2Ops<T>(
   path: string,
   method: 'GET' | 'POST' | 'PATCH' | 'PUT',
-  body?: unknown
+  body?: unknown,
+  organizationId?: string | null
 ): Promise<T> {
   const accessToken = await getPhase2OpsAccessToken();
+  const scopedOrganizationId = resolveScopedOrganizationId(organizationId);
   const headers: Record<string, string> = {
     apikey: getPhase2OpsAnonKey(),
     Authorization: `Bearer ${accessToken}`,
+    ...buildOrganizationScopeHeaders(scopedOrganizationId),
   };
 
   const requestInit: RequestInit = {
@@ -145,20 +160,29 @@ export async function getOrganizationProfile(
 ): Promise<OrganizationProfileResponse> {
   return callPhase2Ops<OrganizationProfileResponse>(
     `/organization-profile?organizationId=${encodeURIComponent(organizationId)}`,
-    'GET'
+    'GET',
+    undefined,
+    organizationId
   );
 }
 
 export async function updateOrganizationProfile(
   request: OrganizationProfileRequest
 ): Promise<OrganizationProfileResponse> {
-  return callPhase2Ops<OrganizationProfileResponse>('/organization-profile', 'PATCH', request);
+  return callPhase2Ops<OrganizationProfileResponse>(
+    '/organization-profile',
+    'PATCH',
+    request,
+    request.organizationId
+  );
 }
 
 export async function getSites(organizationId: string): Promise<SiteFoundationResponse> {
   const response = await callPhase2Ops<SiteFoundationResponse>(
     `/sites?organizationId=${encodeURIComponent(organizationId)}`,
-    'GET'
+    'GET',
+    undefined,
+    organizationId
   );
   assertValidSiteFoundationResponse(response);
   return response;
@@ -166,7 +190,12 @@ export async function getSites(organizationId: string): Promise<SiteFoundationRe
 
 export async function updateSites(request: SiteFoundationRequest): Promise<SiteFoundationResponse> {
   assertValidSiteRequest(request.site);
-  const response = await callPhase2Ops<SiteFoundationResponse>('/sites', 'PUT', request);
+  const response = await callPhase2Ops<SiteFoundationResponse>(
+    '/sites',
+    'PUT',
+    request,
+    request.organizationId
+  );
   assertValidSiteFoundationResponse(response);
   return response;
 }
@@ -176,14 +205,21 @@ export async function getShiftsConstraints(
 ): Promise<ShiftsConstraintsResponse> {
   return callPhase2Ops<ShiftsConstraintsResponse>(
     `/shifts-constraints?organizationId=${encodeURIComponent(organizationId)}`,
-    'GET'
+    'GET',
+    undefined,
+    organizationId
   );
 }
 
 export async function updateShiftsConstraints(
   request: ShiftsConstraintsRequest
 ): Promise<ShiftsConstraintsResponse> {
-  return callPhase2Ops<ShiftsConstraintsResponse>('/shifts-constraints', 'PUT', request);
+  return callPhase2Ops<ShiftsConstraintsResponse>(
+    '/shifts-constraints',
+    'PUT',
+    request,
+    request.organizationId
+  );
 }
 
 export async function validateEmployeeImport(
@@ -192,20 +228,31 @@ export async function validateEmployeeImport(
   return callPhase2Ops<EmployeeImportValidateResponse>(
     '/employee-import/validate',
     'POST',
-    request
+    request,
+    request.organizationId
   );
 }
 
 export async function applyEmployeeImport(
   request: EmployeeImportApplyRequest
 ): Promise<EmployeeImportApplyResponse> {
-  return callPhase2Ops<EmployeeImportApplyResponse>('/employee-import/apply', 'POST', request);
+  return callPhase2Ops<EmployeeImportApplyResponse>(
+    '/employee-import/apply',
+    'POST',
+    request,
+    request.organizationId
+  );
 }
 
 export async function replaceOrganizationRoster(
   request: EmployeeRosterReplaceRequest
 ): Promise<EmployeeRosterReplaceResponse> {
-  return callPhase2Ops<EmployeeRosterReplaceResponse>('/employee-roster/replace', 'POST', request);
+  return callPhase2Ops<EmployeeRosterReplaceResponse>(
+    '/employee-roster/replace',
+    'POST',
+    request,
+    request.organizationId
+  );
 }
 
 export async function getOffRequestPolicies(
@@ -213,19 +260,28 @@ export async function getOffRequestPolicies(
 ): Promise<OffRequestPolicySetupResponse> {
   return callPhase2Ops<OffRequestPolicySetupResponse>(
     `/off-request-policies?organizationId=${encodeURIComponent(organizationId)}`,
-    'GET'
+    'GET',
+    undefined,
+    organizationId
   );
 }
 
 export async function updateOffRequestPolicies(
   request: OffRequestPolicySetupRequest
 ): Promise<OffRequestPolicySetupResponse> {
-  return callPhase2Ops<OffRequestPolicySetupResponse>('/off-request-policies', 'PUT', request);
+  return callPhase2Ops<OffRequestPolicySetupResponse>(
+    '/off-request-policies',
+    'PUT',
+    request,
+    request.organizationId
+  );
 }
 
 export async function getChecklist(organizationId: string): Promise<ChecklistResponse> {
   return callPhase2Ops<ChecklistResponse>(
     `/checklist?organizationId=${encodeURIComponent(organizationId)}`,
-    'GET'
+    'GET',
+    undefined,
+    organizationId
   );
 }

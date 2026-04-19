@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { buildOrganizationScopeHeaders, getRequiredOrganizationId } from './requestScope';
 import { supabase } from './supabase';
 import type {
   AssignmentMap,
@@ -166,6 +167,17 @@ function buildPhase2ScheduleUrl(path: string): string {
   return `${getPhase2ScheduleBaseUrl()}/functions/v1/phase2-schedule${path}`;
 }
 
+function resolveScopedOrganizationId(organizationId?: string | null): string {
+  const activeOrganizationId = getRequiredOrganizationId();
+  const requestedOrganizationId = organizationId?.trim() ?? null;
+
+  if (requestedOrganizationId && requestedOrganizationId !== activeOrganizationId) {
+    throw new Error('요청 조직과 활성 조직이 일치하지 않습니다.');
+  }
+
+  return activeOrganizationId;
+}
+
 function createPhase2ScheduleError(payload: unknown, status: number): Error {
   const fallbackMessage = `Phase 2 schedule request failed with status ${status}`;
 
@@ -201,15 +213,18 @@ async function callPhase2Schedule<T>(
   options: {
     method: 'GET' | 'POST' | 'PATCH';
     body?: unknown;
+    organizationId?: string | null;
   }
 ): Promise<T> {
   const url = buildPhase2ScheduleUrl(path);
+  const scopedOrganizationId = resolveScopedOrganizationId(options.organizationId);
   const executeRequest = async (
     accessToken: string
   ): Promise<{ response: Response; payload: unknown }> => {
     const headers: Record<string, string> = {
       apikey: getPhase2ScheduleAnonKey(),
       Authorization: `Bearer ${accessToken}`,
+      ...buildOrganizationScopeHeaders(scopedOrganizationId),
     };
 
     const requestInit: RequestInit = {
@@ -311,6 +326,7 @@ export async function ensurePhase2Schedule(
   return callPhase2Schedule<ScheduleCompareResponse>('/schedules/ensure', {
     method: 'POST',
     body: request,
+    organizationId: request.organizationId,
   });
 }
 
@@ -422,6 +438,7 @@ export async function resetPhase2ScheduleRoster(
   return callPhase2Schedule<ResetScheduleRosterResponse>('/schedules/reset-roster', {
     method: 'POST',
     body: request,
+    organizationId: request.organizationId,
   });
 }
 
@@ -431,6 +448,7 @@ export async function deletePhase2ScheduleMonth(
   return callPhase2Schedule<DeleteScheduleMonthResponse>('/schedules/delete-month', {
     method: 'POST',
     body: request,
+    organizationId: request.organizationId,
   });
 }
 

@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const rbacStoreMock = vi.hoisted(() => ({
+  selectedOrganizationId: '11111111-1111-4111-8111-111111111111' as string | null,
+  effectiveMembership: {
+    organizationId: '11111111-1111-4111-8111-111111111111',
+  } as { organizationId: string } | null,
+}));
+
 const getSessionMock = vi.fn();
 const refreshSessionMock = vi.fn();
 const supabaseFromMock = vi.fn();
@@ -14,6 +21,10 @@ vi.mock('@/api/supabase', () => ({
     from: supabaseFromMock,
     rpc: supabaseRpcMock,
   },
+}));
+
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
 }));
 
 describe('phase2 schedule api helpers', () => {
@@ -112,6 +123,10 @@ describe('phase2 schedule api helpers', () => {
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    rbacStoreMock.selectedOrganizationId = '11111111-1111-4111-8111-111111111111';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '11111111-1111-4111-8111-111111111111',
+    };
   });
 
   it('sends session auth headers when calling ensure', async () => {
@@ -155,6 +170,7 @@ describe('phase2 schedule api helpers', () => {
           apikey: 'anon-key',
           Authorization: 'Bearer token-123',
           'Content-Type': 'application/json',
+          'X-Organization-Id': '11111111-1111-4111-8111-111111111111',
         }),
         body: JSON.stringify({
           organizationId: '11111111-1111-4111-8111-111111111111',
@@ -181,6 +197,10 @@ describe('phase2 schedule api helpers', () => {
   });
 
   it('refreshes the session and retries once when the server reports missing organization context', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -239,6 +259,7 @@ describe('phase2 schedule api helpers', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer stale-token-123',
+          'X-Organization-Id': '22222222-2222-4222-8222-222222222222',
         }),
       })
     );
@@ -248,12 +269,17 @@ describe('phase2 schedule api helpers', () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer fresh-token-456',
+          'X-Organization-Id': '22222222-2222-4222-8222-222222222222',
         }),
       })
     );
   });
 
   it('surfaces a clear error when organization context is still missing after one retry', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -313,6 +339,10 @@ describe('phase2 schedule api helpers', () => {
   });
 
   it('refreshes the session and retries once on unauthorized responses', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -452,12 +482,85 @@ describe('phase2 schedule api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/44444444-4444-4444-8444-444444444444/review',
       expect.objectContaining({
         method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': '11111111-1111-4111-8111-111111111111',
+        }),
       })
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
   });
 
+  it('rejects schedule requests when the active organization does not match the request body', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-mismatch',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-active';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-active' };
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+
+    await expect(
+      ensurePhase2Schedule({
+        organizationId: 'org-other',
+        month: '2026-04',
+      })
+    ).rejects.toThrow('요청 조직과 활성 조직이 일치하지 않습니다.');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends the selected organization header for resource-only schedule routes', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-select',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-selected';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-selected' };
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-9',
+          scheduleVersionId: 'version-9',
+          status: 'finalized',
+          finalizedVersionId: 'version-9',
+          finalizedAt: '2026-04-01T00:00:00.000Z',
+          finalizedBy: 'user-1',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { finalizePhase2ScheduleVersion } = await import('@/api/schedule');
+    await finalizePhase2ScheduleVersion('version-9');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-9/finalize',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Organization-Id': 'org-selected',
+        }),
+      })
+    );
+  });
+
   it('provides a deployment/cors hint when fetch fails before receiving an HTTP response', async () => {
+    rbacStoreMock.selectedOrganizationId = '11111111-1111-4111-8111-111111111111';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '11111111-1111-4111-8111-111111111111',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -924,6 +1027,10 @@ describe('phase2 schedule api helpers', () => {
   });
 
   it('calls the reset-roster mutation route through phase2-schedule edge function', async () => {
+    rbacStoreMock.selectedOrganizationId = '33333333-3333-4333-8333-333333333333';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '33333333-3333-4333-8333-333333333333',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -1020,6 +1127,10 @@ describe('phase2 schedule api helpers', () => {
   });
 
   it('calls the delete-month mutation route through phase2-schedule edge function', async () => {
+    rbacStoreMock.selectedOrganizationId = '33333333-3333-4333-8333-333333333333';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '33333333-3333-4333-8333-333333333333',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
