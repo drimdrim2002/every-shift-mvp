@@ -159,6 +159,37 @@ describe('phase2 ops api helpers', () => {
     expect(result).toEqual(response);
   });
 
+  it('prefers the selected organization header over the effective membership for org-scoped reads', async () => {
+    rbacStoreMock.selectedOrganizationId = '00000000-0000-0000-0000-000000000002';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '00000000-0000-0000-0000-000000000001',
+    };
+
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({
+        organizationId: '00000000-0000-0000-0000-000000000002',
+        site: null,
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+    );
+
+    const { getSites } = await import('@/api/ops');
+    await getSites('00000000-0000-0000-0000-000000000002');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-ops/sites?organizationId=00000000-0000-0000-0000-000000000002',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Organization-Id': '00000000-0000-0000-0000-000000000002',
+        }),
+      })
+    );
+  });
+
   it('rejects legacy sites responses that do not include the site field', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({

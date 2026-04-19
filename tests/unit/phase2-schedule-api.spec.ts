@@ -514,6 +514,56 @@ describe('phase2 schedule api helpers', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('prefers the selected organization header over the effective membership for read routes', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-read',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-selected';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-fallback' };
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-2',
+          selectedVersionId: 'version-2',
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+          version: null,
+          latestEvaluation: null,
+          primaryAction: {
+            kind: 'none',
+            targetVersionId: null,
+            label: 'No primary action',
+            disabledReason: null,
+          },
+          defaultTab: 'grid',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { getPhase2ScheduleReview } = await import('@/api/schedule');
+    await getPhase2ScheduleReview('review-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/review-1/review',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': 'org-selected',
+        }),
+      })
+    );
+  });
+
   it('sends the selected organization header for resource-only schedule routes', async () => {
     getSessionMock.mockResolvedValue({
       data: {

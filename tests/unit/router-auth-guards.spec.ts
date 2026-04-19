@@ -178,6 +178,26 @@ describe('resolveRouteAccessTarget', () => {
     ).toBe(USER_HOME_ROUTE_PATH)
   })
 
+  it('redirects restricted users away from schedule generation routes into the restricted home', () => {
+    const redirect = resolveRouteAccessTarget({
+      toPath: '/schedule/step1',
+      accessState: 'user_active',
+      abilities: {
+        canViewApprovalQueue: false,
+        canSwitchOrganization: true,
+        canViewRestrictedUserHome: true,
+        canManageOrganizationSetup: false,
+        canManageEmployees: false,
+        canManageSchedules: false,
+      },
+      selectedOrganizationId: 'org-1',
+      requiresOrgContext: true,
+      requiredOrgRole: 'admin',
+    })
+
+    expect(redirect).toBe(USER_HOME_ROUTE_PATH)
+  })
+
   it('allows super users with unlocked org-admin abilities to remain on the dashboard', () => {
     const redirect = resolveRouteAccessTarget({
       toPath: HOME_ROUTE_PATH,
