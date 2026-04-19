@@ -30,7 +30,7 @@ const approvalStoreState = reactive({
     {
       signupRequestId: 'req-1',
       requesterUserId: 'user-1',
-      requesterEmail: null,
+      requesterEmail: 'nurse1@example.com',
       requesterName: null,
       organizationId: 'org-1',
       organizationName: null,
@@ -43,19 +43,14 @@ const approvalStoreState = reactive({
   selectedRequest: {
     signupRequestId: 'req-1',
     requesterUserId: 'user-1',
-    requesterEmail: null,
+    requesterEmail: 'nurse1@example.com',
     requesterName: null,
     organizationId: 'org-1',
     organizationName: null,
     requestedRole: 'admin',
     status: 'pending',
     createdAt: '2026-04-17T01:00:00.000Z',
-    workType: '3교대',
-    shiftType: 'day-night',
-    requestedSiteName: '중환자실',
-    requestedSkillSummary: '중환자 간호',
-    requestedRankCode: 'RN',
-    requestedCredit: 5,
+    requestedHospitalName: '중환자실',
     reviewNote: null,
   },
   loadingQueue: false,
@@ -159,19 +154,14 @@ describe('ApprovalQueueView', () => {
     approvalStoreState.selectedRequest = {
       signupRequestId: 'req-1',
       requesterUserId: 'user-1',
-      requesterEmail: null,
+      requesterEmail: 'nurse1@example.com',
       requesterName: null,
       organizationId: 'org-1',
       organizationName: null,
       requestedRole: 'admin',
       status: 'pending',
       createdAt: '2026-04-17T01:00:00.000Z',
-      workType: '3교대',
-      shiftType: 'day-night',
-      requestedSiteName: '중환자실',
-      requestedSkillSummary: '중환자 간호',
-      requestedRankCode: 'RN',
-      requestedCredit: 5,
+      requestedHospitalName: '중환자실',
       reviewNote: null,
     }
     loadQueueMock.mockResolvedValue(undefined)
@@ -195,6 +185,12 @@ describe('ApprovalQueueView', () => {
     await flushPromises()
 
     expect(loadQueueMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('이메일')
+    expect(wrapper.text()).toContain('nurse1@example.com')
+    expect(wrapper.text()).not.toContain('근무 형태')
+    expect(wrapper.text()).not.toContain('교대 유형')
+    expect(wrapper.text()).not.toContain('요청 역량')
+    expect(wrapper.text()).not.toContain('요청 직급 / 크레딧')
 
     await wrapper.get('[data-test="approval-review-note"]').setValue('승인 메모')
     await wrapper.get('[data-test="approval-approve"]').trigger('click')

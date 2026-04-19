@@ -395,7 +395,7 @@ function buildAppMetadata(
 ) {
   return {
     global_role: 'user',
-    account_status: 'active',
+    account_status: status === 'approved' ? 'active' : 'pending',
     organization_id: organizationId,
     organizationId,
     current_organization_id: organizationId,
@@ -611,6 +611,7 @@ export async function processSignupSubmit(
   try {
     const { data, error } = await client.rpc(rpcName, {
       p_user_id: userId,
+      p_requester_email: email,
       ...rpcParams,
     })
 

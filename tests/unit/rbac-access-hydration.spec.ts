@@ -523,4 +523,39 @@ describe('RBAC access hydration', () => {
       rejectionReason: '증빙 서류를 다시 제출해주세요.',
     })
   })
+
+  it('keeps membership-backed rejected admin access when signup-request fallback hydration fails', async () => {
+    queryFailureState.signupRequests = true
+    profileByUserId.set('user-1', {
+      global_role: 'user',
+      account_status: 'rejected',
+      organization_id: 'org-rejected',
+      role: 'admin',
+      status: 'inactive',
+    })
+    membershipsByUserId.set('user-1', [
+      {
+        id: 'membership-rejected',
+        organization_id: 'org-rejected',
+        role: 'admin',
+        status: 'rejected',
+        approved_at: null,
+        created_at: '2026-04-18T03:00:00.000Z',
+        rejection_reason: '증빙 서류를 다시 제출해주세요.',
+      },
+    ])
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('admin_rejected')
+    expect(store.effectiveMembership).toMatchObject({
+      membershipId: 'membership-rejected',
+      organizationId: 'org-rejected',
+      role: 'admin',
+      status: 'rejected',
+      rejectionReason: '증빙 서류를 다시 제출해주세요.',
+    })
+  })
 })

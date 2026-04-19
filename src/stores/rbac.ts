@@ -245,7 +245,7 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
     .maybeSingle<SignupRequestAccessRow>()
 
   if (signupRequestError) {
-    throw new Error(signupRequestError.message)
+    console.warn('[rbac] Failed to hydrate signup-request fallback state:', signupRequestError.message)
   }
 
   const profileGlobalRole = readGlobalRole(profile?.global_role?.trim() ?? null)

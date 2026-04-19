@@ -66,6 +66,9 @@
                     {{ item.requesterName || item.requesterEmail || item.requesterUserId || '신청자 정보 없음' }}
                   </p>
                   <p class="mt-1 truncate text-xs text-slate-500">
+                    이메일: {{ item.requesterEmail || '-' }}
+                  </p>
+                  <p class="mt-1 truncate text-xs text-slate-500">
                     조직: {{ item.organizationName || item.organizationId || '미확인' }}
                   </p>
                 </div>
@@ -110,7 +113,7 @@
                     관리자 가입 요청
                   </p>
                   <h2 class="mt-1 text-xl font-semibold text-slate-900">
-                    {{ approvalStore.selectedRequest.requestedSiteName || approvalStore.selectedRequest.organizationId || '조직 미상' }}
+                    {{ approvalStore.selectedRequest.requestedHospitalName || approvalStore.selectedRequest.organizationId || '조직 미상' }}
                   </h2>
                 </div>
                 <span class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
@@ -122,10 +125,26 @@
             <dl class="grid gap-4 sm:grid-cols-2">
               <div class="rounded-2xl bg-white p-4">
                 <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  신청자
+                  신청자 이름
                 </dt>
                 <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.requesterName || approvalStore.selectedRequest.requesterEmail || approvalStore.selectedRequest.requesterUserId || '정보 없음' }}
+                  {{ approvalStore.selectedRequest.requesterName || approvalStore.selectedRequest.requesterUserId || '정보 없음' }}
+                </dd>
+              </div>
+              <div class="rounded-2xl bg-white p-4">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  이메일
+                </dt>
+                <dd class="mt-2 text-sm text-slate-700">
+                  {{ approvalStore.selectedRequest.requesterEmail || '-' }}
+                </dd>
+              </div>
+              <div class="rounded-2xl bg-white p-4">
+                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  신청 병원
+                </dt>
+                <dd class="mt-2 text-sm text-slate-700">
+                  {{ approvalStore.selectedRequest.requestedHospitalName || '-' }}
                 </dd>
               </div>
               <div class="rounded-2xl bg-white p-4">
@@ -134,40 +153,6 @@
                 </dt>
                 <dd class="mt-2 text-sm text-slate-700">
                   {{ approvalStore.selectedRequest.organizationName || approvalStore.selectedRequest.organizationId || '정보 없음' }}
-                </dd>
-              </div>
-              <div class="rounded-2xl bg-white p-4">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  근무 형태
-                </dt>
-                <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.workType || '-' }}
-                </dd>
-              </div>
-              <div class="rounded-2xl bg-white p-4">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  교대 유형
-                </dt>
-                <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.shiftType || '-' }}
-                </dd>
-              </div>
-              <div class="rounded-2xl bg-white p-4">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  요청 역량
-                </dt>
-                <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.requestedSkillSummary || '-' }}
-                </dd>
-              </div>
-              <div class="rounded-2xl bg-white p-4">
-                <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  요청 직급 / 크레딧
-                </dt>
-                <dd class="mt-2 text-sm text-slate-700">
-                  {{ approvalStore.selectedRequest.requestedRankCode || '-' }}
-                  <span class="mx-1 text-slate-300">/</span>
-                  {{ approvalStore.selectedRequest.requestedCredit ?? '-' }}
                 </dd>
               </div>
             </dl>

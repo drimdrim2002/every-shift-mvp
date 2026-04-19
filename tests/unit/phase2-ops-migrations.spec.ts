@@ -117,4 +117,45 @@ describe('phase2 ops migrations', () => {
     expect(sql).toContain("has_org_access(organization_id, 'user')");
     expect(sql).toContain("has_org_access(organization_id, 'admin')");
   });
+
+  it('adds requester email snapshots and upgrades signup rpc signatures', () => {
+    const sql = readMigration(
+      '20260419_150000_signup_request_email_snapshot.sql'
+    ).toLowerCase();
+
+    expect(sql).toContain('alter table if exists public.signup_requests');
+    expect(sql).toContain('add column if not exists requester_email text');
+    expect(sql).toContain('update public.signup_requests sr');
+    expect(sql).toContain('from auth.users au');
+    expect(sql).toContain('drop function if exists public.submit_admin_signup_atomic(uuid, uuid, text, text)');
+    expect(sql).toContain('create function public.submit_admin_signup_atomic(');
+    expect(sql).toContain('p_requester_email text');
+    expect(sql).toContain('requester_email');
+    expect(sql).toContain(
+      'drop function if exists public.redeem_user_invite_signup_atomic(uuid, uuid, text, text)'
+    );
+    expect(sql).toContain(
+      'drop function if exists public.redeem_user_invite_signup_atomic(uuid, uuid, text, text, text)'
+    );
+    expect(sql).toContain('create or replace function public.redeem_user_invite_signup_atomic(');
+    expect(sql).toContain('v_invite_id uuid');
+  });
+
+  it('syncs blocked admin signup state into memberships and profiles', () => {
+    const sql = readMigration(
+      '20260419_160000_phase2b_admin_signup_blocked_state_sync.sql'
+    ).toLowerCase();
+
+    expect(sql).toContain('drop function if exists public.submit_admin_signup_atomic');
+    expect(sql).toContain("message = 'duplicate_approved_membership'");
+    expect(sql).toContain('insert into public.organization_memberships');
+    expect(sql).toContain("status = 'pending'");
+    expect(sql).toContain("status = 'rejected'");
+    expect(sql).toContain("account_status = 'active'");
+    expect(sql).toContain("account_status = 'pending'");
+    expect(sql).toContain("account_status = 'rejected'");
+    expect(sql).toContain(
+      "where lower(coalesce(public.organization_memberships.status, 'pending')) <> 'approved'"
+    );
+  });
 });

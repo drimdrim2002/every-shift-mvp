@@ -16,7 +16,7 @@ export interface ApprovalDecisionSuccessData {
   signupRequestId: string;
   decision: ApprovalDecision;
   requestStatus: 'approved' | 'rejected';
-  membershipStatus: 'approved' | 'none';
+  membershipStatus: 'approved' | 'rejected' | 'none';
   organizationId: string | null;
   membershipId: string | null;
   decidedAt: string;
@@ -149,7 +149,7 @@ async function loadSignupRequest(
   return data;
 }
 
-async function loadApprovedMembership(
+async function loadMembership(
   repositoryClient: ApprovalRepositoryClient,
   organizationId: string | null,
   requesterUserId: string | null,
@@ -169,11 +169,15 @@ async function loadApprovedMembership(
     throw new ApprovalDecisionError('INTERNAL_ERROR', error.message, 500);
   }
 
-  if (!data || data.status !== 'approved') {
-    return null;
+  return data ?? null;
+}
+
+function resolveMembershipStatus(status: string | null | undefined): 'approved' | 'rejected' | 'none' {
+  if (status === 'approved' || status === 'rejected') {
+    return status;
   }
 
-  return data;
+  return 'none';
 }
 
 function resolveReplayDecision(status: string | null | undefined): ApprovalDecision | null {
@@ -214,6 +218,25 @@ async function insertApprovalLog(
   }
 }
 
+async function updateProfile(
+  repositoryClient: ApprovalRepositoryClient,
+  userId: string | null,
+  payload: Record<string, unknown>,
+) {
+  if (!userId) {
+    return;
+  }
+
+  const { error } = await repositoryClient
+    .from('profiles')
+    .update(payload)
+    .eq('id', userId);
+
+  if (error) {
+    throw new ApprovalDecisionError('INTERNAL_ERROR', error.message, 500);
+  }
+}
+
 export async function decideApprovalRequest(
   repositoryClient: ApprovalRepositoryClient,
   auth: ApprovalDecisionAuthContext,
@@ -234,19 +257,17 @@ export async function decideApprovalRequest(
       });
     }
 
-    const membership = replayDecision === 'approve'
-      ? await loadApprovedMembership(
-          repositoryClient,
-          requestRow.organization_id,
-          requestRow.requester_user_id,
-        )
-      : null;
+    const membership = await loadMembership(
+      repositoryClient,
+      requestRow.organization_id,
+      requestRow.requester_user_id,
+    );
 
     return {
       signupRequestId: requestRow.id,
       decision: input.decision,
       requestStatus: replayDecision === 'approve' ? 'approved' : 'rejected',
-      membershipStatus: membership ? 'approved' : 'none',
+      membershipStatus: resolveMembershipStatus(membership?.status),
       organizationId: requestRow.organization_id,
       membershipId: membership?.id ?? null,
       decidedAt: requestRow.reviewed_at ?? new Date().toISOString(),
@@ -270,7 +291,7 @@ export async function decideApprovalRequest(
   });
 
   let membershipId: string | null = null;
-  let membershipStatus: 'approved' | 'none' = 'none';
+  let membershipStatus: 'approved' | 'rejected' | 'none' = 'none';
 
   if (input.decision === 'approve') {
     if (!requestRow.organization_id || !requestRow.requester_user_id) {
@@ -305,6 +326,51 @@ export async function decideApprovalRequest(
     const membershipRow = Array.isArray(data) ? data[0] : data;
     membershipId = membershipRow?.id ?? null;
     membershipStatus = 'approved';
+    await updateProfile(repositoryClient, requestRow.requester_user_id, {
+      account_status: 'active',
+      organization_id: requestRow.organization_id,
+      role: 'admin',
+      status: 'active',
+    });
+  } else {
+    if (!requestRow.organization_id || !requestRow.requester_user_id) {
+      throw new ApprovalDecisionError(
+        'VALIDATION_ERROR',
+        'Rejected admin request requires organization and requester identity.',
+        400,
+      );
+    }
+
+    const { data, error }: QueryResult<MembershipRow[] | MembershipRow> = await repositoryClient
+      .from('organization_memberships')
+      .upsert(
+        {
+          organization_id: requestRow.organization_id,
+          user_id: requestRow.requester_user_id,
+          role: 'admin',
+          status: 'rejected',
+          approved_by: null,
+          approved_at: null,
+          rejection_reason: input.reviewNote ?? null,
+        },
+        {
+          onConflict: 'organization_id,user_id',
+        },
+      );
+
+    if (error) {
+      throw new ApprovalDecisionError('INTERNAL_ERROR', error.message, 500);
+    }
+
+    const membershipRow = Array.isArray(data) ? data[0] : data;
+    membershipId = membershipRow?.id ?? null;
+    membershipStatus = 'rejected';
+    await updateProfile(repositoryClient, requestRow.requester_user_id, {
+      account_status: 'rejected',
+      organization_id: requestRow.organization_id,
+      role: 'admin',
+      status: 'inactive',
+    });
   }
 
   await insertApprovalLog(repositoryClient, {

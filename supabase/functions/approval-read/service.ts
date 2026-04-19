@@ -25,15 +25,11 @@ export class ApprovalReadError extends Error {
 interface SignupRequestRow {
   id: string;
   requester_user_id: string | null;
+  requester_email: string | null;
   organization_id: string | null;
   requested_role: 'admin';
   status: 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn';
-  work_type: string | null;
-  shift_type: string | null;
   requested_site_name: string | null;
-  requested_skill_summary: string | null;
-  requested_rank_code: string | null;
-  requested_credit: number | null;
   review_note: string | null;
   created_at: string;
 }
@@ -96,7 +92,7 @@ function mapQueueItem(
   return {
     signupRequestId: row.id,
     requesterUserId: row.requester_user_id,
-    requesterEmail: null,
+    requesterEmail: row.requester_email,
     requesterName: row.requester_user_id ? lookups.requesterNames.get(row.requester_user_id) ?? null : null,
     organizationId: row.organization_id,
     organizationName: row.organization_id ? lookups.organizationNames.get(row.organization_id) ?? null : null,
@@ -115,12 +111,7 @@ function mapQueueDetail(
 ) {
   return {
     ...mapQueueItem(row, lookups),
-    workType: row.work_type,
-    shiftType: row.shift_type,
-    requestedSiteName: row.requested_site_name,
-    requestedSkillSummary: row.requested_skill_summary,
-    requestedRankCode: row.requested_rank_code,
-    requestedCredit: row.requested_credit,
+    requestedHospitalName: row.requested_site_name,
     reviewNote: row.review_note,
   };
 }
@@ -217,7 +208,7 @@ export async function listApprovalQueueRequests(
   let query = repositoryClient
     .from('signup_requests')
     .select(
-      'id, requester_user_id, organization_id, requested_role, status, work_type, shift_type, requested_site_name, requested_skill_summary, requested_rank_code, requested_credit, review_note, created_at',
+      'id, requester_user_id, requester_email, organization_id, requested_role, status, requested_site_name, review_note, created_at',
     )
     .eq('requested_role', 'admin')
     .order('created_at', { ascending: false });
@@ -262,7 +253,7 @@ export async function loadApprovalRequestDetail(
   const { data, error } = await repositoryClient
     .from('signup_requests')
     .select(
-      'id, requester_user_id, organization_id, requested_role, status, work_type, shift_type, requested_site_name, requested_skill_summary, requested_rank_code, requested_credit, review_note, created_at',
+      'id, requester_user_id, requester_email, organization_id, requested_role, status, requested_site_name, review_note, created_at',
     )
     .eq('id', trimmedSignupRequestId)
     .eq('requested_role', 'admin')

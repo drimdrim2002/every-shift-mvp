@@ -7,11 +7,13 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 const pushMock = vi.fn()
 const replaceMock = vi.fn()
 const loginMock = vi.fn()
+const logoutMock = vi.fn()
+const { showErrorMock, showSuccessMock } = vi.hoisted(() => ({
+  showErrorMock: vi.fn(),
+  showSuccessMock: vi.fn(),
+}))
 const authState = {
   loading: ref(false),
-}
-const rbacState = {
-  accessState: ref<'admin_pending' | 'user_active' | 'admin_active'>('user_active'),
 }
 const routeState = ref({
   path: '/login',
@@ -30,18 +32,13 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     loading: authState.loading.value,
     login: loginMock,
-  }),
-}))
-
-vi.mock('@/stores/rbac', () => ({
-  useRbacStore: () => ({
-    accessState: rbacState.accessState.value,
+    logout: logoutMock,
   }),
 }))
 
 vi.mock('@/utils/message', () => ({
-  showError: vi.fn(),
-  showSuccess: vi.fn(),
+  showError: showErrorMock,
+  showSuccess: showSuccessMock,
 }))
 
 vi.mock('naive-ui', () => {
@@ -116,9 +113,9 @@ describe('Login view', () => {
       path: '/login',
       query: {},
     }
-    rbacState.accessState.value = 'user_active'
     authState.loading.value = false
-    loginMock.mockResolvedValue({ success: true })
+    loginMock.mockResolvedValue({ success: true, accessState: 'user_active' })
+    logoutMock.mockResolvedValue({ success: true })
   })
 
   afterEach(() => {
@@ -144,8 +141,6 @@ describe('Login view', () => {
   })
 
   it('redirects a successful login into the resolved active route', async () => {
-    rbacState.accessState.value = 'user_active'
-
     const wrapper = mount(Login)
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('user@example.com')
@@ -154,6 +149,64 @@ describe('Login view', () => {
     await wrapper.get('[data-test="login-submit"]').trigger('click')
 
     expect(loginMock).toHaveBeenCalledWith('user@example.com', 'password123')
-    expect(pushMock).toHaveBeenCalledWith('/home/user')
+    expect(showSuccessMock).toHaveBeenCalledWith('로그인 성공')
+    expect(replaceMock).toHaveBeenCalledWith('/home/user')
+  })
+
+  it('routes rejected admins into the rejected access screen without a success toast', async () => {
+    loginMock.mockResolvedValue({
+      success: true,
+      accessState: 'admin_rejected',
+    })
+
+    const wrapper = mount(Login)
+    const inputs = wrapper.findAll('input')
+    await inputs[0]?.setValue('rejected@example.com')
+    await inputs[1]?.setValue('password123')
+
+    await wrapper.get('[data-test="login-submit"]').trigger('click')
+
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(showErrorMock).not.toHaveBeenCalled()
+    expect(replaceMock).toHaveBeenCalledWith('/access/rejected')
+  })
+
+  it('routes pending admins into the pending access screen without a success toast', async () => {
+    loginMock.mockResolvedValue({
+      success: true,
+      accessState: 'admin_pending',
+    })
+
+    const wrapper = mount(Login)
+    const inputs = wrapper.findAll('input')
+    await inputs[0]?.setValue('pending@example.com')
+    await inputs[1]?.setValue('password123')
+
+    await wrapper.get('[data-test="login-submit"]').trigger('click')
+
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(showErrorMock).not.toHaveBeenCalled()
+    expect(replaceMock).toHaveBeenCalledWith('/access/pending')
+  })
+
+  it('clears the session and stays on login when access cannot be resolved after authentication', async () => {
+    loginMock.mockResolvedValue({
+      success: true,
+      accessState: 'no_membership_or_inactive',
+    })
+
+    const wrapper = mount(Login)
+    const inputs = wrapper.findAll('input')
+    await inputs[0]?.setValue('unknown@example.com')
+    await inputs[1]?.setValue('password123')
+
+    await wrapper.get('[data-test="login-submit"]').trigger('click')
+
+    expect(logoutMock).toHaveBeenCalledTimes(1)
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith(
+      '계정의 승인 또는 소속 상태를 확인할 수 없습니다. 다시 로그인해 주세요.',
+    )
+    expect(replaceMock).toHaveBeenCalledWith('/login')
   })
 })

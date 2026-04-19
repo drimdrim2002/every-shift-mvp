@@ -58,6 +58,17 @@ function createRepositoryClient({
     upsert: membershipUpsert,
   }
 
+  const profileUpdateEq = vi.fn().mockResolvedValue({
+    data: null,
+    error: null,
+  })
+  const profileUpdate = vi.fn().mockReturnValue({
+    eq: profileUpdateEq,
+  })
+  const profilesQuery = {
+    update: profileUpdate,
+  }
+
   const approvalLogsInsert = vi.fn().mockResolvedValue({
     data: null,
     error: null,
@@ -79,6 +90,10 @@ function createRepositoryClient({
         }
       }
 
+      if (table === 'profiles') {
+        return profilesQuery
+      }
+
       throw new Error(`Unexpected table: ${table}`)
     },
   }
@@ -91,6 +106,8 @@ function createRepositoryClient({
       membershipSelect,
       membershipUpsert,
       membershipMaybeSingle,
+      profileUpdate,
+      profileUpdateEq,
       approvalLogsInsert,
     },
   }
@@ -133,6 +150,14 @@ describe('approval-decision workflow', () => {
         onConflict: 'organization_id,user_id',
       }),
     )
+    expect(spies.profileUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_status: 'active',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'active',
+      }),
+    )
     expect(spies.approvalLogsInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         signup_request_id: 'req-1',
@@ -160,7 +185,7 @@ describe('approval-decision workflow', () => {
     )
   })
 
-  it('rejects a pending admin signup request without creating approved membership', async () => {
+  it('rejects a pending admin signup request and persists rejected membership state', async () => {
     const { repositoryClient, spies } = createRepositoryClient()
 
     const result = await decideApprovalRequest(
@@ -183,11 +208,30 @@ describe('approval-decision workflow', () => {
         review_note: '서류 보완 필요',
       }),
     )
-    expect(spies.membershipUpsert).not.toHaveBeenCalled()
+    expect(spies.membershipUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organization_id: 'org-1',
+        user_id: 'user-1',
+        role: 'admin',
+        status: 'rejected',
+        rejection_reason: '서류 보완 필요',
+      }),
+      expect.objectContaining({
+        onConflict: 'organization_id,user_id',
+      }),
+    )
+    expect(spies.profileUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_status: 'rejected',
+        organization_id: 'org-1',
+        role: 'admin',
+        status: 'inactive',
+      }),
+    )
     expect(spies.approvalLogsInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         signup_request_id: 'req-1',
-        membership_id: null,
+        membership_id: 'membership-1',
         organization_id: 'org-1',
         actor_user_id: 'super-1',
         target_user_id: 'user-1',
@@ -204,9 +248,45 @@ describe('approval-decision workflow', () => {
         signupRequestId: 'req-1',
         decision: 'reject',
         requestStatus: 'rejected',
-        membershipStatus: 'none',
-        membershipId: null,
+        membershipStatus: 'rejected',
+        membershipId: 'membership-1',
         alreadyProcessed: false,
+      }),
+    )
+  })
+
+  it('returns rejected membership status for a repeated matching reject decision', async () => {
+    const { repositoryClient } = createRepositoryClient({
+      signupRequest: {
+        ...createPendingRequestRow(),
+        status: 'rejected',
+        reviewed_at: '2026-04-17T01:00:00.000Z',
+      },
+      membership: {
+        id: 'membership-2',
+        status: 'rejected',
+      },
+    })
+
+    const result = await decideApprovalRequest(
+      repositoryClient as never,
+      {
+        actorUserId: 'super-1',
+        actorGlobalRole: 'super',
+        actorAccountStatus: 'active',
+      },
+      {
+        signupRequestId: 'req-1',
+        decision: 'reject',
+      },
+    )
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        requestStatus: 'rejected',
+        membershipStatus: 'rejected',
+        membershipId: 'membership-2',
+        alreadyProcessed: true,
       }),
     )
   })

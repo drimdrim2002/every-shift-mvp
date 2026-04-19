@@ -26,7 +26,7 @@ describe('approval store', () => {
       {
         signupRequestId: 'req-1',
         requesterUserId: 'user-1',
-        requesterEmail: null,
+        requesterEmail: 'nurse1@example.com',
         requesterName: null,
         organizationId: 'org-1',
         organizationName: null,
@@ -38,19 +38,14 @@ describe('approval store', () => {
     getApprovalRequestMock.mockResolvedValue({
       signupRequestId: 'req-1',
       requesterUserId: 'user-1',
-      requesterEmail: null,
+      requesterEmail: 'nurse1@example.com',
       requesterName: null,
       organizationId: 'org-1',
       organizationName: null,
       requestedRole: 'admin',
       status: 'pending',
       createdAt: '2026-04-17T01:00:00.000Z',
-      workType: '3교대',
-      shiftType: 'day-night',
-      requestedSiteName: '중환자실',
-      requestedSkillSummary: '중환자 간호',
-      requestedRankCode: 'RN',
-      requestedCredit: 5,
+      requestedHospitalName: '중환자실',
       reviewNote: null,
     })
 
@@ -61,7 +56,7 @@ describe('approval store', () => {
     expect(getApprovalRequestMock).toHaveBeenCalledWith('req-1')
     expect(store.items).toHaveLength(1)
     expect(store.selectedRequestId).toBe('req-1')
-    expect(store.selectedRequest?.requestedSiteName).toBe('중환자실')
+    expect(store.selectedRequest?.requestedHospitalName).toBe('중환자실')
   })
 
   it('submits a decision, reloads the pending queue, and advances selection', async () => {
@@ -70,7 +65,7 @@ describe('approval store', () => {
         {
           signupRequestId: 'req-1',
           requesterUserId: 'user-1',
-          requesterEmail: null,
+          requesterEmail: 'nurse1@example.com',
           requesterName: null,
           organizationId: 'org-1',
           organizationName: null,
@@ -81,7 +76,7 @@ describe('approval store', () => {
         {
           signupRequestId: 'req-2',
           requesterUserId: 'user-2',
-          requesterEmail: null,
+          requesterEmail: 'nurse2@example.com',
           requesterName: null,
           organizationId: 'org-2',
           organizationName: null,
@@ -108,37 +103,27 @@ describe('approval store', () => {
       .mockResolvedValueOnce({
         signupRequestId: 'req-1',
         requesterUserId: 'user-1',
-        requesterEmail: null,
+        requesterEmail: 'nurse1@example.com',
         requesterName: null,
         organizationId: 'org-1',
         organizationName: null,
         requestedRole: 'admin',
         status: 'pending',
         createdAt: '2026-04-17T01:00:00.000Z',
-        workType: '3교대',
-        shiftType: 'day-night',
-        requestedSiteName: '중환자실',
-        requestedSkillSummary: '중환자 간호',
-        requestedRankCode: 'RN',
-        requestedCredit: 5,
+        requestedHospitalName: '중환자실',
         reviewNote: null,
       })
       .mockResolvedValueOnce({
         signupRequestId: 'req-2',
         requesterUserId: 'user-2',
-        requesterEmail: null,
+        requesterEmail: 'nurse2@example.com',
         requesterName: null,
         organizationId: 'org-2',
         organizationName: null,
         requestedRole: 'admin',
         status: 'pending',
         createdAt: '2026-04-17T02:00:00.000Z',
-        workType: '상근',
-        shiftType: 'fixed-day',
-        requestedSiteName: '외래',
-        requestedSkillSummary: '주사실',
-        requestedRankCode: 'CN',
-        requestedCredit: 2,
+        requestedHospitalName: '외래',
         reviewNote: null,
       })
 
@@ -168,7 +153,7 @@ describe('approval store', () => {
     })
     expect(listApprovalQueueMock).toHaveBeenCalledTimes(2)
     expect(store.selectedRequestId).toBe('req-2')
-    expect(store.selectedRequest?.requestedSiteName).toBe('외래')
+    expect(store.selectedRequest?.requestedHospitalName).toBe('외래')
     expect(result.requestStatus).toBe('approved')
   })
 })

@@ -20,6 +20,13 @@ const {
   setSessionUserMock: vi.fn(),
   resetContextMock: vi.fn(),
   rbacStoreState: {
+    accessState: 'admin_active' as
+      | 'super_active'
+      | 'admin_active'
+      | 'admin_pending'
+      | 'admin_rejected'
+      | 'user_active'
+      | 'no_membership_or_inactive',
     selectedOrganizationId: 'org-1' as string | null,
     effectiveMembership: null as { organizationId: string } | null,
   },
@@ -49,6 +56,7 @@ vi.mock('@/stores/organization', () => ({
 
 vi.mock('@/stores/rbac', () => ({
   useRbacStore: () => ({
+    accessState: rbacStoreState.accessState,
     selectedOrganizationId: rbacStoreState.selectedOrganizationId,
     effectiveMembership: rbacStoreState.effectiveMembership,
     setSessionUser: setSessionUserMock,
@@ -76,6 +84,7 @@ describe('useAuthStore', () => {
     vi.clearAllMocks();
     setActivePinia(createPinia());
     ensureAccessContextLoadedMock.mockResolvedValue(undefined);
+    rbacStoreState.accessState = 'admin_active';
     rbacStoreState.selectedOrganizationId = 'org-1';
     rbacStoreState.effectiveMembership = null;
   });
@@ -90,7 +99,7 @@ describe('useAuthStore', () => {
     const store = useAuthStore();
     const result = await store.login('admin@everyshift.com', 'password');
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, accessState: 'admin_active' });
     expect(store.user).toEqual(user);
     expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
       userId: 'user-1',
@@ -206,7 +215,7 @@ describe('useAuthStore', () => {
     const store = useAuthStore();
     const result = await store.login('admin@everyshift.com', 'password');
 
-    expect(result).toEqual({ success: true });
+    expect(result).toEqual({ success: true, accessState: 'admin_active' });
     expect(syncWithAccessScopeMock).toHaveBeenCalledWith({
       userId: 'user-1',
       organizationId: null,

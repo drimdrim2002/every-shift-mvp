@@ -78,7 +78,7 @@ describe('signup-submit service', () => {
         app_metadata: expect.objectContaining({
           organization_id: '11111111-1111-4111-8111-111111111111',
           global_role: 'user',
-          account_status: 'active',
+          account_status: 'pending',
           organization_memberships: [
             expect.objectContaining({
               organization_id: '11111111-1111-4111-8111-111111111111',
@@ -94,6 +94,7 @@ describe('signup-submit service', () => {
       expect.objectContaining({
         p_user_id: 'user-1',
         p_organization_id: '11111111-1111-4111-8111-111111111111',
+        p_requester_email: 'user@example.com',
       }),
     )
     expect(response).toEqual({
@@ -152,6 +153,7 @@ describe('signup-submit service', () => {
       'submit_admin_signup_atomic',
       expect.objectContaining({
         p_organization_id: '00000000-0000-0000-0000-000000000099',
+        p_requester_email: 'user@example.com',
       }),
     )
     expect(response.organizationId).toBe('00000000-0000-0000-0000-000000000099')
@@ -198,6 +200,7 @@ describe('signup-submit service', () => {
       expect.objectContaining({
         p_user_id: 'user-2',
         p_organization_id: 'org-2',
+        p_requester_email: 'user@example.com',
         p_invite_code_hash: 'hashed-code',
       }),
     )

@@ -7,7 +7,7 @@ export type ApprovalRequestStatus =
   | 'expired'
   | 'withdrawn'
 
-export type ApprovalMembershipStatus = 'approved' | 'none'
+export type ApprovalMembershipStatus = 'approved' | 'rejected' | 'none'
 
 export type ApprovalErrorCode =
   | 'REQUEST_NOT_FOUND'
@@ -35,12 +35,7 @@ export interface ApprovalQueueItem {
 }
 
 export interface ApprovalRequestDetail extends ApprovalQueueItem {
-  workType: string | null
-  shiftType: string | null
-  requestedSiteName: string | null
-  requestedSkillSummary: string | null
-  requestedRankCode: string | null
-  requestedCredit: number | null
+  requestedHospitalName: string | null
   reviewNote: string | null
 }
 

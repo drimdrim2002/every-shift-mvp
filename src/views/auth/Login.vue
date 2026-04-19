@@ -78,14 +78,13 @@ import type { FormInst, FormItemRule } from 'naive-ui'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import { LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH, resolvePostAuthRedirectPath } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
-import { useRbacStore } from '@/stores/rbac'
 import { showError, showSuccess } from '@/utils/message'
 import type { SignupNextState } from '@/types/signup'
+import type { AccessState } from '@/types/rbac'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const rbacStore = useRbacStore()
 
 const formRef = ref<FormInst | null>(null)
 const formValue = ref({
@@ -126,6 +125,14 @@ const rules: Record<string, FormItemRule | FormItemRule[]> = {
   },
 }
 
+function isActiveAccessState(accessState: AccessState) {
+  return (
+    accessState === 'super_active'
+    || accessState === 'admin_active'
+    || accessState === 'user_active'
+  )
+}
+
 async function handleLogin() {
   // 폼 검증
   try {
@@ -137,12 +144,28 @@ async function handleLogin() {
   // 로그인 시도
   const result = await authStore.login(formValue.value.email, formValue.value.password)
 
-  if (result.success) {
-    showSuccess('로그인 성공')
-    router.push(resolvePostAuthRedirectPath(rbacStore.accessState))
-  } else {
+  if (!result.success) {
     showError(result.error || '로그인 실패')
+    return
   }
+
+  if (result.accessState === 'no_membership_or_inactive') {
+    try {
+      await authStore.logout()
+    } catch (error) {
+      console.warn('[login] Failed to clear invalid session after login:', error)
+    }
+
+    showError('계정의 승인 또는 소속 상태를 확인할 수 없습니다. 다시 로그인해 주세요.')
+    await router.replace(LOGIN_ROUTE_PATH)
+    return
+  }
+
+  if (isActiveAccessState(result.accessState)) {
+    showSuccess('로그인 성공')
+  }
+
+  await router.replace(resolvePostAuthRedirectPath(result.accessState))
 }
 
 function moveToSignup() {

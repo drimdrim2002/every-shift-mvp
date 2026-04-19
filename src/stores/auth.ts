@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import { useOrganizationStore } from '@/stores/organization'
 import { useScheduleStore } from '@/stores/schedule'
 import { useRbacStore } from '@/stores/rbac'
+import type { AccessState } from '@/types/rbac'
 
 function mapLoginErrorMessage(error: unknown): string {
   const authError = error as { code?: unknown; message?: unknown } | null
@@ -72,6 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(email: string, password: string) {
     loading.value = true
     try {
+      const rbacStore = useRbacStore()
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -80,10 +82,13 @@ export const useAuthStore = defineStore('auth', () => {
       if (error) throw error
 
       await syncAndHydrateAuthUser(data.user)
-      return { success: true }
+      return {
+        success: true as const,
+        accessState: rbacStore.accessState as AccessState,
+      }
     } catch (error: unknown) {
       const message = mapLoginErrorMessage(error)
-      return { success: false, error: message }
+      return { success: false as const, error: message }
     } finally {
       loading.value = false
     }
