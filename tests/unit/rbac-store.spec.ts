@@ -111,6 +111,23 @@ describe('deriveAccessState', () => {
     ).toBe('org-a')
   })
 
+  it('does not auto-select an organization for super users without a persisted choice', () => {
+    expect(
+      pickDefaultOrganizationId({
+        accessState: 'super_active',
+        memberships: [
+          {
+            organizationId: 'org-a',
+            role: 'admin',
+            status: 'approved',
+            approvedAt: '2026-04-18T01:00:00.000Z',
+          },
+        ],
+        persistedOrganizationId: null,
+      }),
+    ).toBeNull()
+  })
+
   it('keeps legacy organization-scoped pilot users active through the compatibility fallback', () => {
     const resolution = deriveAccessState({
       sessionUserId: 'user-1',

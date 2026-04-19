@@ -1,8 +1,8 @@
 /* eslint-disable vue/one-component-per-file */
 
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 
 const {
@@ -21,9 +21,10 @@ const {
   showSuccessMock: vi.fn(),
 }))
 
-const rbacState = {
-  accessState: ref<'super_active' | 'admin_active'>('super_active'),
-}
+const rbacState = reactive({
+  accessState: 'super_active' as 'super_active' | 'admin_active',
+  selectedOrganizationId: null as string | null,
+})
 
 const approvalStoreState = reactive({
   items: [
@@ -68,9 +69,7 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/stores/rbac', () => ({
-  useRbacStore: () => ({
-    accessState: rbacState.accessState.value,
-  }),
+  useRbacStore: () => rbacState,
 }))
 
 vi.mock('@/stores/approval', () => ({
@@ -147,9 +146,17 @@ vi.mock('naive-ui', () => {
 import ApprovalQueueView from '@/views/admin/ApprovalQueueView.vue'
 
 describe('ApprovalQueueView', () => {
+  let wrapper: ReturnType<typeof mount> | null = null
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = null
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
-    rbacState.accessState.value = 'super_active'
+    rbacState.accessState = 'super_active'
+    rbacState.selectedOrganizationId = null
     approvalStoreState.selectedRequestId = 'req-1'
     approvalStoreState.selectedRequest = {
       signupRequestId: 'req-1',
@@ -171,9 +178,9 @@ describe('ApprovalQueueView', () => {
   })
 
   it('redirects non-super users away from the approval queue', async () => {
-    rbacState.accessState.value = 'admin_active'
+    rbacState.accessState = 'admin_active'
 
-    mount(ApprovalQueueView)
+    wrapper = mount(ApprovalQueueView)
     await flushPromises()
 
     expect(replaceMock).toHaveBeenCalledWith('/')
@@ -181,10 +188,11 @@ describe('ApprovalQueueView', () => {
   })
 
   it('loads the queue for super users and submits approve action with the note', async () => {
-    const wrapper = mount(ApprovalQueueView)
+    wrapper = mount(ApprovalQueueView)
     await flushPromises()
 
     expect(loadQueueMock).toHaveBeenCalledTimes(1)
+    expect(loadQueueMock).toHaveBeenCalledWith({ status: 'pending' })
     expect(wrapper.text()).toContain('이메일')
     expect(wrapper.text()).toContain('nurse1@example.com')
     expect(wrapper.get('[data-test="approval-detail-email"]').text()).toContain('nurse1@example.com')
@@ -222,9 +230,41 @@ describe('ApprovalQueueView', () => {
       reviewNote: null,
     }
 
-    const wrapper = mount(ApprovalQueueView)
+    wrapper = mount(ApprovalQueueView)
     await flushPromises()
 
     expect(wrapper.get('[data-test="approval-detail-organization"]').text()).toContain('용인아이들병원')
+  })
+
+  it('reloads the queue with the selected organization filter when the superuser switches organizations', async () => {
+    wrapper = mount(ApprovalQueueView)
+    await flushPromises()
+
+    rbacState.selectedOrganizationId = 'org-2'
+    await wrapper.vm.$nextTick()
+    await flushPromises()
+
+    expect(loadQueueMock).toHaveBeenNthCalledWith(1, { status: 'pending' })
+    expect(loadQueueMock).toHaveBeenNthCalledWith(2, {
+      status: 'pending',
+      organizationId: 'org-2',
+    })
+  })
+
+  it('falls back to the unfiltered pending queue when the superuser clears the selected organization', async () => {
+    rbacState.selectedOrganizationId = 'org-2'
+
+    wrapper = mount(ApprovalQueueView)
+    await flushPromises()
+
+    rbacState.selectedOrganizationId = null
+    await wrapper.vm.$nextTick()
+    await flushPromises()
+
+    expect(loadQueueMock).toHaveBeenNthCalledWith(1, {
+      status: 'pending',
+      organizationId: 'org-2',
+    })
+    expect(loadQueueMock).toHaveBeenNthCalledWith(2, { status: 'pending' })
   })
 })

@@ -328,11 +328,11 @@ export function pickDefaultOrganizationId({
   persistedOrganizationId,
 }: PickDefaultOrganizationIdInput): string | null {
   const trimmedPersistedOrganizationId = persistedOrganizationId?.trim() ?? null
-  if (trimmedPersistedOrganizationId) {
-    if (accessState === 'super_active') {
-      return trimmedPersistedOrganizationId
-    }
+  if (accessState === 'super_active') {
+    return trimmedPersistedOrganizationId
+  }
 
+  if (trimmedPersistedOrganizationId) {
     if (isApprovedMembershipForOrganization(memberships, trimmedPersistedOrganizationId)) {
       return trimmedPersistedOrganizationId
     }

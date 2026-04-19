@@ -222,7 +222,12 @@ import { NButton, NCard, NEmpty, NInput, NSpin } from 'naive-ui'
 import { showError, showSuccess } from '@/utils/message'
 import { useApprovalStore } from '@/stores/approval'
 import { useRbacStore } from '@/stores/rbac'
-import type { ApprovalDecision, ApprovalRequestDetail, ApprovalRequestStatus } from '@/types/approval'
+import type {
+  ApprovalDecision,
+  ApprovalQueueFilters,
+  ApprovalRequestDetail,
+  ApprovalRequestStatus,
+} from '@/types/approval'
 
 const router = useRouter()
 const rbacStore = useRbacStore()
@@ -298,6 +303,21 @@ async function handleDecision(decision: ApprovalDecision) {
   }
 }
 
+function buildQueueFilters(): ApprovalQueueFilters {
+  const organizationId = rbacStore.selectedOrganizationId?.trim() || undefined
+  return organizationId
+    ? { status: 'pending', organizationId }
+    : { status: 'pending' }
+}
+
+async function loadApprovalQueue() {
+  try {
+    await approvalStore.loadQueue(buildQueueFilters())
+  } catch (error) {
+    showError(getErrorMessage(error))
+  }
+}
+
 watch(
   () => approvalStore.selectedRequest?.signupRequestId,
   () => {
@@ -306,16 +326,23 @@ watch(
   { immediate: true },
 )
 
+watch(
+  () => rbacStore.selectedOrganizationId,
+  async (nextOrganizationId, previousOrganizationId) => {
+    if (rbacStore.accessState !== 'super_active' || nextOrganizationId === previousOrganizationId) {
+      return
+    }
+
+    await loadApprovalQueue()
+  },
+)
+
 onMounted(async () => {
   if (rbacStore.accessState !== 'super_active') {
     await router.replace('/')
     return
   }
 
-  try {
-    await approvalStore.loadQueue()
-  } catch (error) {
-    showError(getErrorMessage(error))
-  }
+  await loadApprovalQueue()
 })
 </script>

@@ -55,6 +55,7 @@ const {
     profiles: false,
     memberships: false,
     signupRequests: false,
+    organizations: false,
   },
 }))
 
@@ -158,10 +159,33 @@ function createQueryBuilder(table: TableName) {
     query.in = vi.fn(async (column: string, value: unknown[]) => {
       filters.set(column, value)
 
+      if (queryFailureState.organizations) {
+        return {
+          data: null,
+          error: { message: 'organizations failed' },
+        }
+      }
+
       return {
         data: value
           .map((organizationId) => organizationsById.get(String(organizationId)))
           .filter((organization): organization is OrganizationRow => Boolean(organization)),
+        error: null,
+      }
+    })
+
+    query.order = vi.fn(async () => {
+      if (queryFailureState.organizations) {
+        return {
+          data: null,
+          error: { message: 'organizations failed' },
+        }
+      }
+
+      return {
+        data: [...organizationsById.values()].sort((left, right) =>
+          (left.name ?? '').localeCompare(right.name ?? ''),
+        ),
         error: null,
       }
     })
@@ -183,6 +207,7 @@ describe('RBAC access hydration', () => {
     queryFailureState.profiles = false
     queryFailureState.memberships = false
     queryFailureState.signupRequests = false
+    queryFailureState.organizations = false
 
     fromMock.mockImplementation((table: TableName) => createQueryBuilder(table))
   })
@@ -283,6 +308,79 @@ describe('RBAC access hydration', () => {
     expect(store.effectiveMembership).toBeNull()
   })
 
+  it('hydrates all organizations as switchable options for active super users without auto-selecting one', async () => {
+    profileByUserId.set('user-1', {
+      global_role: 'super',
+      account_status: 'active',
+      organization_id: null,
+      role: null,
+      status: null,
+    })
+    organizationsById.set('org-b', { id: 'org-b', name: 'Beta Hospital' })
+    organizationsById.set('org-a', { id: 'org-a', name: 'Alpha Hospital' })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('super_active')
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.organizationOptions).toEqual([
+      {
+        id: 'org-a',
+        name: 'Alpha Hospital',
+        membershipRole: null,
+      },
+      {
+        id: 'org-b',
+        name: 'Beta Hospital',
+        membershipRole: null,
+      },
+    ])
+    expect(store.abilities).toMatchObject({
+      canViewApprovalQueue: true,
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+  })
+
+  it('restores a persisted selected organization for super users from the full organization catalog', async () => {
+    window.localStorage.setItem('everyshift:selected-organization:user-1', 'org-b')
+    profileByUserId.set('user-1', {
+      global_role: 'super',
+      account_status: 'active',
+      organization_id: null,
+      role: null,
+      status: null,
+    })
+    organizationsById.set('org-b', { id: 'org-b', name: 'Beta Hospital' })
+    organizationsById.set('org-a', { id: 'org-a', name: 'Alpha Hospital' })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.selectedOrganizationId).toBe('org-b')
+    expect(store.organizationOptions).toEqual([
+      {
+        id: 'org-a',
+        name: 'Alpha Hospital',
+        membershipRole: null,
+      },
+      {
+        id: 'org-b',
+        name: 'Beta Hospital',
+        membershipRole: null,
+      },
+    ])
+    expect(store.abilities).toMatchObject({
+      canManageOrganizationSetup: true,
+      canManageEmployees: true,
+      canManageSchedules: true,
+    })
+  })
+
   it('does not synthesize membership from top-level JWT org metadata when DB has no access rows', async () => {
     const store = useRbacStore()
     store.setSessionUser(
@@ -380,6 +478,31 @@ describe('RBAC access hydration', () => {
     })
   })
 
+  it('keeps super access even when the organization catalog lookup fails', async () => {
+    queryFailureState.organizations = true
+    profileByUserId.set('user-1', {
+      global_role: 'super',
+      account_status: 'active',
+      organization_id: null,
+      role: null,
+      status: null,
+    })
+
+    const store = useRbacStore()
+    store.setSessionUser(createAuthUser())
+    await store.ensureAccessContextLoaded()
+
+    expect(store.accessState).toBe('super_active')
+    expect(store.selectedOrganizationId).toBeNull()
+    expect(store.organizationOptions).toEqual([])
+    expect(store.abilities).toMatchObject({
+      canViewApprovalQueue: true,
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+  })
+
   it('restores a persisted selected organization and exposes membership-backed options', async () => {
     window.localStorage.setItem('everyshift:selected-organization:user-1', 'org-2')
     profileByUserId.set('user-1', {
@@ -468,6 +591,7 @@ describe('RBAC access hydration', () => {
       role: null,
       status: null,
     })
+    organizationsById.set('org-1', { id: 'org-1', name: 'Alpha Hospital' })
 
     const store = useRbacStore()
     store.setSessionUser(createAuthUser())

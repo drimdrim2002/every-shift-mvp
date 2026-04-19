@@ -113,4 +113,24 @@ describe('OrganizationSwitcher', () => {
 
     expect(wrapper.get('select').attributes('disabled')).toBeDefined()
   })
+
+  it('renders superuser organization options without the admin suffix', () => {
+    rbacStoreMock.organizationOptions = [
+      {
+        id: 'org-1',
+        name: '서울병원',
+        membershipRole: null,
+      },
+      {
+        id: 'org-2',
+        name: '부산병원',
+        membershipRole: null,
+      },
+    ]
+
+    const wrapper = mount(OrganizationSwitcher)
+
+    expect(wrapper.text()).toContain('부산병원')
+    expect(wrapper.text()).not.toContain('부산병원 (관리자)')
+  })
 })

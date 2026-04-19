@@ -1,6 +1,7 @@
 import type { User } from '@supabase/supabase-js'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
+import { loadAllOrganizations } from '@/api/organization'
 import { supabase } from '@/api/supabase'
 import { useOrganizationStore } from '@/stores/organization'
 import { useScheduleStore } from '@/stores/schedule'
@@ -36,6 +37,7 @@ interface AuthContextSeed {
   profile: AuthContextSeedProfile
   memberships: AuthContextMembership[]
   currentOrganizationId: string | null
+  organizationOptions?: OrganizationOption[]
 }
 
 interface ProfileAccessRow {
@@ -208,6 +210,19 @@ async function loadOrganizationNamesById(
   )
 }
 
+async function loadSuperOrganizationOptions(): Promise<OrganizationOption[]> {
+  try {
+    return (await loadAllOrganizations()).map((organization) => ({
+      id: organization.id,
+      name: organization.name.trim() || '알 수 없는 조직',
+      membershipRole: null,
+    }))
+  } catch (error) {
+    console.warn('[rbac] Failed to hydrate superuser organization options:', error)
+    return []
+  }
+}
+
 async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContextSeed | null> {
   const [{ data: profile, error: profileError }, { data: memberships, error: membershipsError }] =
     await Promise.all([
@@ -313,6 +328,11 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
     organizationName: organizationNamesById.get(membership.organizationId) ?? null,
   }))
 
+  const organizationOptions =
+    profileGlobalRole === 'super' && readAccountStatus(profile?.account_status?.trim() ?? null) === 'active'
+      ? await loadSuperOrganizationOptions()
+      : undefined
+
   if (!profile && membershipsWithOrganizationNames.length === 0) {
     return null
   }
@@ -331,6 +351,7 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
       membershipsWithOrganizationNames[0]?.organizationId ??
       signupRequest?.organization_id ??
       null,
+    organizationOptions,
   }
 }
 
@@ -363,8 +384,11 @@ export const useRbacStore = defineStore('rbac', () => {
     }),
   )
 
-  function syncOrganizationAccessState(nextContext: AuthContext | null) {
-    organizationOptions.value = buildOrganizationOptions(nextContext)
+  function syncOrganizationAccessState(
+    nextContext: AuthContext | null,
+    nextOrganizationOptions: OrganizationOption[] = buildOrganizationOptions(nextContext),
+  ) {
+    organizationOptions.value = nextOrganizationOptions
 
     const userId = sessionUser.value?.id ?? null
     const validatedPersistedOrganizationId = validateSelectedOrganizationId(
@@ -413,7 +437,7 @@ export const useRbacStore = defineStore('rbac', () => {
 
         const nextContext = buildAuthContextFromSeed(databaseSeed)
         hydratedContext.value = nextContext
-        syncOrganizationAccessState(nextContext)
+        syncOrganizationAccessState(nextContext, databaseSeed?.organizationOptions)
       } catch (error) {
         console.warn('[rbac] Failed to hydrate access context from DB:', error)
         if (sessionUser.value?.id !== userId) {
