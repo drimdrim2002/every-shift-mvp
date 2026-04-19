@@ -154,6 +154,6 @@ describe('Login view', () => {
     await wrapper.get('[data-test="login-submit"]').trigger('click')
 
     expect(loginMock).toHaveBeenCalledWith('user@example.com', 'password123')
-    expect(pushMock).toHaveBeenCalledWith('/')
+    expect(pushMock).toHaveBeenCalledWith('/home/user')
   })
 })

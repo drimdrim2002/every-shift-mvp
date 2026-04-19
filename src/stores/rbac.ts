@@ -63,6 +63,11 @@ interface SignupRequestAccessRow {
   created_at: string | null
 }
 
+interface OrganizationAccessRow {
+  id: string
+  name: string | null
+}
+
 function buildSelectedOrganizationStorageKey(userId: string) {
   return `${ACTIVE_ORG_STORAGE_KEY_PREFIX}${userId}`
 }
@@ -178,6 +183,31 @@ function buildAuthContextFromSeed(seed: AuthContextSeed | null): AuthContext | n
   }
 }
 
+async function loadOrganizationNamesById(
+  organizationIds: string[],
+): Promise<Map<string, string | null>> {
+  if (organizationIds.length === 0) {
+    return new Map()
+  }
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('id, name')
+    .in('id', organizationIds) as Promise<{
+      data: OrganizationAccessRow[] | null
+      error: { message: string } | null
+    }>
+
+  if (error) {
+    console.warn('[rbac] Failed to hydrate organization names:', error.message)
+    return new Map()
+  }
+
+  return new Map(
+    (data ?? []).map((organization) => [organization.id, organization.name?.trim() ?? null]),
+  )
+}
+
 async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContextSeed | null> {
   const [{ data: profile, error: profileError }, { data: memberships, error: membershipsError }] =
     await Promise.all([
@@ -270,7 +300,20 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
     })
   }
 
-  if (!profile && membershipsFromDatabase.length === 0) {
+  const organizationNamesById = await loadOrganizationNamesById(
+    [
+      profile?.organization_id?.trim() ?? null,
+      signupRequest?.organization_id?.trim() ?? null,
+      ...membershipsFromDatabase.map((membership) => membership.organizationId),
+    ].filter((organizationId): organizationId is string => Boolean(organizationId)),
+  )
+
+  const membershipsWithOrganizationNames = membershipsFromDatabase.map((membership) => ({
+    ...membership,
+    organizationName: organizationNamesById.get(membership.organizationId) ?? null,
+  }))
+
+  if (!profile && membershipsWithOrganizationNames.length === 0) {
     return null
   }
 
@@ -280,11 +323,12 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
       globalRole: profileGlobalRole,
       accountStatus: readAccountStatus(profile?.account_status?.trim() ?? null),
     },
-    memberships: membershipsFromDatabase,
+    memberships: membershipsWithOrganizationNames,
     currentOrganizationId:
       profile?.organization_id ??
-      membershipsFromDatabase.find((membership) => membership.status === 'approved')?.organizationId ??
-      membershipsFromDatabase[0]?.organizationId ??
+      membershipsWithOrganizationNames.find((membership) => membership.status === 'approved')
+        ?.organizationId ??
+      membershipsWithOrganizationNames[0]?.organizationId ??
       signupRequest?.organization_id ??
       null,
   }

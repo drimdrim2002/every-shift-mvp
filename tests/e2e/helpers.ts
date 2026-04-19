@@ -369,6 +369,24 @@ function getFilterValue(searchParams: URLSearchParams, key: string): string | nu
   return rawValue.startsWith('eq.') ? rawValue.slice(3) : rawValue
 }
 
+function getFilterValues(searchParams: URLSearchParams, key: string): string[] | null {
+  const rawValue = searchParams.get(key)
+  if (!rawValue) {
+    return null
+  }
+
+  if (rawValue.startsWith('in.(') && rawValue.endsWith(')')) {
+    return rawValue
+      .slice(4, -1)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  }
+
+  const singleValue = getFilterValue(searchParams, key)
+  return singleValue ? [singleValue] : null
+}
+
 function buildCorsHeaders() {
   return supabaseCorsHeaders
 }
@@ -528,9 +546,9 @@ export async function mockRbacContext(page: Page, accessState: MockRbacAccessSta
         await fulfillJson(route, null)
         return
       case 'organizations': {
-        const organizationId = getFilterValue(url.searchParams, 'id')
-        const organizations = organizationId
-          ? fixture.organizations.filter((organization) => organization.id === organizationId)
+        const organizationIds = getFilterValues(url.searchParams, 'id')
+        const organizations = organizationIds
+          ? fixture.organizations.filter((organization) => organizationIds.includes(organization.id))
           : fixture.organizations
         await fulfillJson(route, organizations)
         return
@@ -598,7 +616,25 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
     .first()
     .click()
 
-  await waitForDashboard(page)
+  await waitForAuthenticatedLanding(page)
+}
+
+export async function waitForAuthenticatedLanding(page: Page) {
+  await page.waitForURL((url) =>
+    ['/', '/admin/approval-queue', '/home/user'].includes(url.pathname)
+  )
+
+  const currentPath = page.url()
+
+  if (currentPath.endsWith('/admin/approval-queue')) {
+    await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()
+  } else if (currentPath.endsWith('/home/user')) {
+    await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
+  } else {
+    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
+  }
+
+  await page.waitForLoadState('networkidle')
 }
 
 export async function waitForDashboard(page: Page) {

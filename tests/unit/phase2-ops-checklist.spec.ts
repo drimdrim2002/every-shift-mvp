@@ -120,6 +120,7 @@ const AUTH_CONTEXT: Phase2OpsOperatorAuthContext = {
   operatorUserId: '11111111-1111-4111-8111-111111111111',
   operatorOrganizationId: '00000000-0000-0000-0000-000000000001',
   operatorGlobalRole: 'admin',
+  operatorRole: 'admin',
 };
 
 function createBlockedSnapshot(): ChecklistSnapshot {

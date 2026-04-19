@@ -8,12 +8,12 @@ const rbacStoreMock = reactive({
   organizationOptions: [
     {
       id: 'org-1',
-      name: 'org-1',
+      name: '서울병원',
       membershipRole: 'admin' as const,
     },
     {
       id: 'org-2',
-      name: 'org-2',
+      name: '부산병원',
       membershipRole: 'admin' as const,
     },
   ],
@@ -76,12 +76,12 @@ describe('OrganizationSwitcher', () => {
     rbacStoreMock.organizationOptions = [
       {
         id: 'org-1',
-        name: 'org-1',
+        name: '서울병원',
         membershipRole: 'admin',
       },
       {
         id: 'org-2',
-        name: 'org-2',
+        name: '부산병원',
         membershipRole: 'admin',
       },
     ]
@@ -92,7 +92,8 @@ describe('OrganizationSwitcher', () => {
     const wrapper = mount(OrganizationSwitcher)
 
     expect(wrapper.text()).toContain('선택한 조직')
-    expect(wrapper.text()).toContain('org-1')
+    expect(wrapper.text()).toContain('서울병원')
+    expect(wrapper.text()).toContain('부산병원 (관리자)')
 
     await wrapper.get('select').setValue('org-2')
 
@@ -103,7 +104,7 @@ describe('OrganizationSwitcher', () => {
     rbacStoreMock.organizationOptions = [
       {
         id: 'org-1',
-        name: 'org-1',
+        name: '서울병원',
         membershipRole: 'admin',
       },
     ]

@@ -11,7 +11,7 @@ test.describe('multi-org RBAC regression', () => {
     await seedPlaywrightAuthState(page)
     const fixture = await mockRbacContext(page, 'super_active')
     const targetOrganization = fixture.organizations[1]
-    const targetOrganizationLabel = `${targetOrganization.id} (관리자)`
+    const targetOrganizationLabel = `${targetOrganization.name} (관리자)`
 
     await page.goto('/admin/approval-queue')
     await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()

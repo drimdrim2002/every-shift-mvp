@@ -70,4 +70,51 @@ describe('phase2 ops migrations', () => {
     expect(sql).toContain('create policy schedules_admin_all on public.schedules');
     expect(sql).toContain("has_org_access(organization_id, 'admin')");
   });
+
+  it('adds a corrective membership backfill migration that upgrades stale non-approved rows only', () => {
+    const sql = readMigration(
+      '20260419120000_phase2b_membership_backfill_corrective.sql'
+    ).toLowerCase();
+
+    expect(sql).toContain('insert into public.organization_memberships');
+    expect(sql).toContain("lower(coalesce(p.account_status, 'pending')) = 'active'");
+    expect(sql).toContain("lower(coalesce(p.status, 'active')) = 'active'");
+    expect(sql).toContain('on conflict (organization_id, user_id) do update');
+    expect(sql).toContain("status = 'approved'");
+    expect(sql).toContain('rejection_reason = null');
+    expect(sql).toContain(
+      "where lower(coalesce(public.organization_memberships.status, 'pending')) <> 'approved'"
+    );
+  });
+
+  it('aligns direct-path rls policies for organizations, employees, shifts, and site requirements', () => {
+    const sql = readMigration(
+      '20260419123000_phase2b_direct_path_rls_alignment.sql'
+    ).toLowerCase();
+
+    expect(sql).toContain('from pg_policies');
+    expect(sql).toContain(
+      "tablename in ('organizations', 'employees', 'shifts', 'site_requirements')"
+    );
+    expect(sql).toContain('alter table if exists public.organizations enable row level security');
+    expect(sql).toContain('alter table if exists public.employees enable row level security');
+    expect(sql).toContain('alter table if exists public.shifts enable row level security');
+    expect(sql).toContain(
+      'alter table if exists public.site_requirements enable row level security'
+    );
+    expect(sql).toContain('create policy organizations_select_authenticated on public.organizations');
+    expect(sql).toContain('create policy organizations_update_admin on public.organizations');
+    expect(sql).toContain('create policy employees_select_authenticated on public.employees');
+    expect(sql).toContain('create policy employees_admin_all on public.employees');
+    expect(sql).toContain('create policy shifts_select_authenticated on public.shifts');
+    expect(sql).toContain('create policy shifts_admin_all on public.shifts');
+    expect(sql).toContain(
+      'create policy site_requirements_select_authenticated on public.site_requirements'
+    );
+    expect(sql).toContain('create policy site_requirements_admin_all on public.site_requirements');
+    expect(sql).toContain("has_org_access(id, 'user')");
+    expect(sql).toContain("has_org_access(id, 'admin')");
+    expect(sql).toContain("has_org_access(organization_id, 'user')");
+    expect(sql).toContain("has_org_access(organization_id, 'admin')");
+  });
 });

@@ -14,35 +14,7 @@ import {
   parseScheduleVersionSolveRequest,
   parseScheduleVersionSolverResultRequest,
 } from '@/../supabase/functions/phase2-schedule/contracts.ts';
-import { buildScheduleInputSnapshot } from '@/../supabase/functions/phase2-schedule/inputSnapshot.ts';
-
-function buildInputSnapshot() {
-  return buildScheduleInputSnapshot({
-    scheduleId: '11111111-1111-4111-8111-111111111111',
-    siteId: '22222222-2222-4222-8222-222222222222',
-    month: '2026-04',
-    lastMonthDays: 5,
-    solverRequest: {
-      organization: {
-        id: '00000000-0000-0000-0000-000000000001',
-        name: '테스트 병원',
-        type: 'hospital',
-        shifts: [],
-        lastHistoricalDate: '2026-03-27',
-        firstDraftDate: '2026-04-01',
-        publishLength: 5,
-        draftLength: 30,
-      },
-      assignments: [],
-      employees: [],
-      history: [],
-      undesirable: [],
-      requirements: [],
-    },
-    generatorVersion: 'test-generator',
-    createdAt: '2026-04-16T00:00:00.000Z',
-  });
-}
+import { buildScheduleInputSnapshot } from '@/utils/scheduleInputSnapshot';
 
 describe('phase2 schedule contracts', () => {
   it('matches mutation routes and allowed methods including trust-gate actions', () => {
@@ -167,10 +139,8 @@ describe('phase2 schedule contracts', () => {
     expect(allowedMethods('finalize')).toEqual(['POST']);
   });
 
-  it('parses create version request bodies', async () => {
-    const inputSnapshot = await buildInputSnapshot();
-
-    await expect(
+  it('parses create version request bodies', () => {
+    expect(
       parseCreateVersionRequest({
         baseVersionId: '11111111-1111-4111-8111-111111111111',
         name: 'V2',
@@ -181,9 +151,8 @@ describe('phase2 schedule contracts', () => {
           changedSiteRequirements: 3,
           note: 'retry',
         },
-        inputSnapshot,
       })
-    ).resolves.toEqual({
+    ).toEqual({
       baseVersionId: '11111111-1111-4111-8111-111111111111',
       name: 'V2',
       sourceType: 're_solve',
@@ -193,7 +162,6 @@ describe('phase2 schedule contracts', () => {
         changedSiteRequirements: 3,
         note: 'retry',
       },
-      inputSnapshot,
     });
   });
 
@@ -270,22 +238,14 @@ describe('phase2 schedule contracts', () => {
     );
   });
 
-  it('parses solve request bodies', async () => {
-    const inputSnapshot = await buildInputSnapshot();
-
-    await expect(
-      parseScheduleVersionSolveRequest({
-        solverExecutionId: 'exec-1',
-        inputSnapshot,
-      })
-    ).resolves.toEqual({
+  it('parses solve request bodies', () => {
+    expect(parseScheduleVersionSolveRequest({ solverExecutionId: 'exec-1' })).toEqual({
       solverExecutionId: 'exec-1',
-      inputSnapshot,
     });
   });
 
-  it('accepts create and solve requests without an input snapshot until callers are wired', async () => {
-    await expect(
+  it('accepts create and solve requests without an input snapshot until callers are wired', () => {
+    expect(
       parseCreateVersionRequest({
         baseVersionId: '11111111-1111-4111-8111-111111111111',
         name: 'V2',
@@ -297,7 +257,7 @@ describe('phase2 schedule contracts', () => {
           note: 'retry',
         },
       })
-    ).resolves.toEqual({
+    ).toEqual({
       baseVersionId: '11111111-1111-4111-8111-111111111111',
       name: 'V2',
       sourceType: 're_solve',
@@ -307,37 +267,14 @@ describe('phase2 schedule contracts', () => {
         changedSiteRequirements: 3,
         note: 'retry',
       },
-      inputSnapshot: undefined,
     });
 
-    await expect(
-      parseScheduleVersionSolveRequest({
-        solverExecutionId: 'exec-1',
-      })
-    ).resolves.toEqual({
+    expect(parseScheduleVersionSolveRequest({ solverExecutionId: 'exec-1' })).toEqual({
       solverExecutionId: 'exec-1',
-      inputSnapshot: undefined,
     });
   });
 
-  it('rejects snapshots whose hash does not match their solver input', async () => {
-    const inputSnapshot = await buildInputSnapshot();
-
-    await expect(
-      parseScheduleVersionSolveRequest({
-        solverExecutionId: 'exec-1',
-        inputSnapshot: {
-          ...inputSnapshot,
-          solverInput: {
-            ...inputSnapshot.solverInput,
-            month: '2026-05',
-          },
-        },
-      })
-    ).rejects.toThrow('solverInputHash must match solverInput');
-  });
-
-  it('canonicalizes snapshot array ordering before validating the hash', async () => {
+  it('builds a stable snapshot hash after canonicalizing array ordering', async () => {
     const inputSnapshot = await buildScheduleInputSnapshot({
       scheduleId: '11111111-1111-4111-8111-111111111111',
       siteId: '22222222-2222-4222-8222-222222222222',
@@ -426,47 +363,96 @@ describe('phase2 schedule contracts', () => {
       createdAt: '2026-04-16T00:00:00.000Z',
     });
 
-    const reorderedSnapshot = {
-      ...inputSnapshot,
-      solverInput: {
-        ...inputSnapshot.solverInput,
-        employees: [...inputSnapshot.solverInput.employees].reverse(),
-        assignments: [...inputSnapshot.solverInput.assignments].reverse(),
-        employeeConstraints: [...inputSnapshot.solverInput.employeeConstraints].reverse(),
-        hospitalRules: {
-          ...inputSnapshot.solverInput.hospitalRules,
-          shifts: [...inputSnapshot.solverInput.hospitalRules.shifts].reverse(),
+    const reorderedInputSnapshot = await buildScheduleInputSnapshot({
+      scheduleId: '11111111-1111-4111-8111-111111111111',
+      siteId: '22222222-2222-4222-8222-222222222222',
+      month: '2026-04',
+      lastMonthDays: 5,
+      solverRequest: {
+        organization: {
+          id: '00000000-0000-0000-0000-000000000001',
+          name: '테스트 병원',
+          type: 'hospital',
+          shifts: [
+            {
+              id: '44444444-4444-4444-8444-444444444444',
+              code: 'N',
+              name: '야간',
+              start_time: '00:00:00',
+              end_time: '08:00:00',
+            },
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              code: 'D',
+              name: '주간',
+              start_time: '08:00:00',
+              end_time: '16:00:00',
+            },
+          ],
+          lastHistoricalDate: '2026-03-27',
+          firstDraftDate: '2026-04-01',
+          publishLength: 5,
+          draftLength: 30,
         },
-        monthlyRequirements: [...inputSnapshot.solverInput.monthlyRequirements].reverse(),
-      },
-    };
-
-    await expect(
-      parseScheduleVersionSolveRequest({
-        solverExecutionId: 'exec-1',
-        inputSnapshot: reorderedSnapshot,
-      })
-    ).resolves.toEqual({
-      solverExecutionId: 'exec-1',
-      inputSnapshot,
-    });
-  });
-
-  it('rejects malformed snapshot identity fields', async () => {
-    const inputSnapshot = await buildInputSnapshot();
-
-    await expect(
-      parseScheduleVersionSolveRequest({
-        solverExecutionId: 'exec-1',
-        inputSnapshot: {
-          ...inputSnapshot,
-          solverInput: {
-            ...inputSnapshot.solverInput,
-            lastMonthDays: -1,
+        employees: [
+          {
+            employee_id: '66666666-6666-4666-8666-666666666666',
+            name: 'B',
+            available_shifts: ['N', 'D'],
+            skill_set: ['ALL'],
           },
-        },
-      })
-    ).rejects.toThrow('lastMonthDays must be a non-negative integer');
+          {
+            employee_id: '55555555-5555-4555-8555-555555555555',
+            name: 'A',
+            available_shifts: ['D'],
+            skill_set: ['ALL'],
+          },
+        ],
+        history: [
+          {
+            employee_id: '66666666-6666-4666-8666-666666666666',
+            date: '2026-03-30',
+            shift_id: '44444444-4444-4444-8444-444444444444',
+            is_locked: true,
+          },
+          {
+            employee_id: '55555555-5555-4555-8555-555555555555',
+            date: '2026-03-29',
+            shift_id: '33333333-3333-4333-8333-333333333333',
+            is_locked: true,
+          },
+        ],
+        undesirable: [
+          {
+            employee_id: '66666666-6666-4666-8666-666666666666',
+            date: '2026-04-03',
+            is_locked: false,
+          },
+          {
+            employee_id: '55555555-5555-4555-8555-555555555555',
+            date: '2026-04-02',
+            is_locked: false,
+          },
+        ],
+        requirements: [
+          {
+            shiftId: '44444444-4444-4444-8444-444444444444',
+            dayIndex: 1,
+            employeeCount: 2,
+          },
+          {
+            shiftId: '33333333-3333-4333-8333-333333333333',
+            dayIndex: 0,
+            employeeCount: 3,
+          },
+        ],
+      },
+      generatorVersion: 'test-generator',
+      createdAt: '2026-04-16T00:00:00.000Z',
+    });
+
+    expect(reorderedInputSnapshot.solverInputHash).toBe(inputSnapshot.solverInputHash);
+    expect(reorderedInputSnapshot.solverInput).toEqual(inputSnapshot.solverInput);
   });
 
   it('parses solver result bodies for completed and failed results', () => {

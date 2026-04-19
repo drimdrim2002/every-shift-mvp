@@ -30,6 +30,7 @@ export interface AuthContextProfile {
 export interface AuthContextMembership {
   membershipId?: string
   organizationId: string
+  organizationName?: string | null
   role: OrganizationMembershipRole
   status: OrganizationMembershipStatus
   approvedAt?: string | null

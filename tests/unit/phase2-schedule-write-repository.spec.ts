@@ -295,6 +295,9 @@ describe('phase2 schedule write repository', () => {
     })
     expect(result).toEqual({
       scheduleId: 'schedule-1',
+      schedulePublicId: undefined,
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
       selectedVersionId: null,
       finalizedVersionId: null,
       activeSolvingVersionId: null,
@@ -420,6 +423,9 @@ describe('phase2 schedule write repository', () => {
 
     expect(result).toEqual({
       scheduleId: 'schedule-1',
+      schedulePublicId: undefined,
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
       createdVersionId: 'version-2',
       selectedVersionId: 'version-1',
       finalizedVersionId: null,

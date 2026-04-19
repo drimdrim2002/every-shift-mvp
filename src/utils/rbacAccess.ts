@@ -317,7 +317,7 @@ export function buildOrganizationOptions(
     .sort(compareMembershipPriority)
     .map((membership) => ({
       id: membership.organizationId,
-      name: membership.organizationId,
+      name: membership.organizationName?.trim() || '알 수 없는 조직',
       membershipRole: membership.role,
     }))
 }

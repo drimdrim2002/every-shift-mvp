@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import type { User } from '@supabase/supabase-js'
 
-type TableName = 'profiles' | 'organization_memberships' | 'signup_requests'
+type TableName = 'profiles' | 'organization_memberships' | 'signup_requests' | 'organizations'
 
 interface ProfileRow {
   global_role: string | null
@@ -29,11 +29,17 @@ interface SignupRequestRow {
   created_at: string
 }
 
+interface OrganizationRow {
+  id: string
+  name: string | null
+}
+
 const {
   fromMock,
   profileByUserId,
   membershipsByUserId,
   signupRequestByUserId,
+  organizationsById,
   syncWithAccessScopeMock,
   resetContextMock,
   queryFailureState,
@@ -42,6 +48,7 @@ const {
   profileByUserId: new Map<string, ProfileRow | null>(),
   membershipsByUserId: new Map<string, MembershipRow[]>(),
   signupRequestByUserId: new Map<string, SignupRequestRow | null>(),
+  organizationsById: new Map<string, OrganizationRow>(),
   syncWithAccessScopeMock: vi.fn(),
   resetContextMock: vi.fn(),
   queryFailureState: {
@@ -147,6 +154,19 @@ function createQueryBuilder(table: TableName) {
     })
   }
 
+  if (table === 'organizations') {
+    query.in = vi.fn(async (column: string, value: unknown[]) => {
+      filters.set(column, value)
+
+      return {
+        data: value
+          .map((organizationId) => organizationsById.get(String(organizationId)))
+          .filter((organization): organization is OrganizationRow => Boolean(organization)),
+        error: null,
+      }
+    })
+  }
+
   return query
 }
 
@@ -157,6 +177,7 @@ describe('RBAC access hydration', () => {
     profileByUserId.clear()
     membershipsByUserId.clear()
     signupRequestByUserId.clear()
+    organizationsById.clear()
     syncWithAccessScopeMock.mockReset()
     resetContextMock.mockReset()
     queryFailureState.profiles = false
@@ -384,6 +405,8 @@ describe('RBAC access hydration', () => {
         approved_at: '2026-04-18T02:00:00Z',
       },
     ])
+    organizationsById.set('org-1', { id: 'org-1', name: '서울병원' })
+    organizationsById.set('org-2', { id: 'org-2', name: '부산병원' })
 
     const store = useRbacStore()
     store.setSessionUser(createAuthUser())
@@ -392,8 +415,8 @@ describe('RBAC access hydration', () => {
 
     expect(store.selectedOrganizationId).toBe('org-2')
     expect(store.organizationOptions).toEqual([
-      expect.objectContaining({ id: 'org-1' }),
-      expect.objectContaining({ id: 'org-2' }),
+      expect.objectContaining({ id: 'org-1', name: '서울병원' }),
+      expect.objectContaining({ id: 'org-2', name: '부산병원' }),
     ])
   })
 
