@@ -206,6 +206,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'schedule_foundation',
@@ -213,6 +214,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/schedule/step2',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'employee_roster',
@@ -220,6 +222,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/schedule/step3',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'off_request_policy',
@@ -227,6 +230,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/ops/off-request-policy-setup',
           blockedReason: null,
+          isOptional: true,
         },
         {
           key: 'schedule_review',
@@ -234,6 +238,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/schedule/step5/sch_a1b2c3d4e5f6',
           blockedReason: null,
+          isOptional: false,
         },
       ],
       fairnessSummary: [],
@@ -406,6 +411,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/ops/organization-setup',
           blockedReason: '병원 정보 확인이 아직 완료되지 않았습니다.',
+          isOptional: false,
         },
         {
           key: 'schedule_foundation',
@@ -413,6 +419,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step2',
           blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
         },
         {
           key: 'employee_roster',
@@ -420,13 +427,15 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step3',
           blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
         },
         {
           key: 'off_request_policy',
           title: 'Off 사용 기준 설정',
           status: 'blocked',
           route: '/ops/off-request-policy-setup',
-          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
         },
         {
           key: 'schedule_review',
@@ -434,6 +443,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: null,
           blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
         },
       ],
       fairnessSummary: [],
@@ -463,6 +473,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'schedule_foundation',
@@ -470,6 +481,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step2',
           blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
         },
         {
           key: 'employee_roster',
@@ -477,13 +489,15 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step3',
           blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
         },
         {
           key: 'off_request_policy',
           title: 'Off 사용 기준 설정',
           status: 'blocked',
           route: '/ops/off-request-policy-setup',
-          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
         },
         {
           key: 'schedule_review',
@@ -491,6 +505,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: null,
           blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
         },
       ],
       fairnessSummary: [],
@@ -609,6 +624,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'schedule_foundation',
@@ -616,6 +632,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step2',
           blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
         },
         {
           key: 'employee_roster',
@@ -623,13 +640,15 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step3',
           blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
         },
         {
           key: 'off_request_policy',
           title: 'Off 사용 기준 설정',
           status: 'blocked',
           route: '/ops/off-request-policy-setup',
-          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
         },
         {
           key: 'schedule_review',
@@ -637,6 +656,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: null,
           blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
         },
       ],
       fairnessSummary: [],
@@ -735,6 +755,64 @@ describe('Dashboard', () => {
     })
   })
 
+  it('treats the off-request policy item as optional while keeping the checklist ready', async () => {
+    getChecklistMock.mockResolvedValueOnce({
+      organizationId: 'org-1',
+      checklistCursor: 'off_request_policy',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
+          blockedReason: null,
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('준비 완료')
+    expect(wrapper.text()).toContain('선택')
+    expect(wrapper.text()).toContain('필요하면 나중에 설정할 수 있습니다.')
+  })
+
   it('routes schedule foundation checklist entries to Step2 setup even when the backend route drifts to Step1', async () => {
     getChecklistMock.mockResolvedValueOnce({
       organizationId: 'org-1',
@@ -747,6 +825,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'schedule_foundation',
@@ -754,6 +833,7 @@ describe('Dashboard', () => {
           status: 'ready',
           route: '/schedule/step1',
           blockedReason: null,
+          isOptional: false,
         },
         {
           key: 'employee_roster',
@@ -761,13 +841,15 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: '/schedule/step3',
           blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
         },
         {
           key: 'off_request_policy',
           title: 'Off 사용 기준 설정',
           status: 'blocked',
           route: '/ops/off-request-policy-setup',
-          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
         },
         {
           key: 'schedule_review',
@@ -775,6 +857,7 @@ describe('Dashboard', () => {
           status: 'blocked',
           route: null,
           blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
         },
       ],
       fairnessSummary: [],

@@ -119,6 +119,7 @@ export interface ChecklistItem {
   status: 'ready' | 'blocked';
   route: string | null;
   blockedReason: string | null;
+  isOptional: boolean;
 }
 
 export interface ChecklistResponse {

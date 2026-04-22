@@ -192,6 +192,7 @@ export interface ChecklistItem {
   status: ChecklistItemStatus;
   route: string | null;
   blockedReason: string | null;
+  isOptional: boolean;
 }
 
 export interface ChecklistUpdateRequest {
@@ -1146,9 +1147,14 @@ function parseChecklistItem(payload: unknown): ChecklistItem {
     typeof record.blockedReason === 'string' && record.blockedReason.trim().length > 0
       ? record.blockedReason.trim()
       : null;
+  const isOptional = record.isOptional;
 
   if (!title) {
     throw new ContractError('bad_request', 'checklist item title is required', 400);
+  }
+
+  if (typeof isOptional !== 'boolean') {
+    throw new ContractError('bad_request', 'checklist item isOptional must be a boolean', 400);
   }
 
   return {
@@ -1157,6 +1163,7 @@ function parseChecklistItem(payload: unknown): ChecklistItem {
     status: parseChecklistItemStatus(record.status),
     route: route && route.length > 0 ? route : null,
     blockedReason,
+    isOptional,
   };
 }
 

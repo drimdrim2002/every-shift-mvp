@@ -154,30 +154,36 @@ describe('phase2 ops checklist', () => {
       expect.objectContaining({
         status: 'blocked',
         route: '/ops/organization-setup',
+        isOptional: false,
       })
     );
     expect(response.items.find((item) => item.key === 'schedule_foundation')).toEqual(
       expect.objectContaining({
         status: 'blocked',
         route: '/schedule/step2',
+        isOptional: false,
       })
     );
     expect(response.items.find((item) => item.key === 'employee_roster')).toEqual(
       expect.objectContaining({
         status: 'blocked',
         route: '/schedule/step3',
+        isOptional: false,
       })
     );
     expect(response.items.find((item) => item.key === 'off_request_policy')).toEqual(
       expect.objectContaining({
         status: 'blocked',
         route: '/ops/off-request-policy-setup',
+        blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+        isOptional: true,
       })
     );
     expect(response.items.find((item) => item.key === 'schedule_review')).toEqual(
       expect.objectContaining({
         status: 'blocked',
         route: null,
+        isOptional: false,
       })
     );
   });
@@ -216,7 +222,12 @@ describe('phase2 ops checklist', () => {
     });
 
     expect(response.ready).toBe(true);
-    expect(response.items.every((item) => item.status === 'ready')).toBe(true);
+    expect(response.items.find((item) => item.key === 'off_request_policy')).toEqual(
+      expect.objectContaining({
+        status: 'ready',
+        isOptional: true,
+      })
+    );
     expect(response.items.find((item) => item.key === 'schedule_review')).toEqual(
       expect.objectContaining({
         status: 'ready',
@@ -354,6 +365,35 @@ describe('phase2 ops checklist', () => {
         proofSummary: expect.objectContaining({
           weeklyHoursViolations: 0,
         }),
+      })
+    );
+  });
+
+  it('keeps checklist ready when only the optional off-request policy is missing', () => {
+    const response = buildChecklistResponse({
+      organizationId: AUTH_CONTEXT.operatorOrganizationId,
+      organizationName: '서울병원',
+      organizationType: 'hospital',
+      checklistCursor: 'off_request_policy',
+      organizationProfileConfirmedAt: '2026-04-09T00:00:00Z',
+      scheduleActiveSiteCount: 1,
+      pilotSiteId: 'site-1',
+      minimumRestHours: 11,
+      shiftCount: 4,
+      siteRequirementCount: 21,
+      employeeCount: 30,
+      hasMonthlyDefaultOffRequestPolicy: false,
+      hasAnnualDefaultOffRequestPolicy: false,
+      scheduleReviewRoute: '/schedule/step5/schedule-2',
+      fairnessSummary: [],
+    });
+
+    expect(response.ready).toBe(true);
+    expect(response.items.find((item) => item.key === 'off_request_policy')).toEqual(
+      expect.objectContaining({
+        status: 'blocked',
+        isOptional: true,
+        blockedReason: '필요하면 나중에 설정할 수 있습니다.',
       })
     );
   });

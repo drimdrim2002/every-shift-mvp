@@ -48,9 +48,9 @@
                 </h3>
                 <span
                   class="rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="item.status === 'ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'"
+                  :class="getBadgeClass(item)"
                 >
-                  {{ item.status === 'ready' ? '완료' : '대기' }}
+                  {{ getBadgeLabel(item) }}
                 </span>
               </div>
               <p
@@ -96,5 +96,29 @@ function handleItemActivate(item: ChecklistItem) {
   }
 
   emit('navigate', item);
+}
+
+function getBadgeLabel(item: ChecklistItem): string {
+  if (item.status === 'ready') {
+    return '완료';
+  }
+
+  if (item.isOptional) {
+    return '선택';
+  }
+
+  return '대기';
+}
+
+function getBadgeClass(item: ChecklistItem): string {
+  if (item.status === 'ready') {
+    return 'bg-emerald-50 text-emerald-700';
+  }
+
+  if (item.isOptional) {
+    return 'bg-sky-50 text-sky-700';
+  }
+
+  return 'bg-gray-100 text-gray-600';
 }
 </script>

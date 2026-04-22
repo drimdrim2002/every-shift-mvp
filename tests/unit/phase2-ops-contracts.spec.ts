@@ -313,4 +313,56 @@ describe('phase2 ops contracts', () => {
       ],
     });
   });
+
+  it('parses checklist responses with optional checklist items', () => {
+    expect(
+      (phase2OpsContracts as any).parseChecklistResponse({
+        organizationId: '00000000-0000-0000-0000-000000000001',
+        checklistCursor: 'off_request_policy',
+        ready: true,
+        items: [
+          {
+            key: 'organization_profile',
+            title: '병원 정보 확인',
+            status: 'ready',
+            route: '/ops/organization-setup',
+            blockedReason: null,
+            isOptional: false,
+          },
+          {
+            key: 'off_request_policy',
+            title: 'Off 사용 기준 설정',
+            status: 'blocked',
+            route: '/ops/off-request-policy-setup',
+            blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+            isOptional: true,
+          },
+        ],
+        fairnessSummary: [],
+      })
+    ).toEqual({
+      organizationId: '00000000-0000-0000-0000-000000000001',
+      checklistCursor: 'off_request_policy',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+      ],
+      fairnessSummary: [],
+    });
+  });
 });

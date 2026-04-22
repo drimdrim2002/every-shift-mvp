@@ -28,7 +28,8 @@ function buildChecklistItem(
   title: string,
   route: string | null,
   ready: boolean,
-  blockedReason: string
+  blockedReason: string,
+  isOptional = false
 ): ChecklistItem {
   return {
     key,
@@ -36,6 +37,7 @@ function buildChecklistItem(
     status: ready ? 'ready' : 'blocked',
     route,
     blockedReason: ready ? null : blockedReason,
+    isOptional,
   };
 }
 
@@ -84,7 +86,8 @@ export function buildChecklistResponse(snapshot: ChecklistSnapshot): ChecklistRe
       'Off 사용 기준 설정',
       '/ops/off-request-policy-setup',
       offRequestPolicyReady,
-      '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.'
+      '필요하면 나중에 설정할 수 있습니다.',
+      true
     ),
     buildChecklistItem(
       'schedule_review',
@@ -98,7 +101,7 @@ export function buildChecklistResponse(snapshot: ChecklistSnapshot): ChecklistRe
   return {
     organizationId: snapshot.organizationId,
     checklistCursor: snapshot.checklistCursor,
-    ready: items.every((item) => item.status === 'ready'),
+    ready: items.every((item) => item.isOptional || item.status === 'ready'),
     items,
     fairnessSummary: snapshot.fairnessSummary,
   };
