@@ -2,10 +2,10 @@
   <div class="mx-auto max-w-4xl space-y-6 px-4">
     <div>
       <h1 class="text-2xl font-bold">
-        조직/사이트 기본 설정
+        운영 기본 설정
       </h1>
       <p class="mt-1 text-sm text-gray-500">
-        대시보드와 Step2에서 공통으로 사용할 기본 설정을 관리합니다.
+        근무표 생성 전에 병원 정보와 기준 장소를 먼저 확인합니다.
       </p>
     </div>
 
@@ -14,7 +14,7 @@
       type="error"
     >
       <template #header>
-        기본 설정을 불러오지 못했습니다
+        운영 기본 설정을 불러오지 못했습니다
       </template>
       <div class="flex items-center justify-between gap-3">
         <p class="text-sm">
@@ -34,6 +34,8 @@
       <organization-profile-form
         :model-value="organizationProfile"
         :saving="organizationSaving"
+        :status="organizationStatus"
+        :can-save="organizationCanSave"
         @dirty-change="handleOrganizationDirtyChange"
         @save="handleSaveOrganizationProfile"
       />
@@ -41,6 +43,8 @@
       <site-foundation-form
         :model-value="siteSetup.site"
         :saving="siteSaving"
+        :status="siteStatus"
+        :can-save="siteCanSave"
         @dirty-change="handleSiteDirtyChange"
         @save="handleSaveSites"
       />
@@ -51,7 +55,7 @@
       :show="loading"
     >
       <n-card class="text-sm text-gray-500">
-        기본 설정을 불러오는 중입니다.
+        운영 기본 설정을 불러오는 중입니다.
       </n-card>
     </n-spin>
 
@@ -77,8 +81,16 @@ import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import PageActionBar from '@/components/ui/PageActionBar.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
-import type { OrganizationProfileRequest, SiteFoundationResponse, SiteRequest } from '@/types/ops';
+import type {
+  FoundationSaveState,
+  OrganizationProfileRequest,
+  OrganizationProfileResponse,
+  SiteFoundationResponse,
+  SiteRequest,
+} from '@/types/ops';
 import { showError, showInfo, showSuccess } from '@/utils/message';
+
+const DEFAULT_ORGANIZATION_TYPE = 'hospital';
 
 const router = useRouter();
 const organizationStore = useOrganizationStore();
@@ -90,6 +102,9 @@ const organizationSaving = ref(false);
 const siteSaving = ref(false);
 const organizationDirty = ref(false);
 const siteDirty = ref(false);
+const organizationSaveFailed = ref(false);
+const siteSaveFailed = ref(false);
+const organizationTypeBackfillRequired = ref(false);
 const organizationProfile = ref<OrganizationProfileRequest>({
   organizationId: '',
   name: '',
@@ -99,7 +114,68 @@ const siteSetup = ref<SiteFoundationResponse>({
   organizationId: '',
   site: null,
 });
-const hasUnsavedChanges = computed(() => organizationDirty.value || siteDirty.value);
+const organizationNeedsSave = computed(() => organizationDirty.value || organizationTypeBackfillRequired.value);
+const hasUnsavedChanges = computed(() => organizationNeedsSave.value || siteDirty.value);
+const organizationCanSave = computed(() => organizationNeedsSave.value && !organizationSaving.value);
+const siteCanSave = computed(() => siteDirty.value && !siteSaving.value);
+
+function normalizeOrganizationType(type: string): string {
+  const normalizedType = type.trim();
+  return normalizedType.length > 0 ? normalizedType : DEFAULT_ORGANIZATION_TYPE;
+}
+
+function normalizeOrganizationProfile(profile: OrganizationProfileRequest | OrganizationProfileResponse): OrganizationProfileRequest {
+  return {
+    organizationId: profile.organizationId,
+    name: profile.name,
+    type: normalizeOrganizationType(profile.type),
+  };
+}
+
+function hasPersistedOrganizationProfileValue(profile: OrganizationProfileRequest): boolean {
+  return profile.name.trim().length > 0
+    && profile.type.trim().length > 0
+    && !organizationTypeBackfillRequired.value;
+}
+
+function hasSiteFoundationValue(site: SiteFoundationResponse['site']): boolean {
+  return Boolean(site?.code.trim() && site?.name.trim());
+}
+
+function resolveSaveState(options: {
+  saving: boolean;
+  dirty: boolean;
+  failed: boolean;
+  hasValue: boolean;
+}): FoundationSaveState {
+  if (options.saving) {
+    return 'saving';
+  }
+
+  if (options.failed && options.dirty) {
+    return 'error';
+  }
+
+  if (options.dirty) {
+    return 'dirty';
+  }
+
+  return options.hasValue ? 'saved' : 'empty';
+}
+
+const organizationStatus = computed(() => resolveSaveState({
+  saving: organizationSaving.value,
+  dirty: organizationNeedsSave.value,
+  failed: organizationSaveFailed.value,
+  hasValue: hasPersistedOrganizationProfileValue(organizationProfile.value),
+}));
+
+const siteStatus = computed(() => resolveSaveState({
+  saving: siteSaving.value,
+  dirty: siteDirty.value,
+  failed: siteSaveFailed.value,
+  hasValue: hasSiteFoundationValue(siteSetup.value.site),
+}));
 
 const internalSiteSaveErrorPatterns = [
   /duplicate key/i,
@@ -121,7 +197,7 @@ function isInternalSiteSaveErrorMessage(message: string): boolean {
 }
 
 function toSiteSaveErrorMessage(error: unknown): string {
-  const fallback = '사이트 설정 저장에 실패했습니다.';
+  const fallback = '기준 장소 저장에 실패했습니다.';
 
   if (!(error instanceof Error)) {
     return fallback;
@@ -147,7 +223,7 @@ async function ensureOrganizationId(): Promise<string> {
 
   const result = await organizationStore.loadOrganization();
   if (!result.success || !organizationStore.current?.id) {
-    throw new Error(result.error ?? '조직 정보를 불러오지 못했습니다.');
+    throw new Error(result.error ?? '병원 정보를 불러오지 못했습니다.');
   }
 
   return organizationStore.current.id;
@@ -156,6 +232,8 @@ async function ensureOrganizationId(): Promise<string> {
 async function loadFoundationSetup() {
   loading.value = true;
   loadErrorMessage.value = null;
+  organizationSaveFailed.value = false;
+  siteSaveFailed.value = false;
 
   try {
     const organizationId = await ensureOrganizationId();
@@ -164,13 +242,14 @@ async function loadFoundationSetup() {
       getSites(organizationId),
     ]);
 
-    organizationProfile.value = profile;
+    organizationTypeBackfillRequired.value = profile.type.trim().length === 0;
+    organizationProfile.value = normalizeOrganizationProfile(profile);
     siteSetup.value = sites;
     organizationStore.updateFoundationProfileCache(profile);
     organizationStore.updateFoundationSiteCache(sites.site);
     hasLoaded.value = true;
   } catch (error) {
-    loadErrorMessage.value = error instanceof Error ? error.message : '기본 설정을 불러오지 못했습니다.';
+    loadErrorMessage.value = error instanceof Error ? error.message : '운영 기본 설정을 불러오지 못했습니다.';
     showError(loadErrorMessage.value);
   } finally {
     loading.value = false;
@@ -178,21 +257,25 @@ async function loadFoundationSetup() {
 }
 
 async function handleSaveOrganizationProfile(value: OrganizationProfileRequest) {
+  organizationSaveFailed.value = false;
   organizationSaving.value = true;
 
   try {
-    const saved = await updateOrganizationProfile(value);
+    const saved = normalizeOrganizationProfile(await updateOrganizationProfile(normalizeOrganizationProfile(value)));
     organizationProfile.value = saved;
+    organizationTypeBackfillRequired.value = false;
     organizationStore.updateFoundationProfileCache(saved);
-    showSuccess('조직 기본 정보를 저장했습니다.');
+    showSuccess('병원 정보를 저장했습니다.');
   } catch (error) {
-    showError(error instanceof Error ? error.message : '조직 기본 정보 저장에 실패했습니다.');
+    organizationSaveFailed.value = true;
+    showError(error instanceof Error ? error.message : '병원 정보 저장에 실패했습니다.');
   } finally {
     organizationSaving.value = false;
   }
 }
 
 async function handleSaveSites(value: SiteRequest) {
+  siteSaveFailed.value = false;
   siteSaving.value = true;
 
   try {
@@ -203,8 +286,9 @@ async function handleSaveSites(value: SiteRequest) {
     });
     siteSetup.value = saved;
     organizationStore.updateFoundationSiteCache(saved.site);
-    showSuccess('사이트 설정을 저장했습니다.');
+    showSuccess('기준 장소를 저장했습니다.');
   } catch (error) {
+    siteSaveFailed.value = true;
     showError(toSiteSaveErrorMessage(error));
   } finally {
     siteSaving.value = false;
@@ -213,15 +297,25 @@ async function handleSaveSites(value: SiteRequest) {
 
 function handleOrganizationDirtyChange(isDirty: boolean) {
   organizationDirty.value = isDirty;
+  if (!isDirty && !organizationTypeBackfillRequired.value) {
+    organizationSaveFailed.value = false;
+  }
 }
 
 function handleSiteDirtyChange(isDirty: boolean) {
   siteDirty.value = isDirty;
+  if (!isDirty) {
+    siteSaveFailed.value = false;
+  }
 }
 
 function handleReturnToDashboard() {
   if (hasUnsavedChanges.value) {
-    showInfo('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    const pendingSections = [
+      organizationNeedsSave.value ? '병원 정보' : null,
+      siteDirty.value ? '기준 장소' : null,
+    ].filter((value): value is string => value !== null);
+    showInfo(`저장되지 않은 항목이 있습니다: ${pendingSections.join(', ')}. 저장 후 이동해주세요.`);
     return;
   }
 

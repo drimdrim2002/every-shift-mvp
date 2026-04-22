@@ -79,7 +79,7 @@ describe('Sidebar', () => {
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('내 홈')
-    expect(wrapper.text()).not.toContain('조직 기본 설정')
+    expect(wrapper.text()).not.toContain('운영 기본 설정')
     expect(wrapper.text()).not.toContain('근무표 생성')
     expect(wrapper.text()).not.toContain('가입 승인')
   })
@@ -92,7 +92,7 @@ describe('Sidebar', () => {
 
     const wrapper = createWrapper()
 
-    expect(wrapper.text()).toContain('조직 기본 설정')
+    expect(wrapper.text()).toContain('운영 기본 설정')
     expect(wrapper.text()).toContain('근무표 생성')
     expect(wrapper.text()).not.toContain('내 홈')
     expect(wrapper.text()).not.toContain('가입 승인')
@@ -106,7 +106,7 @@ describe('Sidebar', () => {
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('가입 승인')
-    expect(wrapper.text()).not.toContain('조직 기본 설정')
+    expect(wrapper.text()).not.toContain('운영 기본 설정')
     expect(wrapper.text()).not.toContain('근무표 생성')
     expect(wrapper.text()).not.toContain('내 홈')
   })

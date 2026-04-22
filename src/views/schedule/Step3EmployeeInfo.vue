@@ -208,7 +208,7 @@ const employees = ref<EmployeeInput[]>([]);
 const isSaving = ref(false);
 const isInitialLoading = ref(true);
 const baselineEmployeesSnapshot = ref('');
-const isSetupEntry = computed(() => isSetupEntryMode(route.query.entry));
+const isSetupEntry = computed(() => isSetupEntryMode(route.query));
 const pageTitle = computed(() =>
   isSetupEntry.value ? '운영 준비 - 직원 기준 설정' : '근무표 생성 - 직원 정보 입력'
 );

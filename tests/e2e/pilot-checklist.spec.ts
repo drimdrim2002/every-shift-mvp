@@ -29,14 +29,14 @@ test.describe('pilot checklist entry surface', () => {
           items: [
             {
               key: 'organization_profile',
-              title: '조직 기본 정보 확인',
+              title: '병원 정보 확인',
               status: 'ready',
               route: '/ops/organization-setup',
               blockedReason: null,
             },
             {
               key: 'schedule_foundation',
-              title: '사이트/근무 기본 설정',
+              title: '기준 장소와 근무 기준 설정',
               status: 'ready',
               route: '/schedule/step2',
               blockedReason: null,
@@ -72,27 +72,27 @@ test.describe('pilot checklist entry surface', () => {
     await waitForDashboard(page)
 
     await expect(page.getByText('운영 준비 체크리스트')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '조직 기본 정보 확인' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '사이트/근무 기본 설정' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '병원 정보 확인' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '기준 장소와 근무 기준 설정' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '직원 로스터 준비' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Off 사용 기준 설정' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '최종 검토 진입' })).toBeVisible()
 
     await page.getByTestId('pilot-checklist-link-organization_profile').click()
     await expect(page).toHaveURL(/\/ops\/organization-setup$/)
-    await expect(page.getByRole('heading', { name: '조직\/사이트 기본 설정' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '운영 기본 설정' })).toBeVisible()
 
     await page.goto('/')
     await waitForDashboard(page)
     await page.getByTestId('pilot-checklist-link-schedule_foundation').click()
-    await expect(page).toHaveURL(/\/schedule\/step2$/)
-    await expect(page.getByText('근무표 생성 - 요일별 인력 설정')).toBeVisible()
+    await expect(page).toHaveURL(/\/schedule\/step2/)
+    await expect(page.getByText('운영 준비 - 기준 장소와 근무 기준 설정')).toBeVisible()
 
     await page.goto('/')
     await waitForDashboard(page)
     await page.getByTestId('pilot-checklist-link-employee_roster').click()
-    await expect(page).toHaveURL(/\/schedule\/step3$/)
-    await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
+    await expect(page).toHaveURL(/\/schedule\/step3/)
+    await expect(page.getByText('운영 준비 - 직원 기준 설정')).toBeVisible()
 
     await page.goto('/')
     await waitForDashboard(page)

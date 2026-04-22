@@ -54,7 +54,20 @@ describe('stepProgressGuard', () => {
     expect(next).toHaveBeenCalledWith('/schedule/step1');
   });
 
-  it('allows setup-mode Step2 access without Step1 context', async () => {
+  it('allows setup-mode Step2 access without Step1 context for the canonical context query', async () => {
+    const next = vi.fn();
+
+    await stepProgressGuard(
+      { path: '/schedule/step2', query: { context: 'setup' } } as any,
+      { path: '/' } as any,
+      next
+    );
+
+    expect(showWarningMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('allows setup-mode Step2 access without Step1 context for the legacy entry query', async () => {
     const next = vi.fn();
 
     await stepProgressGuard(
@@ -67,7 +80,20 @@ describe('stepProgressGuard', () => {
     expect(next).toHaveBeenCalledWith();
   });
 
-  it('allows setup-mode Step3 access without Step1 or Step2 context', async () => {
+  it('allows setup-mode Step3 access without Step1 or Step2 context for the canonical context query', async () => {
+    const next = vi.fn();
+
+    await stepProgressGuard(
+      { path: '/schedule/step3', query: { context: 'setup' } } as any,
+      { path: '/' } as any,
+      next
+    );
+
+    expect(showWarningMock).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('allows setup-mode Step3 access without Step1 or Step2 context for the legacy entry query', async () => {
     const next = vi.fn();
 
     await stepProgressGuard(

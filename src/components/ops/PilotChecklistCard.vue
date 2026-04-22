@@ -7,7 +7,7 @@
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="text-sm text-gray-500">
-            근무표를 만들기 전에 조직, 사이트, 직원 기준을 먼저 정리합니다.
+            근무표를 만들기 전에 병원 정보, 기준 장소, 직원 기준을 먼저 정리합니다.
           </p>
           <p class="mt-1 text-xs text-gray-400">
             이 체크리스트는 월별 생성 wizard가 아니라 운영 준비 단계입니다.
@@ -31,7 +31,14 @@
         <div
           v-for="item in checklist.items"
           :key="item.key"
-          class="rounded-lg border border-gray-200 bg-white p-4"
+          :data-test="`pilot-checklist-item-${item.key}`"
+          class="rounded-lg border border-gray-200 bg-white p-4 transition-colors"
+          :class="item.route ? 'cursor-pointer hover:border-slate-300 hover:bg-slate-50/80' : 'cursor-not-allowed opacity-80'"
+          :tabindex="item.route ? 0 : -1"
+          :role="item.route ? 'button' : undefined"
+          @click="handleItemActivate(item)"
+          @keydown.enter.prevent="handleItemActivate(item)"
+          @keydown.space.prevent="handleItemActivate(item)"
         >
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
@@ -60,7 +67,7 @@
               size="small"
               tertiary
               :disabled="!item.route"
-              @click="emit('navigate', item)"
+              @click.stop="handleItemActivate(item)"
             >
               {{ item.route ? '열기' : '잠김' }}
             </n-button>
@@ -82,4 +89,12 @@ defineProps<{
 const emit = defineEmits<{
   navigate: [item: ChecklistItem];
 }>();
+
+function handleItemActivate(item: ChecklistItem) {
+  if (!item.route) {
+    return;
+  }
+
+  emit('navigate', item);
+}
 </script>

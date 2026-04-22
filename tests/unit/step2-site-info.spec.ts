@@ -246,14 +246,14 @@ describe('Step2SiteInfo', () => {
   })
 
   it('renders setup-mode copy without the wizard indicator when basic info is missing', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(pushMock).not.toHaveBeenCalledWith('/schedule/step1')
-    expect(wrapper.vm.pageTitle).toBe('운영 준비 - 사이트 기준 설정')
+    expect(wrapper.vm.pageTitle).toBe('운영 준비 - 기준 장소와 근무 기준 설정')
     expect(wrapper.text()).toContain('이 설정은 이번 달만이 아니라 조직의 기본값에 적용됩니다.')
     expect(wrapper.text()).toContain('대시보드로 돌아가기')
     expect(wrapper.text()).toContain('저장 후 직원 정보로 이동')
@@ -268,7 +268,7 @@ describe('Step2SiteInfo', () => {
   })
 
   it('uses canonical defaults in setup mode when the database has no site requirements', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
     scheduleStoreMock.siteRequirements = buildWeeklyRequirements(5)
 
@@ -279,6 +279,92 @@ describe('Step2SiteInfo', () => {
     expect(wrapper.vm.getRequirement(1, 'E')).toBe(0)
     expect(wrapper.vm.getRequirement(1, 'N')).toBe(0)
     expect(scheduleStoreMock.setSiteRequirements).not.toHaveBeenCalled()
+  })
+
+  it('uses the current organization context in setup mode before stale wizard basicInfo', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = {
+      month: '2025-12',
+      organizationId: 'org-stale',
+      organizationName: '이전병원',
+      organizationType: 'hospital',
+      employeeCount: 10,
+      shifts: [
+        { code: 'LEGACY', name: 'Legacy', colorCode: '#999999' },
+      ],
+    }
+    organizationStoreMock.current = {
+      id: 'org-current',
+      name: '서울병원',
+      type: 'hospital',
+    }
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-foundation',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
+    organizationStoreMock.shifts = [
+      { code: 'CUR', name: 'Current', colorCode: '#123456' },
+    ]
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(loadSiteRequirementsMock).toHaveBeenCalledWith('org-current')
+    expect(wrapper.vm.shiftCodes).toEqual([
+      {
+        code: 'CUR',
+        name: 'Current',
+        colorCode: '#123456',
+      },
+    ])
+  })
+
+  it('saves setup-mode requirements to the current organization instead of stale wizard state', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = {
+      month: '2025-12',
+      organizationId: 'org-stale',
+      organizationName: '이전병원',
+      organizationType: 'hospital',
+      employeeCount: 10,
+      shifts: [
+        { code: 'LEGACY', name: 'Legacy', colorCode: '#999999' },
+      ],
+    }
+    organizationStoreMock.current = {
+      id: 'org-current',
+      name: '서울병원',
+      type: 'hospital',
+    }
+    organizationStoreMock.shifts = [
+      { code: 'CUR', name: 'Current', colorCode: '#123456' },
+    ]
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    for (const day of [1, 2, 3, 4, 5, 6, 0]) {
+      wrapper.vm.setRequirement(day, 'CUR', 1)
+    }
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(replaceSiteRequirementsMock).toHaveBeenCalledWith(
+      'org-current',
+      expect.arrayContaining([
+        expect.objectContaining({
+          shiftCode: 'CUR',
+          requiredCount: 1,
+        }),
+      ])
+    )
   })
 
   it('shows an info message instead of saving when nothing changed', async () => {
@@ -474,7 +560,7 @@ describe('Step2SiteInfo', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('현재 스케줄 대상 사이트: 본관 (MAIN)')
+    expect(wrapper.text()).toContain('현재 근무표 기준 장소: 본관 (MAIN)')
     expect(loadSiteRequirementsMock).toHaveBeenCalledWith('org-1')
 
     for (const day of [1, 2, 3, 4, 5, 6, 0]) {

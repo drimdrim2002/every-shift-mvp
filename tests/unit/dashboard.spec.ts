@@ -202,14 +202,14 @@ describe('Dashboard', () => {
       items: [
         {
           key: 'organization_profile',
-          title: '조직 기본 정보 확인',
+          title: '병원 정보 확인',
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
         },
         {
           key: 'schedule_foundation',
-          title: '사이트/근무 기본 설정',
+          title: '기준 장소와 근무 기준 설정',
           status: 'ready',
           route: '/schedule/step2',
           blockedReason: null,
@@ -394,7 +394,7 @@ describe('Dashboard', () => {
     })
   })
 
-  it('renders a foundation readiness card and deep-links to the setup screen when setup is incomplete', async () => {
+  it('deep-links the foundation card CTA to the hospital setup screen when hospital info is incomplete', async () => {
     getChecklistMock.mockResolvedValue({
       organizationId: 'org-1',
       checklistCursor: 'organization_profile',
@@ -402,17 +402,17 @@ describe('Dashboard', () => {
       items: [
         {
           key: 'organization_profile',
-          title: '조직 기본 정보 확인',
+          title: '병원 정보 확인',
           status: 'blocked',
           route: '/ops/organization-setup',
-          blockedReason: '조직 기본 정보 확인이 아직 완료되지 않았습니다.',
+          blockedReason: '병원 정보 확인이 아직 완료되지 않았습니다.',
         },
         {
           key: 'schedule_foundation',
-          title: '사이트/근무 기본 설정',
+          title: '기준 장소와 근무 기준 설정',
           status: 'blocked',
           route: '/schedule/step2',
-          blockedReason: '사이트, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
         },
         {
           key: 'employee_roster',
@@ -442,14 +442,78 @@ describe('Dashboard', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.text()).toContain('병원 정보 확인이 필요합니다')
+    expect(wrapper.text()).toContain('병원명을 먼저 저장해야 다음 운영 기준을 이어서 설정할 수 있습니다.')
+    expect(wrapper.text()).toContain('병원 정보 열기')
 
-    await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
+    await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith('/ops/organization-setup')
   })
 
-  it('renders foundation completion state when organization confirmation and an active site are present', async () => {
+  it('deep-links the foundation card CTA to Step2 setup when only schedule foundation is incomplete', async () => {
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('운영 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.text()).toContain('기준 장소, 휴식시간, 시프트, 인력 기준을 먼저 확인해주세요.')
+    expect(wrapper.text()).toContain('기준 설정 열기')
+
+    await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+  })
+
+  it('keeps a Step2 setup CTA visible when foundation setup is complete from local data', async () => {
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -477,11 +541,20 @@ describe('Dashboard', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 완료되었습니다')
-    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('운영 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
   })
 
-  it('renders foundation completion from checklist readiness even when auth metadata is stale', async () => {
+  it('keeps a Step2 setup CTA visible when foundation setup is complete from checklist readiness', async () => {
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -493,8 +566,17 @@ describe('Dashboard', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 완료되었습니다')
-    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('운영 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
   })
 
   it('renders foundation incomplete from checklist readiness even when local foundation cache looks complete', async () => {
@@ -523,17 +605,17 @@ describe('Dashboard', () => {
       items: [
         {
           key: 'organization_profile',
-          title: '조직 기본 정보 확인',
+          title: '병원 정보 확인',
           status: 'ready',
           route: '/ops/organization-setup',
           blockedReason: null,
         },
         {
           key: 'schedule_foundation',
-          title: '사이트/근무 기본 설정',
+          title: '기준 장소와 근무 기준 설정',
           status: 'blocked',
           route: '/schedule/step2',
-          blockedReason: '사이트, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
         },
         {
           key: 'employee_roster',
@@ -563,7 +645,7 @@ describe('Dashboard', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('조직/사이트 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.text()).toContain('운영 기본 설정이 아직 완료되지 않았습니다')
     expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
   })
 
@@ -585,8 +667,8 @@ describe('Dashboard', () => {
     expect(wrapper.text()).toContain('운영 준비')
     expect(wrapper.text()).toContain('월별 근무표 작업')
     expect(wrapper.text()).toContain('운영 준비 체크리스트')
-    expect(wrapper.text()).toContain('조직 기본 정보 확인')
-    expect(wrapper.text()).toContain('사이트/근무 기본 설정')
+    expect(wrapper.text()).toContain('병원 정보 확인')
+    expect(wrapper.text()).toContain('기준 장소와 근무 기준 설정')
     expect(wrapper.text()).toContain('직원 로스터 준비')
     expect(wrapper.text()).toContain('Off 사용 기준 설정')
     expect(wrapper.text()).toContain('최종 검토 진입')
@@ -604,13 +686,23 @@ describe('Dashboard', () => {
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step2',
       query: {
-        entry: 'setup',
+        context: 'setup',
       },
     })
     expect(resetMock).not.toHaveBeenCalled()
     expect(setBasicInfoMock).not.toHaveBeenCalled()
     expect(setSiteRequirementsMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.currentStep).toBe(0)
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-item-schedule_foundation"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
 
     pushMock.mockClear()
     setBasicInfoMock.mockClear()
@@ -621,7 +713,7 @@ describe('Dashboard', () => {
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step3',
       query: {
-        entry: 'setup',
+        context: 'setup',
       },
     })
     expect(resetMock).not.toHaveBeenCalled()
@@ -640,6 +732,65 @@ describe('Dashboard', () => {
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
       path: '/schedule/step5/sch_a1b2c3d4e5f6',
+    })
+  })
+
+  it('routes schedule foundation checklist entries to Step2 setup even when the backend route drifts to Step1', async () => {
+    getChecklistMock.mockResolvedValueOnce({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '사이트/근무 기본 설정',
+          status: 'ready',
+          route: '/schedule/step1',
+          blockedReason: null,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '공통 기준의 월간/연간 Off 사용 기준을 먼저 설정해주세요.',
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="pilot-checklist-item-schedule_foundation"]').trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/schedule/step2',
+      query: {
+        context: 'setup',
+      },
     })
   })
 

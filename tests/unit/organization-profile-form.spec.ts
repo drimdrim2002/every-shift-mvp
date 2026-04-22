@@ -32,6 +32,35 @@ const NInputStub = {
 };
 
 describe('OrganizationProfileForm', () => {
+  it('renders hospital-specific copy and a single editable input', () => {
+    const wrapper = mount(OrganizationProfileForm, {
+      props: {
+        modelValue: {
+          organizationId: 'org-1',
+          name: '',
+          type: 'hospital',
+        },
+        status: 'empty',
+        canSave: false,
+      },
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NForm: NFormStub,
+          NFormItem: NFormItemStub,
+          NButton: NButtonStub,
+          NInput: NInputStub,
+        },
+      },
+    });
+
+    expect(wrapper.text()).toContain('병원 정보');
+    expect(wrapper.text()).toContain('병원명');
+    expect(wrapper.text()).not.toContain('조직 유형');
+    expect(wrapper.findAll('input')).toHaveLength(1);
+    expect(wrapper.get('[data-test="organization-profile-status-badge"]').text()).toBe('입력 필요');
+  });
+
   it('does not reset local edits when the parent mutates the model object in place', async () => {
     const parentState = reactive({
       modelValue: {
@@ -45,6 +74,8 @@ describe('OrganizationProfileForm', () => {
       setup() {
         return () => h(OrganizationProfileForm, {
           modelValue: parentState.modelValue,
+          status: 'saved',
+          canSave: true,
         });
       },
     });
@@ -84,6 +115,8 @@ describe('OrganizationProfileForm', () => {
           name: '서울병원',
           type: 'hospital',
         },
+        status: 'saved',
+        canSave: true,
       },
       global: {
         stubs: {
@@ -111,7 +144,6 @@ describe('OrganizationProfileForm', () => {
 
     const refreshedInputs = wrapper.findAll('input');
     expect((refreshedInputs[0].element as HTMLInputElement).value).toBe('부산병원');
-    expect((refreshedInputs[1].element as HTMLInputElement).value).toBe('general-hospital');
     expect(wrapper.emitted('dirty-change')).toEqual([[false], [true], [false]]);
   });
 
@@ -128,6 +160,8 @@ describe('OrganizationProfileForm', () => {
       setup() {
         return () => h(OrganizationProfileForm, {
           modelValue: parentState.modelValue,
+          status: 'saved',
+          canSave: true,
         });
       },
     });
@@ -159,6 +193,8 @@ describe('OrganizationProfileForm', () => {
           name: '서울병원',
           type: 'hospital',
         },
+        status: 'saved',
+        canSave: true,
       },
       global: {
         stubs: {
@@ -173,7 +209,6 @@ describe('OrganizationProfileForm', () => {
 
     const inputs = wrapper.findAll('input');
     await inputs[0].setValue('  서울병원  ');
-    await inputs[1].setValue('  hospital  ');
     await wrapper.find('button').trigger('click');
 
     expect(wrapper.emitted('dirty-change')).toEqual([[false]]);

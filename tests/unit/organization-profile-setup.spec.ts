@@ -63,7 +63,7 @@ vi.mock('@/stores/organization', () => ({
 vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
   default: {
     name: 'OrganizationProfileForm',
-    props: ['modelValue', 'saving'],
+    props: ['modelValue', 'saving', 'status', 'canSave'],
     emits: ['save', 'dirty-change'],
     template: `
       <div>
@@ -71,6 +71,8 @@ vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
           data-test="organization-profile-form"
           :data-name="modelValue.name"
           :data-type="modelValue.type"
+          :data-status="status"
+          :data-can-save="String(canSave)"
         />
         <button
           data-test="emit-profile-dirty"
@@ -98,7 +100,7 @@ vi.mock('@/components/ops/OrganizationProfileForm.vue', () => ({
 vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
   default: {
     name: 'SiteFoundationForm',
-    props: ['modelValue', 'saving'],
+    props: ['modelValue', 'saving', 'status', 'canSave'],
     emits: ['save', 'dirty-change'],
     template: `
       <div>
@@ -106,6 +108,8 @@ vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
           data-test="site-foundation-form"
           :data-site-code="modelValue?.code ?? ''"
           :data-site-name="modelValue?.name ?? ''"
+          :data-status="status"
+          :data-can-save="String(canSave)"
         />
         <button
           data-test="emit-site-dirty"
@@ -188,7 +192,7 @@ describe('OrganizationProfileSetup', () => {
 
     expect(wrapper.find('[data-test="organization-profile-form"]').exists()).toBe(false);
     expect(wrapper.find('[data-test="site-foundation-form"]').exists()).toBe(false);
-    expect(wrapper.text()).toContain('기본 설정을 불러오는 중입니다.');
+    expect(wrapper.text()).toContain('운영 기본 설정을 불러오는 중입니다.');
 
     profileDeferred.resolve({
       organizationId: 'org-1',
@@ -240,11 +244,54 @@ describe('OrganizationProfileSetup', () => {
     const siteForm = wrapper.get('[data-test="site-foundation-form"]');
     expect(siteForm.attributes('data-site-code')).toBe('MAIN');
     expect(siteForm.attributes('data-site-name')).toBe('본관');
+    expect(wrapper.get('[data-test="organization-profile-form"]').attributes('data-status')).toBe('saved');
+    expect(siteForm.attributes('data-status')).toBe('saved');
 
     await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
     await flushPromises();
 
     expect(pushMock).toHaveBeenCalledWith('/');
+  });
+
+  it('treats a blank organization type as a pending backfill that can be saved immediately', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: '',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+    updateOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    const profileForm = wrapper.get('[data-test="organization-profile-form"]');
+    expect(profileForm.attributes('data-type')).toBe('hospital');
+    expect(profileForm.attributes('data-status')).toBe('dirty');
+    expect(profileForm.attributes('data-can-save')).toBe('true');
+
+    await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
+    await flushPromises();
+    expect(showInfoMock).toHaveBeenCalledWith('저장되지 않은 항목이 있습니다: 병원 정보. 저장 후 이동해주세요.');
+
+    await wrapper.get('[data-test="emit-profile-save"]').trigger('click');
+    await flushPromises();
+
+    expect(updateOrganizationProfileMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    expect(wrapper.get('[data-test="organization-profile-form"]').attributes('data-status')).toBe('saved');
+    expect(wrapper.get('[data-test="organization-profile-form"]').attributes('data-can-save')).toBe('false');
+    expect(showSuccessMock).toHaveBeenCalledWith('병원 정보를 저장했습니다.');
   });
 
   it('shows only the error state when the initial foundation load fails', async () => {
@@ -326,6 +373,7 @@ describe('OrganizationProfileSetup', () => {
     const wrapper = createWrapper();
     await flushPromises();
 
+    await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
     await wrapper.get('[data-test="emit-site-save"]').trigger('click');
     await flushPromises();
 
@@ -344,7 +392,7 @@ describe('OrganizationProfileSetup', () => {
       isActive: true,
       isScheduleActive: true,
     });
-    expect(showSuccessMock).toHaveBeenCalledWith('사이트 설정을 저장했습니다.');
+    expect(showSuccessMock).toHaveBeenCalledWith('기준 장소를 저장했습니다.');
   });
 
   it('maps unknown English site save errors to the Korean fallback', async () => {
@@ -363,11 +411,13 @@ describe('OrganizationProfileSetup', () => {
     const wrapper = createWrapper();
     await flushPromises();
 
+    await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
     await wrapper.get('[data-test="emit-site-save"]').trigger('click');
     await flushPromises();
 
-    expect(showErrorMock).toHaveBeenCalledWith('사이트 설정 저장에 실패했습니다.');
+    expect(showErrorMock).toHaveBeenCalledWith('기준 장소 저장에 실패했습니다.');
     expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(wrapper.get('[data-test="site-foundation-form"]').attributes('data-status')).toBe('error');
     consoleErrorSpy.mockRestore();
   });
 
@@ -387,6 +437,7 @@ describe('OrganizationProfileSetup', () => {
     const wrapper = createWrapper();
     await flushPromises();
 
+    await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
     await wrapper.get('[data-test="emit-site-save"]').trigger('click');
     await flushPromises();
 
@@ -415,7 +466,7 @@ describe('OrganizationProfileSetup', () => {
     await returnButton.trigger('click');
     await flushPromises();
 
-    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(showInfoMock).toHaveBeenCalledWith('저장되지 않은 항목이 있습니다: 병원 정보. 저장 후 이동해주세요.');
     expect(pushMock).not.toHaveBeenCalledWith('/');
   });
 
@@ -437,7 +488,7 @@ describe('OrganizationProfileSetup', () => {
     await wrapper.get('[data-test="dashboard-return-button"]').trigger('click');
     await flushPromises();
 
-    expect(showInfoMock).toHaveBeenCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(showInfoMock).toHaveBeenCalledWith('저장되지 않은 항목이 있습니다: 기준 장소. 저장 후 이동해주세요.');
     expect(pushMock).not.toHaveBeenCalledWith('/');
   });
 
@@ -460,7 +511,7 @@ describe('OrganizationProfileSetup', () => {
     await flushPromises();
 
     expect(showInfoMock).toHaveBeenCalledTimes(1);
-    expect(showInfoMock).toHaveBeenLastCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(showInfoMock).toHaveBeenLastCalledWith('저장되지 않은 항목이 있습니다: 병원 정보. 저장 후 이동해주세요.');
     expect(pushMock).not.toHaveBeenCalledWith('/');
 
     await wrapper.get('[data-test="emit-site-dirty"]').trigger('click');
@@ -469,7 +520,7 @@ describe('OrganizationProfileSetup', () => {
     await flushPromises();
 
     expect(showInfoMock).toHaveBeenCalledTimes(2);
-    expect(showInfoMock).toHaveBeenLastCalledWith('변경된 데이터가 있습니다. 저장 후 이동하세요.');
+    expect(showInfoMock).toHaveBeenLastCalledWith('저장되지 않은 항목이 있습니다: 기준 장소. 저장 후 이동해주세요.');
     expect(pushMock).not.toHaveBeenCalledWith('/');
 
     await wrapper.get('[data-test="emit-site-pristine"]').trigger('click');

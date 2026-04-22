@@ -10,18 +10,18 @@
         <!-- Section 1: 조직 정보 (읽기 전용) -->
         <div>
           <h3 class="mb-4 text-xl font-semibold">
-            1. 조직 정보
+            1. 병원 정보
           </h3>
           
           <!-- 간략한 조직 정보 표시 -->
           <div class="mb-4 rounded-lg bg-gray-50 p-4">
             <div class="space-y-2 text-sm">
               <div>
-                <span class="font-medium text-gray-700">조직명:</span>
+                <span class="font-medium text-gray-700">병원명:</span>
                 <span class="ml-2 text-gray-900">{{ orgStore.current?.name || '-' }}</span>
               </div>
               <div>
-                <span class="font-medium text-gray-700">조직 유형:</span>
+                <span class="font-medium text-gray-700">기관 종류:</span>
                 <span class="ml-2 text-gray-900">{{ getOrgTypeLabel(orgStore.current?.type) }}</span>
               </div>
             </div>

@@ -17,7 +17,7 @@
         class="mb-4"
       >
         <p class="text-base text-gray-600">
-          조직의 공통 사이트 기준을 정리합니다.
+          병원의 공통 기준 장소와 근무 기준을 정리합니다.
         </p>
         <n-alert
           type="warning"
@@ -49,7 +49,7 @@
           type="info"
           class="mb-4"
         >
-          현재 스케줄 대상 사이트: {{ primarySiteLabel }}
+          현재 근무표 기준 장소: {{ primarySiteLabel }}
         </n-alert>
 
         <div class="overflow-x-auto">
@@ -218,7 +218,7 @@ import { useOrganizationStore } from '@/stores/organization';
 import { loadCanonicalSiteRequirements, replaceCanonicalSiteRequirements } from '@/api/employee';
 import { getSchedulingShifts } from '@/api/shift';
 import { showError, showInfo, showSuccess } from '@/utils/message';
-import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import { buildScheduleEntryQuery, isSetupEntryMode } from '@/utils/scheduleEntryMode';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
@@ -233,17 +233,26 @@ const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 const isSaving = ref(false);
 const loading = ref(true);
 const baselineRequirementsSnapshot = ref('');
-const isSetupEntry = computed(() => isSetupEntryMode(route.query.entry));
+const isSetupEntry = computed(() => isSetupEntryMode(route.query));
 const pageTitle = computed(() =>
-  isSetupEntry.value ? '운영 준비 - 사이트 기준 설정' : '근무표 생성 - 요일별 인력 설정'
+  isSetupEntry.value ? '운영 준비 - 기준 장소와 근무 기준 설정' : '근무표 생성 - 요일별 인력 설정'
 );
-const resolvedOrganizationId = computed(
-  () => scheduleStore.basicInfo?.organizationId ?? orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null
+const setupOrganizationId = computed(
+  () => orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null
 );
+const resolvedOrganizationId = computed(() => {
+  if (isSetupEntry.value) {
+    return setupOrganizationId.value;
+  }
+
+  return scheduleStore.basicInfo?.organizationId ?? setupOrganizationId.value;
+});
 
 // 시프트 목록 (스토어에서 가져옴)
 const shiftCodes = computed(() => {
-  const shifts = scheduleStore.basicInfo?.shifts || orgStore.shifts || [];
+  const shifts = isSetupEntry.value
+    ? (orgStore.shifts || [])
+    : (scheduleStore.basicInfo?.shifts || orgStore.shifts || []);
   return getSchedulingShifts(shifts)
     .map((s) => ({
       code: s.code,
@@ -488,9 +497,7 @@ function navigateToStep3() {
   if (isSetupEntry.value) {
     router.push({
       path: '/schedule/step3',
-      query: {
-        entry: 'setup',
-      },
+      query: buildScheduleEntryQuery('setup'),
     });
     return;
   }

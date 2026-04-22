@@ -34,7 +34,7 @@ const menuOptions = computed(() => {
   }
 
   if (rbacStore.abilities.canManageOrganizationSetup) {
-    items.push({ label: '조직 기본 설정', key: '/ops/organization-setup' })
+    items.push({ label: '운영 기본 설정', key: '/ops/organization-setup' })
   }
 
   if (rbacStore.abilities.canManageSchedules) {

@@ -4,6 +4,8 @@ export interface OrganizationProfileResponse {
   type: string;
 }
 
+export type FoundationSaveState = 'empty' | 'dirty' | 'saving' | 'saved' | 'error';
+
 export interface OrganizationProfileRequest {
   organizationId: string;
   name: string;

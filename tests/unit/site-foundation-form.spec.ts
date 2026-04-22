@@ -32,6 +32,8 @@ function createWrapper(modelValue = null) {
     props: {
       modelValue,
       saving: false,
+      status: modelValue ? 'saved' : 'empty',
+      canSave: true,
     },
     global: {
       stubs: {
@@ -48,8 +50,9 @@ describe('SiteFoundationForm', () => {
   it('renders the single-site pilot copy', () => {
     const wrapper = createWrapper();
 
-    expect(wrapper.text()).toContain('파일럿 사이트 설정');
-    expect(wrapper.text()).toContain('현재 제품에서는 스케줄 생성에 사용할 파일럿 사이트 1개만 설정합니다.');
+    expect(wrapper.text()).toContain('근무표 기준 장소');
+    expect(wrapper.text()).toContain('현재는 근무표 기준으로 사용할 장소 1곳만 설정합니다.');
+    expect(wrapper.get('[data-test="site-foundation-status-badge"]').text()).toBe('입력 필요');
   });
 
   it('hydrates the existing site into the local form', () => {
@@ -68,7 +71,22 @@ describe('SiteFoundationForm', () => {
   });
 
   it('emits the trimmed site payload when saving', async () => {
-    const wrapper = createWrapper();
+    const wrapper = mount(SiteFoundationForm, {
+      props: {
+        modelValue: null,
+        saving: false,
+        status: 'dirty',
+        canSave: true,
+      },
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NButton: NButtonStub,
+          NFormItem: NFormItemStub,
+          NInput: NInputStub,
+        },
+      },
+    });
     const inputs = wrapper.findAll('input');
 
     await inputs[0].setValue(' MAIN ');
@@ -128,6 +146,8 @@ describe('SiteFoundationForm', () => {
         return () => h(SiteFoundationForm, {
           modelValue: parentState.modelValue,
           saving: false,
+          status: 'saved',
+          canSave: true,
         });
       },
     });
@@ -180,13 +200,28 @@ describe('SiteFoundationForm', () => {
   });
 
   it('treats surrounding whitespace as a no-op when baseline values already exist', async () => {
-    const wrapper = createWrapper({
-      id: 'site-1',
-      organizationId: 'org-1',
-      code: 'MAIN',
-      name: '본관',
-      isActive: true,
-      isScheduleActive: true,
+    const wrapper = mount(SiteFoundationForm, {
+      props: {
+        modelValue: {
+          id: 'site-1',
+          organizationId: 'org-1',
+          code: 'MAIN',
+          name: '본관',
+          isActive: true,
+          isScheduleActive: true,
+        },
+        saving: false,
+        status: 'saved',
+        canSave: true,
+      },
+      global: {
+        stubs: {
+          NCard: NCardStub,
+          NButton: NButtonStub,
+          NFormItem: NFormItemStub,
+          NInput: NInputStub,
+        },
+      },
     });
 
     const inputs = wrapper.findAll('input');

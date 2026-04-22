@@ -165,7 +165,7 @@ export async function stepProgressGuard(
   next: NavigationGuardNext,
 ) {
   const scheduleStore = useScheduleStore();
-  const isSetupEntry = isSetupEntryMode((to.query as Record<string, unknown> | undefined)?.entry);
+  const isSetupEntry = isSetupEntryMode(to.query);
 
   // Step 2 접근 시 Step 1 완료 확인
   if (to.path === '/schedule/step2') {

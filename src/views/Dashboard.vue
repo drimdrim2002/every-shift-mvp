@@ -53,7 +53,7 @@
                 근무표 생성 전에 기준을 먼저 맞춥니다
               </h2>
               <p class="mt-2 text-sm text-slate-600">
-                조직 기본 설정과 체크리스트 항목은 월별 생성 흐름의 공통 입력값입니다.
+                운영 기본 설정과 체크리스트 항목은 월별 생성 흐름의 공통 입력값입니다.
               </p>
             </div>
             <div class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
@@ -65,33 +65,25 @@
             v-if="showFoundationCard"
             data-test="dashboard-foundation-card"
             :bordered="true"
-            class="mb-4"
+            class="mb-4 cursor-pointer"
+            @click="handleOpenFoundationEntry"
           >
             <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="text-base font-semibold text-gray-900">
-                  {{
-                    foundationReady
-                      ? '조직/사이트 기본 설정이 완료되었습니다'
-                      : '조직/사이트 기본 설정이 아직 완료되지 않았습니다'
-                  }}
+                  {{ foundationCardTarget?.title }}
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
-                  {{
-                    foundationReady
-                      ? '대시보드와 근무표 생성 흐름에서 동일한 기본 설정 정보를 사용합니다.'
-                      : '조직 기본 정보 확인과 스케줄 대상 사이트 지정을 먼저 완료해주세요.'
-                  }}
+                  {{ foundationCardTarget?.description }}
                 </p>
               </div>
               <n-button
-                v-if="!foundationReady"
                 data-test="dashboard-foundation-setup"
                 secondary
                 type="primary"
-                @click="handleOpenFoundationSetup"
+                @click.stop="handleOpenFoundationEntry"
               >
-                기본 설정 열기
+                {{ foundationCardTarget?.actionLabel }}
               </n-button>
             </div>
           </n-card>
@@ -276,6 +268,13 @@ interface Schedule {
   updated_at: string;
 }
 
+interface FoundationCardTarget {
+  route: string | { path: string; query?: Record<string, string> };
+  title: string;
+  description: string;
+  actionLabel: string;
+}
+
 const router = useRouter();
 const orgStore = useOrganizationStore();
 const rbacStore = useRbacStore();
@@ -320,13 +319,43 @@ const foundationChecklistItems = computed(() => {
 
 const showFoundationCard = computed(() => foundationChecklistItems.value !== null);
 
-const foundationReady = computed(() => {
+const foundationCardTarget = computed<FoundationCardTarget | null>(() => {
   if (!foundationChecklistItems.value) {
-    return false;
+    return null;
   }
 
-  return foundationChecklistItems.value.organizationProfileItem.status === 'ready'
-    && foundationChecklistItems.value.scheduleFoundationItem.status === 'ready';
+  const { organizationProfileItem, scheduleFoundationItem } = foundationChecklistItems.value;
+
+  if (organizationProfileItem.status !== 'ready') {
+    return {
+      route: '/ops/organization-setup',
+      title: '병원 정보 확인이 필요합니다',
+      description: '병원명을 먼저 저장해야 다음 운영 기준을 이어서 설정할 수 있습니다.',
+      actionLabel: '병원 정보 열기',
+    };
+  }
+
+  if (scheduleFoundationItem.status !== 'ready') {
+    return {
+      route: {
+        path: '/schedule/step2',
+        query: buildScheduleEntryQuery('setup'),
+      },
+      title: '운영 기본 설정이 아직 완료되지 않았습니다',
+      description: '기준 장소, 휴식시간, 시프트, 인력 기준을 먼저 확인해주세요.',
+      actionLabel: '기준 설정 열기',
+    };
+  }
+
+  return {
+    route: {
+      path: '/schedule/step2',
+      query: buildScheduleEntryQuery('setup'),
+    },
+    title: '운영 기본 설정이 완료되었습니다',
+    description: '대시보드와 근무표 생성 흐름에서 같은 기준을 사용합니다.',
+    actionLabel: '기준 설정 확인',
+  };
 });
 
 const hasAdminDashboardAccess = computed(() =>
@@ -417,12 +446,12 @@ function handleCreateNew() {
   showMonthModal.value = true;
 }
 
-function handleOpenFoundationSetup() {
-  if (!rbacStore.abilities.canManageOrganizationSetup) {
+async function handleOpenFoundationEntry() {
+  if (!hasAdminDashboardAccess.value || !foundationCardTarget.value) {
     return;
   }
 
-  router.push('/ops/organization-setup');
+  await router.push(foundationCardTarget.value.route);
 }
 
 function buildChecklistBasicInfo(
@@ -494,23 +523,23 @@ async function handleChecklistNavigate(item: ChecklistItem) {
     return;
   }
 
+  if (item.key === 'schedule_foundation') {
+    await router.push({
+      path: '/schedule/step2',
+      query: buildScheduleEntryQuery('setup'),
+    });
+    return;
+  }
+
+  if (item.key === 'employee_roster') {
+    await router.push({
+      path: '/schedule/step3',
+      query: buildScheduleEntryQuery('setup'),
+    });
+    return;
+  }
+
   if (!item.route) {
-    return;
-  }
-
-  if (item.route === '/schedule/step2') {
-    await router.push({
-      path: item.route,
-      query: buildScheduleEntryQuery('setup'),
-    });
-    return;
-  }
-
-  if (item.route === '/schedule/step3') {
-    await router.push({
-      path: item.route,
-      query: buildScheduleEntryQuery('setup'),
-    });
     return;
   }
 

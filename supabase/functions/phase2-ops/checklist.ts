@@ -60,17 +60,17 @@ export function buildChecklistResponse(snapshot: ChecklistSnapshot): ChecklistRe
   const items: ChecklistItem[] = [
     buildChecklistItem(
       'organization_profile',
-      '조직 기본 정보 확인',
+      '병원 정보 확인',
       '/ops/organization-setup',
       organizationProfileReady,
-      '조직 기본 정보 확인이 아직 완료되지 않았습니다.'
+      '병원 정보 확인이 아직 완료되지 않았습니다.'
     ),
     buildChecklistItem(
       'schedule_foundation',
-      '사이트/근무 기본 설정',
+      '기준 장소와 근무 기준 설정',
       '/schedule/step2',
       scheduleFoundationReady,
-      '사이트, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.'
+      '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.'
     ),
     buildChecklistItem(
       'employee_roster',

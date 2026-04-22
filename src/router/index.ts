@@ -93,7 +93,7 @@ const baseRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/ops/OrganizationProfileSetup.vue'),
         meta: {
           requiresAuth: true,
-          title: '조직/사이트 기본 설정',
+          title: '운영 기본 설정',
           requiresOrgContext: true,
           requiredOrgRole: 'admin',
         },

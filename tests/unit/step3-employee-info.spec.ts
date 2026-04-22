@@ -22,7 +22,7 @@ const {
   showWarningMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
-  routeQueryMock: {} as { from?: string; entry?: string },
+  routeQueryMock: {} as { from?: string; entry?: string; context?: string },
   getScheduleStatusMock: vi.fn(),
   getLatestScheduleByOrganizationMonthMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
@@ -191,6 +191,7 @@ describe('Step3EmployeeInfo', () => {
     vi.clearAllMocks()
     routeQueryMock.from = undefined
     delete routeQueryMock.entry
+    delete routeQueryMock.context
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-123',
       month: '2025-12',
@@ -377,7 +378,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('renders setup-mode copy without redirecting when basic info is missing', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     const wrapper = createWrapper()
@@ -394,7 +395,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('uses the current organization context in setup mode before stale wizard basicInfo', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-stale',
       month: '2025-12',
@@ -443,7 +444,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('fails closed in setup mode when current and foundation org context are missing', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-stale',
       month: '2025-12',
@@ -482,7 +483,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('uses current organization shifts in setup mode instead of stale wizard shifts', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = {
       scheduleId: 'schedule-stale',
       month: '2025-12',
@@ -538,7 +539,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('routes setup-mode primary CTA back to Step1 when nothing changed', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     const wrapper = createWrapper()
@@ -579,7 +580,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('uses setup-mode save confirmation language for org-wide employee changes', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -604,7 +605,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('saves setup-mode employee changes without navigating away from Step3', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     const wrapper = createWrapper()
@@ -652,7 +653,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('keeps setup-mode baseline clean when employee preload fails', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     supabaseFromMock.mockImplementation((table: string) => {
@@ -690,7 +691,7 @@ describe('Step3EmployeeInfo', () => {
   })
 
   it('routes setup-mode primary CTA to Step1 after saving', async () => {
-    routeQueryMock.entry = 'setup'
+    routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
     const wrapper = createWrapper()
