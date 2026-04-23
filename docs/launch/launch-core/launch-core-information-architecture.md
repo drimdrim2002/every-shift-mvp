@@ -56,11 +56,73 @@ This matters for:
 Recommended structure:
 
 - `EveryShift`
-- `서비스 소개`
-- `기능`
-- `도입 문의`
 - `로그인`
-- `관리자로 시작하기`
+- `회원 가입`
+- `도입 문의`
+
+Rules:
+
+- right-side order is locked to `로그인` -> `회원 가입` -> `도입 문의`
+- `회원 가입` points to `/signup?role=admin`
+- `도입 문의` points to the real Google Form
+- do not replace these labels with vague copy such as `시작하기` or `문의하기` without context
+
+## Landing Page Structure
+
+```text
+Public Header
+  ├─ Brand: EveryShift
+  └─ Actions: 로그인 | 회원 가입 | 도입 문의
+
+Hero
+  ├─ Product identity
+  ├─ One-sentence value proposition
+  ├─ Primary action: 회원 가입
+  └─ Secondary action: 도입 문의
+
+Workflow Summary
+  ├─ 기본 정보
+  ├─ 사이트 정보
+  ├─ 직원 정보
+  ├─ 초기 데이터
+  └─ 결과 확인 / 수정 / 내보내기
+
+Trust Signals
+  ├─ protected `/app` workspace
+  ├─ admin approval gate
+  └─ real public beta launch status
+
+Inquiry Reinforcement
+  └─ hospital intro / trial / other request path
+```
+
+## CTA Behavior Map
+
+| Surface | Label       | Destination          | Role                          |
+| ------- | ----------- | -------------------- | ----------------------------- |
+| Header  | `로그인`    | `/login`             | Returning users               |
+| Header  | `회원 가입` | `/signup?role=admin` | New admin evaluation          |
+| Header  | `도입 문의` | Google Form          | Intro / trial / other request |
+| Hero    | `회원 가입` | `/signup?role=admin` | Primary conversion            |
+| Hero    | `도입 문의` | Google Form          | Secondary conversion          |
+
+## External Entry
+
+The Google Form is not an internal route.
+
+Treat it as an external destination tied to public CTAs:
+
+- destination type: external form
+- entry surfaces: header `도입 문의`, hero secondary CTA
+- purpose: introduction request, one-month free trial request, other inquiry
+
+## Mobile IA Rules
+
+- brand remains top-left
+- action menu remains top-right
+- `로그인`, `회원 가입`, `도입 문의` stay first-level actions inside the mobile menu
+- do not bury `도입 문의` only in the footer on mobile
+- hero CTA order remains `회원 가입` first, `도입 문의` second
 
 ## App Sidebar
 

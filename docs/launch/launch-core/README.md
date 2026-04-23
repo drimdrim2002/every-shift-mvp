@@ -19,7 +19,7 @@ Included:
 - public landing page
 - public/app route split
 - existing email/password auth continuity
-- real CTA path
+- real signup and inquiry CTA paths
 - Vercel deployment
 - launch-blocking QA
 
@@ -29,3 +29,9 @@ Explicitly excluded:
 - Kakao login
 - OAuth callback rollout
 - provider-specific linking complexity
+
+Locked launch decisions:
+
+- public header actions are `로그인`, `회원 가입`, `도입 문의`
+- `회원 가입` is the primary landing CTA
+- `도입 문의` routes to a real Google Form
