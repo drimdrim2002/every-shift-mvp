@@ -561,8 +561,8 @@ describe('Step3EmployeeInfo', () => {
 
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
     expect(scheduleStoreMock.setEmployees).toHaveBeenCalledWith([])
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step1')
-    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step4')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step1')
+    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step4')
   })
 
   it('shows an info message instead of saving when nothing changed', async () => {
@@ -736,7 +736,7 @@ describe('Step3EmployeeInfo', () => {
     expect(applyEmployeeImportMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.setEmployees).toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('직원 기본 정보가 저장되었습니다.')
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step1')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step1')
   })
 
   it('saves dirty employee changes without navigating to Step4', async () => {
@@ -808,7 +808,7 @@ describe('Step3EmployeeInfo', () => {
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
     expect(applyEmployeeImportMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
   })
 
   it('saves dirty employee changes and then moves to Step4 when next-step is clicked', async () => {
@@ -842,7 +842,7 @@ describe('Step3EmployeeInfo', () => {
 
     expect(applyEmployeeImportMock).toHaveBeenCalledTimes(1)
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step4')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
     expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
   })
 
@@ -890,7 +890,7 @@ describe('Step3EmployeeInfo', () => {
     await flushPromises()
 
     expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/')
+    expect(pushMock).toHaveBeenCalledWith('/app')
   })
 
   it('preserves the dashboard origin when moving to Step4', async () => {
@@ -906,7 +906,7 @@ describe('Step3EmployeeInfo', () => {
 
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step4',
+      path: '/app/schedule/step4',
       query: {
         from: 'dashboard',
       },

@@ -150,7 +150,7 @@ describe('Login view', () => {
 
     expect(loginMock).toHaveBeenCalledWith('user@example.com', 'password123')
     expect(showSuccessMock).toHaveBeenCalledWith('로그인 성공')
-    expect(replaceMock).toHaveBeenCalledWith('/home/user')
+    expect(replaceMock).toHaveBeenCalledWith('/app/home/user')
   })
 
   it('routes rejected admins into the rejected access screen without a success toast', async () => {

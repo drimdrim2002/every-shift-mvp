@@ -219,6 +219,7 @@ import { loadCanonicalSiteRequirements, replaceCanonicalSiteRequirements } from 
 import { getSchedulingShifts } from '@/api/shift';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import { buildScheduleEntryQuery, isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { SiteRequirementRow } from '@/types/excel';
 import { DAY_NAMES } from '@/types/excel';
 
@@ -289,7 +290,7 @@ const horizontalData = reactive<Record<number, Record<string, number>>>({
 
 onMounted(async () => {
   if (!isSetupEntry.value && !scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
@@ -485,18 +486,18 @@ function handleReturnToDashboard() {
   }
 
   scheduleStore.reset();
-  router.push('/');
+  router.push(getAppHomeRoutePath());
 }
 
 function handlePrev() {
   scheduleStore.prevStep();
-  router.push('/schedule/step1');
+  router.push(getScheduleStepRoutePath(1));
 }
 
 function navigateToStep3() {
   if (isSetupEntry.value) {
     router.push({
-      path: '/schedule/step3',
+      path: getScheduleStepRoutePath(3),
       query: buildScheduleEntryQuery('setup'),
     });
     return;
@@ -504,7 +505,7 @@ function navigateToStep3() {
 
   if (cameFromDashboard.value) {
     router.push({
-      path: '/schedule/step3',
+      path: getScheduleStepRoutePath(3),
       query: {
         from: 'dashboard',
       },
@@ -512,7 +513,7 @@ function navigateToStep3() {
     return;
   }
 
-  router.push('/schedule/step3');
+  router.push(getScheduleStepRoutePath(3));
 }
 
 /**

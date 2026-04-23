@@ -491,7 +491,7 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     await clickButtonByText(wrapper, '근무표 관리로 돌아가기')
-    expect(pushMock).not.toHaveBeenCalledWith('/')
+    expect(pushMock).not.toHaveBeenCalledWith('/app')
 
     const confirmButtons = wrapper.findAll('[data-test="popconfirm-confirm"]')
     expect(confirmButtons).toHaveLength(1)
@@ -499,7 +499,7 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     expect(scheduleStoreMock.reset).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/')
+    expect(pushMock).toHaveBeenCalledWith('/app')
   })
 
   it('clears scoped temp preference storage after confirming return to the dashboard', async () => {
@@ -577,7 +577,7 @@ describe('Step4InitialData', () => {
     wrapper.vm.handlePrev()
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step3',
+      path: '/app/schedule/step3',
       query: {
         from: 'dashboard',
       },
@@ -627,7 +627,7 @@ describe('Step4InitialData', () => {
     expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
     expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     })
   })
 
@@ -733,7 +733,7 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
         autoStart: '1',
       },
@@ -808,7 +808,7 @@ describe('Step4InitialData', () => {
     )
     expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalledWith('version-3')
     expect(pushMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
         version: 'version-3',
         compare: 'version-2',
@@ -873,7 +873,7 @@ describe('Step4InitialData', () => {
     )
     expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     })
   })
 
@@ -939,7 +939,7 @@ describe('Step4InitialData', () => {
     )
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-existing')
     expect(pushMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
         version: 'version-existing',
         compare: 'version-2',

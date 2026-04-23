@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { RouteRecordRaw } from 'vue-router'
 
-import { USER_HOME_ROUTE_PATH } from '@/constants/routes'
+import {
+  APP_HOME_ROUTE_PATH,
+  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_USER_HOME_ROUTE_PATH,
+  PUBLIC_ROOT_ROUTE_PATH,
+} from '@/constants/routes'
 import { createAppRoutes } from '@/router/index'
 
 function collectRoutePaths(routes: RouteRecordRaw[]): string[] {
@@ -40,14 +45,14 @@ function findRouteByName(routes: RouteRecordRaw[], routeName: string): RouteReco
 describe('router dev-only routes', () => {
   it('includes /test* routes only in development mode', () => {
     const devPaths = collectRoutePaths(createAppRoutes(true))
-    expect(devPaths).toContain('admin/approval-queue')
+    expect(devPaths).toContain(LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1))
     expect(devPaths).toContain('/test')
     expect(devPaths).toContain('/test-schedule')
     expect(devPaths).toContain('/test-step-indicator')
     expect(devPaths).toContain('/test-grid')
 
     const prodPaths = collectRoutePaths(createAppRoutes(false))
-    expect(prodPaths).toContain('admin/approval-queue')
+    expect(prodPaths).toContain(LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1))
     expect(prodPaths).not.toContain('/test')
     expect(prodPaths).not.toContain('/test-schedule')
     expect(prodPaths).not.toContain('/test-step-indicator')
@@ -57,7 +62,8 @@ describe('router dev-only routes', () => {
   it('registers the restricted user home route and admin org-context meta', () => {
     const routes = createAppRoutes(false)
 
-    expect(collectRoutePaths(routes)).toContain(USER_HOME_ROUTE_PATH)
+    expect(PUBLIC_ROOT_ROUTE_PATH).not.toBe(APP_HOME_ROUTE_PATH)
+    expect(collectRoutePaths(routes)).toContain(LEGACY_USER_HOME_ROUTE_PATH.slice(1))
 
     expect(findRouteByName(routes, 'UserHome')?.meta).toMatchObject({
       requiresAuth: true,

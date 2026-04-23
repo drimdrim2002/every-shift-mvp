@@ -193,6 +193,7 @@ import { supabase } from '@/api/supabase';
 import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
@@ -237,7 +238,7 @@ const hasUnsavedChanges = computed(() => {
 // 초기화
 onMounted(async () => {
   if (!isSetupEntry.value && !scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
@@ -471,13 +472,13 @@ async function performSetupEmployeeSave(orgId: string): Promise<boolean> {
 
 function handlePrev() {
   scheduleStore.prevStep();
-  router.push('/schedule/step2');
+  router.push(getScheduleStepRoutePath(2));
 }
 
 function navigateToStep4() {
   if (cameFromDashboard.value) {
     router.push({
-      path: '/schedule/step4',
+      path: getScheduleStepRoutePath(4),
       query: {
         from: 'dashboard',
       },
@@ -485,7 +486,7 @@ function navigateToStep4() {
     return;
   }
 
-  router.push('/schedule/step4');
+  router.push(getScheduleStepRoutePath(4));
 }
 
 async function confirmAndSave(options?: { onSaved?: () => void }) {
@@ -585,13 +586,13 @@ async function handleNext() {
   if (isSetupEntry.value) {
     if (!hasUnsavedChanges.value) {
       scheduleStore.setEmployees([]);
-      router.push('/schedule/step1');
+      router.push(getScheduleStepRoutePath(1));
       return;
     }
 
     await confirmAndSave({
       onSaved: () => {
-        router.push('/schedule/step1');
+        router.push(getScheduleStepRoutePath(1));
       },
     });
     return;
@@ -627,6 +628,6 @@ function handleReturnToDashboard() {
   }
 
   scheduleStore.reset();
-  router.push('/');
+  router.push(getAppHomeRoutePath());
 }
 </script>

@@ -324,10 +324,10 @@ describe('scheduleVersionResolver', () => {
         defaultVersionId: 'version-2',
       })
     ).toEqual({
-      path: '/schedule/step5/schedule-1',
+      path: '/app/schedule/step5/schedule-1',
     })
     expect(buildStep5Route('schedule-1', 'version-2')).toEqual({
-      path: '/schedule/step5/schedule-1',
+      path: '/app/schedule/step5/schedule-1',
       query: {
         version: 'version-2',
       },
@@ -337,7 +337,7 @@ describe('scheduleVersionResolver', () => {
         defaultVersionId: 'version-2',
       })
     ).toEqual({
-      path: '/schedule/step5/schedule-1',
+      path: '/app/schedule/step5/schedule-1',
       query: {
         version: 'version-3',
         compare: 'version-2',
@@ -349,7 +349,7 @@ describe('scheduleVersionResolver', () => {
         autoStart: true,
       })
     ).toEqual({
-      path: '/schedule/step5/schedule-1',
+      path: '/app/schedule/step5/schedule-1',
       query: {
         compare: 'version-3',
         autoStart: '1',

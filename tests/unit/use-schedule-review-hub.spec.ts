@@ -257,7 +257,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.reviewTab).toBe('grid');
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledWith('version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
   });
 
@@ -300,7 +300,7 @@ describe('useScheduleReviewHub', () => {
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(1, 'version-3');
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(2, 'version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
   });
 
@@ -374,7 +374,7 @@ describe('useScheduleReviewHub', () => {
     expect(hub.previewVersionId.value).toBe('version-2');
     expect(scheduleStoreMock.previewVersionId).toBe('version-2');
     expect(replaceMock).toHaveBeenCalledWith({
-      path: `/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     });
 
     await hub.setPreviewVersion('version-1');

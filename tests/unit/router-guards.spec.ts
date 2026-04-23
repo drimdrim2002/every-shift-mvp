@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { reactive } from 'vue';
+import { getScheduleStepRoutePath } from '@/constants/routes';
 
 const { showWarningMock, supabaseFromMock } = vi.hoisted(() => ({
   showWarningMock: vi.fn(),
@@ -51,7 +52,7 @@ describe('stepProgressGuard', () => {
     );
 
     expect(showWarningMock).toHaveBeenCalledWith('먼저 기본 정보를 입력해주세요.');
-    expect(next).toHaveBeenCalledWith('/schedule/step1');
+    expect(next).toHaveBeenCalledWith(getScheduleStepRoutePath(1));
   });
 
   it('allows setup-mode Step2 access without Step1 context for the canonical context query', async () => {
@@ -116,7 +117,7 @@ describe('stepProgressGuard', () => {
     );
 
     expect(showWarningMock).toHaveBeenCalledWith('먼저 기본 정보를 입력해주세요.');
-    expect(next).toHaveBeenCalledWith('/schedule/step1');
+    expect(next).toHaveBeenCalledWith(getScheduleStepRoutePath(1));
   });
 
   it('keeps wizard-mode Step3 gated when site requirements are missing', async () => {
@@ -134,7 +135,7 @@ describe('stepProgressGuard', () => {
     );
 
     expect(showWarningMock).toHaveBeenCalledWith('먼저 사이트 정보를 입력해주세요.');
-    expect(next).toHaveBeenCalledWith('/schedule/step2');
+    expect(next).toHaveBeenCalledWith(getScheduleStepRoutePath(2));
   });
 
   it('allows Step4 re-entry when basic info is restored and employees exist in DB', async () => {

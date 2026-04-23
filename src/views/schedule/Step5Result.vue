@@ -461,6 +461,7 @@ import {
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
 import { buildCanonicalStep5Route } from '@/utils/scheduleVersionResolver';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import {
   buildRollingHistoryWindow,
   mergeAssignmentMapsWithFallback,
@@ -1797,7 +1798,7 @@ async function loadStep5InitialData() {
   initialLoadErrorMessage.value = null;
 
   if (!scheduleStore.basicInfo && !routeScheduleKey.value) {
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
@@ -1927,7 +1928,7 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
 });
 
 function navigateToStep4() {
-  router.push('/schedule/step4');
+  router.push(getScheduleStepRoutePath(4));
 }
 
 function handleBack() {
@@ -1954,7 +1955,7 @@ function handleBack() {
 
 function handleGoDashboard() {
   if (changedCells.value.size === 0) {
-    router.replace('/');
+    router.replace(getAppHomeRoutePath());
     return;
   }
 
@@ -1964,7 +1965,7 @@ function handleGoDashboard() {
     positiveText: '이동',
     negativeText: '계속 편집',
     onPositiveClick: () => {
-      router.replace('/');
+      router.replace(getAppHomeRoutePath());
     },
   });
 }
@@ -2395,7 +2396,7 @@ async function handleResetCurrentVersion() {
         clearTempPreferenceStorage();
 
         showSuccess('현재 안의 이번 달 결과를 초기화했습니다.');
-        router.push('/schedule/step4');
+        router.push(getScheduleStepRoutePath(4));
       } catch (error) {
         console.error('Current version reset error:', error);
         showError('현재 안 초기화 중 오류가 발생했습니다');
@@ -2433,7 +2434,7 @@ async function handleResetActiveMonthFlow() {
         scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
 
         showSuccess('이번 달을 새로 시작합니다. Step4에서 다시 입력해주세요.');
-        router.push('/schedule/step4');
+        router.push(getScheduleStepRoutePath(4));
       } catch (error) {
         console.error('Reset active flow error:', error);
         showError(error instanceof Error ? error.message : '이번 달 새로 시작 중 오류가 발생했습니다.');
@@ -2492,7 +2493,7 @@ async function handleDeleteMonthSchedule() {
         scheduleStore.setComments({});
 
         showSuccess('이번 달 근무표를 삭제했습니다.');
-        await router.replace('/');
+        await router.replace(getAppHomeRoutePath());
       } catch (error) {
         console.error('Delete month schedule error:', error);
         showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');

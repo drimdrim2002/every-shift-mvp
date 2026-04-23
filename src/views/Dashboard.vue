@@ -253,6 +253,13 @@ import {
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver';
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
+import {
+  APP_SCHEDULE_STEP5_ROUTE_PREFIX,
+  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
+  getLegacyRedirectTarget,
+  getOpsOrganizationSetupRoutePath,
+  getScheduleStepRoutePath,
+} from '@/constants/routes';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
@@ -328,7 +335,7 @@ const foundationCardTarget = computed<FoundationCardTarget | null>(() => {
 
   if (organizationProfileItem.status !== 'ready') {
     return {
-      route: '/ops/organization-setup',
+      route: getOpsOrganizationSetupRoutePath(),
       title: '병원 정보 확인이 필요합니다',
       description: '병원명을 먼저 저장해야 다음 운영 기준을 이어서 설정할 수 있습니다.',
       actionLabel: '병원 정보 열기',
@@ -338,7 +345,7 @@ const foundationCardTarget = computed<FoundationCardTarget | null>(() => {
   if (scheduleFoundationItem.status !== 'ready') {
     return {
       route: {
-        path: '/schedule/step2',
+        path: getScheduleStepRoutePath(2),
         query: buildScheduleEntryQuery('setup'),
       },
       title: '운영 기본 설정이 아직 완료되지 않았습니다',
@@ -349,7 +356,7 @@ const foundationCardTarget = computed<FoundationCardTarget | null>(() => {
 
   return {
     route: {
-      path: '/schedule/step2',
+      path: getScheduleStepRoutePath(2),
       query: buildScheduleEntryQuery('setup'),
     },
     title: '운영 기본 설정이 완료되었습니다',
@@ -473,9 +480,10 @@ function buildChecklistBasicInfo(
 
 async function seedChecklistScheduleContext(item: ChecklistItem) {
   const nextMonth = getAvailableMonths()[1] || getNextMonth();
+  const step5ScheduleKey = extractStep5ScheduleKey(item.route);
 
-  if (item.route?.startsWith('/schedule/step5/')) {
-    const scheduleKey = item.route.split('/').pop() || undefined;
+  if (step5ScheduleKey) {
+    const scheduleKey = step5ScheduleKey || undefined;
     const schedule = scheduleKey
       ? schedules.value.find((entry) => entry.public_id === scheduleKey || entry.id === scheduleKey)
       : null;
@@ -489,6 +497,26 @@ async function seedChecklistScheduleContext(item: ChecklistItem) {
       )
     );
   }
+}
+
+function extractStep5ScheduleKey(routePath: string | null | undefined): string | null {
+  if (!routePath) {
+    return null;
+  }
+
+  if (routePath.startsWith(APP_SCHEDULE_STEP5_ROUTE_PREFIX)) {
+    return routePath.slice(APP_SCHEDULE_STEP5_ROUTE_PREFIX.length) || null;
+  }
+
+  if (routePath.startsWith(LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX)) {
+    return routePath.slice(LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.length) || null;
+  }
+
+  return null;
+}
+
+function normalizeChecklistRoute(routePath: string) {
+  return getLegacyRedirectTarget(routePath) ?? routePath;
 }
 
 async function navigateToCanonicalStep5(scheduleKey: string) {
@@ -525,7 +553,7 @@ async function handleChecklistNavigate(item: ChecklistItem) {
 
   if (item.key === 'schedule_foundation') {
     await router.push({
-      path: '/schedule/step2',
+      path: getScheduleStepRoutePath(2),
       query: buildScheduleEntryQuery('setup'),
     });
     return;
@@ -533,7 +561,7 @@ async function handleChecklistNavigate(item: ChecklistItem) {
 
   if (item.key === 'employee_roster') {
     await router.push({
-      path: '/schedule/step3',
+      path: getScheduleStepRoutePath(3),
       query: buildScheduleEntryQuery('setup'),
     });
     return;
@@ -545,8 +573,9 @@ async function handleChecklistNavigate(item: ChecklistItem) {
 
   await seedChecklistScheduleContext(item);
 
-  if (item.route.startsWith('/schedule/step5/')) {
-    const scheduleKey = item.route.split('/').pop();
+  const step5ScheduleKey = extractStep5ScheduleKey(item.route);
+  if (step5ScheduleKey) {
+    const scheduleKey = step5ScheduleKey;
     if (!scheduleKey) {
       return;
     }
@@ -560,7 +589,7 @@ async function handleChecklistNavigate(item: ChecklistItem) {
     return;
   }
 
-  await router.push(item.route);
+  await router.push(normalizeChecklistRoute(item.route));
 }
 
 async function handleMonthConfirm() {
@@ -598,7 +627,7 @@ async function handleMonthConfirm() {
       employeeCount: orgStore.employees.length,
     });
 
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return true; // 모달 닫기 허용
   } catch (error) {
     console.warn('중복 체크 실패:', error);
@@ -664,7 +693,7 @@ async function handleEdit(schedule: Schedule) {
   });
   
   // Step1부터 다시 시작 (시프트, 사이트 정보 등 재설정)
-  router.push('/schedule/step1');
+  router.push(getScheduleStepRoutePath(1));
 }
 
 function handleDelete(schedule: Schedule) {

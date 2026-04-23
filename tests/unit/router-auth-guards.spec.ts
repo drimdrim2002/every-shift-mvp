@@ -3,17 +3,33 @@ import { describe, expect, it } from 'vitest'
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
-  APPROVAL_QUEUE_ROUTE_PATH,
-  HOME_ROUTE_PATH,
+  APP_HOME_ROUTE_PATH,
+  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
+  PUBLIC_ROOT_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
-  USER_HOME_ROUTE_PATH,
+  getApprovalQueueRoutePath,
+  getLegacyRedirectTarget,
+  getScheduleStepRoutePath,
+  getUserHomeRoutePath,
 } from '@/constants/routes'
 import { resolveAuthNavigationTarget, resolveRouteAccessTarget } from '@/router/guards'
+
+describe('route contract', () => {
+  it('keeps public root distinct from the canonical app root', () => {
+    expect(PUBLIC_ROOT_ROUTE_PATH).not.toBe(APP_HOME_ROUTE_PATH)
+  })
+
+  it('maps legacy approval routes into canonical app routes', () => {
+    expect(getLegacyRedirectTarget(LEGACY_APPROVAL_QUEUE_ROUTE_PATH)).toBe(getApprovalQueueRoutePath())
+  })
+})
 
 describe('resolveAuthNavigationTarget', () => {
   it('redirects pending admins away from the app into the pending access screen', () => {
     const redirect = resolveAuthNavigationTarget({
-      toPath: '/',
+      toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'admin_pending',
     })
@@ -41,39 +57,39 @@ describe('resolveAuthNavigationTarget', () => {
     expect(redirect).toBeNull()
   })
 
-  it('redirects active users away from login into the normal app flow', () => {
+  it('redirects active users away from login into the canonical restricted user home', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: LOGIN_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'user_active',
     })
 
-    expect(redirect).toBe(USER_HOME_ROUTE_PATH)
+    expect(redirect).toBe(getUserHomeRoutePath())
   })
 
-  it('redirects active users away from the root path into the restricted user home', () => {
+  it('redirects active users away from the public root into the canonical restricted user home', () => {
     const redirect = resolveAuthNavigationTarget({
-      toPath: HOME_ROUTE_PATH,
+      toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'user_active',
     })
 
-    expect(redirect).toBe(USER_HOME_ROUTE_PATH)
+    expect(redirect).toBe(getUserHomeRoutePath())
   })
 
-  it('redirects super users away from login into the approval queue', () => {
+  it('redirects super users away from login into the canonical approval queue', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: LOGIN_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'super_active',
     })
 
-    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
+    expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 
-  it('keeps super users approval-first at the root path when org-admin abilities are not unlocked', () => {
+  it('keeps super users approval-first at the public root when org-admin abilities are not unlocked', () => {
     const redirect = resolveAuthNavigationTarget({
-      toPath: HOME_ROUTE_PATH,
+      toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'super_active',
       abilities: {
@@ -86,12 +102,12 @@ describe('resolveAuthNavigationTarget', () => {
       },
     })
 
-    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
+    expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 
-  it('allows super users with unlocked org-admin abilities through the auth layer at the root path', () => {
+  it('keeps super users approval-first from the public root even when org-admin abilities are unlocked', () => {
     const redirect = resolveAuthNavigationTarget({
-      toPath: HOME_ROUTE_PATH,
+      toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'super_active',
       abilities: {
@@ -104,14 +120,14 @@ describe('resolveAuthNavigationTarget', () => {
       },
     })
 
-    expect(redirect).toBeNull()
+    expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 })
 
 describe('resolveRouteAccessTarget', () => {
-  it('keeps super users approval-first on the dashboard when no active org is selected', () => {
+  it('keeps super users approval-first on the canonical app home when no active org is selected', () => {
     const redirect = resolveRouteAccessTarget({
-      toPath: HOME_ROUTE_PATH,
+      toPath: APP_HOME_ROUTE_PATH,
       accessState: 'super_active',
       abilities: {
         canViewApprovalQueue: true,
@@ -124,12 +140,12 @@ describe('resolveRouteAccessTarget', () => {
       selectedOrganizationId: null,
     })
 
-    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
+    expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 
   it('blocks super users from org-admin flows until an organization is selected', () => {
     const redirect = resolveRouteAccessTarget({
-      toPath: '/schedule/step1',
+      toPath: LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
       accessState: 'super_active',
       abilities: {
         canViewApprovalQueue: true,
@@ -144,7 +160,7 @@ describe('resolveRouteAccessTarget', () => {
       requiredOrgRole: 'admin',
     })
 
-    expect(redirect).toBe(APPROVAL_QUEUE_ROUTE_PATH)
+    expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 
   it('blocks restricted users from approval queue and org-admin routes', () => {
@@ -159,28 +175,28 @@ describe('resolveRouteAccessTarget', () => {
 
     expect(
       resolveRouteAccessTarget({
-        toPath: APPROVAL_QUEUE_ROUTE_PATH,
+        toPath: getApprovalQueueRoutePath(),
         accessState: 'user_active',
         abilities,
         selectedOrganizationId: 'org-1',
       }),
-    ).toBe(USER_HOME_ROUTE_PATH)
+    ).toBe(getUserHomeRoutePath())
 
     expect(
       resolveRouteAccessTarget({
-        toPath: '/ops/organization-setup',
+        toPath: LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
         accessState: 'user_active',
         abilities,
         selectedOrganizationId: 'org-1',
         requiresOrgContext: true,
         requiredOrgRole: 'admin',
       }),
-    ).toBe(USER_HOME_ROUTE_PATH)
+    ).toBe(getUserHomeRoutePath())
   })
 
-  it('redirects restricted users away from schedule generation routes into the restricted home', () => {
+  it('redirects restricted users away from schedule generation routes into the canonical restricted home', () => {
     const redirect = resolveRouteAccessTarget({
-      toPath: '/schedule/step1',
+      toPath: getScheduleStepRoutePath(1),
       accessState: 'user_active',
       abilities: {
         canViewApprovalQueue: false,
@@ -195,12 +211,12 @@ describe('resolveRouteAccessTarget', () => {
       requiredOrgRole: 'admin',
     })
 
-    expect(redirect).toBe(USER_HOME_ROUTE_PATH)
+    expect(redirect).toBe(getUserHomeRoutePath())
   })
 
-  it('allows super users with unlocked org-admin abilities to remain on the dashboard', () => {
+  it('allows super users with unlocked org-admin abilities to remain on canonical app home', () => {
     const redirect = resolveRouteAccessTarget({
-      toPath: HOME_ROUTE_PATH,
+      toPath: APP_HOME_ROUTE_PATH,
       accessState: 'super_active',
       abilities: {
         canViewApprovalQueue: true,
