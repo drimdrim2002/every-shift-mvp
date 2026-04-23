@@ -1,0 +1,656 @@
+# Launch Core 구현 슬라이스 가이드
+
+> 원문 기준 문서: [launch-core-implementation-slices.md](./launch-core-implementation-slices.md)
+> 관련 계획 문서: [launch-core-plan.md](./launch-core-plan.md)
+
+## 이 문서는 무엇인가
+
+`Launch Core` 작업을 한 번에 크게 바꾸지 않고, 안전하게 나눠서 구현하기 위한 실행 문서입니다.
+
+- 각 슬라이스는 독립적으로 구현, 검증, 머지할 수 있어야 합니다.
+- 이전 슬라이스가 안정화되기 전에는 다음 슬라이스로 넘어가지 않습니다.
+- 특히 라우팅(`/`, `/app`)과 인증, 공개 랜딩, 문의 CTA가 섞여서 반쯤 바뀐 상태가 되지 않도록 막는 것이 핵심입니다.
+
+## 핵심 목표
+
+이번 작업의 목표는 제품을 새로 만드는 것이 아닙니다. 기존 앱을 유지한 채 진입 구조만 정리하는 것입니다.
+
+- 공개 랜딩 페이지는 `/`
+- 로그인 후 실제 작업 공간은 `/app`
+- 기존 인증 화면, 접근 상태 화면, 앱 셸, 운영 화면, 스케줄 플로우는 최대한 재사용
+- 런칭 기간에는 예전 URL도 임시 리다이렉트로 살려두기
+- 배포와 테스트 기준까지 함께 고정하기
+
+## 사용 기술
+
+- Vue 3 `<script setup>`
+- TypeScript
+- Vue Router
+- Pinia
+- Naive UI
+- Tailwind CSS
+- Vite
+- Vitest
+- Playwright
+- Vercel
+
+---
+
+## 이번 문서의 범위
+
+### 포함
+
+- `/` 공개 랜딩 페이지
+- `/app` 기준의 로그인 후 작업 공간
+- 기존 이메일/비밀번호 로그인, 회원가입 흐름 유지
+- pending/rejected/admin/user/super 권한별 리다이렉트 정확성
+- 공개 설정값을 통한 실제 문의 CTA 연결
+- 기존 앱 URL에 대한 임시 리다이렉트
+- Vercel SPA 딥링크 동작 보장
+- 런칭 중심 회귀 테스트
+
+### 제외
+
+- Google 로그인
+- Kakao 로그인
+- OAuth callback 배포
+- 앱 내부 문의 관리 기능
+- analytics SDK 도입
+- 라우트 마이그레이션과 무관한 스케줄 생성 로직 변경
+
+## 반드시 지켜야 하는 원칙
+
+- `/` 는 소개용 화면만 담당합니다.
+- `/app` 은 실제 업무 화면만 담당합니다.
+- 공개 화면, 인증 화면, 접근 상태 화면에는 앱 크롬(`DefaultLayout`, 사이드바, 워크스페이스 헤더)이 붙으면 안 됩니다.
+- 공개 루트(`/`)와 로그인 후 홈(`/app`)은 같은 상수나 같은 의미로 취급하면 안 됩니다.
+- 기존 경로는 런칭 기간 동안만 명시적인 리다이렉트로 유지합니다.
+- 하드코딩된 경로 문자열은 가능한 한 공용 라우트 헬퍼나 레거시 리다이렉트 맵으로 치환합니다.
+
+## 라우트 계약 고정
+
+구현 전에 아래 의미를 먼저 고정합니다.
+
+- `PUBLIC_ROOT_ROUTE_PATH = '/'`
+- `APP_HOME_ROUTE_PATH = '/app'`
+
+### 대표 canonical 경로
+
+- 승인 대기열: `/app/admin/approval-queue`
+- 사용자 홈: `/app/home/user`
+- 조직 설정: `/app/ops/organization-setup`
+- 오프요청 정책 설정: `/app/ops/off-request-policy-setup`
+- 스케줄 단계: `/app/schedule/step1` ~ `/app/schedule/step4`
+- Step5 상세: `/app/schedule/step5/:scheduleKey`
+
+### 런칭 기간 레거시 리다이렉트 대상
+
+- `/admin/*`
+- `/home/*`
+- `/ops/*`
+- `/schedule/*`
+
+### 이 계약을 반드시 따라야 하는 곳
+
+- 로그인 후 이동 경로 결정
+- auth guard 기본 이동 처리
+- 대시보드 CTA 이동
+- 사이드바 선택 상태와 활성 상태 계산
+- Step1~Step5 이동
+- Step5 route builder 와 self-heal helper
+- 공용 E2E helper 와 랜딩 가정
+
+## 슬라이스 운영 규칙
+
+1. 한 번에 하나의 슬라이스만 작업합니다.
+2. 현재 슬라이스의 테스트 게이트가 모두 통과되기 전에는 다음 슬라이스로 가지 않습니다.
+3. 회귀 버그가 생기면 같은 슬라이스 안에서 바로 수정합니다.
+4. 각 슬라이스는 그 자체로 머지 가능한 상태여야 합니다.
+5. 새 테스트 체계를 만드는 것보다 기존 테스트를 확장하는 쪽을 우선합니다.
+
+## 슬라이스 순서
+
+```text
+Slice 0: 라우트 의미 고정
+   ↓
+Slice 1: 라우트 계약 정리
+   ↓
+Slice 2: canonical /app 작업 공간 공존
+   ↓
+Slice 3: 공개 랜딩 + 레이아웃 경계 분리
+   ↓
+Slice 4: 레거시 리다이렉트 유지
+   ↓
+Slice 5: 문의 CTA 실사용 연결
+   ↓
+Slice 6: 배포 계약 + 최종 회귀 게이트
+```
+
+---
+
+## Slice 0 시작 전 기준선 점검
+
+처음 한 번만 아래를 실행합니다.
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+
+그리고 변경 전에 현재 상태를 기록해 둡니다.
+
+- `/`, `/login`, `/signup`, `/access/*`, `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 의 현재 리다이렉트 규칙
+- 기존 `/schedule/step*` guard 동작, 특히 Step5 `scheduleKey` 보정 규칙
+- 대시보드와 사이드바가 “home” 경로를 어떻게 가정하는지
+- 공용 E2E helper 가 랜딩 위치와 스케줄 리뷰 URL을 어떻게 가정하는지
+
+이 단계의 목적은 “나중에 무엇이 깨졌는지”를 비교할 기준을 만드는 것입니다.
+
+## 테스트로 확인해야 하는 전체 그림
+
+```text
+Public `/`
+  ├─ 로그아웃 상태 -> 공개 랜딩 페이지
+  └─ 로그인 상태 -> `/app`
+
+Canonical `/app`
+  ├─ `/app`
+  ├─ `/app/home/user`
+  ├─ `/app/admin/approval-queue`
+  ├─ `/app/ops/*`
+  └─ `/app/schedule/step1..step5`
+
+Legacy coexistence
+  ├─ `/admin/*` -> `/app/admin/*`
+  ├─ `/home/*` -> `/app/home/*`
+  ├─ `/ops/*` -> `/app/ops/*`
+  └─ `/schedule/*` -> `/app/schedule/*`
+
+Layout boundary
+  ├─ `/`, `/login`, `/signup`, `/access/*` -> 앱 크롬 없음
+  └─ `/app/*` -> 앱 크롬 허용
+
+Inquiry
+  ├─ 헤더 CTA
+  ├─ 히어로 CTA
+  └─ 하나의 검증된 Google Form URL 사용
+```
+
+---
+
+## Slice 0: 라우트 의미 고정
+
+### 목표
+
+`/` 와 `/app` 이 각각 무엇을 의미하는지 먼저 고정합니다. 이후 작업에서 의미가 다시 섞이지 않도록 만드는 단계입니다.
+
+### 왜 먼저 해야 하나
+
+이 작업 없이 바로 구현에 들어가면,
+
+- 경로 문자열이 여기저기 남고
+- 인증 fallback 이 엉키고
+- 공개 화면과 앱 화면의 역할이 다시 섞일 가능성이 큽니다.
+
+### 포함 작업
+
+- 공개 루트와 로그인 후 홈의 역할을 문서와 코드에 명확히 반영
+- app home, approval queue, user home, ops setup, schedule steps, Step5 용 canonical builder 정의
+- `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 레거시 리다이렉트 맵 정의
+- 하드코딩 경로를 찾는 raw path 조사와 체크리스트 작성
+
+### raw path 조사 대상
+
+- `src/router/index.ts`
+- `src/router/guards.ts`
+- `src/views/Dashboard.vue`
+- `src/components/layout/Sidebar.vue`
+- `src/views/schedule/Step1BasicInfo.vue`
+- `src/views/schedule/Step2SiteInfo.vue`
+- `src/views/schedule/Step3EmployeeInfo.vue`
+- `src/views/schedule/Step4InitialData.vue`
+- `src/views/schedule/Step5Result.vue`
+- `tests/e2e/helpers.ts`
+- `tests/unit/dashboard.spec.ts`
+- `tests/unit/sidebar.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+
+추천 검색:
+
+- `rg -n "'/((admin|home|ops|schedule)|app)" src tests`
+
+### 주요 파일
+
+- `src/constants/routes.ts`
+- `src/router/index.ts`
+- `src/router/guards.ts`
+- `src/views/Dashboard.vue`
+- `src/components/layout/Sidebar.vue`
+- `src/views/schedule/Step1BasicInfo.vue`
+- `src/views/schedule/Step2SiteInfo.vue`
+- `src/views/schedule/Step3EmployeeInfo.vue`
+- `src/views/schedule/Step4InitialData.vue`
+- `src/views/schedule/Step5Result.vue`
+- `tests/e2e/helpers.ts`
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-guards.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- `tests/unit/dashboard.spec.ts`
+- `tests/unit/sidebar.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+
+### 완료 기준
+
+- `PUBLIC_ROOT_ROUTE_PATH` 와 `APP_HOME_ROUTE_PATH` 의 의미가 분리되어 있다.
+- approval queue, user home, ops setup, schedule steps, Step5 를 커버하는 builder 세트가 준비되어 있다.
+- 공개 랜딩 작업 전에 레거시 리다이렉트 맵이 명시되어 있다.
+- raw path 가 암묵적 지식이 아니라 체크리스트로 관리된다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+
+---
+
+## Slice 1: 라우트 계약 정리
+
+### 목표
+
+Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 helper 로 통일합니다.
+
+### 왜 분리된 슬라이스인가
+
+이 단계가 먼저 정리되어야 이후 `/app` canonical 경로와 레거시 리다이렉트를 동시에 안전하게 운영할 수 있습니다.
+
+### 포함 작업
+
+- `src/constants/routes.ts` 를 Launch Core 기준의 canonical route map 으로 확장
+- 아래 helper 또는 builder 추가
+- app home
+- approval queue
+- user home
+- ops organization setup
+- ops off-request-policy setup
+- schedule step paths
+- Step5 route payload
+- legacy -> canonical redirect target
+- Launch Core 관련 코드의 하드코딩 경로를 helper 또는 legacy map 으로 교체
+
+### 주요 파일
+
+- `src/constants/routes.ts`
+- `src/router/index.ts`
+- `src/router/guards.ts`
+- `src/components/layout/Sidebar.vue`
+- `src/views/Dashboard.vue`
+- `src/views/schedule/Step1BasicInfo.vue`
+- `src/views/schedule/Step2SiteInfo.vue`
+- `src/views/schedule/Step3EmployeeInfo.vue`
+- `src/views/schedule/Step4InitialData.vue`
+- `src/views/schedule/Step5Result.vue`
+- `tests/e2e/helpers.ts`
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-guards.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- `tests/unit/dashboard.spec.ts`
+- `tests/unit/sidebar.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+
+### 완료 기준
+
+- Launch Core 목적지는 상수와 builder 가 단일 출처가 된다.
+- `/ops/organization-setup`, `/ops/off-request-policy-setup`, `/schedule/step5/:scheduleKey` 가 예외 취급되지 않는다.
+- 남은 raw path 는 제거되거나 레거시 리다이렉트 맵으로 명시된다.
+- 이 슬라이스에서는 사용자에게 보이는 동작 변화가 없어야 한다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+
+---
+
+## Slice 2: canonical `/app` 작업 공간 공존
+
+### 목표
+
+로그인 후 실제 작업 경로를 `/app` 아래로 옮기되, 중간 마이그레이션 기간에는 예전 경로도 깨지지 않게 유지합니다.
+
+### 왜 분리된 슬라이스인가
+
+`/` 를 공개 랜딩으로 바꾸기 전에, `/app` 작업 공간이 먼저 안정적으로 살아 있어야 합니다.
+
+### 포함 작업
+
+- `DefaultLayout` 을 소유하는 `/app` 부모 라우트 추가
+- `/app` 아래에 인증 후 child route 등록
+- 로그인 후 리다이렉트와 guard fallback 을 canonical `/app` 경로로 변경
+- 이전 경로도 임시로 계속 동작하게 유지
+- router guard 관련 회귀를 이 슬라이스의 차단 게이트로 사용
+
+### 주요 파일
+
+- `src/router/index.ts`
+- `src/router/guards.ts`
+- `src/constants/routes.ts`
+- `src/views/auth/Login.vue`
+- `src/components/layout/Header.vue`
+- `src/components/layout/Sidebar.vue`
+- `src/views/Dashboard.vue`
+- `tests/e2e/helpers.ts`
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-guards.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- `tests/unit/login-view.spec.ts`
+- `tests/unit/dashboard.spec.ts`
+- `tests/unit/sidebar.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+- `tests/e2e/signup-flow.spec.ts`
+- `tests/e2e/multi-org-rbac.spec.ts`
+- 필요 시 `/app` 마이그레이션 전용 E2E 테스트 추가
+
+### 완료 기준
+
+- 로그인 성공 시 우선적으로 canonical `/app` 경로로 이동한다.
+- `DefaultLayout` 은 `/app` 에서만 마운트된다.
+- canonical `/app` 경로가 실제로 사용 가능하다.
+- 레거시 경로도 공존 기간에는 계속 열린다.
+- 전환 중에도 schedule 사용자가 잘못된 화면으로 보내지지 않는다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts tests/e2e/public-launch.spec.ts`
+
+---
+
+## Slice 3: 공개 랜딩 + 레이아웃 경계 분리
+
+### 목표
+
+`/` 를 공개 랜딩 페이지로 만들고, 공개/인증/접근 상태 화면에서 앱 크롬이 절대 보이지 않게 합니다.
+
+### 왜 독립적인가
+
+사용자가 가장 먼저 보게 되는 진입점이므로, `/app` 작업 공간이 먼저 안정화된 뒤에 적용해야 안전합니다.
+
+### 포함 작업
+
+- `/` 용 공개 랜딩 페이지 컴포넌트 또는 뷰 추가
+- `/login`, `/signup`, `/access/pending`, `/access/rejected` 가 `DefaultLayout` 밖에 있도록 보장
+- 로그인된 사용자가 `/` 로 오면 `/app` 으로 리다이렉트
+- 랜딩 hero 와 header CTA 구조를 IA 문서와 일치시킴
+
+### 추가 확인 항목
+
+- 로그아웃 상태에서 `/` 는 공개 랜딩 페이지가 보인다.
+- 로그인 상태에서 `/` 는 `/app` 으로 이동한다.
+- `/login`, `/signup`, `/access/pending`, `/access/rejected` 는 앱 크롬 없이 렌더링된다.
+- 공개/인증/접근 상태 경로에 사이드바나 워크스페이스 헤더가 섞여 나오지 않는다.
+
+### 주요 파일
+
+- `src/router/index.ts`
+- `src/router/guards.ts`
+- 랜딩 페이지 뷰 및 공개 CTA 관련 컴포넌트
+- 필요 시 `src/App.vue`, `src/main.ts`
+- 필요 시 `src/style.css`
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- 필요 시 `tests/unit/header.spec.ts`
+- 새 파일: `tests/unit/public-landing.spec.ts`
+- 공개 진입 전용 Playwright 테스트
+
+### 완료 기준
+
+- 비로그인 사용자는 `/` 에서 공개 랜딩 페이지를 본다.
+- 로그인된 사용자가 `/` 로 오면 `/app` 으로 이동한다.
+- 공개/인증/접근 상태 경로에 앱 크롬이 새지 않는다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
+- `pnpm test:e2e -- tests/e2e/public-launch.spec.ts`
+
+---
+
+## Slice 4: 레거시 리다이렉트 유지
+
+### 목표
+
+기존 북마크, 운영자 습관, 테스트 helper 가 깨지지 않도록 옛 경로를 명시적으로 `/app` 경로로 넘깁니다.
+
+### 왜 중요한가
+
+`/` 가 공개 랜딩으로 바뀌면, 가장 쉽게 깨지는 것은 오래된 딥링크입니다.
+
+### 포함 작업
+
+- `/admin/approval-queue` -> `/app/admin/approval-queue`
+- `/home/user` -> `/app/home/user`
+- `/ops/organization-setup` -> `/app/ops/organization-setup`
+- `/ops/off-request-policy-setup` -> `/app/ops/off-request-policy-setup`
+- `/schedule/step1` -> `/app/schedule/step1`
+- `/schedule/step2` -> `/app/schedule/step2`
+- `/schedule/step3` -> `/app/schedule/step3`
+- `/schedule/step4` -> `/app/schedule/step4`
+- `/schedule/step5/:scheduleKey` -> `/app/schedule/step5/:scheduleKey`
+- 공용 E2E helper 가 canonical 과 legacy 를 모두 이해하도록 수정
+- helper 사용자 테스트가 여전히 통과하는지 검증
+
+### 주요 파일
+
+- `src/router/index.ts`
+- `src/constants/routes.ts`
+- `tests/e2e/helpers.ts`
+- 직접 경로를 검사하는 unit test 들
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-guards.spec.ts`
+- `tests/unit/dashboard.spec.ts`
+- `tests/unit/sidebar.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+- `tests/e2e/public-launch.spec.ts`
+- `tests/e2e/multi-org-rbac.spec.ts`
+
+### 완료 기준
+
+- 기존 북마크가 새 `/app` 작업 공간으로 제대로 연결된다.
+- 리다이렉트 동작이 우연히 되는 것이 아니라, 코드와 테스트로 명시되어 있다.
+- `/ops/*`, `/schedule/*`, Step5 레거시 경로가 막히지 않는다.
+- 공용 E2E helper 가 canonical 기준으로도 동작하면서 런칭 기간 legacy 테스트도 유지한다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/multi-org-rbac.spec.ts`
+
+---
+
+## Slice 5: 문의 CTA 실사용 연결
+
+### 목표
+
+공개 랜딩의 모든 문의 CTA 가 하나의 검증된 설정값을 사용하도록 통일하고, 실제 Google Form 연결까지 런칭 기준으로 검증합니다.
+
+### 왜 분리된 슬라이스인가
+
+이 작업은 단순한 버튼 연결이 아니라, 실제 전환 경로가 작동하는지 확인하는 런칭 작업입니다.
+
+### 포함 작업
+
+- 모든 문의 CTA 가 하나의 공개 config 값을 사용하도록 통일
+- `.env.example` 에 `VITE_PUBLIC_INQUIRY_FORM_URL` 추가
+- `pnpm check-env` 에서 URL 존재 여부와 URL 형식을 검증
+- header 와 hero 의 CTA 라벨, 새 탭 동작을 일치시킴
+- Google Form 수동 QA 절차 문서화 및 실행
+
+### Google Form 수동 QA 체크
+
+아래 항목을 실제로 확인해야 합니다.
+
+- 필수 항목 존재: `요청 내용`, `병원 이름`, `병동 이름`, `이메일 주소`
+- `요청 내용` 옵션 존재: `소개 자료 다운로드`, `한 달 무료 사용하기`, `기타`
+- `기타` 를 선택했을 때 자유 입력 경로가 자연스럽다.
+- 제출 전 개인정보 안내가 보인다.
+- 런칭 문구상 필요하다면 동의 체크박스가 있다.
+- 제출 완료 후 다음 단계 안내가 보인다.
+
+### 주요 파일
+
+- 랜딩 / 헤더 CTA 컴포넌트
+- `.env.example`
+- `scripts/check-env.js`
+- 필요 시 `vite-env.d.ts`
+
+### 검증 파일
+
+- `tests/unit/public-landing.spec.ts`
+- 필요 시 CTA parity / inquiry URL 검증 테스트
+
+### 완료 기준
+
+- 모든 공개 문의 CTA 가 같은 목적지로 열린다.
+- 문의 URL 이 없거나 잘못되었으면 런칭 전에 잡힌다.
+- 코드베이스에 하드코딩된 Form URL 이 중복으로 남아 있지 않다.
+- Google Form 계약이 수동 검증되어 런칭 가능 상태로 기록된다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm check-env`
+- `pnpm test:unit -- tests/unit/public-landing.spec.ts`
+- Google Form 수동 QA 완료
+
+---
+
+## Slice 6: 배포 계약 + 최종 회귀 게이트
+
+### 목표
+
+배포 환경에서의 라우팅 계약을 고정하고, 런칭 회귀 테스트를 “권장”이 아니라 “필수” 단계로 만듭니다.
+
+### 왜 마지막인가
+
+이 단계는 앞선 모든 라우트, 리다이렉트, CTA 동작이 완성된 뒤에만 제대로 검증할 수 있습니다.
+
+### 포함 작업
+
+- 루트 `vercel.json` 에 Vite SPA 딥링크 rewrite 추가
+- `/app/*` 새로고침이 정상 동작하는지 확인
+- `pnpm check-env` 를 필수 런칭 게이트로 확정
+- 아래 범위의 런칭 회귀 테스트 추가 또는 마무리
+- 공개 `/`
+- canonical `/app`
+- auth redirect matrix
+- legacy redirect matrix
+- helper consumer coverage
+- inquiry CTA path
+- preview / production smoke check 정의
+
+### 주요 파일
+
+- `vercel.json`
+- `scripts/check-env.js`
+- `tests/e2e/public-launch.spec.ts`
+- `tests/e2e/helpers.ts`
+- 필요 시 route / auth unit test
+
+### 검증 파일
+
+- `tests/unit/router-index.spec.ts`
+- `tests/unit/router-auth-guards.spec.ts`
+- `tests/unit/login-view.spec.ts`
+- `tests/unit/public-landing.spec.ts`
+- `tests/unit/schedule-version-resolver.spec.ts`
+- `tests/unit/step5-result.spec.ts`
+- `tests/e2e/public-launch.spec.ts`
+- `tests/e2e/signup-flow.spec.ts`
+- `tests/e2e/multi-org-rbac.spec.ts`
+
+### 완료 기준
+
+- Vercel preview 에서 `/app/*` 새로고침이 살아 있다.
+- 라우트, 인증, helper, 레거시 리다이렉트 회귀가 unit / E2E 로 커버된다.
+- preview 가 production 승격 전 수동 스모크 테스트 가능한 상태다.
+- 문의 URL 이 없거나 잘못된 상태로는 런칭할 수 없다.
+
+### 테스트 게이트
+
+- `pnpm lint:check`
+- `pnpm check-env`
+- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts`
+- `pnpm build`
+
+### 프로덕션 전 수동 확인
+
+- 로그아웃 상태에서 `/` 가 공개 랜딩으로 보인다.
+- 로그인 상태에서 `/` 가 `/app` 으로 이동한다.
+- `/login`, `/signup`, `/access/*` 에 앱 크롬이 보이지 않는다.
+- preview 에서 `/app/*` 새로고침이 된다.
+- `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 레거시 리다이렉트가 모두 맞다.
+- 문의 CTA 가 설정된 Google Form 을 연다.
+- admin, super, pending, rejected, restricted-user 라우팅이 모두 맞다.
+
+---
+
+## 권장 개발 순서
+
+각 슬라이스마다 아래 순서를 그대로 반복합니다.
+
+1. 현재 슬라이스 범위만 구현
+2. 해당 슬라이스 테스트 게이트 실행
+3. 같은 슬라이스 안에서 회귀 수정
+4. 슬라이스 단위 커밋
+5. 그 다음 슬라이스로 이동
+
+### 권장 커밋 메시지
+
+- `chore: freeze launch route semantics`
+- `feat: consolidate launch route contract`
+- `feat: add canonical app workspace routes`
+- `feat: add public launch landing route`
+- `feat: add launch legacy redirects`
+- `feat: wire inquiry CTA config`
+- `chore: add vercel launch routing contract`
+
+## 특히 주의할 실패 시나리오
+
+| 실패 유형                                                 | 어떤 문제가 생기나                                                             | 어느 슬라이스에서 잡아야 하나 |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------- |
+| 로그인 사용자가 `/` 에서 루프를 돌거나 잘못된 화면으로 감 | `/`, `/login`, 레거시 홈 사이를 왔다 갔다 하거나 엉뚱한 화면으로 이동          | Slice 0, 2, 3                 |
+| `/ops/*` 북마크가 막힘                                    | 운영자가 저장해둔 설정 링크로 들어갔을 때 404 또는 빈 셸이 나옴                | Slice 1, 4                    |
+| `/app/schedule/*` 단계 guard 오동작                       | 사용자가 필요한 단계를 건너뛰거나 `scheduleKey` 를 잃거나 잘못된 단계로 돌아감 | Slice 0, 1, 2                 |
+| 문의 URL 이 없는데 CTA 는 보임                            | 사용자가 버튼을 눌렀지만 실제 문의 폼을 열 수 없음                             | Slice 5, 6                    |
+
+## 최종 런칭 조건
+
+아래가 모두 충족될 때만 `Launch Core` 를 배포할 수 있습니다.
+
+- 7개 슬라이스가 모두 완료되었다.
+- 각 슬라이스 테스트 게이트가 모두 통과했다.
+- 최종 런칭 회귀 테스트가 통과했다.
+- preview 스모크 테스트가 통과했다.
+- `launch-core-qa-checklist.md` 가 완료되었다.
