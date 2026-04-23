@@ -415,7 +415,7 @@ describe('Step2SiteInfo', () => {
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
     expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step3')
   })
 
   it('saves dirty data and then moves to Step 3 when next-step is clicked', async () => {
@@ -436,7 +436,7 @@ describe('Step2SiteInfo', () => {
     expect(replaceSiteRequirementsMock).toHaveBeenCalledTimes(1)
     expect(scheduleStoreMock.setSiteRequirements).toHaveBeenCalled()
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step3')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step3')
     expect(showSuccessMock).toHaveBeenCalledWith('요일별 인력이 저장되었습니다.')
   })
 
@@ -500,7 +500,7 @@ describe('Step2SiteInfo', () => {
 
     expect(scheduleStoreMock.nextStep).toHaveBeenCalledTimes(1)
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step3',
+      path: '/app/schedule/step3',
       query: {
         from: 'dashboard',
       },
@@ -522,7 +522,7 @@ describe('Step2SiteInfo', () => {
     await flushPromises()
 
     expect(scheduleStoreMock.reset).toHaveBeenCalled()
-    expect(pushMock).toHaveBeenCalledWith('/')
+    expect(pushMock).toHaveBeenCalledWith('/app')
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
   })
 

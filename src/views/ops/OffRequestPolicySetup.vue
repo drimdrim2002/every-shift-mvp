@@ -11,10 +11,10 @@
       </div>
 
       <div class="flex gap-2">
-        <n-button @click="router.push('/ops/organization-setup')">
+        <n-button @click="router.push(getOpsOrganizationSetupRoutePath())">
           조직 설정
         </n-button>
-        <n-button @click="router.push('/')">
+        <n-button @click="router.push(getAppHomeRoutePath())">
           대시보드로 돌아가기
         </n-button>
       </div>
@@ -68,6 +68,7 @@ import { getOffRequestPolicies, updateOffRequestPolicies } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';
 import type { OffRequestPolicySetupRequest, OffRequestPolicySetupResponse } from '@/types/ops';
 import { showError, showSuccess } from '@/utils/message';
+import { getAppHomeRoutePath, getOpsOrganizationSetupRoutePath } from '@/constants/routes';
 
 const router = useRouter();
 const organizationStore = useOrganizationStore();

@@ -6,10 +6,26 @@ import { resolveAuthNavigationTarget, resolveRouteAccessTarget, stepProgressGuar
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
-  APPROVAL_QUEUE_ROUTE_PATH,
+  APP_HOME_ROUTE_PATH,
+  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
+  LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP2_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP3_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP4_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
+  LEGACY_USER_HOME_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
+  PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
-  USER_HOME_ROUTE_PATH,
+  getAppHomeRoutePath,
+  getApprovalQueueRoutePath,
+  getOpsOffRequestPolicySetupRoutePath,
+  getOpsOrganizationSetupRoutePath,
+  getScheduleStepRoutePath,
+  getUserHomeRoutePath,
+  isAppRoutePath,
 } from '@/constants/routes';
 
 const devOnlyRoutes: RouteRecordRaw[] = [
@@ -65,7 +81,7 @@ const baseRoutes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '승인 반려', accessStateView: 'rejected' },
   },
   {
-    path: '/',
+    path: PUBLIC_ROOT_ROUTE_PATH,
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -76,19 +92,19 @@ const baseRoutes: RouteRecordRaw[] = [
         meta: { title: '대시보드' },
       },
       {
-        path: APPROVAL_QUEUE_ROUTE_PATH.slice(1),
+        path: LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1),
         name: 'ApprovalQueue',
         component: () => import('@/views/admin/ApprovalQueueView.vue'),
         meta: { requiresAuth: true, title: '관리자 가입 승인' },
       },
       {
-        path: USER_HOME_ROUTE_PATH,
+        path: LEGACY_USER_HOME_ROUTE_PATH.slice(1),
         name: 'UserHome',
         component: () => import('@/views/UserHome.vue'),
         meta: { requiresAuth: true, title: '내 홈' },
       },
       {
-        path: 'ops/organization-setup',
+        path: LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH.slice(1),
         name: 'OrganizationProfileSetup',
         component: () => import('@/views/ops/OrganizationProfileSetup.vue'),
         meta: {
@@ -99,7 +115,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'ops/off-request-policy-setup',
+        path: LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH.slice(1),
         name: 'OffRequestPolicySetup',
         component: () => import('@/views/ops/OffRequestPolicySetup.vue'),
         meta: {
@@ -110,7 +126,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'schedule/step1',
+        path: LEGACY_SCHEDULE_STEP1_ROUTE_PATH.slice(1),
         name: 'Step1',
         component: () => import('@/views/schedule/Step1BasicInfo.vue'),
         meta: {
@@ -121,7 +137,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'schedule/step2',
+        path: LEGACY_SCHEDULE_STEP2_ROUTE_PATH.slice(1),
         name: 'Step2',
         component: () => import('@/views/schedule/Step2SiteInfo.vue'),
         meta: {
@@ -132,7 +148,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'schedule/step3',
+        path: LEGACY_SCHEDULE_STEP3_ROUTE_PATH.slice(1),
         name: 'Step3',
         component: () => import('@/views/schedule/Step3EmployeeInfo.vue'),
         meta: {
@@ -143,7 +159,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'schedule/step4',
+        path: LEGACY_SCHEDULE_STEP4_ROUTE_PATH.slice(1),
         name: 'Step4',
         component: () => import('@/views/schedule/Step4InitialData.vue'),
         meta: {
@@ -154,7 +170,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: 'schedule/step5/:scheduleKey',
+        path: `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.slice(1)}:scheduleKey`,
         name: 'Step5',
         component: () => import('@/views/schedule/Step5Result.vue'),
         meta: {
@@ -181,19 +197,80 @@ const router = createRouter({
   routes: createAppRoutes(),
 });
 
-// 인증 가드 및 Step 진행 검증 가드
+function resolveTemporarilyMountedPath(path: string): string | null {
+  if (!isAppRoutePath(path)) {
+    return null;
+  }
+
+  if (path === getAppHomeRoutePath()) {
+    return PUBLIC_ROOT_ROUTE_PATH;
+  }
+
+  if (path === getApprovalQueueRoutePath()) {
+    return LEGACY_APPROVAL_QUEUE_ROUTE_PATH;
+  }
+
+  if (path === getUserHomeRoutePath()) {
+    return LEGACY_USER_HOME_ROUTE_PATH;
+  }
+
+  if (path === getOpsOrganizationSetupRoutePath()) {
+    return LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH;
+  }
+
+  if (path === getOpsOffRequestPolicySetupRoutePath()) {
+    return LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH;
+  }
+
+  if (path === getScheduleStepRoutePath(1)) {
+    return LEGACY_SCHEDULE_STEP1_ROUTE_PATH;
+  }
+
+  if (path === getScheduleStepRoutePath(2)) {
+    return LEGACY_SCHEDULE_STEP2_ROUTE_PATH;
+  }
+
+  if (path === getScheduleStepRoutePath(3)) {
+    return LEGACY_SCHEDULE_STEP3_ROUTE_PATH;
+  }
+
+  if (path === getScheduleStepRoutePath(4)) {
+    return LEGACY_SCHEDULE_STEP4_ROUTE_PATH;
+  }
+
+  if (path.startsWith(`${APP_HOME_ROUTE_PATH}/schedule/step5/`)) {
+    const scheduleKey = path.slice(`${APP_HOME_ROUTE_PATH}/schedule/step5/`.length);
+    return scheduleKey ? `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}${scheduleKey}` : null;
+  }
+
+  return null;
+}
+
+function normalizeRedirectTarget(targetPath: string): string {
+  return resolveTemporarilyMountedPath(targetPath) ?? targetPath;
+}
+
 router.beforeEach(async (to, from, next) => {
+  const temporaryMountedPath = resolveTemporarilyMountedPath(to.path);
+  if (temporaryMountedPath && temporaryMountedPath !== to.path) {
+    next({
+      path: temporaryMountedPath,
+      query: to.query,
+      hash: to.hash,
+      replace: true,
+    });
+    return;
+  }
+
   const authStore = useAuthStore();
   const rbacStore = useRbacStore();
 
-  // 세션 확인
   if (!authStore.user) {
     await authStore.checkSession();
   }
 
   const requiresAuth = to.matched.some((record) => record.meta.requiresAuth);
 
-  // 1. 인증 체크
   if (requiresAuth && !authStore.user) {
     next(LOGIN_ROUTE_PATH);
     return;
@@ -211,7 +288,13 @@ router.beforeEach(async (to, from, next) => {
   });
 
   if (authRedirect) {
-    next(authRedirect);
+    const nextPath = normalizeRedirectTarget(authRedirect);
+    if (nextPath === to.path) {
+      next();
+      return;
+    }
+
+    next(nextPath);
     return;
   }
 
@@ -227,11 +310,16 @@ router.beforeEach(async (to, from, next) => {
   });
 
   if (routeAccessRedirect) {
-    next(routeAccessRedirect);
+    const nextPath = normalizeRedirectTarget(routeAccessRedirect);
+    if (nextPath === to.path) {
+      next();
+      return;
+    }
+
+    next(nextPath);
     return;
   }
 
-  // 2. Step 진행 순서 검증 (인증된 사용자만 해당)
   if (to.path.startsWith('/schedule/step')) {
     await stepProgressGuard(to, from, next);
     return;
@@ -240,7 +328,6 @@ router.beforeEach(async (to, from, next) => {
   next();
 });
 
-// 동적 title 설정
 router.afterEach((to) => {
   const baseTitle = 'EveryShift';
   const pageTitle = to.meta.title as string;

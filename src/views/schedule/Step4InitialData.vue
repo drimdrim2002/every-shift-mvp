@@ -204,6 +204,7 @@ import {
   readTempPreferencesEnvelopeV2,
   writeTempPreferencesEnvelopeV2,
 } from '@/utils/tempPreferencesStorage';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 
 const router = useRouter();
 const route = useRoute();
@@ -907,7 +908,7 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
 // Lifecycle
 onMounted(async () => {
   if (!scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
@@ -1058,12 +1059,12 @@ function handlePrev() {
   router.push(
     cameFromDashboard.value
       ? {
-          path: '/schedule/step3',
+          path: getScheduleStepRoutePath(3),
           query: {
             from: 'dashboard',
           },
         }
-      : '/schedule/step3'
+      : getScheduleStepRoutePath(3)
   );
 }
 
@@ -1075,7 +1076,7 @@ function handleReturnToDashboard() {
     month: scheduleStore.basicInfo?.month,
   });
   scheduleStore.reset();
-  router.push('/');
+  router.push(getAppHomeRoutePath());
 }
 
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {

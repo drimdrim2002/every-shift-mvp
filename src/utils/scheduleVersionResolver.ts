@@ -1,4 +1,5 @@
 import type { ScheduleCompareResponse, ScheduleVersionSummary } from '@/types/schedule';
+import { getScheduleStep5RoutePath } from '@/constants/routes';
 
 function hasVersionId(versions: ScheduleVersionSummary[], versionId: string | null): versionId is string {
   return versionId !== null && versions.some((version) => version.id === versionId);
@@ -251,11 +252,11 @@ export function buildStep5Route(
 
   return Object.keys(query).length > 0
     ? {
-        path: `/schedule/step5/${scheduleKey}`,
+        path: getScheduleStep5RoutePath(scheduleKey),
         query,
       }
     : {
-        path: `/schedule/step5/${scheduleKey}`,
+        path: getScheduleStep5RoutePath(scheduleKey),
       };
 }
 
@@ -271,11 +272,11 @@ export function buildCanonicalStep5Route(
 
   return Object.keys(query).length > 0
     ? {
-        path: `/schedule/step5/${scheduleKey}`,
+        path: getScheduleStep5RoutePath(scheduleKey),
         query,
       }
     : {
-        path: `/schedule/step5/${scheduleKey}`,
+        path: getScheduleStep5RoutePath(scheduleKey),
       };
 }
 

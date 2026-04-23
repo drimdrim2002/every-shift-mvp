@@ -332,7 +332,7 @@ describe('Dashboard', () => {
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/sch_a1b2c3d4e5f6',
+      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
     })
   })
 
@@ -393,9 +393,9 @@ describe('Dashboard', () => {
 
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
-    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/sch_a1b2c3d4e5f6')
+    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step5/sch_a1b2c3d4e5f6')
     expect(pushMock).not.toHaveBeenCalledWith({
-      path: '/schedule/step5/sch_a1b2c3d4e5f6',
+      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
     })
   })
 
@@ -458,7 +458,7 @@ describe('Dashboard', () => {
 
     await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
 
-    expect(pushMock).toHaveBeenCalledWith('/ops/organization-setup')
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/organization-setup')
   })
 
   it('deep-links the foundation card CTA to Step2 setup when only schedule foundation is incomplete', async () => {
@@ -521,7 +521,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },
@@ -562,7 +562,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },
@@ -587,7 +587,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },
@@ -695,7 +695,7 @@ describe('Dashboard', () => {
 
     await wrapper.get('[data-test="pilot-checklist-link-organization_profile"]').trigger('click')
     await flushPromises()
-    expect(pushMock).toHaveBeenCalledWith('/ops/organization-setup')
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/organization-setup')
 
     pushMock.mockClear()
     setBasicInfoMock.mockClear()
@@ -704,7 +704,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="pilot-checklist-link-schedule_foundation"]').trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },
@@ -718,7 +718,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="pilot-checklist-item-schedule_foundation"]').trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },
@@ -731,7 +731,7 @@ describe('Dashboard', () => {
     await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step3',
+      path: '/app/schedule/step3',
       query: {
         context: 'setup',
       },
@@ -745,13 +745,13 @@ describe('Dashboard', () => {
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-off_request_policy"]').trigger('click')
     await flushPromises()
-    expect(pushMock).toHaveBeenCalledWith('/ops/off-request-policy-setup')
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/off-request-policy-setup')
 
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-schedule_review"]').trigger('click')
     await flushPromises()
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/sch_a1b2c3d4e5f6',
+      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
     })
   })
 
@@ -870,7 +870,7 @@ describe('Dashboard', () => {
     await flushPromises()
 
     expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step2',
+      path: '/app/schedule/step2',
       query: {
         context: 'setup',
       },

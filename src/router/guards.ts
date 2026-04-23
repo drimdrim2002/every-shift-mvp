@@ -7,12 +7,16 @@ import type { AccessAbilities, AccessState } from '@/types/rbac';
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
-  APPROVAL_QUEUE_ROUTE_PATH,
-  HOME_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
-  USER_HOME_ROUTE_PATH,
+  getAppHomeRoutePath,
+  getApprovalQueueRoutePath,
+  getLegacyRedirectTarget,
+  getScheduleStepRoutePath,
+  getUserHomeRoutePath,
   isAccessStateRoutePath,
   isAuthPagePath,
+  isPublicRootRoutePath,
+  isScheduleStep5RoutePath,
   resolvePostAuthRedirectPath,
 } from '@/constants/routes';
 
@@ -35,38 +39,6 @@ interface ResolveAuthNavigationTargetInput {
   abilities?: AccessAbilities;
 }
 
-export function resolveAuthNavigationTarget({
-  toPath,
-  isAuthenticated,
-  accessState,
-  abilities,
-}: ResolveAuthNavigationTargetInput): string | null {
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const blockedStatePath = resolveBlockedStatePath(accessState);
-  if (blockedStatePath) {
-    return toPath === blockedStatePath ? null : blockedStatePath;
-  }
-
-  if (toPath === HOME_ROUTE_PATH) {
-    if (accessState === 'super_active' && abilities && hasOrgAdminAccess(abilities)) {
-      return null;
-    }
-
-    const redirectPath = resolvePostAuthRedirectPath(accessState);
-    return redirectPath === toPath ? null : redirectPath;
-  }
-
-  if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath)) {
-    const redirectPath = resolvePostAuthRedirectPath(accessState);
-    return redirectPath === toPath ? null : redirectPath;
-  }
-
-  return null;
-}
-
 interface ResolveRouteAccessTargetInput {
   toPath: string;
   accessState: AccessState | null;
@@ -81,11 +53,11 @@ function resolveAuthenticatedFallbackPath(
   abilities: AccessAbilities,
 ): string {
   if (abilities.canViewApprovalQueue) {
-    return APPROVAL_QUEUE_ROUTE_PATH;
+    return getApprovalQueueRoutePath();
   }
 
   if (abilities.canViewRestrictedUserHome) {
-    return USER_HOME_ROUTE_PATH;
+    return getUserHomeRoutePath();
   }
 
   return resolvePostAuthRedirectPath(accessState);
@@ -99,6 +71,37 @@ function hasOrgAdminAccess(abilities: AccessAbilities) {
   );
 }
 
+function normalizeAppContractPath(path: string): string {
+  return getLegacyRedirectTarget(path) ?? path;
+}
+
+export function resolveAuthNavigationTarget({
+  toPath,
+  isAuthenticated,
+  accessState,
+}: ResolveAuthNavigationTargetInput): string | null {
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  const blockedStatePath = resolveBlockedStatePath(accessState);
+  if (blockedStatePath) {
+    return toPath === blockedStatePath ? null : blockedStatePath;
+  }
+
+  if (isPublicRootRoutePath(toPath)) {
+    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    return redirectPath === normalizeAppContractPath(toPath) ? null : redirectPath;
+  }
+
+  if (isAuthPagePath(toPath) || isAccessStateRoutePath(toPath)) {
+    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    return redirectPath === normalizeAppContractPath(toPath) ? null : redirectPath;
+  }
+
+  return null;
+}
+
 export function resolveRouteAccessTarget({
   toPath,
   accessState,
@@ -107,42 +110,43 @@ export function resolveRouteAccessTarget({
   requiresOrgContext = false,
   requiredOrgRole,
 }: ResolveRouteAccessTargetInput): string | null {
+  const normalizedToPath = normalizeAppContractPath(toPath);
   const fallbackPath = resolveAuthenticatedFallbackPath(accessState, abilities);
 
-  if (toPath === HOME_ROUTE_PATH) {
+  if (normalizedToPath === getAppHomeRoutePath()) {
     if (abilities.canViewApprovalQueue && !hasOrgAdminAccess(abilities)) {
-      return APPROVAL_QUEUE_ROUTE_PATH;
+      return getApprovalQueueRoutePath();
     }
 
     if (abilities.canViewRestrictedUserHome) {
-      return USER_HOME_ROUTE_PATH;
+      return getUserHomeRoutePath();
     }
 
     return null;
   }
 
-  if (toPath === USER_HOME_ROUTE_PATH) {
+  if (normalizedToPath === getUserHomeRoutePath()) {
     if (abilities.canViewRestrictedUserHome) {
       return null;
     }
 
-    return fallbackPath === USER_HOME_ROUTE_PATH ? HOME_ROUTE_PATH : fallbackPath;
+    return fallbackPath === getUserHomeRoutePath() ? getAppHomeRoutePath() : fallbackPath;
   }
 
-  if (toPath === APPROVAL_QUEUE_ROUTE_PATH) {
+  if (normalizedToPath === getApprovalQueueRoutePath()) {
     if (abilities.canViewApprovalQueue) {
       return null;
     }
 
-    return fallbackPath === APPROVAL_QUEUE_ROUTE_PATH ? HOME_ROUTE_PATH : fallbackPath;
+    return fallbackPath === getApprovalQueueRoutePath() ? getAppHomeRoutePath() : fallbackPath;
   }
 
   if (requiresOrgContext && !selectedOrganizationId) {
-    return fallbackPath === toPath ? HOME_ROUTE_PATH : fallbackPath;
+    return fallbackPath === normalizedToPath ? getAppHomeRoutePath() : fallbackPath;
   }
 
   if (requiredOrgRole === 'admin' && !hasOrgAdminAccess(abilities)) {
-    return fallbackPath === toPath ? HOME_ROUTE_PATH : fallbackPath;
+    return fallbackPath === normalizedToPath ? getAppHomeRoutePath() : fallbackPath;
   }
 
   if (accessState === 'no_membership_or_inactive') {
@@ -166,9 +170,9 @@ export async function stepProgressGuard(
 ) {
   const scheduleStore = useScheduleStore();
   const isSetupEntry = isSetupEntryMode(to.query);
+  const targetPath = normalizeAppContractPath(to.path);
 
-  // Step 2 접근 시 Step 1 완료 확인
-  if (to.path === '/schedule/step2') {
+  if (targetPath === getScheduleStepRoutePath(2)) {
     if (isSetupEntry) {
       next();
       return;
@@ -176,13 +180,12 @@ export async function stepProgressGuard(
 
     if (!scheduleStore.basicInfo?.month) {
       showWarning('먼저 기본 정보를 입력해주세요.');
-      next('/schedule/step1');
+      next(getScheduleStepRoutePath(1));
       return;
     }
   }
 
-  // Step 3 (직원 정보) 접근 시 Step 2 완료 확인
-  if (to.path === '/schedule/step3') {
+  if (targetPath === getScheduleStepRoutePath(3)) {
     if (isSetupEntry) {
       next();
       return;
@@ -190,23 +193,24 @@ export async function stepProgressGuard(
 
     if (!scheduleStore.basicInfo?.month) {
       showWarning('먼저 기본 정보를 입력해주세요.');
-      next('/schedule/step1');
+      next(getScheduleStepRoutePath(1));
       return;
     }
+
     if (!scheduleStore.siteRequirements || scheduleStore.siteRequirements.length === 0) {
       showWarning('먼저 사이트 정보를 입력해주세요.');
-      next('/schedule/step2');
+      next(getScheduleStepRoutePath(2));
       return;
     }
   }
 
-  // Step 4 (초기 데이터) 접근 시 Step 3 완료 확인
-  if (to.path === '/schedule/step4') {
+  if (targetPath === getScheduleStepRoutePath(4)) {
     if (!scheduleStore.basicInfo?.month) {
       showWarning('먼저 기본 정보를 입력해주세요.');
-      next('/schedule/step1');
+      next(getScheduleStepRoutePath(1));
       return;
     }
+
     const hasStoreEmployees = !!scheduleStore.employees && scheduleStore.employees.length > 0;
     if (!hasStoreEmployees) {
       try {
@@ -219,7 +223,7 @@ export async function stepProgressGuard(
           console.warn('[stepProgressGuard] Failed to query employees count:', error);
         } else if (!count || count === 0) {
           showWarning('먼저 직원 정보를 입력해주세요.');
-          next('/schedule/step3');
+          next(getScheduleStepRoutePath(3));
           return;
         }
       } catch (error) {
@@ -228,11 +232,10 @@ export async function stepProgressGuard(
     }
   }
 
-  // Step 5 (결과 확인) 접근 시 scheduleKey 필수 (params.scheduleKey)
-  if (to.path.startsWith('/schedule/step5')) {
+  if (isScheduleStep5RoutePath(targetPath)) {
     if (!to.params.scheduleKey) {
       showWarning('잘못된 접근입니다.');
-      next('/');
+      next(getScheduleStepRoutePath(1));
       return;
     }
   }

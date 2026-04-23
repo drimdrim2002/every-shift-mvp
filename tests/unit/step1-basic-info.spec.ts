@@ -183,7 +183,7 @@ describe('Step1BasicInfo', () => {
     const payload = setBasicInfoMock.mock.calls[0]?.[0]
     expect(payload).not.toHaveProperty('scheduleId')
     expect(scheduleStoreMock.currentStep).toBe(2)
-    expect(pushMock).toHaveBeenCalledWith('/schedule/step2')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step2')
     expect(messageMock.success).toHaveBeenCalledWith('기본 정보가 저장되었습니다.')
   })
 

@@ -620,15 +620,21 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
 }
 
 export async function waitForAuthenticatedLanding(page: Page) {
+  const isDashboardPath = (pathname: string) => pathname === '/' || pathname === '/app'
+  const isApprovalQueuePath = (pathname: string) =>
+    pathname === '/admin/approval-queue' || pathname === '/app/admin/approval-queue'
+  const isUserHomePath = (pathname: string) =>
+    pathname === '/home/user' || pathname === '/app/home/user'
+
   await page.waitForURL((url) =>
-    ['/', '/admin/approval-queue', '/home/user'].includes(url.pathname)
+    isDashboardPath(url.pathname) || isApprovalQueuePath(url.pathname) || isUserHomePath(url.pathname)
   )
 
-  const currentPath = page.url()
+  const currentPath = new URL(page.url()).pathname
 
-  if (currentPath.endsWith('/admin/approval-queue')) {
+  if (isApprovalQueuePath(currentPath)) {
     await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()
-  } else if (currentPath.endsWith('/home/user')) {
+  } else if (isUserHomePath(currentPath)) {
     await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
   } else {
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
@@ -638,7 +644,7 @@ export async function waitForAuthenticatedLanding(page: Page) {
 }
 
 export async function waitForDashboard(page: Page) {
-  await page.waitForURL((url) => url.pathname === '/')
+  await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/app')
   await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
   await page.waitForLoadState('networkidle')
 }
