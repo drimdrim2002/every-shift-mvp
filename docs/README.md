@@ -9,11 +9,35 @@
 ```
 docs/
 ├── README.md                    # 이 파일 (문서 안내)
+├── launch/                      # Public Beta 출시 문서
 ├── prd/                         # 제품 기획서 (Product Requirements Document)
 ├── setup/                       # 설정 및 설치 가이드
 ├── integration/                 # 통합 가이드
 └── verification/                # 테스트 및 검증
 ```
+
+---
+
+## 🚀 0. Launch (공개 베타 출시 문서)
+
+**경로**: `launch/`
+
+공개 베타 출시를 위한 기준 문서입니다. 랜딩 페이지, 공개/앱 라우트 분리, 소셜 로그인, 배포, 출시 QA를 한 곳에서 관리합니다.
+
+| 파일                                      | 용도                            |
+| ----------------------------------------- | ------------------------------- |
+| `README.md`                               | launch 문서 인덱스 및 읽는 순서 |
+| `public-beta-launch-plan.md`              | 공개 베타 마스터 실행 계획      |
+| `public-beta-information-architecture.md` | 공개/앱 정보 구조 및 메뉴 구조  |
+| `public-beta-auth-and-deploy-spec.md`     | 인증 및 배포 스펙               |
+| `public-beta-qa-checklist.md`             | 출시 전 QA 체크리스트           |
+
+### 읽는 순서
+
+1. `launch/public-beta-launch-plan.md`
+2. `launch/public-beta-information-architecture.md`
+3. `launch/public-beta-auth-and-deploy-spec.md`
+4. `launch/public-beta-qa-checklist.md`
 
 ---
 
@@ -167,6 +191,7 @@ cat docs/verification/test-validation-guide.md
 
 ### 핵심 기획 문서
 
+- [Public Beta Launch](launch/public-beta-launch-plan.md) - 공개 베타 출시 기준 문서
 - [Phase2 PRD](prd/PHASE2_PRD_KR.md) - 현재 기준 문서. 배포 필수 기능과 확장 기능 분리
 - [프로젝트 개요](prd/01-overview-architecture.md) - Phase1 MVP 개요 및 기술 스택
 - [데이터베이스 설계](prd/02-database-migration.md) - ERD, 스키마, 마이그레이션
