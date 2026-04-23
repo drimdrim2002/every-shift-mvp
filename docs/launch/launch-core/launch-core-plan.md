@@ -61,6 +61,54 @@ Out of scope:
 - provider-specific account-linking rules
 - deep launch polish beyond what is needed for public credibility
 
+## Step 0: Scope Challenge
+
+### What Already Solves Part of This Today
+
+Launch Core should reuse current working code instead of rebuilding equivalent behavior:
+
+- `src/router/index.ts` already owns auth/public route registration and guard wiring
+- `src/router/guards.ts` already resolves active, pending, and rejected access-state redirects
+- `src/constants/routes.ts` already centralizes part of the route contract and should become the single source of truth for all launch-route paths
+- `src/views/auth/Login.vue`, `src/views/auth/Signup.vue`, and `src/views/auth/AccessState.vue` already cover the public auth and blocked-state surfaces
+- `src/components/layout/DefaultLayout.vue`, `Header.vue`, and `Sidebar.vue` already define the authenticated workspace shell and must stay scoped to `/app`
+- the existing unit and E2E suites already cover router guards, login, signup, RBAC, dashboard, and schedule navigation, so Launch Core should extend those tests instead of inventing a parallel QA surface
+
+### Minimum Diff Recommendation
+
+The smallest safe Launch Core is:
+
+1. add a public landing page at `/`
+2. move the authenticated workspace to `/app`
+3. keep existing login, signup, pending, and rejected flows
+4. introduce a temporary legacy redirect layer for old deep links
+5. add the Vercel deploy contract and targeted regression coverage
+
+This plan must not expand into:
+
+- auth-provider work
+- analytics SDK rollout
+- dashboard redesign
+- in-app inquiry management
+
+### Complexity Smell and Decision
+
+The current repo hard-codes app paths across router, guards, layout navigation, schedule views, and tests.
+That makes a one-shot rename risky unless the plan explicitly stages the migration.
+
+Launch Core therefore uses this engineering decision:
+
+- first centralize canonical paths in route constants/helpers
+- then add `/app` routes and legacy redirects
+- then update callers and tests to canonical `/app` paths
+- only after launch stability is proven may legacy redirects be removed
+
+### Search-Backed Guardrails
+
+- `[Layer 1]` Vue Router supports nested route trees cleanly, but child paths that start with `/` become root paths, so the `/app` workspace must use relative child segments under one parent route instead of mixed absolute child paths
+- `[Layer 1]` Vercel requires an explicit SPA rewrite for deep links when deploying a Vite SPA, so `/app/*` refresh support is a config requirement, not a nice-to-have
+- `[Layer 1]` Vite exposes only `VITE_*` client env vars, so the public inquiry URL may live in `VITE_PUBLIC_INQUIRY_FORM_URL`, while secrets must stay out of that namespace
+
 ## Launch UX Contract
 
 Launch Core must describe what the user sees, not only what the router does.
@@ -159,6 +207,47 @@ The product cannot launch publicly if:
 - early traffic hits placeholder CTAs
 - deployment behavior is undefined
 
+## Engineering Architecture
+
+```text
+Browser request
+├─ Public surface
+│  ├─ / -> PublicLandingView
+│  ├─ /login -> LoginView
+│  └─ /signup -> SignupView
+│
+├─ Access-state surface
+│  ├─ /access/pending -> AccessStateView(pending)
+│  └─ /access/rejected -> AccessStateView(rejected)
+│
+├─ Authenticated workspace
+│  └─ /app/*
+│     └─ DefaultLayout
+│        ├─ Header
+│        ├─ Sidebar
+│        └─ workspace child routes
+│           ├─ /app
+│           ├─ /app/admin/approval-queue
+│           ├─ /app/home/user
+│           ├─ /app/ops/*
+│           └─ /app/schedule/step1..step5
+│
+└─ Legacy compatibility redirects (launch window only)
+   ├─ /admin/approval-queue -> /app/admin/approval-queue
+   ├─ /home/user -> /app/home/user
+   ├─ /ops/* -> /app/ops/*
+   └─ /schedule/* -> /app/schedule/*
+```
+
+### Route Ownership Rules
+
+- `/` is the public front door for unauthenticated traffic
+- active authenticated users who hit `/` should be redirected to `/app` to avoid mixing discovery UI with workspace state
+- `/login` and `/signup` remain public routes, but successful active auth resolves into the role-appropriate canonical `/app` destination: `/app`, `/app/admin/approval-queue`, or `/app/home/user`
+- pending and rejected auth states resolve to `/access/pending` and `/access/rejected`, not `/app`
+- `/access/pending` and `/access/rejected` stay outside the app shell because they are state explanations, not workspace destinations
+- `DefaultLayout` must not render for `/`, `/login`, `/signup`, or `/access/*`
+
 ## Information Hierarchy Diagram
 
 ```text
@@ -187,14 +276,47 @@ The product cannot launch publicly if:
 
 ## Implementation Order
 
-### 1. Public/App Route Split
+Detailed execution order lives in [launch-core-implementation-slices.md](./launch-core-implementation-slices.md).
+
+### 1. Route Contract First
+
+- expand `src/constants/routes.ts` into the canonical source of truth for public, access-state, app-home, admin, user-home, and schedule-step paths
+- add route-builder helpers for schedule step paths and legacy redirect targets
+- remove new raw string path additions from router, guards, sidebar, dashboard, and schedule views
+
+### 1A. Compatibility Redirect Window
+
+- canonical launch routes live under `/app`
+- legacy launch-window redirects remain for:
+  - `/admin/approval-queue`
+  - `/home/user`
+  - `/ops/organization-setup`
+  - `/ops/off-request-policy-setup`
+  - `/schedule/step1`
+  - `/schedule/step2`
+  - `/schedule/step3`
+  - `/schedule/step4`
+  - `/schedule/step5/:scheduleKey`
+- legacy redirects are required for launch because bookmarks, test fixtures, and internal links already exist in the old shape
+- removal of those redirects is explicitly deferred until post-launch cleanup, after traffic and support noise confirm they are no longer needed
+
+### 2. Public/App Route Split
 
 - public routes remain at `/`, `/login`, `/signup`
 - authenticated product routes move under `/app`
-- post-login redirects target `/app`
+- post-login redirects target the role-appropriate canonical `/app` destination
 - app shell no longer owns `/`
+- `createRouter` keeps one app-level history mode; this is a route-tree change, not a router technology change
+- the `/app` parent route owns `DefaultLayout`; its children use relative paths so the layout boundary is impossible to bypass accidentally
 
-### 2. Public Landing Page
+### 2A. Layout Boundary
+
+- introduce a public layout or route-level public page component for `/`
+- keep existing auth pages on public routes without app sidebar/header leakage
+- keep access-state pages outside `DefaultLayout`
+- do not fetch org-scoped workspace data on `/` before the user chooses to enter the app
+
+### 3. Public Landing Page
 
 - hero and product explanation
 - workflow summary
@@ -205,15 +327,16 @@ The product cannot launch publicly if:
 - mobile header behavior and touch targets
 - accessibility and keyboard navigation requirements
 
-### 3. Conversion Path
+### 4. Conversion Path
 
 - `회원 가입` routes to `/signup?role=admin`
 - `도입 문의` routes to a real Google Form
 - keep both visible on the public surface
 - avoid placeholder dead ends
 - do not ask the user to hunt for a contact method in the footer only
+- the Google Form URL must come from one public config value, not be duplicated across header and hero implementations
 
-### 3A. Inquiry Form Requirements
+### 4A. Inquiry Form Requirements
 
 The Google Form must include these required fields:
 
@@ -235,7 +358,7 @@ Form behavior rules:
 - after submit, show a completion message that sets expectation for follow-up timing
 - the form must be reachable from header and landing secondary CTA
 
-### 3B. Personal Information Notice
+### 4B. Personal Information Notice
 
 Because the inquiry flow stores identifiable contact information for follow-up, the form must include a visible personal-information collection/use notice before submission.
 
@@ -254,14 +377,22 @@ Recommended launch-safe approach:
 
 The exact legal wording should be reviewed before launch, especially because Google Form may involve third-party processing or overseas storage handling.
 
-### 4. Deployment
+### 5. Deployment
 
 - Vercel preview deploy
 - Vercel production deploy
 - environment variables
 - SPA deep-link support for `/app/*`
+- explicit `vercel.json` rewrite for SPA deep links
+- environment validation must fail fast if the public inquiry form URL is missing for launch builds
 
-### 5. QA and Release Gate
+### 5A. Release Reversibility
+
+- if landing deployment is good but `/app` migration is unstable, preview must catch it before production promotion
+- production release should be a config/code deploy only; no schema migration or auth-provider rollout may be coupled to Launch Core
+- legacy redirects keep the cost of being wrong low during the launch window
+
+### 6. QA and Release Gate
 
 - landing QA
 - auth QA
@@ -270,6 +401,81 @@ The exact legal wording should be reviewed before launch, especially because Goo
 - preview and production smoke QA
 - inquiry form QA
 - mobile and keyboard QA
+
+## Failure Modes
+
+| Codepath / Surface                | Realistic Failure Mode                                                                               | Test Required | Error Handling Required | User Outcome if Unhandled |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------- | ----------------------- | ------------------------- |
+| `/app/*` on hard refresh          | Vercel serves 404 because SPA rewrite is missing                                                     | Yes           | Yes                     | Silent hard failure       |
+| `/` for active authenticated user | user stays on public landing and sees login/signup actions instead of workspace                      | Yes           | Yes                     | Confusing split identity  |
+| legacy app bookmark               | old `/ops/*` or `/schedule/*` bookmark breaks after route migration                                  | Yes           | Yes                     | Silent hard failure       |
+| `도입 문의` CTA                   | Google Form URL missing or malformed in config                                                       | Yes           | Yes                     | Dead-end conversion path  |
+| post-login redirect               | role-aware auth redirect collapses into the wrong landing or loops between `/login`, `/`, and `/app` | Yes           | Yes                     | Broken sign-in completion |
+
+Any failure mode that produces a silent dead end is a launch blocker.
+
+## Test Coverage Plan
+
+### Code Path Coverage
+
+```text
+[+] src/constants/routes.ts
+    ├── [GAP] canonical public/app route constants
+    ├── [GAP] schedule-step route builders
+    └── [GAP] legacy-to-canonical redirect map
+
+[+] src/router/index.ts
+    ├── [GAP] public route tree at /
+    ├── [GAP] /app parent with relative child routes
+    ├── [GAP] legacy redirect routes
+    └── [GAP] active user redirect away from /
+
+[+] src/router/guards.ts
+    ├── [GAP] post-login redirects to canonical role-aware /app destinations
+    ├── [GAP] authenticated visit to / redirects correctly
+    └── [GAP] blocked-state routes stay outside app shell
+
+[+] public landing surface
+    ├── [GAP] hero CTA -> /signup?role=admin
+    ├── [GAP] header CTA -> Google Form config
+    └── [GAP] no app chrome leakage on /
+```
+
+### User Flow Coverage
+
+```text
+[+] Public entry
+    ├── [GAP] [→E2E] unauthenticated user lands on /
+    ├── [GAP] [→E2E] active authenticated user lands on / and is redirected to /app
+    ├── [GAP] [→E2E] legacy /ops/organization-setup URL redirects to /app/ops/organization-setup
+    └── [GAP] [→E2E] legacy /schedule/step1 URL redirects to /app/schedule/step1
+
+[+] Auth completion
+    ├── [GAP] [→E2E] admin login -> /app
+    ├── [GAP] [→E2E] super login -> /app/admin/approval-queue
+    ├── [GAP] [→E2E] user login -> /app/home/user
+    ├── [GAP] pending admin -> /access/pending
+    └── [GAP] rejected admin -> /access/rejected
+
+[+] Inquiry path
+    ├── [GAP] header inquiry CTA opens configured external URL
+    ├── [GAP] hero inquiry CTA opens the same external URL
+    └── [GAP] missing inquiry URL fails pre-release validation
+```
+
+### Test Artifact Requirements
+
+- unit tests extend existing router, guard, login, sidebar, and dashboard suites instead of creating a parallel harness
+- add one focused landing-page unit test file for public CTA rendering and layout isolation
+- add one focused launch E2E that covers `/`, `/app`, post-login redirect matrix, and legacy redirect compatibility
+- treat any broken legacy redirect as a regression and add the regression test in the same implementation slice
+
+## Performance Guardrails
+
+- the public landing bundle must not import `DefaultLayout`, `Sidebar`, or schedule-step views on first paint
+- `/` must not block first render on org-context hydration or workspace data loading
+- route split work must preserve current lazy-loading behavior for schedule pages
+- do not add a client analytics SDK in Launch Core; launch learning comes from existing operational signals and manual follow-up, not from expanding the frontend runtime
 
 ## Interaction State Coverage
 
@@ -318,11 +524,12 @@ The exact legal wording should be reviewed before launch, especially because Goo
 
 Reuse existing product patterns where they already work:
 
-- no repo-level `DESIGN.md` exists today, so Launch Core should align to current auth/app surfaces plus universal design rules rather than inventing a new broad visual system
+- repo-level `DESIGN.md` now exists and is the visual source of truth for the landing page, auth pages, and app shell
 - auth pages already use centered Naive UI card layouts
 - pending and rejected access states already exist
 - the authenticated workspace already uses the app header and sidebar structure
 - post-auth routing logic already understands active, pending, and rejected users
+- route guard tests, login/signup tests, and RBAC tests already exist and should absorb this migration coverage
 
 Launch Core should reuse those working patterns for `/login`, `/signup`, `/access/pending`, `/access/rejected`, and `/app`.
 
@@ -335,6 +542,8 @@ The new work is the public surface at `/`, not a redesign of the existing app wo
 - a full standalone marketing site program with many subpages
 - advanced brand-motion system beyond the landing page actions and basic section reveals
 - collecting more inquiry data than needed for intro material, trial request, and reply
+- a new analytics SDK or event pipeline: launch signals are useful, but analytics expansion is outside MVP default scope and must not block launch
+- removal of legacy redirect aliases during the first launch window: stability matters more than URL purity on day one
 
 ## Release Gate
 
@@ -342,22 +551,26 @@ Launch Core is not ready unless:
 
 - `pnpm lint:check` passes
 - focused auth/router tests pass
+- landing and legacy redirect regressions pass
 - `/` is public
 - `/app` is protected
 - deployed `/app` deep links survive refresh
 - signup and inquiry CTA paths are real and verified
 - preview and production are both reachable
 
-## KPI
+## Launch Signals
 
-Track from day one:
+Launch Core should record or observe these signals without expanding product scope:
 
-- visits to `/`
-- signup CTA click-through rate
-- inquiry CTA click-through rate
-- signup starts
-- signup completions
-- inquiry submissions
-- approved admins reaching `/app`
+- visits to `/` if an existing platform-level page view tool is already enabled
+- signup CTA click-through via existing manual or platform reporting only
+- inquiry submissions from the Google Form response log
+- approved admins who successfully reach `/app`
 
-If these are invisible, launch learning is weak even if the site is technically live.
+Do not block Launch Core on:
+
+- adding a new analytics vendor
+- adding a custom event pipeline
+- retrofitting the whole app with tracking instrumentation
+
+If lightweight observation is unavailable at launch, prefer manual review of form submissions and admin approvals over scope expansion.

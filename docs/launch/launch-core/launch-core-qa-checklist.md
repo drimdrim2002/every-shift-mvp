@@ -5,6 +5,7 @@
 ## Landing
 
 - [ ] `/` loads for unauthenticated users
+- [ ] active authenticated user hitting `/` is redirected to `/app`
 - [ ] public header renders correctly
 - [ ] header order is `로그인`, `회원 가입`, `도입 문의`
 - [ ] `회원 가입` CTA is real, not placeholder
@@ -20,7 +21,7 @@
 - [ ] email/password admin signup works
 - [ ] pending admins land on `/access/pending`
 - [ ] rejected admins land on `/access/rejected`
-- [ ] active admins land inside `/app`
+- [ ] successful login lands on the role-appropriate canonical workspace destination
 
 ## Routing
 
@@ -29,10 +30,17 @@
 - [ ] `/signup` is public
 - [ ] `/app` requires authentication
 - [ ] `/app/*` deep links survive refresh
+- [ ] `/admin/approval-queue` redirects to `/app/admin/approval-queue`
+- [ ] `/home/user` redirects to `/app/home/user`
+- [ ] `/ops/organization-setup` redirects to `/app/ops/organization-setup`
+- [ ] `/ops/off-request-policy-setup` redirects to `/app/ops/off-request-policy-setup`
+- [ ] `/schedule/step1` redirects to `/app/schedule/step1`
+- [ ] `/schedule/step5/:scheduleKey` redirects to `/app/schedule/step5/:scheduleKey`
 
 ## Inquiry Form
 
 - [ ] `도입 문의` opens the real Google Form
+- [ ] header and hero both use the same configured inquiry URL
 - [ ] `요청 내용` supports multi-select
 - [ ] `소개 자료 다운로드` option exists
 - [ ] `한 달 무료 사용하기` option exists
@@ -64,6 +72,9 @@
 - [ ] production deploy reachable
 - [ ] preview env vars correct
 - [ ] production env vars correct
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in preview
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in production
+- [ ] root `vercel.json` rewrite is present and `/app/*` refresh works in preview
 
 ## Final Gate
 

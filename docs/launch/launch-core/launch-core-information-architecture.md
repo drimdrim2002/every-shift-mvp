@@ -36,7 +36,8 @@ This matters for:
 ## Public Route Rules
 
 - `/` must be readable without authentication
-- `/` must not immediately redirect into the app shell
+- `/` must not redirect unauthenticated visitors into the app shell
+- active authenticated users who hit `/` should be redirected to `/app` so discovery and workspace surfaces stay separate
 - SEO-sensitive content must live on public routes
 - app navigation must not leak into public layout
 
@@ -50,6 +51,26 @@ This matters for:
 | `admin_pending`             | `/access/pending`           |
 | `admin_rejected`            | `/access/rejected`          |
 | `no_membership_or_inactive` | `/login`                    |
+
+This matrix governs login completion and authenticated visits to auth pages. The separate `/` rule above still applies: active authenticated users who hit the public root should be redirected into `/app`.
+
+## Legacy Redirect Compatibility
+
+During the first launch window, old app URLs must redirect to the new canonical `/app` paths.
+
+| Legacy Route                    | Canonical Route                     |
+| ------------------------------- | ----------------------------------- |
+| `/admin/approval-queue`         | `/app/admin/approval-queue`         |
+| `/home/user`                    | `/app/home/user`                    |
+| `/ops/organization-setup`       | `/app/ops/organization-setup`       |
+| `/ops/off-request-policy-setup` | `/app/ops/off-request-policy-setup` |
+| `/schedule/step1`               | `/app/schedule/step1`               |
+| `/schedule/step2`               | `/app/schedule/step2`               |
+| `/schedule/step3`               | `/app/schedule/step3`               |
+| `/schedule/step4`               | `/app/schedule/step4`               |
+| `/schedule/step5/:scheduleKey`  | `/app/schedule/step5/:scheduleKey`  |
+
+These redirects are part of Launch Core because the current repo, test fixtures, and likely saved bookmarks still point at the legacy shape.
 
 ## Public Header
 
@@ -95,6 +116,30 @@ Trust Signals
 Inquiry Reinforcement
   └─ hospital intro / trial / other request path
 ```
+
+## Route Tree Ownership
+
+```text
+/
+├─ Public landing route
+├─ /login
+├─ /signup
+├─ /access/pending
+├─ /access/rejected
+└─ /app
+   └─ DefaultLayout
+      ├─ dashboard
+      ├─ approval queue
+      ├─ user home
+      ├─ ops setup
+      └─ schedule steps
+```
+
+Rule:
+
+- `DefaultLayout` only mounts under `/app`
+- public and access-state routes stay outside the app shell
+- child routes under `/app` use relative segments, not leading `/`, so the layout boundary remains explicit
 
 ## CTA Behavior Map
 

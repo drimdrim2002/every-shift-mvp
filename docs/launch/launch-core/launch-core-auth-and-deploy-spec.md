@@ -14,6 +14,8 @@ In scope:
 - email/password signup
 - active, pending, and rejected routing
 - authenticated redirect correctness after the `/app` move
+- authenticated visit handling for `/`
+- temporary legacy redirects from old app URLs to canonical `/app` URLs
 
 Out of scope:
 
@@ -39,6 +41,29 @@ Must remain admin-first for public beta:
 
 - default role is `admin`
 - public CTA may target `/signup?role=admin`
+
+### Authenticated Visit Rule
+
+- unauthenticated visitors may stay on `/`
+- active authenticated users who hit `/` should be redirected to `/app`
+- pending and rejected users should continue to land on `/access/pending` and `/access/rejected`
+- `/login` and `/signup` should never become alternate authenticated home screens
+
+### Post-Login Landing Matrix
+
+Successful auth should resolve directly to the canonical role-aware workspace destination:
+
+| Access State   | Canonical Landing           |
+| -------------- | --------------------------- |
+| `super_active` | `/app/admin/approval-queue` |
+| `admin_active` | `/app`                      |
+| `user_active`  | `/app/home/user`            |
+
+Rules:
+
+- this matrix governs login completion and authenticated visits to `/login` or `/signup`
+- the `/` redirect rule remains separate: active authenticated users who hit the public landing should be redirected to `/app`
+- blocked states still bypass the workspace and land on `/access/pending` or `/access/rejected`
 
 ### Public Inquiry
 
@@ -98,13 +123,43 @@ Note:
 - environment variables are isolated by environment
 - public pages and app pages both resolve correctly
 - public inquiry CTA opens the correct Google Form
+- legacy app URLs redirect to their canonical `/app` equivalents during the launch window
+- legacy `/ops/*` and `/schedule/*` deep links remain usable during the launch window
+
+### Required Routing Config
+
+Vite SPA deep links do not work on Vercel without an explicit rewrite.
+
+Launch Core therefore requires a root `vercel.json` with the SPA fallback:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+```
 
 ## Required Environment Variables
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_API_BASE_URL`
+- `VITE_PUBLIC_INQUIRY_FORM_URL`
+
+Optional only if canonical/meta work is implemented now:
+
 - `VITE_PUBLIC_SITE_URL`
+
+Rules:
+
+- `VITE_PUBLIC_INQUIRY_FORM_URL` is public configuration and may be exposed to the client
+- do not place secrets in any `VITE_*` variable
+- launch builds should fail pre-release validation if the inquiry form URL is missing
 
 ## CI Gate
 
@@ -112,4 +167,5 @@ Minimum gate:
 
 - `pnpm lint:check`
 - focused auth/router/RBAC unit tests
+- focused launch E2E covering `/`, `/app`, post-login redirects, and legacy redirects
 - manual verification of the inquiry form link and consent copy

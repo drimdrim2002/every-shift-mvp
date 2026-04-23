@@ -12,9 +12,10 @@ The launch documentation is now restructured into two execution folders:
 ### Launch Core
 
 1. [launch-core/launch-core-plan.md](./launch-core/launch-core-plan.md)
-2. [launch-core/launch-core-information-architecture.md](./launch-core/launch-core-information-architecture.md)
-3. [launch-core/launch-core-auth-and-deploy-spec.md](./launch-core/launch-core-auth-and-deploy-spec.md)
-4. [launch-core/launch-core-qa-checklist.md](./launch-core/launch-core-qa-checklist.md)
+2. [launch-core/launch-core-implementation-slices.md](./launch-core/launch-core-implementation-slices.md)
+3. [launch-core/launch-core-information-architecture.md](./launch-core/launch-core-information-architecture.md)
+4. [launch-core/launch-core-auth-and-deploy-spec.md](./launch-core/launch-core-auth-and-deploy-spec.md)
+5. [launch-core/launch-core-qa-checklist.md](./launch-core/launch-core-qa-checklist.md)
 
 ### Launch Plus
 

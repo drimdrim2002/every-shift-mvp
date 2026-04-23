@@ -8,9 +8,10 @@ Use this folder when the question is:
 ## Documents
 
 1. [launch-core-plan.md](./launch-core-plan.md)
-2. [launch-core-information-architecture.md](./launch-core-information-architecture.md)
-3. [launch-core-auth-and-deploy-spec.md](./launch-core-auth-and-deploy-spec.md)
-4. [launch-core-qa-checklist.md](./launch-core-qa-checklist.md)
+2. [launch-core-implementation-slices.md](./launch-core-implementation-slices.md)
+3. [launch-core-information-architecture.md](./launch-core-information-architecture.md)
+4. [launch-core-auth-and-deploy-spec.md](./launch-core-auth-and-deploy-spec.md)
+5. [launch-core-qa-checklist.md](./launch-core-qa-checklist.md)
 
 ## Scope Summary
 

@@ -122,7 +122,7 @@ Expected baseline outcome:
 ```text
 Public `/`
   ├─ logged-out -> landing page
-  └─ logged-in -> `/app`
+  └─ logged-in visit to `/` -> `/app`
 
 Canonical `/app`
   ├─ `/app`
@@ -352,7 +352,7 @@ Recommended grep:
 ### Acceptance Additions
 
 - logged-out `/` renders the public landing page
-- logged-in `/` redirects to `/app`
+- authenticated visit to public `/` redirects to `/app` without redefining the role-aware post-login landing matrix
 - `/login`, `/signup`, `/access/pending`, `/access/rejected` render without app chrome
 - no app sidebar or workspace header leaks onto public/auth/access-state routes
 
