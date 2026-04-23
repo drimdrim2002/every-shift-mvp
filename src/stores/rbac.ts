@@ -169,6 +169,28 @@ function normalizeMembershipStatus(value: string | null): OrganizationMembership
   return null
 }
 
+function normalizeDatabaseMembership(
+  membership: OrganizationMembershipAccessRow,
+  fallbackRole: GlobalRole | null,
+): AuthContextMembership | null {
+  const organizationId = membership.organization_id?.trim() ?? null
+  const status = normalizeMembershipStatus(membership.status?.trim() ?? null)
+
+  if (!organizationId || !status) {
+    return null
+  }
+
+  return {
+    membershipId: membership.id,
+    organizationId,
+    role: normalizeMembershipRole(membership.role?.trim() ?? null, fallbackRole),
+    status,
+    approvedAt: membership.approved_at,
+    createdAt: membership.created_at,
+    rejectionReason: membership.rejection_reason,
+  }
+}
+
 function buildAuthContextFromSeed(seed: AuthContextSeed | null): AuthContext | null {
   if (!seed) {
     return null
@@ -192,21 +214,20 @@ async function loadOrganizationNamesById(
     return new Map()
   }
 
-  const { data, error } = await supabase
+  const response = await supabase
     .from('organizations')
     .select('id, name')
-    .in('id', organizationIds) as Promise<{
-      data: OrganizationAccessRow[] | null
-      error: { message: string } | null
-    }>
+    .in('id', organizationIds)
 
-  if (error) {
-    console.warn('[rbac] Failed to hydrate organization names:', error.message)
+  if (response.error) {
+    console.warn('[rbac] Failed to hydrate organization names:', response.error.message)
     return new Map()
   }
 
+  const organizations: OrganizationAccessRow[] = response.data ?? []
+
   return new Map(
-    (data ?? []).map((organization) => [organization.id, organization.name?.trim() ?? null]),
+    organizations.map((organization) => [organization.id, organization.name?.trim() ?? null]),
   )
 }
 
@@ -235,10 +256,7 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
       supabase
         .from('organization_memberships')
         .select('id, organization_id, role, status, approved_at, created_at, rejection_reason')
-        .eq('user_id', userId) as Promise<{
-          data: OrganizationMembershipAccessRow[] | null
-          error: { message: string } | null
-        }>,
+        .eq('user_id', userId),
     ])
 
   if (profileError) {
@@ -264,25 +282,11 @@ async function loadDatabaseAccessContextSeed(userId: string): Promise<AuthContex
   }
 
   const profileGlobalRole = readGlobalRole(profile?.global_role?.trim() ?? null)
-  const membershipsFromDatabase = (memberships ?? [])
-    .map((membership) => {
-      const organizationId = membership.organization_id?.trim() ?? null
-      const status = normalizeMembershipStatus(membership.status?.trim() ?? null)
-      if (!organizationId || !status) {
-        return null
-      }
-
-      return {
-        membershipId: membership.id,
-        organizationId,
-        role: normalizeMembershipRole(membership.role?.trim() ?? null, profileGlobalRole),
-        status,
-        approvedAt: membership.approved_at,
-        createdAt: membership.created_at,
-        rejectionReason: membership.rejection_reason,
-      } satisfies AuthContextMembership
-    })
-    .filter((membership): membership is AuthContextMembership => Boolean(membership))
+  const membershipRows: OrganizationMembershipAccessRow[] = memberships ?? []
+  const membershipsFromDatabase: AuthContextMembership[] = membershipRows.flatMap((membership) => {
+    const normalizedMembership = normalizeDatabaseMembership(membership, profileGlobalRole)
+    return normalizedMembership ? [normalizedMembership] : []
+  })
 
   if (
     membershipsFromDatabase.length === 0 &&
