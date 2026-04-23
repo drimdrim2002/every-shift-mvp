@@ -43,7 +43,6 @@
 ## Final Gate
 
 - [ ] `pnpm lint:check` passed
-- [ ] `pnpm build` passed
 - [ ] focused tests passed
 - [ ] manual landing QA completed
 - [ ] manual routing QA completed

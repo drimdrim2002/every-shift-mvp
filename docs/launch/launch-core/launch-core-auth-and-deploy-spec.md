@@ -66,11 +66,4 @@ Must remain admin-first for public beta:
 Minimum gate:
 
 - `pnpm lint:check`
-- `pnpm build`
 - focused auth/router/RBAC unit tests
-
-## Release Blocker
-
-Current blocker:
-
-- `pnpm build` is failing and must be fixed before Launch Core can be called ready

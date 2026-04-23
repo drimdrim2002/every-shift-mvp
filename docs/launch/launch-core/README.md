@@ -16,7 +16,6 @@ Use this folder when the question is:
 
 Included:
 
-- build recovery
 - public landing page
 - public/app route split
 - existing email/password auth continuity

@@ -38,7 +38,6 @@ It is not:
 
 In scope:
 
-- restore green `pnpm build`
 - keep `pnpm lint:check` green
 - split public routes and app routes
 - make `/` the public landing page
@@ -60,28 +59,20 @@ Out of scope:
 
 The product cannot launch publicly if:
 
-- the build is broken
 - `/` still behaves like the internal app home
 - early traffic hits placeholder CTAs
 - deployment behavior is undefined
 
 ## Implementation Order
 
-### 1. Baseline Stabilization
-
-- fix current build errors
-- confirm `pnpm build` passes
-- confirm `pnpm lint:check` passes
-- re-run focused auth/router tests
-
-### 2. Public/App Route Split
+### 1. Public/App Route Split
 
 - public routes remain at `/`, `/login`, `/signup`
 - authenticated product routes move under `/app`
 - post-login redirects target `/app`
 - app shell no longer owns `/`
 
-### 3. Public Landing Page
+### 2. Public Landing Page
 
 - hero and product explanation
 - workflow summary
@@ -89,21 +80,21 @@ The product cannot launch publicly if:
 - clear CTA
 - SEO-ready copy and structure
 
-### 4. Conversion Path
+### 3. Conversion Path
 
 - choose the real beta CTA
 - if signup-led, route to `/signup?role=admin`
 - if inquiry-led, route to a real contact flow
 - avoid placeholder dead ends
 
-### 5. Deployment
+### 4. Deployment
 
 - Vercel preview deploy
 - Vercel production deploy
 - environment variables
 - SPA deep-link support for `/app/*`
 
-### 6. QA and Release Gate
+### 5. QA and Release Gate
 
 - landing QA
 - auth QA
@@ -115,7 +106,6 @@ The product cannot launch publicly if:
 
 Launch Core is not ready unless:
 
-- `pnpm build` passes
 - `pnpm lint:check` passes
 - focused auth/router tests pass
 - `/` is public

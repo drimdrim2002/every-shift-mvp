@@ -31,7 +31,6 @@ The launch documentation is now restructured into two execution folders:
 
 It includes:
 
-- build recovery and baseline stabilization
 - public landing page at `/`
 - public/app route split for SEO and product clarity
 - existing email/password login and signup continuity
