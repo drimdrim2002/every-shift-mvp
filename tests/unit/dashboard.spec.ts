@@ -1,6 +1,7 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
 
 const {
   pushMock,
@@ -331,9 +332,7 @@ describe('Dashboard', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-2')
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
-    })
+    expect(pushMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
   })
 
   it('falls back to the legacy uuid route key when a public id is unavailable', async () => {
@@ -393,10 +392,7 @@ describe('Dashboard', () => {
 
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
-    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step5/sch_a1b2c3d4e5f6')
-    expect(pushMock).not.toHaveBeenCalledWith({
-      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
-    })
+    expect(pushMock).not.toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
   })
 
   it('deep-links the foundation card CTA to the hospital setup screen when hospital info is incomplete', async () => {
@@ -750,9 +746,7 @@ describe('Dashboard', () => {
     pushMock.mockClear()
     await wrapper.get('[data-test="pilot-checklist-link-schedule_review"]').trigger('click')
     await flushPromises()
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/app/schedule/step5/sch_a1b2c3d4e5f6',
-    })
+    expect(pushMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
   })
 
   it('treats the off-request policy item as optional while keeping the checklist ready', async () => {

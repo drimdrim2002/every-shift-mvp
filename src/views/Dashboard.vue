@@ -248,17 +248,15 @@ import { supabase } from '@/api/supabase';
 import { showSuccess, showError } from '@/utils/message';
 import { getAvailableMonths, getNextMonth } from '@/utils/date';
 import {
-  buildStep5Route,
-  getDefaultStep5FocusVersionId,
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver';
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
-  APP_SCHEDULE_STEP5_ROUTE_PREFIX,
-  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
+  buildCanonicalStep5RouteLocation,
   getLegacyRedirectTarget,
   getOpsOrganizationSetupRoutePath,
   getScheduleStepRoutePath,
+  getStep5ScheduleKeyFromPath,
 } from '@/constants/routes';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
@@ -504,15 +502,7 @@ function extractStep5ScheduleKey(routePath: string | null | undefined): string |
     return null;
   }
 
-  if (routePath.startsWith(APP_SCHEDULE_STEP5_ROUTE_PREFIX)) {
-    return routePath.slice(APP_SCHEDULE_STEP5_ROUTE_PREFIX.length) || null;
-  }
-
-  if (routePath.startsWith(LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX)) {
-    return routePath.slice(LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.length) || null;
-  }
-
-  return null;
+  return getStep5ScheduleKeyFromPath(routePath);
 }
 
 function normalizeChecklistRoute(routePath: string) {
@@ -534,16 +524,7 @@ async function navigateToCanonicalStep5(scheduleKey: string) {
   scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
   scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
-  await router.push(
-    buildStep5Route(
-      schedulePublicId,
-      resolvedState.previewVersionId,
-      resolvedState.compareVersionIds,
-      {
-        defaultVersionId: getDefaultStep5FocusVersionId(compareResponse),
-      }
-    )
-  );
+  await router.push(buildCanonicalStep5RouteLocation(schedulePublicId));
 }
 
 async function handleChecklistNavigate(item: ChecklistItem) {

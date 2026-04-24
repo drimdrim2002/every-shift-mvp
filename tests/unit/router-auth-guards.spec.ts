@@ -4,15 +4,21 @@ import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
   APP_HOME_ROUTE_PATH,
+  APP_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
   LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
   LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
+  buildCanonicalStep5RouteLocation,
   getApprovalQueueRoutePath,
   getLegacyRedirectTarget,
   getScheduleStepRoutePath,
   getUserHomeRoutePath,
+  isApprovalQueueRoutePath,
+  isOpsRoutePath,
+  isScheduleRoutePath,
+  isUserHomeRoutePath,
 } from '@/constants/routes'
 import { resolveAuthNavigationTarget, resolveRouteAccessTarget } from '@/router/guards'
 
@@ -23,6 +29,18 @@ describe('route contract', () => {
 
   it('maps legacy approval routes into canonical app routes', () => {
     expect(getLegacyRedirectTarget(LEGACY_APPROVAL_QUEUE_ROUTE_PATH)).toBe(getApprovalQueueRoutePath())
+  })
+
+  it('classifies canonical and legacy launch-core routes through shared helpers', () => {
+    expect(isApprovalQueueRoutePath(LEGACY_APPROVAL_QUEUE_ROUTE_PATH)).toBe(true)
+    expect(isUserHomeRoutePath(getUserHomeRoutePath())).toBe(true)
+    expect(isOpsRoutePath(LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH)).toBe(true)
+    expect(isOpsRoutePath(APP_OPS_ORGANIZATION_SETUP_ROUTE_PATH)).toBe(true)
+    expect(
+      isScheduleRoutePath((buildCanonicalStep5RouteLocation('schedule-1') as { path: string }).path)
+    ).toBe(true)
+    expect(isScheduleRoutePath('/schedule/step4')).toBe(true)
+    expect(isScheduleRoutePath(getScheduleStepRoutePath(1))).toBe(true)
   })
 })
 

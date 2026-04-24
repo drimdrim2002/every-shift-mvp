@@ -2,6 +2,12 @@ import dayjs from 'dayjs'
 import { mount, flushPromises } from '@vue/test-utils'
 import { reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  buildCanonicalStep5RouteLocation,
+  buildStep5RouteLocation,
+  getAppHomeRoutePath,
+  getScheduleStepRoutePath,
+} from '@/constants/routes'
 
 const routeMock = reactive({
   params: {
@@ -613,9 +619,7 @@ describe('Step5Result', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-1')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/app/schedule/step5/schedule-1',
-    })
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
   })
 
   it('self-heals legacy Step5 URLs without a preview query', async () => {
@@ -847,7 +851,7 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="go-dashboard-button"]').trigger('click')
     await flushPromises()
 
-    expect(replaceMock).toHaveBeenCalledWith('/app')
+    expect(replaceMock).toHaveBeenCalledWith(getAppHomeRoutePath())
   })
 
   it('requires confirmation before navigating to dashboard when there are unsaved changes', async () => {
@@ -868,14 +872,14 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
-    expect(replaceMock).not.toHaveBeenCalledWith('/app')
+    expect(replaceMock).not.toHaveBeenCalledWith(getAppHomeRoutePath())
 
     const dialogConfig = warningMock.mock.calls[0]?.[0] as {
       onPositiveClick?: () => void | Promise<void>
     }
     await dialogConfig.onPositiveClick?.()
 
-    expect(replaceMock).toHaveBeenCalledWith('/app')
+    expect(replaceMock).toHaveBeenCalledWith(getAppHomeRoutePath())
   })
 
   it('requires confirmation before returning to Step4 when there are unsaved changes', async () => {
@@ -902,14 +906,14 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
-    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step4')
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
 
     const dialogConfig = warningMock.mock.calls[0]?.[0] as {
       onPositiveClick?: () => void | Promise<void>
     }
     await dialogConfig.onPositiveClick?.()
 
-    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
+    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
   it('blocks input editing while the focused version is solving', async () => {
@@ -960,7 +964,7 @@ describe('Step5Result', () => {
     await step4Button!.trigger('click')
     await flushPromises()
 
-    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step4')
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
   it('splits reset actions and resets the active month flow through the new API', async () => {
@@ -991,7 +995,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(resetPhase2ScheduleActiveFlowMock).toHaveBeenCalledWith('schedule-1')
-    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
+    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
   it('disables month reset when the schedule is already finalized', async () => {
@@ -1062,7 +1066,7 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.resetReviewState).toHaveBeenCalled()
     expect(scheduleStoreMock.setAssignments).toHaveBeenCalledWith({})
     expect(scheduleStoreMock.setComments).toHaveBeenCalledWith({})
-    expect(replaceMock).toHaveBeenCalledWith('/app')
+    expect(replaceMock).toHaveBeenCalledWith(getAppHomeRoutePath())
   })
 
   it('disables the full month delete action when the schedule is already finalized', async () => {
@@ -2135,12 +2139,11 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith('version-2', {})
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-3')
-    expect(replaceMock).not.toHaveBeenCalledWith({
-      path: '/app/schedule/step5/schedule-1',
-      query: {
-        version: 'version-3',
-      },
-    })
+    expect(replaceMock).not.toHaveBeenCalledWith(
+      buildStep5RouteLocation('schedule-1', {
+        versionId: 'version-3',
+      })
+    )
   })
 
   it('consumes autoStart from the Step4 handoff and starts the solver once', async () => {
@@ -2171,9 +2174,7 @@ describe('Step5Result', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/app/schedule/step5/schedule-1',
-    })
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
     expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
   })
@@ -2188,12 +2189,11 @@ describe('Step5Result', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: '/app/schedule/step5/schedule-1',
-      query: {
-        autoStart: '1',
-      },
-    })
+    expect(replaceMock).toHaveBeenCalledWith(
+      buildCanonicalStep5RouteLocation('schedule-1', {
+        autoStart: true,
+      })
+    )
     expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 

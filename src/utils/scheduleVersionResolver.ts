@@ -1,5 +1,8 @@
 import type { ScheduleCompareResponse, ScheduleVersionSummary } from '@/types/schedule';
-import { getScheduleStep5RoutePath } from '@/constants/routes';
+import {
+  buildCanonicalStep5RouteLocation,
+  buildStep5RouteLocation,
+} from '@/constants/routes';
 
 function hasVersionId(versions: ScheduleVersionSummary[], versionId: string | null): versionId is string {
   return versionId !== null && versions.some((version) => version.id === versionId);
@@ -249,35 +252,18 @@ export function buildStep5Route(
   options?: { autoStart?: boolean; defaultVersionId?: string | null }
 ) {
   const query = buildStep5RouteQuery(previewVersionId, compareVersionIds, options);
-
-  return Object.keys(query).length > 0
-    ? {
-        path: getScheduleStep5RoutePath(scheduleKey),
-        query,
-      }
-    : {
-        path: getScheduleStep5RoutePath(scheduleKey),
-      };
+  return buildStep5RouteLocation(scheduleKey, {
+    versionId: query.version ?? null,
+    compareVersionId: query.compare ?? null,
+    autoStart: query.autoStart === '1',
+  });
 }
 
 export function buildCanonicalStep5Route(
   scheduleKey: string,
   options?: { autoStart?: boolean }
 ) {
-  const query: Record<string, string> = {};
-
-  if (options?.autoStart) {
-    query.autoStart = '1';
-  }
-
-  return Object.keys(query).length > 0
-    ? {
-        path: getScheduleStep5RoutePath(scheduleKey),
-        query,
-      }
-    : {
-        path: getScheduleStep5RoutePath(scheduleKey),
-      };
+  return buildCanonicalStep5RouteLocation(scheduleKey, options);
 }
 
 function buildStep5RouteQuery(

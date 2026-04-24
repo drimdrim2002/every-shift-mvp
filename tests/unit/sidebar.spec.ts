@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { reactive } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const pushMock = vi.fn()
@@ -30,31 +30,44 @@ vi.mock('@/stores/rbac', () => ({
   useRbacStore: () => rbacStoreMock,
 }))
 
-import Sidebar from '@/components/layout/Sidebar.vue'
-
-const NMenuStub = {
-  props: ['options'],
-  template: `
-    <nav data-test="sidebar-menu">
-      <div
-        v-for="option in options"
-        :key="option.key"
-        data-test="sidebar-menu-item"
-      >
-        {{ option.label }}
-      </div>
-    </nav>
-  `,
-}
-
-function createWrapper() {
-  return mount(Sidebar, {
-    global: {
-      stubs: {
-        NMenu: NMenuStub,
+vi.mock('naive-ui', () => ({
+  NMenu: defineComponent({
+    props: {
+      options: {
+        type: Array,
+        default: () => [],
+      },
+      defaultValue: {
+        type: String,
+        default: '',
       },
     },
-  })
+    setup(props) {
+      return () =>
+        h('nav', {
+          'data-test': 'sidebar-menu',
+          'data-current': props.defaultValue,
+        }, (props.options as Array<{ label: string; key: string }>).map((option) =>
+          h('div', {
+            key: option.key,
+            'data-test': 'sidebar-menu-item',
+          }, option.label)
+        ))
+    },
+  }),
+}))
+
+import Sidebar from '@/components/layout/Sidebar.vue'
+import {
+  getAppHomeRoutePath,
+  getApprovalQueueRoutePath,
+  getOpsOrganizationSetupRoutePath,
+  getScheduleStepRoutePath,
+  getUserHomeRoutePath,
+} from '@/constants/routes'
+
+function createWrapper() {
+  return mount(Sidebar)
 }
 
 describe('Sidebar', () => {
@@ -109,5 +122,53 @@ describe('Sidebar', () => {
     expect(wrapper.text()).not.toContain('운영 기본 설정')
     expect(wrapper.text()).not.toContain('근무표 생성')
     expect(wrapper.text()).not.toContain('내 홈')
+  })
+
+  it('normalizes canonical and legacy schedule routes to the schedule menu key', () => {
+    routeState.path = '/app/schedule/step5/schedule-1'
+    let wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getScheduleStepRoutePath(1)
+    )
+
+    routeState.path = '/schedule/step4'
+    wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getScheduleStepRoutePath(1)
+    )
+  })
+
+  it('normalizes canonical and legacy ops routes to the setup menu key', () => {
+    routeState.path = '/app/ops/off-request-policy-setup'
+    let wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getOpsOrganizationSetupRoutePath()
+    )
+
+    routeState.path = '/ops/organization-setup'
+    wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getOpsOrganizationSetupRoutePath()
+    )
+  })
+
+  it('normalizes approval, user home, and dashboard routes without path literals', () => {
+    routeState.path = '/admin/approval-queue'
+    let wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getApprovalQueueRoutePath()
+    )
+
+    routeState.path = '/app/home/user'
+    wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getUserHomeRoutePath()
+    )
+
+    routeState.path = '/'
+    wrapper = createWrapper()
+    expect(wrapper.get('[data-test="sidebar-menu"]').attributes('data-current')).toBe(
+      getAppHomeRoutePath()
+    )
   })
 })

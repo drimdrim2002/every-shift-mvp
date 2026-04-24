@@ -7,43 +7,18 @@ import {
 } from '@/api/schedule';
 import { useScheduleStore } from '@/stores/schedule';
 import {
-  buildCanonicalStep5Route,
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver';
 import type { Step5QueryState } from '@/utils/scheduleVersionResolver';
+import {
+  buildCanonicalStep5RouteLocation,
+  parseStep5RouteQuery,
+} from '@/constants/routes';
 import type {
   ScheduleCompareResponse,
   ScheduleReviewResponse,
   ScheduleVersionSummary,
 } from '@/types/schedule';
-
-function getQueryPreviewVersionId(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null;
-}
-
-function getQueryCompareVersionIds(value: unknown): string[] {
-  if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((versionId) => versionId.trim())
-      .filter((versionId) => versionId.length > 0);
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap((entry) => {
-      if (typeof entry !== 'string') {
-        return [];
-      }
-
-      return entry
-        .split(',')
-        .map((versionId) => versionId.trim())
-        .filter((versionId) => versionId.length > 0);
-    });
-  }
-
-  return [];
-}
 
 function dedupeVersionIds(versionIds: string[]): string[] {
   return [...new Set(versionIds)];
@@ -122,12 +97,13 @@ export function useScheduleReviewHub() {
       return compareVersionIds.value;
     }
 
-    return getQueryCompareVersionIds(route.query.compare);
+    return parseStep5RouteQuery(route.query).requestedCompareVersionIds;
   }
 
   function hasTransientStep5QueryState(): boolean {
-    return getQueryPreviewVersionId(route.query.version) !== null
-      || getQueryCompareVersionIds(route.query.compare).length > 0;
+    const parsedRouteQuery = parseStep5RouteQuery(route.query);
+    return parsedRouteQuery.requestedFocusVersionId !== null
+      || parsedRouteQuery.requestedCompareVersionIds.length > 0;
   }
 
   function getRouteRequestedQueryState(): Step5QueryState | null {
@@ -135,9 +111,10 @@ export function useScheduleReviewHub() {
       return null;
     }
 
+    const parsedRouteQuery = parseStep5RouteQuery(route.query);
     return {
-      requestedFocusVersionId: getQueryPreviewVersionId(route.query.version),
-      requestedCompareVersionIds: getQueryCompareVersionIds(route.query.compare),
+      requestedFocusVersionId: parsedRouteQuery.requestedFocusVersionId,
+      requestedCompareVersionIds: parsedRouteQuery.requestedCompareVersionIds,
     };
   }
 
@@ -205,9 +182,10 @@ export function useScheduleReviewHub() {
       options?.canonicalizeRoute ||
       routeScheduleKey.value !== (compareResponse.schedulePublicId ?? compareResponse.scheduleId)
     ) {
+      const parsedRouteQuery = parseStep5RouteQuery(route.query);
       await router.replace(
-        buildCanonicalStep5Route(compareResponse.schedulePublicId ?? compareResponse.scheduleId, {
-          autoStart: route.query.autoStart === '1',
+        buildCanonicalStep5RouteLocation(compareResponse.schedulePublicId ?? compareResponse.scheduleId, {
+          autoStart: parsedRouteQuery.autoStart,
         })
       );
     }

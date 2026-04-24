@@ -3,6 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
+import { getUserHomeRoutePath } from '@/constants/routes'
 
 const pushMock = vi.fn()
 const replaceMock = vi.fn()
@@ -150,7 +151,7 @@ describe('Login view', () => {
 
     expect(loginMock).toHaveBeenCalledWith('user@example.com', 'password123')
     expect(showSuccessMock).toHaveBeenCalledWith('로그인 성공')
-    expect(replaceMock).toHaveBeenCalledWith('/app/home/user')
+    expect(replaceMock).toHaveBeenCalledWith(getUserHomeRoutePath())
   })
 
   it('routes rejected admins into the rejected access screen without a success toast', async () => {

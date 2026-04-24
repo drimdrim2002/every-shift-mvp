@@ -460,8 +460,12 @@ import {
   buildPrimaryActionSupportCopy,
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
-import { buildCanonicalStep5Route } from '@/utils/scheduleVersionResolver';
-import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
+import {
+  buildCanonicalStep5RouteLocation,
+  getAppHomeRoutePath,
+  getScheduleStepRoutePath,
+  parseStep5RouteQuery,
+} from '@/constants/routes';
 import {
   buildRollingHistoryWindow,
   mergeAssignmentMapsWithFallback,
@@ -552,20 +556,10 @@ const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
   disabledReason: null,
 };
 
-function getRequestedPreviewVersionId(): string | null {
-  const routeQueryVersion = route.query.version;
-  return typeof routeQueryVersion === 'string' && routeQueryVersion.length > 0
-    ? routeQueryVersion
-    : null;
-}
-
 function hasTransientStep5RouteState(): boolean {
-  const routeQueryCompare = route.query.compare;
-  const hasCompareQuery = typeof routeQueryCompare === 'string'
-    ? routeQueryCompare.length > 0
-    : Array.isArray(routeQueryCompare) && routeQueryCompare.length > 0;
-
-  return getRequestedPreviewVersionId() !== null || hasCompareQuery;
+  const parsedRouteQuery = parseStep5RouteQuery(route.query);
+  return parsedRouteQuery.requestedFocusVersionId !== null
+    || parsedRouteQuery.requestedCompareVersionIds.length > 0;
 }
 
 function syncScheduleContextToStore(nextScheduleId: string, nextSchedulePublicId?: string | null) {
@@ -1618,7 +1612,7 @@ async function handleStartSolver() {
 }
 
 async function consumeRouteAutoStart() {
-  if (hasConsumedRouteAutoStart.value || route.query.autoStart !== '1') {
+  if (hasConsumedRouteAutoStart.value || !parseStep5RouteQuery(route.query).autoStart) {
     return;
   }
 
@@ -1632,7 +1626,7 @@ async function consumeRouteAutoStart() {
   }
 
   await router.replace(
-    buildCanonicalStep5Route(ensureScheduleRouteKey())
+    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
   );
 
   if (isStartingSolver.value || solver.status.value === 'running') {
@@ -2001,7 +1995,7 @@ async function syncComparisonWorkspace(
   nextCompareVersionIds: string[]
 ) {
   await router.replace(
-    buildCanonicalStep5Route(ensureScheduleRouteKey())
+    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
   );
   await hub.hydrate({
     requestedFocusVersionId: focusVersionId,
@@ -2342,7 +2336,7 @@ function handleSave() {
 
         if (hasTransientStep5RouteState()) {
           await router.replace(
-            buildCanonicalStep5Route(ensureScheduleRouteKey())
+            buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
           );
         }
 

@@ -1,5 +1,6 @@
 import { reactive } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { buildCanonicalStep5RouteLocation } from '@/constants/routes';
 
 const routeMock = reactive({
   params: {
@@ -256,9 +257,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.latestEvaluation?.scheduleVersionId).toBe('version-2');
     expect(scheduleStoreMock.reviewTab).toBe('grid');
     expect(getPhase2ScheduleReviewMock).toHaveBeenCalledWith('version-2');
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
-    });
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation(SCHEDULE_PUBLIC_ID));
   });
 
   it('keeps compare mode hidden until the route explicitly requests it', async () => {
@@ -299,9 +298,7 @@ describe('useScheduleReviewHub', () => {
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2');
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(1, 'version-3');
     expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(2, 'version-2');
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
-    });
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation(SCHEDULE_PUBLIC_ID));
   });
 
   it('switches preview and canonicalizes the route without mutating authoritative selection', async () => {
@@ -373,9 +370,7 @@ describe('useScheduleReviewHub', () => {
 
     expect(hub.previewVersionId.value).toBe('version-2');
     expect(scheduleStoreMock.previewVersionId).toBe('version-2');
-    expect(replaceMock).toHaveBeenCalledWith({
-      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
-    });
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation(SCHEDULE_PUBLIC_ID));
 
     await hub.setPreviewVersion('version-1');
 

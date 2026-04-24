@@ -21,7 +21,10 @@ import {
   getOpsOrganizationSetupRoutePath,
   getScheduleStepRoutePath,
   getUserHomeRoutePath,
-  isLegacyAppRoutePath,
+  isApprovalQueueRoutePath,
+  isOpsRoutePath,
+  isScheduleRoutePath,
+  isUserHomeRoutePath,
 } from '@/constants/routes'
 import { useRbacStore } from '@/stores/rbac'
 
@@ -56,27 +59,23 @@ const menuOptions = computed(() => {
 })
 
 const currentRoute = computed(() => {
-  if (route.path.startsWith('/app/schedule/step') || route.path.startsWith('/schedule/step')) {
+  if (isScheduleRoutePath(route.path)) {
     return getScheduleStepRoutePath(1)
   }
 
-  if (route.path.startsWith('/app/ops/') || route.path.startsWith('/ops/')) {
+  if (isOpsRoutePath(route.path)) {
     return getOpsOrganizationSetupRoutePath()
   }
 
-  if (route.path === '/home/user') {
+  if (isUserHomeRoutePath(route.path)) {
     return getUserHomeRoutePath()
   }
 
-  if (route.path === '/admin/approval-queue') {
+  if (isApprovalQueueRoutePath(route.path)) {
     return getApprovalQueueRoutePath()
   }
 
-  if (route.path === '/' || route.path === '/app' || !isLegacyAppRoutePath(route.path)) {
-    return getAppHomeRoutePath()
-  }
-
-  return route.path
+  return getAppHomeRoutePath()
 })
 
 function handleMenuClick(key: string) {

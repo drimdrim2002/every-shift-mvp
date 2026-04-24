@@ -6,8 +6,8 @@ import { resolveAuthNavigationTarget, resolveRouteAccessTarget, stepProgressGuar
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
-  APP_HOME_ROUTE_PATH,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_APP_ROUTE_REDIRECTS,
   LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
   LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
   LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
@@ -20,12 +20,9 @@ import {
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
   getAppHomeRoutePath,
-  getApprovalQueueRoutePath,
-  getOpsOffRequestPolicySetupRoutePath,
-  getOpsOrganizationSetupRoutePath,
-  getScheduleStepRoutePath,
-  getUserHomeRoutePath,
+  getStep5ScheduleKeyFromPath,
   isAppRoutePath,
+  isScheduleRoutePath,
 } from '@/constants/routes';
 
 const devOnlyRoutes: RouteRecordRaw[] = [
@@ -197,6 +194,12 @@ const router = createRouter({
   routes: createAppRoutes(),
 });
 
+const TEMPORARILY_MOUNTED_APP_ROUTE_REDIRECTS = Object.freeze(
+  Object.fromEntries(
+    Object.entries(LEGACY_APP_ROUTE_REDIRECTS).map(([legacyPath, canonicalPath]) => [canonicalPath, legacyPath])
+  ) as Record<string, string>
+);
+
 function resolveTemporarilyMountedPath(path: string): string | null {
   if (!isAppRoutePath(path)) {
     return null;
@@ -206,41 +209,14 @@ function resolveTemporarilyMountedPath(path: string): string | null {
     return PUBLIC_ROOT_ROUTE_PATH;
   }
 
-  if (path === getApprovalQueueRoutePath()) {
-    return LEGACY_APPROVAL_QUEUE_ROUTE_PATH;
+  const legacyMountedPath = TEMPORARILY_MOUNTED_APP_ROUTE_REDIRECTS[path];
+  if (legacyMountedPath) {
+    return legacyMountedPath;
   }
 
-  if (path === getUserHomeRoutePath()) {
-    return LEGACY_USER_HOME_ROUTE_PATH;
-  }
-
-  if (path === getOpsOrganizationSetupRoutePath()) {
-    return LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH;
-  }
-
-  if (path === getOpsOffRequestPolicySetupRoutePath()) {
-    return LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH;
-  }
-
-  if (path === getScheduleStepRoutePath(1)) {
-    return LEGACY_SCHEDULE_STEP1_ROUTE_PATH;
-  }
-
-  if (path === getScheduleStepRoutePath(2)) {
-    return LEGACY_SCHEDULE_STEP2_ROUTE_PATH;
-  }
-
-  if (path === getScheduleStepRoutePath(3)) {
-    return LEGACY_SCHEDULE_STEP3_ROUTE_PATH;
-  }
-
-  if (path === getScheduleStepRoutePath(4)) {
-    return LEGACY_SCHEDULE_STEP4_ROUTE_PATH;
-  }
-
-  if (path.startsWith(`${APP_HOME_ROUTE_PATH}/schedule/step5/`)) {
-    const scheduleKey = path.slice(`${APP_HOME_ROUTE_PATH}/schedule/step5/`.length);
-    return scheduleKey ? `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}${scheduleKey}` : null;
+  const scheduleKey = getStep5ScheduleKeyFromPath(path);
+  if (scheduleKey) {
+    return `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}${scheduleKey}`;
   }
 
   return null;
@@ -320,7 +296,7 @@ router.beforeEach(async (to, from, next) => {
     return;
   }
 
-  if (to.path.startsWith('/schedule/step')) {
+  if (isScheduleRoutePath(to.path)) {
     await stepProgressGuard(to, from, next);
     return;
   }

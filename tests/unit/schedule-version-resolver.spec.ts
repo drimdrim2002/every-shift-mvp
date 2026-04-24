@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  APP_APPROVAL_QUEUE_ROUTE_PATH,
+  APP_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
+  APP_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
+  APP_SCHEDULE_ROUTE_PREFIX,
+  APP_USER_HOME_ROUTE_PATH,
+  LEGACY_APP_ROUTE_REDIRECTS,
+  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
+  LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
+  LEGACY_USER_HOME_ROUTE_PATH,
+  buildStep5RouteLocation,
+  getLegacyRedirectTarget,
+  getStep5ScheduleKeyFromPath,
+  parseStep5RouteQuery,
+} from '@/constants/routes'
+import {
   buildStep5Route,
   getDefaultScheduleVersionId,
   resolveStep4VersionState,
@@ -355,6 +371,44 @@ describe('scheduleVersionResolver', () => {
         autoStart: '1',
       },
     })
+  })
+
+  it('derives canonical launch-core constants from the legacy redirect contract', () => {
+    expect(LEGACY_APP_ROUTE_REDIRECTS[LEGACY_APPROVAL_QUEUE_ROUTE_PATH]).toBe(APP_APPROVAL_QUEUE_ROUTE_PATH)
+    expect(LEGACY_APP_ROUTE_REDIRECTS[LEGACY_USER_HOME_ROUTE_PATH]).toBe(APP_USER_HOME_ROUTE_PATH)
+    expect(LEGACY_APP_ROUTE_REDIRECTS[LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH]).toBe(
+      APP_OPS_ORGANIZATION_SETUP_ROUTE_PATH
+    )
+    expect(LEGACY_APP_ROUTE_REDIRECTS[LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH]).toBe(
+      APP_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH
+    )
+    expect(APP_SCHEDULE_ROUTE_PREFIX).toBe('/app/schedule/')
+  })
+
+  it('round-trips Step5 query ownership through the route contract helpers', () => {
+    const routeLocation = buildStep5RouteLocation('schedule-1', {
+      compareVersionId: 'version-3',
+      autoStart: true,
+    }) as { path: string; query?: Record<string, string> }
+
+    expect(routeLocation).toEqual({
+      path: '/app/schedule/step5/schedule-1',
+      query: {
+        compare: 'version-3',
+        autoStart: '1',
+      },
+    })
+    expect(parseStep5RouteQuery(routeLocation.query)).toEqual({
+      requestedFocusVersionId: null,
+      requestedCompareVersionIds: ['version-3'],
+      autoStart: true,
+    })
+  })
+
+  it('extracts Step5 schedule keys and redirects legacy step5 paths through the shared route contract', () => {
+    expect(getStep5ScheduleKeyFromPath('/app/schedule/step5/schedule-1')).toBe('schedule-1')
+    expect(getStep5ScheduleKeyFromPath('/schedule/step5/schedule-1')).toBe('schedule-1')
+    expect(getLegacyRedirectTarget('/schedule/step5/schedule-1')).toBe('/app/schedule/step5/schedule-1')
   })
 
   it('finds the single authoritative running version for Step5 resume', () => {

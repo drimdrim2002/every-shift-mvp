@@ -1,6 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
+import {
+  APP_HOME_ROUTE_PATH,
+  PUBLIC_ROOT_ROUTE_PATH,
+  getStep5ScheduleKeyFromPath,
+  isApprovalQueueRoutePath,
+  isUserHomeRoutePath,
+} from '../../src/constants/routes'
 
 type TestCredentials = {
   email: string
@@ -620,21 +627,19 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
 }
 
 export async function waitForAuthenticatedLanding(page: Page) {
-  const isDashboardPath = (pathname: string) => pathname === '/' || pathname === '/app'
-  const isApprovalQueuePath = (pathname: string) =>
-    pathname === '/admin/approval-queue' || pathname === '/app/admin/approval-queue'
-  const isUserHomePath = (pathname: string) =>
-    pathname === '/home/user' || pathname === '/app/home/user'
+  const isDashboardPath = (pathname: string) => pathname === PUBLIC_ROOT_ROUTE_PATH || pathname === APP_HOME_ROUTE_PATH
 
   await page.waitForURL((url) =>
-    isDashboardPath(url.pathname) || isApprovalQueuePath(url.pathname) || isUserHomePath(url.pathname)
+    isDashboardPath(url.pathname)
+    || isApprovalQueueRoutePath(url.pathname)
+    || isUserHomeRoutePath(url.pathname)
   )
 
   const currentPath = new URL(page.url()).pathname
 
-  if (isApprovalQueuePath(currentPath)) {
+  if (isApprovalQueueRoutePath(currentPath)) {
     await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()
-  } else if (isUserHomePath(currentPath)) {
+  } else if (isUserHomeRoutePath(currentPath)) {
     await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
   } else {
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
@@ -644,7 +649,7 @@ export async function waitForAuthenticatedLanding(page: Page) {
 }
 
 export async function waitForDashboard(page: Page) {
-  await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/app')
+  await page.waitForURL((url) => url.pathname === PUBLIC_ROOT_ROUTE_PATH || url.pathname === APP_HOME_ROUTE_PATH)
   await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
   await page.waitForLoadState('networkidle')
 }
@@ -708,7 +713,7 @@ export async function openExistingScheduleFromDashboard(
   page: Page,
   options: ExistingScheduleOptions = {}
 ) {
-  await page.goto('/')
+  await page.goto(PUBLIC_ROOT_ROUTE_PATH)
   await waitForDashboard(page)
   await waitForDashboardScheduleState(page)
 
@@ -716,7 +721,7 @@ export async function openExistingScheduleFromDashboard(
   const targetCard = await resolveExistingScheduleCard(page, month, preferCompleted)
 
   await targetCard.click()
-  await page.waitForURL(/\/schedule\/step5\/.+/)
+  await page.waitForURL((url) => getStep5ScheduleKeyFromPath(url.pathname) !== null)
 
   return page.url()
 }
@@ -834,7 +839,7 @@ export async function completeStep4InitialData(
 
 export async function goToStep5(page: Page, timeout = 30000) {
   await page.getByRole('button', { name: /다음 단계/ }).click()
-  await page.waitForURL(/\/schedule\/step5\/.+/, { timeout })
+  await page.waitForURL((url) => getStep5ScheduleKeyFromPath(url.pathname) !== null, { timeout })
 }
 
 export async function verifyStep5ReviewHub(page: Page) {

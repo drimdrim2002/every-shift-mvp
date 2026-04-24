@@ -3,9 +3,11 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import {
   APP_HOME_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
   LEGACY_USER_HOME_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
+  getStep5ScheduleKeyFromPath,
 } from '@/constants/routes'
 import { createAppRoutes } from '@/router/index'
 
@@ -81,5 +83,8 @@ describe('router dev-only routes', () => {
       requiresOrgContext: true,
       requiredOrgRole: 'admin',
     })
+
+    expect(findRouteByName(routes, 'Step5')?.path).toBe(`${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.slice(1)}:scheduleKey`)
+    expect(getStep5ScheduleKeyFromPath('/schedule/step5/schedule-1')).toBe('schedule-1')
   })
 })
