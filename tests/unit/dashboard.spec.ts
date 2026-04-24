@@ -159,6 +159,21 @@ function createWrapper() {
   })
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -673,6 +688,82 @@ describe('Dashboard', () => {
 
     expect(wrapper.find('[data-test="dashboard-foundation-card"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(true)
+  })
+
+  it('keeps schedule actions hidden while ops readiness is still loading', async () => {
+    const checklistDeferred = createDeferred<Awaited<ReturnType<typeof getChecklistMock>>>()
+    getChecklistMock.mockReturnValue(checklistDeferred.promise)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-foundation-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pilot-checklist-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('운영 준비 정보를 확인하는 중입니다')
+    expect(wrapper.text()).toContain('병원 정보, 기준 설정, 체크리스트를 불러오고 있습니다.')
+
+    checklistDeferred.resolve({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'ready',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: null,
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
+          blockedReason: null,
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="pilot-checklist-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(true)
   })
 
   it('surfaces the pilot checklist entry with deep links from the dashboard shell', async () => {

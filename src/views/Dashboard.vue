@@ -7,7 +7,7 @@
             근무표 관리
           </h1>
           <n-button
-            v-if="canManageSchedules"
+            v-if="canManageSchedules && !opsReadinessLoading"
             data-test="dashboard-create-schedule"
             type="primary"
             @click="handleCreateNew"
@@ -61,41 +61,60 @@
             </div>
           </div>
 
-          <n-card
-            v-if="showFoundationCard"
-            data-test="dashboard-foundation-card"
-            :bordered="true"
-            class="mb-4 cursor-pointer"
-            @click="handleOpenFoundationEntry"
+          <div
+            v-if="opsReadinessLoading"
+            data-test="dashboard-ops-readiness-loading"
+            class="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center"
           >
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <p class="text-base font-semibold text-gray-900">
-                  {{ foundationCardTarget?.title }}
-                </p>
-                <p class="mt-1 text-sm text-gray-500">
-                  {{ foundationCardTarget?.description }}
-                </p>
-              </div>
-              <n-button
-                data-test="dashboard-foundation-setup"
-                secondary
-                type="primary"
-                @click.stop="handleOpenFoundationEntry"
-              >
-                {{ foundationCardTarget?.actionLabel }}
-              </n-button>
-            </div>
-          </n-card>
+            <n-spin size="medium" />
+            <p class="mt-4 text-base font-semibold text-slate-900">
+              운영 준비 정보를 확인하는 중입니다
+            </p>
+            <p class="mt-1 text-sm text-slate-500">
+              병원 정보, 기준 설정, 체크리스트를 불러오고 있습니다.
+            </p>
+          </div>
 
-          <PilotChecklistCard
-            v-if="checklist"
-            :checklist="checklist"
-            @navigate="handleChecklistNavigate"
-          />
+          <template v-else>
+            <n-card
+              v-if="showFoundationCard"
+              data-test="dashboard-foundation-card"
+              :bordered="true"
+              class="mb-4 cursor-pointer"
+              @click="handleOpenFoundationEntry"
+            >
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="text-base font-semibold text-gray-900">
+                    {{ foundationCardTarget?.title }}
+                  </p>
+                  <p class="mt-1 text-sm text-gray-500">
+                    {{ foundationCardTarget?.description }}
+                  </p>
+                </div>
+                <n-button
+                  data-test="dashboard-foundation-setup"
+                  secondary
+                  type="primary"
+                  @click.stop="handleOpenFoundationEntry"
+                >
+                  {{ foundationCardTarget?.actionLabel }}
+                </n-button>
+              </div>
+            </n-card>
+
+            <PilotChecklistCard
+              v-if="checklist"
+              :checklist="checklist"
+              @navigate="handleChecklistNavigate"
+            />
+          </template>
         </section>
 
-        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section
+          v-if="!opsReadinessLoading"
+          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
           <div class="mb-4">
             <p class="text-sm font-medium tracking-wide text-slate-500">
               월별 근무표 작업
@@ -110,7 +129,7 @@
 
           <!-- 로딩 상태 -->
           <div
-            v-if="loading"
+            v-if="scheduleLoading"
             class="py-12 text-center"
           >
             <n-spin size="large" />
@@ -285,7 +304,8 @@ const orgStore = useOrganizationStore();
 const rbacStore = useRbacStore();
 const scheduleStore = useScheduleStore();
 
-const loading = ref(true);
+const opsReadinessLoading = ref(true);
+const scheduleLoading = ref(false);
 const schedules = ref<Schedule[]>([]);
 const checklist = ref<ChecklistResponse | null>(null);
 
@@ -374,7 +394,8 @@ const canManageSchedules = computed(() => rbacStore.abilities.canManageSchedules
 function resetDashboardData() {
   schedules.value = [];
   checklist.value = null;
-  loading.value = false;
+  opsReadinessLoading.value = false;
+  scheduleLoading.value = false;
 }
 
 async function reloadDashboardData() {
@@ -385,23 +406,29 @@ async function reloadDashboardData() {
 
   schedules.value = [];
   checklist.value = null;
-  loading.value = true;
+  opsReadinessLoading.value = true;
+  scheduleLoading.value = false;
 
   const result = await orgStore.loadOrganization();
 
   if (!result.success) {
     showError(result.error || '조직 정보를 불러오지 못했습니다.');
-    loading.value = false;
+    opsReadinessLoading.value = false;
+    scheduleLoading.value = false;
     return;
   }
 
-  if (orgStore.current?.id && typeof orgStore.loadFoundationData === 'function') {
-    await orgStore.loadFoundationData(orgStore.current.id);
-  }
+  try {
+    if (orgStore.current?.id && typeof orgStore.loadFoundationData === 'function') {
+      await orgStore.loadFoundationData(orgStore.current.id);
+    }
 
-  // 근무표 목록 로드
-  await loadSchedules();
-  await loadChecklist();
+    // 근무표 목록 로드
+    await loadSchedules();
+    await loadChecklist();
+  } finally {
+    opsReadinessLoading.value = false;
+  }
 }
 
 onMounted(async () => {
@@ -421,14 +448,14 @@ watch(
 
 async function loadSchedules() {
   try {
-    loading.value = true;
+    scheduleLoading.value = true;
     const data = await getScheduleList(orgStore.current!.id);
     schedules.value = data as Schedule[];
   } catch (error) {
     console.warn('근무표 목록 로드 실패:', error);
     window.$message?.error('근무표 목록을 불러오는데 실패했습니다');
   } finally {
-    loading.value = false;
+    scheduleLoading.value = false;
   }
 }
 
