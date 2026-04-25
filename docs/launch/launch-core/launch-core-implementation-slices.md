@@ -98,6 +98,20 @@ Slice 5: Launch-safe inquiry CTA
 Slice 6: Deploy contract + regression gate
 ```
 
+## Slice Progress
+
+Last updated: 2026-04-25
+
+| Slice                                           | Status      | Notes                                                                                                                                                |
+| ----------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slice 0: Route semantics freeze                 | Done        | Public root and authenticated app route semantics are split in the route contract.                                                                   |
+| Slice 1: Route contract consolidation           | Done        | Launch Core route constants, canonical builders, and legacy redirect targets are centralized.                                                        |
+| Slice 2: Canonical `/app` workspace coexistence | Done        | `DefaultLayout` is owned by `/app`, canonical workspace routes are active, and legacy workspace URLs redirect to `/app/*` with query/hash preserved. |
+| Slice 3: Public landing + layout boundary       | Next        | `/` still redirects to `/app` until the public landing surface is introduced.                                                                        |
+| Slice 4: Legacy redirect window                 | Not started | Broader launch-window redirect hardening remains after the public boundary lands.                                                                    |
+| Slice 5: Launch-safe inquiry CTA                | Not started | Public inquiry CTA/config work depends on the landing surface.                                                                                       |
+| Slice 6: Deploy contract + regression gate      | Not started | Vercel deep-link and launch regression gates remain pending.                                                                                         |
+
 ## Baseline Before Slice 0
 
 Run once before starting the first slice:

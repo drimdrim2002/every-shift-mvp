@@ -1,6 +1,6 @@
 # Launch Core 계획 문서
 
-> 상태: 첫 공개 출시 게이트를 위한 기준 계획
+> 상태: Slice 2 완료, Slice 3 대기
 > 원문 기준 문서: [launch-core-plan.md](./launch-core-plan.md)
 
 ## 목표
@@ -105,6 +105,20 @@ Launch Core 의 기술적 결정:
 - 그다음 `/app` 경로와 legacy redirect 를 추가합니다.
 - 그다음 호출부와 테스트를 canonical `/app` 기준으로 바꿉니다.
 - 안정화가 확인된 뒤에만 legacy redirect 제거를 검토합니다.
+
+## Slice 진행 상황
+
+최종 업데이트: 2026-04-25
+
+| Slice                                           | 상태      | 현재 의미                                                                                                                                                                  |
+| ----------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slice 0: Route semantics freeze                 | 완료      | `/` 와 `/app` 의 의미가 route contract 에서 분리되었습니다.                                                                                                                |
+| Slice 1: Route contract consolidation           | 완료      | Launch Core 경로 상수, canonical builder, legacy redirect 대상이 중앙화되었습니다.                                                                                         |
+| Slice 2: Canonical `/app` workspace coexistence | 완료      | `DefaultLayout` 은 `/app` 이 소유하고, 인증 후 작업 공간은 `/app/*` canonical 경로로 동작합니다. legacy 작업 공간 URL 은 query/hash 를 보존해 `/app/*` 로 redirect 됩니다. |
+| Slice 3: Public landing + layout boundary       | 다음 작업 | 공개 랜딩이 들어가기 전까지 `/` 는 임시로 `/app` 으로 redirect 됩니다.                                                                                                     |
+| Slice 4: Legacy redirect window                 | 미시작    | 공개 경계 적용 후 launch-window redirect 를 더 넓게 고정합니다.                                                                                                            |
+| Slice 5: Launch-safe inquiry CTA                | 미시작    | 랜딩 표면이 준비된 뒤 공개 문의 CTA 와 config 를 연결합니다.                                                                                                               |
+| Slice 6: Deploy contract + regression gate      | 미시작    | Vercel 딥링크와 출시 회귀 게이트를 최종 검증합니다.                                                                                                                        |
 
 ### 기술 가드레일
 
