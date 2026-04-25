@@ -272,10 +272,10 @@ import {
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
   buildCanonicalStep5RouteLocation,
-  getLegacyRedirectTarget,
   getOpsOrganizationSetupRoutePath,
   getScheduleStepRoutePath,
   getStep5ScheduleKeyFromPath,
+  normalizeAppContractPath,
 } from '@/constants/routes';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
@@ -533,7 +533,7 @@ function extractStep5ScheduleKey(routePath: string | null | undefined): string |
 }
 
 function normalizeChecklistRoute(routePath: string) {
-  return getLegacyRedirectTarget(routePath) ?? routePath;
+  return normalizeAppContractPath(routePath);
 }
 
 async function navigateToCanonicalStep5(scheduleKey: string) {

@@ -5,12 +5,14 @@ import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
   APP_HOME_ROUTE_PATH,
-  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  LEGACY_APP_ROUTE_REDIRECTS,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LOGIN_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
+  getScheduleStep5RoutePath,
   getStep5ScheduleKeyFromPath,
+  normalizeAppContractPath,
 } from '@/constants/routes'
 import { createAppRoutes } from '@/router/index'
 
@@ -164,15 +166,20 @@ describe('router dev-only routes', () => {
     ])
   })
 
-  it('keeps legacy static routes as redirects that preserve query and hash', () => {
-    const legacyRoute = findTopLevelRouteByPath(createAppRoutes(false), LEGACY_APPROVAL_QUEUE_ROUTE_PATH)
+  it('keeps every legacy static route as a redirect that preserves query and hash', () => {
+    const routes = createAppRoutes(false)
 
-    expect(resolveRedirect(legacyRoute!, LEGACY_APPROVAL_QUEUE_ROUTE_PATH)).toEqual({
-      path: '/app/admin/approval-queue',
-      query: { version: 'draft' },
-      hash: '#section',
-      replace: true,
-    })
+    for (const [legacyPath, canonicalPath] of Object.entries(LEGACY_APP_ROUTE_REDIRECTS)) {
+      const legacyRoute = findTopLevelRouteByPath(routes, legacyPath)
+
+      expect(legacyRoute).toBeDefined()
+      expect(resolveRedirect(legacyRoute!, legacyPath)).toEqual({
+        path: canonicalPath,
+        query: { version: 'draft' },
+        hash: '#section',
+        replace: true,
+      })
+    }
   })
 
   it('keeps legacy schedule step5 as a redirect that preserves scheduleKey, query, and hash', () => {
@@ -187,5 +194,16 @@ describe('router dev-only routes', () => {
       hash: '#section',
       replace: true,
     })
+  })
+
+  it('normalizes launch-window legacy app paths to canonical /app contract paths', () => {
+    for (const [legacyPath, canonicalPath] of Object.entries(LEGACY_APP_ROUTE_REDIRECTS)) {
+      expect(normalizeAppContractPath(legacyPath)).toBe(canonicalPath)
+    }
+
+    expect(normalizeAppContractPath(`${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}schedule-123`)).toBe(
+      getScheduleStep5RoutePath('schedule-123'),
+    )
+    expect(normalizeAppContractPath(APP_HOME_ROUTE_PATH)).toBe(APP_HOME_ROUTE_PATH)
   })
 })

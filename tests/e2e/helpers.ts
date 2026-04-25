@@ -3,10 +3,10 @@ import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
 import {
   APP_HOME_ROUTE_PATH,
+  getApprovalQueueRoutePath,
   getScheduleStepRoutePath,
   getStep5ScheduleKeyFromPath,
-  isApprovalQueueRoutePath,
-  isUserHomeRoutePath,
+  getUserHomeRoutePath,
 } from '../../src/constants/routes'
 
 type TestCredentials = {
@@ -696,15 +696,15 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
 export async function waitForAuthenticatedLanding(page: Page) {
   await page.waitForURL((url) =>
     url.pathname === APP_HOME_ROUTE_PATH
-    || isApprovalQueueRoutePath(url.pathname)
-    || isUserHomeRoutePath(url.pathname)
+    || url.pathname === getApprovalQueueRoutePath()
+    || url.pathname === getUserHomeRoutePath()
   )
 
   const currentPath = new URL(page.url()).pathname
 
-  if (isApprovalQueueRoutePath(currentPath)) {
+  if (currentPath === getApprovalQueueRoutePath()) {
     await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()
-  } else if (isUserHomeRoutePath(currentPath)) {
+  } else if (currentPath === getUserHomeRoutePath()) {
     await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
   } else {
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()

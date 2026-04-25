@@ -40,7 +40,7 @@
 ## Inquiry Form
 
 - [ ] `도입 문의` opens the real Google Form
-- [ ] header and hero both use the same configured inquiry URL
+- [ ] header, hero, and bottom inquiry CTAs all use the same configured inquiry URL
 - [ ] `요청 내용` supports multi-select
 - [ ] `소개 자료 다운로드` option exists
 - [ ] `한 달 무료 사용하기` option exists
@@ -49,7 +49,9 @@
 - [ ] `병동 이름` is required
 - [ ] `이메일 주소` is required
 - [ ] personal-information consent copy is visible before submit
+- [ ] consent checkbox exists if required by the final form copy
 - [ ] form completion message explains follow-up expectation
+- [ ] manual inquiry form QA result is recorded with tested URL, date, and tester
 
 ## RBAC and Navigation
 

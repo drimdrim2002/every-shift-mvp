@@ -10,13 +10,13 @@ import {
   LOGIN_ROUTE_PATH,
   getAppHomeRoutePath,
   getApprovalQueueRoutePath,
-  getLegacyRedirectTarget,
   getScheduleStepRoutePath,
   getUserHomeRoutePath,
   isAccessStateRoutePath,
   isAuthPagePath,
   isPublicRootRoutePath,
   isScheduleStep5RoutePath,
+  normalizeAppContractPath,
   resolvePostAuthRedirectPath,
 } from '@/constants/routes';
 
@@ -69,10 +69,6 @@ function hasOrgAdminAccess(abilities: AccessAbilities) {
     || abilities.canManageEmployees
     || abilities.canManageSchedules
   );
-}
-
-function normalizeAppContractPath(path: string): string {
-  return getLegacyRedirectTarget(path) ?? path;
 }
 
 export function resolveAuthNavigationTarget({

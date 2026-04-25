@@ -38,7 +38,9 @@
         </RouterLink>
         <a
           data-test="public-header-inquiry"
-          href="#inquiry"
+          :href="inquiryFormUrl"
+          target="_blank"
+          rel="noopener noreferrer"
           class="inline-flex rounded-md bg-gray-950 px-2.5 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 sm:px-3"
         >
           도입 문의
@@ -51,6 +53,7 @@
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
 import mainLogo from '@/assets/brand/main_logo.png'
+import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
 import {
   LOGIN_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
@@ -61,4 +64,6 @@ const signupRouteLocation: RouteLocationRaw = {
   path: SIGNUP_ROUTE_PATH,
   query: { role: 'admin' },
 }
+
+const inquiryFormUrl = getPublicInquiryFormUrl()
 </script>

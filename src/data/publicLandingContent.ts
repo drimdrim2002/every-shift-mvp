@@ -24,9 +24,9 @@ export interface PublicLandingValueSection {
 
 export const publicLandingHero: PublicLandingHeroContent = {
   kicker: '',
-  sloganLines: ['모두의 근무표,', '근무표의 모든 것'],
+  sloganLines: ['모두의 근무표', '근무표의 모든 것'],
   body:
-    'EveryShift가 근무표 생성의 표준을 제시합니다.',
+    'everyshift가 근무표 생성의 표준을 제시합니다.',
 }
 
 export const publicLandingSections: readonly PublicLandingValueSection[] = [

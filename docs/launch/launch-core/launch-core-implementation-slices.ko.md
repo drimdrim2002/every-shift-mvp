@@ -433,6 +433,10 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 ## Slice 4: 레거시 리다이렉트 유지
 
+**상태:** 완료
+
+**완료:** 레거시 경로 정규화는 라우트 상수로 중앙화했고, static legacy redirect matrix 와 Step5 query/hash 보존은 unit test 로 고정했습니다. launch E2E 와 checklist spec 도 canonical `/app` 목적지를 기대하도록 갱신했습니다. dependency 를 건너뛴 Playwright spec 실행은 로컬에서 통과했고, 전체 Playwright setup 은 로컬 `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` 설정에 의존합니다.
+
 ### 목표
 
 기존 북마크, 운영자 습관, 테스트 helper 가 깨지지 않도록 옛 경로를 명시적으로 `/app` 경로로 넘깁니다.
@@ -490,6 +494,10 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 ## Slice 5: 문의 CTA 실사용 연결
 
+**상태:** 완료
+
+**완료:** 헤더, 히어로, 하단 문의 CTA 가 하나의 `VITE_PUBLIC_INQUIRY_FORM_URL` 로 설정된 Google Form 을 새 탭에서 열도록 통일했습니다. `.env.example` 에 공개 문의 URL 설정을 추가했고, `pnpm check-env` 로 URL 누락, 형식 오류, Google Form 이 아닌 URL, 템플릿 placeholder 를 막습니다. CTA parity 와 env validation 은 focused unit test 로 고정했습니다. Google Form 계약은 launch QA 기준으로 준비했으며, Vercel Preview/Production 환경변수 설정은 Slice 6 배포 스모크 범위로 남깁니다.
+
 ### 목표
 
 공개 랜딩의 모든 문의 CTA 가 하나의 검증된 설정값을 사용하도록 통일하고, 실제 Google Form 연결까지 런칭 기준으로 검증합니다.
@@ -540,7 +548,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 - `pnpm lint:check`
 - `pnpm check-env`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts`
+- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
 - Google Form 수동 QA 완료
 
 ---

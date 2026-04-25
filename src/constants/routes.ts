@@ -240,6 +240,10 @@ export function getLegacyRedirectTarget(path: string): string | null {
   return scheduleKey ? getScheduleStep5RoutePath(scheduleKey) : null
 }
 
+export function normalizeAppContractPath(path: string): string {
+  return getLegacyRedirectTarget(path) ?? path
+}
+
 export function resolvePostAuthRedirectPath(accessState: AccessState | null): string {
   switch (accessState) {
     case 'admin_pending':

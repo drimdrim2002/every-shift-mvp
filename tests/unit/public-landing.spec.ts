@@ -1,8 +1,10 @@
 import { mount, RouterLinkStub } from '@vue/test-utils'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH } from '@/constants/routes'
 import { publicLandingHero } from '@/data/publicLandingContent'
 import PublicLandingView from '@/views/PublicLandingView.vue'
+
+const INQUIRY_FORM_URL = 'https://forms.gle/everyshift-public-inquiry'
 
 function mountLanding() {
   return mount(PublicLandingView, {
@@ -15,6 +17,14 @@ function mountLanding() {
 }
 
 describe('PublicLandingView', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_PUBLIC_INQUIRY_FORM_URL', INQUIRY_FORM_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('renders header actions in order with expected destinations', () => {
     const wrapper = mountLanding()
     const header = wrapper.get('[data-test="public-header"]')
@@ -40,12 +50,19 @@ describe('PublicLandingView', () => {
       path: SIGNUP_ROUTE_PATH,
       query: { role: 'admin' },
     })
-    expect(inquiryLink.attributes('href')).toBe('#inquiry')
+    expect(inquiryLink.attributes('href')).toBe(INQUIRY_FORM_URL)
+    expect(inquiryLink.attributes('target')).toBe('_blank')
+    expect(inquiryLink.attributes('rel')).toBe('noopener noreferrer')
   })
 
-  it('renders hero copy without duplicate CTA buttons', () => {
+  it('renders hero copy with signup and inquiry CTAs in order', () => {
     const wrapper = mountLanding()
     const hero = wrapper.get('[data-test="public-hero"]')
+    const signupLink = wrapper.getComponent('[data-test="public-hero-signup"]')
+    const inquiryLink = wrapper.get('[data-test="public-hero-inquiry"]')
+    const heroActions = hero
+      .findAll('[data-test="public-hero-signup"], [data-test="public-hero-inquiry"]')
+      .map((link) => link.text())
     const sloganLines = wrapper
       .findAll('[data-test="public-hero-slogan-line"]')
       .map((line) => line.text())
@@ -54,11 +71,16 @@ describe('PublicLandingView', () => {
       expect(hero.text()).toContain(publicLandingHero.kicker)
     }
     expect(sloganLines).toEqual([...publicLandingHero.sloganLines])
-    expect(sloganLines).toEqual(['모두의 근무표,', '근무표의 모든 것'])
     expect(hero.get('[data-test="public-hero-body"]').text()).toBe(publicLandingHero.body)
     expect(hero.get('[data-test="public-hero-body"]').classes()).toContain('whitespace-pre-line')
-    expect(hero.find('[data-test="public-hero-signup"]').exists()).toBe(false)
-    expect(hero.find('[data-test="public-hero-inquiry"]').exists()).toBe(false)
+    expect(heroActions).toEqual(['회원 가입', '도입 문의'])
+    expect(signupLink.props('to')).toEqual({
+      path: SIGNUP_ROUTE_PATH,
+      query: { role: 'admin' },
+    })
+    expect(inquiryLink.attributes('href')).toBe(INQUIRY_FORM_URL)
+    expect(inquiryLink.attributes('target')).toBe('_blank')
+    expect(inquiryLink.attributes('rel')).toBe('noopener noreferrer')
   })
 
   it('renders narrative value sections with fixed anchors', () => {
@@ -113,7 +135,11 @@ describe('PublicLandingView', () => {
     expect(inquiry.text()).not.toContain('회원 가입')
     expect(bottomActions).toEqual(['도입 문의'])
     expect(wrapper.find('[data-test="public-bottom-signup"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('href')).toBe('#inquiry')
+    expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('href')).toBe(INQUIRY_FORM_URL)
+    expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('target')).toBe('_blank')
+    expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('rel')).toBe(
+      'noopener noreferrer',
+    )
     expect(wrapper.find('[data-test="public-footer"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="organization-switcher"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="app-sidebar"]').exists()).toBe(false)
@@ -123,5 +149,23 @@ describe('PublicLandingView', () => {
     expect(wrapper.text()).not.toContain('로그아웃')
     expect(wrapper.text()).not.toContain('조직 선택')
     expect(wrapper.text()).not.toContain('근무표 관리')
+  })
+
+  it('uses the same configured inquiry URL for every public inquiry CTA', () => {
+    const wrapper = mountLanding()
+    const inquiryLinks = wrapper.findAll(
+      '[data-test="public-header-inquiry"], [data-test="public-hero-inquiry"], [data-test="public-bottom-inquiry"]',
+    )
+
+    expect(inquiryLinks).toHaveLength(3)
+    expect(inquiryLinks.map((link) => link.attributes('href'))).toEqual([
+      INQUIRY_FORM_URL,
+      INQUIRY_FORM_URL,
+      INQUIRY_FORM_URL,
+    ])
+    inquiryLinks.forEach((link) => {
+      expect(link.attributes('target')).toBe('_blank')
+      expect(link.attributes('rel')).toBe('noopener noreferrer')
+    })
   })
 })

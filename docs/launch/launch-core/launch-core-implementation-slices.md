@@ -102,15 +102,15 @@ Slice 6: Deploy contract + regression gate
 
 Last updated: 2026-04-25
 
-| Slice                                           | Status      | Notes                                                                                                                                                |
-| ----------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Slice 0: Route semantics freeze                 | Done        | Public root and authenticated app route semantics are split in the route contract.                                                                   |
-| Slice 1: Route contract consolidation           | Done        | Launch Core route constants, canonical builders, and legacy redirect targets are centralized.                                                        |
-| Slice 2: Canonical `/app` workspace coexistence | Done        | `DefaultLayout` is owned by `/app`, canonical workspace routes are active, and legacy workspace URLs redirect to `/app/*` with query/hash preserved. |
-| Slice 3: Public landing + layout boundary       | Done        | `/` renders the public landing surface for logged-out users, active authenticated root visits enter `/app`, and app chrome stays scoped to `/app/*`. |
-| Slice 4: Legacy redirect window                 | Not started | Broader launch-window redirect hardening remains after the public boundary lands.                                                                    |
-| Slice 5: Launch-safe inquiry CTA                | Not started | Public inquiry CTA/config work depends on the landing surface.                                                                                       |
-| Slice 6: Deploy contract + regression gate      | Not started | Vercel deep-link and launch regression gates remain pending.                                                                                         |
+| Slice                                           | Status      | Notes                                                                                                                                                             |
+| ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slice 0: Route semantics freeze                 | Done        | Public root and authenticated app route semantics are split in the route contract.                                                                                |
+| Slice 1: Route contract consolidation           | Done        | Launch Core route constants, canonical builders, and legacy redirect targets are centralized.                                                                     |
+| Slice 2: Canonical `/app` workspace coexistence | Done        | `DefaultLayout` is owned by `/app`, canonical workspace routes are active, and legacy workspace URLs redirect to `/app/*` with query/hash preserved.              |
+| Slice 3: Public landing + layout boundary       | Done        | `/` renders the public landing surface for logged-out users, active authenticated root visits enter `/app`, and app chrome stays scoped to `/app/*`.              |
+| Slice 4: Legacy redirect window                 | Done        | Redirect normalization, helper updates, unit coverage, and direct Playwright spec coverage are complete; full Playwright setup depends on local test credentials. |
+| Slice 5: Launch-safe inquiry CTA                | Done        | Public inquiry CTAs use one `VITE_PUBLIC_INQUIRY_FORM_URL`, local env validation and focused unit coverage are in place, and Vercel env setup remains in Slice 6. |
+| Slice 6: Deploy contract + regression gate      | Not started | Vercel deep-link and launch regression gates remain pending.                                                                                                      |
 
 ## Baseline Before Slice 0
 
@@ -352,6 +352,10 @@ Recommended grep:
 
 ## Slice 3: Public Landing And Layout Boundary
 
+**Status:** Done
+
+**Completed:** `/` renders the public landing surface for logged-out users, authenticated root visits enter `/app`, and public/auth/access-state surfaces stay outside the app chrome boundary.
+
 **Goal:** Make `/` the public landing page and keep app chrome out of public, auth, and access-state surfaces.
 
 **Why this slice is independent:** This is the visible launch front door and should land only after the `/app` workspace already works.
@@ -401,6 +405,10 @@ Recommended grep:
 ---
 
 ## Slice 4: Legacy Redirect Window
+
+**Status:** Done
+
+**Completed:** Legacy route normalization is centralized in route constants, the static legacy redirect matrix and Step5 redirect preservation are covered by unit tests, and launch E2E/checklist specs now assert canonical `/app` destinations. The dependency-skipped Playwright spec run passes locally; the full Playwright setup depends on local `TEST_USER_EMAIL` and `TEST_USER_PASSWORD`.
 
 **Goal:** Preserve old bookmarks, test helpers, and operator habits by explicitly redirecting legacy app URLs to canonical `/app` URLs.
 
@@ -457,6 +465,10 @@ Recommended grep:
 
 ## Slice 5: Launch-Safe Inquiry CTA
 
+**Status:** Done
+
+**Completed:** Header, hero, and bottom inquiry CTAs now open the same configured Google Form URL in a new tab. `VITE_PUBLIC_INQUIRY_FORM_URL` is documented in `.env.example`, validated by `pnpm check-env`, and covered by focused unit tests for CTA parity and env validation. The Google Form contract has been prepared for launch QA; Vercel Preview/Production environment variable setup remains part of Slice 6 deployment smoke.
+
 **Goal:** Wire all public inquiry CTAs through one validated config value and gate launch on the real external form contract.
 
 **Why this slice is separate:** It is a launch conversion-path slice, not just a route wiring task.
@@ -503,7 +515,7 @@ Verify before closing this slice:
 
 - `pnpm lint:check`
 - `pnpm check-env`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts`
+- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
 - manual Google Form contract QA complete
 
 ---

@@ -34,6 +34,24 @@
             >
               {{ publicLandingHero.body }}
             </p>
+            <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+              <RouterLink
+                data-test="public-hero-signup"
+                :to="signupRouteLocation"
+                class="rounded-md bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+              >
+                회원 가입
+              </RouterLink>
+              <a
+                data-test="public-hero-inquiry"
+                :href="inquiryFormUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:bg-gray-50"
+              >
+                도입 문의
+              </a>
+            </div>
           </div>
 
           <div class="mx-auto mt-8 max-h-44 w-full max-w-5xl overflow-hidden rounded-lg sm:max-h-56 lg:max-h-60">
@@ -98,7 +116,9 @@
           <div class="flex flex-wrap gap-3 lg:justify-end">
             <a
               data-test="public-bottom-inquiry"
-              href="#inquiry"
+              :href="inquiryFormUrl"
+              target="_blank"
+              rel="noopener noreferrer"
               class="rounded-md bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-100"
             >
               도입 문의
@@ -111,7 +131,17 @@
 </template>
 
 <script setup lang="ts">
+import type { RouteLocationRaw } from 'vue-router'
 import PublicHeader from '@/components/public/PublicHeader.vue'
 import LandingProductPreview from '@/components/public/LandingProductPreview.vue'
+import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
+import { SIGNUP_ROUTE_PATH } from '@/constants/routes'
 import { publicLandingHero, publicLandingSections } from '@/data/publicLandingContent'
+
+const signupRouteLocation: RouteLocationRaw = {
+  path: SIGNUP_ROUTE_PATH,
+  query: { role: 'admin' },
+}
+
+const inquiryFormUrl = getPublicInquiryFormUrl()
 </script>

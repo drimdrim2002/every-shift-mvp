@@ -2,7 +2,7 @@
   <div class="flex min-h-screen items-center justify-center bg-gray-50 p-4">
     <n-card
       class="w-full max-w-md"
-      title="EveryShift 로그인"
+      title="everyshift 로그인"
     >
       <n-alert
         v-if="signupState === 'pending_approval'"
