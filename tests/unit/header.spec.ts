@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { LOGIN_ROUTE_PATH } from '@/constants/routes'
 
 const { pushMock, logoutMock, showSuccessMock, showErrorMock, rbacStoreMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
@@ -80,7 +81,7 @@ describe('Header', () => {
     await wrapper.find('button').trigger('click')
 
     expect(logoutMock).toHaveBeenCalledTimes(1)
-    expect(pushMock).toHaveBeenCalledWith('/login')
+    expect(pushMock).toHaveBeenCalledWith(LOGIN_ROUTE_PATH)
     expect(showSuccessMock).toHaveBeenCalledWith('로그아웃되었습니다')
     expect(showErrorMock).not.toHaveBeenCalled()
   })

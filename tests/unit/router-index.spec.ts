@@ -3,9 +3,8 @@ import type { RouteRecordRaw } from 'vue-router'
 
 import {
   APP_HOME_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
-  LEGACY_USER_HOME_ROUTE_PATH,
+  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   PUBLIC_ROOT_ROUTE_PATH,
   getStep5ScheduleKeyFromPath,
 } from '@/constants/routes'
@@ -44,17 +43,39 @@ function findRouteByName(routes: RouteRecordRaw[], routeName: string): RouteReco
   return undefined
 }
 
+function findTopLevelRouteByPath(routes: RouteRecordRaw[], path: string): RouteRecordRaw | undefined {
+  return routes.find((route) => route.path === path)
+}
+
+function resolveRedirect(route: RouteRecordRaw, path: string) {
+  if (typeof route.redirect === 'function') {
+    return route.redirect({
+      path,
+      fullPath: path,
+      query: { version: 'draft' },
+      hash: '#section',
+      params: { scheduleKey: 'schedule-123' },
+      name: undefined,
+      matched: [],
+      meta: {},
+      redirectedFrom: undefined,
+    })
+  }
+
+  return route.redirect
+}
+
 describe('router dev-only routes', () => {
   it('includes /test* routes only in development mode', () => {
     const devPaths = collectRoutePaths(createAppRoutes(true))
-    expect(devPaths).toContain(LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1))
+    expect(devPaths).toContain('admin/approval-queue')
     expect(devPaths).toContain('/test')
     expect(devPaths).toContain('/test-schedule')
     expect(devPaths).toContain('/test-step-indicator')
     expect(devPaths).toContain('/test-grid')
 
     const prodPaths = collectRoutePaths(createAppRoutes(false))
-    expect(prodPaths).toContain(LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1))
+    expect(prodPaths).toContain('admin/approval-queue')
     expect(prodPaths).not.toContain('/test')
     expect(prodPaths).not.toContain('/test-schedule')
     expect(prodPaths).not.toContain('/test-step-indicator')
@@ -65,7 +86,7 @@ describe('router dev-only routes', () => {
     const routes = createAppRoutes(false)
 
     expect(PUBLIC_ROOT_ROUTE_PATH).not.toBe(APP_HOME_ROUTE_PATH)
-    expect(collectRoutePaths(routes)).toContain(LEGACY_USER_HOME_ROUTE_PATH.slice(1))
+    expect(collectRoutePaths(routes)).toContain('home/user')
 
     expect(findRouteByName(routes, 'UserHome')?.meta).toMatchObject({
       requiresAuth: true,
@@ -84,7 +105,61 @@ describe('router dev-only routes', () => {
       requiredOrgRole: 'admin',
     })
 
-    expect(findRouteByName(routes, 'Step5')?.path).toBe(`${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.slice(1)}:scheduleKey`)
+    expect(findRouteByName(routes, 'Step5')?.path).toBe('schedule/step5/:scheduleKey')
     expect(getStep5ScheduleKeyFromPath('/schedule/step5/schedule-1')).toBe('schedule-1')
+  })
+
+  it('mounts DefaultLayout only under the canonical /app workspace root', () => {
+    const routes = createAppRoutes(false)
+    const publicRootRoute = findTopLevelRouteByPath(routes, PUBLIC_ROOT_ROUTE_PATH)
+    const appRoute = findTopLevelRouteByPath(routes, APP_HOME_ROUTE_PATH)
+
+    expect(publicRootRoute?.component).toBeUndefined()
+    expect(publicRootRoute?.redirect).toBe(APP_HOME_ROUTE_PATH)
+    expect(appRoute?.component).toBeTypeOf('function')
+    expect(appRoute?.meta).toMatchObject({ requiresAuth: true })
+  })
+
+  it('registers canonical workspace children as relative /app routes', () => {
+    const appRoute = findTopLevelRouteByPath(createAppRoutes(false), APP_HOME_ROUTE_PATH)
+    const childPaths = appRoute?.children?.map((route) => route.path) ?? []
+
+    expect(childPaths).toEqual([
+      '',
+      'admin/approval-queue',
+      'home/user',
+      'ops/organization-setup',
+      'ops/off-request-policy-setup',
+      'schedule/step1',
+      'schedule/step2',
+      'schedule/step3',
+      'schedule/step4',
+      'schedule/step5/:scheduleKey',
+    ])
+  })
+
+  it('keeps legacy static routes as redirects that preserve query and hash', () => {
+    const legacyRoute = findTopLevelRouteByPath(createAppRoutes(false), LEGACY_APPROVAL_QUEUE_ROUTE_PATH)
+
+    expect(resolveRedirect(legacyRoute!, LEGACY_APPROVAL_QUEUE_ROUTE_PATH)).toEqual({
+      path: '/app/admin/approval-queue',
+      query: { version: 'draft' },
+      hash: '#section',
+      replace: true,
+    })
+  })
+
+  it('keeps legacy schedule step5 as a redirect that preserves scheduleKey, query, and hash', () => {
+    const legacyRoute = findTopLevelRouteByPath(
+      createAppRoutes(false),
+      `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}:scheduleKey`,
+    )
+
+    expect(resolveRedirect(legacyRoute!, `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}schedule-123`)).toEqual({
+      path: '/app/schedule/step5/schedule-123',
+      query: { version: 'draft' },
+      hash: '#section',
+      replace: true,
+    })
   })
 })

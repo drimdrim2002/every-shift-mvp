@@ -6,22 +6,14 @@ import { resolveAuthNavigationTarget, resolveRouteAccessTarget, stepProgressGuar
 import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
-  LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
+  APP_HOME_ROUTE_PATH,
   LEGACY_APP_ROUTE_REDIRECTS,
-  LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
-  LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP2_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP3_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP4_ROUTE_PATH,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
-  LEGACY_USER_HOME_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
-  getAppHomeRoutePath,
-  getStep5ScheduleKeyFromPath,
-  isAppRoutePath,
+  getLegacyRedirectTarget,
+  getScheduleStep5RoutePath,
   isScheduleRoutePath,
 } from '@/constants/routes';
 
@@ -79,6 +71,10 @@ const baseRoutes: RouteRecordRaw[] = [
   },
   {
     path: PUBLIC_ROOT_ROUTE_PATH,
+    redirect: APP_HOME_ROUTE_PATH,
+  },
+  {
+    path: APP_HOME_ROUTE_PATH,
     component: () => import('@/components/layout/DefaultLayout.vue'),
     meta: { requiresAuth: true },
     children: [
@@ -89,19 +85,19 @@ const baseRoutes: RouteRecordRaw[] = [
         meta: { title: '대시보드' },
       },
       {
-        path: LEGACY_APPROVAL_QUEUE_ROUTE_PATH.slice(1),
+        path: 'admin/approval-queue',
         name: 'ApprovalQueue',
         component: () => import('@/views/admin/ApprovalQueueView.vue'),
         meta: { requiresAuth: true, title: '관리자 가입 승인' },
       },
       {
-        path: LEGACY_USER_HOME_ROUTE_PATH.slice(1),
+        path: 'home/user',
         name: 'UserHome',
         component: () => import('@/views/UserHome.vue'),
         meta: { requiresAuth: true, title: '내 홈' },
       },
       {
-        path: LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH.slice(1),
+        path: 'ops/organization-setup',
         name: 'OrganizationProfileSetup',
         component: () => import('@/views/ops/OrganizationProfileSetup.vue'),
         meta: {
@@ -112,7 +108,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH.slice(1),
+        path: 'ops/off-request-policy-setup',
         name: 'OffRequestPolicySetup',
         component: () => import('@/views/ops/OffRequestPolicySetup.vue'),
         meta: {
@@ -123,7 +119,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: LEGACY_SCHEDULE_STEP1_ROUTE_PATH.slice(1),
+        path: 'schedule/step1',
         name: 'Step1',
         component: () => import('@/views/schedule/Step1BasicInfo.vue'),
         meta: {
@@ -134,7 +130,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: LEGACY_SCHEDULE_STEP2_ROUTE_PATH.slice(1),
+        path: 'schedule/step2',
         name: 'Step2',
         component: () => import('@/views/schedule/Step2SiteInfo.vue'),
         meta: {
@@ -145,7 +141,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: LEGACY_SCHEDULE_STEP3_ROUTE_PATH.slice(1),
+        path: 'schedule/step3',
         name: 'Step3',
         component: () => import('@/views/schedule/Step3EmployeeInfo.vue'),
         meta: {
@@ -156,7 +152,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: LEGACY_SCHEDULE_STEP4_ROUTE_PATH.slice(1),
+        path: 'schedule/step4',
         name: 'Step4',
         component: () => import('@/views/schedule/Step4InitialData.vue'),
         meta: {
@@ -167,7 +163,7 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
-        path: `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX.slice(1)}:scheduleKey`,
+        path: 'schedule/step5/:scheduleKey',
         name: 'Step5',
         component: () => import('@/views/schedule/Step5Result.vue'),
         meta: {
@@ -178,6 +174,24 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
     ],
+  },
+  ...Object.entries(LEGACY_APP_ROUTE_REDIRECTS).map(([legacyPath, canonicalPath]) => ({
+    path: legacyPath,
+    redirect: (to) => ({
+      path: getLegacyRedirectTarget(to.path) ?? canonicalPath,
+      query: to.query,
+      hash: to.hash,
+      replace: true,
+    }),
+  } satisfies RouteRecordRaw)),
+  {
+    path: `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}:scheduleKey`,
+    redirect: (to) => ({
+      path: getScheduleStep5RoutePath(String(to.params.scheduleKey)),
+      query: to.query,
+      hash: to.hash,
+      replace: true,
+    }),
   },
 ];
 
@@ -194,50 +208,7 @@ const router = createRouter({
   routes: createAppRoutes(),
 });
 
-const TEMPORARILY_MOUNTED_APP_ROUTE_REDIRECTS = Object.freeze(
-  Object.fromEntries(
-    Object.entries(LEGACY_APP_ROUTE_REDIRECTS).map(([legacyPath, canonicalPath]) => [canonicalPath, legacyPath])
-  ) as Record<string, string>
-);
-
-function resolveTemporarilyMountedPath(path: string): string | null {
-  if (!isAppRoutePath(path)) {
-    return null;
-  }
-
-  if (path === getAppHomeRoutePath()) {
-    return PUBLIC_ROOT_ROUTE_PATH;
-  }
-
-  const legacyMountedPath = TEMPORARILY_MOUNTED_APP_ROUTE_REDIRECTS[path];
-  if (legacyMountedPath) {
-    return legacyMountedPath;
-  }
-
-  const scheduleKey = getStep5ScheduleKeyFromPath(path);
-  if (scheduleKey) {
-    return `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}${scheduleKey}`;
-  }
-
-  return null;
-}
-
-function normalizeRedirectTarget(targetPath: string): string {
-  return resolveTemporarilyMountedPath(targetPath) ?? targetPath;
-}
-
 router.beforeEach(async (to, from, next) => {
-  const temporaryMountedPath = resolveTemporarilyMountedPath(to.path);
-  if (temporaryMountedPath && temporaryMountedPath !== to.path) {
-    next({
-      path: temporaryMountedPath,
-      query: to.query,
-      hash: to.hash,
-      replace: true,
-    });
-    return;
-  }
-
   const authStore = useAuthStore();
   const rbacStore = useRbacStore();
 
@@ -264,13 +235,12 @@ router.beforeEach(async (to, from, next) => {
   });
 
   if (authRedirect) {
-    const nextPath = normalizeRedirectTarget(authRedirect);
-    if (nextPath === to.path) {
+    if (authRedirect === to.path) {
       next();
       return;
     }
 
-    next(nextPath);
+    next(authRedirect);
     return;
   }
 
@@ -286,13 +256,12 @@ router.beforeEach(async (to, from, next) => {
   });
 
   if (routeAccessRedirect) {
-    const nextPath = normalizeRedirectTarget(routeAccessRedirect);
-    if (nextPath === to.path) {
+    if (routeAccessRedirect === to.path) {
       next();
       return;
     }
 
-    next(nextPath);
+    next(routeAccessRedirect);
     return;
   }
 

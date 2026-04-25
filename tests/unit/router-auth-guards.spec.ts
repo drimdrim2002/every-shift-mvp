@@ -85,6 +85,16 @@ describe('resolveAuthNavigationTarget', () => {
     expect(redirect).toBe(getUserHomeRoutePath())
   })
 
+  it('redirects active admins away from login into the canonical app home', () => {
+    const redirect = resolveAuthNavigationTarget({
+      toPath: LOGIN_ROUTE_PATH,
+      isAuthenticated: true,
+      accessState: 'admin_active',
+    })
+
+    expect(redirect).toBe(APP_HOME_ROUTE_PATH)
+  })
+
   it('redirects active users away from the public root into the canonical restricted user home', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: PUBLIC_ROOT_ROUTE_PATH,

@@ -42,7 +42,7 @@ describe('stepProgressGuard', () => {
     scheduleStoreMock.employees = [];
   });
 
-  it('redirects Step4 to Step1 when basic info is missing', async () => {
+  it('normalizes a legacy Step4 path before redirecting to Step1 when basic info is missing', async () => {
     const next = vi.fn();
 
     await stepProgressGuard(
@@ -59,7 +59,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step2', query: { context: 'setup' } } as any,
+      { path: getScheduleStepRoutePath(2), query: { context: 'setup' } } as any,
       { path: '/' } as any,
       next
     );
@@ -72,7 +72,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step2', query: { entry: 'setup' } } as any,
+      { path: getScheduleStepRoutePath(2), query: { entry: 'setup' } } as any,
       { path: '/' } as any,
       next
     );
@@ -85,7 +85,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step3', query: { context: 'setup' } } as any,
+      { path: getScheduleStepRoutePath(3), query: { context: 'setup' } } as any,
       { path: '/' } as any,
       next
     );
@@ -98,7 +98,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step3', query: { entry: 'setup' } } as any,
+      { path: getScheduleStepRoutePath(3), query: { entry: 'setup' } } as any,
       { path: '/' } as any,
       next
     );
@@ -111,7 +111,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step2', query: {} } as any,
+      { path: getScheduleStepRoutePath(2), query: {} } as any,
       { path: '/' } as any,
       next
     );
@@ -129,7 +129,7 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step3', query: {} } as any,
+      { path: getScheduleStepRoutePath(3), query: {} } as any,
       { path: '/' } as any,
       next
     );
@@ -151,8 +151,8 @@ describe('stepProgressGuard', () => {
     const next = vi.fn();
 
     await stepProgressGuard(
-      { path: '/schedule/step4', params: {} } as any,
-      { path: '/schedule/step1' } as any,
+      { path: getScheduleStepRoutePath(4), params: {} } as any,
+      { path: getScheduleStepRoutePath(1) } as any,
       next
     );
 

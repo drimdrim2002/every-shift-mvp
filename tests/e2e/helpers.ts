@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
 import {
   APP_HOME_ROUTE_PATH,
-  PUBLIC_ROOT_ROUTE_PATH,
+  getScheduleStepRoutePath,
   getStep5ScheduleKeyFromPath,
   isApprovalQueueRoutePath,
   isUserHomeRoutePath,
@@ -34,7 +34,7 @@ const supabaseCorsHeaders = {
   'access-control-max-age': '86400',
 }
 
-type MockRbacAccessState = 'super_active' | 'user_active'
+type MockRbacAccessState = 'super_active' | 'admin_active' | 'user_active'
 
 type MockOrganizationRow = {
   id: string
@@ -312,6 +312,62 @@ function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
     }
   }
 
+  if (accessState === 'admin_active') {
+    return {
+      profile: {
+        global_role: 'user',
+        account_status: 'active',
+        organization_id: buildOrgId(1),
+        role: 'admin',
+        status: 'active',
+      },
+      memberships: [
+        {
+          id: 'membership-1',
+          organization_id: buildOrgId(1),
+          role: 'admin',
+          status: 'approved',
+          approved_at: '2026-04-01T00:00:00Z',
+          created_at: '2026-04-01T00:00:00Z',
+          rejection_reason: null,
+        },
+      ],
+      organizations: [
+        {
+          id: buildOrgId(1),
+          name: '서버 병원',
+          type: 'hospital',
+          created_at: '2026-04-01T00:00:00Z',
+          updated_at: '2026-04-01T00:00:00Z',
+        },
+      ],
+      employeesByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'employee-1',
+            organization_id: buildOrgId(1),
+            employee_id: 'E001',
+            name: '김 간호사',
+            available_shifts: ['D', 'E', 'N'],
+          },
+        ],
+      },
+      shiftsByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'shift-1',
+            organization_id: buildOrgId(1),
+            code: 'D',
+            name: 'Day',
+            color_code: '#2563eb',
+            start_time: '09:00:00',
+            end_time: '18:00:00',
+          },
+        ],
+      },
+    }
+  }
+
   return {
     profile: {
       global_role: 'user',
@@ -473,16 +529,26 @@ export async function seedScheduleWizardContext(
 export async function seedSelectedOrganization(page: Page, organizationId: string) {
   const { session } = buildFreshSupabaseAuthState()
   const selectedOrganizationKey = `everyshift:selected-organization:${session.user.id}`
+  const payload = {
+    storageKey: selectedOrganizationKey,
+    value: organizationId,
+  }
 
-  await page.evaluate(
+  await page.addInitScript(
     ({ storageKey, value }) => {
       window.localStorage.setItem(storageKey, value)
     },
-    {
-      storageKey: selectedOrganizationKey,
-      value: organizationId,
-    },
+    payload,
   )
+
+  if (page.url().startsWith('http')) {
+    await page.evaluate(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, value)
+      },
+      payload,
+    )
+  }
 }
 
 export async function mockRbacContext(page: Page, accessState: MockRbacAccessState) {
@@ -587,10 +653,11 @@ export async function selectOrganization(page: Page, organizationLabel: string) 
   }
 
   await switcher.click()
-  const option = page.locator('.n-base-select-option').filter({ hasText: organizationLabel }).first()
+  const optionName = organizationLabel.replace(/\s*\([^)]*\)\s*$/, '')
+  const option = page.locator('.n-base-select-option').filter({ hasText: optionName }).first()
   await expect(option).toBeVisible()
   await option.click()
-  await expect(switcher).toContainText(organizationLabel)
+  await expect(switcher).toContainText(optionName)
 }
 
 export function getRequiredTestCredentials(): TestCredentials {
@@ -627,10 +694,8 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
 }
 
 export async function waitForAuthenticatedLanding(page: Page) {
-  const isDashboardPath = (pathname: string) => pathname === PUBLIC_ROOT_ROUTE_PATH || pathname === APP_HOME_ROUTE_PATH
-
   await page.waitForURL((url) =>
-    isDashboardPath(url.pathname)
+    url.pathname === APP_HOME_ROUTE_PATH
     || isApprovalQueueRoutePath(url.pathname)
     || isUserHomeRoutePath(url.pathname)
   )
@@ -642,20 +707,20 @@ export async function waitForAuthenticatedLanding(page: Page) {
   } else if (isUserHomeRoutePath(currentPath)) {
     await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
   } else {
-    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
   }
 
   await page.waitForLoadState('networkidle')
 }
 
 export async function waitForDashboard(page: Page) {
-  await page.waitForURL((url) => url.pathname === PUBLIC_ROOT_ROUTE_PATH || url.pathname === APP_HOME_ROUTE_PATH)
-  await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toBeVisible()
+  await page.waitForURL((url) => url.pathname === APP_HOME_ROUTE_PATH)
+  await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
   await page.waitForLoadState('networkidle')
 }
 
 export async function startNewScheduleFromDashboard(page: Page) {
-  await page.goto('/')
+  await page.goto(APP_HOME_ROUTE_PATH)
   await waitForDashboard(page)
   await waitForDashboardScheduleState(page)
 
@@ -687,7 +752,7 @@ export async function startNewScheduleFromDashboard(page: Page) {
     await optionLocator.filter({ hasText: targetMonth }).first().click()
     await page.getByRole('button', { name: '확인' }).click()
 
-    await page.waitForURL(/\/schedule\/step1$/)
+    await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
     await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
     return targetMonth
   }
@@ -704,7 +769,7 @@ export async function startNewScheduleFromDashboard(page: Page) {
 
   const reusableIndex = existingMonths.indexOf(reusableMonth)
   await page.getByRole('button', { name: '수정' }).nth(reusableIndex).click()
-  await page.waitForURL(/\/schedule\/step1$/)
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
   await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
   return reusableMonth
 }
@@ -713,7 +778,7 @@ export async function openExistingScheduleFromDashboard(
   page: Page,
   options: ExistingScheduleOptions = {}
 ) {
-  await page.goto(PUBLIC_ROOT_ROUTE_PATH)
+  await page.goto(APP_HOME_ROUTE_PATH)
   await waitForDashboard(page)
   await waitForDashboardScheduleState(page)
 
@@ -785,7 +850,7 @@ export async function completeStep1(page: Page) {
   await expect(page.getByText('계획월:')).toBeVisible()
 
   await page.getByRole('button', { name: /다음 단계/ }).click()
-  await page.waitForURL(/\/schedule\/step2$/)
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(2))
 }
 
 export async function completeStep2(page: Page, requirements: DayRequirement[]) {
@@ -806,13 +871,13 @@ export async function completeStep2(page: Page, requirements: DayRequirement[]) 
   }
 
   await page.getByRole('button', { name: /다음 단계/ }).click()
-  await page.waitForURL(/\/schedule\/step3$/)
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(3))
 }
 
 export async function completeStep3Employees(page: Page) {
   await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
   await page.getByRole('button', { name: /다음 단계/ }).click()
-  await page.waitForURL(/\/schedule\/step4$/)
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
 }
 
 export async function completeStep4InitialData(
@@ -823,7 +888,7 @@ export async function completeStep4InitialData(
     shift: 'O'
   }[]
 ) {
-  await page.waitForURL(/\/schedule\/step4$/)
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
   await expect(page.getByText(/월 근무 조정 일정 입력/)).toBeVisible()
   await expect(page.locator('table').first()).toBeVisible()
 

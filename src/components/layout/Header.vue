@@ -23,6 +23,7 @@ import { computed } from 'vue'
 import { NButton } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import OrganizationSwitcher from '@/components/layout/OrganizationSwitcher.vue'
+import { LOGIN_ROUTE_PATH } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
 import { useRbacStore } from '@/stores/rbac'
 import { showError, showSuccess } from '@/utils/message'
@@ -52,7 +53,7 @@ async function handleLogout() {
   try {
     await authStore.logout()
     showSuccess('로그아웃되었습니다')
-    await router.push('/login')
+    await router.push(LOGIN_ROUTE_PATH)
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : '로그아웃 중 오류가 발생했습니다'
     showError(message)
