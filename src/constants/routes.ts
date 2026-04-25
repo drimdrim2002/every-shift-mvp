@@ -220,7 +220,10 @@ export function isLegacyScheduleStep5RoutePath(path: string): boolean {
 }
 
 export function isLegacyAppRoutePath(path: string): boolean {
-  return Object.hasOwn(LEGACY_APP_ROUTE_REDIRECTS, path) || isLegacyScheduleStep5RoutePath(path)
+  return (
+    Object.prototype.hasOwnProperty.call(LEGACY_APP_ROUTE_REDIRECTS, path)
+    || isLegacyScheduleStep5RoutePath(path)
+  )
 }
 
 export function getLegacyRedirectTarget(path: string): string | null {

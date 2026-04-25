@@ -95,14 +95,14 @@ describe('resolveAuthNavigationTarget', () => {
     expect(redirect).toBe(APP_HOME_ROUTE_PATH)
   })
 
-  it('redirects active users away from the public root into the canonical restricted user home', () => {
+  it('redirects active users away from the public root into the canonical app home', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
       accessState: 'user_active',
     })
 
-    expect(redirect).toBe(getUserHomeRoutePath())
+    expect(redirect).toBe(APP_HOME_ROUTE_PATH)
   })
 
   it('redirects super users away from login into the canonical approval queue', () => {
@@ -115,7 +115,7 @@ describe('resolveAuthNavigationTarget', () => {
     expect(redirect).toBe(getApprovalQueueRoutePath())
   })
 
-  it('keeps super users approval-first at the public root when org-admin abilities are not unlocked', () => {
+  it('redirects super users away from the public root into the canonical app home', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
@@ -130,10 +130,10 @@ describe('resolveAuthNavigationTarget', () => {
       },
     })
 
-    expect(redirect).toBe(getApprovalQueueRoutePath())
+    expect(redirect).toBe(APP_HOME_ROUTE_PATH)
   })
 
-  it('keeps super users approval-first from the public root even when org-admin abilities are unlocked', () => {
+  it('redirects super users away from the public root into the canonical app home when org-admin abilities are unlocked', () => {
     const redirect = resolveAuthNavigationTarget({
       toPath: PUBLIC_ROOT_ROUTE_PATH,
       isAuthenticated: true,
@@ -148,7 +148,7 @@ describe('resolveAuthNavigationTarget', () => {
       },
     })
 
-    expect(redirect).toBe(getApprovalQueueRoutePath())
+    expect(redirect).toBe(APP_HOME_ROUTE_PATH)
   })
 })
 

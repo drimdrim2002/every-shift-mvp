@@ -71,7 +71,9 @@ const baseRoutes: RouteRecordRaw[] = [
   },
   {
     path: PUBLIC_ROOT_ROUTE_PATH,
-    redirect: APP_HOME_ROUTE_PATH,
+    name: 'PublicLanding',
+    component: () => import('@/views/PublicLandingView.vue'),
+    meta: { requiresAuth: false, title: 'EveryShift' },
   },
   {
     path: APP_HOME_ROUTE_PATH,

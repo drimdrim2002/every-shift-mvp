@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { RouteRecordRaw } from 'vue-router'
 
 import {
+  ACCESS_PENDING_ROUTE_PATH,
+  ACCESS_REJECTED_ROUTE_PATH,
   APP_HOME_ROUTE_PATH,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
+  LOGIN_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
+  SIGNUP_ROUTE_PATH,
   getStep5ScheduleKeyFromPath,
 } from '@/constants/routes'
 import { createAppRoutes } from '@/router/index'
@@ -114,10 +118,32 @@ describe('router dev-only routes', () => {
     const publicRootRoute = findTopLevelRouteByPath(routes, PUBLIC_ROOT_ROUTE_PATH)
     const appRoute = findTopLevelRouteByPath(routes, APP_HOME_ROUTE_PATH)
 
-    expect(publicRootRoute?.component).toBeUndefined()
-    expect(publicRootRoute?.redirect).toBe(APP_HOME_ROUTE_PATH)
+    expect(publicRootRoute?.redirect).toBeUndefined()
+    expect(publicRootRoute?.component).toBeTypeOf('function')
+    expect(publicRootRoute?.meta).toMatchObject({
+      requiresAuth: false,
+      title: 'EveryShift',
+    })
     expect(appRoute?.component).toBeTypeOf('function')
     expect(appRoute?.meta).toMatchObject({ requiresAuth: true })
+  })
+
+  it('keeps public auth and access-state routes outside DefaultLayout', () => {
+    const routes = createAppRoutes(false)
+
+    for (const path of [
+      PUBLIC_ROOT_ROUTE_PATH,
+      LOGIN_ROUTE_PATH,
+      SIGNUP_ROUTE_PATH,
+      ACCESS_PENDING_ROUTE_PATH,
+      ACCESS_REJECTED_ROUTE_PATH,
+    ]) {
+      const route = findTopLevelRouteByPath(routes, path)
+      expect(route?.path).toBe(path)
+      expect(route?.children).toBeUndefined()
+    }
+
+    expect(findTopLevelRouteByPath(routes, APP_HOME_ROUTE_PATH)?.children?.length).toBeGreaterThan(0)
   })
 
   it('registers canonical workspace children as relative /app routes', () => {

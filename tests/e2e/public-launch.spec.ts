@@ -16,13 +16,42 @@ import {
 } from './helpers'
 
 test.describe('public launch route contract', () => {
+  test('logged-out visitor sees public landing at root without app chrome', async ({ page }) => {
+    await page.context().clearCookies()
+    await page.addInitScript(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    })
+
+    await page.goto('/')
+
+    const landing = page.getByTestId('public-landing')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(landing).toBeVisible()
+    await expect(landing.getByRole('link', { name: '로그인' })).toBeVisible()
+    await expect(landing.getByRole('link', { name: '회원 가입' }).first()).toBeVisible()
+    await expect(landing.getByRole('link', { name: '도입 문의' }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: '로그아웃' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toHaveCount(0)
+  })
+
+  test('authenticated admin visiting root enters the canonical app workspace', async ({ page }) => {
+    await seedPlaywrightAuthState(page)
+    await mockRbacContext(page, 'admin_active')
+
+    await page.goto('/')
+
+    await expect(page).toHaveURL((url) => url.pathname === APP_HOME_ROUTE_PATH)
+    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
+  })
+
   test('authenticated admin can open canonical /app dashboard', async ({ page }) => {
     await seedPlaywrightAuthState(page)
     await mockRbacContext(page, 'admin_active')
 
     await page.goto(APP_HOME_ROUTE_PATH)
 
-    await expect(page).toHaveURL(new RegExp(`${APP_HOME_ROUTE_PATH}$`))
+    await expect(page).toHaveURL((url) => url.pathname === APP_HOME_ROUTE_PATH)
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
   })
 

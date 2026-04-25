@@ -90,7 +90,7 @@ export function resolveAuthNavigationTarget({
   }
 
   if (isPublicRootRoutePath(toPath)) {
-    const redirectPath = resolvePostAuthRedirectPath(accessState);
+    const redirectPath = getAppHomeRoutePath();
     return redirectPath === normalizeAppContractPath(toPath) ? null : redirectPath;
   }
 
