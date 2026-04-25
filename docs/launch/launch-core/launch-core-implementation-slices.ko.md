@@ -128,7 +128,7 @@ Slice 4: 레거시 리다이렉트 유지
    ↓
 Slice 5: 문의 CTA 실사용 연결
    ↓
-Slice 6: 배포 계약 + 최종 회귀 게이트
+Slice 6: 배포 준비 + Preview 회귀 게이트
 ```
 
 ---
@@ -558,15 +558,31 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 ---
 
-## Slice 6: 배포 계약 + 최종 회귀 게이트
+## Slice 6: 배포 준비 + Preview 회귀 게이트
 
-### 목표
+**목표:** custom-domain DNS 또는 SSL 준비를 요구하지 않고, 저장소가 배포 준비 상태임을 만들고, 첫 Vercel 배포 경로를 부트스트랩하며, 런칭 회귀 게이트를 정의합니다.
 
-배포 환경에서의 라우팅 계약을 고정하고, 런칭 회귀 테스트를 “권장”이 아니라 “필수” 단계로 만듭니다.
+**마지막 슬라이스인 이유:** Launch Core 마이그레이션 동작이 존재한 뒤에만 전체 라우트, 인증, 리다이렉트, 문의 CTA, 배포 계약을 검증할 수 있기 때문입니다.
 
-### 왜 마지막인가
+### Status Layers
 
-이 단계는 앞선 모든 라우트, 리다이렉트, CTA 동작이 완성된 뒤에만 제대로 검증할 수 있습니다.
+```text
+Repo-ready
+  -> Vercel-project-ready
+  -> Preview-smoke-ready
+  -> Production-default-domain-ready
+  -> Custom-domain-ready
+```
+
+`Repo-ready` 는 Vercel 프로젝트가 없고 custom domain 이 연결되기 전에도 merge 할 수 있습니다. `Custom-domain-ready` 는 `everyshift.co.kr` 공개 런칭만 막으며, 저장소 배포 준비 증명을 막지 않습니다.
+
+### 명시적 가정
+
+- 구매한 custom domain 은 `everyshift.co.kr` 입니다.
+- 아직 Vercel 프로젝트가 없을 수 있습니다.
+- 첫 배포 검증 대상은 Vercel generated URL 입니다.
+- registrar DNS 와 SSL 준비는 외부 launch-ops 작업입니다.
+- Slice 6 코드와 문서는 `everyshift.co.kr` 연결 및 SSL 준비 전에 merge 할 수 있습니다.
 
 ### 지원 산출물
 
@@ -636,27 +652,123 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 - `https://everyshift.co.kr` 에서 공개 랜딩, `/app/*` 새로고침, 레거시 리다이렉트, 문의 CTA 확인이 통과한다.
 - custom-domain 스모크 결과가 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 기록되어 있다.
 
-### 포함 작업
+### 포함 범위
 
-- 루트 `vercel.json` 에 Vite SPA 딥링크 rewrite 추가
-- `/app/*` 새로고침이 정상 동작하는지 확인
-- `pnpm check-env` 를 필수 런칭 게이트로 확정
-- 아래 범위의 런칭 회귀 테스트 추가 또는 마무리
-- 공개 `/`
-- canonical `/app`
-- auth redirect matrix
-- legacy redirect matrix
-- helper consumer coverage
-- inquiry CTA path
-- preview / production smoke check 정의
+- 루트 `vercel.json` 에 Vite SPA 딥링크 fallback rewrite 를 추가합니다.
+- 로컬 repo-ready 점검은 Vercel 과 독립적으로 유지합니다.
+- Vercel 프로젝트 부트스트랩 설정을 정의합니다.
+- `https://<vercel-preview-deployment>.vercel.app` 에서 Preview smoke checks 를 정의합니다.
+- `https://<vercel-project>.vercel.app` 에서 Production smoke checks 를 정의합니다.
+- DNS 와 SSL 이 완료될 때까지 `https://everyshift.co.kr` custom-domain smoke checks 를 미룹니다.
+
+### 제외 범위
+
+- 추가 도메인 구매 또는 등록 도메인 변경
+- registrar DNS 설정
+- OAuth provider 추가
+- analytics 추가
+- 스케줄 생성 동작 변경
+
+### 저장소 배포 계약
+
+- 루트 `vercel.json` 은 `/index.html` 로 가는 Vite SPA fallback rewrite 를 가집니다.
+- `/app/*` hard refresh 는 SPA fallback 을 통해 해결되어야 합니다.
+- 로컬 점검은 `.env.local` 을 사용하며 live Vercel URLs 를 요구하지 않습니다.
+- credential-backed Playwright specs 는 repo readiness 와 별도로 보고합니다.
+- `pnpm check-env` 는 `VITE_PUBLIC_INQUIRY_FORM_URL` 의 런칭 env gate 로 유지됩니다.
+
+### Vercel 프로젝트 부트스트랩 체크리스트
+
+- GitHub repo 를 Vercel 로 import 합니다.
+- framework preset: `Vite`
+- install command: `pnpm install`
+- build command: `pnpm build`
+- output directory: `dist`
+- Node version: Vercel default, 단 추후 프로젝트 제약이 추가되면 그 제약을 따릅니다.
+- Preview 와 Production environment variables 를 별도로 설정합니다:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_API_BASE_URL`
+  - `VITE_PUBLIC_INQUIRY_FORM_URL`
+- canonical/meta 동작이 생기기 전까지는 선택 사항입니다:
+  - `VITE_PUBLIC_SITE_URL`
+- secrets 를 `VITE_*` 에 넣지 않습니다.
+- 값을 검토하지 않고 `.env.local` 을 Vercel 로 복사하지 않습니다.
+- `VITE_PUBLIC_INQUIRY_FORM_URL` 은 템플릿 placeholder 가 아니라 실제 Google Form URL 이어야 합니다.
+
+### Preview Smoke Gate
+
+Preview target:
+
+```text
+https://<vercel-preview-deployment>.vercel.app
+```
+
+Required checks:
+
+- 로그아웃 상태의 `/` 는 공개 랜딩을 보여줍니다.
+- 로그인 상태의 `/` 는 `/app` 으로 리다이렉트합니다.
+- `/login`, `/signup`, `/access/*` 는 앱 크롬 없이 렌더링됩니다.
+- `/app` 은 active admin 에게 앱 크롬과 함께 로드됩니다.
+- `/app/schedule/step1` hard refresh 는 404 가 나지 않습니다.
+- `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 는 canonical `/app/*` 로 리다이렉트합니다.
+- inquiry CTA 는 설정된 Google Form 을 엽니다.
+- pending, rejected, restricted-user routes 는 올바른 위치에 도착합니다.
+
+Failure rule:
+
+```text
+If preview smoke fails, do not promote to production. Fix the repo or Vercel env/config first.
+```
+
+### Production Default-Domain Smoke Gate
+
+custom-domain 연결 전 Production target:
+
+```text
+https://<vercel-project>.vercel.app
+```
+
+Preview gate 와 같은 smoke matrix 를 production generated URL 에 대해 실행합니다.
+
+Promotion rule:
+
+```text
+Production deployment can be verified on the generated Vercel domain. Custom-domain launch on everyshift.co.kr remains blocked until DNS, SSL, and custom-domain smoke are complete.
+```
+
+### Deferred Custom-Domain Checklist
+
+Target custom domain:
+
+```text
+https://everyshift.co.kr
+```
+
+Vercel 프로젝트가 존재하고 domain connection 작업을 시작한 뒤에만 아래를 완료합니다:
+
+- 구매한 domain 이 `everyshift.co.kr` 임을 확인합니다.
+- Vercel 프로젝트에 `everyshift.co.kr` 을 추가합니다.
+- Vercel 안내에 따라 registrar DNS records 를 설정합니다.
+- Vercel SSL certificate 가 valid 상태가 될 때까지 기다립니다.
+- `https://everyshift.co.kr` 에서 `/`, `/app`, `/login`, `/signup`, `/access/*`, 그리고 `/app/schedule/*` hard refresh 하나를 smoke test 합니다.
+- site metadata 또는 canonical URL 동작이 구현된 경우에만 `VITE_PUBLIC_SITE_URL` 을 업데이트합니다.
+
+Custom-domain rule:
+
+```text
+Do not block Slice 6 repo completion on connecting everyshift.co.kr. Block public custom-domain launch on this checklist instead.
+```
 
 ### 주요 파일
 
 - `vercel.json`
-- `scripts/check-env.js`
-- `tests/e2e/public-launch.spec.ts`
-- `tests/e2e/helpers.ts`
-- 필요 시 route / auth unit test
+- `docs/launch/launch-core/launch-core-implementation-slices.md`
+- `docs/launch/launch-core/launch-core-implementation-slices.ko.md`
+- `docs/launch/launch-core/launch-core-auth-and-deploy-spec.md`
+- `docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md`
+- `docs/launch/launch-core/launch-core-qa-checklist.md`
+- `docs/launch/launch-core/launch-core-qa-checklist.ko.md`
 
 ### 검증 파일
 
@@ -664,6 +776,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 - `tests/unit/router-auth-guards.spec.ts`
 - `tests/unit/login-view.spec.ts`
 - `tests/unit/public-landing.spec.ts`
+- `tests/unit/check-env.spec.ts`
 - `tests/unit/schedule-version-resolver.spec.ts`
 - `tests/unit/step5-result.spec.ts`
 - `tests/e2e/public-launch.spec.ts`
@@ -672,21 +785,44 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 ### 완료 기준
 
-- Vercel preview 에서 `/app/*` 새로고침이 살아 있다.
-- 라우트, 인증, helper, 레거시 리다이렉트 회귀가 unit / E2E 로 커버된다.
-- preview 가 production 승격 전 수동 스모크 테스트 가능한 상태다.
-- 문의 URL 이 없거나 잘못된 상태로는 런칭할 수 없다.
-- Slice 6의 다섯 readiness 단계가 QA 체크리스트에 pass, blocked, intentionally deferred 중 하나로 기록되어 있다.
+- `vercel.json` 은 Vite SPA fallback rewrite 를 정의합니다.
+- live Vercel URLs 없이 로컬 repo-ready 점검이 통과합니다.
+- Vercel 프로젝트 부트스트랩 설정이 문서화되어 있습니다.
+- preview smoke 는 generated Vercel URL 에 대해 정의되어 있습니다.
+- production smoke 는 generated Vercel production URL 에 대해 정의되어 있습니다.
+- `everyshift.co.kr` custom-domain launch 는 DNS, SSL, smoke checks 뒤로 미뤄져 있습니다.
+- inquiry URL 이 없거나, malformed 이거나, non-Google 이거나, template inquiry URL 이면 런칭할 수 없습니다.
+- Slice 6의 다섯 readiness 단계가 QA 체크리스트에 pass, blocked, intentionally deferred 중 하나로 기록되어 있습니다.
 
-### 테스트 게이트
+### Test Gate After Slice 6
 
-- `pnpm lint:check`
-- `pnpm check-env`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
-- `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts`
-- `pnpm build`
+Repo-ready local gate:
 
-### 프로덕션 전 수동 확인
+```bash
+pnpm lint:check
+pnpm check-env
+pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
+pnpm build
+```
+
+Expected: all commands pass locally using `.env.local`; E2E does not require a live Vercel URL.
+
+Credential-backed E2E gate:
+
+```bash
+pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts
+```
+
+Expected: runs only when `.env.test` or the shell environment has the required test account credentials.
+
+If credential-backed E2E cannot run, record:
+
+```text
+Blocked locally by missing TEST_USER_EMAIL/TEST_USER_PASSWORD. Not a Slice 6 repo-readiness failure.
+```
+
+Manual smoke records before launch:
 
 - 로그아웃 상태에서 `/` 가 공개 랜딩으로 보인다.
 - 로그인 상태에서 `/` 가 `/app` 으로 이동한다.
