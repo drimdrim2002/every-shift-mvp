@@ -122,7 +122,7 @@ describe('router dev-only routes', () => {
     expect(publicRootRoute?.component).toBeTypeOf('function')
     expect(publicRootRoute?.meta).toMatchObject({
       requiresAuth: false,
-      title: 'EveryShift',
+      title: 'everyshift',
     })
     expect(appRoute?.component).toBeTypeOf('function')
     expect(appRoute?.meta).toMatchObject({ requiresAuth: true })

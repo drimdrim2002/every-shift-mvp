@@ -73,7 +73,7 @@ const baseRoutes: RouteRecordRaw[] = [
     path: PUBLIC_ROOT_ROUTE_PATH,
     name: 'PublicLanding',
     component: () => import('@/views/PublicLandingView.vue'),
-    meta: { requiresAuth: false, title: 'EveryShift' },
+    meta: { requiresAuth: false, title: 'everyshift' },
   },
   {
     path: APP_HOME_ROUTE_PATH,
@@ -276,7 +276,7 @@ router.beforeEach(async (to, from, next) => {
 });
 
 router.afterEach((to) => {
-  const baseTitle = 'EveryShift';
+  const baseTitle = 'everyshift';
   const pageTitle = to.meta.title as string;
 
   document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
