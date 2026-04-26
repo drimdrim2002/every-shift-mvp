@@ -100,7 +100,7 @@ Slice 4: Legacy redirect window
    ↓
 Slice 5: Launch-safe inquiry CTA
    ↓
-Slice 6: Deploy readiness + preview regression gate
+Slice 6: Deploy Readiness + Preview Regression Gate
 ```
 
 ## Slice Progress

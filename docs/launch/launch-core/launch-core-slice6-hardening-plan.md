@@ -58,7 +58,7 @@ The existing plan direction is correct. The needed hardening is plan quality, no
 Rename Slice 6 to:
 
 ```text
-Slice 6: Deploy readiness + preview regression gate
+Slice 6: Deploy Readiness + Preview Regression Gate
 ```
 
 Use these status layers:
@@ -142,7 +142,7 @@ Repo-ready
 
 ### Out of Scope
 
-- buying a domain
+- buying additional domains or changing the registered domain
 - configuring registrar DNS
 - adding OAuth providers
 - adding analytics
@@ -474,7 +474,7 @@ legacy Slice 6 deploy contract label
 with:
 
 ```text
-Slice 6: Deploy readiness + preview regression gate
+Slice 6: Deploy Readiness + Preview Regression Gate
 ```
 
 Korean progress table label:
