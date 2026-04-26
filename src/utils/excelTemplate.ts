@@ -81,8 +81,7 @@ function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   dayOrder.forEach((dayOfWeek) => {
     const dayName = dayOfWeekToDayName(dayOfWeek);
     shiftCodes.forEach((code) => {
-      // 기본값으로 샘플 인원 수 설정 (실제로는 빈 값이나, 사용 편의를 위해)
-      const defaultCount = code === 'O' ? 0 : 5; // Off는 0, 나머지는 5
+      const defaultCount = 0;
       data.push([dayName, code, defaultCount]);
     });
   });
@@ -102,11 +101,11 @@ function createSiteRequirementsSheet(shifts: Shift[]): XLSX.WorkSheet {
   ];
 
   // 셀 주석 추가 (C2: 필요인력수)
-  if (!ws['C2']) ws['C2'] = { t: 'n', v: 5 };
+  if (!ws['C2']) ws['C2'] = { t: 'n', v: 0 };
   ws['C2'].c = [
     {
       a: 'Guide',
-      t: '해당 요일/시프트에 필요한 인원 수를 입력하세요. (0 이상의 정수)',
+      t: '기본값은 모두 0입니다. 업로드 전 각 요일 total이 0이 아니도록 값을 입력하세요. (0 이상의 정수)',
     },
   ];
 

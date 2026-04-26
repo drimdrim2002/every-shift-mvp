@@ -5,9 +5,14 @@ export type RouteName =
   | 'review'
   | 'select'
   | 'createVersion'
+  | 'resetRoster'
+  | 'resetActiveFlow'
+  | 'deleteMonth'
   | 'solve'
   | 'solverResult'
-  | 'patchAssignments';
+  | 'patchAssignments'
+  | 'recheck'
+  | 'finalize';
 export type ScheduleVersionStatus =
   | 'draft'
   | 'solving'
@@ -150,15 +155,23 @@ export interface EnsureRequest {
 
 export interface EnsureResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
   versions: ScheduleVersionSummary[];
 }
 
 export interface CompareResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
   versions: ScheduleVersionSummary[];
 }
 
@@ -186,10 +199,50 @@ export interface CreateVersionRequest {
 
 export interface CreateVersionResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   createdVersionId: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   versions: ScheduleVersionSummary[];
+}
+
+export interface ResetRosterEmployeeInput {
+  employeeId: string;
+  name: string;
+  availableShifts: string[];
+}
+
+export interface ResetRosterRequest {
+  organizationId: string;
+  month: string;
+  employees: ResetRosterEmployeeInput[];
+}
+
+export interface ResetRosterResponse {
+  deletedScheduleId: string | null;
+  employeeCount: number;
+}
+
+export interface ResetActiveFlowResponse {
+  scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
+  versions: ScheduleVersionSummary[];
+}
+
+export interface DeleteMonthRequest {
+  organizationId: string;
+  month: string;
+}
+
+export interface DeleteMonthResponse {
+  deletedScheduleId: string | null;
 }
 
 export interface SolveRequest {
@@ -221,6 +274,8 @@ export interface SolverResultRequest {
   assignments: ScheduleVersionAssignmentChange[];
   score: ScheduleVersionScore | null;
   failureReason: string | null;
+  failureType: string | null;
+  failureContext: Record<string, unknown> | null;
   solverExecutionId: string;
 }
 
@@ -243,6 +298,23 @@ export interface PatchAssignmentsResponse {
   currentRevision: number;
   manualEditCount: number;
   changedCells: number;
+}
+
+export interface ScheduleVersionRecheckResponse {
+  scheduleVersionId: string;
+  currentRevision: number;
+  evaluationId: string;
+  resultStatus: ScheduleVersionStatus;
+  evaluationResultStatus: ScheduleEvaluationResultStatus;
+}
+
+export interface ScheduleVersionFinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: string;
+  finalizedAt: string;
+  finalizedBy: string | null;
 }
 
 export class ContractError extends Error {
@@ -276,12 +348,27 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
   {
     name: 'compare',
     methods: ['GET'],
-    segments: ['schedules', ':scheduleId', 'compare'],
+    segments: ['schedules', ':scheduleKey', 'compare'],
   },
   {
     name: 'createVersion',
     methods: ['POST'],
     segments: ['schedules', ':scheduleId', 'versions'],
+  },
+  {
+    name: 'resetRoster',
+    methods: ['POST'],
+    segments: ['schedules', 'reset-roster'],
+  },
+  {
+    name: 'resetActiveFlow',
+    methods: ['POST'],
+    segments: ['schedules', ':scheduleId', 'reset-active-flow'],
+  },
+  {
+    name: 'deleteMonth',
+    methods: ['POST'],
+    segments: ['schedules', 'delete-month'],
   },
   {
     name: 'review',
@@ -308,12 +395,24 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     methods: ['PATCH'],
     segments: ['schedule-versions', ':versionId', 'assignments'],
   },
+  {
+    name: 'recheck',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'recheck'],
+  },
+  {
+    name: 'finalize',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'finalize'],
+  },
 ];
 
 export function isValidUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function isValidSchedulePublicId(value: string): boolean {
+  return /^sch_[0-9a-f]{12}$/i.test(value);
 }
 
 export function isValidMonth(value: string): boolean {
@@ -327,6 +426,18 @@ export function isValidDate(value: string): boolean {
 export function parseUuidParam(name: string, value: string): string {
   if (!isValidUuid(value)) {
     throw new ContractError('bad_request', `${name} must be a valid UUID`, 400);
+  }
+
+  return value;
+}
+
+export function parseScheduleKeyParam(name: string, value: string): string {
+  if (!isValidUuid(value) && !isValidSchedulePublicId(value)) {
+    throw new ContractError(
+      'bad_request',
+      `${name} must be a valid UUID or schedule public id`,
+      400
+    );
   }
 
   return value;
@@ -467,6 +578,47 @@ function parseInputDiffSummary(value: unknown): ScheduleInputDiffSummary {
   };
 }
 
+function parseResetRosterEmployee(payload: unknown): ResetRosterEmployeeInput {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'employee must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const employeeId = typeof record.employeeId === 'string' ? record.employeeId.trim() : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const availableShifts = record.availableShifts;
+
+  if (!employeeId) {
+    throw new ContractError('bad_request', 'employeeId is required', 400);
+  }
+
+  if (!name) {
+    throw new ContractError('bad_request', 'name is required', 400);
+  }
+
+  if (!Array.isArray(availableShifts)) {
+    throw new ContractError('bad_request', 'availableShifts must be an array', 400);
+  }
+
+  const normalizedAvailableShifts = availableShifts.map((shift, index) => {
+    if (typeof shift !== 'string' || shift.trim().length === 0) {
+      throw new ContractError(
+        'bad_request',
+        `availableShifts[${index}] must be a non-empty string`,
+        400
+      );
+    }
+
+    return shift.trim();
+  });
+
+  return {
+    employeeId,
+    name,
+    availableShifts: normalizedAvailableShifts,
+  };
+}
+
 function parseScheduleVersionAssignmentChange(
   payload: unknown
 ): ScheduleVersionAssignmentChange {
@@ -573,6 +725,62 @@ export function parseCreateVersionRequest(payload: unknown): CreateVersionReques
   };
 }
 
+export function parseResetRosterRequest(payload: unknown): ResetRosterRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'reset roster request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId : '';
+  const month = typeof record.month === 'string' ? record.month : '';
+  const employees = record.employees;
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!isValidMonth(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  if (!Array.isArray(employees)) {
+    throw new ContractError('bad_request', 'employees must be an array', 400);
+  }
+
+  const parsedEmployees = employees.map((employee) => parseResetRosterEmployee(employee));
+  const uniqueEmployeeIds = new Set(parsedEmployees.map((employee) => employee.employeeId));
+
+  if (uniqueEmployeeIds.size !== parsedEmployees.length) {
+    throw new ContractError('bad_request', 'employeeId values must be unique', 400);
+  }
+
+  return {
+    organizationId,
+    month,
+    employees: parsedEmployees,
+  };
+}
+
+export function parseDeleteMonthRequest(payload: unknown): DeleteMonthRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'delete month request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const organizationId = typeof record.organizationId === 'string' ? record.organizationId : '';
+  const month = typeof record.month === 'string' ? record.month : '';
+
+  if (!organizationId || !isValidUuid(organizationId)) {
+    throw new ContractError('bad_request', 'organizationId must be a valid UUID', 400);
+  }
+
+  if (!isValidMonth(month)) {
+    throw new ContractError('bad_request', 'month must be in YYYY-MM format', 400);
+  }
+
+  return { organizationId, month };
+}
+
 export function parseScheduleVersionSolveRequest(payload: unknown): SolveRequest {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw new ContractError('bad_request', 'solve request must be a JSON object', 400);
@@ -597,6 +805,8 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
   const record = payload as Record<string, unknown>;
   const status = record.status;
   const failureReason = record.failureReason;
+  const failureType = record.failureType;
+  const failureContext = record.failureContext;
 
   if (status !== 'completed' && status !== 'failed') {
     throw new ContractError('bad_request', 'status must be completed or failed', 400);
@@ -608,6 +818,18 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
     && typeof failureReason !== 'string'
   ) {
     throw new ContractError('bad_request', 'failureReason must be a string or null', 400);
+  }
+
+  if (failureType !== null && failureType !== undefined && typeof failureType !== 'string') {
+    throw new ContractError('bad_request', 'failureType must be a string or null', 400);
+  }
+
+  if (
+    failureContext !== null
+    && failureContext !== undefined
+    && (typeof failureContext !== 'object' || Array.isArray(failureContext))
+  ) {
+    throw new ContractError('bad_request', 'failureContext must be a JSON object or null', 400);
   }
 
   const solveRequest = parseScheduleVersionSolveRequest(payload);
@@ -622,6 +844,14 @@ export function parseScheduleVersionSolverResultRequest(payload: unknown): Solve
     assignments,
     score,
     failureReason: typeof failureReason === 'string' ? failureReason : null,
+    failureType: typeof failureType === 'string' ? failureType : null,
+    failureContext:
+      failureContext !== null
+      && failureContext !== undefined
+      && typeof failureContext === 'object'
+      && !Array.isArray(failureContext)
+        ? (failureContext as Record<string, unknown>)
+        : null,
   };
 }
 

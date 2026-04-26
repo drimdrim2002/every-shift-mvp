@@ -1,51 +1,59 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="3" />
+    <StepIndicator
+      v-if="!isSetupEntry"
+      :current-step="3"
+    />
 
-    <n-card title="근무표 생성 - 직원 정보 입력">
-      <n-alert
-        type="info"
-        class="mb-6"
+    <n-card :title="pageTitle">
+      <div
+        v-if="isInitialLoading"
+        class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center text-sm text-gray-500"
       >
-        직원 정보를 입력하세요. 엑셀 파일을 업로드하거나 직접 입력할 수 있습니다.
-      </n-alert>
+        직원 정보를 불러오는 중입니다.
+      </div>
 
-      <!-- 탭 UI -->
-      <n-tabs
-        v-model:value="activeTab"
-        type="line"
-        class="mb-6"
-      >
-        <n-tab-pane
-          name="manual"
-          tab="직접 입력"
+      <template v-else>
+        <div
+          v-if="isSetupEntry"
+          class="mb-6"
         >
-          <EmployeeTable
-            :employees="employees"
-            :shifts="shifts"
-            @add="handleAddEmployee"
-            @edit="handleEditEmployee"
-            @delete="handleDeleteEmployee"
-          />
-        </n-tab-pane>
-
-        <n-tab-pane
-          name="excel"
-          tab="엑셀 업로드"
-        >
-          <EmployeeExcelUpload
-            :shifts="shifts"
-            @upload="handleExcelUpload"
-          />
-
-          <!-- 업로드된 데이터 미리보기 -->
-          <div
-            v-if="employees.length > 0"
-            class="mt-6"
+          <p class="text-base text-gray-600">
+            조직의 직원 기본 정보를 관리합니다.
+          </p>
+          <n-alert
+            type="warning"
+            class="mt-3"
           >
-            <h4 class="mb-4 text-lg font-medium">
-              업로드된 직원 목록 ({{ employees.length }}명)
-            </h4>
+            이 설정은 이번 달만이 아니라 조직의 기본값에 적용됩니다.
+          </n-alert>
+        </div>
+        <n-alert
+          v-else
+          type="info"
+          class="mb-6"
+        >
+          <div>
+            직원 정보를 입력하세요. 엑셀 파일을 업로드하거나 직접 입력할 수 있습니다.
+          </div>
+          <div class="mt-2">
+            이 단계는 저장만 해도 되고, 바로 다음 단계로 이어서 진행할 수도 있습니다.
+            <span v-if="cameFromDashboard">
+              대시보드에서 다시 열어 이어서 작업할 수도 있습니다.
+            </span>
+          </div>
+        </n-alert>
+
+        <!-- 탭 UI -->
+        <n-tabs
+          v-model:value="activeTab"
+          type="line"
+          class="mb-6"
+        >
+          <n-tab-pane
+            name="manual"
+            tab="직접 입력"
+          >
             <EmployeeTable
               :employees="employees"
               :shifts="shifts"
@@ -53,61 +61,145 @@
               @edit="handleEditEmployee"
               @delete="handleDeleteEmployee"
             />
-          </div>
-        </n-tab-pane>
-      </n-tabs>
+          </n-tab-pane>
 
-      <!-- 버튼 -->
-      <div class="flex justify-between pt-6">
-        <n-popconfirm @positive-click="handlePrev">
-          <template #trigger>
-            <n-button size="medium">
-              ← 이전
+          <n-tab-pane
+            name="excel"
+            tab="엑셀 업로드"
+          >
+            <EmployeeExcelUpload
+              :shifts="shifts"
+              :validation-preview="null"
+              @upload="handleExcelUpload"
+            />
+
+            <!-- 업로드된 데이터 미리보기 -->
+            <div
+              v-if="employees.length > 0"
+              class="mt-6"
+            >
+              <h4 class="mb-4 text-lg font-medium">
+                업로드된 직원 목록 ({{ employees.length }}명)
+              </h4>
+              <EmployeeTable
+                :employees="employees"
+                :shifts="shifts"
+                @add="handleAddEmployee"
+                @edit="handleEditEmployee"
+                @delete="handleDeleteEmployee"
+              />
+            </div>
+          </n-tab-pane>
+        </n-tabs>
+
+        <!-- 버튼 -->
+        <PageActionBar
+          v-if="isSetupEntry"
+          data-test="setup-action-bar"
+        >
+          <template #left>
+            <n-button
+              data-test="dashboard-return-button"
+              size="medium"
+              secondary
+              :disabled="isSaving"
+              @click="handleReturnToDashboard"
+            >
+              대시보드로 돌아가기
             </n-button>
           </template>
-          이전 단계로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
-        </n-popconfirm>
-        <div class="flex gap-4">
-          <n-button
-            size="medium"
-            :disabled="!canProceed"
-            :loading="isSaving"
-            @click="handleSave"
-          >
-            {{ hasUnsavedChanges ? '저장 *' : '저장' }}
-          </n-button>
-          <n-button
-            type="primary"
-            size="medium"
-            :disabled="!canProceed || hasUnsavedChanges"
-            @click="handleNext"
-          >
-            다음 단계 →
-          </n-button>
+          <template #right>
+            <n-button
+              size="medium"
+              :disabled="isSaving"
+              @click="handleSave"
+            >
+              저장
+            </n-button>
+            <n-button
+              type="primary"
+              size="medium"
+              :disabled="isSaving"
+              :loading="isSaving"
+              @click="handleNext"
+            >
+              저장 후 근무표 생성 시작
+            </n-button>
+          </template>
+        </PageActionBar>
+        <div
+          v-else
+          class="flex items-center justify-between gap-3 pt-6"
+        >
+          <div class="flex gap-3">
+            <n-button
+              v-if="!cameFromDashboard"
+              size="medium"
+              :disabled="isSaving"
+              @click="handlePrev"
+            >
+              ← 이전
+            </n-button>
+            <n-button
+              v-if="cameFromDashboard"
+              size="medium"
+              @click="handleReturnToDashboard"
+            >
+              근무표 관리로 돌아가기
+            </n-button>
+          </div>
+          <div class="flex gap-3">
+            <n-button
+              size="medium"
+              :disabled="isSaving"
+              @click="handleSave"
+            >
+              저장
+            </n-button>
+            <n-button
+              type="primary"
+              size="medium"
+              :disabled="isSaving"
+              :loading="isSaving"
+              @click="handleNext"
+            >
+              다음 단계 →
+            </n-button>
+          </div>
         </div>
-      </div>
+      </template>
     </n-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { NCard, NButton, NAlert, NTabs, NTabPane, NPopconfirm } from 'naive-ui';
+import { useRoute, useRouter } from 'vue-router';
+import { NCard, NButton, NAlert, NTabs, NTabPane } from 'naive-ui';
+import PageActionBar from '@/components/ui/PageActionBar.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import EmployeeTable from '@/components/schedule/EmployeeTable.vue';
 import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
-import { deleteOrganizationEmployees, createEmployeesBatch } from '@/api/employee';
-import { getPhase2ScheduleCompare, getScheduleStatus } from '@/api/schedule';
+import { applyEmployeeImport, replaceOrganizationRoster } from '@/api/ops';
+import {
+  getLatestScheduleByOrganizationMonth,
+  getPhase2ScheduleCompare,
+  getScheduleStatus,
+} from '@/api/schedule';
 import { supabase } from '@/api/supabase';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
-import { showError } from '@/utils/message';
+import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
+import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
+import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
+const route = useRoute();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 
@@ -115,35 +207,59 @@ const orgStore = useOrganizationStore();
 const activeTab = ref<'manual' | 'excel'>('manual');
 const employees = ref<EmployeeInput[]>([]);
 const isSaving = ref(false);
-const hasUnsavedChanges = ref(false); // 저장되지 않은 변경사항 추적
+const isInitialLoading = ref(true);
+const baselineEmployeesSnapshot = ref('');
+const isSetupEntry = computed(() => isSetupEntryMode(route.query));
+const pageTitle = computed(() =>
+  isSetupEntry.value ? '운영 준비 - 직원 기준 설정' : '근무표 생성 - 직원 정보 입력'
+);
+const resolvedOrganizationId = computed(() => {
+  if (isSetupEntry.value) {
+    return orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null;
+  }
+
+  return scheduleStore.basicInfo?.organizationId ?? orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null;
+});
 
 // 시프트 목록
 const shifts = computed<Shift[]>(() => {
+  if (isSetupEntry.value) {
+    return orgStore.shifts || [];
+  }
+
   return scheduleStore.basicInfo?.shifts || orgStore.shifts || [];
 });
 
-// 진행 가능 여부
-const canProceed = computed(() => {
-  return employees.value.length > 0;
+const cameFromDashboard = computed(() => route.query.from === 'dashboard');
+const hasUnsavedChanges = computed(() => {
+  return serializeEmployees(employees.value) !== baselineEmployeesSnapshot.value;
 });
 
 // 초기화
 onMounted(async () => {
-  if (!scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+  if (!isSetupEntry.value && !scheduleStore.basicInfo) {
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
   // 1. Store에 저장된 데이터가 있으면 복원 (새로 생성하는 경우)
-  if (scheduleStore.employees.length > 0) {
-    employees.value = [...scheduleStore.employees];
-    hasUnsavedChanges.value = false;
+  if (!isSetupEntry.value && scheduleStore.employees.length > 0) {
+    employees.value = cloneEmployees(scheduleStore.employees);
+    setBaselineEmployeesSnapshot(employees.value);
+    isInitialLoading.value = false;
+    return;
+  }
+
+  const orgId = resolvedOrganizationId.value;
+  if (!orgId) {
+    employees.value = [];
+    setBaselineEmployeesSnapshot([]);
+    isInitialLoading.value = false;
     return;
   }
 
   // 2. DB에서 기존 직원 정보 불러오기 (수정하는 경우)
   try {
-    const orgId = scheduleStore.basicInfo.organizationId;
     const { data, error } = await supabase
       .from('employees')
       .select('*')
@@ -152,34 +268,86 @@ onMounted(async () => {
 
     if (error) {
       console.error('[Step3] Load employees error:', error);
+      setBaselineEmployeesSnapshot(employees.value);
       return;
     }
 
     if (data && data.length > 0) {
       // DB 데이터를 EmployeeInput 형식으로 변환
-      employees.value = data.map((emp: any) => ({
+      employees.value = data.map((emp: {
+        employee_id: string;
+        name: string;
+        available_shifts: string[];
+        rank_code?: string | null;
+      }) => ({
         employeeId: emp.employee_id,
         name: emp.name,
         availableShifts: emp.available_shifts,
+        rankCode: emp.rank_code ?? null,
       }));
-      
-      // DB에서 불러온 데이터는 저장된 상태
-      hasUnsavedChanges.value = false;
-      
-      window.$message?.info(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
+
+      setBaselineEmployeesSnapshot(employees.value);
+      showInfo(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
     } else {
-      // DB에 데이터가 없으면 처음 입력하는 상태
-      hasUnsavedChanges.value = false;
+      employees.value = [];
+      setBaselineEmployeesSnapshot([]);
     }
   } catch (error) {
     console.error('[Step3] Failed to load employees:', error);
+    setBaselineEmployeesSnapshot(employees.value);
+  } finally {
+    isInitialLoading.value = false;
   }
 });
+
+function cloneEmployees(list: EmployeeInput[]): EmployeeInput[] {
+  return list.map((employee) => ({
+    employeeId: employee.employeeId,
+    name: employee.name,
+    availableShifts: [...employee.availableShifts],
+    rankCode: employee.rankCode ?? null,
+  }));
+}
+
+function serializeEmployees(list: EmployeeInput[]): string {
+  return JSON.stringify(
+    cloneEmployees(list)
+      .map((employee) => ({
+        employeeId: employee.employeeId,
+        name: employee.name,
+        availableShifts: [...employee.availableShifts].sort(),
+        rankCode: employee.rankCode ?? null,
+      }))
+      .sort((left, right) => {
+        if (left.employeeId !== right.employeeId) {
+          return left.employeeId.localeCompare(right.employeeId);
+        }
+
+        if (left.name !== right.name) {
+          return left.name.localeCompare(right.name);
+        }
+
+        return (left.rankCode ?? '').localeCompare(right.rankCode ?? '');
+      })
+  );
+}
+
+function setBaselineEmployeesSnapshot(list: EmployeeInput[]) {
+  baselineEmployeesSnapshot.value = serializeEmployees(list);
+}
+
+function buildEmployeePayload() {
+  return employees.value.map((employee) => ({
+    employeeId: employee.employeeId,
+    name: employee.name,
+    availableShifts: employee.availableShifts,
+    rankCode: employee.rankCode ?? null,
+  }));
+}
 
 // 직원 추가 핸들러
 function handleAddEmployee(employee: EmployeeInput) {
   employees.value = [...employees.value, employee];
-  hasUnsavedChanges.value = true;
 }
 
 // 직원 수정 핸들러
@@ -187,125 +355,23 @@ function handleEditEmployee(index: number, employee: EmployeeInput) {
   const updated = [...employees.value];
   updated[index] = employee;
   employees.value = updated;
-  hasUnsavedChanges.value = true;
 }
 
 // 직원 삭제 핸들러
 function handleDeleteEmployee(index: number) {
   employees.value = employees.value.filter((_, i) => i !== index);
-  hasUnsavedChanges.value = true;
 }
 
 // 엑셀 업로드 핸들러
 function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
   employees.value = uploadedEmployees;
-  hasUnsavedChanges.value = true;
-  window.$message?.success(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
+  showSuccess(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
-// 저장 핸들러
-async function handleSave() {
-  if (employees.value.length === 0) {
-    window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
-    return;
-  }
-
-  if (!scheduleStore.basicInfo) {
-    window.$message?.error('기본 정보가 없습니다. 다시 시도해주세요.');
-    return;
-  }
-
-  isSaving.value = true;
-
-  try {
-    const orgId = scheduleStore.basicInfo.organizationId;
-
-    // 1. 기존 직원 ID 조회
-    const { data: existingEmployees } = await supabase
-      .from('employees')
-      .select('id')
-      .eq('organization_id', orgId);
-
-    // 2. 기존 직원들의 schedule_assignments 먼저 삭제 (외래 키 제약 조건 해결)
-    if (existingEmployees && existingEmployees.length > 0) {
-      const employeeIds = existingEmployees.map(e => e.id);
-      const { error: assignmentError } = await supabase
-        .from('schedule_assignments')
-        .delete()
-        .in('employee_id', employeeIds);
-
-      if (assignmentError) {
-        console.error('[handleSave] Assignment delete error:', assignmentError);
-        throw new Error(`배정 데이터 삭제 실패: ${assignmentError.message}`);
-      }
-      
-      console.log('[Step3] Deleted schedule_assignments for', employeeIds.length, 'employees');
-    }
-
-    // 3. 현재 month의 모든 schedules 삭제 (직원 재생성 시 이전 schedule 무효화)
-    if (scheduleStore.basicInfo) {
-      const { error: scheduleDeleteError } = await supabase
-        .from('schedules')
-        .delete()
-        .eq('organization_id', orgId)
-        .eq('month', scheduleStore.basicInfo.month);
-
-      if (scheduleDeleteError) {
-        console.error('[Step3] Schedule delete error:', scheduleDeleteError);
-        console.warn('[Step3] Failed to delete schedules, continuing...');
-      } else {
-        console.log('[Step3] Deleted schedules for month:', scheduleStore.basicInfo.month);
-      }
-    }
-
-    // 4. 기존 직원 삭제
-    await deleteOrganizationEmployees(orgId);
-
-    // 5. 새 직원 일괄 생성
-    await createEmployeesBatch(orgId, employees.value);
-
-    // 6. Store 업데이트
-    scheduleStore.setEmployees(employees.value);
-    
-    // basicInfo의 employeeCount 업데이트
-    scheduleStore.setBasicInfo({
-      ...scheduleStore.basicInfo,
-      employeeCount: employees.value.length,
-    });
-
-    // 7. LocalStorage 초기화 (새 직원들로 인해 UUID 변경되므로 이전 assignments 무효화)
-    if (scheduleStore.basicInfo) {
-      const storageKey = `everyshift_temp_schedule_${scheduleStore.basicInfo.month}`;
-      localStorage.removeItem(storageKey);
-      console.log('[Step3] Cleared localStorage for new employees:', storageKey);
-    }
-
-    // 8. Store의 assignments도 초기화
-    scheduleStore.setAssignments({});
-
-    // 9. 저장 완료 플래그
-    hasUnsavedChanges.value = false;
-
-    window.$message?.success('직원 정보가 저장되었습니다.');
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
-    window.$message?.error(errorMessage);
-  } finally {
-    isSaving.value = false;
-  }
-}
-
-// 이전 버튼 핸들러
-function handlePrev() {
-  scheduleStore.prevStep();
-  router.push('/schedule/step2');
-}
-
-async function getTargetScheduleForNextStep(): Promise<{ id: string; status: string } | null> {
+async function getCurrentMonthScheduleState(): Promise<{ id: string; status: string } | null> {
   const basicInfo = scheduleStore.basicInfo;
   if (!basicInfo) return null;
 
-  // 1) scheduleId가 있으면 우선 조회
   if (basicInfo.scheduleId) {
     try {
       const schedule = await getScheduleStatus(basicInfo.scheduleId);
@@ -317,23 +383,12 @@ async function getTargetScheduleForNextStep(): Promise<{ id: string; status: str
     }
   }
 
-  // 2) fallback: 조직+월 기준 최신 schedule 조회
   try {
-    const { data, error } = await supabase
-      .from('schedules')
-      .select('id, status')
-      .eq('organization_id', basicInfo.organizationId)
-      .eq('month', basicInfo.month)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      console.warn('[Step3] Failed to load latest schedule:', error);
-      return null;
-    }
-
-    const latest = data?.[0];
-    if (!latest || !latest.id || !latest.status) return null;
+    const latest = await getLatestScheduleByOrganizationMonth(
+      basicInfo.organizationId,
+      basicInfo.month
+    );
+    if (!latest?.id || !latest?.status) return null;
 
     return { id: latest.id, status: latest.status };
   } catch (error) {
@@ -342,57 +397,237 @@ async function getTargetScheduleForNextStep(): Promise<{ id: string; status: str
   }
 }
 
-// 다음 버튼 핸들러
-async function handleNext() {
-  if (employees.value.length === 0) {
-    window.$message?.warning('최소 1명 이상의 직원을 등록해주세요.');
-    return;
-  }
+async function performWizardEmployeeSave(orgId: string): Promise<boolean> {
+  isSaving.value = true;
 
-  // 저장되지 않은 변경사항이 있으면 경고
-  if (hasUnsavedChanges.value) {
-    window.$message?.warning('변경사항을 먼저 저장해주세요.');
-    return;
-  }
+  try {
+    if (!scheduleStore.basicInfo) {
+      throw new Error('기본 정보가 없습니다. 다시 시도해주세요.');
+    }
 
-  // Store에 저장 (이미 DB에 저장되어 있음)
-  if (scheduleStore.basicInfo) {
-    scheduleStore.setEmployees(employees.value);
+    const applyResult = await applyEmployeeImport({
+      organizationId: orgId,
+      month: scheduleStore.basicInfo.month,
+      employees: buildEmployeePayload(),
+    });
+
+    if (applyResult.deletedScheduleId) {
+      console.log('[Step3] Applied roster and removed schedule:', applyResult.deletedScheduleId);
+    }
+
+    scheduleStore.setEmployees(cloneEmployees(employees.value));
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
+      scheduleId: undefined,
       employeeCount: employees.value.length,
     });
+    scheduleStore.setSelectedVersionId(null);
+    scheduleStore.setPreviewVersionId(null);
+    scheduleStore.setAssignments({});
+
+    const clearedStorageKeys = clearScopedTempPreferencesStorage({
+      userId: authStore.user?.id,
+      organizationId: scheduleStore.basicInfo.organizationId,
+      month: scheduleStore.basicInfo.month,
+    });
+    console.log('[Step3] Cleared temp preference storage keys:', clearedStorageKeys);
+    setBaselineEmployeesSnapshot(employees.value);
+
+    showSuccess('직원 정보가 저장되었습니다.');
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
+    showError(errorMessage);
+    return false;
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+async function performSetupEmployeeSave(orgId: string): Promise<boolean> {
+  isSaving.value = true;
+
+  try {
+    await replaceOrganizationRoster({
+      organizationId: orgId,
+      employees: buildEmployeePayload(),
+    });
+
+    scheduleStore.setEmployees(cloneEmployees(employees.value));
+    scheduleStore.setSelectedVersionId(null);
+    scheduleStore.setPreviewVersionId(null);
+    scheduleStore.setAssignments({});
+    setBaselineEmployeesSnapshot(employees.value);
+
+    showSuccess('직원 기본 정보가 저장되었습니다.');
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.';
+    showError(errorMessage);
+    return false;
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+function handlePrev() {
+  scheduleStore.prevStep();
+  router.push(getScheduleStepRoutePath(2));
+}
+
+function navigateToStep4() {
+  if (cameFromDashboard.value) {
+    router.push({
+      path: getScheduleStepRoutePath(4),
+      query: {
+        from: 'dashboard',
+      },
+    });
+    return;
   }
 
-  const targetSchedule = await getTargetScheduleForNextStep();
+  router.push(getScheduleStepRoutePath(4));
+}
 
-  if (targetSchedule && (targetSchedule.status === 'complete' || targetSchedule.status === 'changed')) {
-    if (scheduleStore.basicInfo) {
-      scheduleStore.setBasicInfo({
-        ...scheduleStore.basicInfo,
-        scheduleId: targetSchedule.id,
-      });
-    }
-    try {
-      const compareResponse = await getPhase2ScheduleCompare(targetSchedule.id);
-      const resolvedState = resolveStep5VersionState(
-        compareResponse,
-        scheduleStore.previewVersionId
-      );
-
-      scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-      scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-      scheduleStore.currentStep = 5;
-      router.push(buildStep5Route(targetSchedule.id, resolvedState.previewVersionId));
-      return;
-    } catch (error) {
-      console.warn('[Step3] Failed to resolve Step5 preview version:', error);
-      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
+async function confirmAndSave(options?: { onSaved?: () => void }) {
+  if (employees.value.length === 0) {
+    showWarning('최소 1명 이상의 직원을 등록해주세요.');
+    return false;
   }
 
-  scheduleStore.nextStep();
-  router.push('/schedule/step4');
+  const orgId = resolvedOrganizationId.value;
+  if (!orgId) {
+    showError('조직 정보를 찾을 수 없습니다. 다시 시도해주세요.');
+    return false;
+  }
+
+  if (isSetupEntry.value) {
+    if (!window.$dialog?.warning) {
+      showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+      return false;
+    }
+
+    window.$dialog.warning({
+      title: '직원 기준 저장 확인',
+      content: '조직의 공통 직원 기준이 변경됩니다. 계속 저장하시겠습니까?',
+      positiveText: '저장',
+      negativeText: '취소',
+      onPositiveClick: async () => {
+        const saved = await performSetupEmployeeSave(orgId);
+        if (!saved) return;
+        if (options?.onSaved) {
+          options.onSaved();
+        }
+      }
+    });
+
+    return true;
+  }
+
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+    return false;
+  }
+
+  let compareResponse = null;
+  try {
+    const currentMonthSchedule = await getCurrentMonthScheduleState();
+    if (currentMonthSchedule) {
+      compareResponse = await getPhase2ScheduleCompare(currentMonthSchedule.id);
+      if (compareResponse.finalizedVersionId) {
+        showError('현재 월에 확정된 근무표가 있어 직원 정보를 저장할 수 없습니다.');
+        return false;
+      }
+    }
+  } catch (error) {
+    console.warn('[Step3] Failed to check current month version state:', error);
+    showError('현재 월의 근무표 상태를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return false;
+  }
+
+  if (!window.$dialog?.warning) {
+    showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    return false;
+  }
+
+  const wizardContent =
+    (compareResponse?.versions?.length ?? 0) > 0
+      ? '현재 월의 근무표와 버전이 모두 삭제됩니다. 계속 저장하시겠습니까?'
+      : '직원 정보를 저장하시겠습니까?';
+
+  window.$dialog.warning({
+    title: isSetupEntry.value ? '직원 기준 저장 확인' : '직원 정보 저장 확인',
+    content: isSetupEntry.value
+      ? '조직의 공통 직원 기준이 변경됩니다. 현재 월의 비교안이 있다면 다시 확인이 필요할 수 있습니다. 계속 저장하시겠습니까?'
+      : wizardContent,
+    positiveText: '저장',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      const saved = await performWizardEmployeeSave(orgId);
+      if (!saved) return;
+      options?.onSaved?.();
+    },
+  });
+
+  return true;
+}
+
+// 저장 핸들러
+async function handleSave() {
+  if (!hasUnsavedChanges.value) {
+    showInfo('변경된 데이터가 없습니다');
+    return;
+  }
+
+  await confirmAndSave();
+}
+
+async function handleNext() {
+  if (isSetupEntry.value) {
+    if (!hasUnsavedChanges.value) {
+      scheduleStore.setEmployees([]);
+      router.push(getScheduleStepRoutePath(1));
+      return;
+    }
+
+    await confirmAndSave({
+      onSaved: () => {
+        router.push(getScheduleStepRoutePath(1));
+      },
+    });
+    return;
+  }
+
+  if (!scheduleStore.basicInfo) {
+    showError('기본 정보가 없습니다. 다시 시도해주세요.');
+    return;
+  }
+
+  if (!hasUnsavedChanges.value) {
+    scheduleStore.nextStep();
+    navigateToStep4();
+    return;
+  }
+
+  await confirmAndSave({
+    onSaved: () => {
+      scheduleStore.nextStep();
+      navigateToStep4();
+    },
+  });
+}
+
+function handleReturnToDashboard() {
+  if (hasUnsavedChanges.value) {
+    showInfo(
+      isSetupEntry.value
+        ? '변경된 데이터가 있습니다. 저장 후 이동하세요.'
+        : '변경된 데이터가 있습니다. 저장 후 진행하세요'
+    );
+    return;
+  }
+
+  scheduleStore.reset();
+  router.push(getAppHomeRoutePath());
 }
 </script>

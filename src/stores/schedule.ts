@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
-import type { User } from '@supabase/supabase-js';
 import type {
   ScheduleBasicInfo,
   SiteRequirementList,
@@ -12,11 +11,15 @@ import type {
   ScheduleVersionSummary,
 } from '@/types/schedule';
 import type { EmployeeInput } from '@/types/employee';
-import { resolveAuthScope, type AuthScope } from '@/utils/authScope';
 
 const LEGACY_WIZARD_CONTEXT_STORAGE_KEY = 'everyshift_wizard_context_v1';
 const WIZARD_CONTEXT_STORAGE_KEY_PREFIX = 'everyshift_wizard_context_v2';
 const WIZARD_CONTEXT_SCHEMA_VERSION = 2;
+
+interface AccessScope {
+  userId: string;
+  organizationId: string | null;
+}
 
 interface PersistedWizardContext {
   basicInfo: ScheduleBasicInfo | null;
@@ -44,6 +47,10 @@ function isScheduleBasicInfo(value: unknown): value is ScheduleBasicInfo {
   const record = value as Record<string, unknown>;
 
   if (record.scheduleId !== undefined && typeof record.scheduleId !== 'string') {
+    return false;
+  }
+
+  if (record.schedulePublicId !== undefined && typeof record.schedulePublicId !== 'string') {
     return false;
   }
 
@@ -88,7 +95,7 @@ function isPersistedWizardContext(value: unknown): value is PersistedWizardConte
   );
 }
 
-function readPersistedWizardContext(scope: AuthScope): PersistedWizardContextEnvelope | null {
+function readPersistedWizardContext(scope: AccessScope): PersistedWizardContextEnvelope | null {
   if (!canUseLocalStorage()) return null;
 
   const raw = window.localStorage.getItem(buildWizardContextStorageKey(scope.userId));
@@ -124,7 +131,7 @@ function readPersistedWizardContext(scope: AuthScope): PersistedWizardContextEnv
   }
 }
 
-function isSameAuthScope(left: AuthScope | null, right: AuthScope | null): boolean {
+function isSameAccessScope(left: AccessScope | null, right: AccessScope | null): boolean {
   return left?.userId === right?.userId && left?.organizationId === right?.organizationId;
 }
 
@@ -161,15 +168,16 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   // scheduleId computed getter
   const scheduleId = computed(() => basicInfo.value?.scheduleId ?? null);
-  const activeAuthScope = ref<AuthScope | null>(null);
-  const hasInitializedAuthScope = ref(false);
+  const schedulePublicId = computed(() => basicInfo.value?.schedulePublicId ?? null);
+  const activeAccessScope = ref<AccessScope | null>(null);
+  const hasInitializedAccessScope = ref(false);
 
   function clearLegacyPersistedWizardContext() {
     if (!canUseLocalStorage()) return;
     window.localStorage.removeItem(LEGACY_WIZARD_CONTEXT_STORAGE_KEY);
   }
 
-  function clearPersistedWizardContext(scope: AuthScope | null = activeAuthScope.value) {
+  function clearPersistedWizardContext(scope: AccessScope | null = activeAccessScope.value) {
     clearLegacyPersistedWizardContext();
     if (!canUseLocalStorage() || !scope) return;
     window.localStorage.removeItem(buildWizardContextStorageKey(scope.userId));
@@ -188,8 +196,12 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   function shouldHydratePersistedWizardContext(
     persisted: PersistedWizardContextEnvelope,
-    scope: AuthScope
+    scope: AccessScope
   ): boolean {
+    if (!scope.organizationId) {
+      return false;
+    }
+
     if (persisted.schemaVersion !== WIZARD_CONTEXT_SCHEMA_VERSION) {
       return false;
     }
@@ -220,7 +232,7 @@ export const useScheduleStore = defineStore('schedule', () => {
   function persistWizardContext() {
     clearLegacyPersistedWizardContext();
     if (!canUseLocalStorage()) return;
-    if (!activeAuthScope.value) return;
+    if (!activeAccessScope.value) return;
 
     if (!basicInfo.value) {
       clearPersistedWizardContext();
@@ -229,7 +241,7 @@ export const useScheduleStore = defineStore('schedule', () => {
 
     const payload: PersistedWizardContextEnvelope = {
       schemaVersion: WIZARD_CONTEXT_SCHEMA_VERSION,
-      ownerUserId: activeAuthScope.value.userId,
+      ownerUserId: activeAccessScope.value.userId,
       ownerOrganizationId: basicInfo.value.organizationId,
       context: {
         basicInfo: basicInfo.value,
@@ -240,12 +252,12 @@ export const useScheduleStore = defineStore('schedule', () => {
     };
 
     window.localStorage.setItem(
-      buildWizardContextStorageKey(activeAuthScope.value.userId),
+      buildWizardContextStorageKey(activeAccessScope.value.userId),
       JSON.stringify(payload)
     );
   }
 
-  function hydrateWizardContext(scope: AuthScope) {
+  function hydrateWizardContext(scope: AccessScope) {
     const persisted = readPersistedWizardContext(scope);
     if (!persisted) return;
 
@@ -260,25 +272,31 @@ export const useScheduleStore = defineStore('schedule', () => {
     currentStep.value = persisted.context.currentStep;
   }
 
-  function syncWithAuthUser(user: User | null) {
-    const nextScope = resolveAuthScope(user);
-    const previousScope = activeAuthScope.value;
+  function syncWithAccessScope(scope: AccessScope | null) {
+    const nextScope = scope;
+    const previousScope = activeAccessScope.value;
 
     clearLegacyPersistedWizardContext();
 
-    if (hasInitializedAuthScope.value && isSameAuthScope(previousScope, nextScope)) {
+    if (hasInitializedAccessScope.value && isSameAccessScope(previousScope, nextScope)) {
       return;
     }
 
-    if (previousScope) {
+    if (!nextScope && previousScope) {
+      clearPersistedWizardContext(previousScope);
+    } else if (
+      previousScope &&
+      nextScope &&
+      previousScope.userId !== nextScope.userId
+    ) {
       clearPersistedWizardContext(previousScope);
     }
 
     applyDefaultState();
-    activeAuthScope.value = nextScope;
-    hasInitializedAuthScope.value = true;
+    activeAccessScope.value = nextScope;
+    hasInitializedAccessScope.value = true;
 
-    if (!nextScope) {
+    if (!nextScope || !nextScope.organizationId) {
       return;
     }
 
@@ -380,13 +398,14 @@ export const useScheduleStore = defineStore('schedule', () => {
     isExcelUpload,
     isExcelUploadMode,
     scheduleId,
+    schedulePublicId,
     selectedVersionId,
     previewVersionId,
     versions,
     latestEvaluation,
     compareMatrix,
     reviewTab,
-    syncWithAuthUser,
+    syncWithAccessScope,
     setBasicInfo,
     setSiteRequirements,
     setEmployees,

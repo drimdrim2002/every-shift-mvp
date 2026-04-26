@@ -117,7 +117,7 @@ function createAssignments(): PlanningAssignment[] {
 }
 
 describe('mapToSolverRequest', () => {
-  it('sets firstDraftDate/lastHistoricalDate/publishLength from lastMonthDays', () => {
+  it('sets rolling metadata and uses fallback finalized rows when preview history is empty', () => {
     const shifts = createShifts();
     const payload = mapToSolverRequest(
       createBasicInfo(shifts),
@@ -125,8 +125,16 @@ describe('mapToSolverRequest', () => {
       createConstraints(),
       createEmployees(),
       shifts,
-      createAssignments(),
+      [],
       4,
+      [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-d',
+          date: '2025-11-30',
+          is_locked: true,
+        },
+      ],
     );
 
     expect(payload.organization.firstDraftDate).toBe('2025-12-01');
@@ -134,9 +142,32 @@ describe('mapToSolverRequest', () => {
     expect(payload.organization.publishLength).toBe(4);
     expect(payload.organization.draftLength).toBe(31);
     expect(payload.organization.shifts.map((shift) => shift.code)).toEqual(['D', 'E', 'N']);
+    expect(payload.history).toEqual([
+      {
+        employee_id: 'emp-1',
+        shift_id: 'shift-d',
+        date: '2025-11-30',
+        is_locked: true,
+      },
+    ]);
+    expect(payload.requirements).toEqual([
+      { shiftId: 'shift-d', dayIndex: 0, employeeCount: 3 },
+      { shiftId: 'shift-e', dayIndex: 0, employeeCount: 2 },
+      { shiftId: 'shift-n', dayIndex: 0, employeeCount: 1 },
+      { shiftId: 'shift-d', dayIndex: 1, employeeCount: 4 },
+      { shiftId: 'shift-e', dayIndex: 1, employeeCount: 2 },
+      { shiftId: 'shift-n', dayIndex: 1, employeeCount: 1 },
+    ]);
+    expect(payload.undesirable).toEqual([
+      {
+        employee_id: 'emp-1',
+        date: '2025-12-02',
+        is_locked: false,
+      },
+    ]);
   });
 
-  it('supports zero previous-month days', () => {
+  it('drops previous-month rows outside the rolling window', () => {
     const shifts = createShifts();
     const payload = mapToSolverRequest(
       createBasicInfo(shifts),
@@ -144,16 +175,109 @@ describe('mapToSolverRequest', () => {
       createConstraints(),
       createEmployees(),
       shifts,
-      createAssignments(),
-      0,
+      [],
+      4,
+      [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-d',
+          date: '2025-11-25',
+          is_locked: true,
+        },
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-e',
+          date: '2025-11-30',
+          is_locked: true,
+        },
+      ],
     );
 
-    expect(payload.organization.firstDraftDate).toBe('2025-12-01');
-    expect(payload.organization.lastHistoricalDate).toBe('2025-11-30');
-    expect(payload.organization.publishLength).toBe(0);
+    expect(payload.history).toEqual([
+      {
+        employee_id: 'emp-1',
+        shift_id: 'shift-e',
+        date: '2025-11-30',
+        is_locked: true,
+      },
+    ]);
   });
 
-  it('keeps requirements/history/undesirable mapping behavior', () => {
+  it('excludes O rows from history', () => {
+    const shifts = createShifts();
+    const payload = mapToSolverRequest(
+      createBasicInfo(shifts),
+      createSiteRequirements(),
+      createConstraints(),
+      createEmployees(),
+      shifts,
+      [],
+      4,
+      [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-o',
+          date: '2025-11-30',
+          is_locked: true,
+        },
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-n',
+          date: '2025-11-29',
+          is_locked: true,
+        },
+      ],
+    );
+
+    expect(payload.history).toEqual([
+      {
+        employee_id: 'emp-1',
+        shift_id: 'shift-n',
+        date: '2025-11-29',
+        is_locked: true,
+      },
+    ]);
+  });
+
+  it('keeps current preview rows authoritative over fallback rows on overlap', () => {
+    const shifts = createShifts();
+    const currentAssignments: PlanningAssignment[] = [
+      {
+        employee_id: 'emp-1',
+        shift_id: 'shift-n',
+        date: '2025-11-30',
+        is_locked: false,
+      },
+    ];
+    const payload = mapToSolverRequest(
+      createBasicInfo(shifts),
+      createSiteRequirements(),
+      createConstraints(),
+      createEmployees(),
+      shifts,
+      currentAssignments,
+      4,
+      [
+        {
+          employee_id: 'emp-1',
+          shift_id: 'shift-d',
+          date: '2025-11-30',
+          is_locked: true,
+        },
+      ],
+    );
+
+    expect(payload.history).toEqual([
+      {
+        employee_id: 'emp-1',
+        shift_id: 'shift-n',
+        date: '2025-11-30',
+        is_locked: true,
+      },
+    ]);
+  });
+
+  it('keeps requirements and undesirable mapping behavior', () => {
     const shifts = createShifts();
     const payload = mapToSolverRequest(
       createBasicInfo(shifts),
@@ -172,15 +296,6 @@ describe('mapToSolverRequest', () => {
       { shiftId: 'shift-d', dayIndex: 1, employeeCount: 4 },
       { shiftId: 'shift-e', dayIndex: 1, employeeCount: 2 },
       { shiftId: 'shift-n', dayIndex: 1, employeeCount: 1 },
-    ]);
-
-    expect(payload.history).toEqual([
-      {
-        employee_id: 'emp-1',
-        shift_id: 'shift-d',
-        date: '2025-11-30',
-        is_locked: true,
-      },
     ]);
 
     expect(payload.undesirable).toEqual([

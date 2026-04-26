@@ -1,9 +1,11 @@
 import type { SiteRequirementRow } from './excel';
+import type { EmployeeInput } from './employee';
 import type { Shift } from './shift';
 
 // 기본 정보 (Step 1)
 export interface ScheduleBasicInfo {
   scheduleId?: string; // Schedule UUID (Step1에서 생성)
+  schedulePublicId?: string; // URL-safe public schedule key
   month: string; // "2025-12"
   organizationId: string; // UUID
   organizationName: string;
@@ -27,6 +29,13 @@ export interface GridColumn {
 // 배정 맵: employeeId -> date -> shiftCode
 export type AssignmentMap = Record<string, Record<string, string>>;
 
+export interface PreviousMonthFinalizedContext {
+  scheduleId: string;
+  scheduleVersionId: string;
+  displayAssignments: AssignmentMap;
+  planningAssignments: PlanningAssignment[];
+}
+
 // Step4 근무 불가 코드
 export type ConstraintCode = 'O';
 
@@ -38,6 +47,16 @@ export type OffReasonMap = Record<string, Record<string, string>>;
 
 // 코멘트 맵: employeeId -> date -> comment
 export type CommentMap = Record<string, Record<string, string>>;
+
+export interface TempPreferencesEnvelopeV2 {
+  schemaVersion: 2;
+  ownerUserId: string;
+  ownerOrganizationId: string;
+  month: string;
+  savedAt: string;
+  constraints: ConstraintMap;
+  constraintNotes: CommentMap;
+}
 
 export type PreferenceStatus = 'pending' | 'fulfilled' | 'unfulfilled';
 
@@ -79,6 +98,67 @@ export interface ScheduleInputDiffSummary {
   changedLockedAssignments: number;
   changedSiteRequirements: number;
   note: string | null;
+}
+
+export interface ScheduleInputSnapshotEmployee {
+  employeeId: string;
+  availableShifts: string[];
+  skillSet: string[];
+}
+
+export interface ScheduleInputSnapshotAssignment {
+  employeeId: string;
+  date: string;
+  shiftId: string;
+  isLocked: boolean;
+}
+
+export interface ScheduleInputSnapshotEmployeeConstraint {
+  employeeId: string;
+  date: string;
+  isLocked: boolean;
+}
+
+export interface ScheduleInputSnapshotShiftRule {
+  id: string;
+  code: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface ScheduleInputSnapshotHospitalRules {
+  organizationType: string;
+  shifts: ScheduleInputSnapshotShiftRule[];
+  lastHistoricalDate: string;
+  firstDraftDate: string;
+  publishLength: number;
+  draftLength: number;
+}
+
+export interface ScheduleInputSnapshotMonthlyRequirement {
+  shiftId: string;
+  dayIndex: number;
+  employeeCount: number;
+}
+
+export interface ScheduleInputSnapshotSolverInput {
+  scheduleId: string;
+  organizationId: string;
+  siteId: string | null;
+  month: string;
+  lastMonthDays: number;
+  employees: ScheduleInputSnapshotEmployee[];
+  assignments: ScheduleInputSnapshotAssignment[];
+  employeeConstraints: ScheduleInputSnapshotEmployeeConstraint[];
+  hospitalRules: ScheduleInputSnapshotHospitalRules;
+  monthlyRequirements: ScheduleInputSnapshotMonthlyRequirement[];
+}
+
+export interface ScheduleInputSnapshot {
+  solverInputHash: string;
+  solverInput: ScheduleInputSnapshotSolverInput;
+  generatorVersion: string;
+  createdAt: string;
 }
 
 export interface ScheduleCompareMetrics {
@@ -145,6 +225,8 @@ export interface SchedulePreference {
   resolution_status: PreferenceStatus;
   resolved_shift_id: string | null;
   resolved_at: string | null;
+  policy_check_status: string | null;
+  policy_rejection_reason: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -190,8 +272,12 @@ export interface ScheduleEvaluation {
 
 export interface ScheduleCompareResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
   versions: ScheduleVersionSummary[];
 }
 
@@ -200,11 +286,16 @@ export interface CreateScheduleVersionRequest {
   name: string | null;
   sourceType: ScheduleVersionSourceType;
   inputDiffSummary: ScheduleInputDiffSummary;
+  inputSnapshot?: ScheduleInputSnapshot;
 }
 
 export interface CreateScheduleVersionResponse {
   scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
   createdVersionId: string;
+  wasCreated: boolean;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   versions: ScheduleVersionSummary[];
@@ -212,6 +303,7 @@ export interface CreateScheduleVersionResponse {
 
 export interface ScheduleVersionSolveRequest {
   solverExecutionId: string;
+  inputSnapshot?: ScheduleInputSnapshot;
 }
 
 export interface ScheduleVersionSolveResponse {
@@ -239,6 +331,8 @@ export interface ScheduleVersionSolverResultRequest {
   assignments?: ScheduleVersionAssignmentChange[];
   score?: ScheduleVersionScore | null;
   failureReason?: string | null;
+  failureType?: string | null;
+  failureContext?: Record<string, unknown> | null;
   solverExecutionId: string;
 }
 
@@ -261,6 +355,54 @@ export interface PatchScheduleVersionAssignmentsResponse {
   currentRevision: number;
   manualEditCount: number;
   changedCells: number;
+}
+
+export interface ScheduleVersionRecheckResponse {
+  scheduleVersionId: string;
+  currentRevision: number;
+  evaluationId: string;
+  resultStatus: ScheduleVersionStatus;
+  evaluationResultStatus: ScheduleEvaluationResultStatus;
+}
+
+export interface ScheduleVersionFinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: string;
+  finalizedAt: string;
+  finalizedBy: string | null;
+}
+
+export interface ResetScheduleRosterRequest {
+  organizationId: string;
+  month: string;
+  employees: EmployeeInput[];
+}
+
+export interface ResetScheduleRosterResponse {
+  deletedScheduleId: string | null;
+  employeeCount: number;
+}
+
+export interface DeleteScheduleMonthRequest {
+  organizationId: string;
+  month: string;
+}
+
+export interface DeleteScheduleMonthResponse {
+  deletedScheduleId: string | null;
+}
+
+export interface ResetScheduleActiveFlowResponse {
+  scheduleId: string;
+  schedulePublicId: string;
+  organizationId: string;
+  month: string;
+  selectedVersionId: string | null;
+  finalizedVersionId: string | null;
+  activeSolvingVersionId: string | null;
+  versions: ScheduleVersionSummary[];
 }
 
 export interface ScheduleReviewResponse {
@@ -407,15 +549,25 @@ export interface SolverStatusResponse {
   tenant_id?: string;
   organization_name?: string;
   status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-  score?: {
-    hard_score: number;
-    soft_score: number;
-  };
+  score?: SolverApiScore;
   result?: SolverResult;
   error_message?: string | null;
+  failure_type?: string | null;
+  failure_context?: Record<string, unknown> | null;
+  failureType?: string | null;
+  failureContext?: Record<string, unknown> | null;
   created_at?: string;
   started_at?: string;
   completed_at?: string;
+}
+
+export interface SolverApiScore {
+  hard_score: number;
+  soft_score?: number | null;
+  undesired_soft_score?: number | null;
+  fair_soft_score?: number | null;
+  desired_soft_score?: number | null;
+  legacy_soft_score_total?: number | null;
 }
 
 export interface SolverResultEmployee {
@@ -449,9 +601,6 @@ export interface SolverResult {
   availabilityList: AvailabilityItem[];
   employeeList: any[]; 
   shiftList: ShiftAssignmentItem[];
-  score: {
-      hard_score: number;
-      soft_score: number;
-  };
+  score: SolverApiScore;
   scheduleState: any;
 }

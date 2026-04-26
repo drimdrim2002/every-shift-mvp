@@ -9,10 +9,14 @@ import {
   solvePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
 } from '@/api/schedule';
-import type { AssignmentMap, SolverRequest } from '@/types/schedule';
+import type { AssignmentMap, SolverApiScore, SolverRequest } from '@/types/schedule';
 import { onUnmounted, ref } from 'vue';
 
 type SolverLocalStatus = 'created' | 'running' | 'complete' | 'error' | 'changed';
+const pollingIntervalMs = 10000;
+const pollRequestTimeoutMs = 75000;
+const maxPollingDurationMs = 20 * 60 * 1000;
+const pollingRequestTimeoutCode = 'polling_request_timeout';
 
 function toSolverWriteRows(assignments: AssignmentMap) {
   const rows: Array<{
@@ -60,10 +64,53 @@ function isStaleSolverCallbackError(error: unknown): boolean {
   return readErrorCode(error) === 'stale_solver_callback';
 }
 
+function isPollingRequestTimeoutError(error: unknown): boolean {
+  return readErrorCode(error) === pollingRequestTimeoutCode;
+}
+
 function toErrorMessage(error: unknown, fallbackMessage: string): string {
   return error instanceof Error && error.message.trim().length > 0
     ? error.message
     : fallbackMessage;
+}
+
+function toFiniteNumber(value: unknown, fallback = 0): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return value;
+}
+
+function normalizeSolverScore(
+  score: SolverApiScore | null | undefined
+): { hardScore: number; softScore: number } | null {
+  if (!score) return null;
+
+  const hardScore = toFiniteNumber(score.hard_score);
+
+  if (typeof score.soft_score === 'number' && Number.isFinite(score.soft_score)) {
+    return {
+      hardScore,
+      softScore: score.soft_score,
+    };
+  }
+
+  if (
+    typeof score.legacy_soft_score_total === 'number'
+    && Number.isFinite(score.legacy_soft_score_total)
+  ) {
+    return {
+      hardScore,
+      softScore: score.legacy_soft_score_total,
+    };
+  }
+
+  return {
+    hardScore,
+    softScore: toFiniteNumber(score.undesired_soft_score)
+      + toFiniteNumber(score.fair_soft_score)
+      + toFiniteNumber(score.desired_soft_score),
+  };
 }
 
 export function useAISolver() {
@@ -76,28 +123,287 @@ export function useAISolver() {
   // Intermediate polling result uses shift UUIDs (not shift codes). UI must map before rendering.
   const intermediateResults = ref<AssignmentMap | null>(null);
 
-  const maxPollingAttempts = 120; // 20 minutes (10s * 120)
-  let pollingAttempts = 0;
-  let pollingInterval: number | null = null;
+  const maxConsecutivePollingErrors = 3;
+  let consecutivePollingErrors = 0;
+  let pollingTimeout: number | null = null;
+  let pollingRequestTimeout: number | null = null;
+  let pollingSessionId = 0;
+  let pollingAbortController: AbortController | null = null;
+  let pollingStartedAt = 0;
+
+  function clearPollingTimeout() {
+    if (pollingTimeout !== null) {
+      clearTimeout(pollingTimeout);
+      pollingTimeout = null;
+    }
+  }
+
+  function clearPollingRequestTimeout() {
+    if (pollingRequestTimeout !== null) {
+      clearTimeout(pollingRequestTimeout);
+      pollingRequestTimeout = null;
+    }
+  }
+
+  function abortInFlightPollingRequest() {
+    clearPollingRequestTimeout();
+    if (pollingAbortController) {
+      pollingAbortController.abort();
+      pollingAbortController = null;
+    }
+  }
+
+  function isActivePollingSession(sessionId: number) {
+    return pollingSessionId === sessionId;
+  }
+
+  function hasPollingExceededDuration() {
+    return pollingStartedAt > 0 && (Date.now() - pollingStartedAt) >= maxPollingDurationMs;
+  }
+
+  async function failPollingTimeout(
+    scheduleVersionId: string,
+    executionId: string
+  ) {
+    clearPollingTimeout();
+    clearPollingRequestTimeout();
+    error.value = 'Timeout: 근무표 생성이 20분을 초과했습니다.';
+    status.value = 'error';
+    await markSolveFailedIfCurrent(
+      scheduleVersionId,
+      executionId,
+      null,
+      'polling_timeout',
+      'timeout',
+      null
+    );
+  }
+
+  function scheduleNextPoll(
+    sessionId: number,
+    executionId: string,
+    scheduleVersionId: string,
+    delayMs = pollingIntervalMs
+  ) {
+    if (!isActivePollingSession(sessionId)) {
+      return;
+    }
+
+    clearPollingTimeout();
+    pollingTimeout = window.setTimeout(() => {
+      void pollSolverStatus(sessionId, executionId, scheduleVersionId);
+    }, delayMs);
+  }
+
+  async function getSolverStatusWithTimeout(
+    sessionId: number,
+    executionId: string
+  ) {
+    abortInFlightPollingRequest();
+    const controller = new AbortController();
+    pollingAbortController = controller;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener('abort', () => {
+        reject({
+          code: pollingRequestTimeoutCode,
+          message: pollingRequestTimeoutCode,
+        });
+      }, { once: true });
+      pollingRequestTimeout = window.setTimeout(() => {
+        if (isActivePollingSession(sessionId)) {
+          controller.abort();
+        }
+      }, pollRequestTimeoutMs);
+    });
+
+    try {
+      return await Promise.race([
+        getSolverStatus(executionId, import.meta.env, {
+          signal: controller.signal,
+        }),
+        timeoutPromise,
+      ]);
+    } finally {
+      clearPollingRequestTimeout();
+      if (pollingAbortController === controller) {
+        pollingAbortController = null;
+      }
+    }
+  }
+
+  async function pollSolverStatus(
+    sessionId: number,
+    executionId: string,
+    scheduleVersionId: string
+  ) {
+    if (!isActivePollingSession(sessionId)) {
+      return;
+    }
+
+    if (hasPollingExceededDuration()) {
+      await failPollingTimeout(scheduleVersionId, executionId);
+      return;
+    }
+
+    try {
+      const response = await getSolverStatusWithTimeout(sessionId, executionId);
+      if (!isActivePollingSession(sessionId)) {
+        return;
+      }
+
+      if (hasPollingExceededDuration()) {
+        await failPollingTimeout(scheduleVersionId, executionId);
+        return;
+      }
+
+      consecutivePollingErrors = 0;
+      const appStatus = mapApiStatusToAppStatus(response.status);
+      const normalizedScore = normalizeSolverScore(response.score);
+
+      if (normalizedScore) {
+        hardScore.value = normalizedScore.hardScore;
+        softScore.value = normalizedScore.softScore;
+      }
+
+      if (appStatus === 'running') {
+        status.value = 'running';
+        if (progress.value < 90) progress.value += 2;
+
+        if (response.result) {
+          const assignments = parseSolverResult(response.result);
+          intermediateResults.value = assignments;
+        }
+
+        scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+        return;
+      }
+
+      if (appStatus === 'complete') {
+        clearPollingTimeout();
+
+        if (!response.result) {
+          throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
+        }
+
+        const assignments = parseSolverResult(response.result);
+        await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
+          status: 'completed',
+          solverExecutionId: executionId,
+          assignments: toSolverWriteRows(assignments),
+          score: normalizedScore
+            ? {
+              hardScore: normalizedScore.hardScore,
+              softScore: normalizedScore.softScore,
+            }
+            : null,
+          failureReason: null,
+          failureType: null,
+          failureContext: null,
+        });
+
+        if (!isActivePollingSession(sessionId)) {
+          return;
+        }
+
+        await refreshPreferenceResolutionByVersion(scheduleVersionId);
+        if (!isActivePollingSession(sessionId)) {
+          return;
+        }
+
+        progress.value = 100;
+        status.value = 'complete';
+        return;
+      }
+
+      if (appStatus === 'error') {
+        clearPollingTimeout();
+        error.value = response.error_message || 'AI Solver 오류';
+        status.value = 'error';
+        const failureType = response.failure_type
+          ?? response.failureType
+          ?? null;
+        const failureContext = response.failure_context
+          ?? response.failureContext
+          ?? null;
+        await markSolveFailedIfCurrent(
+          scheduleVersionId,
+          executionId,
+          response.score,
+          response.error_message ?? null,
+          failureType,
+          failureContext
+        );
+        return;
+      }
+
+      status.value = appStatus;
+      scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+    } catch (pollingError) {
+      if (!isActivePollingSession(sessionId)) {
+        return;
+      }
+
+      if (hasPollingExceededDuration()) {
+        await failPollingTimeout(scheduleVersionId, executionId);
+        return;
+      }
+
+      if (isStaleSolverCallbackError(pollingError)) {
+        clearPollingTimeout();
+        status.value = 'created';
+        error.value = '최신 버전 상태가 변경되어 이전 실행 결과를 무시했습니다.';
+        return;
+      }
+
+      consecutivePollingErrors += 1;
+      if (isPollingRequestTimeoutError(pollingError)) {
+        console.warn('[useAISolver] Polling request timed out');
+      } else {
+        console.error('Polling error:', pollingError);
+      }
+
+      if (consecutivePollingErrors >= maxConsecutivePollingErrors) {
+        clearPollingTimeout();
+        status.value = 'error';
+        error.value = 'AI Solver 상태 조회가 반복 실패하여 실행을 중단했습니다. 다시 시도해주세요.';
+        await markSolveFailedIfCurrent(
+          scheduleVersionId,
+          executionId,
+          null,
+          'polling_status_unreachable',
+          'polling_unreachable',
+          null
+        );
+        return;
+      }
+
+      scheduleNextPoll(sessionId, executionId, scheduleVersionId);
+    }
+  }
 
   async function markSolveFailedIfCurrent(
     scheduleVersionId: string,
     executionId: string,
-    score?: { hard_score: number; soft_score: number },
-    failureReason?: string | null
+    score?: SolverApiScore | null,
+    failureReason?: string | null,
+    failureType?: string | null,
+    failureContext?: Record<string, unknown> | null
   ): Promise<void> {
     try {
+      const normalizedScore = normalizeSolverScore(score);
       await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
         status: 'failed',
         solverExecutionId: executionId,
         assignments: [],
-        score: score
+        score: normalizedScore
           ? {
-            hardScore: score.hard_score,
-            softScore: score.soft_score,
+            hardScore: normalizedScore.hardScore,
+            softScore: normalizedScore.softScore,
           }
           : null,
         failureReason: failureReason ?? null,
+        failureType: failureType ?? null,
+        failureContext: failureContext ?? null,
       });
     } catch (applyError) {
       if (!isStaleSolverCallbackError(applyError)) {
@@ -114,7 +420,7 @@ export function useAISolver() {
     status.value = 'running';
     error.value = null;
     progress.value = 0;
-    pollingAttempts = 0;
+    consecutivePollingErrors = 0;
     hardScore.value = 0;
     softScore.value = 0;
     executionIdRef.value = null;
@@ -139,101 +445,19 @@ export function useAISolver() {
   }
 
   function startPolling(executionId: string, scheduleVersionId: string) {
-    if (pollingInterval) clearInterval(pollingInterval);
+    stopPolling();
     executionIdRef.value = executionId;
-    pollingAttempts = 0;
-
-    pollingInterval = window.setInterval(async () => {
-      pollingAttempts++;
-      if (pollingAttempts > maxPollingAttempts) {
-        stopPolling();
-        error.value = 'Timeout: 근무표 생성이 10분을 초과했습니다.';
-        status.value = 'error';
-        await markSolveFailedIfCurrent(scheduleVersionId, executionId);
-        return;
-      }
-
-      try {
-        const response = await getSolverStatus(executionId);
-        const appStatus = mapApiStatusToAppStatus(response.status);
-
-        if (response.score) {
-          hardScore.value = response.score.hard_score;
-          softScore.value = response.score.soft_score;
-        }
-
-        if (appStatus === 'running') {
-          status.value = 'running';
-          if (progress.value < 90) progress.value += 2;
-
-          if (response.result) {
-            const assignments = parseSolverResult(response.result);
-            intermediateResults.value = assignments;
-          }
-
-          return;
-        }
-
-        if (appStatus === 'complete') {
-          stopPolling();
-
-          if (!response.result) {
-            throw new Error('AI Solver 완료 응답에 결과 데이터가 없습니다.');
-          }
-
-          const assignments = parseSolverResult(response.result);
-          await submitPhase2ScheduleVersionSolverResult(scheduleVersionId, {
-            status: 'completed',
-            solverExecutionId: executionId,
-            assignments: toSolverWriteRows(assignments),
-            score: response.score
-              ? {
-                hardScore: response.score.hard_score,
-                softScore: response.score.soft_score,
-              }
-              : null,
-            failureReason: null,
-          });
-          await refreshPreferenceResolutionByVersion(scheduleVersionId);
-
-          progress.value = 100;
-          status.value = 'complete';
-          return;
-        }
-
-        if (appStatus === 'error') {
-          stopPolling();
-          error.value = response.error_message || 'AI Solver 오류';
-          status.value = 'error';
-          await markSolveFailedIfCurrent(
-            scheduleVersionId,
-            executionId,
-            response.score,
-            response.error_message ?? null
-          );
-          return;
-        }
-
-        status.value = appStatus;
-      } catch (pollingError) {
-        if (isStaleSolverCallbackError(pollingError)) {
-          stopPolling();
-          status.value = 'created';
-          error.value = '최신 버전 상태가 변경되어 이전 실행 결과를 무시했습니다.';
-          return;
-        }
-
-        console.error('Polling error:', pollingError);
-        // Network/transient failures are retried by the next interval tick.
-      }
-    }, 10000);
+    consecutivePollingErrors = 0;
+    pollingStartedAt = Date.now();
+    const sessionId = pollingSessionId;
+    scheduleNextPoll(sessionId, executionId, scheduleVersionId);
   }
 
   function stopPolling() {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      pollingInterval = null;
-    }
+    pollingSessionId += 1;
+    pollingStartedAt = 0;
+    clearPollingTimeout();
+    abortInFlightPollingRequest();
   }
 
   onUnmounted(() => {

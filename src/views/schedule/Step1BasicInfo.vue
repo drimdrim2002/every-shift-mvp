@@ -10,18 +10,18 @@
         <!-- Section 1: 조직 정보 (읽기 전용) -->
         <div>
           <h3 class="mb-4 text-xl font-semibold">
-            1. 조직 정보
+            1. 병원 정보
           </h3>
           
           <!-- 간략한 조직 정보 표시 -->
           <div class="mb-4 rounded-lg bg-gray-50 p-4">
             <div class="space-y-2 text-sm">
               <div>
-                <span class="font-medium text-gray-700">조직명:</span>
+                <span class="font-medium text-gray-700">병원명:</span>
                 <span class="ml-2 text-gray-900">{{ orgStore.current?.name || '-' }}</span>
               </div>
               <div>
-                <span class="font-medium text-gray-700">조직 유형:</span>
+                <span class="font-medium text-gray-700">기관 종류:</span>
                 <span class="ml-2 text-gray-900">{{ getOrgTypeLabel(orgStore.current?.type) }}</span>
               </div>
             </div>
@@ -125,6 +125,8 @@ import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { createShift, updateShift, deleteShift } from '@/api/shift';
+import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
@@ -248,7 +250,7 @@ onMounted(async () => {
   // Dashboard에서 계획월이 설정되지 않은 경우 Dashboard로 리다이렉트
   if (!scheduleStore.basicInfo?.month) {
     window.$message?.warning('계획월을 먼저 선택해주세요');
-    router.push('/');
+    router.push(getAppHomeRoutePath());
     return;
   }
 
@@ -256,7 +258,7 @@ onMounted(async () => {
 
   if (!result.success) {
     window.$message?.error(result.error || '조직 정보를 불러올 수 없습니다.');
-    router.push('/');
+    router.push(getAppHomeRoutePath());
     return;
   }
   
@@ -355,7 +357,7 @@ function handleShiftCancel() {
 
 // 취소 핸들러
 function handleCancel() {
-  router.push('/');
+  router.push(getAppHomeRoutePath());
 }
 
 // 다음 단계 핸들러
@@ -393,7 +395,15 @@ async function handleNext() {
     } else {
       window.$message?.success('기본 정보가 저장되었습니다.');
     }
-    router.push('/schedule/step2');
+    const entryQuery = buildScheduleEntryQuery('wizard');
+    if (entryQuery) {
+      router.push({
+        path: getScheduleStepRoutePath(2),
+        query: entryQuery,
+      });
+    } else {
+      router.push(getScheduleStepRoutePath(2));
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '데이터 저장 중 오류가 발생했습니다.';
     window.$message?.error(errorMessage);

@@ -1,16 +1,20 @@
 import dayjs from 'dayjs';
+import {
+  buildRollingHistoryWindow,
+  mergePlanningAssignmentsWithFallback,
+} from '@/utils/rollingHistory';
 import type {
+  ConstraintMap,
+  PlanningAssignment,
+  PlanningEmployee,
+  PlanningShift,
   ScheduleBasicInfo,
   SiteRequirements,
-  ConstraintMap,
-  PlanningEmployee,
-  PlanningAssignment,
-  SolverRequest,
-  SolverRequestHistoryItem,
-  SolverRequestUndesirableItem,
-  SolverRequestRequirementItem,
   SolverRequestEmployee,
-  PlanningShift
+  SolverRequestHistoryItem,
+  SolverRequest,
+  SolverRequestRequirementItem,
+  SolverRequestUndesirableItem,
 } from '@/types/schedule';
 import type { Shift } from '@/types/shift';
 
@@ -33,17 +37,13 @@ export function mapToSolverRequest(
   employees: PlanningEmployee[],
   shifts: Shift[],
   existingAssignments: PlanningAssignment[] = [],
-  lastMonthDays: number
+  lastMonthDays: number,
+  fallbackHistoryAssignments: PlanningAssignment[] = [],
 ): SolverRequest {
   const { month, organizationId, organizationName, organizationType } = basicInfo;
 
-  // Calculate dates
-  const firstDraftDate = dayjs(month).startOf('month').format('YYYY-MM-DD');
-  const publishLength = Math.max(0, Math.floor(lastMonthDays));
-  const lastHistoricalDate = dayjs(firstDraftDate)
-    .subtract(publishLength + 1, 'day')
-    .format('YYYY-MM-DD');
-  const daysInMonth = dayjs(month).daysInMonth();
+  const window = buildRollingHistoryWindow(month, lastMonthDays);
+  const daysInMonth = dayjs(window.firstDraftDate).daysInMonth();
   
   const planningShiftSource = shifts.filter((shift) => ['D', 'E', 'N'].includes(shift.code));
 
@@ -75,11 +75,14 @@ export function mapToSolverRequest(
   }));
 
   // Generate History (Locked Assignments)
-  const history: SolverRequestHistoryItem[] = existingAssignments
-    .filter((assignment) => {
-      if (assignment.date >= firstDraftDate) return false;
-      return shiftCodeById[assignment.shift_id] !== 'O';
-    })
+  const historyAssignments = mergePlanningAssignmentsWithFallback(
+    existingAssignments,
+    fallbackHistoryAssignments,
+    window,
+  );
+
+  const history: SolverRequestHistoryItem[] = historyAssignments
+    .filter((assignment) => shiftCodeById[assignment.shift_id] !== 'O')
     .map(assignment => ({
       employee_id: assignment.employee_id,
       shift_id: assignment.shift_id,
@@ -117,7 +120,7 @@ export function mapToSolverRequest(
   Object.entries(constraints).forEach(([employeeId, dateMap]) => {
     Object.entries(dateMap).forEach(([date, requestCode]) => {
       if (requestCode !== 'O') return;
-      if (date < firstDraftDate) return;
+      if (date < window.firstDraftDate) return;
       undesirable.push({
         employee_id: employeeId,
         date,
@@ -132,9 +135,9 @@ export function mapToSolverRequest(
       name: organizationName,
       type: organizationType,
       shifts: planningShifts,
-      lastHistoricalDate,
-      firstDraftDate,
-      publishLength,
+      lastHistoricalDate: window.lastHistoricalDate,
+      firstDraftDate: window.firstDraftDate,
+      publishLength: window.publishLength,
       draftLength: daysInMonth,
     },
     employees: solverEmployees,

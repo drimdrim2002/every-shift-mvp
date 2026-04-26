@@ -4,13 +4,16 @@ import {
   allowedMethods,
   ContractError,
   parseCreateVersionRequest,
+  parseDeleteMonthRequest,
   type ErrorEnvelope,
   type HttpMethod,
   matchRoute,
   normalizePathSegments,
   parsePatchScheduleVersionAssignmentsRequest,
+  parseResetRosterRequest,
   parseEnsureRequest,
   parseJsonBody,
+  parseScheduleKeyParam,
   parseUuidParam,
   parseScheduleVersionSolveRequest,
   parseScheduleVersionSolverResultRequest,
@@ -19,9 +22,14 @@ import { createCorsHeaders } from './cors.ts';
 import {
   compare as compareVersion,
   createVersion,
+  deleteScheduleMonth,
   ensure as ensureSchedule,
+  finalizeVersion,
   markVersionSolving,
   patchVersionAssignments,
+  resetScheduleRoster,
+  resetActiveFlow,
+  recheckVersion,
   review as reviewVersion,
   select as selectVersion,
   syncVersionSolverResult,
@@ -29,9 +37,14 @@ import {
 import type {
   CompareResponse,
   CreateVersionResponse,
+  DeleteMonthResponse,
   EnsureResponse,
   PatchAssignmentsResponse,
+  ResetRosterResponse,
+  ResetActiveFlowResponse,
   ReviewResponse,
+  ScheduleVersionFinalizeResponse,
+  ScheduleVersionRecheckResponse,
   SelectResponse,
   SolveResponse,
   SolverResultResponse,
@@ -40,9 +53,14 @@ import type {
 type ApiResponseBody =
   | CompareResponse
   | CreateVersionResponse
+  | DeleteMonthResponse
   | EnsureResponse
   | PatchAssignmentsResponse
+  | ResetRosterResponse
+  | ResetActiveFlowResponse
   | ReviewResponse
+  | ScheduleVersionFinalizeResponse
+  | ScheduleVersionRecheckResponse
   | SelectResponse
   | SolveResponse
   | SolverResultResponse
@@ -79,6 +97,12 @@ function mapErrorToStatus(code: string): number {
     case 'solver_execution_mismatch':
     case 'stale_solver_callback':
     case 'another_version_solving':
+    case 'stale_evaluation':
+    case 'review_not_passed':
+    case 'not_review_ready':
+    case 'gate_blocked':
+    case 'not_selected_version':
+    case 'version_locked_for_solving':
     case 'conflict':
       return 409;
     case 'not_found':
@@ -198,8 +222,8 @@ Deno.serve(async (request) => {
     }
 
     if (route.route === 'compare') {
-      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
-      const result: CompareResponse = await compareVersion(repositoryClient, auth, scheduleId);
+      const scheduleKey = parseScheduleKeyParam('scheduleKey', route.params.scheduleKey);
+      const result: CompareResponse = await compareVersion(repositoryClient, auth, scheduleKey);
       return createResponse(request, result, 200);
     }
 
@@ -224,6 +248,38 @@ Deno.serve(async (request) => {
         auth,
         scheduleId,
         createVersionInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'resetRoster') {
+      const payload = await parseJsonBody(request);
+      const resetRosterInput = parseResetRosterRequest(payload);
+      const result: ResetRosterResponse = await resetScheduleRoster(
+        repositoryClient,
+        auth,
+        resetRosterInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'resetActiveFlow') {
+      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
+      const result: ResetActiveFlowResponse = await resetActiveFlow(
+        repositoryClient,
+        auth,
+        scheduleId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'deleteMonth') {
+      const payload = await parseJsonBody(request);
+      const deleteMonthInput = parseDeleteMonthRequest(payload);
+      const result: DeleteMonthResponse = await deleteScheduleMonth(
+        repositoryClient,
+        auth,
+        deleteMonthInput
       );
       return createResponse(request, result, 200);
     }
@@ -263,6 +319,26 @@ Deno.serve(async (request) => {
         auth,
         versionId,
         patchInput
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'recheck') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const result: ScheduleVersionRecheckResponse = await recheckVersion(
+        repositoryClient,
+        auth,
+        versionId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'finalize') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const result: ScheduleVersionFinalizeResponse = await finalizeVersion(
+        repositoryClient,
+        auth,
+        versionId
       );
       return createResponse(request, result, 200);
     }

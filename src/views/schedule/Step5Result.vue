@@ -3,164 +3,414 @@
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
-      <!-- 상태 표시 -->
-      <div class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4">
-        <div class="flex items-center gap-4">
-          <n-badge
-            :value="statusText"
-            :type="statusType"
-          />
-          <n-progress
-            v-if="isRunning"
-            type="line"
-            :percentage="solver.progress.value"
-            class="w-48"
-          />
+      <n-alert
+        v-if="initialLoadErrorMessage"
+        type="error"
+        class="mb-6"
+        data-test="step5-initial-load-error"
+      >
+        <template #header>
+          결과 화면 초기화 실패
+        </template>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-sm">
+            {{ initialLoadErrorMessage }}
+          </p>
+          <n-button
+            size="small"
+            :loading="isInitialLoading"
+            @click="handleRetryInitialLoad"
+          >
+            다시 시도
+          </n-button>
         </div>
-        <div class="text-sm">
-          <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
-          <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
-        </div>
-      </div>
+      </n-alert>
 
       <div
-        v-if="isPreRun"
-        class="mb-6"
+        v-else-if="isInitialLoading"
+        data-test="step5-initial-loading"
+        class="mb-6 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-10"
       >
-        <div class="mb-2 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-700">
-            전월 데이터 표시 일수
-          </h3>
-          <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
+        <div class="flex flex-col items-center gap-3 text-center text-sm text-gray-500">
+          <n-spin size="large" />
+          <p>근무표 결과 데이터를 불러오는 중입니다.</p>
         </div>
-        <n-slider
-          v-model:value="lastMonthDays"
-          :min="0"
-          :max="maxVisibleLastMonthDays"
-          :step="1"
-          :disabled="maxVisibleLastMonthDays === 0"
-        />
       </div>
 
-      <n-alert
-        v-if="isVersionReadOnly"
-        type="warning"
-        class="mb-6"
-      >
-        현재 미리보기 버전 상태에서는 편집할 수 없습니다. (생성 중 또는 확정됨)
-      </n-alert>
+      <template v-else>
+        <ComparisonToolsSection
+          v-if="shouldShowResultDetails && shouldShowComparisonTools"
+          :collapsed="isComparisonToolsCollapsed"
+          :candidate-count="comparisonCandidateVersions.length"
+          :compare-count="compareVersionIds.length"
+          @toggle-collapsed="handleToggleComparisonTools"
+        >
+          <VersionCandidateShelf
+            :versions="comparisonCandidateVersions"
+            :compare-version-ids="compareVersionIds"
+            :focused-version-id="previewVersionId"
+            :selected-version-id="selectedVersionId"
+            :locked-version-id="lockedVersionId"
+            @toggle-compare="handleToggleCompareVersion"
+            @focus-version="handleFocusVersionChange"
+            @select-version="handleSelectCandidateVersion"
+          />
 
-      <n-alert
-        v-if="showIntermediateWaitingHint"
-        type="info"
-        class="mb-6"
-      >
-        중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
-      </n-alert>
+          <div class="my-6">
+            <ComparisonWorkspace
+              :left-version="leftComparedVersion"
+              :right-version="rightComparedVersion"
+              :left-review="leftComparedReview"
+              :right-review="rightComparedReview"
+              :focused-version-id="previewVersionId"
+              @focus-version="handleFocusVersionChange"
+            />
+          </div>
+        </ComparisonToolsSection>
 
-      <!-- 변경 사항 알림 -->
-      <n-alert
-        v-if="changedCells.size > 0"
-        type="warning"
-        class="mb-6"
-      >
-        <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
-      </n-alert>
-
-      <!-- 그리드 -->
-      <div class="my-6">
-        <ScheduleGrid
-          v-if="grid.employees.value.length > 0"
-          mode="result"
-          :employees="grid.employees.value"
-          :dates="grid.dates.value"
-          :assignments="grid.assignments.value"
-          :shift-colors="shiftColors"
-          :off-requests="offRequestsCurrentMonth"
-          :off-request-notes="offRequestNotesCurrentMonth"
-          :preference-display-mode="preferenceDisplayMode"
-          :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
-          :readonly="isReadonlyGrid"
-          :show-last-month="true"
-          result-cell-layout="single-box"
-          @update:assignment="handleAssignmentUpdate"
+        <FocusedVersionActionBar
+          v-if="shouldShowResultDetails"
+          :focused-version="previewVersionSummary"
+          :selected-version="selectedVersionSummary"
+          :primary-action="primaryAction"
+          :support-copy="primaryActionSupportCopy"
+          :selecting="isSelectingPreview"
+          :acting="isPrimaryActionRunning"
+          :show-version-context="shouldShowComparisonTools"
+          @primary-action="handlePrimaryAction"
         />
+
+        <!-- 상태 표시 -->
         <div
-          v-else
-          class="text-center text-gray-500"
+          v-if="shouldShowStatusCard"
+          class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
         >
-          결과 로딩 중...
+          <div class="flex items-center gap-4">
+            <n-badge
+              :value="statusText"
+              :type="statusType"
+            />
+            <n-progress
+              v-if="isRunning"
+              type="line"
+              :percentage="solver.progress.value"
+              class="w-48"
+            />
+          </div>
+          <div
+            v-if="shouldShowScoreSummary"
+            class="text-sm"
+          >
+            <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
+            <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
+          </div>
         </div>
-      </div>
 
-      <!-- 버튼 -->
-      <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
-        <n-button
-          size="medium"
-          @click="handleBack"
+        <n-card
+          v-if="shouldShowResultDetails && fairnessSummary.length > 0"
+          title="공정성 요약"
+          size="small"
+          class="mb-6"
         >
-          ← 이전
-        </n-button>
+          <p class="mb-4 text-xs text-slate-500">
+            이 요약은 확정된 이력만 읽는 읽기 전용 정보입니다.
+          </p>
+          <div class="grid gap-3 md:grid-cols-3">
+            <div
+              v-for="window in fairnessSummary"
+              :key="window.months"
+              class="rounded-lg border border-slate-200 bg-white p-3"
+            >
+              <div class="flex items-baseline justify-between gap-3">
+                <h3 class="text-sm font-semibold text-slate-800">
+                  최근 {{ window.months }}개월
+                </h3>
+                <span class="text-xs text-slate-500">
+                  {{ window.windowStartMonth ?? '미정' }} ~ {{ window.windowEndMonth ?? '미정' }}
+                </span>
+              </div>
+              <p class="mt-2 text-sm text-slate-700">
+                확정 {{ window.finalizedVersionCount }}건
+              </p>
+              <p class="mt-2 text-xs leading-5 text-slate-500">
+                주간 {{ window.proofSummary.weeklyHoursViolations }} ·
+                야간 {{ window.proofSummary.nnnViolations }} ·
+                주말 {{ window.proofSummary.nodViolations }} ·
+                최소휴식 {{ window.proofSummary.minimumRestViolations }} ·
+                인력부족 {{ window.proofSummary.staffingShortfalls }}
+              </p>
+            </div>
+          </div>
+        </n-card>
 
-        <n-button
-          v-if="canCancel"
-          size="medium"
-          type="error"
-          :disabled="isVersionReadOnly"
-          @click="handleCancelSchedule"
+        <n-alert
+          v-if="policyRejectionSummariesCurrentMonth.length > 0"
+          type="warning"
+          class="mb-6"
         >
-          근무표 취소
-        </n-button>
+          <template #header>
+            정책상 거부된 Off 요청 {{ policyRejectionSummariesCurrentMonth.length }}건
+          </template>
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="summary in policyRejectionSummariesCurrentMonth.slice(0, 3)"
+              :key="summary"
+            >
+              {{ summary }}
+            </li>
+          </ul>
+        </n-alert>
 
-        <div class="flex flex-col gap-4 sm:flex-row">
-          <n-button
-            v-if="isPreRun"
-            type="primary"
-            size="medium"
-            :loading="isStartingSolver"
-            :disabled="isStartingSolver || isVersionReadOnly"
-            @click="handleStartSolver"
+        <div
+          v-if="shouldShowFirstRunEmptyState"
+          data-test="result-empty-state"
+        >
+          <n-alert
+            type="info"
+            class="mb-6"
           >
-            근무표 생성 (AI)
+            아직 생성 결과가 없습니다. 아래에서 AI 생성을 시작하세요.
+          </n-alert>
+        </div>
+
+        <div
+          v-if="shouldShowResultDetails"
+          class="mb-6"
+        >
+          <div class="mb-2 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-gray-700">
+              전월 데이터 표시 일수
+            </h3>
+            <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
+          </div>
+          <n-slider
+            v-model:value="lastMonthDays"
+            :min="0"
+            :max="maxVisibleLastMonthDays"
+            :step="1"
+            :disabled="maxVisibleLastMonthDays === 0"
+          />
+        </div>
+
+        <n-alert
+          v-if="isVersionReadOnly"
+          type="warning"
+          class="mb-6"
+        >
+          현재 자세히 보고 있는 안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
+        </n-alert>
+
+        <n-alert
+          v-if="showIntermediateWaitingHint"
+          type="info"
+          class="mb-6"
+        >
+          중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
+        </n-alert>
+
+        <div
+          v-if="canRecoverSolverState"
+          class="mb-6 flex flex-wrap gap-2"
+        >
+          <n-button
+            size="small"
+            :loading="isRecoveringSolver"
+            :disabled="isRecoveringSolver"
+            @click="handleSyncSolverState"
+          >
+            상태 재동기화
           </n-button>
-
           <n-button
-            v-if="isFinished && changedCells.size > 0"
-            size="medium"
-            :disabled="isVersionReadOnly"
-            @click="handleReset"
+            size="small"
+            type="warning"
+            :loading="isRecoveringSolver"
+            :disabled="isRecoveringSolver"
+            @click="handleForceResetSolverState"
           >
-            변경 사항 취소
-          </n-button>
-
-          <n-button
-            v-if="isFinished"
-            size="medium"
-            :disabled="isVersionReadOnly"
-            @click="handleRegenerate"
-          >
-            더 개선하기
-          </n-button>
-
-          <n-button
-            v-if="isFinished"
-            size="medium"
-            @click="handleExport"
-          >
-            엑셀 다운로드
-          </n-button>
-
-          <n-button
-            v-if="isFinished"
-            type="primary"
-            size="medium"
-            :disabled="isVersionReadOnly"
-            @click="handleSave"
-          >
-            저장
+            생성 중단 후 초기화
           </n-button>
         </div>
-      </div>
+
+        <!-- 변경 사항 알림 -->
+        <n-alert
+          v-if="changedCells.size > 0"
+          type="warning"
+          class="mb-6"
+        >
+          <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
+        </n-alert>
+
+        <div class="my-6">
+          <VersionReviewDetail
+            v-if="shouldShowResultDetails"
+            :review="review"
+            :active-tab="activeReviewTab"
+            :focus-title="reviewFocusTitle"
+            @update:tab="handleReviewTabChange"
+          >
+            <template #grid>
+              <ScheduleGrid
+                v-if="grid.employees.value.length > 0"
+                mode="result"
+                :employees="grid.employees.value"
+                :dates="grid.dates.value"
+                :assignments="grid.assignments.value"
+                :shift-colors="shiftColors"
+                :off-requests="offRequestsCurrentMonth"
+                :off-request-notes="offRequestNotesCurrentMonth"
+                :preference-display-mode="preferenceDisplayMode"
+                :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
+                :readonly="isReadonlyGrid"
+                :show-last-month="true"
+                result-cell-layout="single-box"
+                @update:assignment="handleAssignmentUpdate"
+              />
+              <div
+                v-else
+                class="text-center text-gray-500"
+              >
+                결과 로딩 중...
+              </div>
+            </template>
+
+            <template #proof>
+              <p
+                v-if="review?.latestEvaluation?.violationDetails.length"
+                class="text-sm text-slate-700"
+              >
+                {{ review.latestEvaluation.violationDetails[0]?.message }}
+              </p>
+            </template>
+
+            <template #offRequests>
+              <p class="text-sm text-slate-700">
+                미충족 Off 요청 {{ review?.latestEvaluation?.offRequestResults.length ?? 0 }}건
+              </p>
+            </template>
+          </VersionReviewDetail>
+        </div>
+
+        <!-- 버튼 -->
+        <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <n-button
+              size="medium"
+              data-test="edit-input-button"
+              :disabled="isInputEditDisabled"
+              @click="handleBack"
+            >
+              입력 수정
+            </n-button>
+            <n-button
+              size="medium"
+              data-test="go-dashboard-button"
+              @click="handleGoDashboard"
+            >
+              근무표 관리로
+            </n-button>
+          </div>
+
+          <div class="flex flex-col items-start gap-3">
+            <p
+              v-if="isFinished && shouldShowResultDetails"
+              class="text-xs leading-5 text-slate-500"
+            >
+              같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
+            </p>
+
+            <div class="flex flex-col gap-4 sm:flex-row">
+              <n-button
+                v-if="canCancel && shouldShowResultDetails"
+                size="medium"
+                type="warning"
+                :disabled="isVersionReadOnly"
+                @click="handleResetCurrentVersion"
+              >
+                현재 안 초기화
+              </n-button>
+
+              <n-button
+                v-if="canCancel && shouldShowResultDetails"
+                size="medium"
+                type="error"
+                :disabled="isResetActiveFlowDisabled"
+                @click="handleResetActiveMonthFlow"
+              >
+                이번 달 새로 시작
+              </n-button>
+
+              <n-button
+                v-if="scheduleId && scheduleStore.basicInfo"
+                size="medium"
+                type="error"
+                ghost
+                data-test="delete-month-schedule-button"
+                :loading="isDeletingMonthSchedule"
+                :disabled="isDeleteMonthScheduleDisabled"
+                @click="handleDeleteMonthSchedule"
+              >
+                이번 달 근무표 삭제
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleCreateCompareCandidate"
+              >
+                입력 변경 후 비교안 만들기
+              </n-button>
+
+              <n-button
+                v-if="!isRunning && (isPreRun || !hasCurrentMonthAssignments)"
+                data-test="start-solver-button"
+                :type="primaryAction.kind === 'none' ? 'primary' : 'default'"
+                size="medium"
+                :loading="isStartingSolver"
+                :disabled="isStartingSolver || isVersionReadOnly"
+                @click="handleStartSolver"
+              >
+                근무표 생성 (AI)
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails && changedCells.size > 0"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleReset"
+              >
+                변경 사항 취소
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleRegenerate"
+              >
+                더 개선하기
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                @click="handleExport"
+              >
+                엑셀 다운로드
+              </n-button>
+
+              <n-button
+                v-if="isFinished && shouldShowResultDetails"
+                size="medium"
+                :disabled="isVersionReadOnly"
+                @click="handleSave"
+              >
+                저장
+              </n-button>
+            </div>
+          </div>
+        </div>
+      </template>
     </n-card>
   </div>
 </template>
@@ -169,37 +419,76 @@
 import dayjs from 'dayjs';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NSlider } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NSlider, NSpin } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
+import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import ComparisonToolsSection from '@/components/schedule/review/ComparisonToolsSection.vue';
+import VersionCandidateShelf from '@/components/schedule/review/VersionCandidateShelf.vue';
+import ComparisonWorkspace from '@/components/schedule/review/ComparisonWorkspace.vue';
+import FocusedVersionActionBar from '@/components/schedule/review/FocusedVersionActionBar.vue';
+import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import {
-  createPhase2ScheduleVersion,
-  getPhase2ScheduleCompare,
+  getPreviousMonthFinalizedContext,
   patchPhase2ScheduleVersionAssignments,
   getScheduleStatus,
   getScheduleVersionAssignments,
   getScheduleVersionPreferences,
+  resetPhase2ScheduleActiveFlow,
+  deletePhase2ScheduleMonth,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
+  selectPhase2ScheduleVersion,
+  recheckPhase2ScheduleVersion,
+  finalizePhase2ScheduleVersion,
+  submitPhase2ScheduleVersionSolverResult,
   deleteThisMonthVersionAssignments,
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
+import { getChecklist } from '@/api/ops';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
-import { buildStep5Route, resolveStep5VersionState } from '@/utils/scheduleVersionResolver';
-import type { AssignmentMap, ConstraintMap, CommentMap, ScheduleVersionStatus } from '@/types/schedule';
+import {
+  buildPrimaryActionSupportCopy,
+  resolveDefaultReviewTab,
+} from '@/utils/scheduleReviewState';
+import {
+  buildCanonicalStep5RouteLocation,
+  getAppHomeRoutePath,
+  getScheduleStepRoutePath,
+  parseStep5RouteQuery,
+} from '@/constants/routes';
+import {
+  buildRollingHistoryWindow,
+  mergeAssignmentMapsWithFallback,
+} from '@/utils/rollingHistory';
+import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
+import type {
+  AssignmentMap,
+  ConstraintMap,
+  CommentMap,
+  PlanningAssignment,
+  SchedulePrimaryAction,
+  ScheduleReviewResponse,
+  ScheduleVersionSummary,
+  ScheduleVersionStatus,
+} from '@/types/schedule';
+import type { FairnessLedgerWindowSummary } from '@/types/ops';
 
 const route = useRoute();
 const router = useRouter();
 const solver = useAISolver();
+const hub = useScheduleReviewHub();
 const grid = useScheduleGrid();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
 
@@ -207,54 +496,147 @@ const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 
-const scheduleId = computed(() => route.params.id as string);
-const previewVersionId = computed(() => scheduleStore.previewVersionId);
-const compareVersions = ref<Array<{ id: string; status: ScheduleVersionStatus }>>([]);
+const routeScheduleKey = computed(() => {
+  const paramId = route.params.scheduleKey;
+  return typeof paramId === 'string' && paramId.length > 0 ? paramId : null;
+});
+const scheduleId = computed(() => scheduleStore.basicInfo?.scheduleId ?? null);
+const scheduleRouteKey = computed(() => {
+  return (
+    scheduleStore.basicInfo?.schedulePublicId
+    ?? routeScheduleKey.value
+    ?? scheduleStore.basicInfo?.scheduleId
+    ?? null
+  );
+});
+const previewVersionId = computed(() => hub.previewVersionId.value);
+const selectedVersionId = computed(() => hub.selectedVersionId.value);
+const compareVersionIds = computed(() => hub.compareVersionIds.value);
+const compareVersions = hub.versions;
+const review = computed(() => hub.review.value);
+const comparedReviews = computed(() => hub.comparedReviews.value);
+const lockedVersionId = computed(() => {
+  return review.value?.finalizedVersionId ?? scheduleStore.compareMatrix?.finalizedVersionId ?? null;
+});
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
 const isDbRefreshing = ref(false);
+const hasConsumedRouteAutoStart = ref(false);
 const lastMemoryAppliedAt = ref(0);
 const lastMemoryHash = ref('');
 const hasIntermediateResult = ref(false);
 const runningTicksWithoutIntermediate = ref(0);
 const warnedUnknownShiftIds = ref<Set<string>>(new Set());
+const isInitialLoading = ref(true);
+const hasInitialLoadCompleted = ref(false);
+const initialLoadErrorMessage = ref<string | null>(null);
 const isStartingSolver = ref(false);
+const isRecoveringSolver = ref(false);
+const isDeletingMonthSchedule = ref(false);
+const isSelectingPreview = computed(() => hub.isSelecting.value);
+const isPrimaryActionRunning = ref(false);
+const isComparisonToolsCollapsed = ref(false);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
 const previousMonthAssignments = ref<AssignmentMap>({});
+const previousMonthFallbackAssignments = ref<AssignmentMap>({});
+const previousMonthFallbackPlanningAssignments = ref<PlanningAssignment[]>([]);
+const previousMonthFallbackError = ref<string | null>(null);
 const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
+const policyRejectionSummariesCurrentMonth = ref<string[]>([]);
+const fairnessSummary = ref<FairnessLedgerWindowSummary[]>([]);
+const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
+  kind: 'none',
+  targetVersionId: null,
+  label: '선택 가능한 작업이 없습니다.',
+  disabledReason: null,
+};
 
-function getRequestedPreviewVersionId(): string | null {
-  const routeQueryVersion = route.query.version;
-  return typeof routeQueryVersion === 'string' && routeQueryVersion.length > 0
-    ? routeQueryVersion
-    : null;
+function hasTransientStep5RouteState(): boolean {
+  const parsedRouteQuery = parseStep5RouteQuery(route.query);
+  return parsedRouteQuery.requestedFocusVersionId !== null
+    || parsedRouteQuery.requestedCompareVersionIds.length > 0;
 }
 
-async function syncVersionStateFromCompare() {
-  const compareResponse = await getPhase2ScheduleCompare(scheduleId.value);
-  const resolvedState = resolveStep5VersionState(
-    compareResponse,
-    getRequestedPreviewVersionId()
-  );
-
-  compareVersions.value = resolvedState.versions.map((version) => ({
-    id: version.id,
-    status: version.status,
-  }));
-
-  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
-  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
-
-  if (resolvedState.shouldCanonicalize && resolvedState.previewVersionId) {
-    await router.replace(buildStep5Route(scheduleId.value, resolvedState.previewVersionId));
+function syncScheduleContextToStore(nextScheduleId: string, nextSchedulePublicId?: string | null) {
+  if (!scheduleStore.basicInfo) {
+    return;
   }
 
-  return resolvedState;
+  if (
+    scheduleStore.basicInfo.scheduleId === nextScheduleId &&
+    (nextSchedulePublicId === undefined
+      || scheduleStore.basicInfo.schedulePublicId === nextSchedulePublicId)
+  ) {
+    return;
+  }
+
+  scheduleStore.setBasicInfo({
+    ...scheduleStore.basicInfo,
+    scheduleId: nextScheduleId,
+    schedulePublicId: nextSchedulePublicId ?? scheduleStore.basicInfo.schedulePublicId,
+  });
+}
+
+function ensureScheduleId(): string {
+  const currentScheduleId = scheduleId.value;
+
+  if (!currentScheduleId) {
+    throw new Error('스케줄 ID를 확인할 수 없습니다. Step4부터 다시 시도해주세요.');
+  }
+
+  syncScheduleContextToStore(currentScheduleId);
+  return currentScheduleId;
+}
+
+function ensureScheduleRouteKey(): string {
+  const currentScheduleRouteKey = scheduleRouteKey.value;
+
+  if (!currentScheduleRouteKey) {
+    throw new Error('스케줄 URL 키를 확인할 수 없습니다. Step5를 다시 불러주세요.');
+  }
+
+  return currentScheduleRouteKey;
+}
+
+function syncBasicInfoFromOrganizationStore() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo) {
+    return;
+  }
+
+  const organizationEmployees = Array.isArray(organizationStore.employees)
+    ? organizationStore.employees
+    : [];
+  const organizationShifts = Array.isArray(organizationStore.shifts)
+    ? organizationStore.shifts
+    : [];
+
+  const nextBasicInfo = {
+    ...basicInfo,
+    organizationName: organizationStore.current?.name ?? basicInfo.organizationName,
+    organizationType: organizationStore.current?.type ?? basicInfo.organizationType,
+    employeeCount:
+      organizationEmployees.length > 0
+        ? organizationEmployees.length
+        : basicInfo.employeeCount,
+    shifts: organizationShifts.length > 0 ? organizationShifts : basicInfo.shifts,
+  };
+
+  if (
+    nextBasicInfo.organizationName === basicInfo.organizationName &&
+    nextBasicInfo.organizationType === basicInfo.organizationType &&
+    nextBasicInfo.employeeCount === basicInfo.employeeCount &&
+    nextBasicInfo.shifts === basicInfo.shifts
+  ) {
+    return;
+  }
+
+  scheduleStore.setBasicInfo(nextBasicInfo);
 }
 
 interface ScheduleStatusRow {
@@ -269,14 +651,43 @@ const isFinished = computed(() => solver.status.value === 'complete' || solver.s
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
 const previewVersionStatus = computed<ScheduleVersionStatus>(() => {
   if (!previewVersionId.value) return 'draft';
+  if (
+    review.value?.version?.id === previewVersionId.value
+    && review.value.latestEvaluation !== null
+  ) {
+    return review.value.version.status;
+  }
   return compareVersions.value.find((version) => version.id === previewVersionId.value)?.status ?? 'draft';
 });
 const isVersionReadOnly = computed(() => {
   if (!previewVersionId.value) return true;
-  return previewVersionStatus.value === 'solving' || previewVersionStatus.value === 'finalized';
+  return Boolean(lockedVersionId.value)
+    || previewVersionStatus.value === 'solving'
+    || previewVersionStatus.value === 'finalized';
 });
 const canMutatePreviewVersion = computed(() => {
   return !!previewVersionId.value && !isVersionReadOnly.value;
+});
+const isInputEditDisabled = computed(() => {
+  return isRunning.value
+    || previewVersionStatus.value === 'solving'
+    || getActiveSolvingVersionId() !== null;
+});
+const isResetActiveFlowDisabled = computed(() => {
+  return Boolean(lockedVersionId.value) || !scheduleId.value;
+});
+const isDeleteMonthScheduleDisabled = computed(() => {
+  const basicInfo = scheduleStore.basicInfo;
+  return (
+    isDeletingMonthSchedule.value
+    || Boolean(lockedVersionId.value)
+    || isRunning.value
+    || previewVersionStatus.value === 'solving'
+    || getActiveSolvingVersionId() !== null
+    || !scheduleId.value
+    || !basicInfo?.organizationId
+    || !basicInfo.month
+  );
 });
 const previousMonthPrefix = computed(() => {
   if (!scheduleStore.basicInfo?.month) return '';
@@ -284,25 +695,39 @@ const previousMonthPrefix = computed(() => {
 });
 
 const statusText = computed(() => {
-  const map: Record<string, string> = {
-    running: '생성 중',
-    complete: '완료',
-    error: '오류 (재시도 가능)',
-    changed: '수정됨',
-    created: '생성 전',
+  if (solver.status.value === 'running') {
+    return '생성 중';
+  }
+
+  const map: Record<ScheduleVersionStatus, string> = {
+    draft: '생성 전',
+    solving: '생성 중',
+    solve_failed: '실패',
+    review_pending: '입력 수정됨',
+    review_ready: '완료',
+    review_blocked: '재검토 차단',
+    infeasible: '해 없음',
+    finalized: '확정',
   };
-  return map[solver.status.value] || '알 수 없음';
+  return map[previewVersionStatus.value] || '알 수 없음';
 });
 
 const statusType = computed(() => {
-  const map: Record<string, 'info' | 'success' | 'error' | 'warning' | 'default'> = {
-    running: 'info',
-    complete: 'success',
-    error: 'error',
-    changed: 'warning',
-    created: 'default',
+  if (solver.status.value === 'running') {
+    return 'info';
+  }
+
+  const map: Record<ScheduleVersionStatus, 'info' | 'success' | 'error' | 'warning' | 'default'> = {
+    draft: 'default',
+    solving: 'info',
+    solve_failed: 'error',
+    review_pending: 'warning',
+    review_ready: 'success',
+    review_blocked: 'warning',
+    infeasible: 'error',
+    finalized: 'success',
   };
-  return map[solver.status.value] || 'default';
+  return map[previewVersionStatus.value] || 'default';
 });
 
 const isReadonlyGrid = computed(() => {
@@ -320,6 +745,151 @@ const showIntermediateWaitingHint = computed(() => {
     && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
   );
 });
+const hasCurrentMonthAssignments = computed(() => {
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) return false;
+
+  return Object.values(currentScheduleAssignments.value).some((dateMap) => {
+    return Object.entries(dateMap || {}).some(([date, shiftCode]) => {
+      return date.startsWith(currentMonth) && Boolean(shiftCode);
+    });
+  });
+});
+const hasSolverExecutionHistory = computed(() => {
+  return Boolean(
+    isRunning.value
+    || previewVersionExecutionId.value
+    || review.value?.latestEvaluation?.solverExecutionId
+  );
+});
+const shouldShowResultDetails = computed(() => hasCurrentMonthAssignments.value);
+const shouldShowStatusCard = computed(() => {
+  return isRunning.value || hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value;
+});
+const shouldShowScoreSummary = computed(() => {
+  return isRunning.value || hasCurrentMonthAssignments.value;
+});
+const shouldShowFirstRunEmptyState = computed(() => {
+  return (
+    hasInitialLoadCompleted.value
+    && !isRunning.value
+    && !hasCurrentMonthAssignments.value
+    && !hasSolverExecutionHistory.value
+  );
+});
+
+function formatVersionLabel(version: ScheduleVersionSummary | null): string {
+  if (!version) return '없음';
+  return version.name ?? `V${version.versionNo}`;
+}
+
+function hasCompareCandidateSignal(version: ScheduleVersionSummary): boolean {
+  return (
+    version.manualEditCount > 0
+    || Boolean(version.inputDiffSummary?.note)
+    || (version.inputDiffSummary?.changedOffRequests ?? 0) > 0
+    || (version.inputDiffSummary?.changedLockedAssignments ?? 0) > 0
+    || (version.inputDiffSummary?.changedSiteRequirements ?? 0) > 0
+  );
+}
+
+const previewVersionSummary = computed(() => {
+  if (!previewVersionId.value) return null;
+  const comparedVersion = compareVersions.value.find((version) => version.id === previewVersionId.value) ?? null;
+  const reviewedVersion = review.value?.version?.id === previewVersionId.value ? review.value.version : null;
+  const shouldUseReviewedVersion = review.value?.latestEvaluation !== null;
+
+  if (reviewedVersion && comparedVersion && shouldUseReviewedVersion) {
+    return {
+      ...comparedVersion,
+      ...reviewedVersion,
+    };
+  }
+
+  return comparedVersion ?? reviewedVersion;
+});
+const selectedVersionSummary = computed(() => {
+  if (!selectedVersionId.value) return null;
+  return compareVersions.value.find((version) => version.id === selectedVersionId.value) ?? null;
+});
+const comparisonCandidateVersions = computed(() => {
+  return compareVersions.value.filter((version) => {
+    return (
+      version.id === selectedVersionId.value
+      || compareVersionIds.value.includes(version.id)
+      || hasCompareCandidateSignal(version)
+    );
+  });
+});
+const comparedVersionSummaries = computed(() => {
+  return compareVersionIds.value
+    .map((versionId) => {
+      const comparedVersion = compareVersions.value.find((version) => version.id === versionId) ?? null;
+      const reviewedVersion = comparedReviews.value[versionId]?.version ?? null;
+
+      if (comparedVersion && reviewedVersion) {
+        return {
+          ...comparedVersion,
+          ...reviewedVersion,
+        } as ScheduleVersionSummary;
+      }
+
+      return comparedVersion ?? reviewedVersion;
+    })
+    .filter((version): version is ScheduleVersionSummary => version !== null);
+});
+const leftComparedVersion = computed(() => comparedVersionSummaries.value[0] ?? null);
+const rightComparedVersion = computed(() => comparedVersionSummaries.value[1] ?? null);
+const leftComparedReview = computed<ScheduleReviewResponse | null>(() => {
+  return leftComparedVersion.value ? comparedReviews.value[leftComparedVersion.value.id] ?? null : null;
+});
+const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
+  return rightComparedVersion.value ? comparedReviews.value[rightComparedVersion.value.id] ?? null : null;
+});
+const focusedVersionTitle = computed(() => {
+  return previewVersionSummary.value ? `${formatVersionLabel(previewVersionSummary.value)}안` : null;
+});
+const reviewFocusTitle = computed(() => {
+  return shouldShowComparisonTools.value ? focusedVersionTitle.value : null;
+});
+const primaryAction = computed(() => {
+  return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
+});
+const activeReviewTab = computed(() => scheduleStore.reviewTab);
+const selectedGate = computed(() => {
+  return selectedVersionSummary.value?.finalizationGate
+    ?? scheduleStore.latestEvaluation?.finalizationGate
+    ?? null;
+});
+const primaryActionSupportCopy = computed(() => {
+  return buildPrimaryActionSupportCopy({
+    action: primaryAction.value,
+    gate: selectedGate.value,
+    latestEvaluation: review.value?.latestEvaluation ?? null,
+  });
+});
+const previewVersionExecutionId = computed(() => {
+  return previewVersionSummary.value?.activeSolverExecutionId ?? null;
+});
+const canRecoverSolverState = computed(() => {
+  return previewVersionStatus.value === 'solving';
+});
+const isFinalizedMonth = computed(() => Boolean(lockedVersionId.value));
+const shouldShowComparisonTools = computed(() => {
+  if (isFinalizedMonth.value) {
+    return false;
+  }
+
+  return compareVersionIds.value.length >= 2 && comparisonCandidateVersions.value.length >= 2;
+});
+
+function syncReviewTabForPreview() {
+  scheduleStore.setReviewTab(resolveDefaultReviewTab(previewVersionStatus.value));
+}
+
+function getActiveSolvingVersionId(): string | null {
+  return scheduleStore.compareMatrix?.activeSolvingVersionId ?? null;
+}
 
 const shiftIdToCodeMap = computed(() => {
   const map = new Map<string, string>();
@@ -369,6 +939,34 @@ function resetRealtimeState() {
   hasIntermediateResult.value = false;
   runningTicksWithoutIntermediate.value = 0;
   warnedUnknownShiftIds.value = new Set();
+}
+
+async function loadPreviousMonthFallback() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo?.organizationId || !basicInfo.month) {
+    previousMonthFallbackAssignments.value = {};
+    previousMonthFallbackPlanningAssignments.value = [];
+    previousMonthFallbackError.value = null;
+    return;
+  }
+
+  previousMonthFallbackError.value = null;
+
+  try {
+    const context = await getPreviousMonthFinalizedContext(
+      basicInfo.organizationId,
+      basicInfo.month,
+    );
+
+    previousMonthFallbackAssignments.value = context?.displayAssignments ?? {};
+    previousMonthFallbackPlanningAssignments.value = context?.planningAssignments ?? [];
+  } catch (error) {
+    previousMonthFallbackAssignments.value = {};
+    previousMonthFallbackPlanningAssignments.value = [];
+    previousMonthFallbackError.value = error instanceof Error
+      ? error.message
+      : '전월 rolling history 조회 실패';
+  }
 }
 
 function hashAssignmentMap(assignments: AssignmentMap): string {
@@ -431,6 +1029,53 @@ function createEmptyCommentMapForEmployees(): CommentMap {
   return map;
 }
 
+type PreferenceWithPolicyResult = {
+  employee_id: string;
+  date: string;
+  request_note: string | null;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
+};
+
+function combineOffRequestNote(
+  requestNote: string | null | undefined,
+  policyRejectionReason: string | null | undefined
+): string | null {
+  const parts = [requestNote?.trim() ?? '', policyRejectionReason?.trim() ? `정책 거부: ${policyRejectionReason.trim()}` : '']
+    .filter((part) => part.length > 0);
+
+  return parts.length > 0 ? parts.join('\n') : null;
+}
+
+function syncPolicyRejectionDisplay(
+  preferences: PreferenceWithPolicyResult[],
+  monthPrefix: string
+): void {
+  const nextSummaries: string[] = [];
+
+  preferences.forEach((pref) => {
+    if (!pref.date.startsWith(monthPrefix)) {
+      return;
+    }
+
+    if (pref.policy_check_status !== 'rejected') {
+      return;
+    }
+
+    const rejectionReason = pref.policy_rejection_reason?.trim() ?? '';
+    if (!rejectionReason) {
+      return;
+    }
+
+    const employeeName =
+      grid.employees.value.find((employee) => employee.id === pref.employee_id)?.name ??
+      pref.employee_id;
+    nextSummaries.push(`${employeeName} (${pref.date}) - ${rejectionReason}`);
+  });
+
+  policyRejectionSummariesCurrentMonth.value = nextSummaries;
+}
+
 async function loadPreferencesForDisplay() {
   const emptyConstraints = createEmptyConstraintMapForEmployees();
   const emptyNotes = createEmptyCommentMapForEmployees();
@@ -440,10 +1085,11 @@ async function loadPreferencesForDisplay() {
   if (!currentMonth || !versionId) {
     offRequestsCurrentMonth.value = emptyConstraints;
     offRequestNotesCurrentMonth.value = emptyNotes;
+    policyRejectionSummariesCurrentMonth.value = [];
     return;
   }
 
-  const { constraints, notes } = await getScheduleVersionPreferences(versionId);
+  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
 
   const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
   const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
@@ -466,8 +1112,42 @@ async function loadPreferencesForDisplay() {
     }
   }
 
+  for (const pref of preferences as PreferenceWithPolicyResult[]) {
+    if (!pref.date.startsWith(currentMonth)) continue;
+    const rejectionReason = pref.policy_check_status === 'rejected'
+      ? pref.policy_rejection_reason?.trim() ?? ''
+      : '';
+    if (!rejectionReason) continue;
+
+    if (!filteredNotes[pref.employee_id]) {
+      filteredNotes[pref.employee_id] = {};
+    }
+    filteredNotes[pref.employee_id]![pref.date] = combineOffRequestNote(
+      filteredNotes[pref.employee_id]?.[pref.date] ?? null,
+      rejectionReason
+    ) ?? '';
+  }
+
   offRequestsCurrentMonth.value = filteredConstraints;
   offRequestNotesCurrentMonth.value = filteredNotes;
+  syncPolicyRejectionDisplay(preferences as PreferenceWithPolicyResult[], currentMonth);
+}
+
+async function loadFairnessSummary() {
+  const organizationId = scheduleStore.basicInfo?.organizationId ?? null;
+
+  if (!organizationId) {
+    fairnessSummary.value = [];
+    return;
+  }
+
+  try {
+    const result = await getChecklist(organizationId);
+    fairnessSummary.value = result.fairnessSummary;
+  } catch (error) {
+    console.warn('공정성 요약 조회 중 오류:', error);
+    fairnessSummary.value = [];
+  }
 }
 
 function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
@@ -495,6 +1175,11 @@ function syncLastMonthDayWindow(previousDates: Set<string>) {
   if (!hasInitializedLastMonthDays.value) {
     lastMonthDays.value = maxDays;
     hasInitializedLastMonthDays.value = true;
+
+    if (scheduleStore.basicInfo && getDisplayedLastMonthDates().size !== maxDays) {
+      grid.generateDates(scheduleStore.basicInfo.month, maxDays);
+    }
+
     return;
   }
 
@@ -653,14 +1338,39 @@ async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearCh
     return;
   }
 
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) {
+    currentScheduleAssignments.value = {};
+    previousMonthAssignments.value = {};
+    grid.assignments.value = {};
+    grid.offReasons.value = {};
+    if (clearChanges) {
+      changedCells.value.clear();
+    }
+    return;
+  }
+
   const data = await getScheduleVersionAssignments(versionId);
-  const { currentAssignments, previousAssignments, previousDates } = splitAssignmentsByMonth(
-    data.assignments
+  const { currentAssignments, previousAssignments } = splitAssignmentsByMonth(
+    data.assignments,
+  );
+
+  const mergedPreviousAssignments = mergeAssignmentMapsWithFallback(
+    previousAssignments,
+    previousMonthFallbackAssignments.value,
+    buildRollingHistoryWindow(currentMonth, 5).previousMonthDates,
   );
 
   if (solver.status.value !== 'running') {
-    previousMonthAssignments.value = previousAssignments;
-    syncLastMonthDayWindow(previousDates);
+    previousMonthAssignments.value = mergedPreviousAssignments;
+    const mergedPreviousDates = new Set<string>();
+    for (const dateMap of Object.values(mergedPreviousAssignments)) {
+      for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+        if (!shiftCode) continue;
+        mergedPreviousDates.add(date);
+      }
+    }
+    syncLastMonthDayWindow(mergedPreviousDates);
   }
 
   const hasDbAssignments = Object.values(currentAssignments).some((dateMap) => {
@@ -771,7 +1481,7 @@ async function buildSolverRequest() {
     throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
   }
   if (!versionId) {
-    throw new Error('미리보기 버전 정보가 없습니다. 다시 진입해주세요.');
+    throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다. 다시 진입해주세요.');
   }
 
   if (organizationStore.shifts.length === 0) {
@@ -781,6 +1491,10 @@ async function buildSolverRequest() {
   const { constraints } = await getScheduleVersionPreferences(versionId);
   const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
   const planningAssignments = await getPlanningAssignmentsForVersion(versionId);
+
+  if (previousMonthFallbackError.value) {
+    throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
+  }
 
   let siteRequirements = scheduleStore.siteRequirements;
   if (!siteRequirements || siteRequirements.length === 0) {
@@ -801,8 +1515,49 @@ async function buildSolverRequest() {
     planningEmployees,
     organizationStore.shifts,
     planningAssignments,
-    lastMonthDays.value
+    lastMonthDays.value,
+    previousMonthFallbackPlanningAssignments.value,
   );
+}
+
+async function syncPreviewWorkspace(options: {
+  syncOriginal?: boolean;
+  clearChanges?: boolean;
+  forceAssignmentSync?: boolean;
+} = {}) {
+  const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
+  applyScheduleStatus(schedule);
+  await loadPreferencesForDisplay();
+
+  const shouldResumePolling = (
+    getActiveSolvingVersionId() !== null
+    && getActiveSolvingVersionId() === previewVersionId.value
+    && Boolean(schedule.solver_execution_id)
+  );
+
+  if (shouldResumePolling) {
+    await loadCurrentAssignments({
+      syncOriginal: false,
+      clearChanges: false,
+      ...options,
+    });
+    const resumed = await resumePollingFromSchedule(schedule);
+    if (resumed) {
+      return;
+    }
+  }
+
+  solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
+
+  if (
+    (solver.status.value === 'complete' || solver.status.value === 'changed')
+    && canMutatePreviewVersion.value
+    && previewVersionId.value
+  ) {
+    await refreshPreferenceResolutionByVersion(previewVersionId.value);
+  }
+
+  await loadCurrentAssignments(options);
 }
 
 async function handleStartSolver() {
@@ -810,13 +1565,17 @@ async function handleStartSolver() {
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 생성/편집을 진행할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
   }
 
   isStartingSolver.value = true;
 
   try {
+    if (previousMonthFallbackError.value) {
+      throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
+    }
+
     await loadPreferencesForDisplay();
     await resetPreferenceResolutionByVersion(previewVersionId.value);
 
@@ -831,12 +1590,9 @@ async function handleStartSolver() {
     if (readErrorCode(error) === 'another_version_solving') {
       showError('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.');
       try {
-        const resolvedState = await syncVersionStateFromCompare();
-        if (resolvedState.activeSolvingVersionId !== previewVersionId.value) {
-          const previewStatus =
-            resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)
-              ?.status ?? 'draft';
-          solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
+        await hub.hydrate();
+        if (getActiveSolvingVersionId() !== previewVersionId.value) {
+          solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
         }
         await loadCurrentAssignments({
           syncOriginal: true,
@@ -855,6 +1611,161 @@ async function handleStartSolver() {
   }
 }
 
+async function consumeRouteAutoStart() {
+  if (hasConsumedRouteAutoStart.value || !parseStep5RouteQuery(route.query).autoStart) {
+    return;
+  }
+
+  hasConsumedRouteAutoStart.value = true;
+
+  const targetScheduleId = scheduleId.value;
+  const targetPreviewVersionId = previewVersionId.value;
+
+  if (!targetScheduleId || !targetPreviewVersionId) {
+    return;
+  }
+
+  await router.replace(
+    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
+  );
+
+  if (isStartingSolver.value || solver.status.value === 'running') {
+    return;
+  }
+
+  if (!canMutatePreviewVersion.value || hasCurrentMonthAssignments.value) {
+    return;
+  }
+
+  await handleStartSolver();
+}
+
+async function syncSolverStateInternal() {
+  solver.stopPolling();
+  stopAssignmentsRefresh();
+
+  await hub.hydrate();
+  const currentPreviewVersionId = previewVersionId.value;
+  const currentPreviewStatus = previewVersionStatus.value;
+  const currentExecutionId = previewVersionExecutionId.value;
+
+  if (currentPreviewStatus === 'solving' && currentExecutionId && currentPreviewVersionId) {
+    solver.status.value = 'running';
+    resetRealtimeState();
+    solver.intermediateResults.value = null;
+    solver.startPolling(currentExecutionId, currentPreviewVersionId);
+    startAssignmentsRefresh();
+    showInfo('생성 진행 상태를 다시 연결했습니다. 잠시 후 다시 확인해주세요.');
+    return;
+  }
+
+  solver.status.value = mapVersionStatusToSolverStatus(currentPreviewStatus);
+  resetRealtimeState();
+
+  await loadPreferencesForDisplay();
+  await loadCurrentAssignments({
+    syncOriginal: true,
+    clearChanges: true,
+    forceAssignmentSync: true,
+  });
+  showSuccess('최신 상태로 동기화했습니다.');
+}
+
+async function handleSyncSolverState() {
+  if (isRecoveringSolver.value) return;
+
+  isRecoveringSolver.value = true;
+  try {
+    await syncSolverStateInternal();
+  } catch (error) {
+    console.warn('상태 재동기화 중 오류:', error);
+    showError(error instanceof Error ? error.message : '상태 재동기화 중 오류가 발생했습니다.');
+  } finally {
+    isRecoveringSolver.value = false;
+  }
+}
+
+async function handleForceResetSolverState() {
+  if (isRecoveringSolver.value) return;
+  if (!previewVersionId.value) {
+    showError('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
+    return;
+  }
+  if (previewVersionStatus.value !== 'solving') {
+    showInfo('현재는 생성 중 상태가 아니므로 초기화가 필요하지 않습니다.');
+    return;
+  }
+
+  isRecoveringSolver.value = true;
+  try {
+    solver.stopPolling();
+    stopAssignmentsRefresh();
+
+    await hub.hydrate();
+    const currentPreviewVersionId = previewVersionId.value;
+    if (!currentPreviewVersionId) {
+      throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
+    }
+
+    const currentPreview = compareVersions.value.find((version) => version.id === currentPreviewVersionId);
+    if (!currentPreview || currentPreview.status !== 'solving') {
+      solver.status.value = mapVersionStatusToSolverStatus(currentPreview?.status ?? 'draft');
+      resetRealtimeState();
+      await loadPreferencesForDisplay();
+      await loadCurrentAssignments({
+        syncOriginal: true,
+        clearChanges: true,
+        forceAssignmentSync: true,
+      });
+      showSuccess('이미 생성 상태가 해제되어 최신 상태로 동기화했습니다.');
+      return;
+    }
+
+    let executionId = currentPreview.activeSolverExecutionId ?? previewVersionExecutionId.value;
+    if (!executionId) {
+      const schedule = (await getScheduleStatus(ensureScheduleId())) as ScheduleStatusRow;
+      executionId = schedule.solver_execution_id;
+    }
+
+    if (!executionId) {
+      throw new Error('실행 ID를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.');
+    }
+
+    await submitPhase2ScheduleVersionSolverResult(currentPreviewVersionId, {
+      status: 'failed',
+      solverExecutionId: executionId,
+      assignments: [],
+      score: null,
+      failureReason: 'manual_recovery_reset',
+    });
+
+    await hub.hydrate();
+    solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
+    resetRealtimeState();
+
+    await loadPreferencesForDisplay();
+    await loadCurrentAssignments({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+
+    showSuccess('생성 상태를 초기화했습니다. 다시 생성을 시도할 수 있습니다.');
+  } catch (error) {
+    console.warn('생성 상태 강제 초기화 중 오류:', error);
+
+    if (readErrorCode(error) === 'stale_solver_callback') {
+      await syncSolverStateInternal();
+      showInfo('이미 최신 상태로 전환되어 강제 초기화가 필요하지 않았습니다.');
+      return;
+    }
+
+    showError(error instanceof Error ? error.message : '생성 상태 초기화 중 오류가 발생했습니다.');
+  } finally {
+    isRecoveringSolver.value = false;
+  }
+}
+
 async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<boolean> {
   if (!schedule.solver_execution_id || !previewVersionId.value) {
     return false;
@@ -868,60 +1779,57 @@ async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<b
   return true;
 }
 
-onMounted(async () => {
-  if (!scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+function toInitialLoadErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return '데이터 로드 중 오류가 발생했습니다.';
+}
+
+async function loadStep5InitialData() {
+  isInitialLoading.value = true;
+  initialLoadErrorMessage.value = null;
+
+  if (!scheduleStore.basicInfo && !routeScheduleKey.value) {
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
   try {
-    const resolvedState = await syncVersionStateFromCompare();
-
+    await hub.hydrate();
+    if (!scheduleStore.basicInfo) {
+      throw new Error('Step5에 필요한 스케줄 컨텍스트를 복원하지 못했습니다.');
+    }
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    syncBasicInfoFromOrganizationStore();
     await grid.loadEmployees(scheduleStore.basicInfo.organizationId);
     grid.generateDates(scheduleStore.basicInfo.month, 0);
-    await loadPreferencesForDisplay();
-
-    const schedule = (await getScheduleStatus(scheduleId.value)) as ScheduleStatusRow;
-    applyScheduleStatus(schedule);
-
-    const previewStatus =
-      resolvedState.versions.find((version) => version.id === resolvedState.previewVersionId)?.status ??
-      'draft';
-    const shouldResumePolling =
-      resolvedState.activeSolvingVersionId !== null &&
-      resolvedState.activeSolvingVersionId === previewVersionId.value &&
-      Boolean(schedule.solver_execution_id);
-
-    if (shouldResumePolling) {
-      await loadCurrentAssignments({
-        syncOriginal: false,
-        clearChanges: false,
-      });
-      const resumed = await resumePollingFromSchedule(schedule);
-      if (resumed) {
-        return;
-      }
-    }
-
-    solver.status.value = mapVersionStatusToSolverStatus(previewStatus);
-
-    if (
-      (solver.status.value === 'complete' || solver.status.value === 'changed')
-      && canMutatePreviewVersion.value
-      && previewVersionId.value
-    ) {
-      await refreshPreferenceResolutionByVersion(previewVersionId.value);
-    }
-
-    await loadCurrentAssignments({
+    await loadPreviousMonthFallback();
+    await syncPreviewWorkspace({
       syncOriginal: true,
       clearChanges: true,
     });
+    await loadFairnessSummary();
+    await consumeRouteAutoStart();
+    hasInitialLoadCompleted.value = true;
   } catch (error) {
+    const errorMessage = toInitialLoadErrorMessage(error);
     console.warn('데이터 로드 중 오류:', error);
-    showError('데이터 로드 중 오류가 발생했습니다.');
+    initialLoadErrorMessage.value = errorMessage;
+    hasInitialLoadCompleted.value = true;
+    showError(errorMessage);
+  } finally {
+    isInitialLoading.value = false;
   }
+}
+
+async function handleRetryInitialLoad() {
+  await loadStep5InitialData();
+}
+
+onMounted(async () => {
+  await loadStep5InitialData();
 });
 
 onUnmounted(() => {
@@ -938,6 +1846,37 @@ watch(lastMonthDays, (newDays) => {
   rebuildDisplayAssignments();
 });
 
+watch(
+  () => [
+    scheduleStore.basicInfo?.organizationId ?? null,
+    scheduleStore.basicInfo?.month ?? null,
+  ],
+  async ([newOrganizationId, newMonth], [oldOrganizationId, oldMonth]) => {
+    if (newOrganizationId === oldOrganizationId && newMonth === oldMonth) {
+      return;
+    }
+    if (!newOrganizationId || !newMonth) {
+      return;
+    }
+
+    grid.generateDates(newMonth, lastMonthDays.value);
+    await loadPreviousMonthFallback();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+  }
+);
+
+watch(
+  () => [review.value?.version?.id ?? null, previewVersionStatus.value],
+  () => {
+    syncReviewTabForPreview();
+  },
+  { immediate: true }
+);
+
 watch(() => solver.status.value, async (newStatus) => {
   if (newStatus === 'running') {
     startAssignmentsRefresh();
@@ -947,6 +1886,7 @@ watch(() => solver.status.value, async (newStatus) => {
 
   if (newStatus === 'complete' || newStatus === 'changed' || newStatus === 'created' || newStatus === 'error') {
     try {
+      await hub.hydrate();
       await loadCurrentAssignments({
         syncOriginal: true,
         clearChanges: true,
@@ -981,8 +1921,251 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
   }
 });
 
+function navigateToStep4() {
+  router.push(getScheduleStepRoutePath(4));
+}
+
 function handleBack() {
-  router.push('/schedule/step4');
+  if (isInputEditDisabled.value) {
+    showInfo('근무표 생성 중에는 입력을 수정할 수 없습니다. 완료 후 다시 시도해주세요.');
+    return;
+  }
+
+  if (changedCells.value.size === 0) {
+    navigateToStep4();
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '저장되지 않은 변경사항',
+    content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 이전 단계로 이동하면 현재 수정 내용이 사라집니다.`,
+    positiveText: '이동',
+    negativeText: '계속 편집',
+    onPositiveClick: () => {
+      navigateToStep4();
+    },
+  });
+}
+
+function handleGoDashboard() {
+  if (changedCells.value.size === 0) {
+    router.replace(getAppHomeRoutePath());
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '저장되지 않은 변경사항',
+    content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 근무표 관리로 이동하면 현재 수정 내용이 사라집니다.`,
+    positiveText: '이동',
+    negativeText: '계속 편집',
+    onPositiveClick: () => {
+      router.replace(getAppHomeRoutePath());
+    },
+  });
+}
+
+function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
+  scheduleStore.setReviewTab(tab);
+}
+
+function handleToggleComparisonTools() {
+  isComparisonToolsCollapsed.value = !isComparisonToolsCollapsed.value;
+}
+
+function dedupeVersionIds(versionIds: string[]): string[] {
+  return [...new Set(versionIds)];
+}
+
+function getCanonicalCompareVersionIds(
+  versionIds: string[],
+  focusVersionId: string | null
+): string[] {
+  const deduped = dedupeVersionIds(versionIds);
+
+  if (!focusVersionId) {
+    return deduped.slice(0, 2);
+  }
+
+  const withoutFocus = deduped.filter((versionId) => versionId !== focusVersionId);
+  return [focusVersionId, ...withoutFocus].slice(0, 2);
+}
+
+async function syncComparisonWorkspace(
+  focusVersionId: string | null,
+  nextCompareVersionIds: string[]
+) {
+  await router.replace(
+    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
+  );
+  await hub.hydrate({
+    requestedFocusVersionId: focusVersionId,
+    requestedCompareVersionIds: nextCompareVersionIds,
+  });
+}
+
+function buildNextCompareVersionIds(versionId: string): string[] {
+  if (versionId === previewVersionId.value) {
+    return compareVersionIds.value;
+  }
+
+  if (compareVersionIds.value.includes(versionId)) {
+    return getCanonicalCompareVersionIds(
+      compareVersionIds.value.filter((candidateId) => candidateId !== versionId),
+      previewVersionId.value
+    );
+  }
+
+  if (compareVersionIds.value.length >= 2) {
+    return getCanonicalCompareVersionIds([previewVersionId.value, versionId].filter(Boolean) as string[], previewVersionId.value);
+  }
+
+  return getCanonicalCompareVersionIds([...compareVersionIds.value, versionId], previewVersionId.value);
+}
+
+async function handleFocusVersionChange(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
+  if (versionId === previewVersionId.value) {
+    return;
+  }
+
+  const switchFocusedVersion = async () => {
+    try {
+      solver.stopPolling();
+      stopAssignmentsRefresh();
+      resetRealtimeState();
+
+      await syncComparisonWorkspace(
+        versionId,
+        getCanonicalCompareVersionIds(compareVersionIds.value, versionId)
+      );
+      await syncPreviewWorkspace({
+        syncOriginal: true,
+        clearChanges: true,
+        forceAssignmentSync: true,
+      });
+    } catch (error) {
+      console.warn('상세 보기 버전 전환 중 오류:', error);
+      showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
+    }
+  };
+
+  if (changedCells.value.size > 0) {
+    window.$dialog?.warning({
+      title: '저장되지 않은 변경사항',
+      content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 다른 안을 자세히 보면 현재 수정 내용이 사라집니다.`,
+      positiveText: '다른 안 보기',
+      negativeText: '계속 편집',
+      onPositiveClick: () => switchFocusedVersion(),
+    });
+    return;
+  }
+
+  try {
+    await switchFocusedVersion();
+  } catch (error) {
+    console.warn('상세 보기 버전 전환 중 오류:', error);
+    showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleToggleCompareVersion(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
+  const nextCompareVersionIds = buildNextCompareVersionIds(versionId);
+  const currentCompareVersionIds = compareVersionIds.value;
+
+  if (
+    nextCompareVersionIds.length === currentCompareVersionIds.length
+    && nextCompareVersionIds.every((candidateId, index) => candidateId === currentCompareVersionIds[index])
+  ) {
+    return;
+  }
+
+  try {
+    await syncComparisonWorkspace(previewVersionId.value, nextCompareVersionIds);
+  } catch (error) {
+    console.warn('비교 후보 갱신 중 오류:', error);
+    showError(error instanceof Error ? error.message : '비교 후보를 갱신하는 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleSelectCandidateVersion(versionId: string) {
+  if (lockedVersionId.value && versionId !== lockedVersionId.value) {
+    return;
+  }
+
+  if (versionId === selectedVersionId.value || isPrimaryActionRunning.value) {
+    return;
+  }
+
+  isPrimaryActionRunning.value = true;
+
+  try {
+    await selectPhase2ScheduleVersion(versionId);
+    showSuccess('기준안을 변경했습니다.');
+
+    await hub.hydrate();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: false,
+      forceAssignmentSync: true,
+    });
+  } catch (error) {
+    console.warn('기준안 변경 중 오류:', error);
+    showError(error instanceof Error ? error.message : '기준안 변경 중 오류가 발생했습니다.');
+  } finally {
+    isPrimaryActionRunning.value = false;
+  }
+}
+
+async function handlePrimaryAction() {
+  if (isPrimaryActionRunning.value) {
+    return;
+  }
+
+  isPrimaryActionRunning.value = true;
+
+  try {
+    switch (primaryAction.value.kind) {
+      case 'select':
+        if (!previewVersionId.value) return;
+        await selectPhase2ScheduleVersion(previewVersionId.value);
+        showSuccess('기준안을 변경했습니다.');
+        break;
+      case 'recheck':
+        if (!primaryAction.value.targetVersionId) return;
+        await recheckPhase2ScheduleVersion(primaryAction.value.targetVersionId);
+        showSuccess('재검토를 완료했습니다.');
+        break;
+      case 'finalize':
+        if (!primaryAction.value.targetVersionId) return;
+        await finalizePhase2ScheduleVersion(primaryAction.value.targetVersionId);
+        showSuccess('버전을 확정했습니다.');
+        break;
+      case 'retry':
+        await handleStartSolver();
+        return;
+      default:
+        return;
+    }
+
+    await hub.hydrate();
+    await syncPreviewWorkspace({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+  } catch (error) {
+    console.warn('Primary action 처리 중 오류:', error);
+    showError(error instanceof Error ? error.message : '작업 처리 중 오류가 발생했습니다.');
+  } finally {
+    isPrimaryActionRunning.value = false;
+  }
 }
 
 function isCurrentMonthDate(date: string) {
@@ -1008,7 +2191,7 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 
 function handleReset() {
   if (!canMutatePreviewVersion.value) {
-    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
     return;
   }
 
@@ -1028,6 +2211,7 @@ function handleReset() {
       );
       rebuildDisplayAssignments(currentScheduleAssignments.value);
       changedCells.value.clear();
+      clearTempPreferenceStorage();
       showSuccess('변경사항이 취소되었습니다');
     },
   });
@@ -1035,36 +2219,38 @@ function handleReset() {
 
 async function handleRegenerate() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 생성할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 생성할 수 없습니다.');
     return;
   }
 
-  try {
-    const createResponse = await createPhase2ScheduleVersion(scheduleId.value, {
-      baseVersionId: previewVersionId.value,
-      name: null,
-      sourceType: 're_solve',
-      inputDiffSummary: {
-        changedOffRequests: 0,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: null,
-      },
-    });
-
-    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    compareVersions.value = createResponse.versions.map((version) => ({
-      id: version.id,
-      status: version.status,
-    }));
-    await router.replace(buildStep5Route(scheduleId.value, createResponse.createdVersionId));
-
-    await handleStartSolver();
-  } catch (error) {
-    console.warn('후보 버전 생성 중 오류:', error);
-    showError(error instanceof Error ? error.message : '후보 버전 생성 중 오류가 발생했습니다.');
+  if (changedCells.value.size > 0) {
+    showInfo('변경사항을 먼저 저장하거나 취소한 뒤 다시 생성해주세요.');
+    return;
   }
+
+  await handleStartSolver();
+}
+
+function handleCreateCompareCandidate() {
+  if (!canMutatePreviewVersion.value) {
+    showInfo('현재 자세히 보는 안 상태에서는 비교안을 만들 수 없습니다.');
+    return;
+  }
+
+  if (changedCells.value.size === 0) {
+    navigateToStep4();
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '저장되지 않은 변경사항',
+    content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 이전 단계로 이동하면 현재 수정 내용이 사라집니다.`,
+    positiveText: '이동',
+    negativeText: '계속 편집',
+    onPositiveClick: () => {
+      navigateToStep4();
+    },
+  });
 }
 
 function handleExport() {
@@ -1091,14 +2277,13 @@ function handleExport() {
 
 function handleSave() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
     return;
   }
   const targetVersionId = previewVersionId.value;
 
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
-    router.push('/');
     return;
   }
 
@@ -1109,11 +2294,6 @@ function handleSave() {
     negativeText: '취소',
     onPositiveClick: async () => {
       try {
-        if (!scheduleId.value) {
-          showError('스케줄 ID가 없습니다');
-          return;
-        }
-
         const changes: Array<{ employeeId: string; date: string; shiftId: string | null }> = [];
 
         for (const cellKey of changedCells.value) {
@@ -1154,7 +2334,13 @@ function handleSave() {
           changes,
         });
 
-        await syncVersionStateFromCompare();
+        if (hasTransientStep5RouteState()) {
+          await router.replace(
+            buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
+          );
+        }
+
+        await hub.hydrate();
         await loadPreferencesForDisplay();
         await loadCurrentAssignments({
           syncOriginal: true,
@@ -1163,7 +2349,6 @@ function handleSave() {
         });
 
         showSuccess('저장되었습니다');
-        router.push('/');
       } catch (error) {
         console.warn('저장 중 오류:', error);
         showError('저장 중 오류가 발생했습니다');
@@ -1172,11 +2357,11 @@ function handleSave() {
   });
 }
 
-async function handleCancelSchedule() {
+async function handleResetCurrentVersion() {
   window.$dialog?.warning({
-    title: '이번달 근무표 취소',
-    content: `이번달(${scheduleStore.basicInfo?.month}) 근무표를 삭제하고 다시 작성하시겠습니까?\n\n✓ 지난달 데이터는 보존됩니다\n✗ 이 작업은 되돌릴 수 없습니다`,
-    positiveText: '삭제',
+    title: '현재 안 초기화',
+    content: `현재 보고 있는 안의 이번 달 결과만 비우고 Step4로 돌아가시겠습니까?\n\n비교안 이력은 유지되며, 이 안의 이번 달 배정만 초기화됩니다.`,
+    positiveText: '초기화',
     negativeText: '취소',
     onPositiveClick: async () => {
       try {
@@ -1186,12 +2371,12 @@ async function handleCancelSchedule() {
           return;
         }
         if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-          showInfo('현재 미리보기 버전 상태에서는 편집할 수 없습니다.');
+          showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
           return;
         }
 
         await deleteThisMonthVersionAssignments(
-          scheduleId.value,
+          ensureScheduleId(),
           previewVersionId.value,
           currentMonth
         );
@@ -1202,19 +2387,122 @@ async function handleCancelSchedule() {
         currentScheduleAssignments.value = {};
         rebuildDisplayAssignments();
 
-        const storageKeys = [
-          `everyshift_temp_schedule_${currentMonth}`,
-          `everyshift_temp_preferences_${currentMonth}`,
-        ];
-        storageKeys.forEach((key) => localStorage.removeItem(key));
+        clearTempPreferenceStorage();
 
-        showSuccess('이번달 근무표가 삭제되었습니다. 지난달 데이터는 보존되었습니다.');
-        router.push('/schedule/step4');
+        showSuccess('현재 안의 이번 달 결과를 초기화했습니다.');
+        router.push(getScheduleStepRoutePath(4));
       } catch (error) {
-        console.error('Delete schedule error:', error);
-        showError('근무표 삭제 중 오류가 발생했습니다');
+        console.error('Current version reset error:', error);
+        showError('현재 안 초기화 중 오류가 발생했습니다');
       }
     },
+  });
+}
+
+async function handleResetActiveMonthFlow() {
+  if (isResetActiveFlowDisabled.value) {
+    showInfo('확정본이 있는 월은 이번 달 새로 시작을 사용할 수 없습니다.');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '이번 달 새로 시작',
+    content: `비교안, 저장된 입력 요청, 이번 달 결과를 초기화하고 새로 시작하시겠습니까?\n\n확정본이 없는 현재 작업 흐름만 정리되며, 이 작업은 되돌릴 수 없습니다.`,
+    positiveText: '새로 시작',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      try {
+        const resetResponse = await resetPhase2ScheduleActiveFlow(ensureScheduleId());
+
+        solver.stopPolling();
+        stopAssignmentsRefresh();
+
+        currentScheduleAssignments.value = {};
+        changedCells.value.clear();
+        originalCurrentAssignments.value = {};
+        rebuildDisplayAssignments();
+
+        clearTempPreferenceStorage();
+        scheduleStore.setCompareMatrix(resetResponse);
+        scheduleStore.setSelectedVersionId(resetResponse.selectedVersionId);
+        scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
+
+        showSuccess('이번 달을 새로 시작합니다. Step4에서 다시 입력해주세요.');
+        router.push(getScheduleStepRoutePath(4));
+      } catch (error) {
+        console.error('Reset active flow error:', error);
+        showError(error instanceof Error ? error.message : '이번 달 새로 시작 중 오류가 발생했습니다.');
+      }
+    },
+  });
+}
+
+async function handleDeleteMonthSchedule() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo?.organizationId || !basicInfo.month) {
+    showError('조직 또는 월 정보를 찾을 수 없습니다.');
+    return;
+  }
+
+  if (isDeleteMonthScheduleDisabled.value) {
+    showInfo('확정본이 있거나 생성 중인 월은 삭제할 수 없습니다.');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '이번 달 근무표 삭제',
+    content: `${basicInfo.month} 근무표의 비교안, 입력 요청, 생성 결과를 모두 삭제합니다.\n\n확정본이 있는 월은 삭제할 수 없습니다. 이 작업은 되돌릴 수 없습니다.`,
+    positiveText: '삭제',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      isDeletingMonthSchedule.value = true;
+
+      try {
+        await deletePhase2ScheduleMonth({
+          organizationId: basicInfo.organizationId,
+          month: basicInfo.month,
+        });
+
+        solver.stopPolling();
+        stopAssignmentsRefresh();
+        resetRealtimeState();
+
+        currentScheduleAssignments.value = {};
+        previousMonthAssignments.value = {};
+        changedCells.value.clear();
+        originalCurrentAssignments.value = {};
+        offRequestsCurrentMonth.value = {};
+        offRequestNotesCurrentMonth.value = {};
+        policyRejectionSummariesCurrentMonth.value = [];
+        rebuildDisplayAssignments({});
+
+        clearTempPreferenceStorage();
+        scheduleStore.setBasicInfo({
+          ...basicInfo,
+          scheduleId: undefined,
+          schedulePublicId: undefined,
+        });
+        scheduleStore.resetReviewState();
+        scheduleStore.setAssignments({});
+        scheduleStore.setComments({});
+
+        showSuccess('이번 달 근무표를 삭제했습니다.');
+        await router.replace(getAppHomeRoutePath());
+      } catch (error) {
+        console.error('Delete month schedule error:', error);
+        showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');
+      } finally {
+        isDeletingMonthSchedule.value = false;
+      }
+    },
+  });
+}
+
+function clearTempPreferenceStorage() {
+  clearScopedTempPreferencesStorage({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
   });
 }
 </script>

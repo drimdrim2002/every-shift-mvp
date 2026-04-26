@@ -117,6 +117,10 @@ describe('solver api', () => {
     DEV: true,
     VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
   };
+  const noFallbackEnv = {
+    DEV: false,
+    VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
+  };
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -149,15 +153,19 @@ describe('solver api', () => {
       });
     });
 
-    it('throws a server-provided error message on non-2xx response', async () => {
+    it('preserves code/message/status for non-2xx json responses', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: 'validation failed' }), {
-          status: 400,
+        new Response(JSON.stringify({ code: 'another_version_solving', message: 'validation failed' }), {
+          status: 409,
           headers: { 'Content-Type': 'application/json' },
         }),
       );
 
-      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow('validation failed');
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toMatchObject({
+        message: 'validation failed',
+        code: 'another_version_solving',
+        status: 409,
+      });
     });
 
     it('throws a fallback error message when non-json text is returned', async () => {
@@ -165,9 +173,64 @@ describe('solver api', () => {
         new Response('Bad Gateway', { status: 502, statusText: 'Bad Gateway' }),
       );
 
-      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow(
-        'Solver 요청 실패: 502 Bad Gateway',
-      );
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toMatchObject({
+        message: 'Solver 요청 실패: 502 Bad Gateway - Bad Gateway',
+        status: 502,
+      });
+    });
+
+    it('retries with vite proxy path when direct request fails in development mode', async () => {
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ execution_id: 'exec-proxy' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const executionId = await createSolverExecution(createSolverRequest(), directApiEnv);
+
+      expect(executionId).toBe('exec-proxy');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
+      expect(proxyUrl).toBe('/api/solve');
+    });
+
+    it('retries with alternate proxy path when primary proxy path returns 404', async () => {
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ execution_id: 'exec-alt-proxy' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const executionId = await createSolverExecution(createSolverRequest(), directApiEnv);
+
+      expect(executionId).toBe('exec-alt-proxy');
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [primaryProxyUrl] = fetchMock.mock.calls[1]!;
+      const [alternateProxyUrl] = fetchMock.mock.calls[2]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
+      expect(primaryProxyUrl).toBe('/api/solve');
+      expect(alternateProxyUrl).toBe('/solve');
+    });
+
+    it('throws a solver api error with diagnostics when fetch fails before response', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+      await expect(createSolverExecution(createSolverRequest(), noFallbackEnv)).rejects.toMatchObject({
+        name: 'SolverApiError',
+        message: expect.stringContaining('Solver API 호출 실패 (네트워크/CORS 또는 배포 URL 확인 필요)'),
+      });
     });
   });
 
@@ -185,10 +248,90 @@ describe('solver api', () => {
       expect(result).toEqual(expected);
     });
 
+    it('passes an abort signal to the status request when provided', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify(expected), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const controller = new AbortController();
+
+      await getSolverStatus('exec-1', directApiEnv, {
+        signal: controller.signal,
+      });
+
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(init).toMatchObject({
+        signal: controller.signal,
+      });
+    });
+
+    it('retries with vite proxy path for status polling in development mode', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(expected), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const result = await getSolverStatus('exec-1', directApiEnv);
+
+      expect(result).toEqual(expected);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/status/exec-1');
+      expect(proxyUrl).toBe('/api/status/exec-1');
+    });
+
+    it('retries status polling with alternate proxy path when primary proxy path returns 404', async () => {
+      const expected = createSolverStatus('RUNNING');
+      const fetchMock = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(new Response('Not Found', { status: 404, statusText: 'Not Found' }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(expected), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      const result = await getSolverStatus('exec-1', directApiEnv);
+
+      expect(result).toEqual(expected);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      const [directUrl] = fetchMock.mock.calls[0]!;
+      const [primaryProxyUrl] = fetchMock.mock.calls[1]!;
+      const [alternateProxyUrl] = fetchMock.mock.calls[2]!;
+      expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/status/exec-1');
+      expect(primaryProxyUrl).toBe('/api/status/exec-1');
+      expect(alternateProxyUrl).toBe('/status/exec-1');
+    });
+
     it('throws when status endpoint returns non-2xx', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('error', { status: 500 }));
 
       await expect(getSolverStatus('exec-1')).rejects.toThrow('상태 조회 실패');
+    });
+
+    it('does not retry with proxy fallback after an aborted status request', async () => {
+      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(abortError);
+
+      await expect(
+        getSolverStatus('exec-1', directApiEnv, {
+          signal: new AbortController().signal,
+        })
+      ).rejects.toThrow('The operation was aborted.');
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 

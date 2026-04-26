@@ -1,13 +1,17 @@
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
 
 const {
   pushMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
+  getChecklistMock,
+  loadCanonicalSiteRequirementsMock,
   resetMock,
   setBasicInfoMock,
+  setSiteRequirementsMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
   showErrorMock,
@@ -15,8 +19,11 @@ const {
   pushMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
+  getChecklistMock: vi.fn(),
+  loadCanonicalSiteRequirementsMock: vi.fn(),
   resetMock: vi.fn(),
   setBasicInfoMock: vi.fn(),
+  setSiteRequirementsMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -31,6 +38,14 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   getScheduleList: getScheduleListMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
+}))
+
+vi.mock('@/api/ops', () => ({
+  getChecklist: getChecklistMock,
+}))
+
+vi.mock('@/api/employee', () => ({
+  loadCanonicalSiteRequirements: loadCanonicalSiteRequirementsMock,
 }))
 
 vi.mock('@/api/supabase', () => ({
@@ -49,6 +64,7 @@ const organizationStoreMock = reactive({
     id: 'org-1',
     name: '서울병원',
     type: 'hospital',
+    foundation: null,
   },
   shifts: [
     {
@@ -66,18 +82,40 @@ const organizationStoreMock = reactive({
       name: 'Kim',
     },
   ],
+  foundationProfile: null,
+  foundationSite: null,
+  foundationLoading: false,
   loadOrganization: vi.fn(),
+  loadFoundationData: vi.fn(),
 })
 
 const scheduleStoreMock = reactive({
   reset: resetMock,
   setBasicInfo: setBasicInfoMock,
+  setSiteRequirements: setSiteRequirementsMock,
   setSelectedVersionId: setSelectedVersionIdMock,
   setPreviewVersionId: setPreviewVersionIdMock,
+  currentStep: 0,
+})
+
+const rbacStoreMock = reactive({
+  selectedOrganizationId: 'org-1',
+  abilities: {
+    canViewApprovalQueue: false,
+    canSwitchOrganization: true,
+    canViewRestrictedUserHome: false,
+    canManageOrganizationSetup: true,
+    canManageEmployees: true,
+    canManageSchedules: true,
+  },
 })
 
 vi.mock('@/stores/organization', () => ({
   useOrganizationStore: () => organizationStoreMock,
+}))
+
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
 }))
 
 vi.mock('@/stores/schedule', () => ({
@@ -91,10 +129,12 @@ function createWrapper() {
     global: {
       stubs: {
         NCard: {
-          template: '<div class="n-card-stub" @click="$emit(\'click\')"><slot name="header" /><slot /></div>',
+          template:
+            '<div class="n-card-stub" v-bind="$attrs" @click="$emit(\'click\')"><slot name="header" /><slot /></div>',
         },
         NButton: {
-          template: '<button @click="$emit(\'click\', $event)"><slot name="icon" /><slot /></button>',
+          template:
+            '<button v-bind="$attrs" @click="$emit(\'click\', $event)"><slot name="icon" /><slot /></button>',
         },
         NSpin: {
           template: '<div />',
@@ -119,13 +159,49 @@ function createWrapper() {
   })
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+
+  return {
+    promise,
+    resolve,
+    reject,
+  }
+}
+
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: null,
+    }
+    organizationStoreMock.foundationProfile = null
+    organizationStoreMock.foundationSite = null
+    organizationStoreMock.foundationLoading = false
     organizationStoreMock.loadOrganization.mockResolvedValue({ success: true })
+    organizationStoreMock.loadFoundationData.mockResolvedValue({ success: true })
+    scheduleStoreMock.currentStep = 0
+    Object.assign(rbacStoreMock.abilities, {
+      canViewApprovalQueue: false,
+      canSwitchOrganization: true,
+      canViewRestrictedUserHome: false,
+      canManageOrganizationSetup: true,
+      canManageEmployees: true,
+      canManageSchedules: true,
+    })
+    rbacStoreMock.selectedOrganizationId = 'org-1'
     getScheduleListMock.mockResolvedValue([
       {
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -135,10 +211,70 @@ describe('Dashboard', () => {
         updated_at: '2025-01-01T00:00:00Z',
       },
     ])
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'ready',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: null,
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
+          blockedReason: null,
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+    loadCanonicalSiteRequirementsMock.mockResolvedValue([
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ])
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',
+      schedulePublicId: 'sch_a1b2c3d4e5f6',
+      organizationId: 'org-1',
+      month: '2025-12',
       selectedVersionId: 'version-2',
       finalizedVersionId: null,
+      activeSolvingVersionId: null,
       versions: [
         {
           id: 'version-1',
@@ -197,6 +333,7 @@ describe('Dashboard', () => {
     await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
       .handleViewSchedule({
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -207,15 +344,45 @@ describe('Dashboard', () => {
       })
     await flushPromises()
 
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(setSelectedVersionIdMock).toHaveBeenCalledWith('version-2')
     expect(setPreviewVersionIdMock).toHaveBeenCalledWith('version-2')
-    expect(pushMock).toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-123',
-      query: {
-        version: 'version-2',
+    expect(pushMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
+  })
+
+  it('falls back to the legacy uuid route key when a public id is unavailable', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      {
+        id: 'schedule-legacy',
+        public_id: null,
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
       },
-    })
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
+      .handleViewSchedule({
+        id: 'schedule-legacy',
+        public_id: null,
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-legacy')
   })
 
   it('blocks navigation and shows an error when compare fails', async () => {
@@ -227,6 +394,7 @@ describe('Dashboard', () => {
     await (wrapper.vm as unknown as { handleViewSchedule: (schedule: unknown) => Promise<void> })
       .handleViewSchedule({
         id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
         organization_id: 'org-1',
         month: '2025-12',
         status: 'complete',
@@ -237,14 +405,652 @@ describe('Dashboard', () => {
       })
     await flushPromises()
 
-    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-123')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
-    expect(pushMock).not.toHaveBeenCalledWith('/schedule/step5/schedule-123')
-    expect(pushMock).not.toHaveBeenCalledWith({
-      path: '/schedule/step5/schedule-123',
+    expect(pushMock).not.toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
+  })
+
+  it('deep-links the foundation card CTA to the hospital setup screen when hospital info is incomplete', async () => {
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'organization_profile',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'blocked',
+          route: '/ops/organization-setup',
+          blockedReason: '병원 정보 확인이 아직 완료되지 않았습니다.',
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('병원 정보 확인이 필요합니다')
+    expect(wrapper.text()).toContain('병원명을 먼저 저장해야 다음 운영 기준을 이어서 설정할 수 있습니다.')
+    expect(wrapper.text()).toContain('병원 정보 열기')
+
+    await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/organization-setup')
+  })
+
+  it('deep-links the foundation card CTA to Step2 setup when only schedule foundation is incomplete', async () => {
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('운영 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.text()).toContain('기준 장소, 휴식시간, 시프트, 인력 기준을 먼저 확인해주세요.')
+    expect(wrapper.text()).toContain('기준 설정 열기')
+
+    await wrapper.get('[data-test="dashboard-foundation-card"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
       query: {
-        version: 'version-2',
+        context: 'setup',
       },
     })
+  })
+
+  it('keeps a Step2 setup CTA visible when foundation setup is complete from local data', async () => {
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: {
+        currentStepKey: 'site_foundation',
+        organizationInfoConfirmedAt: '2026-04-08T10:30:00Z',
+        organizationInfoConfirmedBy: 'operator-1',
+      },
+    }
+    organizationStoreMock.foundationProfile = {
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    }
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('운영 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+  })
+
+  it('keeps a Step2 setup CTA visible when foundation setup is complete from checklist readiness', async () => {
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: null,
+    }
+    organizationStoreMock.foundationSite = null
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('운영 기본 설정이 완료되었습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="dashboard-foundation-setup"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+  })
+
+  it('renders foundation incomplete from checklist readiness even when local foundation cache looks complete', async () => {
+    organizationStoreMock.current = {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      foundation: {
+        currentStepKey: 'site_foundation',
+        organizationInfoConfirmedAt: '2026-04-08T10:30:00Z',
+        organizationInfoConfirmedBy: 'operator-1',
+      },
+    }
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
+    getChecklistMock.mockResolvedValue({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'blocked',
+          route: '/schedule/step2',
+          blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('운영 기본 설정이 아직 완료되지 않았습니다')
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(true)
+  })
+
+  it('hides the foundation card when checklist readiness cannot be loaded', async () => {
+    getChecklistMock.mockRejectedValue(new Error('checklist failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-foundation-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-foundation-setup"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(true)
+  })
+
+  it('keeps schedule actions hidden while ops readiness is still loading', async () => {
+    const checklistDeferred = createDeferred<Awaited<ReturnType<typeof getChecklistMock>>>()
+    getChecklistMock.mockReturnValue(checklistDeferred.promise)
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-foundation-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pilot-checklist-card"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('운영 준비 정보를 확인하는 중입니다')
+    expect(wrapper.text()).toContain('병원 정보, 기준 설정, 체크리스트를 불러오고 있습니다.')
+
+    checklistDeferred.resolve({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'ready',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: null,
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
+          blockedReason: null,
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.find('[data-test="pilot-checklist-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(true)
+  })
+
+  it('surfaces the pilot checklist entry with deep links from the dashboard shell', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
+    expect(wrapper.text()).toContain('운영 준비')
+    expect(wrapper.text()).toContain('월별 근무표 작업')
+    expect(wrapper.text()).toContain('운영 준비 체크리스트')
+    expect(wrapper.text()).toContain('병원 정보 확인')
+    expect(wrapper.text()).toContain('기준 장소와 근무 기준 설정')
+    expect(wrapper.text()).toContain('직원 로스터 준비')
+    expect(wrapper.text()).toContain('Off 사용 기준 설정')
+    expect(wrapper.text()).toContain('최종 검토 진입')
+
+    await wrapper.get('[data-test="pilot-checklist-link-organization_profile"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/organization-setup')
+
+    pushMock.mockClear()
+    setBasicInfoMock.mockClear()
+    setSiteRequirementsMock.mockClear()
+    resetMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-schedule_foundation"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+    expect(resetMock).not.toHaveBeenCalled()
+    expect(setBasicInfoMock).not.toHaveBeenCalled()
+    expect(setSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.currentStep).toBe(0)
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-item-schedule_foundation"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+
+    pushMock.mockClear()
+    setBasicInfoMock.mockClear()
+    setSiteRequirementsMock.mockClear()
+    resetMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-employee_roster"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step3',
+      query: {
+        context: 'setup',
+      },
+    })
+    expect(resetMock).not.toHaveBeenCalled()
+    expect(setBasicInfoMock).not.toHaveBeenCalled()
+    expect(setSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(loadCanonicalSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.currentStep).toBe(0)
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-off_request_policy"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith('/app/ops/off-request-policy-setup')
+
+    pushMock.mockClear()
+    await wrapper.get('[data-test="pilot-checklist-link-schedule_review"]').trigger('click')
+    await flushPromises()
+    expect(pushMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
+  })
+
+  it('treats the off-request policy item as optional while keeping the checklist ready', async () => {
+    getChecklistMock.mockResolvedValueOnce({
+      organizationId: 'org-1',
+      checklistCursor: 'off_request_policy',
+      ready: true,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '기준 장소와 근무 기준 설정',
+          status: 'ready',
+          route: '/schedule/step2',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'ready',
+          route: '/schedule/step3',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'ready',
+          route: '/schedule/step5/sch_a1b2c3d4e5f6',
+          blockedReason: null,
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('준비 완료')
+    expect(wrapper.text()).toContain('선택')
+    expect(wrapper.text()).toContain('필요하면 나중에 설정할 수 있습니다.')
+  })
+
+  it('routes schedule foundation checklist entries to Step2 setup even when the backend route drifts to Step1', async () => {
+    getChecklistMock.mockResolvedValueOnce({
+      organizationId: 'org-1',
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+      items: [
+        {
+          key: 'organization_profile',
+          title: '병원 정보 확인',
+          status: 'ready',
+          route: '/ops/organization-setup',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'schedule_foundation',
+          title: '사이트/근무 기본 설정',
+          status: 'ready',
+          route: '/schedule/step1',
+          blockedReason: null,
+          isOptional: false,
+        },
+        {
+          key: 'employee_roster',
+          title: '직원 로스터 준비',
+          status: 'blocked',
+          route: '/schedule/step3',
+          blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+          isOptional: false,
+        },
+        {
+          key: 'off_request_policy',
+          title: 'Off 사용 기준 설정',
+          status: 'blocked',
+          route: '/ops/off-request-policy-setup',
+          blockedReason: '필요하면 나중에 설정할 수 있습니다.',
+          isOptional: true,
+        },
+        {
+          key: 'schedule_review',
+          title: '최종 검토 진입',
+          status: 'blocked',
+          route: null,
+          blockedReason: '검토할 근무표가 아직 없습니다.',
+          isOptional: false,
+        },
+      ],
+      fairnessSummary: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="pilot-checklist-item-schedule_foundation"]').trigger('click')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
+  })
+
+  it('renders a restricted fallback without schedule creation actions for user-only access', async () => {
+    Object.assign(rbacStoreMock.abilities, {
+      canViewApprovalQueue: false,
+      canSwitchOrganization: true,
+      canViewRestrictedUserHome: true,
+      canManageOrganizationSetup: false,
+      canManageEmployees: false,
+      canManageSchedules: false,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('현재 계정은 운영 기능 권한이 없습니다.')
+    expect(wrapper.find('[data-test="dashboard-create-schedule"]').exists()).toBe(false)
+    expect(organizationStoreMock.loadOrganization).not.toHaveBeenCalled()
+    expect(getChecklistMock).not.toHaveBeenCalled()
+    expect(getScheduleListMock).not.toHaveBeenCalled()
+  })
+
+  it('reloads organization-scoped dashboard data when the active organization changes', async () => {
+    organizationStoreMock.loadOrganization.mockImplementation(async () => {
+      if (rbacStoreMock.selectedOrganizationId === 'org-2') {
+        organizationStoreMock.current = {
+          id: 'org-2',
+          name: '부산병원',
+          type: 'hospital',
+          foundation: null,
+        }
+      } else {
+        organizationStoreMock.current = {
+          id: 'org-1',
+          name: '서울병원',
+          type: 'hospital',
+          foundation: null,
+        }
+      }
+
+      return { success: true }
+    })
+
+    getScheduleListMock.mockImplementation(async (organizationId: string) => [
+      {
+        id: `schedule-${organizationId}`,
+        public_id: `sch-${organizationId}`,
+        organization_id: organizationId,
+        month: organizationId === 'org-2' ? '2026-01' : '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      },
+    ])
+
+    getChecklistMock.mockImplementation(async (organizationId: string) => ({
+      organizationId,
+      checklistCursor: 'schedule_review',
+      ready: true,
+      items: [],
+      fairnessSummary: [],
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(1)
+    expect(getScheduleListMock).toHaveBeenCalledWith('org-1')
+    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
+    expect(wrapper.text()).toContain('2025-12 근무표')
+
+    const initialLoadOrganizationCalls = organizationStoreMock.loadOrganization.mock.calls.length
+    const initialFoundationCalls = organizationStoreMock.loadFoundationData.mock.calls.length
+    const initialScheduleCalls = getScheduleListMock.mock.calls.length
+    const initialChecklistCalls = getChecklistMock.mock.calls.length
+
+    rbacStoreMock.selectedOrganizationId = 'org-2'
+    await nextTick()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization.mock.calls.length)
+      .toBeGreaterThan(initialLoadOrganizationCalls)
+    expect(organizationStoreMock.loadFoundationData.mock.calls.length)
+      .toBeGreaterThan(initialFoundationCalls)
+    expect(getScheduleListMock.mock.calls.length).toBeGreaterThan(initialScheduleCalls)
+    expect(getChecklistMock.mock.calls.length).toBeGreaterThan(initialChecklistCalls)
+    expect(organizationStoreMock.loadFoundationData).toHaveBeenCalledWith('org-2')
+    expect(getScheduleListMock).toHaveBeenCalledWith('org-2')
+    expect(getChecklistMock).toHaveBeenCalledWith('org-2')
+    expect(wrapper.text()).toContain('2026-01 근무표')
   })
 })

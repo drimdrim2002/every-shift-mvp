@@ -44,3 +44,10 @@ If the user specifies an output shape, follow it exactly.
 ```
 
 Do not duplicate project architecture, setup steps, or reference indexes here. See `AGENTS.md`, `README.md`, and `docs/prd/*`.
+
+## Design System
+
+Always read `DESIGN.md` before making any visual or UI decisions.
+Typography, color, spacing, layout, motion, and surface hierarchy are defined there.
+Do not deviate from `DESIGN.md` without explicit user approval.
+When reviewing or QAing UI work, flag mismatches against `DESIGN.md`.

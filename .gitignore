@@ -13,3 +13,7 @@ node_modules/*
 
 dist/
 supabase/.temp/
+scripts/mcp.env.local
+playwright/.auth/
+playwright-report/
+test-results/

@@ -1,127 +1,239 @@
-import { test, expect } from '@playwright/test'
+import path from 'node:path'
+import { expect, test, type Page } from '@playwright/test'
 import {
-  login,
   completeStep1,
   completeStep2,
-  completeStep3,
-  generateSchedule,
-  verifyStep4Results,
-  saveSchedule,
-  getTempScheduleFromStorage,
+  completeStep4InitialData,
   getCellShift,
-  getErrorMessage,
+  getTempScheduleFromStorage,
+  startNewScheduleFromDashboard,
 } from './helpers'
 
-/**
- * E2E 통합 테스트 - Step 1→2→3→4 전체 플로우
- *
- * 검증 사항:
- * 1. Step 1→2→3→4 전체 플로우가 에러 없이 완료
- * 2. 각 Step에서 입력한 데이터가 다음 Step에 올바르게 전달
- * 3. LocalStorage 복원 기능 정상 작동
- * 4. AI Solver Polling 및 상태 전이 정상 작동
- * 5. 최종 결과가 Supabase에 올바르게 저장
- */
+const employeeImportFile = path.resolve(process.cwd(), 'docs/임직원_등록_73.xlsx')
+const corsHeaders = {
+  'access-control-allow-origin': 'http://127.0.0.1:5173',
+  'access-control-allow-headers': 'apikey, authorization, content-type',
+  'access-control-allow-methods': 'GET,POST,OPTIONS',
+  'access-control-max-age': '86400',
+}
+
+async function mockStep3Network(
+  page: Page,
+  options: {
+    finalized?: boolean
+  } = {}
+) {
+  const mockVersionId = 'mock-step5-version-1'
+  let applyCallCount = 0
+
+  await page.route('**/functions/v1/phase2-ops/employee-import/validate', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders })
+      return
+    }
+
+    const body = route.request().postDataJSON() as {
+      organizationId?: string
+      month?: string
+      employees?: Array<{ employeeId: string; name: string; availableShifts: string[] }>
+    }
+    const employees = Array.isArray(body.employees) ? body.employees : []
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        organizationId: body.organizationId ?? '',
+        month: body.month ?? '',
+        employeeCount: employees.length,
+        duplicateEmployeeIds: [],
+        missingShiftCodes: [],
+        isFinalized: options.finalized ?? false,
+        isValid: true,
+        previewEmployees: employees,
+      }),
+    })
+  })
+
+  await page.route('**/functions/v1/phase2-ops/employee-import/apply', async (route) => {
+    applyCallCount += 1
+
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders })
+      return
+    }
+
+    const body = route.request().postDataJSON() as {
+      organizationId?: string
+      month?: string
+      employees?: Array<{ employeeId: string; name: string; availableShifts: string[] }>
+    }
+    const employees = Array.isArray(body.employees) ? body.employees : []
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        organizationId: body.organizationId ?? '',
+        month: body.month ?? '',
+        employeeCount: employees.length,
+        duplicateEmployeeIds: [],
+        missingShiftCodes: [],
+        isFinalized: options.finalized ?? false,
+        isValid: true,
+        previewEmployees: employees,
+        deletedScheduleId: null,
+      }),
+    })
+  })
+
+  await page.route('**/functions/v1/phase2-schedule/schedules/**/compare', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: corsHeaders })
+      return
+    }
+
+    const scheduleIdMatch = route.request().url().match(/\/schedules\/([^/]+)\/compare$/)
+    const scheduleId = scheduleIdMatch?.[1] ?? ''
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        scheduleId,
+        selectedVersionId: mockVersionId,
+        finalizedVersionId: options.finalized ? mockVersionId : null,
+        activeSolvingVersionId: null,
+        versions: [
+          {
+            id: mockVersionId,
+            scheduleId,
+            versionNo: 1,
+            name: 'V1',
+            sourceType: 'initial_solve',
+            baseVersionId: null,
+            status: options.finalized ? 'finalized' : 'draft',
+            currentRevision: 1,
+            manualEditCount: 0,
+            inputDiffSummary: {
+              changedOffRequests: 0,
+              changedLockedAssignments: 0,
+              changedSiteRequirements: 0,
+              note: null,
+            },
+            latestEvaluationId: null,
+            latestEvaluationResultStatus: null,
+            comparisonMetrics: null,
+            finalizationGate: null,
+            activeSolverExecutionId: null,
+            isSelected: true,
+            isFinalized: options.finalized ?? false,
+          },
+        ],
+      }),
+    })
+  })
+
+  return {
+    getApplyCallCount: () => applyCallCount,
+  }
+}
+
+async function completeStep3WithEmployeeImport(page: Page) {
+  await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
+
+  await page.getByText('엑셀 업로드', { exact: true }).click()
+  await page.locator('input[type="file"]').first().setInputFiles(employeeImportFile)
+
+  await expect(page.getByText('업로드된 직원 목록 (19명)')).toBeVisible()
+
+  await page.getByRole('button', { name: '저장' }).click()
+  await expect(page.getByText('직원 정보 저장 확인')).toBeVisible()
+  await page.getByRole('button', { name: '저장', exact: true }).last().click()
+  await expect(page.getByText('직원 정보가 저장되었습니다.')).toBeVisible()
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await expect(page).toHaveURL(/\/schedule\/step4$/)
+}
 
 test.describe('스케줄 생성 전체 워크플로우', () => {
-  test.beforeEach(async ({ page }) => {
-    await login(page)
-  })
+  test('Dashboard에서 시작해 Step4까지 이동한다', async ({ page }) => {
+    test.setTimeout(120_000)
 
-  test('Step 1 → Step 2 → Step 3 → Step 4 전체 플로우', async ({ page }) => {
-    // Step 1: 기본 정보 설정
-    await test.step('Step 1: 월 선택 및 조직 정보 확인', async () => {
-      const selectedMonth = await completeStep1(page)
-      console.log('선택된 월:', selectedMonth)
+    await mockStep3Network(page)
+
+    await test.step('Dashboard에서 새 스케줄 생성 플로우를 시작한다', async () => {
+      const selectedMonth = await startNewScheduleFromDashboard(page)
+      expect(selectedMonth).toMatch(/^\d{4}-\d{2}$/)
     })
 
-    // Step 2: 사이트 정보 설정
-    await test.step('Step 2: 요일별 필요 인력 설정', async () => {
-      await completeStep2(page, [
-        { dayOfWeek: 1, D: 10, E: 8, N: 5, O: 7 }, // 월요일
-      ])
+    await test.step('Step1부터 Step4까지 현재 플로우 기준으로 이동한다', async () => {
+      await completeStep1(page)
+      await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
+      await completeStep3WithEmployeeImport(page)
+      await expect(page.getByText(/근무 조정 일정 입력/)).toBeVisible()
+      await completeStep4InitialData(page, [{ rowIndex: 0, colIndex: 0, shift: 'O' }])
     })
 
-    // Step 3: 초기 데이터 입력
-    await test.step('Step 3: 이전 달 마지막 5일 데이터 입력', async () => {
-      // 첫 번째 직원의 이전 달 마지막 5일 데이터 입력
-      const assignments = Array.from({ length: 5 }, (_, i) => ({
-        rowIndex: 0,
-        colIndex: i,
-        shift: 'D' as const,
-      }))
+    await test.step('Step4 scoped localStorage가 저장되고 새로고침 후 복원된다', async () => {
+      await expect
+        .poll(async () => Boolean(await getTempScheduleFromStorage(page)), {
+          timeout: 5_000,
+        })
+        .toBe(true)
 
-      await completeStep3(page, assignments)
-
-      // LocalStorage 저장 확인
       const tempSchedule = await getTempScheduleFromStorage(page)
       expect(tempSchedule).toBeTruthy()
-      console.log('LocalStorage 임시 저장 확인:', !!tempSchedule)
 
-      // AI Solver 생성 및 완료 대기
-      await generateSchedule(page)
-    })
+      await page.reload()
+      await expect(page.locator('table').first()).toBeVisible()
 
-    // Step 4: 결과 확인
-    await test.step('Step 4: AI 생성 결과 확인 및 저장', async () => {
-      // 통계 정보 확인
-      const statsVisible = await verifyStep4Results(page)
-      expect(statsVisible).toBe(true)
+      await expect
+        .poll(async () => (await getCellShift(page, 0, 0))?.trim() ?? '', {
+          timeout: 10_000,
+        })
+        .toContain('O')
 
-      // 첫 번째 셀 시프트 확인
-      const firstCellShift = await getCellShift(page, 0, 0)
-      expect(['D', 'E', 'N', 'O', 'H']).toContain(firstCellShift?.trim())
-      console.log('첫 번째 셀 시프트:', firstCellShift)
-
-      // 저장
-      const saved = await saveSchedule(page)
-      expect(saved).toBe(true)
-
-      console.log('전체 워크플로우 테스트 완료')
+      const finalShift = await getCellShift(page, 0, 0)
+      expect(finalShift?.trim()).toContain('O')
     })
   })
 
-  test('LocalStorage 복원 기능 테스트', async ({ page }) => {
-    // Step 3로 직접 이동 (데이터 없으면 Step 1로 리다이렉트)
-    await page.goto('/schedule/step3')
-    await page.waitForURL('/schedule/step1')
+  test('finalized month는 Step3 적용에서 차단되고 apply가 호출되지 않는다', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000)
 
-    // Step 1 완료
-    await completeStep1(page)
+    const step3Network = await mockStep3Network(page, { finalized: true })
 
-    // Step 2 완료
-    await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 0, N: 0, O: 0 }])
+    await test.step('Dashboard에서 새 스케줄 생성 플로우를 시작한다', async () => {
+      const selectedMonth = await startNewScheduleFromDashboard(page)
+      expect(selectedMonth).toMatch(/^\d{4}-\d{2}$/)
+    })
 
-    // Step 3에서 데이터 입력
-    await completeStep3(page, [{ rowIndex: 0, colIndex: 0, shift: 'D' }])
+    await test.step('Step3 저장 시 finalized 경고가 보이고 저장은 차단된다', async () => {
+      await completeStep1(page)
+      await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
 
-    // 페이지 새로고침
-    await page.reload()
+      await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
+      await page.getByText('엑셀 업로드', { exact: true }).click()
+      await page.locator('input[type="file"]').first().setInputFiles(employeeImportFile)
 
-    // 데이터 복원 확인
-    await page.waitForSelector('table')
-    const restoredShift = await getCellShift(page, 0, 0)
-    expect(restoredShift).toContain('D')
+      await expect(page.getByText('업로드된 직원 목록 (19명)')).toBeVisible()
 
-    console.log('LocalStorage 복원 테스트 완료')
-  })
+      await page.getByRole('button', { name: '저장' }).click()
 
-  test('유효성 검증 테스트', async ({ page }) => {
-    // Step 1 완료
-    await page.goto('/schedule/step1')
-    await completeStep1(page)
-
-    // Step 2 완료
-    await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 0, N: 0, O: 0 }])
-
-    // Step 3: 이전 달 데이터 입력 없이 생성 시도
-    await page.waitForURL('/schedule/step3')
-    await page.click('button:has-text("생성")')
-
-    // 검증 에러 메시지 확인
-    const errorMessage = await getErrorMessage(page)
-    expect(errorMessage).toContain('이전')
-
-    console.log('유효성 검증 테스트 완료')
+      await expect(page.getByText('현재 월에 확정된 근무표가 있어 직원 정보를 저장할 수 없습니다.')).toBeVisible()
+      await expect(page).toHaveURL(/\/schedule\/step3$/)
+      expect(step3Network.getApplyCallCount()).toBe(0)
+    })
   })
 })

@@ -1,3 +1,5 @@
+import dayjs from 'dayjs';
+import { buildOrganizationScopeHeaders, getRequiredOrganizationId } from './requestScope';
 import { supabase } from './supabase';
 import type {
   AssignmentMap,
@@ -18,12 +20,20 @@ import type {
   ScheduleReviewResponse,
   ScheduleVersionSolveRequest,
   ScheduleVersionSolveResponse,
+  ScheduleVersionRecheckResponse,
+  ScheduleVersionFinalizeResponse,
   ScheduleVersionSolverResultRequest,
   ScheduleVersionSolverResultResponse,
   PlanningOrganization,
   PlanningShift,
   PlanningEmployee,
   PlanningAssignment,
+  PreviousMonthFinalizedContext,
+  DeleteScheduleMonthRequest,
+  DeleteScheduleMonthResponse,
+  ResetScheduleRosterRequest,
+  ResetScheduleRosterResponse,
+  ResetScheduleActiveFlowResponse,
 } from '@/types/schedule';
 
 interface ShiftReference {
@@ -67,6 +77,8 @@ interface RawSchedulePreference {
   resolution_status: PreferenceStatus;
   resolved_shift_id: string | null;
   resolved_at: string | null;
+  policy_check_status: string | null;
+  policy_rejection_reason: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -80,6 +92,7 @@ interface RawScopedSchedulePreference extends RawSchedulePreference {
 
 export interface ScheduleSummary {
   id: string;
+  public_id: string | null;
   organization_id: string;
   month: string;
   status: 'created' | 'running' | 'complete' | 'changed' | 'error';
@@ -114,23 +127,55 @@ function getPhase2ScheduleAnonKey(): string {
   return anonKey;
 }
 
+function createMissingOrganizationClaimError(): Error {
+  const message = '로그인 세션에 조직 정보가 없습니다. 다시 로그인한 뒤 다시 시도해주세요.';
+  const error = new Error(message);
+  (error as Error & { code?: string; status?: number }).code = 'organization_context_missing';
+  (error as Error & { code?: string; status?: number }).status = 403;
+  return error;
+}
+
 async function getPhase2ScheduleAccessToken(): Promise<string> {
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     throw error;
   }
 
-  const accessToken = data.session?.access_token;
-
-  if (!accessToken) {
+  const session = data.session ?? null;
+  if (!session?.access_token) {
     throw new Error('Authenticated session is required to call phase2-schedule');
   }
 
-  return accessToken;
+  return session.access_token;
+}
+
+async function refreshPhase2ScheduleAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.refreshSession();
+  if (error) {
+    throw error;
+  }
+
+  const refreshedSession = data.session ?? null;
+  if (!refreshedSession?.access_token) {
+    throw new Error('Authenticated session is required to call phase2-schedule');
+  }
+
+  return refreshedSession.access_token;
 }
 
 function buildPhase2ScheduleUrl(path: string): string {
   return `${getPhase2ScheduleBaseUrl()}/functions/v1/phase2-schedule${path}`;
+}
+
+function resolveScopedOrganizationId(organizationId?: string | null): string {
+  const activeOrganizationId = getRequiredOrganizationId();
+  const requestedOrganizationId = organizationId?.trim() ?? null;
+
+  if (requestedOrganizationId && requestedOrganizationId !== activeOrganizationId) {
+    throw new Error('요청 조직과 활성 조직이 일치하지 않습니다.');
+  }
+
+  return activeOrganizationId;
 }
 
 function createPhase2ScheduleError(payload: unknown, status: number): Error {
@@ -144,9 +189,12 @@ function createPhase2ScheduleError(payload: unknown, status: number): Error {
 
   if (payload !== null && typeof payload === 'object') {
     const record = payload as { code?: unknown; message?: unknown };
-    const message = typeof record.message === 'string' && record.message.trim().length > 0
-      ? record.message
-      : fallbackMessage;
+    const message =
+      record.code === 'organization_context_missing'
+        ? createMissingOrganizationClaimError().message
+        : typeof record.message === 'string' && record.message.trim().length > 0
+          ? record.message
+          : fallbackMessage;
     const error = new Error(message);
     (error as Error & { status?: number }).status = status;
 
@@ -165,48 +213,77 @@ async function callPhase2Schedule<T>(
   options: {
     method: 'GET' | 'POST' | 'PATCH';
     body?: unknown;
+    organizationId?: string | null;
   }
 ): Promise<T> {
-  const accessToken = await getPhase2ScheduleAccessToken();
   const url = buildPhase2ScheduleUrl(path);
-  const headers: Record<string, string> = {
-    apikey: getPhase2ScheduleAnonKey(),
-    Authorization: `Bearer ${accessToken}`,
-  };
+  const scopedOrganizationId = resolveScopedOrganizationId(options.organizationId);
+  const executeRequest = async (
+    accessToken: string
+  ): Promise<{ response: Response; payload: unknown }> => {
+    const headers: Record<string, string> = {
+      apikey: getPhase2ScheduleAnonKey(),
+      Authorization: `Bearer ${accessToken}`,
+      ...buildOrganizationScopeHeaders(scopedOrganizationId),
+    };
 
-  const requestInit: RequestInit = {
-    method: options.method,
-    headers,
-    mode: 'cors',
-    credentials: 'omit',
-  };
+    const requestInit: RequestInit = {
+      method: options.method,
+      headers,
+      mode: 'cors',
+      credentials: 'omit',
+    };
 
-  if (options.body !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    requestInit.body = JSON.stringify(options.body);
-  }
-
-  let response: Response;
-  try {
-    response = await fetch(url, requestInit);
-  } catch (error) {
-    const reason =
-      error instanceof Error && error.message.trim().length > 0
-        ? error.message
-        : String(error);
-    throw new Error(
-      `phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요): ${reason}`
-    );
-  }
-
-  const responseText = await response.text();
-  let payload: unknown = null;
-  if (responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = responseText;
+    if (options.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      requestInit.body = JSON.stringify(options.body);
     }
+
+    let response: Response;
+    try {
+      response = await fetch(url, requestInit);
+    } catch (error) {
+      const reason =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : String(error);
+      throw new Error(
+        `phase2-schedule 호출 실패 (네트워크/CORS 또는 배포 wiring 확인 필요): ${reason}`
+      );
+    }
+
+    const responseText = await response.text();
+    let payload: unknown = null;
+    if (responseText) {
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        payload = responseText;
+      }
+    }
+
+    return { response, payload };
+  };
+
+  const shouldRetryWithRefreshedSession = (status: number, payload: unknown): boolean => {
+    if (status === 401) {
+      return true;
+    }
+
+    if (status !== 403 || payload === null || typeof payload !== 'object') {
+      return false;
+    }
+
+    const record = payload as { code?: unknown };
+    return record.code === 'organization_context_missing';
+  };
+
+  const accessToken = await getPhase2ScheduleAccessToken();
+  let { response, payload } = await executeRequest(accessToken);
+
+  if (!response.ok && shouldRetryWithRefreshedSession(response.status, payload)) {
+    const refreshedAccessToken = await refreshPhase2ScheduleAccessToken();
+    ({ response, payload } = await executeRequest(refreshedAccessToken));
   }
 
   if (!response.ok) {
@@ -249,11 +326,12 @@ export async function ensurePhase2Schedule(
   return callPhase2Schedule<ScheduleCompareResponse>('/schedules/ensure', {
     method: 'POST',
     body: request,
+    organizationId: request.organizationId,
   });
 }
 
-export async function getPhase2ScheduleCompare(scheduleId: string): Promise<ScheduleCompareResponse> {
-  return callPhase2Schedule<ScheduleCompareResponse>(`/schedules/${scheduleId}/compare`, {
+export async function getPhase2ScheduleCompare(scheduleKey: string): Promise<ScheduleCompareResponse> {
+  return callPhase2Schedule<ScheduleCompareResponse>(`/schedules/${scheduleKey}/compare`, {
     method: 'GET',
   });
 }
@@ -332,6 +410,59 @@ export async function patchPhase2ScheduleVersionAssignments(
   );
 }
 
+export async function recheckPhase2ScheduleVersion(
+  versionId: string
+): Promise<ScheduleVersionRecheckResponse> {
+  return callPhase2Schedule<ScheduleVersionRecheckResponse>(
+    `/schedule-versions/${versionId}/recheck`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function finalizePhase2ScheduleVersion(
+  versionId: string
+): Promise<ScheduleVersionFinalizeResponse> {
+  return callPhase2Schedule<ScheduleVersionFinalizeResponse>(
+    `/schedule-versions/${versionId}/finalize`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function resetPhase2ScheduleRoster(
+  request: ResetScheduleRosterRequest
+): Promise<ResetScheduleRosterResponse> {
+  return callPhase2Schedule<ResetScheduleRosterResponse>('/schedules/reset-roster', {
+    method: 'POST',
+    body: request,
+    organizationId: request.organizationId,
+  });
+}
+
+export async function deletePhase2ScheduleMonth(
+  request: DeleteScheduleMonthRequest
+): Promise<DeleteScheduleMonthResponse> {
+  return callPhase2Schedule<DeleteScheduleMonthResponse>('/schedules/delete-month', {
+    method: 'POST',
+    body: request,
+    organizationId: request.organizationId,
+  });
+}
+
+export async function resetPhase2ScheduleActiveFlow(
+  scheduleId: string
+): Promise<ResetScheduleActiveFlowResponse> {
+  return callPhase2Schedule<ResetScheduleActiveFlowResponse>(
+    `/schedules/${scheduleId}/reset-active-flow`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
 export async function patchScheduleVersionAssignmentsAtomic(
   scheduleVersionId: string,
   changes: ScheduleVersionAssignmentChange[]
@@ -388,7 +519,7 @@ export async function getScheduleStatus(scheduleId: string) {
     .from('schedules')
     .select('*')
     .eq('id', scheduleId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
   return data;
@@ -401,7 +532,7 @@ export async function getLatestScheduleByOrganizationMonth(
 ): Promise<ScheduleSummary | null> {
   const { data, error } = await supabase
     .from('schedules')
-    .select('id, organization_id, month, status, hard_score, soft_score, solver_execution_id, created_at, updated_at')
+    .select('id, public_id, organization_id, month, status, hard_score, soft_score, solver_execution_id, created_at, updated_at')
     .eq('organization_id', orgId)
     .eq('month', month)
     .order('created_at', { ascending: false })
@@ -427,11 +558,11 @@ async function loadSchedulePreferences(
   let hasMore = true;
 
   while (hasMore) {
-    const { data, error } = await supabase
-      .from('schedule_preferences')
-      .select(
-        'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
-      )
+  const { data, error } = await supabase
+    .from('schedule_preferences')
+    .select(
+      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason, created_at, updated_at'
+    )
       .eq(scopeColumn, scopeId)
       .order('date', { ascending: true })
       .order('employee_id', { ascending: true })
@@ -513,6 +644,8 @@ async function saveSchedulePreferencesByScope(
     resolution_status: PreferenceStatus;
     resolved_shift_id: null;
     resolved_at: null;
+    policy_check_status: string | null;
+    policy_rejection_reason: string | null;
   }> = [];
 
   Object.entries(constraints).forEach(([employeeId, dateMap]) => {
@@ -533,6 +666,8 @@ async function saveSchedulePreferencesByScope(
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: 'pending',
+        policy_rejection_reason: null,
       });
     });
   });
@@ -678,6 +813,8 @@ async function refreshPreferenceResolutionByScope(
       resolution_status: (isFulfilled ? 'fulfilled' : 'unfulfilled') as PreferenceStatus,
       resolved_shift_id: match?.shiftId ?? null,
       resolved_at: resolvedAt,
+      policy_check_status: pref.policy_check_status,
+      policy_rejection_reason: pref.policy_rejection_reason,
     };
   });
 
@@ -685,7 +822,7 @@ async function refreshPreferenceResolutionByScope(
     .from('schedule_preferences')
     .upsert(updates, { onConflict: 'id' })
     .select(
-      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, created_at, updated_at'
+      'id, schedule_id, schedule_version_id, employee_id, date, request_code, request_note, is_soft, resolution_status, resolved_shift_id, resolved_at, policy_check_status, policy_rejection_reason, created_at, updated_at'
     );
 
   if (error) {
@@ -710,6 +847,35 @@ export async function getScheduleVersionAssignments(scheduleVersionId: string): 
   comments: CommentMap;
 }> {
   return getScheduleAssignmentsByScope('schedule_version_id', scheduleVersionId);
+}
+
+export async function getPreviousMonthFinalizedContext(
+  organizationId: string,
+  month: string,
+): Promise<PreviousMonthFinalizedContext | null> {
+  const previousMonth = dayjs(`${month}-01`).subtract(1, 'month').format('YYYY-MM');
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('id, finalized_version_id')
+    .eq('organization_id', organizationId)
+    .eq('month', previousMonth)
+    .maybeSingle();
+
+  if (error) throw new Error(`전월 확정 스케줄 조회 실패: ${error.message}`);
+  if (!data?.id || !data.finalized_version_id) return null;
+
+  const [displayData, planningAssignments] = await Promise.all([
+    getScheduleVersionAssignments(data.finalized_version_id),
+    getPlanningAssignmentsForVersion(data.finalized_version_id),
+  ]);
+
+  return {
+    scheduleId: data.id,
+    scheduleVersionId: data.finalized_version_id,
+    displayAssignments: displayData.assignments,
+    planningAssignments,
+  };
 }
 
 async function getScheduleAssignmentsByScope(scopeColumn: AssignmentScopeColumn, scopeId: string): Promise<{
@@ -927,93 +1093,6 @@ export async function getScheduleList(orgId: string) {
 
   if (error) throw error;
   return data;
-}
-
-// 임시 저장 - 전체 assignments와 offReasons를 일괄 저장
-export async function saveTempAssignments(
-  orgId: string,
-  month: string,
-  assignments: AssignmentMap,
-  shiftsMap: Record<string, string> // shiftCode -> shiftId 매핑
-) {
-  console.log('[saveTempAssignments] START - orgId:', orgId, 'month:', month);
-  console.log('[saveTempAssignments] shiftsMap:', shiftsMap);
-  console.log('[saveTempAssignments] assignments keys:', Object.keys(assignments).length);
-
-  // 1. schedule 생성 또는 기존 것 가져오기
-  const schedule = await createSchedule(orgId, month);
-  console.log('[saveTempAssignments] Schedule ID:', schedule.id);
-  console.log('[saveTempAssignments] Schedule status:', schedule.status);
-
-  // 2. assignments를 배열로 변환
-  const rows: Array<{
-    schedule_id: string;
-    employee_id: string;
-    shift_id: string;
-    date: string;
-    is_locked: boolean;
-  }> = [];
-
-  let skippedCount = 0;
-  Object.entries(assignments).forEach(([employeeId, dateMap]) => {
-    Object.entries(dateMap).forEach(([date, shiftCode]) => {
-      if (shiftCode && shiftsMap[shiftCode]) {
-        rows.push({
-          schedule_id: schedule.id,
-          employee_id: employeeId,
-          shift_id: shiftsMap[shiftCode],
-          date,
-          is_locked: false,
-        });
-      } else if (shiftCode) {
-        skippedCount++;
-        console.warn('[saveTempAssignments] Skipped - shiftCode:', shiftCode, 'not in shiftsMap');
-      }
-    });
-  });
-
-  console.log('[saveTempAssignments] Total rows to save:', rows.length);
-  console.log('[saveTempAssignments] Skipped cells:', skippedCount);
-
-  // 샘플 데이터 출력 (처음 3개)
-  if (rows.length > 0) {
-    console.log('[saveTempAssignments] Sample rows (first 3):', rows.slice(0, 3));
-  }
-
-  if (rows.length === 0) {
-    console.warn('[saveTempAssignments] No assignments to save');
-    return schedule;
-  }
-
-  // 3. 기존 assignments 삭제 후 재삽입 (임시 저장은 전체 교체)
-  const { data: deleteData, error: deleteError } = await supabase
-    .from('schedule_assignments')
-    .delete()
-    .eq('schedule_id', schedule.id)
-    .select();
-
-  if (deleteError) {
-    console.error('[saveTempAssignments] Delete error:', deleteError);
-    throw new Error(`기존 배정 삭제 실패: ${deleteError.message}`);
-  }
-
-  console.log('[saveTempAssignments] Deleted rows:', deleteData?.length || 0);
-
-  // 4. 새 assignments 삽입
-  const { data: insertData, error: insertError } = await supabase
-    .from('schedule_assignments')
-    .insert(rows)
-    .select();
-
-  if (insertError) {
-    console.error('[saveTempAssignments] Insert error:', insertError);
-    throw new Error(`배정 저장 실패: ${insertError.message}`);
-  }
-
-  console.log('[saveTempAssignments] Insert result - rows inserted:', insertData?.length || 0);
-  console.log('[saveTempAssignments] Successfully saved', rows.length, 'assignments');
-
-  return schedule;
 }
 
 // Planning Payload 데이터 조회 함수들

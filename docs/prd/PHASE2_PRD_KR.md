@@ -245,6 +245,13 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 ### 4.4 Phase2A-2 - Go-Live Ops Layer
 
+> 범위 메모:
+>
+> - Phase2A-2의 완료 범위는 완전한 self-serve launch가 아니라 operator-assisted pilot go-live다.
+> - 운영자 또는 내부 팀이 첫 파일럿 관리자 계정을 provision하고 초기 설정을 도울 수 있다.
+> - 이 단계에서 브라우저 사용자는 조직을 직접 생성하거나, 본인을 초대하거나, 본인에게 접근 권한을 부여하지 않는다.
+> - `site_requirements`는 schedule generation의 canonical staffing source로 유지한다. `sites`는 파일럿 메타데이터와 active site 선택을 보조할 수 있지만, Phase2A-2는 staffing source를 `site_staffing_requirements`로 migration하지 않는다.
+
 #### A. 관리자 bootstrap 및 초기 운영 설정
 
 - 운영자 또는 내부 팀이 첫 관리자 계정을 provision할 수 있어야 한다.
@@ -280,12 +287,14 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 - 최근 3개월 N/E/주말 근무 누적
 - 최근 6개월 N/E/주말 근무 누적
 - 최근 12개월 N/E/주말 근무 누적
-- 다음 달 생성 시 누적 불균형을 비용 함수에 반영
+- 운영자 검토를 위한 read-only 누적 fairness 요약
 
 비고:
 
 - rolling fairness ledger는 finalized version 기준으로만 적재한다.
 - draft 상태, review 중인 version, compare 전용 후보안은 ledger를 오염시키면 안 된다.
+- Phase2A-2는 finalized-only ledger write와 read-only aggregate 요약까지만 포함한다.
+- rolling fairness 이력을 solver 최적화에 반영하는 작업은 후속 단계로 분리한다.
 
 #### D. 파일럿 운영 진입 가이드
 
@@ -298,6 +307,22 @@ off 요청은 Soft Constraint이므로, 미반영된 경우 반드시 사유를 
 
 - Phase2A에서는 guided checklist 수준이면 충분하다.
 - 완전한 self-serve onboarding wizard는 Phase2B 범위로 본다.
+
+#### E. Phase2A-2 Assisted Pilot 범위와 Deferred 항목
+
+아래 항목은 누락된 요구사항이 아니다. Phase2A-2를 operator-assisted pilot go-live로 제한하기 위해 의도적으로 후속 단계로 분리한 범위다.
+
+| 항목                                                                       | Phase2A-2에서 제외한 이유                                                                                            | 다음 단계 방향                                                                                          |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| rolling fairness context의 solver 반영                                     | Phase2A-2는 finalized-only ledger 기록과 read-only 요약까지만 포함하며, 해당 이력으로 solver 동작을 튜닝하지 않는다. | pilot 사용에서 ledger 무결성과 finalized history 의미가 검증된 뒤 다시 연다.                            |
+| `site_requirements`에서 `site_staffing_requirements`로 canonical migration | 파일럿 설정 중 staffing source를 전환하면 schedule generation 입력이 중복될 위험이 있다.                             | multi-site 또는 더 풍부한 staffing model이 새 canonical source를 요구할 때만 검토한다.                  |
+| reopen/unfinalize 또는 fairness correction workflow                        | Phase2A-2는 finalized month를 read-only로 유지하고 Trust Layer finalization lifecycle을 바꾸지 않는다.               | finalized schedule을 다시 열기 전에 reversal semantics, audit trail, ledger correction rule을 정의한다. |
+| self-signup 또는 invite-driven onboarding                                  | assisted pilot launch는 operator-provisioned access로 운영 가능하며 self-serve acquisition flow가 필요하지 않다.     | 병원이 직접 조직과 사용자를 생성해야 하는 시점에 Phase2B self-serve onboarding으로 옮긴다.              |
+| approval queue semantics                                                   | assisted pilot 범위에는 end-user approval queue가 없다.                                                              | self-signup, invite acceptance, organization membership request가 생길 때 추가한다.                     |
+| membership-based auth rewrite                                              | assisted pilot 운영에는 기존 organization-scoped access가 충분하다.                                                  | multi-organization membership, invite flow, organization별 role assignment가 필요해질 때 재검토한다.    |
+| full RBAC                                                                  | Phase2A-2에는 좁은 operator/admin access가 필요하며 완전한 permission matrix는 필요하지 않다.                        | Phase2B scale-up에서 super/admin/user role과 multi-organization administration 요구에 맞춰 확장한다.    |
+| advanced operations dashboard 또는 analytics                               | Phase2A-2에는 guided readiness checklist가 필요하며 넓은 analytics surface는 필요하지 않다.                          | pilot metric을 통해 반복적으로 답해야 할 운영 질문이 확인된 뒤 만든다.                                  |
+| 모든 Phase2B self-serve feature                                            | Phase2B는 assisted pilot go-live와 분리된 self-serve 및 scale-up 단계다.                                             | pilot blocker로 명확히 입증되지 않는 한 Phase2B에 유지한다.                                             |
 
 ### 4.5 Phase2A 성공 기준
 

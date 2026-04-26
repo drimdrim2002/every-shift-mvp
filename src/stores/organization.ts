@@ -2,10 +2,21 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import * as organizationApi from '@/api/organization'
+import * as opsApi from '@/api/ops'
 import * as shiftApi from '@/api/shift'
+import { useRbacStore } from '@/stores/rbac'
 import type { Organization } from '@/types/organization'
 import type { Employee } from '@/types/employee'
 import type { Shift } from '@/types/shift'
+import type {
+  OrganizationProfileResponse,
+  ShiftsConstraintsResponse,
+  SiteResponse,
+} from '@/types/ops'
+import {
+  resolveAuthScope,
+  type AuthScope,
+} from '@/utils/authScope'
 
 // Supabase 응답 타입 정의 (snake_case)
 interface OrganizationRow {
@@ -37,31 +48,42 @@ interface ShiftRow {
   created_at?: string
 }
 
-type OrganizationMetadata = Record<string, unknown> | null | undefined
+function resolveSelectedOrganizationId(explicitOrgId?: string): string {
+  const rbacStore = useRbacStore()
+  const activeOrganizationIds = new Set(
+    [rbacStore.selectedOrganizationId, rbacStore.effectiveMembership?.organizationId].filter(
+      (organizationId): organizationId is string => Boolean(organizationId),
+    ),
+  )
+  const trimmedExplicitOrgId = explicitOrgId?.trim()
+
+  if (trimmedExplicitOrgId) {
+    if (activeOrganizationIds.has(trimmedExplicitOrgId)) {
+      return trimmedExplicitOrgId
+    }
+
+    throw new Error('선택한 조직에 접근할 수 없습니다.')
+  }
+
+  const selectedOrganizationId =
+    rbacStore.selectedOrganizationId ?? rbacStore.effectiveMembership?.organizationId ?? null
+
+  if (!selectedOrganizationId) {
+    throw new Error('접근 가능한 조직 정보가 없습니다.')
+  }
+
+  return selectedOrganizationId
+}
 
 export const useOrganizationStore = defineStore('organization', () => {
   const current = ref<Organization | null>(null)
   const employees = ref<Employee[]>([])
   const shifts = ref<Shift[]>([])
   const loading = ref(false)
-
-  function readOrganizationIdFromMetadata(metadata: OrganizationMetadata): string | null {
-    const keys = [
-      'organizationId',
-      'organization_id',
-      'currentOrganizationId',
-      'current_organization_id',
-    ] as const
-
-    for (const key of keys) {
-      const value = metadata?.[key]
-      if (typeof value === 'string' && value.trim().length > 0) {
-        return value.trim()
-      }
-    }
-
-    return null
-  }
+  const foundationProfile = ref<OrganizationProfileResponse | null>(null)
+  const foundationSite = ref<SiteResponse | null>(null)
+  const foundationShiftsConstraints = ref<ShiftsConstraintsResponse | null>(null)
+  const foundationLoading = ref(false)
 
   async function fetchOrganizationById(orgId: string): Promise<OrganizationRow | null> {
     const { data, error } = await supabase
@@ -75,59 +97,28 @@ export const useOrganizationStore = defineStore('organization', () => {
     return (data as OrganizationRow[])[0] ?? null
   }
 
-  async function fetchFirstAccessibleOrganization(): Promise<OrganizationRow | null> {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('*')
-      .order('name')
-      .limit(1)
-
-    if (error) throw error
-
-    return (data as OrganizationRow[])[0] ?? null
-  }
-
-  async function resolveOrganization(orgId?: string): Promise<OrganizationRow> {
-    const candidateOrgIds = new Set<string>()
-
-    if (typeof orgId === 'string' && orgId.trim().length > 0) {
-      candidateOrgIds.add(orgId.trim())
-    }
-
-    if (current.value?.id) {
-      candidateOrgIds.add(current.value.id)
-    }
-
+  async function resolveOrganization(orgId?: string): Promise<{
+    organization: OrganizationRow
+    authScope: AuthScope | null
+  }> {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
     if (sessionError) throw sessionError
 
     const sessionUser = sessionData.session?.user
-    const metadataOrgIds = [
-      readOrganizationIdFromMetadata(sessionUser?.user_metadata as OrganizationMetadata),
-      readOrganizationIdFromMetadata(sessionUser?.app_metadata as OrganizationMetadata),
-    ]
+    const authScope = resolveAuthScope(sessionUser)
+    const resolvedOrgId = resolveSelectedOrganizationId(orgId)
 
-    for (const metadataOrgId of metadataOrgIds) {
-      if (metadataOrgId) {
-        candidateOrgIds.add(metadataOrgId)
-      }
+    const organization = await fetchOrganizationById(resolvedOrgId)
+
+    if (!organization) {
+      throw new Error('선택한 조직을 찾을 수 없습니다.')
     }
 
-    for (const candidateOrgId of candidateOrgIds) {
-      const organization = await fetchOrganizationById(candidateOrgId)
-      if (organization) {
-        return organization
-      }
+    return {
+      organization,
+      authScope,
     }
-
-    const fallbackOrganization = await fetchFirstAccessibleOrganization()
-
-    if (fallbackOrganization) {
-      return fallbackOrganization
-    }
-
-    throw new Error('접근 가능한 조직 정보가 없습니다.')
   }
 
   /**
@@ -137,7 +128,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     loading.value = true
     try {
       // 조직 정보
-      const org = await resolveOrganization(orgId)
+      const resolved = await resolveOrganization(orgId)
+      const org = resolved.organization
       const resolvedOrgId = org.id
 
       current.value = {
@@ -146,6 +138,7 @@ export const useOrganizationStore = defineStore('organization', () => {
         type: org.type,
         createdAt: org.created_at,
         updatedAt: org.updated_at,
+        foundation: resolved.authScope?.foundation ?? null,
       }
 
       // 직원 목록
@@ -201,6 +194,57 @@ export const useOrganizationStore = defineStore('organization', () => {
     } finally {
       loading.value = false
     }
+  }
+
+  async function loadFoundationData(orgId?: string) {
+    const organizationId = orgId ?? current.value?.id ?? null
+
+    if (!organizationId) {
+      return { success: false, error: '기본 설정을 불러올 조직이 없습니다.' }
+    }
+
+    foundationLoading.value = true
+
+    try {
+      const [profile, sites, shiftsConstraints] = await Promise.all([
+        opsApi.getOrganizationProfile(organizationId),
+        opsApi.getSites(organizationId),
+        opsApi.getShiftsConstraints(organizationId),
+      ])
+
+      foundationProfile.value = profile
+      foundationSite.value = sites.site
+      foundationShiftsConstraints.value = shiftsConstraints
+
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return { success: false, error: message }
+    } finally {
+      foundationLoading.value = false
+    }
+  }
+
+  function updateFoundationProfileCache(profile: OrganizationProfileResponse) {
+    foundationProfile.value = profile
+
+    if (current.value) {
+      current.value = {
+        ...current.value,
+        name: profile.name,
+        type: profile.type,
+        foundation: {
+          currentStepKey: current.value.foundation?.currentStepKey ?? 'organization_profile',
+          organizationInfoConfirmedAt:
+            current.value.foundation?.organizationInfoConfirmedAt ?? new Date().toISOString(),
+          organizationInfoConfirmedBy: current.value.foundation?.organizationInfoConfirmedBy ?? null,
+        },
+      }
+    }
+  }
+
+  function updateFoundationSiteCache(site: SiteResponse | null) {
+    foundationSite.value = site
   }
 
   /**
@@ -364,12 +408,18 @@ export const useOrganizationStore = defineStore('organization', () => {
   /**
    * 스토어 초기화
    */
-  function resetStore() {
+  function resetContext() {
     current.value = null
     employees.value = []
     shifts.value = []
     loading.value = false
+    foundationProfile.value = null
+    foundationSite.value = null
+    foundationShiftsConstraints.value = null
+    foundationLoading.value = false
   }
+
+  const resetStore = resetContext
 
   return {
     // State
@@ -377,8 +427,15 @@ export const useOrganizationStore = defineStore('organization', () => {
     employees,
     shifts,
     loading,
+    foundationProfile,
+    foundationSite,
+    foundationShiftsConstraints,
+    foundationLoading,
     // Actions - Organization
     loadOrganization,
+    loadFoundationData,
+    updateFoundationProfileCache,
+    updateFoundationSiteCache,
     createOrganization,
     updateCurrentOrganization,
     // Actions - Shifts (DB)
@@ -392,6 +449,7 @@ export const useOrganizationStore = defineStore('organization', () => {
     updateLocalShift,
     deleteLocalShift,
     // Actions - Reset
+    resetContext,
     resetStore,
   }
 })

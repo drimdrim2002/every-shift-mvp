@@ -43,6 +43,18 @@ export default defineConfig(({ mode }) => {
               console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
             });
           }
+        },
+        '/solve': {
+          target: solverApiTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path, // /solve -> /solve
+        },
+        '/status': {
+          target: solverApiTarget,
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path, // /status/{id} -> /status/{id}
         }
       }
     },

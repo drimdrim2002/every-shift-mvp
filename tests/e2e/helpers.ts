@@ -1,206 +1,953 @@
-import type { Page } from '@playwright/test'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { expect, type Locator, type Page, type Route } from '@playwright/test'
+import {
+  APP_HOME_ROUTE_PATH,
+  getApprovalQueueRoutePath,
+  getScheduleStepRoutePath,
+  getStep5ScheduleKeyFromPath,
+  getUserHomeRoutePath,
+} from '../../src/constants/routes'
 
-/**
- * E2E 테스트 헬퍼 함수
- */
-
-/**
- * 로그인 헬퍼
- */
-export async function login(page: Page, email?: string, password?: string) {
-  const testEmail = email || process.env.TEST_USER_EMAIL || 'test@example.com'
-  const testPassword = password || process.env.TEST_USER_PASSWORD || 'password123'
-
-  await page.goto('/login')
-  await page.fill('input[type="email"]', testEmail)
-  await page.fill('input[type="password"]', testPassword)
-  await page.click('button[type="submit"]')
-
-  // 로그인 완료 대기
-  await page.waitForURL('/schedule/step1')
+type TestCredentials = {
+  email: string
+  password: string
 }
 
-/**
- * Step 1: 기본 정보 설정
- */
-export async function completeStep1(page: Page, monthIndex = 0) {
-  // Step 1 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 기본 정보 설정')
-
-  // 조직 정보 로드 대기
-  await page.waitForSelector('text=조직 정보 확인')
-
-  // 월 선택
-  await page.click('.n-select')
-  await page.waitForSelector('.n-select-menu')
-
-  // 지정된 월 선택 (기본값: 첫 번째 옵션)
-  const options = page.locator('.n-select-menu .n-base-select-option')
-  await options.nth(monthIndex).click()
-
-  // 선택된 월 저장
-  const selectedMonth = await page.locator('.n-select').textContent()
-
-  // 다음 단계 버튼 클릭
-  await page.click('button:has-text("다음 단계")')
-
-  // Step 2로 이동 확인
-  await page.waitForURL('/schedule/step2')
-
-  return selectedMonth
+type DayRequirement = {
+  dayOfWeek: number
+  D?: number
+  E?: number
+  N?: number
 }
 
-/**
- * Step 2: 사이트 정보 설정
- */
-export async function completeStep2(
-  page: Page,
-  requirements: {
-    dayOfWeek: number // 0-6 (일-토)
-    D: number
-    E: number
-    N: number
-    O: number
-  }[]
-) {
-  // Step 2 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 사이트 정보 설정')
+type ExistingScheduleOptions = {
+  month?: string | null
+  preferCompleted?: boolean
+}
 
-  const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
+const supabaseCorsHeaders = {
+  'access-control-allow-origin': 'http://127.0.0.1:5173',
+  'access-control-allow-headers': 'apikey, authorization, content-type, prefer, range, x-client-info',
+  'access-control-allow-methods': 'GET,POST,PATCH,PUT,DELETE,OPTIONS',
+  'access-control-max-age': '86400',
+}
 
-  // 각 요일별 필요 인력 설정
-  for (const req of requirements) {
-    const row = page.locator('tr').filter({ hasText: dayNames[req.dayOfWeek] })
+type MockRbacAccessState = 'super_active' | 'admin_active' | 'user_active'
 
-    // D, E, N, O 순서대로 입력
-    await row.locator('input').nth(0).fill(String(req.D))
-    await row.locator('input').nth(1).fill(String(req.E))
-    await row.locator('input').nth(2).fill(String(req.N))
-    await row.locator('input').nth(3).fill(String(req.O))
+type MockOrganizationRow = {
+  id: string
+  name: string
+  type: string
+  created_at?: string
+  updated_at?: string
+}
+
+type MockEmployeeRow = {
+  id: string
+  organization_id: string
+  employee_id: string
+  name: string
+  available_shifts: string[]
+  created_at?: string
+  updated_at?: string
+}
+
+type MockShiftRow = {
+  id: string
+  organization_id: string
+  code: string
+  name: string
+  color_code: string
+  start_time: string | null
+  end_time: string | null
+  created_at?: string
+}
+
+type MockRbacFixture = {
+  profile: {
+    global_role: 'super' | 'user'
+    account_status: 'active'
+    organization_id: string | null
+    role: 'admin' | 'user' | null
+    status: 'active' | null
+  }
+  memberships: Array<{
+    id: string
+    organization_id: string
+    role: 'admin' | 'user'
+    status: 'approved'
+    approved_at: string
+    created_at: string
+    rejection_reason: null
+  }>
+  organizations: MockOrganizationRow[]
+  employeesByOrganizationId: Record<string, MockEmployeeRow[]>
+  shiftsByOrganizationId: Record<string, MockShiftRow[]>
+}
+
+type PlaywrightStorageState = {
+  origins?: Array<{
+    origin: string
+    localStorage: Array<{
+      name: string
+      value: string
+    }>
+  }>
+}
+
+type PlaywrightSupabaseUser = {
+  id: string
+  aud: 'authenticated'
+  role: 'authenticated'
+  email: string
+  email_confirmed_at: string
+  phone: string
+  confirmed_at: string
+  app_metadata: Record<string, unknown>
+  user_metadata: Record<string, unknown>
+  identities: unknown[]
+  created_at: string
+  updated_at: string
+  is_anonymous: false
+}
+
+type PlaywrightSupabaseSession = {
+  access_token: string
+  token_type: 'bearer'
+  expires_in: number
+  expires_at: number
+  refresh_token: string
+  user: PlaywrightSupabaseUser
+  weak_password: null
+}
+
+function buildOrgId(index: number) {
+  return `org-${index}`
+}
+
+function getSupabaseProjectRef() {
+  const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim()
+  if (supabaseUrl) {
+    const match = supabaseUrl.match(/^https?:\/\/([^.]+)\.supabase\.co\/?$/)
+    if (match?.[1]) {
+      return match[1]
+    }
   }
 
-  // 다음 단계 버튼 클릭
-  await page.click('button:has-text("다음 단계")')
-
-  // Step 3로 이동 확인
-  await page.waitForURL('/schedule/step3')
+  const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  const fallbackAuthState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
+  const originState = fallbackAuthState.origins?.find((origin) => origin.origin === 'http://127.0.0.1:5173')
+  const authEntry = originState?.localStorage?.find((entry) => entry.name.endsWith('-auth-token'))
+  const storageKey = authEntry?.name ?? 'sb-vjmerqaxguovnojinxfq-auth-token'
+  const prefix = storageKey.startsWith('sb-') ? storageKey.slice(3) : storageKey
+  const projectRef = prefix.endsWith('-auth-token') ? prefix.slice(0, -12) : prefix
+  return projectRef || 'vjmerqaxguovnojinxfq'
 }
 
-/**
- * Step 3: 초기 데이터 입력
- */
-export async function completeStep3(
+function getSupabaseAuthStorageKey() {
+  return `sb-${getSupabaseProjectRef()}-auth-token`
+}
+
+function base64UrlEncode(input: string) {
+  return Buffer.from(input, 'utf8').toString('base64url')
+}
+
+function createFakeSupabaseAccessToken(user: PlaywrightSupabaseUser, expiresAt: number) {
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  }
+  const payload = {
+    iss: `https://${getSupabaseProjectRef()}.supabase.co/auth/v1`,
+    sub: user.id,
+    aud: user.aud,
+    exp: expiresAt,
+    iat: expiresAt - 60 * 60 * 24 * 30,
+    email: user.email,
+    phone: user.phone,
+    app_metadata: user.app_metadata,
+    user_metadata: user.user_metadata,
+    role: user.role,
+    aal: 'aal1',
+    amr: [{ method: 'password', timestamp: expiresAt - 60 * 60 * 24 * 30 }],
+    session_id: `session-${user.id}`,
+    is_anonymous: false,
+  }
+
+  return `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}.signature`
+}
+
+function buildFreshSupabaseAuthState() {
+  const storageEntries = loadPlaywrightAuthStorageEntries()
+  if (storageEntries.length === 0) {
+    throw new Error('Playwright auth storage state is missing.')
+  }
+
+  const authEntry = storageEntries.find((entry) => entry.name.endsWith('-auth-token'))
+  if (!authEntry) {
+    throw new Error('Playwright auth storage state is missing the Supabase auth token.')
+  }
+
+  const parsedSession = JSON.parse(authEntry.value) as {
+    user?: Partial<PlaywrightSupabaseUser>
+  }
+
+  const now = new Date()
+  const expiresAt = Math.floor((now.getTime() + 1000 * 60 * 60 * 24 * 30) / 1000)
+  const user: PlaywrightSupabaseUser = {
+    id: parsedSession.user?.id ?? '3f7416de-3713-40ad-bac4-6e87c20b369c',
+    email: parsedSession.user?.email ?? 'sindeaf@gmail.com',
+    aud: 'authenticated',
+    role: 'authenticated',
+    email_confirmed_at: parsedSession.user?.email_confirmed_at ?? now.toISOString(),
+    phone: parsedSession.user?.phone ?? '',
+    confirmed_at: parsedSession.user?.confirmed_at ?? now.toISOString(),
+    app_metadata: parsedSession.user?.app_metadata ?? {},
+    user_metadata: parsedSession.user?.user_metadata ?? {},
+    identities: parsedSession.user?.identities ?? [],
+    created_at: parsedSession.user?.created_at ?? now.toISOString(),
+    updated_at: parsedSession.user?.updated_at ?? now.toISOString(),
+    is_anonymous: false,
+  }
+
+  const session: PlaywrightSupabaseSession = {
+    access_token: createFakeSupabaseAccessToken(user, expiresAt),
+    token_type: 'bearer',
+    expires_in: 60 * 60 * 24 * 30,
+    expires_at: expiresAt,
+    refresh_token: `refresh-${user.id}-${expiresAt}`,
+    user,
+    weak_password: null,
+  }
+
+  return {
+    storageKey: getSupabaseAuthStorageKey(),
+    session,
+  }
+}
+
+function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
+  if (accessState === 'super_active') {
+    const organizations = [
+      {
+        id: buildOrgId(1),
+        name: '서버 병원',
+        type: 'hospital',
+        created_at: '2026-04-01T00:00:00Z',
+        updated_at: '2026-04-01T00:00:00Z',
+      },
+      {
+        id: buildOrgId(2),
+        name: '동부 병원',
+        type: 'hospital',
+        created_at: '2026-04-01T00:00:00Z',
+        updated_at: '2026-04-01T00:00:00Z',
+      },
+    ]
+
+    return {
+      profile: {
+        global_role: 'super',
+        account_status: 'active',
+        organization_id: null,
+        role: null,
+        status: null,
+      },
+      memberships: organizations.map((organization, index) => ({
+        id: `membership-${index + 1}`,
+        organization_id: organization.id,
+        role: 'admin',
+        status: 'approved',
+        approved_at: '2026-04-01T00:00:00Z',
+        created_at: '2026-04-01T00:00:00Z',
+        rejection_reason: null,
+      })),
+      organizations,
+      employeesByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'employee-1',
+            organization_id: buildOrgId(1),
+            employee_id: 'E001',
+            name: '김 간호사',
+            available_shifts: ['D', 'E', 'N'],
+          },
+        ],
+        [buildOrgId(2)]: [
+          {
+            id: 'employee-2',
+            organization_id: buildOrgId(2),
+            employee_id: 'E101',
+            name: '이 간호사',
+            available_shifts: ['D', 'E', 'N'],
+          },
+        ],
+      },
+      shiftsByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'shift-1',
+            organization_id: buildOrgId(1),
+            code: 'D',
+            name: 'Day',
+            color_code: '#2563eb',
+            start_time: '09:00:00',
+            end_time: '18:00:00',
+          },
+        ],
+        [buildOrgId(2)]: [
+          {
+            id: 'shift-2',
+            organization_id: buildOrgId(2),
+            code: 'D',
+            name: 'Day',
+            color_code: '#059669',
+            start_time: '08:00:00',
+            end_time: '17:00:00',
+          },
+        ],
+      },
+    }
+  }
+
+  if (accessState === 'admin_active') {
+    return {
+      profile: {
+        global_role: 'user',
+        account_status: 'active',
+        organization_id: buildOrgId(1),
+        role: 'admin',
+        status: 'active',
+      },
+      memberships: [
+        {
+          id: 'membership-1',
+          organization_id: buildOrgId(1),
+          role: 'admin',
+          status: 'approved',
+          approved_at: '2026-04-01T00:00:00Z',
+          created_at: '2026-04-01T00:00:00Z',
+          rejection_reason: null,
+        },
+      ],
+      organizations: [
+        {
+          id: buildOrgId(1),
+          name: '서버 병원',
+          type: 'hospital',
+          created_at: '2026-04-01T00:00:00Z',
+          updated_at: '2026-04-01T00:00:00Z',
+        },
+      ],
+      employeesByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'employee-1',
+            organization_id: buildOrgId(1),
+            employee_id: 'E001',
+            name: '김 간호사',
+            available_shifts: ['D', 'E', 'N'],
+          },
+        ],
+      },
+      shiftsByOrganizationId: {
+        [buildOrgId(1)]: [
+          {
+            id: 'shift-1',
+            organization_id: buildOrgId(1),
+            code: 'D',
+            name: 'Day',
+            color_code: '#2563eb',
+            start_time: '09:00:00',
+            end_time: '18:00:00',
+          },
+        ],
+      },
+    }
+  }
+
+  return {
+    profile: {
+      global_role: 'user',
+      account_status: 'active',
+      organization_id: buildOrgId(1),
+      role: 'user',
+      status: 'active',
+    },
+    memberships: [
+      {
+        id: 'membership-1',
+        organization_id: buildOrgId(1),
+        role: 'user',
+        status: 'approved',
+        approved_at: '2026-04-01T00:00:00Z',
+        created_at: '2026-04-01T00:00:00Z',
+        rejection_reason: null,
+      },
+    ],
+    organizations: [
+      {
+        id: buildOrgId(1),
+        name: '서버 병원',
+        type: 'hospital',
+        created_at: '2026-04-01T00:00:00Z',
+        updated_at: '2026-04-01T00:00:00Z',
+      },
+    ],
+    employeesByOrganizationId: {
+      [buildOrgId(1)]: [
+        {
+          id: 'employee-1',
+          organization_id: buildOrgId(1),
+          employee_id: 'E001',
+          name: '김 간호사',
+          available_shifts: ['D', 'E', 'N'],
+        },
+      ],
+    },
+    shiftsByOrganizationId: {
+      [buildOrgId(1)]: [
+        {
+          id: 'shift-1',
+          organization_id: buildOrgId(1),
+          code: 'D',
+          name: 'Day',
+          color_code: '#2563eb',
+          start_time: '09:00:00',
+          end_time: '18:00:00',
+        },
+      ],
+    },
+  }
+}
+
+function getFilterValue(searchParams: URLSearchParams, key: string): string | null {
+  const rawValue = searchParams.get(key)
+  if (!rawValue) {
+    return null
+  }
+
+  return rawValue.startsWith('eq.') ? rawValue.slice(3) : rawValue
+}
+
+function getFilterValues(searchParams: URLSearchParams, key: string): string[] | null {
+  const rawValue = searchParams.get(key)
+  if (!rawValue) {
+    return null
+  }
+
+  if (rawValue.startsWith('in.(') && rawValue.endsWith(')')) {
+    return rawValue
+      .slice(4, -1)
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  }
+
+  const singleValue = getFilterValue(searchParams, key)
+  return singleValue ? [singleValue] : null
+}
+
+function buildCorsHeaders() {
+  return supabaseCorsHeaders
+}
+
+function loadPlaywrightAuthStorageEntries() {
+  const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  const authState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
+  const originState = authState.origins?.find((origin) => origin.origin === 'http://127.0.0.1:5173')
+  return originState?.localStorage ?? []
+}
+
+export async function seedPlaywrightAuthState(page: Page) {
+  const { storageKey, session } = buildFreshSupabaseAuthState()
+
+  await page.addInitScript((entryName, session) => {
+    window.localStorage.setItem(entryName, JSON.stringify(session))
+  }, storageKey, session)
+}
+
+async function fulfillJson(
+  route: Route,
+  body: unknown,
+  status = 200,
+) {
+  await route.fulfill({
+    status,
+    headers: {
+      ...buildCorsHeaders(),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+}
+
+export async function seedScheduleWizardContext(
+  page: Page,
+  params: {
+    organizationId: string
+    organizationName: string
+    organizationType: string
+    month: string
+    employeeCount?: number
+    scheduleId?: string | null
+    schedulePublicId?: string | null
+  }
+) {
+  const { session } = buildFreshSupabaseAuthState()
+
+  await page.evaluate((payload) => {
+    const userId = payload.userId
+    const wizardContextKey = `everyshift_wizard_context_v2:${userId}`
+    const nextContext = {
+      schemaVersion: 2,
+      ownerUserId: userId,
+      ownerOrganizationId: payload.organizationId,
+      context: {
+        basicInfo: {
+          month: payload.month,
+          organizationId: payload.organizationId,
+          organizationName: payload.organizationName,
+          organizationType: payload.organizationType,
+          employeeCount: payload.employeeCount ?? 0,
+          shifts: [],
+          ...(payload.scheduleId ? { scheduleId: payload.scheduleId } : {}),
+          ...(payload.schedulePublicId ? { schedulePublicId: payload.schedulePublicId } : {}),
+        },
+        selectedVersionId: null,
+        previewVersionId: null,
+        currentStep: 1,
+      },
+    }
+
+    window.localStorage.setItem(wizardContextKey, JSON.stringify(nextContext))
+  }, { ...params, userId: session.user.id })
+}
+
+export async function seedSelectedOrganization(page: Page, organizationId: string) {
+  const { session } = buildFreshSupabaseAuthState()
+  const selectedOrganizationKey = `everyshift:selected-organization:${session.user.id}`
+  const payload = {
+    storageKey: selectedOrganizationKey,
+    value: organizationId,
+  }
+
+  await page.addInitScript(
+    ({ storageKey, value }) => {
+      window.localStorage.setItem(storageKey, value)
+    },
+    payload,
+  )
+
+  if (page.url().startsWith('http')) {
+    await page.evaluate(
+      ({ storageKey, value }) => {
+        window.localStorage.setItem(storageKey, value)
+      },
+      payload,
+    )
+  }
+}
+
+export async function mockRbacContext(page: Page, accessState: MockRbacAccessState) {
+  const fixture = buildRbacFixture(accessState)
+  const { session } = buildFreshSupabaseAuthState()
+
+  await page.addInitScript((entryName, authSession) => {
+    window.localStorage.setItem(entryName, JSON.stringify(authSession))
+  }, getSupabaseAuthStorageKey(), session)
+
+  await page.route('**/functions/v1/approval-read/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: buildCorsHeaders() })
+      return
+    }
+
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/queue')) {
+      await fulfillJson(route, { items: [] })
+      return
+    }
+
+    if (url.pathname.endsWith('/request')) {
+      await fulfillJson(route, { request: null })
+      return
+    }
+
+    await fulfillJson(route, { items: [] })
+  })
+
+  await page.route('**/auth/v1/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: buildCorsHeaders() })
+      return
+    }
+
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/user')) {
+      await fulfillJson(route, session.user)
+      return
+    }
+
+    if (url.pathname.endsWith('/token') && url.searchParams.get('grant_type') === 'refresh_token') {
+      await fulfillJson(route, session)
+      return
+    }
+
+    await fulfillJson(route, { user: session.user })
+  })
+
+  await page.route('**/rest/v1/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: buildCorsHeaders() })
+      return
+    }
+
+    const url = new URL(route.request().url())
+    const table = url.pathname.split('/rest/v1/')[1]?.split('/')[0]
+
+    switch (table) {
+      case 'profiles':
+        await fulfillJson(route, fixture.profile)
+        return
+      case 'organization_memberships':
+        await fulfillJson(route, fixture.memberships)
+        return
+      case 'signup_requests':
+        await fulfillJson(route, null)
+        return
+      case 'organizations': {
+        const organizationIds = getFilterValues(url.searchParams, 'id')
+        const organizations = organizationIds
+          ? fixture.organizations.filter((organization) => organizationIds.includes(organization.id))
+          : fixture.organizations
+        await fulfillJson(route, organizations)
+        return
+      }
+      case 'employees': {
+        const organizationId = getFilterValue(url.searchParams, 'organization_id')
+        await fulfillJson(route, organizationId ? fixture.employeesByOrganizationId[organizationId] ?? [] : [])
+        return
+      }
+      case 'shifts': {
+        const organizationId = getFilterValue(url.searchParams, 'organization_id')
+        await fulfillJson(route, organizationId ? fixture.shiftsByOrganizationId[organizationId] ?? [] : [])
+        return
+      }
+      default:
+        await fulfillJson(route, [])
+    }
+  })
+
+  return fixture
+}
+
+export async function selectOrganization(page: Page, organizationLabel: string) {
+  const switcher = page.getByTestId('organization-switcher')
+  await expect(switcher).toBeVisible()
+  const currentValue = (await switcher.textContent())?.trim() ?? ''
+  if (currentValue.includes(organizationLabel)) {
+    return
+  }
+
+  await switcher.click()
+  const optionName = organizationLabel.replace(/\s*\([^)]*\)\s*$/, '')
+  const option = page.locator('.n-base-select-option').filter({ hasText: optionName }).first()
+  await expect(option).toBeVisible()
+  await option.click()
+  await expect(switcher).toContainText(optionName)
+}
+
+export function getRequiredTestCredentials(): TestCredentials {
+  const email = process.env.TEST_USER_EMAIL?.trim()
+  const password = process.env.TEST_USER_PASSWORD?.trim()
+
+  if (!email || !password) {
+    throw new Error(
+      'Missing TEST_USER_EMAIL or TEST_USER_PASSWORD. Set them in the environment or .env.test before running Playwright.'
+    )
+  }
+
+  return { email, password }
+}
+
+export async function login(page: Page, credentials = getRequiredTestCredentials()) {
+  await page.goto('/login')
+  await expect(page).toHaveURL(/\/login$/)
+
+  await page
+    .locator('[data-test="login-email"] input, input[placeholder="admin@everyshift.com"]')
+    .first()
+    .fill(credentials.email)
+  await page
+    .locator('[data-test="login-password"] input, input[type="password"]')
+    .first()
+    .fill(credentials.password)
+  await page
+    .locator('[data-test="login-submit"], button:has-text("로그인")')
+    .first()
+    .click()
+
+  await waitForAuthenticatedLanding(page)
+}
+
+export async function waitForAuthenticatedLanding(page: Page) {
+  await page.waitForURL((url) =>
+    url.pathname === APP_HOME_ROUTE_PATH
+    || url.pathname === getApprovalQueueRoutePath()
+    || url.pathname === getUserHomeRoutePath()
+  )
+
+  const currentPath = new URL(page.url()).pathname
+
+  if (currentPath === getApprovalQueueRoutePath()) {
+    await expect(page.getByRole('heading', { name: '관리자 가입 승인', exact: true })).toBeVisible()
+  } else if (currentPath === getUserHomeRoutePath()) {
+    await expect(page.getByRole('heading', { name: '운영 권한 안내', exact: true })).toBeVisible()
+  } else {
+    await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
+  }
+
+  await page.waitForLoadState('networkidle')
+}
+
+export async function waitForDashboard(page: Page) {
+  await page.waitForURL((url) => url.pathname === APP_HOME_ROUTE_PATH)
+  await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
+  await page.waitForLoadState('networkidle')
+}
+
+export async function startNewScheduleFromDashboard(page: Page) {
+  await page.goto(APP_HOME_ROUTE_PATH)
+  await waitForDashboard(page)
+  await waitForDashboardScheduleState(page)
+
+  const existingMonths = (await getDashboardScheduleMonthLabels(page).allTextContents())
+    .map(normalizeScheduleMonth)
+    .filter(Boolean)
+  const existingMonthSet = new Set(existingMonths)
+
+  await page
+    .locator(
+      '[data-test="dashboard-create-schedule"], button:has-text("새 근무표 생성"), button:has-text("첫 근무표 생성하기")'
+    )
+    .first()
+    .click()
+
+  const monthSelect = page.locator('[data-test="dashboard-month-select"], .n-base-selection').last()
+  await expect(monthSelect).toBeVisible()
+  await monthSelect.click()
+
+  const optionLocator = page.locator('.n-base-select-option')
+  await expect(optionLocator.first()).toBeVisible()
+
+  const optionTexts = (await optionLocator.allTextContents())
+    .map((text) => text.trim())
+    .filter(Boolean)
+  const targetMonth = optionTexts.find((month) => !existingMonthSet.has(month))
+
+  if (targetMonth) {
+    await optionLocator.filter({ hasText: targetMonth }).first().click()
+    await page.getByRole('button', { name: '확인' }).click()
+
+    await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
+    await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+    return targetMonth
+  }
+
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: '취소' }).click()
+
+  const reusableMonth = existingMonths.find((month) => month !== (process.env.TEST_REVIEW_HUB_MONTH?.trim() || '2026-03'))
+  if (!reusableMonth) {
+    throw new Error(
+      `No unused schedule month is available and no reusable editable month was found. Existing months: ${existingMonths.join(', ')}`
+    )
+  }
+
+  const reusableIndex = existingMonths.indexOf(reusableMonth)
+  await page.getByRole('button', { name: '수정' }).nth(reusableIndex).click()
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
+  await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+  return reusableMonth
+}
+
+export async function openExistingScheduleFromDashboard(
+  page: Page,
+  options: ExistingScheduleOptions = {}
+) {
+  await page.goto(APP_HOME_ROUTE_PATH)
+  await waitForDashboard(page)
+  await waitForDashboardScheduleState(page)
+
+  const { month = null, preferCompleted = true } = options
+  const targetCard = await resolveExistingScheduleCard(page, month, preferCompleted)
+
+  await targetCard.click()
+  await page.waitForURL((url) => getStep5ScheduleKeyFromPath(url.pathname) !== null)
+
+  return page.url()
+}
+
+async function resolveExistingScheduleCard(
+  page: Page,
+  month: string | null,
+  preferCompleted: boolean
+) {
+  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
+  const availableTitles = (await scheduleMonthLabels.allTextContents()).map(normalizeScheduleMonth)
+
+  if (month) {
+    const matched = scheduleMonthLabels.filter({ hasText: `${month} 근무표` }).first()
+    if ((await matched.count()) === 0) {
+      throw new Error(
+        `Could not find schedule month ${month}. Available months: ${availableTitles.join(', ')}`
+      )
+    }
+    return matched
+  }
+
+  if (preferCompleted) {
+    const completed = page
+      .locator('[data-test="schedule-card"], .n-card')
+      .filter({ hasText: '완료' })
+      .locator('[data-test="schedule-card-month"], h3')
+      .first()
+    if ((await completed.count()) > 0) {
+      return completed
+    }
+  }
+
+  const firstCard = scheduleMonthLabels.first()
+  if ((await firstCard.count()) === 0) {
+    throw new Error('No schedule card is available on the dashboard.')
+  }
+  return firstCard
+}
+
+function getDashboardScheduleMonthLabels(page: Page): Locator {
+  return page.locator('[data-test="schedule-card-month"], h3').filter({ hasText: '근무표' })
+}
+
+async function waitForDashboardScheduleState(page: Page) {
+  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
+  const emptyState = page.getByText('생성된 근무표가 없습니다')
+
+  await Promise.any([
+    scheduleMonthLabels.first().waitFor({ state: 'visible', timeout: 10_000 }),
+    emptyState.waitFor({ state: 'visible', timeout: 10_000 }),
+  ]).catch(() => undefined)
+}
+
+function normalizeScheduleMonth(text: string) {
+  return text.replace(' 근무표', '').trim()
+}
+
+export async function completeStep1(page: Page) {
+  await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
+  await expect(page.getByText('계획월:')).toBeVisible()
+
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(2))
+}
+
+export async function completeStep2(page: Page, requirements: DayRequirement[]) {
+  await expect(page.getByText('근무표 생성 - 요일별 인력 설정')).toBeVisible()
+
+  for (const requirement of requirements) {
+    const row = page.locator('tr').filter({ hasText: dayNames[requirement.dayOfWeek] }).first()
+    await expect(row).toBeVisible()
+
+    const inputValues = [requirement.D, requirement.E, requirement.N]
+    for (const [index, value] of inputValues.entries()) {
+      if (typeof value !== 'number') {
+        continue
+      }
+
+      await row.locator('input').nth(index).fill(String(value))
+    }
+  }
+
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(3))
+}
+
+export async function completeStep3Employees(page: Page) {
+  await expect(page.getByText('근무표 생성 - 직원 정보 입력')).toBeVisible()
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
+}
+
+export async function completeStep4InitialData(
   page: Page,
   assignments: {
     rowIndex: number
     colIndex: number
-    shift: 'D' | 'E' | 'N' | 'O'
+    shift: 'O'
   }[]
 ) {
-  // Step 3 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 초기 데이터 입력')
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
+  await expect(page.getByText(/월 근무 조정 일정 입력/)).toBeVisible()
+  await expect(page.locator('table').first()).toBeVisible()
 
-  // 그리드 로드 대기
-  await page.waitForSelector('table')
-
-  // 데이터 입력
   for (const assignment of assignments) {
     const row = page.locator('tbody tr').nth(assignment.rowIndex)
-    const cell = row.locator('td').nth(assignment.colIndex + 1) // +1은 이름 컬럼 건너뛰기
-
+    const cell = row.locator('.constraint-selector').nth(assignment.colIndex)
     await cell.click()
-    await page.click(`button:has-text("${assignment.shift}")`)
-
-    // 짧은 대기 (UI 업데이트)
-    await page.waitForTimeout(100)
+    await expect(cell).toContainText(assignment.shift)
   }
 
-  // LocalStorage 저장 대기 (debounce)
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(500)
 }
 
-/**
- * AI Solver 생성 및 완료 대기
- */
-export async function generateSchedule(page: Page, timeout = 30000) {
-  // 생성 버튼 클릭
-  await page.click('button:has-text("생성")')
-
-  // 결과 화면 이동 대기 (Step5에서 폴링 진행)
-  await page.waitForURL(/\/schedule\/step5\/.+/, { timeout })
+export async function goToStep5(page: Page, timeout = 30000) {
+  await page.getByRole('button', { name: /다음 단계/ }).click()
+  await page.waitForURL((url) => getStep5ScheduleKeyFromPath(url.pathname) !== null, { timeout })
 }
 
-/**
- * Step 5: 결과 확인
- */
-export async function verifyStep4Results(page: Page) {
-  // Step 5 페이지 확인
-  await page.waitForSelector('text=근무표 생성 - 결과 확인')
-
-  // 그리드 로드 대기
-  await page.waitForSelector('table')
-
-  // 통계 정보 확인
-  const statsVisible =
-    (await page.locator('text=총 직원').isVisible()) &&
-    (await page.locator('text=총 근무일').isVisible())
-
-  return statsVisible
+export async function verifyStep5ReviewHub(page: Page) {
+  await expect(page.getByText('근무표 생성 - 결과 확인')).toBeVisible()
+  await expect(page.getByTestId('version-compare-surface')).toBeVisible()
+  await expect(page.getByTestId('review-tab-grid')).toBeVisible()
+  await expect(page.getByTestId('review-tab-proof')).toBeVisible()
+  await expect(page.getByTestId('review-tab-offRequests')).toBeVisible()
+  return page.getByTestId('version-compare-surface').isVisible()
 }
 
-/**
- * 결과 저장
- */
-export async function saveSchedule(page: Page) {
-  // 저장 버튼 클릭
-  await page.click('button:has-text("저장")')
-
-  // 저장 완료 메시지 대기
-  await page.waitForSelector('.n-message', { timeout: 5000 })
-
-  // 메시지 내용 확인
-  const messageText = await page.locator('.n-message').textContent()
-
-  return messageText?.includes('저장')
-}
-
-/**
- * LocalStorage에서 임시 저장 데이터 가져오기
- */
 export async function getTempScheduleFromStorage(page: Page) {
   const localStorage = await page.evaluate(() => {
+    const scopedKey = Object.keys(window.localStorage).find((key) =>
+      key.startsWith('everyshift_temp_preferences_v2:')
+    )
+    if (scopedKey) {
+      return window.localStorage.getItem(scopedKey)
+    }
+
     return window.localStorage.getItem('everyshift_temp_schedule')
   })
 
   return localStorage ? JSON.parse(localStorage) : null
 }
 
-/**
- * LocalStorage 초기화
- */
 export async function clearLocalStorage(page: Page) {
   await page.evaluate(() => {
     window.localStorage.clear()
   })
 }
 
-/**
- * 특정 셀의 시프트 값 가져오기
- */
 export async function getCellShift(page: Page, rowIndex: number, colIndex: number) {
   const row = page.locator('tbody tr').nth(rowIndex)
-  const cell = row.locator('td').nth(colIndex + 1) // +1은 이름 컬럼 건너뛰기
+  const cell = row.locator('.constraint-selector').nth(colIndex)
 
-  return await cell.textContent()
+  return cell.textContent()
 }
 
-/**
- * 에러 메시지 확인
- */
 export async function getErrorMessage(page: Page) {
   try {
     await page.waitForSelector('.n-message', { timeout: 5000 })
-    return await page.locator('.n-message').textContent()
+    return page.locator('.n-message').textContent()
   } catch {
     return null
   }

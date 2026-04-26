@@ -27,6 +27,24 @@
       </div>
     </n-alert>
 
+    <n-alert
+      v-if="policyRejectionSummaries.length > 0"
+      type="warning"
+      class="mb-4"
+    >
+      <template #header>
+        정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
+      </template>
+      <ul class="space-y-1 text-sm">
+        <li
+          v-for="summary in policyRejectionSummaries.slice(0, 3)"
+          :key="summary"
+        >
+          {{ summary }}
+        </li>
+      </ul>
+    </n-alert>
+
     <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
       <!-- Center Panel: Grid -->
       <div
@@ -64,7 +82,7 @@
                 :employees="grid.employees.value"
                 :dates="grid.dates.value"
                 :constraints="constraints"
-                :comments="constraintNotes"
+                :comments="displayConstraintNotes"
                 :readonly="false"
                 :show-last-month="false"
                 @update:assignment="handleAssignmentUpdate"
@@ -86,12 +104,26 @@
 
     <!-- Bottom Actions -->
     <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
-      <n-button
-        size="large"
-        @click="handlePrev"
-      >
-        ← 이전 단계
-      </n-button>
+      <div class="flex gap-3">
+        <n-popconfirm
+          v-if="cameFromDashboard"
+          @positive-click="handleReturnToDashboard"
+        >
+          <template #trigger>
+            <n-button size="large">
+              근무표 관리로 돌아가기
+            </n-button>
+          </template>
+          근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+        </n-popconfirm>
+        <n-button
+          v-if="!cameFromDashboard"
+          size="large"
+          @click="handlePrev"
+        >
+          ← 이전 단계
+        </n-button>
+      </div>
 
       <div class="flex gap-3">
         <n-button
@@ -108,7 +140,7 @@
           :disabled="isSubmitting || !canPersistStep4"
           @click="handleNext"
         >
-          다음 단계 →
+          {{ nextStepLabel }}
         </n-button>
       </div>
     </div>
@@ -127,7 +159,7 @@
       :date="selectedDateSummary || ''"
       :employees="grid.employees.value"
       :assignments="constraints"
-      :comments="constraintNotes"
+      :comments="displayConstraintNotes"
       @close="showDaySummaryModal = false"
     />
   </div>
@@ -135,37 +167,63 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { useAuthStore } from '@/stores/auth';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
+import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import {
+  createPhase2ScheduleVersion,
   ensurePhase2Schedule,
   deleteThisMonthVersionAssignments,
+  getScheduleVersionAssignments,
   getScheduleVersionPreferences,
+  getSchedulePreferences,
+  recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NSpin } from 'naive-ui';
+import { NAlert, NButton, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
-import { buildStep5Route, resolveStep4VersionState } from '@/utils/scheduleVersionResolver';
+import {
+  buildStep5Route,
+  getDefaultStep5FocusVersionId,
+  resolveStep4VersionState,
+} from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
-import type { CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
+import type { AssignmentMap, CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
+import {
+  buildTempPreferencesStorageKey,
+  buildTempPreferencesStorageScope,
+  clearScopedTempPreferencesStorage,
+  migrateLegacyTempPreferencesToV2,
+  readTempPreferencesEnvelopeV2,
+  writeTempPreferencesEnvelopeV2,
+} from '@/utils/tempPreferencesStorage';
+import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 
 const router = useRouter();
+const route = useRoute();
+const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
+const solverRequestBuilder = useScheduleSolverRequest();
 
 const isSubmitting = ref(false);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
+const isReturningToDashboard = ref(false);
+const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
+const policyRejectionReasons = ref<CommentMap>({});
+const policyRejectionSummaries = ref<string[]>([]);
 
 // Modals state
 const showCommentModal = ref(false);
@@ -174,19 +232,112 @@ const showDaySummaryModal = ref(false);
 const selectedDateSummary = ref<string>('');
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
-const baselineState = ref<{
+type PreferenceSnapshot = {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+};
+
+type BaselineState = {
   scheduleId: string;
+  schedulePublicId: string;
   previewVersionId: string;
   selectedVersionId: string | null;
+  defaultRouteFocusVersionId: string | null;
+  hasCurrentMonthAssignments: boolean;
+};
+
+function createBaselineState(input: BaselineState): BaselineState {
+  return input;
+}
+
+const baselineState = ref<BaselineState | null>(null);
+const baselinePreferenceSnapshot = ref<{
+  previewVersionId: string;
+  snapshot: PreferenceSnapshot;
 } | null>(null);
 
 const canPersistStep4 = computed(() => {
-  return !isBaselineLoading.value && !baselineErrorMessage.value && !!baselineState.value;
+  return (
+    !isBaselineLoading.value &&
+    !baselineErrorMessage.value &&
+    !!baselineState.value &&
+    grid.employees.value.length > 0
+  );
+});
+
+const hasPendingStep4Changes = computed(() => {
+  if (
+    !baselineState.value
+    || !baselinePreferenceSnapshot.value
+    || baselinePreferenceSnapshot.value.previewVersionId !== baselineState.value.previewVersionId
+  ) {
+    return false;
+  }
+
+  return !arePreferenceSnapshotsEqual(
+    baselinePreferenceSnapshot.value.snapshot,
+    getCurrentPreferenceSnapshot()
+  );
+});
+
+const nextStepLabel = computed(() => {
+  if (!baselineState.value?.hasCurrentMonthAssignments) {
+    return '근무표 생성(AI)';
+  }
+
+  if (hasPendingStep4Changes.value) {
+    return '생성 시작으로 이동';
+  }
+
+  return baselineState.value?.hasCurrentMonthAssignments
+    ? '결과 확인으로 이동'
+    : '생성 시작으로 이동';
 });
 
 const selectedCellComment = computed(() => {
   if (!selectedCell.value) return '';
   return constraintNotes.value[selectedCell.value.employeeId]?.[selectedCell.value.date] || '';
+});
+
+const displayConstraintNotes = computed(() => {
+  const mergedNotes: CommentMap = {};
+  const employeeIds = new Set([
+    ...Object.keys(constraintNotes.value),
+    ...Object.keys(policyRejectionReasons.value),
+  ]);
+
+  employeeIds.forEach((employeeId) => {
+    const dates = new Set([
+      ...Object.keys(constraintNotes.value[employeeId] ?? {}),
+      ...Object.keys(policyRejectionReasons.value[employeeId] ?? {}),
+    ]);
+
+    if (!mergedNotes[employeeId]) {
+      mergedNotes[employeeId] = {};
+    }
+
+    dates.forEach((date) => {
+      const userNote = constraintNotes.value[employeeId]?.[date]?.trim() ?? '';
+      const rejectionReason = policyRejectionReasons.value[employeeId]?.[date]?.trim() ?? '';
+      const displayNote = [userNote, rejectionReason ? `정책 거부: ${rejectionReason}` : '']
+        .filter((value) => value.length > 0)
+        .join('\n');
+
+      if (displayNote.length > 0) {
+        mergedNotes[employeeId]![date] = displayNote;
+      }
+    });
+  });
+
+  return mergedNotes;
+});
+
+const tempPreferenceScope = computed(() => {
+  return buildTempPreferencesStorageScope({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
+  });
 });
 
 function ensureEmployeeMaps(): void {
@@ -198,6 +349,153 @@ function ensureEmployeeMaps(): void {
       constraintNotes.value[employee.id] = {};
     }
   });
+}
+
+function hasCurrentMonthAssignments(assignments: AssignmentMap, month: string): boolean {
+  return Object.values(assignments).some((dateMap) => {
+    return Object.entries(dateMap || {}).some(([date, shiftCode]) => {
+      return date.startsWith(month) && Boolean(shiftCode);
+    });
+  });
+}
+
+type PreferenceWithPolicyResult = {
+  employee_id: string;
+  date: string;
+  policy_check_status?: string | null;
+  policy_rejection_reason?: string | null;
+};
+
+function syncPolicyRejectionDisplay(preferences: PreferenceWithPolicyResult[]): void {
+  const nextPolicyReasons: CommentMap = {};
+  const nextSummaries: string[] = [];
+
+  preferences.forEach((pref) => {
+    if (pref.policy_check_status !== 'rejected') {
+      return;
+    }
+
+    const rejectionReason = pref.policy_rejection_reason?.trim() ?? '';
+    if (!rejectionReason) {
+      return;
+    }
+
+    if (!nextPolicyReasons[pref.employee_id]) {
+      nextPolicyReasons[pref.employee_id] = {};
+    }
+    nextPolicyReasons[pref.employee_id]![pref.date] = rejectionReason;
+
+    const employeeName =
+      grid.employees.value.find((employee) => employee.id === pref.employee_id)?.name ??
+      pref.employee_id;
+    nextSummaries.push(`${employeeName} (${pref.date}) - ${rejectionReason}`);
+  });
+
+  policyRejectionReasons.value = nextPolicyReasons;
+  policyRejectionSummaries.value = nextSummaries;
+}
+
+function sanitizePreferenceMapsToCurrentEmployees(): {
+  removedEmployeeIds: string[];
+  removedOffRequestCount: number;
+  removedNoteCount: number;
+} {
+  const currentEmployeeIds = new Set(grid.employees.value.map((employee) => employee.id));
+  if (currentEmployeeIds.size === 0) {
+    return { removedEmployeeIds: [], removedOffRequestCount: 0, removedNoteCount: 0 };
+  }
+
+  const removedEmployeeIdSet = new Set<string>();
+  let removedOffRequestCount = 0;
+  let removedNoteCount = 0;
+
+  Object.entries(constraints.value).forEach(([employeeId, dateMap]) => {
+    if (currentEmployeeIds.has(employeeId)) return;
+    removedEmployeeIdSet.add(employeeId);
+    removedOffRequestCount += Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O')
+      .length;
+    delete constraints.value[employeeId];
+  });
+
+  Object.entries(constraintNotes.value).forEach(([employeeId, dateMap]) => {
+    if (currentEmployeeIds.has(employeeId)) return;
+    removedEmployeeIdSet.add(employeeId);
+    removedNoteCount += Object.values(dateMap || {}).filter((note) => note.trim().length > 0).length;
+    delete constraintNotes.value[employeeId];
+  });
+
+  if (removedEmployeeIdSet.size > 0) {
+    constraints.value = { ...constraints.value };
+    constraintNotes.value = { ...constraintNotes.value };
+  }
+
+  ensureEmployeeMaps();
+
+  return {
+    removedEmployeeIds: Array.from(removedEmployeeIdSet),
+    removedOffRequestCount,
+    removedNoteCount,
+  };
+}
+
+function sanitizeSnapshotToCurrentEmployees(snapshot: {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+}): {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+  removedEmployeeIds: string[];
+  removedOffRequestCount: number;
+  removedNoteCount: number;
+} {
+  const currentEmployeeIds = new Set(grid.employees.value.map((employee) => employee.id));
+  if (currentEmployeeIds.size === 0) {
+    return {
+      constraints: {},
+      notes: {},
+      removedEmployeeIds: [],
+      removedOffRequestCount: 0,
+      removedNoteCount: 0,
+    };
+  }
+
+  const sanitizedConstraints: ConstraintMap = {};
+  const sanitizedNotes: CommentMap = {};
+  const removedEmployeeIdSet = new Set<string>();
+  let removedOffRequestCount = 0;
+  let removedNoteCount = 0;
+
+  Object.entries(snapshot.constraints).forEach(([employeeId, dateMap]) => {
+    if (!currentEmployeeIds.has(employeeId)) {
+      removedEmployeeIdSet.add(employeeId);
+      removedOffRequestCount += Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O')
+        .length;
+      return;
+    }
+    sanitizedConstraints[employeeId] = { ...dateMap };
+  });
+
+  Object.entries(snapshot.notes).forEach(([employeeId, dateMap]) => {
+    if (!currentEmployeeIds.has(employeeId)) {
+      removedEmployeeIdSet.add(employeeId);
+      removedNoteCount += Object.values(dateMap || {}).filter((note) => note.trim().length > 0).length;
+      return;
+    }
+    sanitizedNotes[employeeId] = { ...dateMap };
+  });
+
+  for (const employee of grid.employees.value) {
+    if (!sanitizedConstraints[employee.id]) sanitizedConstraints[employee.id] = {};
+    if (!sanitizedNotes[employee.id]) sanitizedNotes[employee.id] = {};
+  }
+
+  return {
+    constraints: sanitizedConstraints,
+    notes: sanitizedNotes,
+    removedEmployeeIds: Array.from(removedEmployeeIdSet),
+    removedOffRequestCount,
+    removedNoteCount,
+  };
 }
 
 function mergeConstraintMap(source: ConstraintMap): void {
@@ -292,19 +590,13 @@ function handleHeaderClick(date: string) {
   showDaySummaryModal.value = true;
 }
 
-// Watchers for LocalStorage
-const STORAGE_KEY = computed(() => {
-  if (!scheduleStore.basicInfo) return '';
-  return `everyshift_temp_preferences_${scheduleStore.basicInfo.month}`;
-});
-
 watchDebounced(
   [() => constraints.value, () => constraintNotes.value],
   ([latestConstraints, latestNotes]) => {
-    if (STORAGE_KEY.value) {
-      const dataToSave = { constraints: latestConstraints, constraintNotes: latestNotes };
-      localStorage.setItem(STORAGE_KEY.value, JSON.stringify(dataToSave));
-    }
+    if (isReturningToDashboard.value) return;
+    const scope = tempPreferenceScope.value;
+    if (!scope) return;
+    writeTempPreferencesEnvelopeV2(scope, latestConstraints, latestNotes);
   },
   { debounce: 2000 }
 );
@@ -317,12 +609,245 @@ function toErrorMessage(error: unknown): string {
   return String(error);
 }
 
-async function ensureBaselineVersion(forceRefresh = false): Promise<{
-  scheduleId: string;
-  previewVersionId: string;
-  selectedVersionId: string | null;
-}> {
-  if (!forceRefresh && baselineState.value) {
+function logRestoreTrace(message: string, payload?: Record<string, unknown>): void {
+  if (!import.meta.env.DEV) return;
+  if (payload) {
+    console.info(`[Step4InitialData] ${message}`, payload);
+    return;
+  }
+
+  console.info(`[Step4InitialData] ${message}`);
+}
+
+function countStoredOffRequests(map: ConstraintMap): number {
+  return Object.values(map).reduce((total, dateMap) => {
+    return (
+      total +
+      Object.values(dateMap || {}).filter((constraintCode) => constraintCode === 'O').length
+    );
+  }, 0);
+}
+
+function hasAnyConstraintNotes(map: CommentMap): boolean {
+  return Object.values(map).some((dateMap) => {
+    return Object.values(dateMap || {}).some((note) => note.trim().length > 0);
+  });
+}
+
+function hasCurrentPreferences(): boolean {
+  return countStoredOffRequests(constraints.value) > 0 || hasAnyConstraintNotes(constraintNotes.value);
+}
+
+function getPreferredPreviewVersionId(): string | null {
+  return scheduleStore.previewVersionId;
+}
+
+function createPreferenceSnapshot(
+  sourceConstraints: ConstraintMap,
+  sourceNotes: CommentMap
+): PreferenceSnapshot {
+  const normalizedConstraints: ConstraintMap = {};
+  const normalizedNotes: CommentMap = {};
+
+  Object.keys(sourceConstraints)
+    .sort()
+    .forEach((employeeId) => {
+      const entries = Object.entries(sourceConstraints[employeeId] ?? {})
+        .filter(([, code]) => code === 'O')
+        .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+
+      if (entries.length === 0) return;
+
+      normalizedConstraints[employeeId] = Object.fromEntries(entries);
+    });
+
+  Object.keys(sourceNotes)
+    .sort()
+    .forEach((employeeId) => {
+      const entries = Object.entries(sourceNotes[employeeId] ?? {})
+        .map(([date, note]) => [date, note.trim()] as const)
+        .filter(([, note]) => note.length > 0)
+        .sort(([leftDate], [rightDate]) => leftDate.localeCompare(rightDate));
+
+      if (entries.length === 0) return;
+
+      normalizedNotes[employeeId] = Object.fromEntries(entries);
+    });
+
+  return {
+    constraints: normalizedConstraints,
+    notes: normalizedNotes,
+  };
+}
+
+function getCurrentPreferenceSnapshot(): PreferenceSnapshot {
+  return createPreferenceSnapshot(constraints.value, constraintNotes.value);
+}
+
+function serializeConstraintMap(map: ConstraintMap): string {
+  return JSON.stringify(
+    Object.keys(map)
+      .sort()
+      .map((employeeId) => [
+        employeeId,
+        Object.keys(map[employeeId] ?? {})
+          .sort()
+          .map((date) => [date, map[employeeId]?.[date] ?? '']),
+      ])
+  );
+}
+
+function serializeCommentMap(map: CommentMap): string {
+  return JSON.stringify(
+    Object.keys(map)
+      .sort()
+      .map((employeeId) => [
+        employeeId,
+        Object.keys(map[employeeId] ?? {})
+          .sort()
+          .map((date) => [date, map[employeeId]?.[date] ?? '']),
+      ])
+  );
+}
+
+function arePreferenceSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return (
+    serializeConstraintMap(left.constraints) === serializeConstraintMap(right.constraints)
+    && serializeCommentMap(left.notes) === serializeCommentMap(right.notes)
+  );
+}
+
+function areConstraintSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return serializeConstraintMap(left.constraints) === serializeConstraintMap(right.constraints);
+}
+
+function areNoteSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
+  return serializeCommentMap(left.notes) === serializeCommentMap(right.notes);
+}
+
+function countChangedEntries<T extends string>(left: Record<string, Record<string, T>>, right: Record<string, Record<string, T>>): number {
+  const employeeIds = new Set([...Object.keys(left), ...Object.keys(right)]);
+  let changedCount = 0;
+
+  employeeIds.forEach((employeeId) => {
+    const dates = new Set([
+      ...Object.keys(left[employeeId] ?? {}),
+      ...Object.keys(right[employeeId] ?? {}),
+    ]);
+
+    dates.forEach((date) => {
+      if ((left[employeeId]?.[date] ?? '') !== (right[employeeId]?.[date] ?? '')) {
+        changedCount += 1;
+      }
+    });
+  });
+
+  return changedCount;
+}
+
+function buildStep4InputDiffSummary(
+  baselineSnapshot: PreferenceSnapshot,
+  currentSnapshot: PreferenceSnapshot
+) {
+  const changedOffRequests = countChangedEntries(
+    baselineSnapshot.constraints,
+    currentSnapshot.constraints
+  );
+  const changedNotes = countChangedEntries(baselineSnapshot.notes, currentSnapshot.notes);
+
+  return {
+    changedOffRequests,
+    changedLockedAssignments: 0,
+    changedSiteRequirements: 0,
+    note: changedNotes > 0 ? `step4_notes_changed:${changedNotes}` : null,
+  };
+}
+
+function setBaselinePreferenceSnapshot(
+  previewVersionId: string,
+  snapshot: PreferenceSnapshot
+): void {
+  baselinePreferenceSnapshot.value = {
+    previewVersionId,
+    snapshot,
+  };
+}
+
+async function getBaselinePreferenceSnapshot(previewVersionId: string): Promise<PreferenceSnapshot> {
+  if (baselinePreferenceSnapshot.value?.previewVersionId === previewVersionId) {
+    return baselinePreferenceSnapshot.value.snapshot;
+  }
+
+  const versionPreferenceData = await getScheduleVersionPreferences(previewVersionId);
+  const snapshot = createPreferenceSnapshot(
+    versionPreferenceData.constraints,
+    versionPreferenceData.notes
+  );
+  setBaselinePreferenceSnapshot(previewVersionId, snapshot);
+  return snapshot;
+}
+
+function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; notes: CommentMap } | null {
+  const scope = tempPreferenceScope.value;
+  if (!scope) return null;
+
+  const result = readTempPreferencesEnvelopeV2(scope);
+  if (result.status !== 'ok' || !result.envelope) {
+    if (result.status !== 'missing') {
+      logRestoreTrace('Skipped localStorage v2 restore', {
+        storageKey: result.storageKey,
+        reason: result.status,
+      });
+    }
+    return null;
+  }
+
+  return {
+    constraints: result.envelope.constraints,
+    notes: result.envelope.constraintNotes,
+  };
+}
+
+function migrateLegacyTempPreferencesIfNeeded(): void {
+  const migration = migrateLegacyTempPreferencesToV2(tempPreferenceScope.value, {
+    sanitize: (payload) => {
+      const sanitized = sanitizeSnapshotToCurrentEmployees(payload);
+      if (sanitized.removedEmployeeIds.length > 0) {
+        logRestoreTrace('Removed stale employee keys during legacy migration', {
+          removedEmployeeIds: sanitized.removedEmployeeIds,
+          removedOffRequestCount: sanitized.removedOffRequestCount,
+          removedNoteCount: sanitized.removedNoteCount,
+        });
+      }
+      return {
+        constraints: sanitized.constraints,
+        notes: sanitized.notes,
+      };
+    },
+  });
+
+  if (migration.status === 'migrated') {
+    logRestoreTrace('Migrated legacy Step4 localStorage payload to v2 envelope', {
+      storageKey: migration.storageKey,
+    });
+    return;
+  }
+
+  if (migration.status === 'legacy_parse_error' || migration.status === 'legacy_invalid') {
+    logRestoreTrace('Legacy Step4 localStorage payload skipped during migration', {
+      reason: migration.status,
+      storageKey: migration.storageKey,
+    });
+  }
+}
+
+async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineState> {
+  const preferredPreviewVersionId = getPreferredPreviewVersionId();
+  if (
+    !forceRefresh &&
+    baselineState.value &&
+    baselineState.value.previewVersionId === preferredPreviewVersionId
+  ) {
     return baselineState.value;
   }
 
@@ -338,8 +863,9 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
       organizationId: scheduleStore.basicInfo.organizationId,
       month: scheduleStore.basicInfo.month,
     });
+    const schedulePublicId = compareResponse.schedulePublicId ?? compareResponse.scheduleId;
 
-    const resolvedState = resolveStep4VersionState(compareResponse);
+    const resolvedState = resolveStep4VersionState(compareResponse, preferredPreviewVersionId);
 
     if (!resolvedState.previewVersionId) {
       throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
@@ -348,19 +874,30 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
       scheduleId: compareResponse.scheduleId,
+      schedulePublicId,
     });
     scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
     scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
-    baselineState.value = {
+    const assignmentData = await getScheduleVersionAssignments(resolvedState.previewVersionId);
+
+    baselineState.value = createBaselineState({
       scheduleId: compareResponse.scheduleId,
+      schedulePublicId,
       previewVersionId: resolvedState.previewVersionId,
       selectedVersionId: resolvedState.selectedVersionId,
-    };
+      defaultRouteFocusVersionId: getDefaultStep5FocusVersionId(compareResponse),
+      hasCurrentMonthAssignments: hasCurrentMonthAssignments(
+        assignmentData.assignments,
+        scheduleStore.basicInfo.month
+      ),
+    });
+    baselinePreferenceSnapshot.value = null;
 
     return baselineState.value;
   } catch (error) {
     baselineState.value = null;
+    baselinePreferenceSnapshot.value = null;
     baselineErrorMessage.value = `기준 버전 초기화에 실패했습니다: ${toErrorMessage(error)}`;
     throw error;
   } finally {
@@ -371,32 +908,140 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<{
 // Lifecycle
 onMounted(async () => {
   if (!scheduleStore.basicInfo) {
-    router.push('/schedule/step1');
+    router.push(getScheduleStepRoutePath(1));
     return;
   }
 
-  await Promise.all([
-    (!orgStore.current || orgStore.employees.length === 0)
-      ? orgStore.loadOrganization(scheduleStore.basicInfo.organizationId)
-      : Promise.resolve(),
-    restoreData(),
-  ]);
-
+  if (!orgStore.current || orgStore.employees.length === 0) {
+    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    if (!loadResult.success) {
+      baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
+      showError(baselineErrorMessage.value);
+      return;
+    }
+  }
   grid.employees.value = orgStore.employees;
+  if (grid.employees.value.length === 0) {
+    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+    showError(baselineErrorMessage.value);
+    return;
+  }
   grid.generateDates(scheduleStore.basicInfo.month, 0);
   ensureEmployeeMaps();
+  await restoreData();
 });
 
 async function restoreData(forceRefresh = false) {
-  try {
-    const { previewVersionId } = await ensureBaselineVersion(forceRefresh);
-    const preferenceData = await getScheduleVersionPreferences(previewVersionId);
+  if (grid.employees.value.length === 0) {
+    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+    showError(baselineErrorMessage.value);
+    return;
+  }
 
-    if (preferenceData.preferences.length > 0) {
-      mergeConstraintMap(preferenceData.constraints);
-      mergeCommentMap(preferenceData.notes);
-      showInfo('저장된 요청 데이터를 불러왔습니다.');
+  try {
+    migrateLegacyTempPreferencesIfNeeded();
+
+    const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
+      forceRefresh
+    );
+
+    const versionCandidates = Array.from(
+      new Set([previewVersionId, selectedVersionId].filter((id): id is string => !!id))
+    );
+
+    logRestoreTrace('Starting restoreData()', {
+      scheduleId,
+      previewVersionId,
+      selectedVersionId,
+      versionCandidates,
+    });
+
+    for (const versionId of versionCandidates) {
+      const versionPreferenceData = await getScheduleVersionPreferences(versionId);
+
+      if (versionId === previewVersionId) {
+        setBaselinePreferenceSnapshot(
+          previewVersionId,
+          createPreferenceSnapshot(versionPreferenceData.constraints, versionPreferenceData.notes)
+        );
+        syncPolicyRejectionDisplay(versionPreferenceData.preferences as PreferenceWithPolicyResult[]);
+      }
+
+      logRestoreTrace('Fetched preferences by schedule_version_id', {
+        scheduleVersionId: versionId,
+        preferenceCount: versionPreferenceData.preferences.length,
+      });
+
+      if (versionPreferenceData.preferences.length > 0) {
+        mergeConstraintMap(versionPreferenceData.constraints);
+        mergeCommentMap(versionPreferenceData.notes);
+        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        if (sanitized.removedEmployeeIds.length > 0) {
+          logRestoreTrace('Removed stale employee keys from version preferences', sanitized);
+        }
+        if (hasCurrentPreferences()) {
+          showInfo('저장된 요청 데이터를 불러왔습니다.');
+          return;
+        }
+      }
     }
+
+    const schedulePreferenceData = await getSchedulePreferences(scheduleId);
+    logRestoreTrace('Fetched preferences by schedule_id (legacy fallback)', {
+      scheduleId,
+      preferenceCount: schedulePreferenceData.preferences.length,
+    });
+
+    if (schedulePreferenceData.preferences.length > 0) {
+      mergeConstraintMap(schedulePreferenceData.constraints);
+      mergeCommentMap(schedulePreferenceData.notes);
+      const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+      if (sanitized.removedEmployeeIds.length > 0) {
+        logRestoreTrace('Removed stale employee keys from legacy schedule preferences', sanitized);
+      }
+      if (hasCurrentPreferences()) {
+        showInfo('기존 저장 데이터(schedule 기준)를 불러왔습니다.');
+        return;
+      }
+    }
+
+    const localSnapshot = loadTempPreferencesFromLocalStorage();
+    if (localSnapshot) {
+      const offRequestCount = countStoredOffRequests(localSnapshot.constraints);
+      const hasNotes = hasAnyConstraintNotes(localSnapshot.notes);
+
+      logRestoreTrace('Fetched preferences by localStorage fallback', {
+        storageKey: tempPreferenceScope.value
+          ? buildTempPreferencesStorageKey(tempPreferenceScope.value)
+          : null,
+        offRequestCount,
+        hasNotes,
+      });
+
+      if (offRequestCount > 0 || hasNotes) {
+        mergeConstraintMap(localSnapshot.constraints);
+        mergeCommentMap(localSnapshot.notes);
+        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        if (sanitized.removedEmployeeIds.length > 0) {
+          logRestoreTrace('Removed stale employee keys from localStorage preferences', sanitized);
+        }
+        if (hasCurrentPreferences()) {
+          showInfo('브라우저 임시 저장 데이터를 불러왔습니다.');
+          return;
+        }
+        showInfo('브라우저 임시 저장 데이터가 현재 직원 목록과 일치하지 않아 불러오지 않았습니다.');
+      }
+    }
+
+    logRestoreTrace('No saved preference data found in all scopes');
+
+    if (previewVersionId) {
+      setBaselinePreferenceSnapshot(
+        previewVersionId,
+        createPreferenceSnapshot({}, {})
+      );
+    }
+    syncPolicyRejectionDisplay([]);
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -411,17 +1056,55 @@ function handlePrev() {
   scheduleStore.setAssignments(constraints.value);
   scheduleStore.setComments(constraintNotes.value);
   scheduleStore.prevStep();
-  router.push('/schedule/step3');
+  router.push(
+    cameFromDashboard.value
+      ? {
+          path: getScheduleStepRoutePath(3),
+          query: {
+            from: 'dashboard',
+          },
+        }
+      : getScheduleStepRoutePath(3)
+  );
+}
+
+function handleReturnToDashboard() {
+  isReturningToDashboard.value = true;
+  clearScopedTempPreferencesStorage({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
+  });
+  scheduleStore.reset();
+  router.push(getAppHomeRoutePath());
 }
 
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
+  if (grid.employees.value.length === 0) {
+    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
+    return;
+  }
 
   try {
+    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
+    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
+      logRestoreTrace('Removed stale employee keys before save', sanitizedBeforeSave);
+      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.');
+    }
+
     scheduleStore.setAssignments(constraints.value);
     scheduleStore.setComments(constraintNotes.value);
 
     const { scheduleId, previewVersionId } = await ensureBaselineVersion();
+    const offRequestCount = countStoredOffRequests(constraints.value);
+
+    logRestoreTrace('Saving preferences', {
+      scheduleId,
+      scheduleVersionId: previewVersionId,
+      offRequestCount,
+      hasNotes: hasAnyConstraintNotes(constraintNotes.value),
+    });
 
     await saveScheduleVersionPreferences(
       scheduleId,
@@ -429,6 +1112,17 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
       constraints.value,
       constraintNotes.value
     );
+    await recheckPhase2ScheduleVersion(previewVersionId);
+    setBaselinePreferenceSnapshot(previewVersionId, getCurrentPreferenceSnapshot());
+
+    const verification = await getScheduleVersionPreferences(previewVersionId);
+    logRestoreTrace('Saved preferences verification', {
+      scheduleVersionId: previewVersionId,
+      preferenceCount: verification.preferences.length,
+      offRequestCount: countStoredOffRequests(verification.constraints),
+      hasNotes: hasAnyConstraintNotes(verification.notes),
+    });
+    syncPolicyRejectionDisplay(verification.preferences as PreferenceWithPolicyResult[]);
 
     showSuccess('임시 저장되었습니다.');
     return { scheduleId, previewVersionId };
@@ -442,20 +1136,176 @@ async function handleNext() {
   isSubmitting.value = true;
 
   try {
-    const saved = await handleSave();
-    if (!saved) throw new Error('임시 저장에 실패했습니다.');
-
-    if (!saved.previewVersionId) {
-      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
+    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
+      logRestoreTrace('Removed stale employee keys before next', sanitizedBeforeSave);
+      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 진행합니다.');
     }
 
+    scheduleStore.setAssignments(constraints.value);
+    scheduleStore.setComments(constraintNotes.value);
+
+    const baseline = await ensureBaselineVersion();
+    if (!baseline.previewVersionId) {
+      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    }
+    const shouldAutoStartSolver = !baseline.hasCurrentMonthAssignments;
+    const currentSnapshot = getCurrentPreferenceSnapshot();
+    const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
+    const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
+    const hasConstraintChanges = !areConstraintSnapshotsEqual(baselineSnapshot, currentSnapshot);
+    const hasNoteChanges = !areNoteSnapshotsEqual(baselineSnapshot, currentSnapshot);
+
+    if (!hasStep4Changes) {
+      scheduleStore.currentStep = 5;
+      router.push(
+        buildStep5Route(
+          baseline.schedulePublicId ?? baseline.scheduleId,
+          baseline.previewVersionId,
+          undefined,
+          {
+            autoStart: shouldAutoStartSolver,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
+          }
+        )
+      );
+      return;
+    }
+
+    if (!hasConstraintChanges) {
+      if (hasNoteChanges) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          baseline.previewVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+      }
+
+      setBaselinePreferenceSnapshot(baseline.previewVersionId, currentSnapshot);
+      scheduleStore.currentStep = 5;
+      router.push(
+        buildStep5Route(
+          baseline.schedulePublicId ?? baseline.scheduleId,
+          baseline.previewVersionId,
+          undefined,
+          {
+            autoStart: shouldAutoStartSolver,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
+          }
+        )
+      );
+      return;
+    }
+
+    const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
+      basicInfo: {
+        ...scheduleStore.basicInfo!,
+        scheduleId: baseline.scheduleId,
+      },
+      scheduleId: baseline.scheduleId,
+      versionId: baseline.previewVersionId,
+      constraints: constraints.value,
+      siteRequirements: scheduleStore.siteRequirements,
+      shifts: orgStore.shifts,
+      lastMonthDays: 5,
+      siteId: orgStore.foundationSite?.id ?? null,
+      onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
+    });
+
+    const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
+      baseVersionId: baseline.previewVersionId,
+      name: null,
+      sourceType: 're_solve',
+      inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
+      inputSnapshot,
+    });
+
+    if (!createResponse.wasCreated) {
+      const nextSchedulePublicId =
+        createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+      const reusedAssignmentData = await getScheduleVersionAssignments(createResponse.createdVersionId);
+      const reusedHasCurrentMonthAssignments = hasCurrentMonthAssignments(
+        reusedAssignmentData.assignments,
+        scheduleStore.basicInfo!.month
+      );
+
+      if (hasNoteChanges) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          createResponse.createdVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+      }
+
+      scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+      scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+      baselineState.value = createBaselineState({
+        scheduleId: baseline.scheduleId,
+        schedulePublicId: nextSchedulePublicId,
+        previewVersionId: createResponse.createdVersionId,
+        selectedVersionId: createResponse.selectedVersionId,
+        defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+        hasCurrentMonthAssignments: reusedHasCurrentMonthAssignments,
+      });
+      setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
+      scheduleStore.currentStep = 5;
+      router.push(
+        buildStep5Route(
+          nextSchedulePublicId,
+          createResponse.createdVersionId,
+          [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+            (versionId): versionId is string => !!versionId
+          ),
+          {
+            autoStart: !reusedHasCurrentMonthAssignments,
+            defaultVersionId: baseline.defaultRouteFocusVersionId,
+          }
+        )
+      );
+      return;
+    }
+
+    await saveScheduleVersionPreferences(
+      baseline.scheduleId,
+      createResponse.createdVersionId,
+      constraints.value,
+      constraintNotes.value
+    );
     await deleteThisMonthVersionAssignments(
-      saved.scheduleId,
-      saved.previewVersionId,
+      baseline.scheduleId,
+      createResponse.createdVersionId,
       scheduleStore.basicInfo!.month
     );
+
+    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+    const nextSchedulePublicId =
+      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+    baselineState.value = createBaselineState({
+      scheduleId: baseline.scheduleId,
+      schedulePublicId: nextSchedulePublicId,
+      previewVersionId: createResponse.createdVersionId,
+      selectedVersionId: createResponse.selectedVersionId,
+      defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+      hasCurrentMonthAssignments: false,
+    });
+    setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
     scheduleStore.currentStep = 5;
-    router.push(buildStep5Route(saved.scheduleId, saved.previewVersionId));
+    router.push(
+      buildStep5Route(
+        nextSchedulePublicId,
+        createResponse.createdVersionId,
+        [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+          (versionId): versionId is string => !!versionId
+        ),
+        {
+          autoStart: shouldAutoStartSolver,
+          defaultVersionId: baseline.defaultRouteFocusVersionId,
+        }
+      )
+    );
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');

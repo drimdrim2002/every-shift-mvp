@@ -1,5 +1,5 @@
 const DEFAULT_ALLOW_HEADERS = 'authorization, x-client-info, content-type, apikey';
-const ALLOW_METHODS = 'GET,POST,OPTIONS';
+const ALLOW_METHODS = 'GET,POST,PATCH,OPTIONS';
 
 export function createCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get('origin');
@@ -19,4 +19,3 @@ export function createCorsHeaders(request: Request): Record<string, string> {
 
   return headers;
 }
-

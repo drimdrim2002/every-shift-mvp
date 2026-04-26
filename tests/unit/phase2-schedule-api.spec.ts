@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const rbacStoreMock = vi.hoisted(() => ({
+  selectedOrganizationId: '11111111-1111-4111-8111-111111111111' as string | null,
+  effectiveMembership: {
+    organizationId: '11111111-1111-4111-8111-111111111111',
+  } as { organizationId: string } | null,
+}));
+
 const getSessionMock = vi.fn();
+const refreshSessionMock = vi.fn();
 const supabaseFromMock = vi.fn();
 const supabaseRpcMock = vi.fn();
 
@@ -8,10 +16,15 @@ vi.mock('@/api/supabase', () => ({
   supabase: {
     auth: {
       getSession: getSessionMock,
+      refreshSession: refreshSessionMock,
     },
     from: supabaseFromMock,
     rpc: supabaseRpcMock,
   },
+}));
+
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
 }));
 
 describe('phase2 schedule api helpers', () => {
@@ -110,6 +123,10 @@ describe('phase2 schedule api helpers', () => {
     vi.stubGlobal('fetch', fetchMock);
     vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co');
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'anon-key');
+    rbacStoreMock.selectedOrganizationId = '11111111-1111-4111-8111-111111111111';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '11111111-1111-4111-8111-111111111111',
+    };
   });
 
   it('sends session auth headers when calling ensure', async () => {
@@ -153,6 +170,7 @@ describe('phase2 schedule api helpers', () => {
           apikey: 'anon-key',
           Authorization: 'Bearer token-123',
           'Content-Type': 'application/json',
+          'X-Organization-Id': '11111111-1111-4111-8111-111111111111',
         }),
         body: JSON.stringify({
           organizationId: '11111111-1111-4111-8111-111111111111',
@@ -176,6 +194,202 @@ describe('phase2 schedule api helpers', () => {
       getPhase2ScheduleCompare('22222222-2222-4222-8222-222222222222')
     ).rejects.toThrow('Authenticated session is required to call phase2-schedule');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the session and retries once when the server reports missing organization context', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-1',
+          selectedVersionId: 'version-1',
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+    await ensurePhase2Schedule({
+      organizationId: '22222222-2222-4222-8222-222222222222',
+      month: '2026-04',
+    });
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/ensure',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer stale-token-123',
+          'X-Organization-Id': '22222222-2222-4222-8222-222222222222',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/ensure',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer fresh-token-456',
+          'X-Organization-Id': '22222222-2222-4222-8222-222222222222',
+        }),
+      })
+    );
+  });
+
+  it('surfaces a clear error when organization context is still missing after one retry', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 'organization_context_missing',
+            message: 'Authenticated user is missing a valid organization_id claim',
+          }),
+          {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+
+    await expect(
+      ensurePhase2Schedule({
+        organizationId: '22222222-2222-4222-8222-222222222222',
+        month: '2026-04',
+      })
+    ).rejects.toMatchObject({
+      message:
+        '로그인 세션에 조직 정보가 없습니다. 다시 로그인한 뒤 다시 시도해주세요.',
+      code: 'organization_context_missing',
+      status: 403,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('refreshes the session and retries once on unauthorized responses', async () => {
+    rbacStoreMock.selectedOrganizationId = '22222222-2222-4222-8222-222222222222';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '22222222-2222-4222-8222-222222222222',
+    };
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stale-token-123',
+        },
+      },
+      error: null,
+    });
+    refreshSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'fresh-token-456',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 'unauthorized', message: 'Authorization required' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-1',
+            selectedVersionId: 'version-1',
+            finalizedVersionId: null,
+            activeSolvingVersionId: null,
+            versions: [],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+    await ensurePhase2Schedule({
+      organizationId: '22222222-2222-4222-8222-222222222222',
+      month: '2026-04',
+    });
+
+    expect(refreshSessionMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('unwraps error envelopes from non-2xx responses', async () => {
@@ -268,12 +482,135 @@ describe('phase2 schedule api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/44444444-4444-4444-8444-444444444444/review',
       expect.objectContaining({
         method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': '11111111-1111-4111-8111-111111111111',
+        }),
       })
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty('body');
   });
 
+  it('rejects schedule requests when the active organization does not match the request body', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-mismatch',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-active';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-active' };
+
+    const { ensurePhase2Schedule } = await import('@/api/schedule');
+
+    await expect(
+      ensurePhase2Schedule({
+        organizationId: 'org-other',
+        month: '2026-04',
+      })
+    ).rejects.toThrow('요청 조직과 활성 조직이 일치하지 않습니다.');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('prefers the selected organization header over the effective membership for read routes', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-read',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-selected';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-fallback' };
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-2',
+          selectedVersionId: 'version-2',
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+          version: null,
+          latestEvaluation: null,
+          primaryAction: {
+            kind: 'none',
+            targetVersionId: null,
+            label: 'No primary action',
+            disabledReason: null,
+          },
+          defaultTab: 'grid',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { getPhase2ScheduleReview } = await import('@/api/schedule');
+    await getPhase2ScheduleReview('review-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/review-1/review',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          'X-Organization-Id': 'org-selected',
+        }),
+      })
+    );
+  });
+
+  it('sends the selected organization header for resource-only schedule routes', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-select',
+        },
+      },
+      error: null,
+    });
+    rbacStoreMock.selectedOrganizationId = 'org-selected';
+    rbacStoreMock.effectiveMembership = { organizationId: 'org-selected' };
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-9',
+          scheduleVersionId: 'version-9',
+          status: 'finalized',
+          finalizedVersionId: 'version-9',
+          finalizedAt: '2026-04-01T00:00:00.000Z',
+          finalizedBy: 'user-1',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    );
+
+    const { finalizePhase2ScheduleVersion } = await import('@/api/schedule');
+    await finalizePhase2ScheduleVersion('version-9');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-9/finalize',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Organization-Id': 'org-selected',
+        }),
+      })
+    );
+  });
+
   it('provides a deployment/cors hint when fetch fails before receiving an HTTP response', async () => {
+    rbacStoreMock.selectedOrganizationId = '11111111-1111-4111-8111-111111111111';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '11111111-1111-4111-8111-111111111111',
+    };
     getSessionMock.mockResolvedValue({
       data: {
         session: {
@@ -429,6 +766,8 @@ describe('phase2 schedule api helpers', () => {
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: 'pending',
+        policy_rejection_reason: null,
       },
     ]);
     expect(
@@ -467,6 +806,8 @@ describe('phase2 schedule api helpers', () => {
         resolution_status: 'pending',
         resolved_shift_id: null,
         resolved_at: null,
+        policy_check_status: 'pending',
+        policy_rejection_reason: null,
       },
     ]);
   });
@@ -674,6 +1015,203 @@ describe('phase2 schedule api helpers', () => {
               shiftId: null,
             },
           ],
+        }),
+      })
+    );
+  });
+
+  it('calls trust-gate mutation routes for recheck and finalize', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-trust-gate',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleVersionId: 'version-22',
+            currentRevision: 3,
+            evaluationId: 'evaluation-22',
+            resultStatus: 'review_ready',
+            evaluationResultStatus: 'passed',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-22',
+            scheduleVersionId: 'version-22',
+            status: 'finalized',
+            finalizedVersionId: 'version-22',
+            finalizedAt: '2026-04-01T10:00:00Z',
+            finalizedBy: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const { recheckPhase2ScheduleVersion, finalizePhase2ScheduleVersion } = await import('@/api/schedule');
+    await recheckPhase2ScheduleVersion('version-22');
+    await finalizePhase2ScheduleVersion('version-22');
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-22/recheck',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-22/finalize',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
+
+  it('calls the reset-roster mutation route through phase2-schedule edge function', async () => {
+    rbacStoreMock.selectedOrganizationId = '33333333-3333-4333-8333-333333333333';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '33333333-3333-4333-8333-333333333333',
+    };
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-reset-roster',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          deletedScheduleId: 'schedule-33',
+          employeeCount: 2,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { resetPhase2ScheduleRoster } = await import('@/api/schedule');
+
+    await resetPhase2ScheduleRoster({
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
+      employees: [
+        {
+          employeeId: 'E-001',
+          name: 'Alice',
+          availableShifts: ['D', 'E'],
+        },
+        {
+          employeeId: 'E-002',
+          name: 'Bob',
+          availableShifts: ['N', 'O'],
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/reset-roster',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          month: '2026-04',
+          employees: [
+            {
+              employeeId: 'E-001',
+              name: 'Alice',
+              availableShifts: ['D', 'E'],
+            },
+            {
+              employeeId: 'E-002',
+              name: 'Bob',
+              availableShifts: ['N', 'O'],
+            },
+          ],
+        }),
+      })
+    );
+  });
+
+  it('calls the reset-active-flow mutation route through phase2-schedule edge function', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-reset-active-flow',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-33',
+          selectedVersionId: null,
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { resetPhase2ScheduleActiveFlow } = await import('@/api/schedule');
+
+    await resetPhase2ScheduleActiveFlow('schedule-33');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-33/reset-active-flow',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+  });
+
+  it('calls the delete-month mutation route through phase2-schedule edge function', async () => {
+    rbacStoreMock.selectedOrganizationId = '33333333-3333-4333-8333-333333333333';
+    rbacStoreMock.effectiveMembership = {
+      organizationId: '33333333-3333-4333-8333-333333333333',
+    };
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-delete-month',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          deletedScheduleId: 'schedule-33',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { deletePhase2ScheduleMonth } = await import('@/api/schedule');
+
+    await deletePhase2ScheduleMonth({
+      organizationId: '33333333-3333-4333-8333-333333333333',
+      month: '2026-04',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/delete-month',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          organizationId: '33333333-3333-4333-8333-333333333333',
+          month: '2026-04',
         }),
       })
     );
