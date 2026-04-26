@@ -2,6 +2,11 @@
 
 > 원문 기준 문서: [launch-core-auth-and-deploy-spec.md](./launch-core-auth-and-deploy-spec.md)
 > 관련 계획 문서: [launch-core-plan.ko.md](./launch-core-plan.ko.md)
+> Slice 6 지원 문서: [Launch Core 구현 슬라이스 가이드](./launch-core-implementation-slices.ko.md#slice-6-배포-계약--최종-회귀-게이트)
+
+## 문서 역할
+
+이 문서는 Slice 6을 지원하는 인증, 환경변수, Vercel 프로젝트, 도메인, SSL 기준을 기록합니다. 단계 흐름은 [Launch Core 구현 슬라이스 가이드](./launch-core-implementation-slices.ko.md)에 있고, 실제 클릭 및 확인 순서는 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 있습니다.
 
 ## 목표
 
@@ -116,6 +121,8 @@
 
 - Vercel preview
 - Vercel production
+- Vercel generated preview / production URL
+- DNS 와 SSL 활성화 후 `everyshift.co.kr`
 
 ### 반드시 만족해야 하는 동작
 
@@ -126,6 +133,25 @@
 - 공개 문의 CTA 가 올바른 Google Form 을 연다
 - 출시 기간에는 예전 앱 URL 이 canonical `/app` 으로 리다이렉트된다
 - 예전 `/ops/*`, `/schedule/*` 딥링크도 출시 기간 동안 사용 가능해야 한다
+
+### Vercel 프로젝트 설정값
+
+Vercel 프로젝트를 만들거나 검토할 때 아래 값을 사용합니다. 최종 확인 값은 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 기록합니다.
+
+| 설정             | Launch Core 값                                  |
+| ---------------- | ----------------------------------------------- |
+| Git provider     | 이 프로젝트의 GitHub 저장소                     |
+| Framework Preset | Vite 또는 Vite 자동 감지 확인                   |
+| Install Command  | `pnpm install` 또는 Vercel 기본값의 `pnpm` 사용 |
+| Build Command    | `pnpm build`                                    |
+| Output Directory | `dist`                                          |
+| Root Directory   | 프로젝트 구조가 바뀌지 않았다면 repository root |
+
+참고:
+
+- Vercel 이 Vite 설정을 자동 감지할 수 있어도, 런칭 QA 에서는 화면에 보이는 값을 기록합니다.
+- Production 배포는 의도한 production branch 또는 명시적인 production deploy command 에서 나와야 합니다.
+- Production 승격 전에는 branch 또는 pull request 의 generated Preview URL 로 먼저 스모크 테스트합니다.
 
 ### 필수 라우팅 설정
 
@@ -161,6 +187,46 @@ Vite SPA 는 명시적인 rewrite 가 없으면 Vercel 에서 딥링크 새로�
 - `VITE_PUBLIC_INQUIRY_FORM_URL` 은 공개 설정값이므로 클라이언트에 노출될 수 있습니다.
 - 어떤 비밀값도 `VITE_*` 변수에 넣으면 안 됩니다.
 - 문의 폼 URL 이 비어 있으면 출시 전 검증 단계에서 실패해야 합니다.
+- Preview 와 Production 값은 Vercel 에서 각각 설정합니다.
+- Vercel 환경변수를 바꾼 뒤에는 해당 환경을 다시 배포합니다.
+
+## Generated URL 스모크
+
+Vercel 은 배포마다 URL 을 생성합니다. Slice 6에서는 아래 순서로 확인합니다.
+
+1. branch 또는 pull request 의 Preview URL
+2. Production generated `vercel.app` URL
+3. 도메인 설정 후 `https://everyshift.co.kr`
+
+스모크 확인 범위:
+
+- `/`
+- `/login`
+- `/signup`
+- `/access/pending`
+- `/app`
+- 최소 하나의 `/app/schedule/*` 딥링크 새로고침
+- `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 레거시 리다이렉트 예시
+- 공개 문의 CTA
+
+## Custom Domain 과 SSL
+
+팀이 공개 도메인을 붙일 준비가 되면 `everyshift.co.kr` 을 런칭 도메인 대상으로 사용합니다.
+
+진행 기준:
+
+- Vercel 프로젝트 Domains 설정에 `everyshift.co.kr` 을 추가한다.
+- Vercel 이 안내한 DNS record 값을 도메인 제공업체에 설정한다.
+- DNS 전파가 끝날 때까지 기다린 뒤 launch-ready 로 판단한다.
+- Vercel 이 HTTPS certificate 발급을 active 로 표시하는지 확인한다.
+- production generated URL 에서 통과한 스모크 확인을 `https://everyshift.co.kr` 에서도 반복한다.
+
+Vercel 공식 문서 기준 참고:
+
+- Vercel 은 빌드 후 설정된 Output Directory 의 파일만 정적으로 제공하므로, Launch Core 는 Vite 빌드 산출물인 `dist` 를 기록합니다.
+- Vercel 환경변수는 Production, Preview, custom environment, Development 기준으로 적용 범위를 선택합니다.
+- Vercel custom domain 설정은 apex 또는 subdomain 구성에 따라 필요한 DNS record 를 안내합니다.
+- 도메인이 추가되고 DNS 검증이 가능해지면 Vercel 이 SSL certificate 생성을 자동으로 시도합니다.
 
 ## CI 게이트
 

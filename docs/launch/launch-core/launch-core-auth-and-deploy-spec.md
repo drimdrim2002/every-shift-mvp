@@ -1,6 +1,11 @@
 # Launch Core Auth and Deploy Spec
 
-> Supporting spec for [launch-core-plan.md](./launch-core-plan.md)
+> Slice 6 supporting spec for [Launch Core Implementation Slices](./launch-core-implementation-slices.md#slice-6-deploy-contract-and-launch-regression-gate)
+> and [launch-core-plan.md](./launch-core-plan.md)
+
+## Document Role
+
+This spec records the auth, environment, Vercel project, domain, and SSL criteria that support Slice 6. The master stage flow lives in [Launch Core Implementation Slices](./launch-core-implementation-slices.md), and the executable click/verify sequence lives in [Launch Core QA Checklist](./launch-core-qa-checklist.md).
 
 ## Goal
 
@@ -115,6 +120,8 @@ Note:
 
 - Vercel preview
 - Vercel production
+- Vercel generated preview and production URLs
+- `everyshift.co.kr` after DNS and SSL activation
 
 ### Required Behavior
 
@@ -125,6 +132,25 @@ Note:
 - public inquiry CTA opens the correct Google Form
 - legacy app URLs redirect to their canonical `/app` equivalents during the launch window
 - legacy `/ops/*` and `/schedule/*` deep links remain usable during the launch window
+
+### Vercel Project Settings
+
+Use these values when creating or reviewing the Vercel project. Record the final values in [Launch Core QA Checklist](./launch-core-qa-checklist.md).
+
+| Setting          | Launch Core Value                                 |
+| ---------------- | ------------------------------------------------- |
+| Git provider     | GitHub repository for this project                |
+| Framework Preset | Vite, or Vercel auto-detection confirmed as Vite  |
+| Install Command  | `pnpm install` or Vercel default using `pnpm`     |
+| Build Command    | `pnpm build`                                      |
+| Output Directory | `dist`                                            |
+| Root Directory   | repository root unless the project layout changes |
+
+Notes:
+
+- Vercel may auto-detect Vite settings, but launch QA should still record the visible values.
+- The production deployment should come from the intended production branch or an explicit production deploy command.
+- Preview smoke must use a generated Preview URL from the branch or pull request before any production promotion.
 
 ### Required Routing Config
 
@@ -160,6 +186,46 @@ Rules:
 - `VITE_PUBLIC_INQUIRY_FORM_URL` is public configuration and may be exposed to the client
 - do not place secrets in any `VITE_*` variable
 - launch builds should fail pre-release validation if the inquiry form URL is missing
+- set Preview and Production values independently in Vercel
+- redeploy the relevant environment after changing Vercel environment variables
+
+## Generated URL Smoke
+
+Vercel generates URLs for deployments. Slice 6 uses them in this order:
+
+1. Preview URL from the branch or pull request
+2. Production generated `vercel.app` URL
+3. `https://everyshift.co.kr` after domain setup
+
+Smoke checks must cover:
+
+- `/`
+- `/login`
+- `/signup`
+- `/access/pending`
+- `/app`
+- at least one `/app/schedule/*` deep link refresh
+- legacy redirect examples for `/admin/*`, `/home/*`, `/ops/*`, and `/schedule/*`
+- public inquiry CTA
+
+## Custom Domain And SSL
+
+Use `everyshift.co.kr` as the launch domain target when the team is ready to attach the public domain.
+
+Process criteria:
+
+- add `everyshift.co.kr` in the Vercel project Domains settings
+- configure the DNS record values shown by Vercel at the domain provider
+- wait for DNS propagation before treating the domain as launch-ready
+- confirm Vercel reports HTTPS certificate issuance as active
+- run the same smoke checks on `https://everyshift.co.kr` that passed on the production generated URL
+
+Reference points from Vercel docs:
+
+- Vercel serves only the configured Output Directory after a build, so Launch Core records `dist` for the Vite build output.
+- Vercel environment variables are scoped to Production, Preview, custom environments, or Development.
+- Vercel custom-domain setup asks for DNS records based on apex or subdomain configuration.
+- Vercel automatically tries to generate an SSL certificate after a domain is added and DNS validation can complete.
 
 ## CI Gate
 

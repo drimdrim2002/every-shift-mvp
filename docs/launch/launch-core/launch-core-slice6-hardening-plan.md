@@ -71,7 +71,7 @@ Repo-ready
   -> Custom-domain-ready
 ```
 
-`Repo-ready` is mergeable. `Custom-domain-ready` is required only for a public custom-domain launch, not for proving Launch Core deployment correctness.
+`Repo-ready` is mergeable. `Custom-domain-ready` is a public launch-domain gate, not the proof point for Launch Core deployment correctness.
 
 ## File Structure
 
@@ -320,7 +320,7 @@ Repo-ready
 - first Production target: `https://<vercel-project>.vercel.app`
 - custom domain: deferred until domain purchase
 
-The generated Vercel URLs are required for initial deployment proof. A custom domain is not required to complete Slice 6 repo readiness.
+The generated Vercel URLs are the initial deployment proof. Completing Slice 6 repo readiness does not depend on a custom domain.
 
 ### Vercel Project Bootstrap
 
@@ -646,7 +646,7 @@ Rules:
 Run:
 
 ```bash
-rg -n "custom domain|required domain|domain.*required|VITE_PUBLIC_SITE_URL|Vercel" docs/launch/launch-core/launch-core-auth-and-deploy-spec.md docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md
+rg -n "custom-domain|domain dependency|VITE_PUBLIC_SITE_URL|Vercel" docs/launch/launch-core/launch-core-auth-and-deploy-spec.md docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md
 ```
 
 Expected: custom domain is deferred, and `VITE_PUBLIC_SITE_URL` is optional unless canonical/meta behavior exists.
@@ -773,10 +773,10 @@ git commit -m "test: preserve inquiry env validation"
 Run:
 
 ```bash
-rg -n "Deploy Contract And Launch Regression Gate|Deploy contract \\+ regression gate|preview deploy reachable|production deploy reachable|required domain|domain.*required" docs/launch/launch-core
+rg -n "Deploy Contract And Launch Regression Gate|Deploy contract \\+ regression gate|preview deploy reachable|production deploy reachable|domain dependency" docs/launch/launch-core
 ```
 
-Expected: no stale Slice 6 title remains, and no wording says a custom domain is required for repo readiness.
+Expected: no stale Slice 6 title remains, and no wording makes repo readiness depend on a custom domain.
 
 - [ ] **Step 2: Run repo-ready checks**
 

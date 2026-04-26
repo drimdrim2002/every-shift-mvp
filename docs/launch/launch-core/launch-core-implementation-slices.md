@@ -2,6 +2,11 @@
 
 > Execution plan derived from [launch-core-plan.md](./launch-core-plan.md)
 
+**Document role:** This is the master slice plan for Launch Core. It owns the full Slice 0-6 sequence. Slice 6 uses two supporting artifacts:
+
+- [Launch Core Auth and Deploy Spec](./launch-core-auth-and-deploy-spec.md): auth, environment, Vercel, domain, and SSL criteria for Slice 6.
+- [Launch Core QA Checklist](./launch-core-qa-checklist.md): the executable smoke checklist for preview, production default URL, and custom domain verification.
+
 **Goal:** Break `Launch Core` into slices that can be developed, verified, and landed one at a time without leaving routing, auth, or launch CTAs in a half-migrated state.
 
 **Architecture:** Treat this as a route-boundary migration, not a product rewrite. Reuse the current auth screens, access-state screens, app shell, ops screens, and schedule workflow. Add the public landing surface at `/`, move the authenticated workspace under `/app`, preserve legacy deep links during the launch window, and lock deployment/test gates around the migration.
@@ -110,7 +115,7 @@ Last updated: 2026-04-25
 | Slice 3: Public landing + layout boundary       | Done        | `/` renders the public landing surface for logged-out users, active authenticated root visits enter `/app`, and app chrome stays scoped to `/app/*`.              |
 | Slice 4: Legacy redirect window                 | Done        | Redirect normalization, helper updates, unit coverage, and direct Playwright spec coverage are complete; full Playwright setup depends on local test credentials. |
 | Slice 5: Launch-safe inquiry CTA                | Done        | Public inquiry CTAs use one `VITE_PUBLIC_INQUIRY_FORM_URL`, local env validation and focused unit coverage are in place, and Vercel env setup remains in Slice 6. |
-| Slice 6: Deploy contract + regression gate      | Not started | Vercel deep-link and launch regression gates remain pending.                                                                                                      |
+| Slice 6: Deploy contract + regression gate      | Not started | Master stage flow is defined here; Vercel/auth details live in the support spec and execution checks live in the QA checklist.                                    |
 
 ## Baseline Before Slice 0
 
@@ -526,6 +531,74 @@ Verify before closing this slice:
 
 **Why this is the last slice:** It validates the complete migration only after all route, redirect, and CTA behavior exists.
 
+**Supporting artifacts:**
+
+- [Launch Core Auth and Deploy Spec](./launch-core-auth-and-deploy-spec.md)
+- [Launch Core QA Checklist](./launch-core-qa-checklist.md)
+
+This master slice document defines the stage sequence and pass/fail gates. The support spec records the Vercel project settings and deployment principles. The QA checklist records the actual verification order for a person performing the launch smoke.
+
+### Slice 6 Stage Flow
+
+#### 1. Repo-ready
+
+Purpose: prove the repository is ready before any Vercel project setup or deployment smoke.
+
+Gate:
+
+- root `vercel.json` contains the Vite SPA rewrite to `/index.html`
+- `pnpm check-env` validates the public inquiry URL contract
+- focused unit and E2E launch regression coverage is ready
+- local `pnpm build` succeeds before the first deploy handoff
+
+#### 2. Vercel-project-ready
+
+Purpose: create or confirm the Vercel project and GitHub connection with settings a Vercel beginner can check.
+
+Gate:
+
+- GitHub repository is connected to the Vercel project
+- Framework Preset is Vite or equivalent Vite auto-detection is confirmed
+- Build Command is `pnpm build`
+- Output Directory is `dist`
+- Install Command follows the project package manager, normally `pnpm install`
+- Preview and Production environment variables are set independently
+- `VITE_PUBLIC_INQUIRY_FORM_URL` is set in both Preview and Production
+
+#### 3. Preview-smoke-ready
+
+Purpose: verify the generated Preview URL before any production promotion.
+
+Gate:
+
+- generated Preview URL opens the public landing at `/`
+- `/app/*` deep links survive direct load and refresh on the Preview URL
+- login, signup, access-state, role landing, legacy redirects, and inquiry CTA checks pass on Preview
+- Preview smoke result is recorded in [Launch Core QA Checklist](./launch-core-qa-checklist.md)
+
+#### 4. Production-default-domain-ready
+
+Purpose: verify the generated Production URL before attaching or announcing the launch domain.
+
+Gate:
+
+- generated Production URL is reachable
+- public landing, auth redirects, `/app/*` refresh, legacy redirects, and inquiry CTA checks pass on the generated Production URL
+- production environment variable values match the intended launch values
+- production default-domain smoke result is recorded in [Launch Core QA Checklist](./launch-core-qa-checklist.md)
+
+#### 5. Custom-domain-ready
+
+Purpose: verify `everyshift.co.kr` after DNS and SSL are active.
+
+Gate:
+
+- `everyshift.co.kr` is assigned to the Vercel project
+- DNS records shown by Vercel are configured at the domain provider
+- Vercel reports the HTTPS certificate as active after DNS propagation
+- public landing, `/app/*` refresh, legacy redirects, and inquiry CTA checks pass on `https://everyshift.co.kr`
+- custom-domain smoke result is recorded in [Launch Core QA Checklist](./launch-core-qa-checklist.md)
+
 ### In Scope
 
 - add root `vercel.json` rewrite for Vite SPA deep links
@@ -568,6 +641,7 @@ Verify before closing this slice:
 - launch-focused route, auth, helper, and redirect regressions are covered in unit and E2E tests
 - preview is ready for manual smoke before production promotion
 - launch cannot proceed with a missing or malformed inquiry URL
+- all five Slice 6 readiness stages are recorded as pass, blocked, or intentionally deferred in the QA checklist
 
 ### Test Gate After Slice 6
 
@@ -586,6 +660,7 @@ Manual verification before production:
 - legacy redirect matrix resolves correctly for `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*`
 - inquiry CTA opens the configured Google Form
 - admin, super, pending, rejected, and restricted-user routing all land correctly
+- generated Preview URL, generated Production URL, and `everyshift.co.kr` have explicit smoke results before launch announcement
 
 ---
 
@@ -625,5 +700,5 @@ Recommended commit shape:
 - all 7 slices are complete
 - every slice gate is green
 - final launch regression suite is green
-- preview smoke checks pass
+- preview, production default URL, and custom-domain smoke checks pass or have an explicit launch decision recorded
 - `launch-core-qa-checklist.md` is complete

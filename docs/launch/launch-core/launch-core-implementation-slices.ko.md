@@ -11,6 +11,11 @@
 - 이전 슬라이스가 안정화되기 전에는 다음 슬라이스로 넘어가지 않습니다.
 - 특히 라우팅(`/`, `/app`)과 인증, 공개 랜딩, 문의 CTA가 섞여서 반쯤 바뀐 상태가 되지 않도록 막는 것이 핵심입니다.
 
+이 문서는 Launch Core 전체의 마스터 slice 계획입니다. Slice 0~6의 순서와 통과 기준은 여기서 관리하고, Slice 6의 세부 산출물은 아래 두 문서가 담당합니다.
+
+- [Launch Core 인증 및 배포 스펙](./launch-core-auth-and-deploy-spec.ko.md): Slice 6의 인증, 환경변수, Vercel, 도메인, SSL 기준
+- [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md): preview, production 기본 URL, custom domain 스모크 확인 순서
+
 ## 핵심 목표
 
 이번 작업의 목표는 제품을 새로 만드는 것이 아닙니다. 기존 앱을 유지한 채 진입 구조만 정리하는 것입니다.
@@ -563,6 +568,74 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 이 단계는 앞선 모든 라우트, 리다이렉트, CTA 동작이 완성된 뒤에만 제대로 검증할 수 있습니다.
 
+### 지원 산출물
+
+- [Launch Core 인증 및 배포 스펙](./launch-core-auth-and-deploy-spec.ko.md)
+- [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)
+
+이 마스터 slice 문서는 단계 순서와 통과 기준을 정의합니다. 인증 및 배포 스펙은 Vercel 프로젝트 설정값과 배포 원칙을 기록하고, QA 체크리스트는 실제 런칭 스모크를 수행하는 사람이 따라갈 확인 순서를 기록합니다.
+
+### Slice 6 단계 흐름
+
+#### 1. Repo-ready
+
+목적: Vercel 프로젝트 설정이나 배포 스모크 전에 저장소가 준비됐는지 확인합니다.
+
+통과 기준:
+
+- 루트 `vercel.json` 에 Vite SPA rewrite 가 `/index.html` 로 설정되어 있다.
+- `pnpm check-env` 가 공개 문의 URL 계약을 검증한다.
+- 핵심 unit / E2E 런칭 회귀 테스트가 준비되어 있다.
+- 첫 배포 인계 전 로컬 `pnpm build` 가 통과한다.
+
+#### 2. Vercel-project-ready
+
+목적: Vercel 을 처음 쓰는 사람도 확인할 수 있게 프로젝트와 GitHub 연결, 빌드 설정을 고정합니다.
+
+통과 기준:
+
+- GitHub 저장소가 Vercel 프로젝트에 연결되어 있다.
+- Framework Preset 이 Vite 이거나 Vite 자동 감지가 확인되어 있다.
+- Build Command 는 `pnpm build` 다.
+- Output Directory 는 `dist` 다.
+- Install Command 는 프로젝트 package manager 기준이며 보통 `pnpm install` 이다.
+- Preview 와 Production 환경변수가 독립적으로 설정되어 있다.
+- `VITE_PUBLIC_INQUIRY_FORM_URL` 이 Preview 와 Production 양쪽에 있다.
+
+#### 3. Preview-smoke-ready
+
+목적: production 승격 전에 generated Preview URL 에서 실제 동작을 확인합니다.
+
+통과 기준:
+
+- generated Preview URL 의 `/` 가 공개 랜딩으로 열린다.
+- Preview URL 에서 `/app/*` 딥링크 직접 접근과 새로고침이 동작한다.
+- Preview 에서 로그인, 회원가입, 접근 상태, 권한별 도착 경로, 레거시 리다이렉트, 문의 CTA 확인이 통과한다.
+- Preview 스모크 결과가 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 기록되어 있다.
+
+#### 4. Production-default-domain-ready
+
+목적: 런칭 도메인을 붙이거나 공개하기 전에 generated Production URL 을 확인합니다.
+
+통과 기준:
+
+- generated Production URL 에 접근할 수 있다.
+- generated Production URL 에서 공개 랜딩, 인증 리다이렉트, `/app/*` 새로고침, 레거시 리다이렉트, 문의 CTA 확인이 통과한다.
+- Production 환경변수 값이 런칭 의도와 일치한다.
+- production 기본 URL 스모크 결과가 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 기록되어 있다.
+
+#### 5. Custom-domain-ready
+
+목적: DNS 와 SSL 이 활성화된 뒤 `everyshift.co.kr` 을 확인합니다.
+
+통과 기준:
+
+- `everyshift.co.kr` 이 Vercel 프로젝트에 연결되어 있다.
+- Vercel 이 안내한 DNS record 가 도메인 제공업체에 설정되어 있다.
+- DNS 전파 후 Vercel 이 HTTPS certificate 를 active 로 표시한다.
+- `https://everyshift.co.kr` 에서 공개 랜딩, `/app/*` 새로고침, 레거시 리다이렉트, 문의 CTA 확인이 통과한다.
+- custom-domain 스모크 결과가 [Launch Core QA 체크리스트](./launch-core-qa-checklist.ko.md)에 기록되어 있다.
+
 ### 포함 작업
 
 - 루트 `vercel.json` 에 Vite SPA 딥링크 rewrite 추가
@@ -603,6 +676,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 - 라우트, 인증, helper, 레거시 리다이렉트 회귀가 unit / E2E 로 커버된다.
 - preview 가 production 승격 전 수동 스모크 테스트 가능한 상태다.
 - 문의 URL 이 없거나 잘못된 상태로는 런칭할 수 없다.
+- Slice 6의 다섯 readiness 단계가 QA 체크리스트에 pass, blocked, intentionally deferred 중 하나로 기록되어 있다.
 
 ### 테스트 게이트
 
@@ -621,6 +695,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 - `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` 레거시 리다이렉트가 모두 맞다.
 - 문의 CTA 가 설정된 Google Form 을 연다.
 - admin, super, pending, rejected, restricted-user 라우팅이 모두 맞다.
+- generated Preview URL, generated Production URL, `everyshift.co.kr` 의 스모크 결과가 런칭 공지 전에 명시되어 있다.
 
 ---
 
@@ -660,5 +735,5 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 - 7개 슬라이스가 모두 완료되었다.
 - 각 슬라이스 테스트 게이트가 모두 통과했다.
 - 최종 런칭 회귀 테스트가 통과했다.
-- preview 스모크 테스트가 통과했다.
+- preview, production 기본 URL, custom domain 스모크 테스트가 통과했거나 명시적인 런칭 결정이 기록되어 있다.
 - `launch-core-qa-checklist.md` 가 완료되었다.
