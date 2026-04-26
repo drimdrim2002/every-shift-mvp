@@ -131,7 +131,7 @@
 - [ ] Vercel 프로젝트에 `everyshift.co.kr` 를 추가했다
 - [ ] Vercel 안내에 따라 registrar DNS record 를 설정했다
 - [ ] Vercel SSL 인증서가 유효하다
-- [ ] `https://everyshift.co.kr` 에서 `/`, `/app`, `/login`, `/signup`, `/access/*`, `/app/schedule/*` 중 하나의 하드 새로고침을 통과했다
+- [ ] `https://everyshift.co.kr` 에서 `/`, `/app`, `/login`, `/signup`, `/access/*` 전체와 `/app/schedule/*` 중 하나의 하드 새로고침이 모두 통과했다
 - [ ] 사이트 메타데이터 또는 표준 URL 동작이 있을 때만 `VITE_PUBLIC_SITE_URL` 을 업데이트했다
 - [ ] custom-domain 스모크 날짜, 담당자, 결과가 기록되어 있다
 

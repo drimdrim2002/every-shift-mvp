@@ -368,7 +368,7 @@ Replace the current `## Deployment Smoke` section in `docs/launch/launch-core/la
 
 - [ ] `pnpm lint:check` passed
 - [ ] `pnpm check-env` passed
-- [ ] focused unit launch gate passed
+- [ ] `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
 - [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
 - [ ] `pnpm build` passed
 - [ ] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
@@ -380,8 +380,14 @@ Replace the current `## Deployment Smoke` section in `docs/launch/launch-core/la
 - [ ] install command is `pnpm install`
 - [ ] build command is `pnpm build`
 - [ ] output directory is `dist`
-- [ ] Preview env vars are set
-- [ ] Production env vars are set
+- [ ] Preview `VITE_SUPABASE_URL` is set
+- [ ] Preview `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Preview `VITE_API_BASE_URL` is set
+- [ ] Preview `VITE_PUBLIC_INQUIRY_FORM_URL` is set
+- [ ] Production `VITE_SUPABASE_URL` is set
+- [ ] Production `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Production `VITE_API_BASE_URL` is set
+- [ ] Production `VITE_PUBLIC_INQUIRY_FORM_URL` is set
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Preview
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production
 - [ ] no secrets are stored in `VITE_*`
