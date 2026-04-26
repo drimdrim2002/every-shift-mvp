@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rework Slice 6 so Launch Core can prove deploy readiness on Vercel generated URLs before any custom domain has been purchased.
+**Goal:** Rework Slice 6 so Launch Core can prove deploy readiness on Vercel generated URLs before connecting the purchased custom-domain target, `everyshift.co.kr`.
 
 **Architecture:** Separate repo-owned deploy correctness from external launch operations. The repository must become mergeable with a Vercel SPA contract, local regression gates, and generated-URL smoke criteria; Vercel project bootstrap, Production promotion, and custom-domain readiness are staged gates that do not block the repo-ready slice.
 
@@ -24,7 +24,7 @@ In scope:
 
 Out of scope:
 
-- buying a custom domain
+- buying additional domains or changing the registered domain
 - configuring DNS
 - wiring OAuth providers
 - adding analytics
@@ -38,10 +38,10 @@ The current Slice 6 definition assumes the deployment environment already exists
 - no root `vercel.json` exists yet
 - Vercel project setup is not represented as a bootstrap task
 - preview and production smoke checks are written as if URLs already exist
-- custom domain readiness is implied even though the domain has not been purchased
+- custom-domain readiness is implied even though `everyshift.co.kr` DNS, SSL, and custom-domain smoke are external launch-ops gates
 - repo-owned gates and external operational setup are mixed together
 
-Slice 6 should not block on a purchased domain. It should first prove that the repo can deploy safely to Vercel-generated URLs, then make custom-domain setup an explicit follow-up gate.
+Slice 6 should not block on connecting `everyshift.co.kr`. It should first prove that the repo can deploy safely to Vercel-generated URLs, then make DNS, SSL, and custom-domain smoke an explicit follow-up gate.
 
 ## Plan Review Findings
 
@@ -50,7 +50,7 @@ The existing plan direction is correct. The needed hardening is plan quality, no
 - exact replacement text is required so implementers do not invent different Slice 6 semantics
 - `scripts/check-env.js` should not be reworked in Slice 6 unless existing Slice 5 validations are missing
 - credential-backed Playwright specs must stay separate from the repo-ready gate
-- custom-domain launch must be explicitly blocked on domain, DNS, and SSL, while repo completion remains unblocked
+- custom-domain launch on `everyshift.co.kr` must be explicitly blocked on DNS, SSL, and smoke, while repo completion remains unblocked
 - verification must include markdown consistency checks because most of this slice edits docs
 
 ## Target Slice Shape
@@ -58,7 +58,7 @@ The existing plan direction is correct. The needed hardening is plan quality, no
 Rename Slice 6 to:
 
 ```text
-Slice 6: Deploy Readiness + Preview Regression Gate
+Slice 6: Deploy readiness + preview regression gate
 ```
 
 Use these status layers:
@@ -107,7 +107,7 @@ Replace the full section from `## Slice 6:` through the line before `---` that p
 ````markdown
 ## Slice 6: Deploy Readiness + Preview Regression Gate
 
-**Goal:** Make the repository deploy-ready, bootstrap the first Vercel deployment path, and define launch regression gates without requiring a purchased custom domain.
+**Goal:** Make the repository deploy-ready, bootstrap the first Vercel deployment path, and define launch regression gates without requiring custom-domain DNS or SSL readiness.
 
 **Why this is the last slice:** It validates the complete route, auth, redirect, inquiry CTA, and deploy contract only after the Launch Core migration behavior exists.
 
@@ -121,15 +121,15 @@ Repo-ready
   -> Custom-domain-ready
 ```
 
-`Repo-ready` can merge before a Vercel project or custom domain exists. `Custom-domain-ready` blocks only the public custom-domain launch, not the repository deploy-readiness proof.
+`Repo-ready` can merge before a Vercel project exists and before the custom domain is connected. `Custom-domain-ready` blocks only the public launch on `everyshift.co.kr`, not the repository deploy-readiness proof.
 
 ### Explicit Assumptions
 
-- no custom domain has been purchased yet
+- the purchased custom domain is `everyshift.co.kr`
 - no Vercel project may exist yet
 - the first deployed verification target is a Vercel generated URL
-- custom domain purchase, registrar DNS, and SSL readiness are external launch-ops tasks
-- Slice 6 code and docs can merge before the custom domain exists
+- registrar DNS and SSL readiness are external launch-ops tasks
+- Slice 6 code and docs can merge before `everyshift.co.kr` is connected and SSL-ready
 
 ### In Scope
 
@@ -138,7 +138,7 @@ Repo-ready
 - define Vercel project bootstrap settings
 - define Preview smoke checks on `https://<vercel-preview-deployment>.vercel.app`
 - define Production smoke checks on `https://<vercel-project>.vercel.app`
-- defer custom-domain smoke checks until domain purchase, DNS, and SSL are complete
+- defer custom-domain smoke checks on `https://everyshift.co.kr` until DNS and SSL are complete
 
 ### Out of Scope
 
@@ -202,7 +202,7 @@ If preview smoke fails, do not promote to production. Fix the repo or Vercel env
 
 ### Production Default-Domain Smoke Gate
 
-Production target before custom domain purchase:
+Production target before custom-domain connection:
 
 ```text
 https://<vercel-project>.vercel.app
@@ -213,24 +213,30 @@ Run the same smoke matrix from the Preview gate against the production generated
 Promotion rule:
 
 ```text
-Production deployment can be verified on the generated Vercel domain. Custom-domain launch remains blocked until domain purchase, DNS, and SSL are complete.
+Production deployment can be verified on the generated Vercel domain. Custom-domain launch on everyshift.co.kr remains blocked until DNS, SSL, and custom-domain smoke are complete.
 ```
 
 ### Deferred Custom-Domain Checklist
 
-Complete this only after the domain exists:
+Target custom domain:
 
-- purchase domain
-- add domain to the Vercel project
+```text
+https://everyshift.co.kr
+```
+
+Complete this only after the Vercel project exists and domain connection work begins:
+
+- confirm the purchased domain is `everyshift.co.kr`
+- add `everyshift.co.kr` to the Vercel project
 - configure registrar DNS records as instructed by Vercel
 - wait for the Vercel SSL certificate to become valid
-- smoke test `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh on the custom domain
+- smoke test `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh on `https://everyshift.co.kr`
 - update `VITE_PUBLIC_SITE_URL` only if site metadata or canonical URL behavior is implemented
 
 Custom-domain rule:
 
 ```text
-Do not block Slice 6 repo completion on custom domain purchase. Block public custom-domain launch on this checklist instead.
+Do not block Slice 6 repo completion on connecting everyshift.co.kr. Block public custom-domain launch on this checklist instead.
 ```
 
 ### Likely Files
@@ -312,15 +318,15 @@ Repo-ready
   -> Custom-domain-ready
 ```
 
-`Repo-ready` proves the repository can be built, tested, and configured for Vercel. `Custom-domain-ready` is a launch-ops gate that begins only after domain purchase, DNS setup, and SSL readiness.
+`Repo-ready` proves the repository can be built, tested, and configured for Vercel. `Custom-domain-ready` is a launch-ops gate for `everyshift.co.kr` that begins only after Vercel project setup, DNS setup, and SSL readiness.
 
 ### Initial Deploy Targets
 
 - first Preview target: `https://<vercel-preview-deployment>.vercel.app`
 - first Production target: `https://<vercel-project>.vercel.app`
-- custom domain: deferred until domain purchase
+- custom domain: `https://everyshift.co.kr`, deferred until DNS, SSL, and custom-domain smoke
 
-The generated Vercel URLs are the initial deployment proof. Completing Slice 6 repo readiness does not depend on a custom domain.
+The generated Vercel URLs are required for initial deployment proof. Connecting `everyshift.co.kr` is not required to complete Slice 6 repo readiness.
 
 ### Vercel Project Bootstrap
 
@@ -400,11 +406,11 @@ Replace the current `## Deployment Smoke` section in `docs/launch/launch-core/la
 
 ### Custom Domain
 
-- [ ] domain purchased
-- [ ] domain added to Vercel project
+- [ ] purchased domain confirmed as `everyshift.co.kr`
+- [ ] `everyshift.co.kr` added to Vercel project
 - [ ] registrar DNS records configured as instructed by Vercel
 - [ ] Vercel SSL certificate is valid
-- [ ] `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh passed on the custom domain
+- [ ] `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh passed on `https://everyshift.co.kr`
 - [ ] `VITE_PUBLIC_SITE_URL` updated only if site metadata or canonical URL behavior exists
 ```
 
@@ -462,7 +468,7 @@ Rules:
 Replace any remaining old Slice 6 label:
 
 ```text
-Slice 6: Deploy contract + regression gate
+legacy Slice 6 deploy contract label
 ```
 
 with:
@@ -482,10 +488,10 @@ Slice 6: 배포 준비 + Preview 회귀 게이트
 Run:
 
 ```bash
-rg -n "Slice 6|custom domain|domain|Vercel preview|generated URL|Production generated|Preview generated" docs/launch/launch-core/launch-core-implementation-slices.md docs/launch/launch-core/launch-core-implementation-slices.ko.md
+rg -n "Slice 6|custom domain|domain|Vercel preview|generated URL|Production generated|Preview generated|everyshift\.co\.kr" docs/launch/launch-core/launch-core-implementation-slices.md docs/launch/launch-core/launch-core-implementation-slices.ko.md
 ```
 
-Expected: generated Vercel URLs are described before custom-domain setup in both files.
+Expected: generated Vercel URLs are described before custom-domain setup in both files, and `everyshift.co.kr` appears as the known custom-domain target.
 
 - [ ] **Step 6: Commit the slice-doc rewrite**
 
@@ -773,7 +779,7 @@ git commit -m "test: preserve inquiry env validation"
 Run:
 
 ```bash
-rg -n "Deploy Contract And Launch Regression Gate|Deploy contract \\+ regression gate|preview deploy reachable|production deploy reachable|domain dependency" docs/launch/launch-core
+rg -n "Deploy Contract And Launch Regression Gate|Deploy contract \\+ regression gate|배포 계약 \\+ 최종 회귀 게이트|before any custom domain has been purchased|without requiring a purchased custom domain|no custom domain has been purchased yet|preview deploy reachable|production deploy reachable|required domain|domain.*required" docs/launch/launch-core
 ```
 
 Expected: no stale Slice 6 title remains, and no wording makes repo readiness depend on a custom domain.
