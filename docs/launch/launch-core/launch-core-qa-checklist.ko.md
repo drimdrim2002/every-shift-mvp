@@ -74,69 +74,69 @@
 
 ## Slice 6 배포 스모크 테스트
 
-### Repo-ready
+### 로컬 저장소 준비 상태
 
 - [ ] 루트 `vercel.json` 이 있다
 - [ ] 루트 `vercel.json` 이 `/(.*)` 를 `/index.html` 로 rewrite 한다
-- [ ] 런칭 문의 URL 로 `pnpm check-env` 가 통과했다
-- [ ] 로컬 `pnpm build` 가 통과했다
-- [ ] 핵심 unit 런칭 회귀 테스트가 통과했다
-- [ ] 핵심 E2E 런칭 회귀 테스트가 통과했거나 blocked 사유가 명시되어 있다
+- [ ] `pnpm lint:check` 통과
+- [ ] `pnpm check-env` 통과
+- [ ] 출시 핵심 단위 게이트 통과
+- [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` 통과
+- [ ] `pnpm build` 통과
+- [ ] `TEST_USER_EMAIL` 또는 `TEST_USER_PASSWORD` 가 없으면 인증 정보 기반 E2E 상태를 별도로 기록했다
 
-### Vercel-project-ready
+### Vercel 프로젝트 부트스트랩
 
-- [ ] GitHub 저장소가 Vercel 프로젝트에 연결되어 있다
-- [ ] Framework Preset 이 Vite 이거나 Vite 자동 감지가 확인되어 있다
-- [ ] Install Command 는 `pnpm install` 또는 Vercel 기본값의 `pnpm` 사용이다
-- [ ] Build Command 는 `pnpm build` 다
-- [ ] Output Directory 는 `dist` 다
-- [ ] Root Directory 는 프로젝트 구조가 바뀌지 않았다면 repository root 다
-- [ ] preview 환경변수가 올바르다
-- [ ] production 환경변수가 올바르다
-- [ ] preview 에 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
-- [ ] production 에 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
+- [ ] GitHub 저장소를 Vercel 로 가져왔고 Vercel 프로젝트에 연결되어 있다
+- [ ] 프레임워크 프리셋이 `Vite` 이거나 Vite 자동 감지가 확인되어 있다
+- [ ] root directory 는 프로젝트 구조가 바뀌지 않았다면 repository root 다
+- [ ] 설치 명령이 `pnpm install` 이다
+- [ ] 빌드 명령이 `pnpm build` 이다
+- [ ] 출력 디렉터리가 `dist` 이다
+- [ ] 프리뷰 환경변수가 설정되어 있다
+- [ ] 프로덕션 환경변수가 설정되어 있다
+- [ ] 프리뷰의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다
+- [ ] 프로덕션의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다
+- [ ] `VITE_*` 에 비밀값을 저장하지 않았다
 
-### Preview-smoke-ready
+### 프리뷰 생성 URL
 
-- [ ] generated Preview URL 이 기록되어 있다
-- [ ] generated Preview URL 에서 `/` 가 열린다
-- [ ] generated Preview URL 에서 `/login`, `/signup`, `/access/pending` 에 앱 크롬이 보이지 않는다
-- [ ] generated Preview URL 에서 활성 로그인 사용자의 `/` 접근이 `/app` 으로 이동한다
-- [ ] generated Preview URL 에서 `/app/*` 딥링크 새로고침이 동작한다
-- [ ] generated Preview URL 에서 레거시 리다이렉트 매트릭스가 통과한다
-- [ ] generated Preview URL 에서 공개 문의 CTA 가 설정된 Google Form 을 연다
+- [ ] 프리뷰 URL 기록: `https://<vercel-preview-deployment>.vercel.app`
+- [ ] 로그아웃 상태의 `/` 에 공개 랜딩 페이지가 보인다
+- [ ] 로그인 상태의 `/` 이 `/app` 으로 이동한다
+- [ ] `/login`, `/signup`, `/access/*` 가 앱 크롬 없이 렌더링된다
+- [ ] 활성 관리자 계정이 `/app` 에 접근하면 앱 크롬과 함께 로드된다
+- [ ] `/app/schedule/step1` 하드 새로고침이 404 가 아니다
+- [ ] 기존 `/admin/*`, `/home/*`, `/ops/*`, `/schedule/*` URL 이 표준 `/app/*` 로 리다이렉트된다
+- [ ] `도입 문의` 가 설정된 Google Form 을 연다
+- [ ] 승인 대기, 승인 거절, 제한 사용자 경로가 올바른 도착지로 이동한다
 - [ ] preview 스모크 날짜, 담당자, 결과가 기록되어 있다
 
-### Production-default-domain-ready
+### 프로덕션 생성 URL
 
-- [ ] generated Production URL 이 기록되어 있다
-- [ ] generated Production URL 에서 `/` 가 열린다
-- [ ] generated Production URL 에서 활성 로그인 사용자의 `/` 접근이 `/app` 으로 이동한다
-- [ ] generated Production URL 에서 `/app/*` 딥링크 새로고침이 동작한다
-- [ ] generated Production URL 에서 레거시 리다이렉트 매트릭스가 통과한다
-- [ ] generated Production URL 에서 공개 문의 CTA 가 설정된 Google Form 을 연다
+- [ ] 프로덕션 URL 기록: `https://<vercel-project>.vercel.app`
+- [ ] 프리뷰 생성 URL 과 같은 스모크 매트릭스 통과
+- [ ] 프리뷰 스모크 통과 후에만 프로덕션 승격을 진행했다
 - [ ] production 기본 URL 스모크 날짜, 담당자, 결과가 기록되어 있다
 
-### Custom-domain-ready
+### 커스텀 도메인
 
-- [ ] `everyshift.co.kr` 이 Vercel 프로젝트에 추가되어 있다
-- [ ] Vercel 이 안내한 DNS record 가 도메인 제공업체에 설정되어 있다
-- [ ] Vercel 이 HTTPS certificate status 를 active 로 표시한다
-- [ ] `https://everyshift.co.kr/` 에서 공개 랜딩이 열린다
-- [ ] `https://everyshift.co.kr/app/*` 딥링크 새로고침이 동작한다
-- [ ] `https://everyshift.co.kr` 에서 레거시 리다이렉트 매트릭스가 통과한다
-- [ ] `https://everyshift.co.kr` 에서 공개 문의 CTA 가 설정된 Google Form 을 연다
+- [ ] 구매한 커스텀 도메인 대상 확인: `everyshift.co.kr`
+- [ ] Vercel 프로젝트에 `everyshift.co.kr` 를 추가했다
+- [ ] Vercel 안내에 따라 registrar DNS record 를 설정했다
+- [ ] Vercel SSL 인증서가 유효하다
+- [ ] `https://everyshift.co.kr` 에서 `/`, `/app`, `/login`, `/signup`, `/access/*`, `/app/schedule/*` 중 하나의 하드 새로고침을 통과했다
+- [ ] 사이트 메타데이터 또는 표준 URL 동작이 있을 때만 `VITE_PUBLIC_SITE_URL` 을 업데이트했다
 - [ ] custom-domain 스모크 날짜, 담당자, 결과가 기록되어 있다
 
 ## 최종 게이트
 
-- [ ] `pnpm lint:check` 통과
-- [ ] 핵심 테스트 통과
-- [ ] 수동 랜딩 QA 완료
-- [ ] 수동 라우팅 QA 완료
-- [ ] 수동 문의 폼 QA 완료
 - [ ] Repo-ready 단계 완료
-- [ ] Vercel-project-ready 단계 완료
-- [ ] Preview-smoke-ready 단계 완료
-- [ ] Production-default-domain-ready 단계 완료
-- [ ] Custom-domain-ready 단계 완료 또는 명시적인 런칭 결정 기록
+- [ ] 7개 슬라이스 모두 완료
+- [ ] 모든 저장소 준비 슬라이스 게이트가 통과 상태다
+- [ ] 최종 출시 회귀 테스트 묶음이 통과 상태다
+- [ ] Vercel 프로젝트 부트스트랩 완료
+- [ ] 프리뷰 생성 URL 스모크 통과
+- [ ] 프로덕션 생성 URL 스모크 통과
+- [ ] `everyshift.co.kr` 커스텀 도메인 체크리스트 완료, 또는 커스텀 도메인 출시 명시적 연기
+- [ ] 수동 확인을 수행한 항목은 `launch-core-qa-checklist.md` 에 테스트한 URL, 날짜, 담당자를 기록했다

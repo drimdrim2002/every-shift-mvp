@@ -73,69 +73,69 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 
 ## Slice 6 Deployment Smoke
 
-### Repo-ready
+### Local Repo-Ready
 
 - [ ] root `vercel.json` exists
 - [ ] root `vercel.json` rewrites `/(.*)` to `/index.html`
-- [ ] `pnpm check-env` passed with the launch inquiry URL
-- [ ] `pnpm build` passed locally
-- [ ] focused unit launch regression tests passed
-- [ ] focused E2E launch regression tests passed or are explicitly blocked with reason
+- [ ] `pnpm lint:check` passed
+- [ ] `pnpm check-env` passed
+- [ ] focused unit launch gate passed
+- [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
+- [ ] `pnpm build` passed
+- [ ] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
 
-### Vercel-project-ready
+### Vercel Project Bootstrap
 
-- [ ] GitHub repository is connected to the Vercel project
-- [ ] Framework Preset is Vite or Vite auto-detection is confirmed
-- [ ] Install Command is `pnpm install` or Vercel default using `pnpm`
-- [ ] Build Command is `pnpm build`
-- [ ] Output Directory is `dist`
-- [ ] Root Directory is repository root unless the project layout changed
-- [ ] preview environment variables are correct
-- [ ] production environment variables are correct
-- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in preview
-- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in production
+- [ ] GitHub repo imported into Vercel and connected to the Vercel project
+- [ ] framework preset is `Vite` or Vite auto-detection is confirmed
+- [ ] root directory is repository root unless the project layout changed
+- [ ] install command is `pnpm install`
+- [ ] build command is `pnpm build`
+- [ ] output directory is `dist`
+- [ ] Preview env vars are set
+- [ ] Production env vars are set
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Preview
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production
+- [ ] no secrets are stored in `VITE_*`
 
-### Preview-smoke-ready
+### Preview Generated URL
 
-- [ ] generated Preview URL is recorded
-- [ ] generated Preview URL loads `/`
-- [ ] generated Preview URL loads `/login`, `/signup`, and `/access/pending` without app chrome
-- [ ] generated Preview URL redirects active authenticated `/` visits to `/app`
-- [ ] generated Preview URL keeps `/app/*` deep links working after refresh
-- [ ] generated Preview URL passes the legacy redirect matrix
-- [ ] generated Preview URL opens the configured Google Form from public inquiry CTAs
+- [ ] Preview URL recorded: `https://<vercel-preview-deployment>.vercel.app`
+- [ ] logged-out `/` shows public landing
+- [ ] logged-in `/` redirects to `/app`
+- [ ] `/login`, `/signup`, and `/access/*` render without app chrome
+- [ ] `/app` loads with app chrome for an active admin
+- [ ] `/app/schedule/step1` hard refresh does not 404
+- [ ] legacy `/admin/*`, `/home/*`, `/ops/*`, and `/schedule/*` URLs redirect to canonical `/app/*`
+- [ ] `도입 문의` opens the configured Google Form
+- [ ] pending, rejected, and restricted-user routes land correctly
 - [ ] preview smoke date, tester, and result are recorded
 
-### Production-default-domain-ready
+### Production Generated URL
 
-- [ ] generated Production URL is recorded
-- [ ] generated Production URL loads `/`
-- [ ] generated Production URL redirects active authenticated `/` visits to `/app`
-- [ ] generated Production URL keeps `/app/*` deep links working after refresh
-- [ ] generated Production URL passes the legacy redirect matrix
-- [ ] generated Production URL opens the configured Google Form from public inquiry CTAs
+- [ ] Production URL recorded: `https://<vercel-project>.vercel.app`
+- [ ] same smoke matrix from Preview Generated URL passed
+- [ ] production promotion happened only after Preview smoke passed
 - [ ] production default-domain smoke date, tester, and result are recorded
 
-### Custom-domain-ready
+### Custom Domain
 
-- [ ] `everyshift.co.kr` is added to the Vercel project
-- [ ] DNS records shown by Vercel are configured at the domain provider
-- [ ] Vercel reports HTTPS certificate status as active
-- [ ] `https://everyshift.co.kr/` loads the public landing
-- [ ] `https://everyshift.co.kr/app/*` deep links work after refresh
-- [ ] `https://everyshift.co.kr` passes the legacy redirect matrix
-- [ ] `https://everyshift.co.kr` opens the configured Google Form from public inquiry CTAs
+- [ ] purchased custom-domain target confirmed: `everyshift.co.kr`
+- [ ] `everyshift.co.kr` added to Vercel project
+- [ ] registrar DNS records configured as instructed by Vercel
+- [ ] Vercel SSL certificate is valid
+- [ ] `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh passed on `https://everyshift.co.kr`
+- [ ] `VITE_PUBLIC_SITE_URL` updated only if site metadata or canonical URL behavior exists
 - [ ] custom-domain smoke date, tester, and result are recorded
 
 ## Final Gate
 
-- [ ] `pnpm lint:check` passed
-- [ ] focused tests passed
-- [ ] manual landing QA completed
-- [ ] manual routing QA completed
-- [ ] manual inquiry form QA completed
 - [ ] repo-ready stage completed
-- [ ] Vercel-project-ready stage completed
-- [ ] Preview-smoke-ready stage completed
-- [ ] Production-default-domain-ready stage completed
-- [ ] Custom-domain-ready stage completed or explicit launch decision recorded
+- [ ] all 7 slices are complete
+- [ ] every repo-ready slice gate is green
+- [ ] final launch regression suite is green
+- [ ] Vercel project bootstrap is complete
+- [ ] Preview generated URL smoke passed
+- [ ] Production generated URL smoke passed
+- [ ] `everyshift.co.kr` custom-domain checklist is complete, or custom-domain launch is explicitly deferred
+- [ ] `launch-core-qa-checklist.md` is complete with tested URL, date, and tester recorded where manual checks were performed
