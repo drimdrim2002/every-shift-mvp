@@ -79,7 +79,7 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 - [ ] root `vercel.json` rewrites `/(.*)` to `/index.html`
 - [ ] `pnpm lint:check` passed
 - [ ] `pnpm check-env` passed
-- [ ] `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
+- [ ] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
 - [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
 - [ ] `pnpm build` passed
 - [ ] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing

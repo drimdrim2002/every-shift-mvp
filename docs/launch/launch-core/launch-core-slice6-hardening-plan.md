@@ -279,7 +279,7 @@ Repo-ready local gate:
 ```bash
 pnpm lint:check
 pnpm check-env
-pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
 pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
 pnpm build
 ```
@@ -368,7 +368,7 @@ Replace the current `## Deployment Smoke` section in `docs/launch/launch-core/la
 
 - [ ] `pnpm lint:check` passed
 - [ ] `pnpm check-env` passed
-- [ ] `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
+- [ ] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
 - [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
 - [ ] `pnpm build` passed
 - [ ] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
@@ -724,7 +724,7 @@ git commit -m "docs: split launch deploy qa gates"
 Run:
 
 ```bash
-pnpm test:unit -- tests/unit/check-env.spec.ts
+pnpm test:unit tests/unit/check-env.spec.ts
 ```
 
 Expected: tests pass and cover missing URL, invalid URL, non-Google URL, and template placeholder.
@@ -762,7 +762,7 @@ if (!isFormsGleUrl && !isDocsGoogleFormsUrl) {
 Run:
 
 ```bash
-pnpm test:unit -- tests/unit/check-env.spec.ts
+pnpm test:unit tests/unit/check-env.spec.ts
 ```
 
 Expected: pass.
@@ -797,7 +797,7 @@ Run:
 ```bash
 pnpm lint:check
 pnpm check-env
-pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
 pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
 pnpm build
 ```

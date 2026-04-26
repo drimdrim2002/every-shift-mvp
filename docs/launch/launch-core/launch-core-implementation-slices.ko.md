@@ -152,7 +152,7 @@ Slice 6: 배포 준비 + Preview 회귀 게이트
 처음 한 번만 아래를 실행합니다.
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 그리고 변경 전에 현재 상태를 기록해 둡니다.
 
@@ -271,7 +271,7 @@ Inquiry
 ### 테스트 게이트
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -333,7 +333,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 ### 테스트 게이트
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -391,7 +391,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 ### 테스트 게이트
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts tests/e2e/public-launch.spec.ts`
 
 ---
@@ -445,7 +445,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 ### 테스트 게이트
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts`
 
 ---
@@ -506,7 +506,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 ### 테스트 게이트
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/multi-org-rbac.spec.ts`
 
 ---
@@ -567,7 +567,7 @@ Launch Core 경로의 단일 출처를 `src/constants/routes.ts` 와 관련 help
 
 - `pnpm lint:check`
 - `pnpm check-env`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
 - Google Form 수동 QA 완료
 
 ---
@@ -815,7 +815,7 @@ Repo-ready 로컬 게이트:
 ```bash
 pnpm lint:check
 pnpm check-env
-pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
 pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
 pnpm build
 ```

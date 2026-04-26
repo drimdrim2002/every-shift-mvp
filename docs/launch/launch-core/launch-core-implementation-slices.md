@@ -122,7 +122,7 @@ Last updated: 2026-04-25
 Run once before starting the first slice:
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 Capture these baseline assumptions before changing any route semantics:
 
@@ -238,7 +238,7 @@ Recommended grep:
 ### Test Gate After Slice 0
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -296,7 +296,7 @@ Recommended grep:
 ### Test Gate After Slice 1
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -350,7 +350,7 @@ Recommended grep:
 ### Test Gate After Slice 2
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts tests/e2e/public-launch.spec.ts`
 
 ---
@@ -404,7 +404,7 @@ Recommended grep:
 ### Test Gate After Slice 3
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts`
 
 ---
@@ -463,7 +463,7 @@ Recommended grep:
 ### Test Gate After Slice 4
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/multi-org-rbac.spec.ts`
 
 ---
@@ -520,7 +520,7 @@ Verify before closing this slice:
 
 - `pnpm lint:check`
 - `pnpm check-env`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
 - manual Google Form contract QA complete
 
 ---
@@ -768,7 +768,7 @@ Repo-ready local gate:
 ```bash
 pnpm lint:check
 pnpm check-env
-pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
 pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
 pnpm build
 ```

@@ -80,7 +80,7 @@
 - [ ] 루트 `vercel.json` 이 `/(.*)` 를 `/index.html` 로 rewrite 한다
 - [ ] `pnpm lint:check` 통과
 - [ ] `pnpm check-env` 통과
-- [ ] `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` 통과
+- [ ] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` 통과
 - [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` 통과
 - [ ] `pnpm build` 통과
 - [ ] `TEST_USER_EMAIL` 또는 `TEST_USER_PASSWORD` 가 없으면 인증 정보 기반 E2E 상태를 별도로 기록했다
