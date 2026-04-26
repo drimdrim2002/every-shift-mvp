@@ -80,7 +80,7 @@
 - [ ] 루트 `vercel.json` 이 `/(.*)` 를 `/index.html` 로 rewrite 한다
 - [ ] `pnpm lint:check` 통과
 - [ ] `pnpm check-env` 통과
-- [ ] 출시 핵심 단위 게이트 통과
+- [ ] `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` 통과
 - [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` 통과
 - [ ] `pnpm build` 통과
 - [ ] `TEST_USER_EMAIL` 또는 `TEST_USER_PASSWORD` 가 없으면 인증 정보 기반 E2E 상태를 별도로 기록했다
@@ -93,8 +93,14 @@
 - [ ] 설치 명령이 `pnpm install` 이다
 - [ ] 빌드 명령이 `pnpm build` 이다
 - [ ] 출력 디렉터리가 `dist` 이다
-- [ ] 프리뷰 환경변수가 설정되어 있다
-- [ ] 프로덕션 환경변수가 설정되어 있다
+- [ ] 프리뷰 `VITE_SUPABASE_URL` 이 설정되어 있다
+- [ ] 프리뷰 `VITE_SUPABASE_ANON_KEY` 가 설정되어 있다
+- [ ] 프리뷰 `VITE_API_BASE_URL` 이 설정되어 있다
+- [ ] 프리뷰 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
+- [ ] 프로덕션 `VITE_SUPABASE_URL` 이 설정되어 있다
+- [ ] 프로덕션 `VITE_SUPABASE_ANON_KEY` 가 설정되어 있다
+- [ ] 프로덕션 `VITE_API_BASE_URL` 이 설정되어 있다
+- [ ] 프로덕션 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
 - [ ] 프리뷰의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다
 - [ ] 프로덕션의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다
 - [ ] `VITE_*` 에 비밀값을 저장하지 않았다
@@ -139,4 +145,4 @@
 - [ ] 프리뷰 생성 URL 스모크 통과
 - [ ] 프로덕션 생성 URL 스모크 통과
 - [ ] `everyshift.co.kr` 커스텀 도메인 체크리스트 완료, 또는 커스텀 도메인 출시 명시적 연기
-- [ ] 수동 확인을 수행한 항목은 `launch-core-qa-checklist.md` 에 테스트한 URL, 날짜, 담당자를 기록했다
+- [ ] 수동 확인을 수행한 항목은 본 체크리스트 또는 `launch-core-qa-checklist.md` 에 테스트한 URL, 날짜, 담당자를 기록했다
