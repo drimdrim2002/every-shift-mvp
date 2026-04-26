@@ -15,13 +15,15 @@ import {
   getUserHomeRoutePath,
 } from '../../src/constants/routes'
 import {
-  mockRbacContext,
-  seedPlaywrightAuthState,
-  seedScheduleWizardContext,
-  seedSelectedOrganization,
+  buildPublicLaunchAuthStorageState,
+  mockPublicLaunchRbacContext,
+  seedPublicLaunchScheduleWizardContext,
+  seedPublicLaunchSelectedOrganization,
 } from './helpers'
 
 test.describe('public launch route contract', () => {
+  test.use({ storageState: { cookies: [], origins: [] } })
+
   test('logged-out visitor sees public landing at root without app chrome', async ({ page }) => {
     await page.context().clearCookies()
     await page.addInitScript(() => {
@@ -40,10 +42,13 @@ test.describe('public launch route contract', () => {
     await expect(page.getByRole('button', { name: '로그아웃' })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toHaveCount(0)
   })
+})
+
+test.describe('authenticated public launch route contract', () => {
+  test.use({ storageState: buildPublicLaunchAuthStorageState() })
 
   test('authenticated admin visiting root enters the canonical app workspace', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
 
     await page.goto('/')
 
@@ -52,8 +57,7 @@ test.describe('public launch route contract', () => {
   })
 
   test('authenticated admin can open canonical /app dashboard', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
 
     await page.goto(APP_HOME_ROUTE_PATH)
 
@@ -62,8 +66,7 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy approval queue redirects to canonical /app approval queue', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'super_active')
+    await mockPublicLaunchRbacContext(page, 'super_active')
 
     await page.goto(LEGACY_APPROVAL_QUEUE_ROUTE_PATH)
 
@@ -72,8 +75,7 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy restricted user home redirects to canonical /app user home', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'user_active')
+    await mockPublicLaunchRbacContext(page, 'user_active')
 
     await page.goto(LEGACY_USER_HOME_ROUTE_PATH)
 
@@ -82,9 +84,8 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy organization setup redirects to canonical /app organization setup', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
-    await seedSelectedOrganization(page, 'org-1')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
+    await seedPublicLaunchSelectedOrganization(page, 'org-1')
 
     await page.goto(LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH)
 
@@ -93,9 +94,8 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy off-request policy setup redirects to canonical /app policy setup', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
-    await seedSelectedOrganization(page, 'org-1')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
+    await seedPublicLaunchSelectedOrganization(page, 'org-1')
 
     await page.goto(LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH)
 
@@ -104,12 +104,11 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy schedule step1 redirects to canonical /app schedule step1', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
-    await seedSelectedOrganization(page, 'org-1')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
+    await seedPublicLaunchSelectedOrganization(page, 'org-1')
     await page.goto(APP_HOME_ROUTE_PATH)
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
-    await seedScheduleWizardContext(page, {
+    await seedPublicLaunchScheduleWizardContext(page, {
       organizationId: 'org-1',
       organizationName: '서버 병원',
       organizationType: 'hospital',
@@ -124,12 +123,11 @@ test.describe('public launch route contract', () => {
   })
 
   test('legacy schedule step5 redirects to canonical /app schedule step5', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
-    await seedSelectedOrganization(page, 'org-1')
+    await mockPublicLaunchRbacContext(page, 'admin_active')
+    await seedPublicLaunchSelectedOrganization(page, 'org-1')
     await page.goto(APP_HOME_ROUTE_PATH)
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true }).last()).toBeVisible()
-    await seedScheduleWizardContext(page, {
+    await seedPublicLaunchScheduleWizardContext(page, {
       organizationId: 'org-1',
       organizationName: '서버 병원',
       organizationType: 'hospital',

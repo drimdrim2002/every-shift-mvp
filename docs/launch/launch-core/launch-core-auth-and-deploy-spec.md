@@ -123,6 +123,56 @@ Note:
 - Vercel generated preview and production URLs
 - `everyshift.co.kr` after DNS and SSL activation
 
+### Deployment Readiness Layers
+
+Launch Core deployment is staged in this order:
+
+```text
+Repo-ready
+  -> Vercel-project-ready
+  -> Preview-smoke-ready
+  -> Production-default-domain-ready
+  -> Custom-domain-ready
+```
+
+`Repo-ready` proves the repository can be built, tested, and configured for Vercel. `Custom-domain-ready` is a launch-ops gate for `everyshift.co.kr` that begins only after Vercel project setup, DNS setup, and SSL readiness.
+
+### Initial Deploy Targets
+
+- first Preview target: `https://<vercel-preview-deployment>.vercel.app`
+- first Production target: `https://<vercel-project>.vercel.app`
+- custom domain target: `https://everyshift.co.kr`, deferred until DNS, SSL, and custom-domain smoke are complete
+
+The generated Vercel URLs are required for initial deployment proof. Connecting `everyshift.co.kr` is not required to complete Slice 6 repo readiness.
+
+### Vercel Project Bootstrap
+
+Required project settings:
+
+- framework preset: `Vite`
+- install command: `pnpm install`
+- build command: `pnpm build`
+- output directory: `dist`
+- Node version: Vercel default unless a project constraint is added later
+
+Required Preview and Production environment variables:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_BASE_URL`
+- `VITE_PUBLIC_INQUIRY_FORM_URL`
+
+Optional until canonical/meta work exists:
+
+- `VITE_PUBLIC_SITE_URL`
+
+Environment rules:
+
+- set Preview and Production values separately
+- do not put secrets in `VITE_*`
+- review values before copying anything from `.env.local`
+- `VITE_PUBLIC_INQUIRY_FORM_URL` must be the real Google Form URL, not the template placeholder
+
 ### Required Behavior
 
 - static frontend deploys correctly

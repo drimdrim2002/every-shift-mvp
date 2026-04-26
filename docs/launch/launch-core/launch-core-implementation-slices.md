@@ -100,29 +100,29 @@ Slice 4: Legacy redirect window
    ↓
 Slice 5: Launch-safe inquiry CTA
    ↓
-Slice 6: Deploy contract + regression gate
+Slice 6: Deploy Readiness + Preview Regression Gate
 ```
 
 ## Slice Progress
 
 Last updated: 2026-04-25
 
-| Slice                                           | Status      | Notes                                                                                                                                                             |
-| ----------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Slice 0: Route semantics freeze                 | Done        | Public root and authenticated app route semantics are split in the route contract.                                                                                |
-| Slice 1: Route contract consolidation           | Done        | Launch Core route constants, canonical builders, and legacy redirect targets are centralized.                                                                     |
-| Slice 2: Canonical `/app` workspace coexistence | Done        | `DefaultLayout` is owned by `/app`, canonical workspace routes are active, and legacy workspace URLs redirect to `/app/*` with query/hash preserved.              |
-| Slice 3: Public landing + layout boundary       | Done        | `/` renders the public landing surface for logged-out users, active authenticated root visits enter `/app`, and app chrome stays scoped to `/app/*`.              |
-| Slice 4: Legacy redirect window                 | Done        | Redirect normalization, helper updates, unit coverage, and direct Playwright spec coverage are complete; full Playwright setup depends on local test credentials. |
-| Slice 5: Launch-safe inquiry CTA                | Done        | Public inquiry CTAs use one `VITE_PUBLIC_INQUIRY_FORM_URL`, local env validation and focused unit coverage are in place, and Vercel env setup remains in Slice 6. |
-| Slice 6: Deploy contract + regression gate      | Not started | Master stage flow is defined here; Vercel/auth details live in the support spec and execution checks live in the QA checklist.                                    |
+| Slice                                               | Status      | Notes                                                                                                                                                             |
+| --------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slice 0: Route semantics freeze                     | Done        | Public root and authenticated app route semantics are split in the route contract.                                                                                |
+| Slice 1: Route contract consolidation               | Done        | Launch Core route constants, canonical builders, and legacy redirect targets are centralized.                                                                     |
+| Slice 2: Canonical `/app` workspace coexistence     | Done        | `DefaultLayout` is owned by `/app`, canonical workspace routes are active, and legacy workspace URLs redirect to `/app/*` with query/hash preserved.              |
+| Slice 3: Public landing + layout boundary           | Done        | `/` renders the public landing surface for logged-out users, active authenticated root visits enter `/app`, and app chrome stays scoped to `/app/*`.              |
+| Slice 4: Legacy redirect window                     | Done        | Redirect normalization, helper updates, unit coverage, and direct Playwright spec coverage are complete; full Playwright setup depends on local test credentials. |
+| Slice 5: Launch-safe inquiry CTA                    | Done        | Public inquiry CTAs use one `VITE_PUBLIC_INQUIRY_FORM_URL`, local env validation and focused unit coverage are in place, and Vercel env setup remains in Slice 6. |
+| Slice 6: Deploy Readiness + Preview Regression Gate | Not started | Master stage flow is defined here; Vercel/auth details live in the support spec and execution checks live in the QA checklist.                                    |
 
 ## Baseline Before Slice 0
 
 Run once before starting the first slice:
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 Capture these baseline assumptions before changing any route semantics:
 
@@ -238,7 +238,7 @@ Recommended grep:
 ### Test Gate After Slice 0
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -296,7 +296,7 @@ Recommended grep:
 ### Test Gate After Slice 1
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 
 ---
 
@@ -350,7 +350,7 @@ Recommended grep:
 ### Test Gate After Slice 2
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts tests/e2e/public-launch.spec.ts`
 
 ---
@@ -404,7 +404,7 @@ Recommended grep:
 ### Test Gate After Slice 3
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts`
 
 ---
@@ -463,7 +463,7 @@ Recommended grep:
 ### Test Gate After Slice 4
 
 - `pnpm lint:check`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
+- `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-guards.spec.ts tests/unit/dashboard.spec.ts tests/unit/sidebar.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
 - `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/multi-org-rbac.spec.ts`
 
 ---
@@ -520,16 +520,36 @@ Verify before closing this slice:
 
 - `pnpm lint:check`
 - `pnpm check-env`
-- `pnpm test:unit -- tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
+- `pnpm test:unit tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts`
 - manual Google Form contract QA complete
 
 ---
 
-## Slice 6: Deploy Contract And Launch Regression Gate
+## Slice 6: Deploy Readiness + Preview Regression Gate
 
-**Goal:** Lock the deployment contract and make the launch regression gate executable instead of advisory.
+**Goal:** Make the repository deploy-ready, bootstrap the first Vercel deployment path, and define launch regression gates without requiring custom-domain DNS or SSL readiness.
 
-**Why this is the last slice:** It validates the complete migration only after all route, redirect, and CTA behavior exists.
+**Why this is the last slice:** It validates the complete route, auth, redirect, inquiry CTA, and deploy contract only after the Launch Core migration behavior exists.
+
+### Status Layers
+
+```text
+Repo-ready
+  -> Vercel-project-ready
+  -> Preview-smoke-ready
+  -> Production-default-domain-ready
+  -> Custom-domain-ready
+```
+
+`Repo-ready` can merge before a Vercel project exists and before the custom domain is connected. `Custom-domain-ready` blocks only the public launch on `everyshift.co.kr`, not the repository deploy-readiness proof.
+
+### Explicit Assumptions
+
+- the purchased custom domain is `everyshift.co.kr`
+- no Vercel project may exist yet
+- the first deployed verification target is a Vercel generated URL
+- registrar DNS and SSL readiness are external launch-ops tasks
+- Slice 6 code and docs can merge before `everyshift.co.kr` is connected and SSL-ready
 
 **Supporting artifacts:**
 
@@ -602,26 +622,120 @@ Gate:
 ### In Scope
 
 - add root `vercel.json` rewrite for Vite SPA deep links
-- verify `/app/*` refresh behavior
-- make `pnpm check-env` a required launch gate with at least:
-  - `VITE_PUBLIC_INQUIRY_FORM_URL` presence
-  - `VITE_PUBLIC_INQUIRY_FORM_URL` URL-shape validation
-- add or finish focused launch regression coverage for:
-  - public `/`
-  - canonical `/app`
-  - auth redirect matrix
-  - legacy redirect matrix
-  - helper consumer coverage
-  - inquiry CTA path
-- define preview and production smoke checks for the launch gate
+- keep local repo-ready checks independent from Vercel
+- define Vercel project bootstrap settings
+- define Preview smoke checks on `https://<vercel-preview-deployment>.vercel.app`
+- define Production smoke checks on `https://<vercel-project>.vercel.app`
+- defer custom-domain smoke checks on `https://everyshift.co.kr` until DNS and SSL are complete
+
+### Out of Scope
+
+- buying additional domains or changing the registered domain
+- configuring registrar DNS
+- adding OAuth providers
+- adding analytics
+- changing schedule-generation behavior
+
+### Repo Deploy Contract
+
+- root `vercel.json` exists with a Vite SPA fallback rewrite to `/index.html`
+- `/app/*` hard refreshes are expected to resolve through the SPA fallback
+- local checks use `.env.local` and do not require live Vercel URLs
+- credential-backed Playwright specs are reported separately from repo readiness
+- `pnpm check-env` remains the launch env gate for `VITE_PUBLIC_INQUIRY_FORM_URL`
+
+### Vercel Project Bootstrap Checklist
+
+- import the GitHub repo into Vercel
+- framework preset: `Vite`
+- install command: `pnpm install`
+- build command: `pnpm build`
+- output directory: `dist`
+- Node version: Vercel default unless a project constraint is added later
+- set Preview and Production environment variables separately:
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+  - `VITE_API_BASE_URL`
+  - `VITE_PUBLIC_INQUIRY_FORM_URL`
+- optional until canonical/meta behavior exists:
+  - `VITE_PUBLIC_SITE_URL`
+- do not put secrets in `VITE_*`
+- do not copy `.env.local` into Vercel without reviewing values
+- `VITE_PUBLIC_INQUIRY_FORM_URL` must be the real Google Form URL, not the template placeholder
+
+### Preview Smoke Gate
+
+Preview target:
+
+```text
+https://<vercel-preview-deployment>.vercel.app
+```
+
+Required checks:
+
+- logged-out `/` shows public landing
+- logged-in `/` redirects to `/app`
+- `/login`, `/signup`, and `/access/*` render without app chrome
+- `/app` loads with app chrome for an active admin
+- `/app/schedule/step1` hard refresh does not 404
+- `/admin/*`, `/home/*`, `/ops/*`, and `/schedule/*` redirect to canonical `/app/*`
+- inquiry CTA opens the configured Google Form
+- pending, rejected, and restricted-user routes land correctly
+
+Failure rule:
+
+```text
+If preview smoke fails, do not promote to production. Fix the repo or Vercel env/config first.
+```
+
+### Production Default-Domain Smoke Gate
+
+Production target before custom-domain connection:
+
+```text
+https://<vercel-project>.vercel.app
+```
+
+Run the same smoke matrix from the Preview gate against the production generated URL.
+
+Promotion rule:
+
+```text
+Production deployment can be verified on the generated Vercel domain. Custom-domain launch on everyshift.co.kr remains blocked until DNS, SSL, and custom-domain smoke are complete.
+```
+
+### Deferred Custom-Domain Checklist
+
+Target custom domain:
+
+```text
+https://everyshift.co.kr
+```
+
+Complete this only after the Vercel project exists and domain connection work begins:
+
+- confirm the purchased domain is `everyshift.co.kr`
+- add `everyshift.co.kr` to the Vercel project
+- configure registrar DNS records as instructed by Vercel
+- wait for the Vercel SSL certificate to become valid
+- smoke test `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh on `https://everyshift.co.kr`
+- update `VITE_PUBLIC_SITE_URL` only if site metadata or canonical URL behavior is implemented
+
+Custom-domain rule:
+
+```text
+Do not block Slice 6 repo completion on connecting everyshift.co.kr. Block public custom-domain launch on this checklist instead.
+```
 
 ### Likely Files
 
 - `vercel.json`
-- `scripts/check-env.js`
-- `tests/e2e/public-launch.spec.ts`
-- `tests/e2e/helpers.ts`
-- route and auth unit tests if final assertions change
+- `docs/launch/launch-core/launch-core-implementation-slices.md`
+- `docs/launch/launch-core/launch-core-implementation-slices.ko.md`
+- `docs/launch/launch-core/launch-core-auth-and-deploy-spec.md`
+- `docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md`
+- `docs/launch/launch-core/launch-core-qa-checklist.md`
+- `docs/launch/launch-core/launch-core-qa-checklist.ko.md`
 
 ### Test Files
 
@@ -629,6 +743,7 @@ Gate:
 - `tests/unit/router-auth-guards.spec.ts`
 - `tests/unit/login-view.spec.ts`
 - `tests/unit/public-landing.spec.ts`
+- `tests/unit/check-env.spec.ts`
 - `tests/unit/schedule-version-resolver.spec.ts`
 - `tests/unit/step5-result.spec.ts`
 - `tests/e2e/public-launch.spec.ts`
@@ -637,21 +752,44 @@ Gate:
 
 ### Exit Criteria
 
-- `/app/*` deep links survive refresh in Vercel preview
-- launch-focused route, auth, helper, and redirect regressions are covered in unit and E2E tests
-- preview is ready for manual smoke before production promotion
-- launch cannot proceed with a missing or malformed inquiry URL
+- `vercel.json` defines the Vite SPA fallback rewrite
+- local repo-ready checks pass without live Vercel URLs
+- Vercel project bootstrap settings are documented
+- preview smoke is defined against a generated Vercel URL
+- production smoke is defined against the generated Vercel production URL
+- custom-domain launch on `everyshift.co.kr` is deferred behind DNS, SSL, and smoke checks
+- launch cannot proceed with a missing, malformed, non-Google, or template inquiry URL
 - all five Slice 6 readiness stages are recorded as pass, blocked, or intentionally deferred in the QA checklist
 
 ### Test Gate After Slice 6
 
-- `pnpm lint:check`
-- `pnpm check-env`
-- `pnpm test:unit -- tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts`
-- `pnpm test:e2e -- tests/e2e/public-launch.spec.ts tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts`
-- `pnpm build`
+Repo-ready local gate:
 
-Manual verification before production:
+```bash
+pnpm lint:check
+pnpm check-env
+pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts
+pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts
+pnpm build
+```
+
+Expected: all commands pass locally using `.env.local`; E2E does not require a live Vercel URL.
+
+Credential-backed E2E gate:
+
+```bash
+pnpm test:e2e -- tests/e2e/signup-flow.spec.ts tests/e2e/multi-org-rbac.spec.ts
+```
+
+Expected: runs only when `.env.test` or the shell environment has the required test account credentials.
+
+If credential-backed E2E cannot run, record:
+
+```text
+Blocked locally by missing TEST_USER_EMAIL/TEST_USER_PASSWORD. Not a Slice 6 repo-readiness failure.
+```
+
+Manual smoke records before launch:
 
 - logged-out `/` works as the public launch page
 - logged-in `/` redirects to `/app`

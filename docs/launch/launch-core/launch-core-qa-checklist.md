@@ -73,69 +73,85 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 
 ## Slice 6 Deployment Smoke
 
-### Repo-ready
+### Local Repo-Ready
 
-- [ ] root `vercel.json` exists
-- [ ] root `vercel.json` rewrites `/(.*)` to `/index.html`
-- [ ] `pnpm check-env` passed with the launch inquiry URL
-- [ ] `pnpm build` passed locally
-- [ ] focused unit launch regression tests passed
-- [ ] focused E2E launch regression tests passed or are explicitly blocked with reason
+- [x] root `vercel.json` exists
+- [x] root `vercel.json` rewrites `/(.*)` to `/index.html`
+- [x] `pnpm lint:check` passed
+- [x] `pnpm check-env` passed
+- [x] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
+- [x] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
+- [x] `pnpm build` passed
+- [x] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
 
-### Vercel-project-ready
+Record: 2026-04-26 KST, tester Codex. Result: passed. `pnpm lint:check` passed with 78 existing warnings and 0 errors. Focused unit gate passed 7 files / 104 tests. Public launch E2E passed 9 tests. `pnpm build` completed successfully. Credential-backed E2E is blocked locally by missing `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`; this is not a Slice 6 repo-readiness failure.
 
-- [ ] GitHub repository is connected to the Vercel project
-- [ ] Framework Preset is Vite or Vite auto-detection is confirmed
-- [ ] Install Command is `pnpm install` or Vercel default using `pnpm`
-- [ ] Build Command is `pnpm build`
-- [ ] Output Directory is `dist`
-- [ ] Root Directory is repository root unless the project layout changed
-- [ ] preview environment variables are correct
-- [ ] production environment variables are correct
-- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in preview
-- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is set in production
+### Vercel Project Bootstrap
 
-### Preview-smoke-ready
+- [ ] GitHub repo imported into Vercel and connected to the Vercel project
+- [ ] framework preset is `Vite` or Vite auto-detection is confirmed
+- [ ] root directory is repository root unless the project layout changed
+- [ ] install command is `pnpm install`
+- [ ] build command is `pnpm build`
+- [ ] output directory is `dist`
+- [ ] Preview `VITE_SUPABASE_URL` is set
+- [ ] Preview `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Preview `VITE_API_BASE_URL` is set
+- [ ] Preview `VITE_PUBLIC_INQUIRY_FORM_URL` is set
+- [ ] Production `VITE_SUPABASE_URL` is set
+- [ ] Production `VITE_SUPABASE_ANON_KEY` is set
+- [ ] Production `VITE_API_BASE_URL` is set
+- [ ] Production `VITE_PUBLIC_INQUIRY_FORM_URL` is set
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Preview
+- [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production
+- [ ] no secrets are stored in `VITE_*`
 
-- [ ] generated Preview URL is recorded
-- [ ] generated Preview URL loads `/`
-- [ ] generated Preview URL loads `/login`, `/signup`, and `/access/pending` without app chrome
-- [ ] generated Preview URL redirects active authenticated `/` visits to `/app`
-- [ ] generated Preview URL keeps `/app/*` deep links working after refresh
-- [ ] generated Preview URL passes the legacy redirect matrix
-- [ ] generated Preview URL opens the configured Google Form from public inquiry CTAs
+Record: 2026-04-26 KST, tester Codex. Result: blocked. Local repo has no `.vercel` project link, Vercel CLI was not installed before this run, no `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` is present in the shell environment, and `npx -y vercel@latest whoami` opened a device login flow that was not completed. Vercel project bootstrap, environment variable setup, and deployment smoke cannot proceed until a Vercel account with access to `drimdrim2002/every-shift-mvp` authenticates or provides a scoped token.
+
+### Preview Generated URL
+
+- [ ] Preview URL recorded: `https://<vercel-preview-deployment>.vercel.app`
+- [ ] logged-out `/` shows public landing
+- [ ] logged-in `/` redirects to `/app`
+- [ ] `/login`, `/signup`, and `/access/*` render without app chrome
+- [ ] `/app` loads with app chrome for an active admin
+- [ ] `/app/schedule/step1` hard refresh does not 404
+- [ ] legacy `/admin/*`, `/home/*`, `/ops/*`, and `/schedule/*` URLs redirect to canonical `/app/*`
+- [ ] `도입 문의` opens the configured Google Form
+- [ ] pending, rejected, and restricted-user routes land correctly
 - [ ] preview smoke date, tester, and result are recorded
 
-### Production-default-domain-ready
+Record: 2026-04-26 KST, tester Codex. Result: blocked by incomplete Vercel Project Bootstrap. No Preview generated URL exists in this checkout.
 
-- [ ] generated Production URL is recorded
-- [ ] generated Production URL loads `/`
-- [ ] generated Production URL redirects active authenticated `/` visits to `/app`
-- [ ] generated Production URL keeps `/app/*` deep links working after refresh
-- [ ] generated Production URL passes the legacy redirect matrix
-- [ ] generated Production URL opens the configured Google Form from public inquiry CTAs
+### Production Generated URL
+
+- [ ] Production URL recorded: `https://<vercel-project>.vercel.app`
+- [ ] same smoke matrix from Preview Generated URL passed
+- [ ] production promotion happened only after Preview smoke passed
 - [ ] production default-domain smoke date, tester, and result are recorded
 
-### Custom-domain-ready
+Record: 2026-04-26 KST, tester Codex. Result: blocked by incomplete Preview smoke. Production promotion must not happen until Preview generated URL smoke passes.
 
-- [ ] `everyshift.co.kr` is added to the Vercel project
-- [ ] DNS records shown by Vercel are configured at the domain provider
-- [ ] Vercel reports HTTPS certificate status as active
-- [ ] `https://everyshift.co.kr/` loads the public landing
-- [ ] `https://everyshift.co.kr/app/*` deep links work after refresh
-- [ ] `https://everyshift.co.kr` passes the legacy redirect matrix
-- [ ] `https://everyshift.co.kr` opens the configured Google Form from public inquiry CTAs
+### Custom Domain
+
+- [x] purchased custom-domain target confirmed: `everyshift.co.kr`
+- [ ] `everyshift.co.kr` added to Vercel project
+- [ ] registrar DNS records configured as instructed by Vercel
+- [ ] Vercel SSL certificate is valid
+- [ ] `/`, `/app`, `/login`, `/signup`, `/access/*`, and one `/app/schedule/*` hard refresh passed on `https://everyshift.co.kr`
+- [ ] `VITE_PUBLIC_SITE_URL` updated only if site metadata or canonical URL behavior exists
 - [ ] custom-domain smoke date, tester, and result are recorded
+
+Record: 2026-04-26 KST, tester Codex. Result: intentionally deferred. Custom-domain launch on `everyshift.co.kr` remains blocked until Vercel project bootstrap, DNS configuration, SSL activation, and generated-domain smoke are complete.
 
 ## Final Gate
 
-- [ ] `pnpm lint:check` passed
-- [ ] focused tests passed
-- [ ] manual landing QA completed
-- [ ] manual routing QA completed
-- [ ] manual inquiry form QA completed
-- [ ] repo-ready stage completed
-- [ ] Vercel-project-ready stage completed
-- [ ] Preview-smoke-ready stage completed
-- [ ] Production-default-domain-ready stage completed
-- [ ] Custom-domain-ready stage completed or explicit launch decision recorded
+- [x] repo-ready stage completed
+- [ ] all 7 slices are complete
+- [ ] every repo-ready slice gate is green
+- [ ] final launch regression suite is green
+- [ ] Vercel project bootstrap is complete
+- [ ] Preview generated URL smoke passed
+- [ ] Production generated URL smoke passed
+- [x] `everyshift.co.kr` custom-domain checklist is complete, or custom-domain launch is explicitly deferred
+- [ ] `launch-core-qa-checklist.md` is complete with tested URL, date, and tester recorded where manual checks were performed

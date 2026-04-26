@@ -118,7 +118,7 @@ Launch Core 의 기술적 결정:
 | Slice 3: Public landing + layout boundary       | 다음 작업 | 공개 랜딩이 들어가기 전까지 `/` 는 임시로 `/app` 으로 redirect 됩니다.                                                                                                     |
 | Slice 4: Legacy redirect window                 | 미시작    | 공개 경계 적용 후 launch-window redirect 를 더 넓게 고정합니다.                                                                                                            |
 | Slice 5: Launch-safe inquiry CTA                | 미시작    | 랜딩 표면이 준비된 뒤 공개 문의 CTA 와 config 를 연결합니다.                                                                                                               |
-| Slice 6: Deploy contract + regression gate      | 미시작    | Vercel 딥링크와 출시 회귀 게이트를 최종 검증합니다.                                                                                                                        |
+| Slice 6: 배포 준비 + Preview 회귀 게이트        | 미시작    | generated Vercel URL 에서 먼저 배포 준비 상태를 검증하고, `everyshift.co.kr` custom-domain 런칭은 DNS, SSL, 스모크 점검 이후 게이트로 분리합니다.                          |
 
 ### 기술 가드레일
 
