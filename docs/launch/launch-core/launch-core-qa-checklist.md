@@ -75,14 +75,16 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 
 ### Local Repo-Ready
 
-- [ ] root `vercel.json` exists
-- [ ] root `vercel.json` rewrites `/(.*)` to `/index.html`
-- [ ] `pnpm lint:check` passed
-- [ ] `pnpm check-env` passed
-- [ ] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
-- [ ] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
-- [ ] `pnpm build` passed
-- [ ] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
+- [x] root `vercel.json` exists
+- [x] root `vercel.json` rewrites `/(.*)` to `/index.html`
+- [x] `pnpm lint:check` passed
+- [x] `pnpm check-env` passed
+- [x] `pnpm test:unit tests/unit/router-index.spec.ts tests/unit/router-auth-guards.spec.ts tests/unit/login-view.spec.ts tests/unit/public-landing.spec.ts tests/unit/check-env.spec.ts tests/unit/schedule-version-resolver.spec.ts tests/unit/step5-result.spec.ts` passed
+- [x] `pnpm test:e2e -- --no-deps tests/e2e/public-launch.spec.ts` passed
+- [x] `pnpm build` passed
+- [x] credential-backed E2E status recorded separately if `TEST_USER_EMAIL` or `TEST_USER_PASSWORD` is missing
+
+Record: 2026-04-26 KST, tester Codex. Result: passed. `pnpm lint:check` passed with 78 existing warnings and 0 errors. Focused unit gate passed 7 files / 104 tests. Public launch E2E passed 9 tests. `pnpm build` completed successfully. Credential-backed E2E is blocked locally by missing `TEST_USER_EMAIL` / `TEST_USER_PASSWORD`; this is not a Slice 6 repo-readiness failure.
 
 ### Vercel Project Bootstrap
 
@@ -104,6 +106,8 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production
 - [ ] no secrets are stored in `VITE_*`
 
+Record: 2026-04-26 KST, tester Codex. Result: blocked. Local repo has no `.vercel` project link, Vercel CLI was not installed before this run, no `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` is present in the shell environment, and `npx -y vercel@latest whoami` opened a device login flow that was not completed. Vercel project bootstrap, environment variable setup, and deployment smoke cannot proceed until a Vercel account with access to `drimdrim2002/every-shift-mvp` authenticates or provides a scoped token.
+
 ### Preview Generated URL
 
 - [ ] Preview URL recorded: `https://<vercel-preview-deployment>.vercel.app`
@@ -117,6 +121,8 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 - [ ] pending, rejected, and restricted-user routes land correctly
 - [ ] preview smoke date, tester, and result are recorded
 
+Record: 2026-04-26 KST, tester Codex. Result: blocked by incomplete Vercel Project Bootstrap. No Preview generated URL exists in this checkout.
+
 ### Production Generated URL
 
 - [ ] Production URL recorded: `https://<vercel-project>.vercel.app`
@@ -124,9 +130,11 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 - [ ] production promotion happened only after Preview smoke passed
 - [ ] production default-domain smoke date, tester, and result are recorded
 
+Record: 2026-04-26 KST, tester Codex. Result: blocked by incomplete Preview smoke. Production promotion must not happen until Preview generated URL smoke passes.
+
 ### Custom Domain
 
-- [ ] purchased custom-domain target confirmed: `everyshift.co.kr`
+- [x] purchased custom-domain target confirmed: `everyshift.co.kr`
 - [ ] `everyshift.co.kr` added to Vercel project
 - [ ] registrar DNS records configured as instructed by Vercel
 - [ ] Vercel SSL certificate is valid
@@ -134,14 +142,16 @@ Use this as the execution record for Launch Core smoke. The master slice plan de
 - [ ] `VITE_PUBLIC_SITE_URL` updated only if site metadata or canonical URL behavior exists
 - [ ] custom-domain smoke date, tester, and result are recorded
 
+Record: 2026-04-26 KST, tester Codex. Result: intentionally deferred. Custom-domain launch on `everyshift.co.kr` remains blocked until Vercel project bootstrap, DNS configuration, SSL activation, and generated-domain smoke are complete.
+
 ## Final Gate
 
-- [ ] repo-ready stage completed
+- [x] repo-ready stage completed
 - [ ] all 7 slices are complete
 - [ ] every repo-ready slice gate is green
 - [ ] final launch regression suite is green
 - [ ] Vercel project bootstrap is complete
 - [ ] Preview generated URL smoke passed
 - [ ] Production generated URL smoke passed
-- [ ] `everyshift.co.kr` custom-domain checklist is complete, or custom-domain launch is explicitly deferred
+- [x] `everyshift.co.kr` custom-domain checklist is complete, or custom-domain launch is explicitly deferred
 - [ ] `launch-core-qa-checklist.md` is complete with tested URL, date, and tester recorded where manual checks were performed
