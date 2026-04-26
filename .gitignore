@@ -9,6 +9,7 @@ node_modules/*
 .cp-images/
 .worktrees/
 .gstack/
+.agents/
 
 
 dist/
