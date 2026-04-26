@@ -124,6 +124,56 @@
 - Vercel generated preview / production URL
 - DNS 와 SSL 활성화 후 `everyshift.co.kr`
 
+### 배포 준비 레이어
+
+Launch Core 배포는 다음 순서로 단계화합니다.
+
+```text
+Repo-ready
+  -> Vercel-project-ready
+  -> Preview-smoke-ready
+  -> Production-default-domain-ready
+  -> Custom-domain-ready
+```
+
+`Repo-ready` 는 저장소를 Vercel 용으로 빌드, 테스트, 설정할 수 있음을 증명합니다. `Custom-domain-ready` 는 `everyshift.co.kr` 을 위한 출시 운영 게이트이며, Vercel 프로젝트 설정, DNS 설정, SSL 준비가 끝난 뒤에만 시작합니다.
+
+### 초기 배포 대상
+
+- first Preview target: `https://<vercel-preview-deployment>.vercel.app`
+- first Production target: `https://<vercel-project>.vercel.app`
+- custom domain target: `https://everyshift.co.kr`, DNS 와 SSL 이 준비될 때까지 보류
+
+초기 배포 증명에는 Vercel 이 생성한 URL 이 필요합니다. `everyshift.co.kr` 연결은 Slice 6 저장소 준비 완료 조건이 아닙니다.
+
+### Vercel 프로젝트 부트스트랩
+
+필수 프로젝트 설정:
+
+- framework preset: `Vite`
+- install command: `pnpm install`
+- build command: `pnpm build`
+- output directory: `dist`
+- Node version: Vercel default unless a project constraint is added later
+
+Preview 와 Production 에 필요한 환경변수:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_API_BASE_URL`
+- `VITE_PUBLIC_INQUIRY_FORM_URL`
+
+canonical/meta 작업이 생기기 전까지는 선택:
+
+- `VITE_PUBLIC_SITE_URL`
+
+환경 규칙:
+
+- Preview 와 Production 값을 각각 설정한다
+- `VITE_*` 에 비밀값을 넣지 않는다
+- `.env.local` 에서 값을 복사하기 전에 검토한다
+- `VITE_PUBLIC_INQUIRY_FORM_URL` 은 템플릿 placeholder 가 아니라 실제 Google Form URL 이어야 한다
+
 ### 반드시 만족해야 하는 동작
 
 - 정적 프론트엔드가 정상 배포된다
