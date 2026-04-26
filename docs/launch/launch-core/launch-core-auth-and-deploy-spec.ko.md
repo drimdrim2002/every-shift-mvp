@@ -142,7 +142,7 @@ Repo-ready
 
 - first Preview target: `https://<vercel-preview-deployment>.vercel.app`
 - first Production target: `https://<vercel-project>.vercel.app`
-- custom domain target: `https://everyshift.co.kr`, DNS 와 SSL 이 준비될 때까지 보류
+- custom domain target: `https://everyshift.co.kr`, DNS, SSL, custom-domain 스모크가 완료될 때까지 보류
 
 초기 배포 증명에는 Vercel 이 생성한 URL 이 필요합니다. `everyshift.co.kr` 연결은 Slice 6 저장소 준비 완료 조건이 아닙니다.
 

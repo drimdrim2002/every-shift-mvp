@@ -141,7 +141,7 @@ Repo-ready
 
 - first Preview target: `https://<vercel-preview-deployment>.vercel.app`
 - first Production target: `https://<vercel-project>.vercel.app`
-- custom domain target: `https://everyshift.co.kr`, deferred until DNS and SSL are ready
+- custom domain target: `https://everyshift.co.kr`, deferred until DNS, SSL, and custom-domain smoke are complete
 
 The generated Vercel URLs are required for initial deployment proof. Connecting `everyshift.co.kr` is not required to complete Slice 6 repo readiness.
 
