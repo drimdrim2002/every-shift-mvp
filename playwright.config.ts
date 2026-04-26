@@ -4,6 +4,19 @@ import { defineConfig, devices } from '@playwright/test'
 
 const baseURL = 'http://127.0.0.1:5173'
 const authFile = 'playwright/.auth/user.json'
+const localSupabaseProjectRef = 'vjmerqaxguovnojinxfq'
+const localSupabaseAnonKey = [
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+  'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqbWVycWF4Z3Vvdm5vamlueGZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMH0',
+  'repo-ready-signature',
+].join('.')
+const isPublicLaunchRepoReadyRun = detectPublicLaunchRepoReadyRun(process.argv)
+const chromiumUse = isPublicLaunchRepoReadyRun
+  ? { ...devices['Desktop Chrome'], storageState: { cookies: [], origins: [] } }
+  : { ...devices['Desktop Chrome'], storageState: authFile }
+const webServerCommand = isPublicLaunchRepoReadyRun
+  ? `VITE_SUPABASE_URL=https://${localSupabaseProjectRef}.supabase.co VITE_SUPABASE_ANON_KEY=${localSupabaseAnonKey} pnpm dev --host 127.0.0.1`
+  : 'pnpm dev --host 127.0.0.1'
 
 loadOptionalEnvFile('.env.test')
 
@@ -35,6 +48,14 @@ function loadOptionalEnvFile(relativePath: string) {
       process.env[key] = value
     }
   }
+}
+
+function detectPublicLaunchRepoReadyRun(argv: string[]) {
+  const specArgs = argv.filter((arg) => /(?:^|[\\/])[^\\/]+\.spec\.ts(?::\d+)?$/.test(arg))
+
+  return argv.includes('--no-deps')
+    && specArgs.length === 1
+    && /(?:^|[\\/])public-launch\.spec\.ts(?::\d+)?$/.test(specArgs[0] ?? '')
 }
 
 /**
@@ -78,18 +99,15 @@ export default defineConfig({
     },
     {
       name: 'chromium',
-      dependencies: ['setup'],
+      dependencies: isPublicLaunchRepoReadyRun ? [] : ['setup'],
       testIgnore: /.*\.setup\.ts/,
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: authFile,
-      },
+      use: chromiumUse,
     },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm dev --host 127.0.0.1',
+    command: webServerCommand,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

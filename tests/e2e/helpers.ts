@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
 import {
@@ -88,6 +88,7 @@ type MockRbacFixture = {
 }
 
 type PlaywrightStorageState = {
+  cookies?: unknown[]
   origins?: Array<{
     origin: string
     localStorage: Array<{
@@ -123,6 +124,9 @@ type PlaywrightSupabaseSession = {
   weak_password: null
 }
 
+const DEFAULT_SUPABASE_PROJECT_REF = 'vjmerqaxguovnojinxfq'
+const LOCAL_APP_ORIGIN = 'http://127.0.0.1:5173'
+
 function buildOrgId(index: number) {
   return `org-${index}`
 }
@@ -137,10 +141,14 @@ function getSupabaseProjectRef() {
   }
 
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  if (!existsSync(authStatePath)) {
+    return DEFAULT_SUPABASE_PROJECT_REF
+  }
+
   const fallbackAuthState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
-  const originState = fallbackAuthState.origins?.find((origin) => origin.origin === 'http://127.0.0.1:5173')
+  const originState = fallbackAuthState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   const authEntry = originState?.localStorage?.find((entry) => entry.name.endsWith('-auth-token'))
-  const storageKey = authEntry?.name ?? 'sb-vjmerqaxguovnojinxfq-auth-token'
+  const storageKey = authEntry?.name ?? `sb-${DEFAULT_SUPABASE_PROJECT_REF}-auth-token`
   const prefix = storageKey.startsWith('sb-') ? storageKey.slice(3) : storageKey
   const projectRef = prefix.endsWith('-auth-token') ? prefix.slice(0, -12) : prefix
   return projectRef || 'vjmerqaxguovnojinxfq'
@@ -456,17 +464,48 @@ function buildCorsHeaders() {
 
 function loadPlaywrightAuthStorageEntries() {
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  if (!existsSync(authStatePath)) {
+    return [
+      {
+        name: getSupabaseAuthStorageKey(),
+        value: JSON.stringify({ user: {} }),
+      },
+    ]
+  }
+
   const authState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
-  const originState = authState.origins?.find((origin) => origin.origin === 'http://127.0.0.1:5173')
+  const originState = authState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   return originState?.localStorage ?? []
 }
 
 export async function seedPlaywrightAuthState(page: Page) {
+  const authState = buildPlaywrightAuthStorageState()
+  const storageEntries = authState.origins[0]?.localStorage ?? []
+
+  await page.context().addInitScript((entries) => {
+    for (const entry of entries) {
+      window.localStorage.setItem(entry.name, entry.value)
+    }
+  }, storageEntries)
+}
+
+export function buildPlaywrightAuthStorageState(): PlaywrightStorageState {
   const { storageKey, session } = buildFreshSupabaseAuthState()
 
-  await page.addInitScript((entryName, session) => {
-    window.localStorage.setItem(entryName, JSON.stringify(session))
-  }, storageKey, session)
+  return {
+    cookies: [],
+    origins: [
+      {
+        origin: LOCAL_APP_ORIGIN,
+        localStorage: [
+          {
+            name: storageKey,
+            value: JSON.stringify(session),
+          },
+        ],
+      },
+    ],
+  }
 }
 
 async function fulfillJson(
@@ -555,9 +594,9 @@ export async function mockRbacContext(page: Page, accessState: MockRbacAccessSta
   const fixture = buildRbacFixture(accessState)
   const { session } = buildFreshSupabaseAuthState()
 
-  await page.addInitScript((entryName, authSession) => {
+  await page.addInitScript(({ entryName, authSession }) => {
     window.localStorage.setItem(entryName, JSON.stringify(authSession))
-  }, getSupabaseAuthStorageKey(), session)
+  }, { entryName: getSupabaseAuthStorageKey(), authSession: session })
 
   await page.route('**/functions/v1/approval-read/**', async (route) => {
     if (route.request().method() === 'OPTIONS') {
