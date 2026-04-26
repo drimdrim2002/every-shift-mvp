@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
 import {
@@ -124,7 +124,7 @@ type PlaywrightSupabaseSession = {
   weak_password: null
 }
 
-const DEFAULT_SUPABASE_PROJECT_REF = 'vjmerqaxguovnojinxfq'
+const PUBLIC_LAUNCH_SUPABASE_PROJECT_REF = 'vjmerqaxguovnojinxfq'
 const LOCAL_APP_ORIGIN = 'http://127.0.0.1:5173'
 
 function buildOrgId(index: number) {
@@ -141,34 +141,42 @@ function getSupabaseProjectRef() {
   }
 
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
-  if (!existsSync(authStatePath)) {
-    return DEFAULT_SUPABASE_PROJECT_REF
-  }
-
   const fallbackAuthState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
   const originState = fallbackAuthState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   const authEntry = originState?.localStorage?.find((entry) => entry.name.endsWith('-auth-token'))
-  const storageKey = authEntry?.name ?? `sb-${DEFAULT_SUPABASE_PROJECT_REF}-auth-token`
+  const storageKey = authEntry?.name
+  if (!storageKey) {
+    throw new Error('Playwright auth storage state is missing the Supabase auth token.')
+  }
+
   const prefix = storageKey.startsWith('sb-') ? storageKey.slice(3) : storageKey
   const projectRef = prefix.endsWith('-auth-token') ? prefix.slice(0, -12) : prefix
-  return projectRef || 'vjmerqaxguovnojinxfq'
+  return projectRef
 }
 
 function getSupabaseAuthStorageKey() {
   return `sb-${getSupabaseProjectRef()}-auth-token`
 }
 
+function getPublicLaunchSupabaseAuthStorageKey() {
+  return `sb-${PUBLIC_LAUNCH_SUPABASE_PROJECT_REF}-auth-token`
+}
+
 function base64UrlEncode(input: string) {
   return Buffer.from(input, 'utf8').toString('base64url')
 }
 
-function createFakeSupabaseAccessToken(user: PlaywrightSupabaseUser, expiresAt: number) {
+function createFakeSupabaseAccessToken(
+  user: PlaywrightSupabaseUser,
+  expiresAt: number,
+  projectRef = getSupabaseProjectRef(),
+) {
   const header = {
     alg: 'HS256',
     typ: 'JWT',
   }
   const payload = {
-    iss: `https://${getSupabaseProjectRef()}.supabase.co/auth/v1`,
+    iss: `https://${projectRef}.supabase.co/auth/v1`,
     sub: user.id,
     aud: user.aud,
     exp: expiresAt,
@@ -187,6 +195,45 @@ function createFakeSupabaseAccessToken(user: PlaywrightSupabaseUser, expiresAt: 
   return `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(payload))}.signature`
 }
 
+function buildSupabaseAuthState(
+  storageKey: string,
+  projectRef: string,
+  userSeed: Partial<PlaywrightSupabaseUser> = {},
+) {
+  const now = new Date()
+  const expiresAt = Math.floor((now.getTime() + 1000 * 60 * 60 * 24 * 30) / 1000)
+  const user: PlaywrightSupabaseUser = {
+    id: userSeed.id ?? '3f7416de-3713-40ad-bac4-6e87c20b369c',
+    email: userSeed.email ?? 'sindeaf@gmail.com',
+    aud: 'authenticated',
+    role: 'authenticated',
+    email_confirmed_at: userSeed.email_confirmed_at ?? now.toISOString(),
+    phone: userSeed.phone ?? '',
+    confirmed_at: userSeed.confirmed_at ?? now.toISOString(),
+    app_metadata: userSeed.app_metadata ?? {},
+    user_metadata: userSeed.user_metadata ?? {},
+    identities: userSeed.identities ?? [],
+    created_at: userSeed.created_at ?? now.toISOString(),
+    updated_at: userSeed.updated_at ?? now.toISOString(),
+    is_anonymous: false,
+  }
+
+  const session: PlaywrightSupabaseSession = {
+    access_token: createFakeSupabaseAccessToken(user, expiresAt, projectRef),
+    token_type: 'bearer',
+    expires_in: 60 * 60 * 24 * 30,
+    expires_at: expiresAt,
+    refresh_token: `refresh-${user.id}-${expiresAt}`,
+    user,
+    weak_password: null,
+  }
+
+  return {
+    storageKey,
+    session,
+  }
+}
+
 function buildFreshSupabaseAuthState() {
   const storageEntries = loadPlaywrightAuthStorageEntries()
   if (storageEntries.length === 0) {
@@ -201,39 +248,20 @@ function buildFreshSupabaseAuthState() {
   const parsedSession = JSON.parse(authEntry.value) as {
     user?: Partial<PlaywrightSupabaseUser>
   }
+  const projectRef = getSupabaseProjectRef()
 
-  const now = new Date()
-  const expiresAt = Math.floor((now.getTime() + 1000 * 60 * 60 * 24 * 30) / 1000)
-  const user: PlaywrightSupabaseUser = {
-    id: parsedSession.user?.id ?? '3f7416de-3713-40ad-bac4-6e87c20b369c',
-    email: parsedSession.user?.email ?? 'sindeaf@gmail.com',
-    aud: 'authenticated',
-    role: 'authenticated',
-    email_confirmed_at: parsedSession.user?.email_confirmed_at ?? now.toISOString(),
-    phone: parsedSession.user?.phone ?? '',
-    confirmed_at: parsedSession.user?.confirmed_at ?? now.toISOString(),
-    app_metadata: parsedSession.user?.app_metadata ?? {},
-    user_metadata: parsedSession.user?.user_metadata ?? {},
-    identities: parsedSession.user?.identities ?? [],
-    created_at: parsedSession.user?.created_at ?? now.toISOString(),
-    updated_at: parsedSession.user?.updated_at ?? now.toISOString(),
-    is_anonymous: false,
-  }
+  return buildSupabaseAuthState(
+    getSupabaseAuthStorageKey(),
+    projectRef,
+    parsedSession.user,
+  )
+}
 
-  const session: PlaywrightSupabaseSession = {
-    access_token: createFakeSupabaseAccessToken(user, expiresAt),
-    token_type: 'bearer',
-    expires_in: 60 * 60 * 24 * 30,
-    expires_at: expiresAt,
-    refresh_token: `refresh-${user.id}-${expiresAt}`,
-    user,
-    weak_password: null,
-  }
-
-  return {
-    storageKey: getSupabaseAuthStorageKey(),
-    session,
-  }
+function buildPublicLaunchSupabaseAuthState() {
+  return buildSupabaseAuthState(
+    getPublicLaunchSupabaseAuthStorageKey(),
+    PUBLIC_LAUNCH_SUPABASE_PROJECT_REF,
+  )
 }
 
 function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
@@ -464,15 +492,6 @@ function buildCorsHeaders() {
 
 function loadPlaywrightAuthStorageEntries() {
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
-  if (!existsSync(authStatePath)) {
-    return [
-      {
-        name: getSupabaseAuthStorageKey(),
-        value: JSON.stringify({ user: {} }),
-      },
-    ]
-  }
-
   const authState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
   const originState = authState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   return originState?.localStorage ?? []
@@ -492,6 +511,19 @@ export async function seedPlaywrightAuthState(page: Page) {
 export function buildPlaywrightAuthStorageState(): PlaywrightStorageState {
   const { storageKey, session } = buildFreshSupabaseAuthState()
 
+  return buildAuthStorageState(storageKey, session)
+}
+
+export function buildPublicLaunchAuthStorageState(): PlaywrightStorageState {
+  const { storageKey, session } = buildPublicLaunchSupabaseAuthState()
+
+  return buildAuthStorageState(storageKey, session)
+}
+
+function buildAuthStorageState(
+  storageKey: string,
+  session: PlaywrightSupabaseSession,
+): PlaywrightStorageState {
   return {
     cookies: [],
     origins: [
@@ -535,7 +567,38 @@ export async function seedScheduleWizardContext(
     schedulePublicId?: string | null
   }
 ) {
-  const { session } = buildFreshSupabaseAuthState()
+  await seedScheduleWizardContextForAuthState(page, params, buildFreshSupabaseAuthState())
+}
+
+export async function seedPublicLaunchScheduleWizardContext(
+  page: Page,
+  params: {
+    organizationId: string
+    organizationName: string
+    organizationType: string
+    month: string
+    employeeCount?: number
+    scheduleId?: string | null
+    schedulePublicId?: string | null
+  }
+) {
+  await seedScheduleWizardContextForAuthState(page, params, buildPublicLaunchSupabaseAuthState())
+}
+
+async function seedScheduleWizardContextForAuthState(
+  page: Page,
+  params: {
+    organizationId: string
+    organizationName: string
+    organizationType: string
+    month: string
+    employeeCount?: number
+    scheduleId?: string | null
+    schedulePublicId?: string | null
+  },
+  authState: ReturnType<typeof buildSupabaseAuthState>,
+) {
+  const { session } = authState
 
   await page.evaluate((payload) => {
     const userId = payload.userId
@@ -566,7 +629,19 @@ export async function seedScheduleWizardContext(
 }
 
 export async function seedSelectedOrganization(page: Page, organizationId: string) {
-  const { session } = buildFreshSupabaseAuthState()
+  await seedSelectedOrganizationForAuthState(page, organizationId, buildFreshSupabaseAuthState())
+}
+
+export async function seedPublicLaunchSelectedOrganization(page: Page, organizationId: string) {
+  await seedSelectedOrganizationForAuthState(page, organizationId, buildPublicLaunchSupabaseAuthState())
+}
+
+async function seedSelectedOrganizationForAuthState(
+  page: Page,
+  organizationId: string,
+  authState: ReturnType<typeof buildSupabaseAuthState>,
+) {
+  const { session } = authState
   const selectedOrganizationKey = `everyshift:selected-organization:${session.user.id}`
   const payload = {
     storageKey: selectedOrganizationKey,
@@ -591,12 +666,24 @@ export async function seedSelectedOrganization(page: Page, organizationId: strin
 }
 
 export async function mockRbacContext(page: Page, accessState: MockRbacAccessState) {
+  return mockRbacContextForAuthState(page, accessState, buildFreshSupabaseAuthState())
+}
+
+export async function mockPublicLaunchRbacContext(page: Page, accessState: MockRbacAccessState) {
+  return mockRbacContextForAuthState(page, accessState, buildPublicLaunchSupabaseAuthState())
+}
+
+async function mockRbacContextForAuthState(
+  page: Page,
+  accessState: MockRbacAccessState,
+  authState: ReturnType<typeof buildSupabaseAuthState>,
+) {
   const fixture = buildRbacFixture(accessState)
-  const { session } = buildFreshSupabaseAuthState()
+  const { storageKey, session } = authState
 
   await page.addInitScript(({ entryName, authSession }) => {
     window.localStorage.setItem(entryName, JSON.stringify(authSession))
-  }, { entryName: getSupabaseAuthStorageKey(), authSession: session })
+  }, { entryName: storageKey, authSession: session })
 
   await page.route('**/functions/v1/approval-read/**', async (route) => {
     if (route.request().method() === 'OPTIONS') {
