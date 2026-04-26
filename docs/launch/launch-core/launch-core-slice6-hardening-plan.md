@@ -71,7 +71,7 @@ Repo-ready
   -> Custom-domain-ready
 ```
 
-`Repo-ready` is mergeable. `Custom-domain-ready` is a public launch-domain gate, not the proof point for Launch Core deployment correctness.
+`Repo-ready` is mergeable. `Custom-domain-ready` applies only to the public custom-domain launch, not to proving Launch Core deployment correctness.
 
 ## File Structure
 
@@ -658,7 +658,7 @@ Rules:
 Run:
 
 ```bash
-rg -n "custom-domain|domain dependency|VITE_PUBLIC_SITE_URL|Vercel" docs/launch/launch-core/launch-core-auth-and-deploy-spec.md docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md
+rg -n "custom domai[n]|require[d] domai[n]|domai[n].*require[d]|VITE_PUBLIC_SITE_URL|Vercel" docs/launch/launch-core/launch-core-auth-and-deploy-spec.md docs/launch/launch-core/launch-core-auth-and-deploy-spec.ko.md
 ```
 
 Expected: custom domain is deferred, and `VITE_PUBLIC_SITE_URL` is optional unless canonical/meta behavior exists.
@@ -700,7 +700,7 @@ Rules:
 Run:
 
 ```bash
-rg -n "Deployment Smoke|preview deploy reachable|production deploy reachable|custom-domain|custom domain|generated URL|Preview Generated|Production Generated" docs/launch/launch-core/launch-core-qa-checklist.md docs/launch/launch-core/launch-core-qa-checklist.ko.md
+rg -n "Deployment Smoke|preview deploy reachabl[e]|production deploy reachabl[e]|custom-domain|custom domain|generated URL|Preview Generated|Production Generated" docs/launch/launch-core/launch-core-qa-checklist.md docs/launch/launch-core/launch-core-qa-checklist.ko.md
 ```
 
 Expected: QA is split into local repo-ready, Vercel bootstrap, Preview generated URL, Production generated URL, and Custom Domain sections.
@@ -785,10 +785,10 @@ git commit -m "test: preserve inquiry env validation"
 Run:
 
 ```bash
-rg -n "Deploy Contract And Launch Regression Gate|Deploy contract \\+ regression gate|배포 계약 \\+ 최종 회귀 게이트|before any custom domain has been purchased|without requiring a purchased custom domain|no custom domain has been purchased yet|preview deploy reachable|production deploy reachable|required domain|domain.*required" docs/launch/launch-core
+rg -n "Deploy Contract And Launch Regression Gat[e]|Deploy contract \\+ regression gat[e]|배포 계약 \\+ 최종 회귀 게이트|before any custom domai[n] has been purchase[d]|without requiring a purchased custom domai[n]|no custom domai[n] has been purchased ye[t]|preview deploy reachabl[e]|production deploy reachabl[e]|require[d] domai[n]|domai[n].*require[d]" docs/launch/launch-core
 ```
 
-Expected: no stale Slice 6 title remains, and no wording makes repo readiness depend on a custom domain.
+Expected: no stale Slice 6 title remains, and no wording makes custom-domain setup a repo-readiness prerequisite.
 
 - [ ] **Step 2: Run repo-ready checks**
 
