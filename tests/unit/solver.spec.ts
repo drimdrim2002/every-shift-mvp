@@ -1,4 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const getSessionMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/api/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: getSessionMock,
+    },
+  },
+}));
+
 import {
   createSolverExecution,
   getSolverStatus,
@@ -124,6 +135,14 @@ describe('solver api', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'session-token',
+        },
+      },
+      error: null,
+    });
   });
 
   afterEach(() => {
@@ -149,7 +168,10 @@ describe('solver api', () => {
       expect(url).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
       expect(init).toMatchObject({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          Authorization: 'Bearer session-token',
+          'Content-Type': 'application/json',
+        },
       });
     });
 
@@ -212,9 +234,15 @@ describe('solver api', () => {
       expect(executionId).toBe('exec-proxy');
       expect(fetchMock).toHaveBeenCalledTimes(2);
       const [directUrl] = fetchMock.mock.calls[0]!;
-      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      const [proxyUrl, proxyInit] = fetchMock.mock.calls[1]!;
       expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve');
       expect(proxyUrl).toBe('/api/solve');
+      expect(proxyInit).toMatchObject({
+        headers: {
+          Authorization: 'Bearer session-token',
+          'Content-Type': 'application/json',
+        },
+      });
     });
 
     it('retries with alternate proxy path when primary proxy path returns 404', async () => {
@@ -249,12 +277,40 @@ describe('solver api', () => {
         message: expect.stringContaining('Solver API 호출 실패 (네트워크/CORS 또는 배포 URL 확인 필요)'),
       });
     });
+
+    it('fails before fetch when no session access token is available', async () => {
+      getSessionMock.mockResolvedValueOnce({
+        data: { session: null },
+        error: null,
+      });
+      const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toMatchObject({
+        name: 'SolverApiError',
+        code: 'solver_auth_required',
+        message: '로그인이 필요합니다. 다시 로그인한 뒤 근무표 생성을 시도해주세요.',
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('fails before fetch when session lookup returns an error', async () => {
+      getSessionMock.mockResolvedValueOnce({
+        data: { session: null },
+        error: new Error('session lookup failed'),
+      });
+      const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+      await expect(createSolverExecution(createSolverRequest(), directApiEnv)).rejects.toThrow(
+        'session lookup failed',
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSolverStatus', () => {
     it('returns status payload on success', async () => {
       const expected = createSolverStatus('RUNNING');
-      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify(expected), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -263,6 +319,12 @@ describe('solver api', () => {
 
       const result = await getSolverStatus('exec-1');
       expect(result).toEqual(expected);
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(init).toMatchObject({
+        headers: {
+          Authorization: 'Bearer session-token',
+        },
+      });
     });
 
     it('passes an abort signal to the status request when provided', async () => {
@@ -281,6 +343,9 @@ describe('solver api', () => {
 
       const [, init] = fetchMock.mock.calls[0]!;
       expect(init).toMatchObject({
+        headers: {
+          Authorization: 'Bearer session-token',
+        },
         signal: controller.signal,
       });
     });
@@ -302,9 +367,14 @@ describe('solver api', () => {
       expect(result).toEqual(expected);
       expect(fetchMock).toHaveBeenCalledTimes(2);
       const [directUrl] = fetchMock.mock.calls[0]!;
-      const [proxyUrl] = fetchMock.mock.calls[1]!;
+      const [proxyUrl, proxyInit] = fetchMock.mock.calls[1]!;
       expect(directUrl).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/status/exec-1');
       expect(proxyUrl).toBe('/api/status/exec-1');
+      expect(proxyInit).toMatchObject({
+        headers: {
+          Authorization: 'Bearer session-token',
+        },
+      });
     });
 
     it('retries status polling with alternate proxy path when primary proxy path returns 404', async () => {
@@ -349,6 +419,32 @@ describe('solver api', () => {
       ).rejects.toThrow('The operation was aborted.');
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails before fetch when no session access token is available', async () => {
+      getSessionMock.mockResolvedValueOnce({
+        data: { session: null },
+        error: null,
+      });
+      const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+      await expect(getSolverStatus('exec-1', directApiEnv)).rejects.toMatchObject({
+        name: 'SolverApiError',
+        code: 'solver_auth_required',
+        message: '로그인이 필요합니다. 다시 로그인한 뒤 근무표 생성을 시도해주세요.',
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('fails before fetch when session lookup returns an error', async () => {
+      getSessionMock.mockResolvedValueOnce({
+        data: { session: null },
+        error: new Error('session lookup failed'),
+      });
+      const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+      await expect(getSolverStatus('exec-1', directApiEnv)).rejects.toThrow('session lookup failed');
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

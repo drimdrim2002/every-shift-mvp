@@ -5,6 +5,7 @@ import type {
   SolverResult, 
   ShiftAssignmentItem 
 } from '@/types/schedule';
+import { supabase } from '@/api/supabase';
 
 interface SolverRuntimeEnv {
   DEV?: boolean;
@@ -62,6 +63,34 @@ function isAbortError(error: unknown): boolean {
     && (error as { name?: unknown }).name === 'AbortError';
 }
 
+async function getRequiredSolverAccessToken(): Promise<string> {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    throw error;
+  }
+
+  const accessToken = data.session?.access_token;
+  if (!accessToken) {
+    throw new SolverApiError(
+      '로그인이 필요합니다. 다시 로그인한 뒤 근무표 생성을 시도해주세요.',
+      { code: 'solver_auth_required' },
+    );
+  }
+
+  return accessToken;
+}
+
+function buildSolverAuthHeaders(
+  accessToken: string,
+  headers: Record<string, string> = {},
+): Record<string, string> {
+  return {
+    ...headers,
+    Authorization: `Bearer ${accessToken}`,
+  };
+}
+
 async function fetchSolverApiWithDevProxyFallback(
   path: string,
   fallbackProxyPaths: string[],
@@ -117,6 +146,7 @@ export async function createSolverExecution(
 ): Promise<string> {
   const path = '/api/solve';
   const url = buildSolverApiUrl(path, env);
+  const accessToken = await getRequiredSolverAccessToken();
 
   let response: Response;
   try {
@@ -125,7 +155,7 @@ export async function createSolverExecution(
       ['/solve'],
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildSolverAuthHeaders(accessToken, { 'Content-Type': 'application/json' }),
         body: JSON.stringify(request),
       },
       env
@@ -145,7 +175,6 @@ export async function createSolverExecution(
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[createSolverExecution] Error response:', errorText);
     const fallbackMessage = `Solver 요청 실패: ${response.status} ${response.statusText}`;
 
     try {
@@ -192,10 +221,12 @@ export async function getSolverStatus(
   options: SolverRequestOptions = {},
 ): Promise<SolverStatusResponse> {
   const path = `/api/status/${executionId}`;
+  const accessToken = await getRequiredSolverAccessToken();
   const response = await fetchSolverApiWithDevProxyFallback(
     path,
     [`/status/${executionId}`],
     {
+      headers: buildSolverAuthHeaders(accessToken),
       signal: options.signal,
     },
     env
