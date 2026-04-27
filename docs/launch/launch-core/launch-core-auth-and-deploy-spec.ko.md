@@ -160,16 +160,20 @@ Preview 와 Production 에 필요한 환경변수:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_BASE_URL`
 - `VITE_PUBLIC_INQUIRY_FORM_URL`
 
 canonical/meta 작업이 생기기 전까지는 선택:
 
 - `VITE_PUBLIC_SITE_URL`
 
+직접 Cloud Run 호출이 필요할 때만 선택:
+
+- `VITE_API_BASE_URL`
+
 환경 규칙:
 
 - Preview 와 Production 값을 각각 설정한다
+- Vercel 배포에서는 `VITE_API_BASE_URL` 을 비우거나 제거해서 `/api/*` same-origin proxy 를 사용한다
 - `VITE_*` 에 비밀값을 넣지 않는다
 - `.env.local` 에서 값을 복사하기 전에 검토한다
 - `VITE_PUBLIC_INQUIRY_FORM_URL` 은 템플릿 placeholder 가 아니라 실제 Google Form URL 이어야 한다
@@ -214,6 +218,10 @@ Vite SPA 는 명시적인 rewrite 가 없으면 Vercel 에서 딥링크 새로�
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
@@ -225,18 +233,22 @@ Vite SPA 는 명시적인 rewrite 가 없으면 Vercel 에서 딥링크 새로�
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_BASE_URL`
 - `VITE_PUBLIC_INQUIRY_FORM_URL`
 
 현재 canonical / meta 작업까지 같이 한다면 선택:
 
 - `VITE_PUBLIC_SITE_URL`
 
+직접 Cloud Run 호출이 필요할 때만 선택:
+
+- `VITE_API_BASE_URL`
+
 규칙:
 
 - `VITE_PUBLIC_INQUIRY_FORM_URL` 은 공개 설정값이므로 클라이언트에 노출될 수 있습니다.
 - 어떤 비밀값도 `VITE_*` 변수에 넣으면 안 됩니다.
 - 문의 폼 URL 이 비어 있으면 출시 전 검증 단계에서 실패해야 합니다.
+- Vercel Preview 와 Production 에서는 `VITE_API_BASE_URL` 을 설정하지 않아야 브라우저가 `/api/*` proxy 를 사용합니다.
 - Preview 와 Production 값은 Vercel 에서 각각 설정합니다.
 - Vercel 환경변수를 바꾼 뒤에는 해당 환경을 다시 배포합니다.
 

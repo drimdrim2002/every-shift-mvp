@@ -167,8 +167,8 @@ Repo-ready
 - set Preview and Production environment variables separately:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_API_BASE_URL`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
+- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` rewrite
 - optional until canonical/meta behavior exists:
   - `VITE_PUBLIC_SITE_URL`
 - do not put secrets in `VITE_*`
@@ -342,16 +342,20 @@ Required Preview and Production environment variables:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_BASE_URL`
 - `VITE_PUBLIC_INQUIRY_FORM_URL`
 
 Optional until canonical/meta work exists:
 
 - `VITE_PUBLIC_SITE_URL`
 
+Optional only when directly calling Cloud Run from the browser:
+
+- `VITE_API_BASE_URL`
+
 Environment rules:
 
 - set Preview and Production values separately
+- leave `VITE_API_BASE_URL` unset in Vercel so solver traffic uses the same-origin `/api/*` rewrite
 - do not put secrets in `VITE_*`
 - review values before copying anything from `.env.local`
 - `VITE_PUBLIC_INQUIRY_FORM_URL` must be the real Google Form URL, not the template placeholder
@@ -382,11 +386,11 @@ Replace the current `## Deployment Smoke` section in `docs/launch/launch-core/la
 - [ ] output directory is `dist`
 - [ ] Preview `VITE_SUPABASE_URL` is set
 - [ ] Preview `VITE_SUPABASE_ANON_KEY` is set
-- [ ] Preview `VITE_API_BASE_URL` is set
+- [ ] Preview `VITE_API_BASE_URL` is unset or empty
 - [ ] Preview `VITE_PUBLIC_INQUIRY_FORM_URL` is set
 - [ ] Production `VITE_SUPABASE_URL` is set
 - [ ] Production `VITE_SUPABASE_ANON_KEY` is set
-- [ ] Production `VITE_API_BASE_URL` is set
+- [ ] Production `VITE_API_BASE_URL` is unset or empty
 - [ ] Production `VITE_PUBLIC_INQUIRY_FORM_URL` is set
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Preview
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production

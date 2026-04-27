@@ -95,11 +95,11 @@
 - [ ] 출력 디렉터리가 `dist` 이다
 - [ ] 프리뷰 `VITE_SUPABASE_URL` 이 설정되어 있다
 - [ ] 프리뷰 `VITE_SUPABASE_ANON_KEY` 가 설정되어 있다
-- [ ] 프리뷰 `VITE_API_BASE_URL` 이 설정되어 있다
+- [ ] 프리뷰 `VITE_API_BASE_URL` 이 비어 있거나 제거되어 있다
 - [ ] 프리뷰 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
 - [ ] 프로덕션 `VITE_SUPABASE_URL` 이 설정되어 있다
 - [ ] 프로덕션 `VITE_SUPABASE_ANON_KEY` 가 설정되어 있다
-- [ ] 프로덕션 `VITE_API_BASE_URL` 이 설정되어 있다
+- [ ] 프로덕션 `VITE_API_BASE_URL` 이 비어 있거나 제거되어 있다
 - [ ] 프로덕션 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 설정되어 있다
 - [ ] 프리뷰의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다
 - [ ] 프로덕션의 `VITE_PUBLIC_INQUIRY_FORM_URL` 이 실제 Google Form URL 이다

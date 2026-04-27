@@ -96,11 +96,11 @@ Record: 2026-04-26 KST, tester Codex. Result: passed. `pnpm lint:check` passed w
 - [ ] output directory is `dist`
 - [ ] Preview `VITE_SUPABASE_URL` is set
 - [ ] Preview `VITE_SUPABASE_ANON_KEY` is set
-- [ ] Preview `VITE_API_BASE_URL` is set
+- [ ] Preview `VITE_API_BASE_URL` is unset or empty
 - [ ] Preview `VITE_PUBLIC_INQUIRY_FORM_URL` is set
 - [ ] Production `VITE_SUPABASE_URL` is set
 - [ ] Production `VITE_SUPABASE_ANON_KEY` is set
-- [ ] Production `VITE_API_BASE_URL` is set
+- [ ] Production `VITE_API_BASE_URL` is unset or empty
 - [ ] Production `VITE_PUBLIC_INQUIRY_FORM_URL` is set
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Preview
 - [ ] `VITE_PUBLIC_INQUIRY_FORM_URL` is a real Google Form URL in Production

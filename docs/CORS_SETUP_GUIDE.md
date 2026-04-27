@@ -4,6 +4,8 @@
 
 프론트엔드(`http://localhost:5173`, `http://localhost:5174`)에서 백엔드 API(`https://every-shift-api-service-554455861916.asia-northeast3.run.app`)를 호출할 때 다음과 같은 CORS 오류가 발생합니다:
 
+Vercel Preview/Production 배포에서는 Cloud Run을 브라우저에서 직접 호출하지 말고, 루트 `vercel.json` 의 `/api/*` same-origin rewrite를 우선 사용합니다. 이 문서는 Cloud Run을 직접 호출해야 하는 로컬/디버그 상황의 백엔드 CORS 설정 가이드입니다.
+
 ```
 Access to fetch at 'https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve'
 from origin 'http://localhost:5174' has been blocked by CORS policy:
