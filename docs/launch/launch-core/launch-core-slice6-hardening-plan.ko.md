@@ -246,8 +246,11 @@ Preview와 Production에 필요:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_API_BASE_URL`
 - `VITE_PUBLIC_INQUIRY_FORM_URL`
+
+Cloud Run을 브라우저에서 직접 호출해야 할 때만 선택:
+
+- `VITE_API_BASE_URL`
 
 canonical/meta 작업이 존재하기 전까지 optional:
 

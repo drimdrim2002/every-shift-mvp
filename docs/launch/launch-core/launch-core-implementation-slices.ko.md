@@ -702,8 +702,8 @@ Repo-ready
 - Preview 와 Production 환경변수를 별도로 설정합니다:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_API_BASE_URL`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
+- Vercel 에서는 `VITE_API_BASE_URL` 을 설정하지 않아 브라우저 solver 요청이 same-origin `/api/*` rewrite 를 사용하게 합니다.
 - canonical/meta 동작이 생기기 전까지는 선택 사항입니다:
   - `VITE_PUBLIC_SITE_URL`
 - secrets 를 `VITE_*` 에 넣지 않습니다.

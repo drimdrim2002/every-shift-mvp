@@ -655,8 +655,8 @@ Gate:
 - set Preview and Production environment variables separately:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
-  - `VITE_API_BASE_URL`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
+- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` rewrite
 - optional until canonical/meta behavior exists:
   - `VITE_PUBLIC_SITE_URL`
 - do not put secrets in `VITE_*`

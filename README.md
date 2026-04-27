@@ -141,15 +141,16 @@ cp .env.example .env.local
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 
-# AI Solver API (개발 모드)
-# Cloud Run Solver API URL
-VITE_API_BASE_URL=https://every-shift-api-service-554455861916.asia-northeast3.run.app
+# AI Solver API (선택)
+# Vercel 배포에서는 비워두어 /api same-origin proxy를 사용
+VITE_API_BASE_URL=
 ```
 
 **중요: AI Solver URL 규칙**
 
-- 개발/프로덕션 공통: `VITE_API_BASE_URL`에 Cloud Run 절대 URL 설정
-- 로컬에서 CORS 오류가 발생하면 백엔드 CORS 허용 출처에 `http://localhost:5173`(또는 사용 포트)를 추가
+- Vercel Preview/Production: `VITE_API_BASE_URL`을 비우거나 제거해서 `/api/*` same-origin proxy를 사용
+- 로컬 개발: 기본 Vite proxy가 Cloud Run으로 전달하므로 `VITE_API_BASE_URL`은 보통 비워둠
+- Cloud Run을 브라우저에서 직접 호출해야 할 때만 `VITE_API_BASE_URL`에 절대 URL을 설정하고, 백엔드 CORS 허용 출처를 별도로 관리
 
 **Supabase 정보 확인 방법**:
 
