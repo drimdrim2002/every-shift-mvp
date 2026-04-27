@@ -15,6 +15,8 @@ node_modules/*
 dist/
 supabase/.temp/
 scripts/mcp.env.local
+scripts/mcp.env*.local
+scripts/mcp.env copy.local
 playwright/.auth/
 playwright-report/
 test-results/
