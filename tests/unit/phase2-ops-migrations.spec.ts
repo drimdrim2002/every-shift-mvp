@@ -158,4 +158,83 @@ describe('phase2 ops migrations', () => {
       "where lower(coalesce(public.organization_memberships.status, 'pending')) <> 'approved'"
     );
   });
+
+  it('locks down security boundaries for client-visible phase2 tables and helpers', () => {
+    const sql = readMigration('20260428_010000_security_boundary_lockdown.sql').toLowerCase();
+
+    expect(sql).toContain("to_regprocedure('public.grant_superuser(text, uuid[])')");
+    expect(sql).toMatch(/end;\s*\$\$;/);
+    expect(sql).toContain(
+      'revoke all on function public.grant_superuser(text, uuid[]) from public, anon, authenticated'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.grant_superuser(text, uuid[]) to service_role'
+    );
+    expect(sql).toContain(
+      'revoke all on function public.has_org_access(uuid, text) from public, anon'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.has_org_access(uuid, text) to authenticated, service_role'
+    );
+    expect(sql).toContain('revoke all on function public.is_super_admin() from public, anon');
+    expect(sql).toContain(
+      'grant execute on function public.is_super_admin() to authenticated, service_role'
+    );
+
+    [
+      'schedule_assignments',
+      'organization_settings',
+      'approval_logs',
+      'site_staffing_requirements',
+      'analytics_metrics',
+      'notifications',
+      'notification_preferences',
+      'employee_skills',
+      'employee_site_assignments',
+    ].forEach((table) => {
+      expect(sql).toContain(`alter table if exists public.${table} enable row level security`);
+    });
+
+    expect(sql).toContain('drop policy if exists "admin can do everything" on public.profiles');
+    expect(sql).toContain(
+      'drop policy if exists "admin can do everything" on public.schedule_preferences'
+    );
+    expect(sql).toContain('drop policy if exists "admin can do everything" on public.schedules');
+
+    [
+      'schedule_assignments_select_authenticated',
+      'schedule_assignments_admin_insert',
+      'schedule_preferences_select_authenticated',
+      'organization_settings_admin_all',
+      'notifications_admin_insert',
+      'notifications_admin_update',
+      'notifications_admin_delete',
+      'notification_preferences_admin_insert',
+      'notification_preferences_admin_update',
+      'notification_preferences_admin_delete',
+      'approval_logs_no_client_access',
+    ].forEach((policyName) => {
+      expect(sql).toContain(policyName);
+    });
+
+    expect(sql).not.toContain('create policy notifications_admin_all');
+    expect(sql).not.toContain('create policy notification_preferences_admin_all');
+    expect(sql).not.toContain('using (true)');
+    expect(sql).not.toContain('with check (true)');
+    expect(sql).toContain('using (false)');
+    expect(sql).toContain('with check (false)');
+
+    [
+      'e.organization_id = s.organization_id',
+      'sh.organization_id = s.organization_id',
+      'st.organization_id = s.organization_id',
+      'sk.organization_id = site_staffing_requirements.organization_id',
+      'left join public.ranks r on r.id = site_staffing_requirements.rank_id',
+      'r.organization_id = site_staffing_requirements.organization_id',
+      'recipient_user_id = auth.uid()',
+      'user_id = auth.uid()',
+    ].forEach((predicate) => {
+      expect(sql).toContain(predicate);
+    });
+  });
 });
