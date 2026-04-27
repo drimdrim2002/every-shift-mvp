@@ -153,6 +153,23 @@ describe('solver api', () => {
       });
     });
 
+    it('does not log the solver request payload', async () => {
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ execution_id: 'exec-123' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await createSolverExecution(createSolverRequest(), directApiEnv);
+
+      expect(consoleLogSpy).not.toHaveBeenCalledWith(
+        '[createSolverExecution] Request Body:',
+        expect.any(String),
+      );
+    });
+
     it('preserves code/message/status for non-2xx json responses', async () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
         new Response(JSON.stringify({ code: 'another_version_solving', message: 'validation failed' }), {

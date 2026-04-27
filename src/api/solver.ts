@@ -113,10 +113,6 @@ export async function createSolverExecution(
 ): Promise<string> {
   const path = '/api/solve';
   const url = buildSolverApiUrl(path, env);
-  console.log('[createSolverExecution] API_BASE_URL:', resolveApiBaseUrl(env));
-  console.log('[createSolverExecution] Full URL:', url);
-  
-  console.log('[createSolverExecution] Request Body:', JSON.stringify(request, null, 2));
 
   let response: Response;
   try {
@@ -124,9 +120,9 @@ export async function createSolverExecution(
       path,
       ['/solve'],
       {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
       },
       env
     );
