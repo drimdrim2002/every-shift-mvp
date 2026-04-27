@@ -89,7 +89,7 @@ Repo-ready
 - Modify: `docs/launch/launch-core/launch-core-qa-checklist.ko.md`
   - Mirror Source Blocks C and D in Korean.
 - Create: `vercel.json`
-  - Add the Vite SPA fallback rewrite needed for `/app/*` hard refreshes.
+  - Add the `/api/*` function proxy rewrite and the Vite SPA fallback rewrite needed for `/app/*` hard refreshes.
 
 Do not modify by default:
 
@@ -133,7 +133,7 @@ Repo-ready
 
 ### In Scope
 
-- add root `vercel.json` rewrite for Vite SPA deep links
+- add root `vercel.json` rewrites for the solver API function proxy and Vite SPA deep links
 - keep local repo-ready checks independent from Vercel
 - define Vercel project bootstrap settings
 - define Preview smoke checks on `https://<vercel-preview-deployment>.vercel.app`
@@ -150,7 +150,7 @@ Repo-ready
 
 ### Repo Deploy Contract
 
-- root `vercel.json` exists with a Vite SPA fallback rewrite to `/index.html`
+- root `vercel.json` exists with `/api/*` routed to the function proxy before the Vite SPA fallback rewrite to `/index.html`
 - `/app/*` hard refreshes are expected to resolve through the SPA fallback
 - local checks use `.env.local` and do not require live Vercel URLs
 - credential-backed Playwright specs are reported separately from repo readiness
@@ -168,7 +168,7 @@ Repo-ready
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
-- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` rewrite
+- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` function proxy
 - optional until canonical/meta behavior exists:
   - `VITE_PUBLIC_SITE_URL`
 - do not put secrets in `VITE_*`
@@ -355,7 +355,7 @@ Optional only when directly calling Cloud Run from the browser:
 Environment rules:
 
 - set Preview and Production values separately
-- leave `VITE_API_BASE_URL` unset in Vercel so solver traffic uses the same-origin `/api/*` rewrite
+- leave `VITE_API_BASE_URL` unset in Vercel so solver traffic uses the same-origin `/api/*` function proxy
 - do not put secrets in `VITE_*`
 - review values before copying anything from `.env.local`
 - `VITE_PUBLIC_INQUIRY_FORM_URL` must be the real Google Form URL, not the template placeholder
@@ -534,6 +534,10 @@ Use:
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/[...path]"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

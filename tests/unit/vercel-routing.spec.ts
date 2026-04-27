@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -16,13 +16,21 @@ function readVercelConfig(): VercelConfig {
 }
 
 describe('vercel routing contract', () => {
-  it('proxies solver api requests before the spa fallback rewrite', () => {
+  it('serves solver api requests through the vercel function proxy', () => {
+    expect(existsSync(resolve(process.cwd(), 'api/[...path].js'))).toBe(true);
+    expect(existsSync(resolve(process.cwd(), 'api/solver-proxy.js'))).toBe(true);
+
     const config = readVercelConfig();
 
     expect(config.rewrites?.[0]).toEqual({
       source: '/api/:path*',
-      destination: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/:path*',
+      destination: '/api/[...path]',
     });
+  });
+
+  it('keeps the spa fallback rewrite for non-api routes', () => {
+    const config = readVercelConfig();
+
     expect(config.rewrites?.[1]).toEqual({
       source: '/(.*)',
       destination: '/index.html',

@@ -24,21 +24,19 @@ describe('solver url resolution', () => {
     expect(buildSolverApiUrl('/api/solve', env)).toBe('/api/solve');
   });
 
-  it('uses configured absolute base url in production mode', () => {
+  it('uses same-origin api path in production mode even when a base url is configured', () => {
     const env = {
       DEV: false,
       VITE_API_BASE_URL: 'https://every-shift-api-service-554455861916.asia-northeast3.run.app',
     };
 
-    expect(resolveApiBaseUrl(env)).toBe('https://every-shift-api-service-554455861916.asia-northeast3.run.app');
-    expect(buildSolverApiUrl('/api/solve', env)).toBe(
-      'https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/solve',
-    );
+    expect(resolveApiBaseUrl(env)).toBe('');
+    expect(buildSolverApiUrl('/api/solve', env)).toBe('/api/solve');
   });
 
-  it('normalizes trailing slash in production base url', () => {
+  it('normalizes trailing slash in development base url', () => {
     const env = {
-      DEV: false,
+      DEV: true,
       VITE_API_BASE_URL: 'https://example.com/',
     };
 

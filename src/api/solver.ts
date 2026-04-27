@@ -34,6 +34,10 @@ function normalizeApiBaseUrl(url: string): string {
 }
 
 export function resolveApiBaseUrl(env: SolverRuntimeEnv = import.meta.env): string {
+  if (!env.DEV) {
+    return '';
+  }
+
   const configuredBaseUrl = (env.VITE_API_BASE_URL || '').trim();
   return configuredBaseUrl ? normalizeApiBaseUrl(configuredBaseUrl) : '';
 }

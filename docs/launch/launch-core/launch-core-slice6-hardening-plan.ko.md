@@ -76,7 +76,7 @@ Repo-ready
 - 수정: `docs/launch/launch-core/launch-core-qa-checklist.ko.md`
   - QA 체크리스트 분리를 한국어로 동일하게 반영합니다.
 - 생성: `vercel.json`
-  - `/app/*` hard refresh에 필요한 Vite SPA fallback rewrite를 추가합니다.
+  - `/api/*` function proxy rewrite 와 `/app/*` hard refresh에 필요한 Vite SPA fallback rewrite를 추가합니다.
 
 ## Task 1: Slice 6 범위와 상태 모델 재작성
 
@@ -153,6 +153,10 @@ rg -n "Slice 6|custom domain|domain|Vercel preview|production" docs/launch/launc
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/[...path]"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"

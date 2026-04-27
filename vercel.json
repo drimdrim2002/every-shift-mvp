@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/:path*"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/(.*)",

@@ -685,7 +685,7 @@ Repo-ready
 
 ### 저장소 배포 계약
 
-- 루트 `vercel.json` 은 `/index.html` 로 가는 Vite SPA fallback rewrite 를 가집니다.
+- 루트 `vercel.json` 은 `/api/*` 를 function proxy 로 먼저 라우팅한 뒤 `/index.html` 로 가는 Vite SPA fallback rewrite 를 가집니다.
 - `/app/*` hard refresh 는 SPA fallback 을 통해 해결되어야 합니다.
 - 로컬 점검은 `.env.local` 을 사용하며 live Vercel URLs 를 요구하지 않습니다.
 - 자격 증명 기반 Playwright specs 는 repo readiness 와 별도로 보고합니다.
@@ -703,7 +703,7 @@ Repo-ready
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
-- Vercel 에서는 `VITE_API_BASE_URL` 을 설정하지 않아 브라우저 solver 요청이 same-origin `/api/*` rewrite 를 사용하게 합니다.
+- Vercel 에서는 `VITE_API_BASE_URL` 을 설정하지 않아 브라우저 solver 요청이 same-origin `/api/*` function proxy 를 사용하게 합니다.
 - canonical/meta 동작이 생기기 전까지는 선택 사항입니다:
   - `VITE_PUBLIC_SITE_URL`
 - secrets 를 `VITE_*` 에 넣지 않습니다.

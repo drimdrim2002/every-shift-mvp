@@ -172,7 +172,7 @@ Optional only when directly calling Cloud Run from the browser:
 Environment rules:
 
 - set Preview and Production values separately
-- leave `VITE_API_BASE_URL` unset in Vercel so solver traffic uses the same-origin `/api/*` rewrite
+- leave `VITE_API_BASE_URL` unset in Vercel so solver traffic uses the same-origin `/api/*` function proxy
 - do not put secrets in `VITE_*`
 - review values before copying anything from `.env.local`
 - `VITE_PUBLIC_INQUIRY_FORM_URL` must be the real Google Form URL, not the template placeholder
@@ -210,7 +210,7 @@ Notes:
 
 Vite SPA deep links do not work on Vercel without an explicit rewrite.
 
-Launch Core therefore requires a root `vercel.json` with the solver API proxy before the SPA fallback:
+Launch Core therefore requires a root `vercel.json` with the `/api/*` function proxy before the SPA fallback. Solver API calls are handled by `api/[...path].js`, which forwards to Cloud Run without browser `Origin` headers:
 
 ```json
 {
@@ -218,7 +218,7 @@ Launch Core therefore requires a root `vercel.json` with the solver API proxy be
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://every-shift-api-service-554455861916.asia-northeast3.run.app/api/:path*"
+      "destination": "/api/[...path]"
     },
     {
       "source": "/(.*)",
@@ -247,7 +247,7 @@ Rules:
 - `VITE_PUBLIC_INQUIRY_FORM_URL` is public configuration and may be exposed to the client
 - do not place secrets in any `VITE_*` variable
 - launch builds should fail pre-release validation if the inquiry form URL is missing
-- leave `VITE_API_BASE_URL` unset in Vercel Preview and Production so browser requests use `/api/*`
+- leave `VITE_API_BASE_URL` unset in Vercel Preview and Production so browser requests use the `/api/*` function proxy
 - set Preview and Production values independently in Vercel
 - redeploy the relevant environment after changing Vercel environment variables
 

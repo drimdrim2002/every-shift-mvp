@@ -638,7 +638,7 @@ Gate:
 
 ### Repo Deploy Contract
 
-- root `vercel.json` exists with a Vite SPA fallback rewrite to `/index.html`
+- root `vercel.json` routes `/api/*` to the function proxy before the Vite SPA fallback rewrite to `/index.html`
 - `/app/*` hard refreshes are expected to resolve through the SPA fallback
 - local checks use `.env.local` and do not require live Vercel URLs
 - credential-backed Playwright specs are reported separately from repo readiness
@@ -656,7 +656,7 @@ Gate:
   - `VITE_SUPABASE_URL`
   - `VITE_SUPABASE_ANON_KEY`
   - `VITE_PUBLIC_INQUIRY_FORM_URL`
-- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` rewrite
+- leave `VITE_API_BASE_URL` unset in Vercel so browser solver calls use the same-origin `/api/*` function proxy
 - optional until canonical/meta behavior exists:
   - `VITE_PUBLIC_SITE_URL`
 - do not put secrets in `VITE_*`
