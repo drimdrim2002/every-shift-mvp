@@ -1,4 +1,7 @@
-const CLOUD_RUN_API_ORIGIN = 'https://every-shift-api-service-554455861916.asia-northeast3.run.app';
+import { getVercelOidcToken } from '@vercel/oidc';
+import { ExternalAccountClient } from 'google-auth-library';
+
+const DEFAULT_CLOUD_RUN_API_ORIGIN = 'https://every-shift-api-service-554455861916.asia-northeast3.run.app';
 
 const blockedForwardHeaderNames = new Set([
   'authorization',
@@ -29,6 +32,14 @@ function normalizePathParam(pathParam) {
   return typeof pathParam === 'string' ? pathParam : '';
 }
 
+function getCloudRunApiOrigin() {
+  return (process.env.CLOUD_RUN_API_ORIGIN || DEFAULT_CLOUD_RUN_API_ORIGIN).replace(/\/$/, '');
+}
+
+function getCloudRunTargetAudience() {
+  return process.env.CLOUD_RUN_TARGET_AUDIENCE || getCloudRunApiOrigin();
+}
+
 export function buildCloudRunApiUrl(requestUrl = '', pathParam = '') {
   const normalizedPathParam = normalizePathParam(pathParam);
   const path = normalizedPathParam
@@ -37,7 +48,7 @@ export function buildCloudRunApiUrl(requestUrl = '', pathParam = '') {
       ? requestUrl
       : `/api${requestUrl}`;
 
-  return `${CLOUD_RUN_API_ORIGIN}${path}`;
+  return `${getCloudRunApiOrigin()}${path}`;
 }
 
 export function createForwardHeaders(sourceHeaders = {}) {
@@ -83,6 +94,90 @@ function getSupabaseAuthConfig() {
   }
 
   return { supabaseUrl, anonKey };
+}
+
+function getGoogleAuthConfig() {
+  const projectNumber = process.env.GCP_PROJECT_NUMBER;
+  const workloadIdentityPoolId = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID;
+  const workloadIdentityPoolProviderId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
+  const serviceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL;
+
+  const missingEnv = [
+    ['GCP_PROJECT_NUMBER', projectNumber],
+    ['GCP_WORKLOAD_IDENTITY_POOL_ID', workloadIdentityPoolId],
+    ['GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID', workloadIdentityPoolProviderId],
+    ['GCP_SERVICE_ACCOUNT_EMAIL', serviceAccountEmail],
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
+
+  if (missingEnv.length > 0) {
+    throw new Error(`Google Cloud Workload Identity Federation env is required: ${missingEnv.join(', ')}`);
+  }
+
+  return {
+    projectNumber,
+    serviceAccountEmail,
+    workloadIdentityPoolId,
+    workloadIdentityPoolProviderId,
+  };
+}
+
+function createExternalAccountClient(config) {
+  const client = ExternalAccountClient.fromJSON({
+    type: 'external_account',
+    audience:
+      `//iam.googleapis.com/projects/${config.projectNumber}` +
+      `/locations/global/workloadIdentityPools/${config.workloadIdentityPoolId}` +
+      `/providers/${config.workloadIdentityPoolProviderId}`,
+    subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+    token_url: 'https://sts.googleapis.com/v1/token',
+    subject_token_supplier: {
+      getSubjectToken: getVercelOidcToken,
+    },
+  });
+
+  if (!client) {
+    throw new Error('Failed to create Google external account client.');
+  }
+
+  return client;
+}
+
+async function createCloudRunAuthorizationHeader() {
+  const googleAuthConfig = getGoogleAuthConfig();
+  const externalAccountClient = createExternalAccountClient(googleAuthConfig);
+  const accessToken = await externalAccountClient.getAccessToken();
+
+  if (!accessToken?.token) {
+    throw new Error('Google STS did not return an access token.');
+  }
+
+  const response = await fetch(
+    `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${googleAuthConfig.serviceAccountEmail}:generateIdToken`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken.token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        audience: getCloudRunTargetAudience(),
+        includeEmail: true,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`IAM Credentials generateIdToken failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (!payload?.token) {
+    throw new Error('IAM Credentials generateIdToken response did not include a token.');
+  }
+
+  return `Bearer ${payload.token}`;
 }
 
 export async function verifySupabaseAccessToken(accessToken) {
@@ -157,9 +252,21 @@ export default async function proxySolverApi(req, res) {
   }
 
   const targetUrl = buildCloudRunApiUrl(req.url || '', req.query?.path);
+  let cloudRunAuthorization;
+  try {
+    cloudRunAuthorization = await createCloudRunAuthorizationHeader();
+  } catch (error) {
+    console.error('[solver-proxy] Cloud Run auth failed:', error);
+    sendJson(res, 502, { code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' });
+    return;
+  }
+
+  const headers = createForwardHeaders(req.headers);
+  headers.set('Authorization', cloudRunAuthorization);
+
   const response = await fetch(targetUrl, {
     method: req.method,
-    headers: createForwardHeaders(req.headers),
+    headers,
     body: await readRequestBody(req),
   });
 

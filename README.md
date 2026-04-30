@@ -143,14 +143,40 @@ VITE_SUPABASE_ANON_KEY=eyJxxxxx...
 
 # AI Solver API (선택)
 # Vercel 배포에서는 비워두어 /api same-origin proxy를 사용
+# pnpm dev는 이 값이 있을 때만 Cloud Run으로 직접 proxy
 VITE_API_BASE_URL=
+
+# Solver proxy server-only env (Vercel에만 설정, VITE_* 금지)
+# Vercel Project Settings > Security에서 OIDC Federation을 켜고 Team issuer mode 사용
+CLOUD_RUN_API_ORIGIN=https://every-shift-api-service-554455861916.asia-northeast3.run.app
+# 선택: 비워두면 CLOUD_RUN_API_ORIGIN을 Cloud Run ID token audience로 사용
+CLOUD_RUN_TARGET_AUDIENCE=
+GCP_PROJECT_NUMBER=554455861916
+GCP_WORKLOAD_IDENTITY_POOL_ID=vercel-solver
+GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID=vercel-prod
+GCP_SERVICE_ACCOUNT_EMAIL=vercel-solver-proxy-invoker@every-shift-api.iam.gserviceaccount.com
 ```
 
 **중요: AI Solver URL 규칙**
 
 - Vercel Preview/Production: `VITE_API_BASE_URL`을 비우거나 제거해서 `/api/*` same-origin proxy를 사용
-- 로컬 개발: 기본 Vite proxy가 Cloud Run으로 전달하므로 `VITE_API_BASE_URL`은 보통 비워둠
-- Cloud Run을 브라우저에서 직접 호출해야 할 때만 `VITE_API_BASE_URL`에 절대 URL을 설정하고, 백엔드 CORS 허용 출처를 별도로 관리
+- 로컬 개발: `pnpm dev`는 기본적으로 Cloud Run으로 proxy하지 않음. 실제 solver 연동 테스트는 `vercel dev` 또는 Vercel Preview/Production에서 수행
+- Cloud Run을 브라우저에서 직접 호출해야 할 때만 `VITE_API_BASE_URL`에 절대 URL을 설정. private 전환 후에는 이 경로가 정상 동작하지 않음
+- Vercel 함수는 Supabase 사용자 토큰을 검증한 뒤 Vercel OIDC token을 GCP STS에 교환하고, IAM Credentials `generateIdToken`으로 Cloud Run용 Google ID token을 발급받아 호출
+- `GOOGLE_CLOUD_PRIVATE_KEY`는 등록하지 않음. 기존 값이 Vercel env에 남아 있으면 제거
+
+**GCP Workload Identity Federation 설정**
+
+- Vercel OIDC issuer는 Team mode를 기본으로 사용: `https://oidc.vercel.com/[TEAM_SLUG]`
+- Allowed audience: `https://vercel.com/[TEAM_SLUG]`
+- Attribute mapping: `google.subject=assertion.sub`
+- 허용할 Vercel subject:
+  - Production: `owner:[VERCEL_TEAM]:project:every-shift-mvp:environment:production`
+  - Preview smoke test가 필요하면: `owner:[VERCEL_TEAM]:project:every-shift-mvp:environment:preview`
+- 위 principal에 solver service account 기준 `roles/iam.workloadIdentityUser` 부여
+- solver service account에 Cloud Run 서비스 `every-shift-api-service`의 `roles/run.invoker` 부여
+- `iamcredentials.googleapis.com` API 활성화 확인
+- WIF 배포 검증 후 Vercel의 기존 JSON key env를 제거하고, GCP service account key는 비활성화 후 삭제
 
 **Supabase 정보 확인 방법**:
 

@@ -20,3 +20,4 @@ scripts/mcp.env copy.local
 playwright/.auth/
 playwright-report/
 test-results/
+.vercel

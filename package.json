@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
@@ -23,8 +26,10 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.81.1",
     "@tanstack/vue-table": "^8.21.3",
+    "@vercel/oidc": "^3.3.1",
     "@vueuse/core": "^14.0.0",
     "dayjs": "^1.11.19",
+    "google-auth-library": "^10.6.2",
     "naive-ui": "^2.43.1",
     "pinia": "^3.0.4",
     "vue": "3.5.17",

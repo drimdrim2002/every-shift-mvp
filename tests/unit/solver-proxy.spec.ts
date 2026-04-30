@@ -1,4 +1,48 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+type WifSupplierContext = {
+  audience: string;
+  subjectTokenType: string;
+};
+
+type WifClientConfig = {
+  type: string;
+  audience: string;
+  subject_token_type: string;
+  token_url: string;
+  subject_token_supplier: {
+    getSubjectToken: (context: WifSupplierContext) => Promise<string>;
+  };
+};
+
+const oidcMocks = vi.hoisted(() => ({
+  getVercelOidcToken: vi.fn(),
+}));
+
+const googleAuthMocks = vi.hoisted(() => {
+  const getAccessToken = vi.fn();
+  const externalAccountClient = {
+    getAccessToken,
+  };
+  const ExternalAccountClient = {
+    fromJSON: vi.fn(),
+  };
+
+  return {
+    ExternalAccountClient,
+    externalAccountClient,
+    getAccessToken,
+  };
+});
+
+vi.mock('@vercel/oidc', () => ({
+  getVercelOidcToken: oidcMocks.getVercelOidcToken,
+}));
+
+vi.mock('google-auth-library', () => ({
+  ExternalAccountClient: googleAuthMocks.ExternalAccountClient,
+}));
+
 import proxySolverApi, {
   buildCloudRunApiUrl,
   createForwardHeaders,
@@ -6,6 +50,8 @@ import proxySolverApi, {
 } from '../../api/solver-proxy.js';
 
 const cloudRunOrigin = 'https://every-shift-api-service-554455861916.asia-northeast3.run.app';
+const iamCredentialsUrl =
+  'https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/vercel-solver-proxy-invoker@every-shift-api.iam.gserviceaccount.com:generateIdToken';
 
 function createMockResponse() {
   const headers = new Map<string, string>();
@@ -31,13 +77,49 @@ describe('solver vercel proxy', () => {
   const originalViteSupabaseUrl = process.env.VITE_SUPABASE_URL;
   const originalSupabaseAnonKey = process.env.SUPABASE_ANON_KEY;
   const originalViteSupabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const originalCloudRunApiOrigin = process.env.CLOUD_RUN_API_ORIGIN;
+  const originalCloudRunTargetAudience = process.env.CLOUD_RUN_TARGET_AUDIENCE;
+  const originalGcpProjectNumber = process.env.GCP_PROJECT_NUMBER;
+  const originalGcpWorkloadIdentityPoolId = process.env.GCP_WORKLOAD_IDENTITY_POOL_ID;
+  const originalGcpWorkloadIdentityPoolProviderId = process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
+  const originalGcpServiceAccountEmail = process.env.GCP_SERVICE_ACCOUNT_EMAIL;
+
+  let capturedWifConfig: WifClientConfig | null = null;
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    capturedWifConfig = null;
+    oidcMocks.getVercelOidcToken.mockReset();
+    googleAuthMocks.getAccessToken.mockReset();
+    googleAuthMocks.ExternalAccountClient.fromJSON.mockReset();
     process.env.SUPABASE_URL = 'https://supabase.example';
     process.env.SUPABASE_ANON_KEY = 'anon-key';
+    process.env.GCP_PROJECT_NUMBER = '554455861916';
+    process.env.GCP_WORKLOAD_IDENTITY_POOL_ID = 'vercel-solver';
+    process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID = 'vercel-prod';
+    process.env.GCP_SERVICE_ACCOUNT_EMAIL =
+      'vercel-solver-proxy-invoker@every-shift-api.iam.gserviceaccount.com';
+    delete process.env.CLOUD_RUN_API_ORIGIN;
+    delete process.env.CLOUD_RUN_TARGET_AUDIENCE;
     delete process.env.VITE_SUPABASE_URL;
     delete process.env.VITE_SUPABASE_ANON_KEY;
+
+    oidcMocks.getVercelOidcToken.mockResolvedValue('vercel-oidc-token');
+    googleAuthMocks.getAccessToken.mockImplementation(async () => {
+      if (!capturedWifConfig) {
+        throw new Error('missing wif config');
+      }
+
+      await capturedWifConfig.subject_token_supplier.getSubjectToken({
+        audience: capturedWifConfig.audience,
+        subjectTokenType: capturedWifConfig.subject_token_type,
+      });
+      return { token: 'sts-access-token' };
+    });
+    googleAuthMocks.ExternalAccountClient.fromJSON.mockImplementation((config: WifClientConfig) => {
+      capturedWifConfig = config;
+      return googleAuthMocks.externalAccountClient;
+    });
   });
 
   afterEach(() => {
@@ -62,18 +144,52 @@ describe('solver vercel proxy', () => {
     } else {
       process.env.VITE_SUPABASE_ANON_KEY = originalViteSupabaseAnonKey;
     }
+    if (originalCloudRunApiOrigin === undefined) {
+      delete process.env.CLOUD_RUN_API_ORIGIN;
+    } else {
+      process.env.CLOUD_RUN_API_ORIGIN = originalCloudRunApiOrigin;
+    }
+    if (originalCloudRunTargetAudience === undefined) {
+      delete process.env.CLOUD_RUN_TARGET_AUDIENCE;
+    } else {
+      process.env.CLOUD_RUN_TARGET_AUDIENCE = originalCloudRunTargetAudience;
+    }
+    if (originalGcpProjectNumber === undefined) {
+      delete process.env.GCP_PROJECT_NUMBER;
+    } else {
+      process.env.GCP_PROJECT_NUMBER = originalGcpProjectNumber;
+    }
+    if (originalGcpWorkloadIdentityPoolId === undefined) {
+      delete process.env.GCP_WORKLOAD_IDENTITY_POOL_ID;
+    } else {
+      process.env.GCP_WORKLOAD_IDENTITY_POOL_ID = originalGcpWorkloadIdentityPoolId;
+    }
+    if (originalGcpWorkloadIdentityPoolProviderId === undefined) {
+      delete process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID;
+    } else {
+      process.env.GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID = originalGcpWorkloadIdentityPoolProviderId;
+    }
+    if (originalGcpServiceAccountEmail === undefined) {
+      delete process.env.GCP_SERVICE_ACCOUNT_EMAIL;
+    } else {
+      process.env.GCP_SERVICE_ACCOUNT_EMAIL = originalGcpServiceAccountEmail;
+    }
   });
 
   it('maps same-origin api paths to cloud run api paths', () => {
-    expect(buildCloudRunApiUrl('/api/solve')).toBe(
-      `${cloudRunOrigin}/api/solve`,
-    );
+    expect(buildCloudRunApiUrl('/api/solve')).toBe(`${cloudRunOrigin}/api/solve`);
     expect(buildCloudRunApiUrl('/api/status/exec-1?include=result')).toBe(
       `${cloudRunOrigin}/api/status/exec-1?include=result`,
     );
     expect(buildCloudRunApiUrl('/api/[...path]', ['status', 'exec-1'])).toBe(
       `${cloudRunOrigin}/api/status/exec-1`,
     );
+  });
+
+  it('uses the configured cloud run origin when building target urls', () => {
+    process.env.CLOUD_RUN_API_ORIGIN = 'https://solver-private.example';
+
+    expect(buildCloudRunApiUrl('/api/solve')).toBe('https://solver-private.example/api/solve');
   });
 
   it('extracts bearer tokens case-insensitively', () => {
@@ -127,6 +243,8 @@ describe('solver vercel proxy', () => {
     expect(res.getHeader('content-type')).toBe('application/json');
     expect(res.body).toBe(JSON.stringify({ code: 'unauthorized', message: 'Authorization required' }));
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(oidcMocks.getVercelOidcToken).not.toHaveBeenCalled();
+    expect(googleAuthMocks.ExternalAccountClient.fromJSON).not.toHaveBeenCalled();
   });
 
   it('returns 401 before forwarding when Supabase rejects the token', async () => {
@@ -155,12 +273,15 @@ describe('solver vercel proxy', () => {
       method: 'GET',
       headers: { apikey: 'anon-key', Authorization: 'Bearer rejected-token' },
     });
+    expect(oidcMocks.getVercelOidcToken).not.toHaveBeenCalled();
+    expect(googleAuthMocks.ExternalAccountClient.fromJSON).not.toHaveBeenCalled();
   });
 
-  it('verifies a valid token before forwarding the request body to cloud run', async () => {
+  it('verifies a valid token before forwarding the request body to cloud run with a google id token', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: 'google-id-token' }), { status: 200 }))
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ execution_id: 'exec-1' }), {
           status: 202,
@@ -183,26 +304,214 @@ describe('solver vercel proxy', () => {
       res as never,
     );
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://supabase.example/auth/v1/user', {
       method: 'GET',
       headers: { apikey: 'anon-key', Authorization: 'Bearer valid-token' },
     });
+    expect(googleAuthMocks.ExternalAccountClient.fromJSON).toHaveBeenCalledWith({
+      type: 'external_account',
+      audience:
+        '//iam.googleapis.com/projects/554455861916/locations/global/workloadIdentityPools/vercel-solver/providers/vercel-prod',
+      subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+      token_url: 'https://sts.googleapis.com/v1/token',
+      subject_token_supplier: {
+        getSubjectToken: oidcMocks.getVercelOidcToken,
+      },
+    });
+    expect(oidcMocks.getVercelOidcToken).toHaveBeenCalledTimes(1);
+    expect(googleAuthMocks.getAccessToken).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(2, iamCredentialsUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer sts-access-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        audience: cloudRunOrigin,
+        includeEmail: true,
+      }),
+    });
 
-    const [, cloudRunRequest] = fetchMock.mock.calls[1];
-    expect(fetchMock.mock.calls[1][0]).toBe(`${cloudRunOrigin}/api/solve`);
+    const [, cloudRunRequest] = fetchMock.mock.calls[2];
+    expect(fetchMock.mock.calls[2][0]).toBe(`${cloudRunOrigin}/api/solve`);
     expect(cloudRunRequest).toMatchObject({
       method: 'POST',
       body: JSON.stringify({ units: [{ id: 'icu' }] }),
     });
     expect((cloudRunRequest?.headers as Headers).get('content-type')).toBe('application/json');
-    expect((cloudRunRequest?.headers as Headers).has('authorization')).toBe(false);
+    expect((cloudRunRequest?.headers as Headers).get('authorization')).toBe('Bearer google-id-token');
     expect((cloudRunRequest?.headers as Headers).has('cookie')).toBe(false);
     expect(res.statusCode).toBe(202);
     expect(res.getHeader('content-type')).toBe('application/json');
     expect(res.getHeader('x-cloud-run')).toBe('ok');
     expect(Buffer.isBuffer(res.body)).toBe(true);
     expect((res.body as Buffer).toString('utf8')).toBe(JSON.stringify({ execution_id: 'exec-1' }));
+  });
+
+  it('uses CLOUD_RUN_TARGET_AUDIENCE when provided', async () => {
+    process.env.CLOUD_RUN_API_ORIGIN = 'https://solver-private.example';
+    process.env.CLOUD_RUN_TARGET_AUDIENCE = 'https://custom-audience.example';
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ token: 'custom-audience-token' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ execution_id: 'exec-1' }), { status: 202 }));
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[1][1]).toMatchObject({
+      body: JSON.stringify({
+        audience: 'https://custom-audience.example',
+        includeEmail: true,
+      }),
+    });
+    expect(fetchMock.mock.calls[2][0]).toBe('https://solver-private.example/api/solve');
+  });
+
+  it('returns 502 before forwarding when workload identity federation env is missing', async () => {
+    delete process.env.GCP_PROJECT_NUMBER;
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }));
+    const errorMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toBe(
+      JSON.stringify({ code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(oidcMocks.getVercelOidcToken).not.toHaveBeenCalled();
+    expect(googleAuthMocks.ExternalAccountClient.fromJSON).not.toHaveBeenCalled();
+    expect(errorMock).toHaveBeenCalledWith('[solver-proxy] Cloud Run auth failed:', expect.any(Error));
+  });
+
+  it('returns 502 before forwarding when Vercel OIDC token issuance fails', async () => {
+    oidcMocks.getVercelOidcToken.mockRejectedValueOnce(new Error('oidc unavailable'));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }));
+    const errorMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toBe(
+      JSON.stringify({ code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(googleAuthMocks.getAccessToken).toHaveBeenCalledTimes(1);
+    expect(errorMock).toHaveBeenCalledWith('[solver-proxy] Cloud Run auth failed:', expect.any(Error));
+  });
+
+  it('returns 502 before forwarding when STS access token issuance fails', async () => {
+    googleAuthMocks.getAccessToken.mockRejectedValueOnce(new Error('sts unavailable'));
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }));
+    const errorMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toBe(
+      JSON.stringify({ code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(errorMock).toHaveBeenCalledWith('[solver-proxy] Cloud Run auth failed:', expect.any(Error));
+  });
+
+  it('returns 502 before forwarding when IAM Credentials rejects google id token issuance', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { message: 'permission denied' } }), { status: 403 }),
+      );
+    const errorMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toBe(
+      JSON.stringify({ code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(errorMock).toHaveBeenCalledWith('[solver-proxy] Cloud Run auth failed:', expect.any(Error));
+  });
+
+  it('returns 502 before forwarding when IAM Credentials omits the google id token', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: 'user-1' }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
+    const errorMock = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = createMockResponse();
+
+    await proxySolverApi(
+      {
+        method: 'POST',
+        url: '/api/solve',
+        headers: { authorization: 'Bearer valid-token' },
+        body: { units: [] },
+      } as never,
+      res as never,
+    );
+
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toBe(
+      JSON.stringify({ code: 'cloud_run_auth_failed', message: 'Cloud Run authentication failed' }),
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(errorMock).toHaveBeenCalledWith('[solver-proxy] Cloud Run auth failed:', expect.any(Error));
   });
 
   it('returns 500 before forwarding when Supabase verification returns 500', async () => {
