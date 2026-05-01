@@ -5,7 +5,7 @@
     description="관리자는 병원을 선택해 가입 신청하고, 사용자는 초대코드로 참여합니다."
   >
     <n-card
-      class="mx-auto w-full max-w-xl lg:mr-0"
+      class="mx-auto w-full max-w-2xl"
       title="회원가입"
     >
       <n-alert
