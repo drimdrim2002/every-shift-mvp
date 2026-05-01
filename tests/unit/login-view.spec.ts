@@ -141,6 +141,17 @@ describe('Login view', () => {
     })
   })
 
+  it('shows the launch-ready login context without changing form selectors', () => {
+    const wrapper = mount(Login)
+
+    expect(wrapper.text()).toContain('EveryShift')
+    expect(wrapper.text()).toContain('승인된 병원 계정으로 근무표 작업 공간에 들어갑니다.')
+    expect(wrapper.get('[data-test="login-email"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="login-password"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="login-submit"]').text()).toContain('로그인')
+    expect(wrapper.get('[data-test="login-to-signup"]').text()).toContain('회원가입')
+  })
+
   it('redirects a successful login into the resolved active route', async () => {
     const wrapper = mount(Login)
     const inputs = wrapper.findAll('input')
