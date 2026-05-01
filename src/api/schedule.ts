@@ -362,11 +362,16 @@ export async function createPhase2ScheduleVersion(
   scheduleId: string,
   request: CreateScheduleVersionRequest
 ): Promise<CreateScheduleVersionResponse> {
+  const body: CreateScheduleVersionRequest = {
+    ...request,
+    name: request.name.trim(),
+  };
+
   return callPhase2Schedule<CreateScheduleVersionResponse>(
     `/schedules/${scheduleId}/versions`,
     {
       method: 'POST',
-      body: request,
+      body,
     }
   );
 }

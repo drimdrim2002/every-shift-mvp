@@ -924,7 +924,8 @@ describe('phase2 schedule api helpers', () => {
 
     await createPhase2ScheduleVersion('schedule-11', {
       baseVersionId: 'version-11',
-      name: null,
+      name: 'V2',
+      creationMode: 'new',
       sourceType: 're_solve',
       inputDiffSummary: {
         changedOffRequests: 0,
@@ -953,6 +954,18 @@ describe('phase2 schedule api helpers', () => {
         method: 'POST',
       })
     );
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({
+      baseVersionId: 'version-11',
+      name: 'V2',
+      creationMode: 'new',
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    }));
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-12/solve',
@@ -965,6 +978,69 @@ describe('phase2 schedule api helpers', () => {
       'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-12/solver-result',
       expect.objectContaining({
         method: 'POST',
+      })
+    );
+  });
+
+  it('serializes overwrite create-version request fields', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-create-overwrite',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-11',
+          schedulePublicId: 'sch_11',
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          month: '2026-04',
+          createdVersionId: 'version-12',
+          wasCreated: false,
+          selectedVersionId: 'version-11',
+          finalizedVersionId: null,
+          versions: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { createPhase2ScheduleVersion } = await import('@/api/schedule');
+
+    await createPhase2ScheduleVersion('schedule-11', {
+      baseVersionId: 'version-11',
+      name: 'V1',
+      creationMode: 'overwrite',
+      overwriteVersionId: 'version-1',
+      sourceType: 're_solve',
+      inputDiffSummary: {
+        changedOffRequests: 1,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-11/versions',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          baseVersionId: 'version-11',
+          name: 'V1',
+          creationMode: 'overwrite',
+          overwriteVersionId: 'version-1',
+          sourceType: 're_solve',
+          inputDiffSummary: {
+            changedOffRequests: 1,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+        }),
       })
     );
   });

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   pushMock,
+  replaceMock,
   routeQueryMock,
   createPhase2ScheduleVersionMock,
   ensurePhase2ScheduleMock,
@@ -19,7 +20,8 @@ const {
   showErrorMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
-  routeQueryMock: {} as { from?: string },
+  replaceMock: vi.fn(),
+  routeQueryMock: {} as { from?: string; intent?: string },
   createPhase2ScheduleVersionMock: vi.fn(),
   ensurePhase2ScheduleMock: vi.fn(),
   getScheduleVersionAssignmentsMock: vi.fn(),
@@ -37,6 +39,7 @@ const {
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
+    replace: replaceMock,
   }),
   useRoute: () => ({
     query: routeQueryMock,
@@ -67,8 +70,15 @@ vi.mock('@/api/supabase', () => ({
 
 vi.mock('naive-ui', () => ({
   NButton: { template: '<button v-bind="$attrs"><slot /></button>' },
+  NInput: {
+    template:
+      '<input v-bind="$attrs" :value="value" @input="$emit(\'update:value\', $event.target.value)" />',
+    props: ['value'],
+    emits: ['update:value'],
+  },
   NSpin: { template: '<div><slot /></div>' },
   NAlert: { template: '<div><slot /><slot name="header" /></div>' },
+  NModal: { template: '<div v-if="show"><slot name="header" /><slot /></div>', props: ['show'] },
   NPopconfirm: {
     template:
       '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
@@ -243,11 +253,24 @@ async function clickButtonByText(wrapper: ReturnType<typeof createWrapper>, text
   await target?.trigger('click')
 }
 
+async function clickExactButtonByText(wrapper: ReturnType<typeof createWrapper>, text: string) {
+  const target = wrapper.findAll('button').find((button) => button.text() === text)
+  expect(target).toBeTruthy()
+  await target?.trigger('click')
+}
+
+async function fillVersionName(wrapper: ReturnType<typeof createWrapper>, value: string) {
+  const input = wrapper.find('[data-test="version-name-input"]')
+  expect(input.exists()).toBe(true)
+  await input.setValue(value)
+}
+
 describe('Step4InitialData', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     localStorage.clear()
     routeQueryMock.from = undefined
+    routeQueryMock.intent = undefined
 
     scheduleStoreMock.basicInfo = {
       scheduleId: undefined,
@@ -616,6 +639,158 @@ describe('Step4InitialData', () => {
     expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
   })
 
+  it('opens the existing-history choice modal on normal Step4 entry', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('기존 생성 결과가 있습니다')
+    expect(wrapper.text()).toContain('Off 수정 후 다시 실행')
+    expect(wrapper.text()).toContain('결과 확인')
+  })
+
+  it('suppresses the existing-history choice modal for explicit edit intent', async () => {
+    routeQueryMock.intent = 'edit-off'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('기존 생성 결과가 있습니다')
+    expect(wrapper.text()).not.toContain('Off 수정 후 다시 실행')
+  })
+
+  it('keeps Step4 editable and loaded with version preferences after choosing edit', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+      },
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '연차',
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, 'Off 수정 후 다시 실행')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('기존 생성 결과가 있습니다')
+    expect(replaceMock).toHaveBeenCalledWith({
+      query: {
+        intent: 'edit-off',
+      },
+    })
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {},
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({
+      'emp-1': {
+        '2025-12-01': '연차',
+      },
+      'emp-2': {},
+    })
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+  })
+
+  it('routes to Step5 with default focus and compare IDs after choosing result review', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'review_ready',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickExactButtonByText(wrapper, '결과 확인')
+    await flushPromises()
+
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        compare: 'version-1',
+      },
+    })
+  })
+
+  it('does not create a schedule version when Step4 is opened alone', async () => {
+    createWrapper()
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
   it('preserves the preview version and skips destructive resets when Step4 is unchanged', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -689,7 +864,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('결과 확인으로 이동')
   })
 
-  it('adds autoStart to the Step5 route when the first run starts from Step4', async () => {
+  it('persists a custom first-run name onto the bootstrap version before autoStart routing', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -732,9 +907,178 @@ describe('Step4InitialData', () => {
     await clickButtonByText(wrapper, '근무표 생성(AI)')
     await flushPromises()
 
+    expect(wrapper.text()).toContain('버전 이름')
+    expect(wrapper.find<HTMLInputElement>('[data-test="version-name-input"]').element.value).toBe('V1')
+    expect(pushMock).not.toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        autoStart: '1',
+      },
+    })
+
+    await fillVersionName(wrapper, '첫 생성본')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
+      baseVersionId: 'version-1',
+      name: '첫 생성본',
+      creationMode: 'overwrite',
+      overwriteVersionId: 'version-1',
+      sourceType: 'initial_solve',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+      inputSnapshot,
+    })
+    expect(buildScheduleSolverRequestMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basicInfo: expect.objectContaining({
+          scheduleId: 'schedule-1',
+          month: '2025-12',
+          organizationId: 'org-1',
+        }),
+        versionId: 'version-1',
+        constraints: {
+          'emp-1': {},
+          'emp-2': {},
+        },
+        lastMonthDays: 5,
+        siteId: null,
+      })
+    )
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
+        version: 'version-3',
+        compare: 'version-2',
+        autoStart: '1',
+      },
+    })
+  })
+
+  it('requires and persists a first-run version name for note-only autoStart routing', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+      ],
+    })
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {},
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: null,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleContextMenu({
+      event: new MouseEvent('contextmenu'),
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+    })
+    await flushPromises()
+
+    wrapper.vm.handleSaveComment('메모만 변경')
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '근무표 생성(AI)')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('버전 이름')
+    expect(pushMock).not.toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        autoStart: '1',
+      },
+    })
+
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith(
+      'schedule-1',
+      expect.objectContaining({
+        baseVersionId: 'version-1',
+        name: 'V1',
+        creationMode: 'overwrite',
+        overwriteVersionId: 'version-1',
+        sourceType: 'initial_solve',
+        inputSnapshot,
+        inputDiffSummary: {
+          changedOffRequests: 0,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: 'step4_notes_changed:1',
+        },
+      })
+    )
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-3',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {
+          '2025-12-01': '메모만 변경',
+        },
+        'emp-2': {},
+      }
+    )
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        version: 'version-3',
+        compare: 'version-2',
         autoStart: '1',
       },
     })
@@ -757,9 +1101,17 @@ describe('Step4InitialData', () => {
     await clickButtonByText(wrapper, '생성 시작으로 이동')
     await flushPromises()
 
+    expect(wrapper.text()).toContain('버전 이름')
+    expect(wrapper.find<HTMLInputElement>('[data-test="version-name-input"]').element.value).toBe('V3')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+
     expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith('schedule-1', {
       baseVersionId: 'version-2',
-      name: null,
+      name: 'V3',
+      creationMode: 'new',
       sourceType: 're_solve',
       inputDiffSummary: {
         changedOffRequests: 1,
@@ -877,6 +1229,327 @@ describe('Step4InitialData', () => {
     })
   })
 
+  it('blocks empty or whitespace-only version names before calling the create API', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await fillVersionName(wrapper, '   ')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('버전 이름을 입력해 주세요.')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
+  it('detects duplicate version names by trimmed lowercase value before creating', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await fillVersionName(wrapper, '  v2  ')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('이미 같은 이름의 버전이 있습니다')
+    expect(wrapper.text()).toContain('덮어쓰기')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
+  it('does not allow finalized, solving, or archived duplicate versions to be selected for overwrite', async () => {
+    ensurePhase2ScheduleMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-1',
+          scheduleId: 'schedule-1',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-2',
+          scheduleId: 'schedule-1',
+          versionNo: 2,
+          name: 'V2',
+          sourceType: 're_solve',
+          baseVersionId: 'version-1',
+          status: 'review_ready',
+          currentRevision: 2,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: 'evaluation-2',
+          latestEvaluationResultStatus: 'passed',
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+        {
+          id: 'version-finalized',
+          scheduleId: 'schedule-1',
+          versionNo: 3,
+          name: 'Done',
+          sourceType: 're_solve',
+          baseVersionId: 'version-2',
+          status: 'finalized',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: true,
+        },
+        {
+          id: 'version-solving',
+          scheduleId: 'schedule-1',
+          versionNo: 4,
+          name: 'Running',
+          sourceType: 're_solve',
+          baseVersionId: 'version-2',
+          status: 'solving',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: 'exec-1',
+          isSelected: false,
+          isFinalized: false,
+        },
+        {
+          id: 'version-archived',
+          scheduleId: 'schedule-1',
+          versionNo: 5,
+          name: 'Archived',
+          sourceType: 're_solve',
+          baseVersionId: 'version-2',
+          status: 'draft',
+          currentRevision: 1,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: false,
+          isFinalized: false,
+          archivedAt: '2026-04-30T00:00:00.000Z',
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    for (const blockedName of ['done', 'running', 'archived']) {
+      await clickButtonByText(wrapper, '생성 시작으로 이동')
+      await flushPromises()
+      await fillVersionName(wrapper, blockedName)
+      await clickExactButtonByText(wrapper, '확인')
+      await flushPromises()
+
+      expect(showErrorMock).toHaveBeenCalledWith('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.')
+      expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    }
+  })
+
+  it('sends overwrite creation mode and overwriteVersionId after duplicate overwrite confirmation', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await fillVersionName(wrapper, 'v1')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+    await clickExactButtonByText(wrapper, '덮어쓰기')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith(
+      'schedule-1',
+      expect.objectContaining({
+        name: 'v1',
+        creationMode: 'overwrite',
+        overwriteVersionId: 'version-1',
+        inputSnapshot,
+        inputDiffSummary: {
+          changedOffRequests: 1,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: null,
+        },
+      })
+    )
+  })
+
+  it('persists preferences and clears assignments when overwrite returns the reused version', async () => {
+    createPhase2ScheduleVersionMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-1',
+      schedulePublicId: SCHEDULE_PUBLIC_ID,
+      organizationId: 'org-1',
+      month: '2025-12',
+      createdVersionId: 'version-1',
+      wasCreated: false,
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await fillVersionName(wrapper, 'v1')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+    await clickExactButtonByText(wrapper, '덮어쓰기')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-1',
+      '2025-12'
+    )
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        version: 'version-1',
+        compare: 'version-2',
+        autoStart: '1',
+      },
+    })
+  })
+
+  it('does not overwrite a stale duplicate candidate after the name input changes', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await fillVersionName(wrapper, 'v1')
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
+    expect(wrapper.text()).toContain('이미 같은 이름의 버전이 있습니다')
+
+    await fillVersionName(wrapper, 'V9')
+    await clickExactButtonByText(wrapper, '덮어쓰기')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('버전 이름이 변경되었습니다. 다시 확인해 주세요.')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
   it('routes to an existing snapshot-matched version without rewriting assignments', async () => {
     createPhase2ScheduleVersionMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
@@ -919,10 +1592,13 @@ describe('Step4InitialData', () => {
 
     await clickButtonByText(wrapper, '생성 시작으로 이동')
     await flushPromises()
+    await clickExactButtonByText(wrapper, '확인')
+    await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith(
       'schedule-1',
       expect.objectContaining({
+        creationMode: 'new',
         inputSnapshot,
       })
     )
@@ -998,6 +1674,8 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     await clickButtonByText(wrapper, '생성 시작으로 이동')
+    await flushPromises()
+    await clickExactButtonByText(wrapper, '확인')
     await flushPromises()
 
     expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(

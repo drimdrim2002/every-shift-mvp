@@ -260,10 +260,34 @@ describe('useScheduleReviewHub', () => {
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation(SCHEDULE_PUBLIC_ID));
   });
 
-  it('keeps compare mode hidden until the route explicitly requests it', async () => {
+  it('defaults multiple executed versions to the selected version plus the latest other candidate', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue(
       createCompareResponse('version-2', [version1, version2, version3])
     );
+    getPhase2ScheduleReviewMock
+      .mockResolvedValueOnce(createReviewResponse('version-2'))
+      .mockResolvedValueOnce(createReviewResponse('version-3'));
+
+    const hub = await mountUseScheduleReviewHub();
+
+    expect(hub.previewVersionId.value).toBe('version-2');
+    expect(hub.compareVersionIds.value).toEqual(['version-2', 'version-3']);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenCalledTimes(2);
+    expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(1, 'version-2');
+    expect(getPhase2ScheduleReviewMock).toHaveBeenNthCalledWith(2, 'version-3');
+    expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  it('does not default compare IDs for a finalized month', async () => {
+    const finalizedVersion = createVersionSummary('version-2', 2, {
+      status: 'finalized',
+      isSelected: true,
+      isFinalized: true,
+    });
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      ...createCompareResponse('version-2', [version1, finalizedVersion, version3]),
+      finalizedVersionId: 'version-2',
+    });
     getPhase2ScheduleReviewMock.mockResolvedValueOnce(createReviewResponse('version-2'));
 
     const hub = await mountUseScheduleReviewHub();
