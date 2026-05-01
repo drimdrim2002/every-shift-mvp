@@ -82,6 +82,20 @@ test.describe('/signup flow', () => {
     await page.goto('/signup')
   })
 
+  test('opens admin signup from role query', async ({ page }) => {
+    await page.goto('/signup?role=admin')
+
+    await expect(page.getByText('병원 목록 출처: 공공데이터포털(data.go.kr)')).toBeVisible()
+    await expect(page.getByPlaceholder('초대코드 입력')).toHaveCount(0)
+  })
+
+  test('opens invite signup from role query', async ({ page }) => {
+    await page.goto('/signup?role=user')
+
+    await expect(page.getByPlaceholder('초대코드 입력')).toBeVisible()
+    await expect(page.getByText('병원 목록 출처: 공공데이터포털(data.go.kr)')).toHaveCount(0)
+  })
+
   test('routes admin signup success through pending approval login handoff', async ({ page }) => {
     await fillCommonFields(page, 'admin-success@example.com')
     await page.getByPlaceholder('병원명을 2글자 이상 입력하세요').fill('세브')
