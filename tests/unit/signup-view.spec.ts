@@ -80,7 +80,22 @@ vi.mock('naive-ui', () => {
           )
       },
     }),
-    NCard: passthrough('section'),
+    NCard: defineComponent({
+      inheritAttrs: false,
+      props: {
+        title: {
+          type: String,
+          default: '',
+        },
+      },
+      setup(props, { slots, attrs }) {
+        return () =>
+          h('section', attrs, [
+            props.title ? h('div', {}, props.title) : null,
+            slots.default?.(),
+          ])
+      },
+    }),
     NForm: defineComponent({
       setup(_, { slots, expose }) {
         expose({
