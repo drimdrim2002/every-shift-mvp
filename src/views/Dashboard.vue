@@ -236,14 +236,24 @@
           ref="monthFormRef"
           :model="monthForm"
         >
+          <p
+            data-test="dashboard-month-picker-help"
+            class="mb-4 text-sm text-slate-500"
+          >
+            현재 기준 과거 12개월부터 미래 12개월 사이에서, 아직 생성하지 않은 월만 선택할 수 있습니다.
+          </p>
           <n-form-item
             label="계획월"
             path="month"
           >
-            <n-select
-              v-model:value="monthForm.month"
-              data-test="dashboard-month-select"
-              :options="monthOptions"
+            <n-date-picker
+              v-model:formatted-value="monthForm.month"
+              data-test="dashboard-month-picker"
+              type="month"
+              format="yyyy-MM"
+              value-format="yyyy-MM"
+              input-readonly
+              :is-date-disabled="isMonthDateDisabled"
               placeholder="근무표 생성할 월을 선택하세요"
             />
           </n-form-item>
@@ -256,7 +266,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NSelect } from 'naive-ui';
+import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NDatePicker } from 'naive-ui';
 import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
 import { useRbacStore } from '@/stores/rbac';
@@ -264,8 +274,13 @@ import { useScheduleStore } from '@/stores/schedule';
 import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
-import { showSuccess, showError } from '@/utils/message';
-import { getAvailableMonths, getNextMonth } from '@/utils/date';
+import { showSuccess, showError, showWarning } from '@/utils/message';
+import {
+  buildSchedulableMonthWindow,
+  getDefaultSchedulableMonth,
+  getNextMonth,
+  isSchedulableMonthAvailable,
+} from '@/utils/date';
 import {
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver';
@@ -317,13 +332,15 @@ const monthForm = ref({
   month: '',
 });
 
-// 월 옵션
-const monthOptions = computed(() => {
-  return getAvailableMonths().map((month) => ({
-    label: month,
-    value: month,
-  }));
-});
+type DatePickerDisableDetail =
+  | { type: 'date'; year: number; month: number; date: number }
+  | { type: 'month'; year: number; month: number }
+  | { type: 'year'; year: number }
+  | { type: 'quarter'; year: number; quarter: number }
+  | { type: 'input' };
+
+const schedulableMonthWindow = computed(() => buildSchedulableMonthWindow());
+const existingScheduleMonthSet = computed(() => new Set(schedules.value.map((schedule) => schedule.month)));
 
 const foundationChecklistItems = computed(() => {
   const checklistItems = checklist.value?.items ?? [];
@@ -473,8 +490,16 @@ function handleCreateNew() {
     return;
   }
 
-  // 기본값: 다음 달
-  monthForm.value.month = monthOptions.value[1]?.value || '';
+  const defaultMonth = getDefaultSchedulableMonth(existingScheduleMonthSet.value);
+
+  if (!defaultMonth) {
+    monthForm.value.month = '';
+    showMonthModal.value = false;
+    showWarning('현재 기준 과거 12개월부터 미래 12개월 사이에 선택 가능한 계획월이 없습니다.');
+    return;
+  }
+
+  monthForm.value.month = defaultMonth;
   showMonthModal.value = true;
 }
 
@@ -504,7 +529,7 @@ function buildChecklistBasicInfo(
 }
 
 async function seedChecklistScheduleContext(item: ChecklistItem) {
-  const nextMonth = getAvailableMonths()[1] || getNextMonth();
+  const nextMonth = getNextMonth();
   const step5ScheduleKey = extractStep5ScheduleKey(item.route);
 
   if (step5ScheduleKey) {
@@ -600,10 +625,40 @@ async function handleChecklistNavigate(item: ChecklistItem) {
   await router.push(normalizeChecklistRoute(item.route));
 }
 
+function isSelectableDashboardMonth(month: string) {
+  return isSchedulableMonthAvailable(month, existingScheduleMonthSet.value);
+}
+
+function isMonthDateDisabled(timestamp: number, detail: DatePickerDisableDetail) {
+  if (detail.type === 'year') {
+    return !schedulableMonthWindow.value.some((month) => {
+      return month.startsWith(`${detail.year}-`) && isSelectableDashboardMonth(month);
+    });
+  }
+
+  if (detail.type === 'quarter') {
+    const startMonth = (detail.quarter - 1) * 3 + 1;
+    return Array.from({ length: 3 }, (_, index) => startMonth + index).every((month) => {
+      return !isSelectableDashboardMonth(`${detail.year}-${String(month).padStart(2, '0')}`);
+    });
+  }
+
+  if (detail.type === 'month') {
+    return !isSelectableDashboardMonth(`${detail.year}-${String(detail.month).padStart(2, '0')}`);
+  }
+
+  return !isSelectableDashboardMonth(dayjs(timestamp).format('YYYY-MM'));
+}
+
 async function handleMonthConfirm() {
   // 월 선택 확인
   if (!monthForm.value.month) {
-    window.$message?.warning('계획월을 선택해주세요');
+    showWarning('계획월을 선택해주세요');
+    return false; // 모달 닫기 방지
+  }
+
+  if (!isSelectableDashboardMonth(monthForm.value.month)) {
+    showWarning('선택할 수 없는 계획월입니다. 다른 월을 선택해주세요.');
     return false; // 모달 닫기 방지
   }
 
@@ -620,7 +675,7 @@ async function handleMonthConfirm() {
     if (error) throw error;
 
     if (data) {
-      window.$message?.error(`${monthForm.value.month} 근무표가 이미 존재합니다. 다른 월을 선택해주세요.`);
+      showError(`${monthForm.value.month} 근무표가 이미 존재합니다. 다른 월을 선택해주세요.`);
       return false; // 모달 닫기 방지
     }
 
@@ -639,7 +694,7 @@ async function handleMonthConfirm() {
     return true; // 모달 닫기 허용
   } catch (error) {
     console.warn('중복 체크 실패:', error);
-    window.$message?.error('월 중복 체크 중 오류가 발생했습니다');
+    showError('월 중복 체크 중 오류가 발생했습니다');
     return false;
   } finally {
     modalLoading.value = false;

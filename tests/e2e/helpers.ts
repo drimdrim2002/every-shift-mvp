@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, type Locator, type Page, type Route } from '@playwright/test'
+import { getDefaultSchedulableMonth } from '../../src/utils/date'
 import {
   APP_HOME_ROUTE_PATH,
   getApprovalQueueRoutePath,
@@ -854,6 +855,7 @@ export async function startNewScheduleFromDashboard(page: Page) {
     .map(normalizeScheduleMonth)
     .filter(Boolean)
   const existingMonthSet = new Set(existingMonths)
+  const targetMonth = getDefaultSchedulableMonth(existingMonthSet)
 
   await page
     .locator(
@@ -862,29 +864,38 @@ export async function startNewScheduleFromDashboard(page: Page) {
     .first()
     .click()
 
-  const monthSelect = page.locator('[data-test="dashboard-month-select"], .n-base-selection').last()
-  await expect(monthSelect).toBeVisible()
-  await monthSelect.click()
-
-  const optionLocator = page.locator('.n-base-select-option')
-  await expect(optionLocator.first()).toBeVisible()
-
-  const optionTexts = (await optionLocator.allTextContents())
-    .map((text) => text.trim())
-    .filter(Boolean)
-  const targetMonth = optionTexts.find((month) => !existingMonthSet.has(month))
-
   if (targetMonth) {
-    await optionLocator.filter({ hasText: targetMonth }).first().click()
+    const monthPicker = page.locator('[data-test="dashboard-month-picker"]').last()
+    await expect(monthPicker).toBeVisible()
+
+    const monthInput = monthPicker.locator('input').first()
+    const currentValue = await monthInput.inputValue()
+
+    if (currentValue !== targetMonth) {
+      await monthPicker.click()
+
+      const [targetYear, targetMonthNumber] = targetMonth.split('-').map(Number)
+      const yearColumn = page.locator('.n-date-panel-month-calendar__picker-col').first()
+      const monthColumn = page.locator('.n-date-panel-month-calendar__picker-col').nth(1)
+
+      await expect(yearColumn).toBeVisible()
+      await yearColumn
+        .locator('.n-date-panel-month-calendar__picker-col-item')
+        .filter({ hasText: new RegExp(`^${targetYear}$`) })
+        .first()
+        .click()
+      await monthColumn
+        .locator('.n-date-panel-month-calendar__picker-col-item')
+        .nth(targetMonthNumber - 1)
+        .click()
+    }
+
     await page.getByRole('button', { name: '확인' }).click()
 
     await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
     await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
     return targetMonth
   }
-
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: '취소' }).click()
 
   const reusableMonth = existingMonths.find((month) => month !== (process.env.TEST_REVIEW_HUB_MONTH?.trim() || '2026-03'))
   if (!reusableMonth) {

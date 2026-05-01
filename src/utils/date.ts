@@ -2,12 +2,18 @@ import dayjs from 'dayjs';
 import type { GridColumn } from '@/types/schedule';
 
 const SHORT_DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'] as const;
+const DEFAULT_MONTH_WINDOW_PAST = 12;
+const DEFAULT_MONTH_WINDOW_FUTURE = 12;
 
 function dayOfWeekToShortDayName(dayOfWeek: number): GridColumn['dayName'] {
   if (dayOfWeek < 0 || dayOfWeek >= SHORT_DAY_NAMES.length) {
     throw new Error(`잘못된 요일 번호: ${dayOfWeek}`);
   }
   return SHORT_DAY_NAMES[dayOfWeek]!;
+}
+
+function getMonthAnchor(baseDate: dayjs.ConfigType = dayjs()) {
+  return dayjs(baseDate).startOf('month');
 }
 
 /**
@@ -19,15 +25,94 @@ export function getNextMonth(): string {
 }
 
 /**
- * 선택 가능한 월 목록 반환 (이번 달, 다음 달, 다다음 달)
- * @returns 3개월 배열 (예: ["2025-11", "2025-12", "2026-01"])
+ * 현재 기준으로 선택 가능한 월 범위 반환
+ * @returns 과거 12개월 ~ 미래 12개월의 25개월 배열
  */
-export function getAvailableMonths(): string[] {
-  return [
-    dayjs().format('YYYY-MM'),
-    dayjs().add(1, 'month').format('YYYY-MM'),
-    dayjs().add(2, 'month').format('YYYY-MM'),
-  ];
+export function buildSchedulableMonthWindow(
+  baseDate: dayjs.ConfigType = dayjs(),
+  pastMonths: number = DEFAULT_MONTH_WINDOW_PAST,
+  futureMonths: number = DEFAULT_MONTH_WINDOW_FUTURE
+): string[] {
+  const anchor = getMonthAnchor(baseDate);
+  const windowStart = anchor.subtract(pastMonths, 'month');
+
+  return Array.from({ length: pastMonths + futureMonths + 1 }, (_, index) =>
+    windowStart.add(index, 'month').format('YYYY-MM')
+  );
+}
+
+/**
+ * 특정 월이 현재 기준 선택 가능 범위 안에 있는지 확인
+ */
+export function isMonthWithinSchedulableWindow(
+  month: string,
+  baseDate: dayjs.ConfigType = dayjs(),
+  pastMonths: number = DEFAULT_MONTH_WINDOW_PAST,
+  futureMonths: number = DEFAULT_MONTH_WINDOW_FUTURE
+): boolean {
+  if (!month) {
+    return false;
+  }
+
+  const targetMonth = dayjs(`${month}-01`);
+  if (!targetMonth.isValid()) {
+    return false;
+  }
+
+  const diffInMonths = targetMonth.diff(getMonthAnchor(baseDate), 'month');
+  return diffInMonths >= -pastMonths && diffInMonths <= futureMonths;
+}
+
+/**
+ * 특정 월이 선택 가능한지 확인
+ */
+export function isSchedulableMonthAvailable(
+  month: string,
+  existingMonths: Iterable<string>,
+  baseDate: dayjs.ConfigType = dayjs(),
+  pastMonths: number = DEFAULT_MONTH_WINDOW_PAST,
+  futureMonths: number = DEFAULT_MONTH_WINDOW_FUTURE
+): boolean {
+  const existingMonthSet = new Set(existingMonths);
+  return isMonthWithinSchedulableWindow(month, baseDate, pastMonths, futureMonths)
+    && !existingMonthSet.has(month);
+}
+
+/**
+ * 새 근무표 생성 시 기본 선택할 월 반환
+ * 우선순위: 다음 달 → 현재 이후 가장 가까운 가능 월 → 과거 중 가장 최근 가능 월
+ */
+export function getDefaultSchedulableMonth(
+  existingMonths: Iterable<string>,
+  baseDate: dayjs.ConfigType = dayjs()
+): string | null {
+  const existingMonthSet = new Set(existingMonths);
+  const anchor = getMonthAnchor(baseDate);
+  const nextMonth = anchor.add(1, 'month').format('YYYY-MM');
+
+  if (!existingMonthSet.has(nextMonth)) {
+    return nextMonth;
+  }
+
+  for (let offset = 0; offset <= DEFAULT_MONTH_WINDOW_FUTURE; offset += 1) {
+    if (offset === 1) {
+      continue;
+    }
+
+    const candidate = anchor.add(offset, 'month').format('YYYY-MM');
+    if (!existingMonthSet.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  for (let offset = 1; offset <= DEFAULT_MONTH_WINDOW_PAST; offset += 1) {
+    const candidate = anchor.subtract(offset, 'month').format('YYYY-MM');
+    if (!existingMonthSet.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
 
 const {
@@ -15,6 +15,8 @@ const {
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
   showErrorMock,
+  showWarningMock,
+  supabaseFromMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   getScheduleListMock: vi.fn(),
@@ -27,6 +29,8 @@ const {
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
   showErrorMock: vi.fn(),
+  showWarningMock: vi.fn(),
+  supabaseFromMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -50,13 +54,14 @@ vi.mock('@/api/employee', () => ({
 
 vi.mock('@/api/supabase', () => ({
   supabase: {
-    from: vi.fn(),
+    from: supabaseFromMock,
   },
 }))
 
 vi.mock('@/utils/message', () => ({
   showSuccess: vi.fn(),
   showError: showErrorMock,
+  showWarning: showWarningMock,
 }))
 
 const organizationStoreMock = reactive({
@@ -143,7 +148,8 @@ function createWrapper() {
           template: '<div />',
         },
         NModal: {
-          template: '<div><slot /></div>',
+          props: ['show'],
+          template: '<div v-if="show"><slot /></div>',
         },
         NForm: {
           template: '<form><slot /></form>',
@@ -151,8 +157,18 @@ function createWrapper() {
         NFormItem: {
           template: '<div><slot /></div>',
         },
-        NSelect: {
-          template: '<select />',
+        NDatePicker: {
+          name: 'NDatePicker',
+          props: [
+            'formattedValue',
+            'type',
+            'format',
+            'valueFormat',
+            'isDateDisabled',
+            'placeholder',
+          ],
+          template:
+            '<input data-test="dashboard-month-picker" :value="formattedValue" @input="$emit(\'update:formattedValue\', $event.target.value)" />',
         },
       },
     },
@@ -177,6 +193,8 @@ function createDeferred<T>() {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-15T09:00:00+09:00'))
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -324,6 +342,11 @@ describe('Dashboard', () => {
         },
       ],
     })
+    supabaseFromMock.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('navigates to Step5 with a canonical preview query when viewing an existing schedule', async () => {
@@ -691,6 +714,189 @@ describe('Dashboard', () => {
     expect(wrapper.find('[data-test="dashboard-ops-readiness-loading"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('월별 근무표 작업')
     expect(wrapper.find('[data-test="schedule-card"]').exists()).toBe(true)
+  })
+
+  it('renders a month picker instead of the legacy select when opening the creation modal', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => void }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+
+    expect(monthPicker.exists()).toBe(true)
+    expect(wrapper.find('[data-test="dashboard-month-select"]').exists()).toBe(false)
+    expect(monthPicker.props('type')).toBe('month')
+    expect(monthPicker.props('format')).toBe('yyyy-MM')
+    expect(monthPicker.props('valueFormat')).toBe('yyyy-MM')
+    expect(document.body.textContent).toContain(
+      '현재 기준 과거 12개월부터 미래 12개월 사이에서, 아직 생성하지 않은 월만 선택할 수 있습니다.'
+    )
+  })
+
+  it('disables months outside the +/-12 month window and existing schedule months', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      {
+        id: 'schedule-current',
+        public_id: 'sch-current',
+        organization_id: 'org-1',
+        month: '2026-05',
+        status: 'created',
+        hard_score: null,
+        soft_score: null,
+        created_at: '2026-05-01T00:00:00Z',
+        updated_at: '2026-05-01T00:00:00Z',
+      },
+      {
+        id: 'schedule-next',
+        public_id: 'sch-next',
+        organization_id: 'org-1',
+        month: '2026-06',
+        status: 'error',
+        hard_score: null,
+        soft_score: null,
+        created_at: '2026-06-01T00:00:00Z',
+        updated_at: '2026-06-01T00:00:00Z',
+      },
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => void }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+    const isDateDisabled = monthPicker.props('isDateDisabled') as (
+      timestamp: number,
+      detail: { type: 'month'; year: number; month: number } | { type: 'year'; year: number }
+    ) => boolean
+
+    expect(isDateDisabled(new Date('2025-04-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2025,
+      month: 4,
+    })).toBe(true)
+    expect(isDateDisabled(new Date('2027-06-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2027,
+      month: 6,
+    })).toBe(true)
+    expect(isDateDisabled(new Date('2026-05-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 5,
+    })).toBe(true)
+    expect(isDateDisabled(new Date('2026-06-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 6,
+    })).toBe(true)
+    expect(isDateDisabled(new Date('2026-07-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 7,
+    })).toBe(false)
+    expect(isDateDisabled(new Date('2024-01-01T00:00:00+09:00').getTime(), {
+      type: 'year',
+      year: 2024,
+    })).toBe(true)
+  })
+
+  it('defaults to the nearest available month using the planned priority order', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      {
+        id: 'schedule-next',
+        public_id: 'sch-next',
+        organization_id: 'org-1',
+        month: '2026-06',
+        status: 'complete',
+        hard_score: null,
+        soft_score: null,
+        created_at: '2026-06-01T00:00:00Z',
+        updated_at: '2026-06-01T00:00:00Z',
+      },
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => void }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+    expect(monthPicker.props('formattedValue')).toBe('2026-05')
+  })
+
+  it('shows a warning and does not open the modal when every month in range is already taken', async () => {
+    getScheduleListMock.mockResolvedValueOnce(
+      Array.from({ length: 25 }, (_, index) => {
+        const baseDate = new Date('2025-05-01T00:00:00+09:00')
+        baseDate.setMonth(baseDate.getMonth() + index)
+        const month = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`
+
+        return {
+          id: `schedule-${month}`,
+          public_id: `sch-${month}`,
+          organization_id: 'org-1',
+          month,
+          status: 'complete' as const,
+          hard_score: null,
+          soft_score: null,
+          created_at: `${month}-01T00:00:00Z`,
+          updated_at: `${month}-01T00:00:00Z`,
+        }
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => void }).handleCreateNew()
+    await nextTick()
+
+    expect(showWarningMock).toHaveBeenCalledWith(
+      '현재 기준 과거 12개월부터 미래 12개월 사이에 선택 가능한 계획월이 없습니다.'
+    )
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
+  })
+
+  it('blocks creation when the final duplicate check finds an existing month', async () => {
+    const maybeSingleMock = vi.fn().mockResolvedValue({
+      data: {
+        id: 'schedule-dup',
+        month: '2026-07',
+        status: 'created',
+      },
+      error: null,
+    })
+    const monthEqMock = vi.fn(() => ({
+      maybeSingle: maybeSingleMock,
+    }))
+    const organizationEqMock = vi.fn(() => ({
+      eq: monthEqMock,
+    }))
+    const selectMock = vi.fn(() => ({
+      eq: organizationEqMock,
+    }))
+
+    supabaseFromMock.mockReturnValue({
+      select: selectMock,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    ;(wrapper.vm as unknown as { monthForm: { month: string } }).monthForm.month = '2026-07'
+
+    const result = await (wrapper.vm as unknown as {
+      handleMonthConfirm: () => Promise<boolean>
+    }).handleMonthConfirm()
+
+    expect(result).toBe(false)
+    expect(showErrorMock).toHaveBeenCalledWith('2026-07 근무표가 이미 존재합니다. 다른 월을 선택해주세요.')
+    expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step1')
   })
 
   it('keeps schedule actions hidden while ops readiness is still loading', async () => {
