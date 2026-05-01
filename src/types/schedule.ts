@@ -250,6 +250,7 @@ export interface ScheduleVersionSummary {
   activeSolverExecutionId: string | null;
   isSelected: boolean;
   isFinalized: boolean;
+  archivedAt?: string | null;
 }
 
 export interface ScheduleEvaluation {
@@ -283,7 +284,9 @@ export interface ScheduleCompareResponse {
 
 export interface CreateScheduleVersionRequest {
   baseVersionId: string;
-  name: string | null;
+  name: string;
+  creationMode: 'new' | 'overwrite';
+  overwriteVersionId?: string;
   sourceType: ScheduleVersionSourceType;
   inputDiffSummary: ScheduleInputDiffSummary;
   inputSnapshot?: ScheduleInputSnapshot;

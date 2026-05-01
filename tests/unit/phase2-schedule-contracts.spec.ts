@@ -140,29 +140,173 @@ describe('phase2 schedule contracts', () => {
   });
 
   it('parses create version request bodies', () => {
+    const inputSnapshot = {
+      scheduleId: 'schedule-1',
+      solverInput: {
+        month: '2026-04',
+      },
+    };
+
     expect(
       parseCreateVersionRequest({
         baseVersionId: '11111111-1111-4111-8111-111111111111',
-        name: 'V2',
-        sourceType: 're_solve',
+        name: '  V2  ',
+        creationMode: 'new',
         inputDiffSummary: {
           changedOffRequests: 1,
           changedLockedAssignments: 2,
           changedSiteRequirements: 3,
           note: 'retry',
         },
+        inputSnapshot,
       })
     ).toEqual({
       baseVersionId: '11111111-1111-4111-8111-111111111111',
       name: 'V2',
-      sourceType: 're_solve',
+      creationMode: 'new',
       inputDiffSummary: {
         changedOffRequests: 1,
         changedLockedAssignments: 2,
         changedSiteRequirements: 3,
         note: 'retry',
       },
+      inputSnapshot,
     });
+  });
+
+  it('validates create version names and creation mode', () => {
+    const validBase = {
+      baseVersionId: '11111111-1111-4111-8111-111111111111',
+      creationMode: 'new',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    };
+
+    expect(() => parseCreateVersionRequest({ ...validBase, name: '   ' })).toThrow(
+      'name is required'
+    );
+    expect(() => parseCreateVersionRequest({ ...validBase, name: 'A'.repeat(101) })).toThrow(
+      'name must be 100 characters or fewer'
+    );
+    expect(() => parseCreateVersionRequest({ ...validBase, name: 'V2' })).not.toThrow();
+
+    expect(() =>
+      parseCreateVersionRequest({
+        ...validBase,
+        name: 'V2',
+        creationMode: undefined,
+      })
+    ).toThrow('creationMode must be new or overwrite');
+    expect(() =>
+      parseCreateVersionRequest({
+        ...validBase,
+        name: 'V2',
+        creationMode: 'copy',
+      })
+    ).toThrow('creationMode must be new or overwrite');
+  });
+
+  it('requires overwriteVersionId only for overwrite creation mode', () => {
+    const basePayload = {
+      name: 'V2',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    };
+
+    expect(() =>
+      parseCreateVersionRequest({
+        ...basePayload,
+        creationMode: 'overwrite',
+      })
+    ).toThrow('overwriteVersionId must be a valid UUID');
+
+    expect(
+      parseCreateVersionRequest({
+        ...basePayload,
+        creationMode: 'overwrite',
+        overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+      })
+    ).toEqual({
+      name: 'V2',
+      creationMode: 'overwrite',
+      overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+      inputSnapshot: {},
+    });
+
+    expect(
+      parseCreateVersionRequest({
+        ...basePayload,
+        creationMode: 'new',
+        baseVersionId: '11111111-1111-4111-8111-111111111111',
+        overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+      })
+    ).toEqual({
+      baseVersionId: '11111111-1111-4111-8111-111111111111',
+      name: 'V2',
+      creationMode: 'new',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+      inputSnapshot: {},
+    });
+  });
+
+  it('requires baseVersionId for new version creation', () => {
+    expect(() =>
+      parseCreateVersionRequest({
+        name: 'V2',
+        creationMode: 'new',
+        inputDiffSummary: {
+          changedOffRequests: 0,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: null,
+        },
+      })
+    ).toThrow('baseVersionId must be a valid UUID');
+  });
+
+  it('accepts inputSnapshot as a JSON object and defaults to an empty object', () => {
+    const basePayload = {
+      baseVersionId: '11111111-1111-4111-8111-111111111111',
+      name: 'V2',
+      creationMode: 'new',
+      inputDiffSummary: {
+        changedOffRequests: 0,
+        changedLockedAssignments: 0,
+        changedSiteRequirements: 0,
+        note: null,
+      },
+    };
+
+    expect(parseCreateVersionRequest(basePayload)).toEqual({
+      ...basePayload,
+      inputSnapshot: {},
+    });
+
+    expect(() =>
+      parseCreateVersionRequest({
+        ...basePayload,
+        inputSnapshot: [],
+      })
+    ).toThrow('inputSnapshot must be a JSON object');
   });
 
   it('parses reset roster request bodies', () => {
@@ -249,7 +393,7 @@ describe('phase2 schedule contracts', () => {
       parseCreateVersionRequest({
         baseVersionId: '11111111-1111-4111-8111-111111111111',
         name: 'V2',
-        sourceType: 're_solve',
+        creationMode: 'new',
         inputDiffSummary: {
           changedOffRequests: 1,
           changedLockedAssignments: 2,
@@ -260,13 +404,14 @@ describe('phase2 schedule contracts', () => {
     ).toEqual({
       baseVersionId: '11111111-1111-4111-8111-111111111111',
       name: 'V2',
-      sourceType: 're_solve',
+      creationMode: 'new',
       inputDiffSummary: {
         changedOffRequests: 1,
         changedLockedAssignments: 2,
         changedSiteRequirements: 3,
         note: 'retry',
       },
+      inputSnapshot: {},
     });
 
     expect(parseScheduleVersionSolveRequest({ solverExecutionId: 'exec-1' })).toEqual({

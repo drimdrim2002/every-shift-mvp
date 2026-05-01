@@ -63,6 +63,82 @@ export function getDefaultStep5FocusVersionId(compare: Pick<
   return getDefaultScheduleVersionId(compare.versions);
 }
 
+function isExecutedVersion(version: ScheduleVersionSummary): boolean {
+  return version.status !== 'draft'
+    || version.latestEvaluationId !== null
+    || version.activeSolverExecutionId !== null
+    || version.comparisonMetrics !== null
+    || version.finalizationGate !== null;
+}
+
+function getFinalizedVersionId(compare: Pick<
+  ScheduleCompareResponse,
+  'versions' | 'finalizedVersionId'
+>): string | null {
+  if (hasVersionId(compare.versions, compare.finalizedVersionId)) {
+    return compare.finalizedVersionId;
+  }
+
+  return compare.versions.find((version) => version.isFinalized)?.id ?? null;
+}
+
+function getExecutedVersions(versions: ScheduleVersionSummary[]): ScheduleVersionSummary[] {
+  return versions.filter(isExecutedVersion);
+}
+
+export function hasExecutedVersionHistory(compare: Pick<
+  ScheduleCompareResponse,
+  'versions'
+>): boolean {
+  return compare.versions.some(isExecutedVersion);
+}
+
+export function getDefaultExecutedFocusVersionId(compare: Pick<
+  ScheduleCompareResponse,
+  'versions' | 'selectedVersionId' | 'finalizedVersionId'
+>): string | null {
+  const finalizedVersionId = getFinalizedVersionId(compare);
+  if (finalizedVersionId) {
+    return finalizedVersionId;
+  }
+
+  const executedVersions = getExecutedVersions(compare.versions);
+  const selectedVersion = executedVersions.find((version) => version.id === compare.selectedVersionId);
+  if (selectedVersion) {
+    return selectedVersion.id;
+  }
+
+  const latestExecutedVersion = [...executedVersions].sort(
+    (left, right) => right.versionNo - left.versionNo
+  )[0];
+  if (latestExecutedVersion) {
+    return latestExecutedVersion.id;
+  }
+
+  return getDefaultStep5FocusVersionId(compare);
+}
+
+export function getDefaultCompareVersionIds(
+  compare: Pick<ScheduleCompareResponse, 'versions' | 'finalizedVersionId'>,
+  focusVersionId: string | null
+): string[] {
+  if (getFinalizedVersionId(compare) || !focusVersionId) {
+    return [];
+  }
+
+  const executedVersions = getExecutedVersions(compare.versions);
+  const focusVersion = executedVersions.find((version) => version.id === focusVersionId);
+  if (!focusVersion) {
+    return [];
+  }
+
+  const latestOtherVersion = executedVersions
+    .filter((version) => version.id !== focusVersionId)
+    .sort((left, right) => right.versionNo - left.versionNo)[0];
+
+  return latestOtherVersion ? [focusVersion.id, latestOtherVersion.id] : [];
+}
+
 export function resolveStep4VersionState(compare: ScheduleCompareResponse): {
   selectedVersionId: string | null;
   previewVersionId: string | null;
@@ -168,10 +244,8 @@ export function resolveStep5VersionState(
   requestedQuery: string | Step5QueryState | null
 ): ResolvedStep5VersionState {
   const normalizedQuery = normalizeStep5QueryState(requestedQuery);
-  const finalizedVersionId = hasVersionId(compare.versions, compare.finalizedVersionId)
-    ? compare.finalizedVersionId
-    : null;
-  const defaultFocusVersionId = getDefaultStep5FocusVersionId(compare);
+  const finalizedVersionId = getFinalizedVersionId(compare);
+  const defaultFocusVersionId = getDefaultExecutedFocusVersionId(compare);
   let previewVersionId = finalizedVersionId;
 
   if (!previewVersionId && hasVersionId(compare.versions, normalizedQuery.requestedFocusVersionId)) {
@@ -185,17 +259,22 @@ export function resolveStep5VersionState(
   const activeSolvingVersionId = hasVersionId(compare.versions, compare.activeSolvingVersionId)
     ? compare.activeSolvingVersionId
     : null;
-  const compareVersionIds = resolvePreferredCompareVersionIds({
-    compare,
-    requestedCompareVersionIds: normalizedQuery.requestedCompareVersionIds,
-    resolvedFocusVersionId: previewVersionId,
-    finalizedVersionId,
-  });
   const requestedCompareVersionIds = normalizedQuery.requestedCompareVersionIds
     .filter(isNonEmptyString);
   const validRequestedCompareVersionIds = dedupeVersionIds(
     requestedCompareVersionIds.filter((versionId) => hasVersionId(compare.versions, versionId))
   );
+  const hasRequestedCompareTarget = validRequestedCompareVersionIds.some(
+    (versionId) => versionId !== previewVersionId
+  );
+  const compareVersionIds = hasRequestedCompareTarget
+    ? resolvePreferredCompareVersionIds({
+        compare,
+        requestedCompareVersionIds: validRequestedCompareVersionIds,
+        resolvedFocusVersionId: previewVersionId,
+        finalizedVersionId,
+      })
+    : getDefaultCompareVersionIds(compare, previewVersionId);
   const canonicalQuery = buildStep5RouteQuery(
     previewVersionId,
     compareVersionIds,

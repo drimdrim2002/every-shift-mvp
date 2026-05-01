@@ -94,6 +94,13 @@ interface CreateScheduleVersionAtomicRow {
   latest_version_no: number;
 }
 
+interface OverwriteScheduleVersionAtomicRow {
+  schedule_id: string;
+  overwritten_version_id: string;
+  selected_version_id: string | null;
+  finalized_version_id: string | null;
+}
+
 interface CommitScheduleVersionSolverResultAtomicRow {
   schedule_version_id: string;
   status: string;
@@ -271,6 +278,10 @@ const SCHEDULE_UNIQUE_CONSTRAINTS = [
   'schedules_public_id_key',
 ];
 const VERSION_UNIQUE_CONSTRAINTS = ['schedule_versions_schedule_id_version_no_key'];
+const VERSION_NAME_UNIQUE_CONSTRAINTS = [
+  'idx_schedule_versions_name_normalized_unique',
+  'idx_schedule_versions_active_name_normalized_unique',
+];
 const EVALUATION_VERSION_REVISION_UNIQUE_CONSTRAINTS = [
   'idx_schedule_evaluations_version_revision',
   'schedule_evaluations_schedule_version_id_revision_no_key',
@@ -677,12 +688,84 @@ function remapSlice5RpcConflict(error: unknown): never {
 
 function remapCreateVersionRpcConflict(error: unknown): never {
   if (error instanceof DatabaseError) {
+    if (
+      isUniqueViolation(error, VERSION_NAME_UNIQUE_CONSTRAINTS, [
+        'schedule_id',
+        'lower(btrim(name))',
+      ])
+    ) {
+      throw new ContractError('version_name_exists', 'Version name already exists', 409);
+    }
+
     if (error.dbError.message === 'version_not_found') {
       throw new ContractError('version_not_found', 'Base version not found', 404);
     }
 
     if (error.dbError.message === 'already_finalized') {
       throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (error.dbError.message === 'version_finalized') {
+      throw new ContractError('version_finalized', 'Version is already finalized', 409);
+    }
+
+    if (error.dbError.message === 'version_solving') {
+      throw new ContractError('version_solving', 'Version is currently solving', 409);
+    }
+
+    if (error.dbError.message === 'version_archived') {
+      throw new ContractError('version_archived', 'Version is archived', 409);
+    }
+
+    if (error.dbError.message === 'another_version_solving') {
+      throw new ContractError(
+        'another_version_solving',
+        'Another version is already solving for this schedule',
+        409
+      );
+    }
+  }
+
+  throw error;
+}
+
+function remapOverwriteVersionConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    if (
+      isUniqueViolation(error, VERSION_NAME_UNIQUE_CONSTRAINTS, [
+        'schedule_id',
+        'lower(btrim(name))',
+      ])
+    ) {
+      throw new ContractError('version_name_exists', 'Version name already exists', 409);
+    }
+
+    if (error.dbError.message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
+
+    if (error.dbError.message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (error.dbError.message === 'version_finalized') {
+      throw new ContractError('version_finalized', 'Version is already finalized', 409);
+    }
+
+    if (error.dbError.message === 'version_solving') {
+      throw new ContractError('version_solving', 'Version is currently solving', 409);
+    }
+
+    if (error.dbError.message === 'version_archived') {
+      throw new ContractError('version_archived', 'Version is archived', 409);
+    }
+
+    if (error.dbError.message === 'another_version_solving') {
+      throw new ContractError(
+        'another_version_solving',
+        'Another version is already solving for this schedule',
+        409
+      );
     }
   }
 
@@ -1744,6 +1827,43 @@ export async function createVersion(
   request: CreateVersionRequest
 ): Promise<CreateVersionResponse> {
   const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
+
+  if (request.creationMode === 'overwrite') {
+    const overwriteVersionId = request.overwriteVersionId;
+
+    if (!overwriteVersionId) {
+      throw new ContractError('bad_request', 'overwriteVersionId is required', 400);
+    }
+
+    let row: OverwriteScheduleVersionAtomicRow;
+
+    try {
+      row = await rpcSingle<OverwriteScheduleVersionAtomicRow>(
+        client,
+        'overwrite_schedule_version_atomic',
+        {
+          p_schedule_id: schedule.id,
+          p_overwrite_version_id: overwriteVersionId,
+          p_name: request.name,
+          p_input_diff_summary: request.inputDiffSummary,
+          p_input_snapshot: request.inputSnapshot ?? {},
+        }
+      );
+    } catch (error: unknown) {
+      remapOverwriteVersionConflict(error);
+    }
+
+    schedule.selected_version_id = row.selected_version_id;
+    schedule.finalized_version_id = row.finalized_version_id;
+
+    const response = await buildCompareResponse(client, schedule);
+    return {
+      ...response,
+      createdVersionId: row.overwritten_version_id,
+      wasCreated: false,
+    };
+  }
+
   let row: CreateScheduleVersionAtomicRow;
 
   try {
@@ -1751,8 +1871,9 @@ export async function createVersion(
       p_schedule_id: schedule.id,
       p_base_version_id: request.baseVersionId,
       p_name: request.name,
-      p_source_type: request.sourceType,
+      p_source_type: request.sourceType ?? 're_solve',
       p_input_diff_summary: request.inputDiffSummary,
+      p_input_snapshot: request.inputSnapshot ?? {},
       p_created_by: auth.userId,
     });
   } catch (error: unknown) {
@@ -1767,6 +1888,7 @@ export async function createVersion(
   return {
     ...response,
     createdVersionId: row.created_version_id,
+    wasCreated: true,
   };
 }
 

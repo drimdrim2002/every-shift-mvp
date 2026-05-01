@@ -19,6 +19,9 @@ import {
 import {
   buildStep5Route,
   getDefaultScheduleVersionId,
+  getDefaultCompareVersionIds,
+  getDefaultExecutedFocusVersionId,
+  hasExecutedVersionHistory,
   resolveStep4VersionState,
   resolveStep5RunningVersion,
   resolveStep5VersionState,
@@ -111,6 +114,109 @@ const initialEntryCompareResponse = {
 }
 
 describe('scheduleVersionResolver', () => {
+  it('does not treat draft-only version containers as executed history', () => {
+    const draftOnlyCompare = {
+      ...compareResponse,
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      versions: compareResponse.versions.map((version) => ({
+        ...version,
+        status: 'draft' as const,
+        manualEditCount: version.id === 'version-2' ? 3 : 0,
+        inputDiffSummary: {
+          changedOffRequests: version.id === 'version-2' ? 2 : 0,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: version.id === 'version-2' ? 'draft assignments are not execution' : null,
+        },
+        latestEvaluationId: null,
+        comparisonMetrics: null,
+        finalizationGate: null,
+        activeSolverExecutionId: null,
+        isFinalized: false,
+      })),
+    }
+
+    expect(hasExecutedVersionHistory(draftOnlyCompare)).toBe(false)
+    expect(getDefaultExecutedFocusVersionId(draftOnlyCompare)).toBe('version-2')
+    expect(getDefaultCompareVersionIds(draftOnlyCompare, 'version-2')).toEqual([])
+  })
+
+  it('detects a single executed history version without adding draft compare candidates', () => {
+    const singleHistoryCompare = {
+      ...initialEntryCompareResponse,
+      selectedVersionId: 'version-1',
+      versions: [
+        initialEntryCompareResponse.versions[0]!,
+        {
+          ...initialEntryCompareResponse.versions[1]!,
+          status: 'review_ready' as const,
+          isSelected: false,
+        },
+      ],
+    }
+
+    expect(hasExecutedVersionHistory(singleHistoryCompare)).toBe(true)
+    expect(getDefaultExecutedFocusVersionId(singleHistoryCompare)).toBe('version-2')
+    expect(getDefaultCompareVersionIds(singleHistoryCompare, 'version-2')).toEqual([])
+  })
+
+  it('defaults executed comparison to the selected version and latest other executed version', () => {
+    expect(hasExecutedVersionHistory(compareResponse)).toBe(true)
+    expect(getDefaultExecutedFocusVersionId(compareResponse)).toBe('version-2')
+    expect(getDefaultCompareVersionIds(compareResponse, 'version-2')).toEqual(['version-2', 'version-3'])
+  })
+
+  it('prefers finalized versions over selected and latest executed candidates', () => {
+    const finalizedCompare = {
+      ...compareResponse,
+      selectedVersionId: 'version-3',
+      finalizedVersionId: 'version-2',
+      versions: compareResponse.versions.map((version) =>
+        version.id === 'version-2'
+          ? { ...version, status: 'finalized' as const, isFinalized: true }
+          : version
+      ),
+    }
+
+    expect(hasExecutedVersionHistory(finalizedCompare)).toBe(true)
+    expect(getDefaultExecutedFocusVersionId(finalizedCompare)).toBe('version-2')
+    expect(getDefaultCompareVersionIds(finalizedCompare, 'version-2')).toEqual([])
+  })
+
+  it('treats active solving, comparison metrics, and finalization gates as executed history signals', () => {
+    const signaledCompare = {
+      ...compareResponse,
+      selectedVersionId: null,
+      versions: compareResponse.versions.map((version) => ({
+        ...version,
+        status: 'draft' as const,
+        latestEvaluationId: null,
+        activeSolverExecutionId: version.id === 'version-1' ? 'execution-1' : null,
+        comparisonMetrics: version.id === 'version-2'
+          ? {
+              offRequestReflectionRate: 0.75,
+              nightShiftMin: 1,
+              nightShiftMax: 4,
+              weekendShiftMin: 0,
+              weekendShiftMax: 2,
+              manualEditCount: 1,
+            }
+          : null,
+        finalizationGate: version.id === 'version-3'
+          ? {
+              allowed: true,
+              blockingReasons: [],
+            }
+          : null,
+      })),
+    }
+
+    expect(hasExecutedVersionHistory(signaledCompare)).toBe(true)
+    expect(getDefaultExecutedFocusVersionId(signaledCompare)).toBe('version-3')
+    expect(getDefaultCompareVersionIds(signaledCompare, 'version-3')).toEqual(['version-3', 'version-2'])
+  })
+
   it('keeps Step4 bound to the preferred preview when it is still valid', () => {
     expect(resolveStep4VersionState(compareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
@@ -233,7 +339,7 @@ describe('scheduleVersionResolver', () => {
     })
   })
 
-  it('falls back to V1 when there is no authoritative selection', () => {
+  it('falls back to the latest executed version when there is no authoritative selection', () => {
     expect(
       resolveStep5VersionState(
         {
@@ -243,9 +349,9 @@ describe('scheduleVersionResolver', () => {
         null
       )
     ).toEqual({
-      defaultPreviewVersionId: 'version-1',
+      defaultPreviewVersionId: 'version-2',
       selectedVersionId: null,
-      previewVersionId: 'version-1',
+      previewVersionId: 'version-2',
       compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: initialEntryCompareResponse.versions,
@@ -253,15 +359,59 @@ describe('scheduleVersionResolver', () => {
     })
   })
 
-  it('does not auto-seed compare ids without an explicit compare route', () => {
+  it('auto-seeds compare ids from executed history without an explicit compare route', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
       defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: [],
+      compareVersionIds: ['version-2', 'version-3'],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
-      shouldCanonicalize: false,
+      shouldCanonicalize: true,
+    })
+  })
+
+  it('falls back to default executed compare ids when explicit compare query has no valid target', () => {
+    const defaultState = resolveStep5VersionState(compareResponse, null)
+    const invalidCompareState = resolveStep5VersionState(compareResponse, {
+      requestedFocusVersionId: 'version-2',
+      requestedCompareVersionIds: ['missing-version'],
+    })
+
+    expect(invalidCompareState).toEqual({
+      ...defaultState,
+      shouldCanonicalize: true,
+    })
+    expect(
+      buildStep5Route('schedule-1', invalidCompareState.previewVersionId, invalidCompareState.compareVersionIds, {
+        defaultVersionId: invalidCompareState.defaultPreviewVersionId,
+      })
+    ).toEqual({
+      path: '/app/schedule/step5/schedule-1',
+      query: {
+        compare: 'version-3',
+      },
+    })
+  })
+
+  it('falls back to default executed compare ids when explicit compare query only repeats focus', () => {
+    const defaultState = resolveStep5VersionState(compareResponse, null)
+    const focusOnlyCompareState = resolveStep5VersionState(compareResponse, {
+      requestedFocusVersionId: 'version-2',
+      requestedCompareVersionIds: ['version-2'],
+    })
+    const duplicateFocusCompareState = resolveStep5VersionState(compareResponse, {
+      requestedFocusVersionId: 'version-2',
+      requestedCompareVersionIds: ['version-2', 'version-2'],
+    })
+
+    expect(focusOnlyCompareState).toEqual({
+      ...defaultState,
+      shouldCanonicalize: true,
+    })
+    expect(duplicateFocusCompareState).toEqual({
+      ...defaultState,
+      shouldCanonicalize: true,
     })
   })
 
@@ -275,6 +425,7 @@ describe('scheduleVersionResolver', () => {
             {
               ...initialEntryCompareResponse.versions[1]!,
               sourceType: 're_solve',
+              status: 'draft',
               manualEditCount: 0,
               inputDiffSummary: {
                 changedOffRequests: 0,
@@ -298,6 +449,7 @@ describe('scheduleVersionResolver', () => {
         {
           ...initialEntryCompareResponse.versions[1]!,
           sourceType: 're_solve',
+          status: 'draft',
           manualEditCount: 0,
           inputDiffSummary: {
             changedOffRequests: 0,

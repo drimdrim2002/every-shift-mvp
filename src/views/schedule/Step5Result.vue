@@ -460,6 +460,7 @@ import {
   buildPrimaryActionSupportCopy,
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
+import { hasExecutedVersionHistory } from '@/utils/scheduleVersionResolver';
 import {
   buildCanonicalStep5RouteLocation,
   getAppHomeRoutePath,
@@ -875,6 +876,9 @@ const canRecoverSolverState = computed(() => {
   return previewVersionStatus.value === 'solving';
 });
 const isFinalizedMonth = computed(() => Boolean(lockedVersionId.value));
+const hasExecutedHistory = computed(() => {
+  return hasExecutedVersionHistory({ versions: compareVersions.value });
+});
 const shouldShowComparisonTools = computed(() => {
   if (isFinalizedMonth.value) {
     return false;
@@ -889,6 +893,11 @@ function syncReviewTabForPreview() {
 
 function getActiveSolvingVersionId(): string | null {
   return scheduleStore.compareMatrix?.activeSolvingVersionId ?? null;
+}
+
+function hasOtherActiveSolvingVersion(): boolean {
+  const activeSolvingVersionId = getActiveSolvingVersionId();
+  return Boolean(activeSolvingVersionId && activeSolvingVersionId !== previewVersionId.value);
 }
 
 const shiftIdToCodeMap = computed(() => {
@@ -1611,12 +1620,16 @@ async function handleStartSolver() {
   }
 }
 
-async function consumeRouteAutoStart() {
-  if (hasConsumedRouteAutoStart.value || !parseStep5RouteQuery(route.query).autoStart) {
+async function consumeRouteAutoStart(shouldAutoStart = parseStep5RouteQuery(route.query).autoStart) {
+  if (hasConsumedRouteAutoStart.value || !shouldAutoStart) {
     return;
   }
 
   hasConsumedRouteAutoStart.value = true;
+
+  await router.replace(
+    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
+  );
 
   const targetScheduleId = scheduleId.value;
   const targetPreviewVersionId = previewVersionId.value;
@@ -1625,15 +1638,16 @@ async function consumeRouteAutoStart() {
     return;
   }
 
-  await router.replace(
-    buildCanonicalStep5RouteLocation(ensureScheduleRouteKey())
-  );
-
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
 
-  if (!canMutatePreviewVersion.value || hasCurrentMonthAssignments.value) {
+  if (
+    hasExecutedHistory.value
+    || !canMutatePreviewVersion.value
+    || hasCurrentMonthAssignments.value
+    || hasOtherActiveSolvingVersion()
+  ) {
     return;
   }
 
@@ -1797,6 +1811,7 @@ async function loadStep5InitialData() {
   }
 
   try {
+    const shouldAutoStart = parseStep5RouteQuery(route.query).autoStart;
     await hub.hydrate();
     if (!scheduleStore.basicInfo) {
       throw new Error('Step5에 필요한 스케줄 컨텍스트를 복원하지 못했습니다.');
@@ -1811,7 +1826,7 @@ async function loadStep5InitialData() {
       clearChanges: true,
     });
     await loadFairnessSummary();
-    await consumeRouteAutoStart();
+    await consumeRouteAutoStart(shouldAutoStart);
     hasInitialLoadCompleted.value = true;
   } catch (error) {
     const errorMessage = toInitialLoadErrorMessage(error);

@@ -162,6 +162,80 @@
       :comments="displayConstraintNotes"
       @close="showDaySummaryModal = false"
     />
+
+    <n-modal
+      :show="showExistingHistoryChoiceModal"
+      preset="card"
+      class="max-w-md"
+      :mask-closable="false"
+      :closable="false"
+    >
+      <template #header>
+        기존 생성 결과가 있습니다
+      </template>
+      <p class="mb-5 text-sm leading-6 text-gray-600">
+        이미 생성된 근무표 결과가 있습니다. Off 요청을 수정해 다시 실행하거나 기존 결과를 확인할 수 있습니다.
+      </p>
+      <div class="flex justify-end gap-2">
+        <n-button @click="handleChooseEditExistingHistory">
+          Off 수정 후 다시 실행
+        </n-button>
+        <n-button
+          type="primary"
+          @click="handleChooseReviewExistingHistory"
+        >
+          결과 확인
+        </n-button>
+      </div>
+    </n-modal>
+
+    <n-modal
+      :show="isVersionNameModalOpen"
+      preset="card"
+      class="max-w-md"
+      :mask-closable="false"
+      :closable="false"
+    >
+      <template #header>
+        버전 이름
+      </template>
+      <div class="space-y-4">
+        <p class="text-sm leading-6 text-gray-600">
+          생성할 근무표 버전 이름을 입력해 주세요.
+        </p>
+        <n-input
+          v-model:value="pendingVersionName"
+          data-test="version-name-input"
+          maxlength="100"
+          placeholder="예: V3"
+          @keyup.enter="handleConfirmVersionName"
+        />
+        <div
+          v-if="duplicateVersionCandidate"
+          class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+        >
+          이미 같은 이름의 버전이 있습니다. 이 버전을 덮어쓰거나 다른 이름을 입력해 주세요.
+        </div>
+        <div class="flex justify-end gap-2">
+          <n-button @click="handleCancelVersionNameModal">
+            취소
+          </n-button>
+          <n-button
+            v-if="duplicateVersionCandidate"
+            type="warning"
+            @click="handleConfirmOverwriteVersion"
+          >
+            덮어쓰기
+          </n-button>
+          <n-button
+            type="primary"
+            @click="handleConfirmVersionName"
+          >
+            확인
+          </n-button>
+        </div>
+      </div>
+    </n-modal>
   </div>
 </template>
 
@@ -183,7 +257,7 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NPopconfirm, NSpin } from 'naive-ui';
+import { NAlert, NButton, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -191,11 +265,20 @@ import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import {
   buildStep5Route,
+  getDefaultCompareVersionIds,
+  getDefaultExecutedFocusVersionId,
   getDefaultStep5FocusVersionId,
+  hasExecutedVersionHistory,
   resolveStep4VersionState,
 } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
-import type { AssignmentMap, CommentMap, ConstraintCode, ConstraintMap } from '@/types/schedule';
+import type {
+  AssignmentMap,
+  CommentMap,
+  ConstraintCode,
+  ConstraintMap,
+  ScheduleVersionSummary,
+} from '@/types/schedule';
 import {
   buildTempPreferencesStorageKey,
   buildTempPreferencesStorageScope,
@@ -230,8 +313,14 @@ const showCommentModal = ref(false);
 const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
 const showDaySummaryModal = ref(false);
 const selectedDateSummary = ref<string>('');
+const showExistingHistoryChoiceModal = ref(false);
+const hasShownExistingHistoryChoiceModal = ref(false);
+const pendingVersionName = ref('');
+const isVersionNameModalOpen = ref(false);
+const duplicateVersionCandidate = ref<ScheduleVersionSummary | null>(null);
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
+type PendingHandoffAction = 'first_run' | 'new_re_solve' | 'overwrite_re_solve';
 type PreferenceSnapshot = {
   constraints: ConstraintMap;
   notes: CommentMap;
@@ -243,6 +332,10 @@ type BaselineState = {
   previewVersionId: string;
   selectedVersionId: string | null;
   defaultRouteFocusVersionId: string | null;
+  hasExecutedHistory: boolean;
+  versions: ScheduleVersionSummary[];
+  defaultStep5FocusVersionId: string | null;
+  defaultStep5CompareVersionIds: string[];
   hasCurrentMonthAssignments: boolean;
 };
 
@@ -250,11 +343,21 @@ function createBaselineState(input: BaselineState): BaselineState {
   return input;
 }
 
+type PendingHandoffContext = {
+  baseline: BaselineState;
+  currentSnapshot: PreferenceSnapshot;
+  baselineSnapshot: PreferenceSnapshot;
+  hasNoteChanges: boolean;
+  shouldAutoStartSolver: boolean;
+};
+
 const baselineState = ref<BaselineState | null>(null);
 const baselinePreferenceSnapshot = ref<{
   previewVersionId: string;
   snapshot: PreferenceSnapshot;
 } | null>(null);
+const pendingHandoffAction = ref<PendingHandoffAction | null>(null);
+const pendingHandoffContext = ref<PendingHandoffContext | null>(null);
 
 const canPersistStep4 = computed(() => {
   return (
@@ -339,6 +442,38 @@ const tempPreferenceScope = computed(() => {
     month: scheduleStore.basicInfo?.month,
   });
 });
+
+function hasExplicitEditIntent(): boolean {
+  return route.query.intent === 'edit-off';
+}
+
+function buildRouteQueryWithEditIntent(): Record<string, string> {
+  const query: Record<string, string> = {};
+
+  Object.entries(route.query).forEach(([key, value]) => {
+    if (typeof value === 'string' && value.length > 0 && key !== 'intent') {
+      query[key] = value;
+    }
+  });
+
+  query.intent = 'edit-off';
+  return query;
+}
+
+function maybeOpenExistingHistoryChoiceModal(): void {
+  const baseline = baselineState.value;
+  if (
+    !baseline
+    || !baseline.hasExecutedHistory
+    || hasExplicitEditIntent()
+    || hasShownExistingHistoryChoiceModal.value
+  ) {
+    return;
+  }
+
+  hasShownExistingHistoryChoiceModal.value = true;
+  showExistingHistoryChoiceModal.value = true;
+}
 
 function ensureEmployeeMaps(): void {
   grid.employees.value.forEach((employee) => {
@@ -763,6 +898,58 @@ function buildStep4InputDiffSummary(
   };
 }
 
+function getNextVersionNameDefault(): string {
+  const versions = baselineState.value?.versions ?? [];
+  const latestVersionNo = versions.reduce((latest, version) => {
+    return Math.max(latest, version.versionNo);
+  }, 0);
+  return `V${latestVersionNo + 1}`;
+}
+
+function normalizeVersionName(name: string | null): string {
+  return (name ?? '').trim().toLowerCase();
+}
+
+function findDuplicateVersionByName(name: string): ScheduleVersionSummary | null {
+  const normalizedName = normalizeVersionName(name);
+  if (!normalizedName) return null;
+
+  return (
+    baselineState.value?.versions.find((version) => {
+      return normalizeVersionName(version.name) === normalizedName;
+    }) ?? null
+  );
+}
+
+function isVersionBlockedForOverwrite(version: ScheduleVersionSummary): boolean {
+  return Boolean(
+    version.isFinalized
+    || version.status === 'finalized'
+    || version.status === 'solving'
+    || version.activeSolverExecutionId
+    || version.archivedAt
+  );
+}
+
+function clearPendingVersionHandoff(): void {
+  pendingVersionName.value = '';
+  isVersionNameModalOpen.value = false;
+  duplicateVersionCandidate.value = null;
+  pendingHandoffAction.value = null;
+  pendingHandoffContext.value = null;
+}
+
+function openVersionNameModal(
+  action: PendingHandoffAction,
+  context: PendingHandoffContext
+): void {
+  pendingHandoffAction.value = action;
+  pendingHandoffContext.value = context;
+  duplicateVersionCandidate.value = null;
+  pendingVersionName.value = action === 'first_run' ? 'V1' : getNextVersionNameDefault();
+  isVersionNameModalOpen.value = true;
+}
+
 function setBaselinePreferenceSnapshot(
   previewVersionId: string,
   snapshot: PreferenceSnapshot
@@ -871,6 +1058,13 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
       throw new Error('기본 스케줄 버전을 확인할 수 없습니다.');
     }
 
+    const hasExecutedHistory = hasExecutedVersionHistory(compareResponse);
+    const defaultStep5FocusVersionId = getDefaultExecutedFocusVersionId(compareResponse);
+    const defaultStep5CompareVersionIds = getDefaultCompareVersionIds(
+      compareResponse,
+      defaultStep5FocusVersionId
+    );
+
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
       scheduleId: compareResponse.scheduleId,
@@ -887,6 +1081,10 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
       previewVersionId: resolvedState.previewVersionId,
       selectedVersionId: resolvedState.selectedVersionId,
       defaultRouteFocusVersionId: getDefaultStep5FocusVersionId(compareResponse),
+      hasExecutedHistory,
+      versions: resolvedState.versions,
+      defaultStep5FocusVersionId,
+      defaultStep5CompareVersionIds,
       hasCurrentMonthAssignments: hasCurrentMonthAssignments(
         assignmentData.assignments,
         scheduleStore.basicInfo.month
@@ -981,6 +1179,7 @@ async function restoreData(forceRefresh = false) {
         }
         if (hasCurrentPreferences()) {
           showInfo('저장된 요청 데이터를 불러왔습니다.');
+          maybeOpenExistingHistoryChoiceModal();
           return;
         }
       }
@@ -1001,6 +1200,7 @@ async function restoreData(forceRefresh = false) {
       }
       if (hasCurrentPreferences()) {
         showInfo('기존 저장 데이터(schedule 기준)를 불러왔습니다.');
+        maybeOpenExistingHistoryChoiceModal();
         return;
       }
     }
@@ -1027,6 +1227,7 @@ async function restoreData(forceRefresh = false) {
         }
         if (hasCurrentPreferences()) {
           showInfo('브라우저 임시 저장 데이터를 불러왔습니다.');
+          maybeOpenExistingHistoryChoiceModal();
           return;
         }
         showInfo('브라우저 임시 저장 데이터가 현재 직원 목록과 일치하지 않아 불러오지 않았습니다.');
@@ -1042,6 +1243,7 @@ async function restoreData(forceRefresh = false) {
       );
     }
     syncPolicyRejectionDisplay([]);
+    maybeOpenExistingHistoryChoiceModal();
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -1052,6 +1254,35 @@ async function handleRetryBaseline() {
 }
 
 // Actions
+function handleChooseEditExistingHistory() {
+  showExistingHistoryChoiceModal.value = false;
+  hasShownExistingHistoryChoiceModal.value = true;
+  void router.replace({
+    query: buildRouteQueryWithEditIntent(),
+  });
+}
+
+function handleChooseReviewExistingHistory() {
+  const baseline = baselineState.value;
+  if (!baseline) {
+    showError('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    return;
+  }
+
+  showExistingHistoryChoiceModal.value = false;
+  scheduleStore.currentStep = 5;
+  router.push(
+    buildStep5Route(
+      baseline.schedulePublicId ?? baseline.scheduleId,
+      baseline.defaultStep5FocusVersionId,
+      baseline.defaultStep5CompareVersionIds,
+      {
+        defaultVersionId: baseline.defaultStep5FocusVersionId,
+      }
+    )
+  );
+}
+
 function handlePrev() {
   scheduleStore.setAssignments(constraints.value);
   scheduleStore.setComments(constraintNotes.value);
@@ -1131,113 +1362,173 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   }
 }
 
-async function handleNext() {
-  if (isSubmitting.value) return;
-  isSubmitting.value = true;
+function routeToStep5(
+  schedulePublicId: string,
+  versionId: string,
+  options: {
+    compareVersionIds?: string[];
+    autoStart?: boolean;
+    defaultVersionId?: string | null;
+  } = {}
+): void {
+  scheduleStore.currentStep = 5;
+  router.push(
+    buildStep5Route(schedulePublicId, versionId, options.compareVersionIds, {
+      autoStart: options.autoStart,
+      defaultVersionId: options.defaultVersionId,
+    })
+  );
+}
 
-  try {
-    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
-    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
-      logRestoreTrace('Removed stale employee keys before next', sanitizedBeforeSave);
-      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 진행합니다.');
-    }
+async function buildPendingHandoffContext(): Promise<{
+  context: PendingHandoffContext;
+  hasStep4Changes: boolean;
+  hasConstraintChanges: boolean;
+}> {
+  const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
+  if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
+    logRestoreTrace('Removed stale employee keys before next', sanitizedBeforeSave);
+    showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 진행합니다.');
+  }
 
-    scheduleStore.setAssignments(constraints.value);
-    scheduleStore.setComments(constraintNotes.value);
+  scheduleStore.setAssignments(constraints.value);
+  scheduleStore.setComments(constraintNotes.value);
 
-    const baseline = await ensureBaselineVersion();
-    if (!baseline.previewVersionId) {
-      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
-    }
-    const shouldAutoStartSolver = !baseline.hasCurrentMonthAssignments;
-    const currentSnapshot = getCurrentPreferenceSnapshot();
-    const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
-    const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
-    const hasConstraintChanges = !areConstraintSnapshotsEqual(baselineSnapshot, currentSnapshot);
-    const hasNoteChanges = !areNoteSnapshotsEqual(baselineSnapshot, currentSnapshot);
+  const baseline = await ensureBaselineVersion();
+  if (!baseline.previewVersionId) {
+    throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+  }
 
-    if (!hasStep4Changes) {
-      scheduleStore.currentStep = 5;
-      router.push(
-        buildStep5Route(
-          baseline.schedulePublicId ?? baseline.scheduleId,
-          baseline.previewVersionId,
-          undefined,
-          {
-            autoStart: shouldAutoStartSolver,
-            defaultVersionId: baseline.defaultRouteFocusVersionId,
-          }
-        )
-      );
-      return;
-    }
+  const currentSnapshot = getCurrentPreferenceSnapshot();
+  const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
+  const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
+  const hasConstraintChanges = !areConstraintSnapshotsEqual(baselineSnapshot, currentSnapshot);
+  const hasNoteChanges = !areNoteSnapshotsEqual(baselineSnapshot, currentSnapshot);
 
-    if (!hasConstraintChanges) {
-      if (hasNoteChanges) {
-        await saveScheduleVersionPreferences(
-          baseline.scheduleId,
-          baseline.previewVersionId,
-          constraints.value,
-          constraintNotes.value
-        );
-      }
+  return {
+    context: {
+      baseline,
+      currentSnapshot,
+      baselineSnapshot,
+      hasNoteChanges,
+      shouldAutoStartSolver: !baseline.hasCurrentMonthAssignments,
+    },
+    hasStep4Changes,
+    hasConstraintChanges,
+  };
+}
 
-      setBaselinePreferenceSnapshot(baseline.previewVersionId, currentSnapshot);
-      scheduleStore.currentStep = 5;
-      router.push(
-        buildStep5Route(
-          baseline.schedulePublicId ?? baseline.scheduleId,
-          baseline.previewVersionId,
-          undefined,
-          {
-            autoStart: shouldAutoStartSolver,
-            defaultVersionId: baseline.defaultRouteFocusVersionId,
-          }
-        )
-      );
-      return;
-    }
-
-    const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
-      basicInfo: {
-        ...scheduleStore.basicInfo!,
-        scheduleId: baseline.scheduleId,
-      },
+async function routeFirstRunAfterName(context: PendingHandoffContext, name: string): Promise<void> {
+  const { baseline, baselineSnapshot, currentSnapshot } = context;
+  const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
+    basicInfo: {
+      ...scheduleStore.basicInfo!,
       scheduleId: baseline.scheduleId,
-      versionId: baseline.previewVersionId,
-      constraints: constraints.value,
-      siteRequirements: scheduleStore.siteRequirements,
-      shifts: orgStore.shifts,
-      lastMonthDays: 5,
-      siteId: orgStore.foundationSite?.id ?? null,
-      onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
-    });
+    },
+    scheduleId: baseline.scheduleId,
+    versionId: baseline.previewVersionId,
+    constraints: constraints.value,
+    siteRequirements: scheduleStore.siteRequirements,
+    shifts: orgStore.shifts,
+    lastMonthDays: 5,
+    siteId: orgStore.foundationSite?.id ?? null,
+    onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
+  });
 
-    const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
-      baseVersionId: baseline.previewVersionId,
-      name: null,
-      sourceType: 're_solve',
-      inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
-      inputSnapshot,
-    });
+  const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
+    baseVersionId: baseline.previewVersionId,
+    name,
+    creationMode: 'overwrite',
+    overwriteVersionId: baseline.previewVersionId,
+    sourceType: 'initial_solve',
+    inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
+    inputSnapshot,
+  });
+  const nextSchedulePublicId =
+    createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+  const nextVersionId = createResponse.createdVersionId;
 
-    if (!createResponse.wasCreated) {
-      const nextSchedulePublicId =
-        createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
-      const reusedAssignmentData = await getScheduleVersionAssignments(createResponse.createdVersionId);
-      const reusedHasCurrentMonthAssignments = hasCurrentMonthAssignments(
-        reusedAssignmentData.assignments,
+  if (!arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot)) {
+    await saveScheduleVersionPreferences(
+      baseline.scheduleId,
+      nextVersionId,
+      constraints.value,
+      constraintNotes.value
+    );
+  }
+
+  scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+  scheduleStore.setPreviewVersionId(nextVersionId);
+  baselineState.value = createBaselineState({
+    scheduleId: baseline.scheduleId,
+    schedulePublicId: nextSchedulePublicId,
+    previewVersionId: nextVersionId,
+    selectedVersionId: createResponse.selectedVersionId,
+    defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+    hasExecutedHistory: baseline.hasExecutedHistory,
+    versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
+    defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
+    defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
+    hasCurrentMonthAssignments: false,
+  });
+  setBaselinePreferenceSnapshot(nextVersionId, currentSnapshot);
+  routeToStep5(nextSchedulePublicId, nextVersionId, {
+    compareVersionIds: [nextVersionId, createResponse.selectedVersionId].filter(
+      (versionId): versionId is string => !!versionId
+    ),
+    autoStart: context.shouldAutoStartSolver,
+    defaultVersionId: baseline.defaultRouteFocusVersionId,
+  });
+}
+
+async function createAndRouteReSolveVersion(
+  context: PendingHandoffContext,
+  name: string,
+  creationMode: 'new' | 'overwrite',
+  overwriteVersionId?: string
+): Promise<void> {
+  const { baseline, baselineSnapshot, currentSnapshot, hasNoteChanges } = context;
+  const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
+    basicInfo: {
+      ...scheduleStore.basicInfo!,
+      scheduleId: baseline.scheduleId,
+    },
+    scheduleId: baseline.scheduleId,
+    versionId: baseline.previewVersionId,
+    constraints: constraints.value,
+    siteRequirements: scheduleStore.siteRequirements,
+    shifts: orgStore.shifts,
+    lastMonthDays: 5,
+    siteId: orgStore.foundationSite?.id ?? null,
+    onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
+  });
+
+  const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
+    baseVersionId: baseline.previewVersionId,
+    name,
+    creationMode,
+    ...(overwriteVersionId ? { overwriteVersionId } : {}),
+    sourceType: 're_solve',
+    inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
+    inputSnapshot,
+  });
+
+  if (!createResponse.wasCreated) {
+    const nextSchedulePublicId =
+      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+
+    if (creationMode === 'overwrite') {
+      await saveScheduleVersionPreferences(
+        baseline.scheduleId,
+        createResponse.createdVersionId,
+        constraints.value,
+        constraintNotes.value
+      );
+      await deleteThisMonthVersionAssignments(
+        baseline.scheduleId,
+        createResponse.createdVersionId,
         scheduleStore.basicInfo!.month
       );
-
-      if (hasNoteChanges) {
-        await saveScheduleVersionPreferences(
-          baseline.scheduleId,
-          createResponse.createdVersionId,
-          constraints.value,
-          constraintNotes.value
-        );
-      }
 
       scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
       scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
@@ -1247,70 +1538,236 @@ async function handleNext() {
         previewVersionId: createResponse.createdVersionId,
         selectedVersionId: createResponse.selectedVersionId,
         defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-        hasCurrentMonthAssignments: reusedHasCurrentMonthAssignments,
+        hasExecutedHistory: baseline.hasExecutedHistory,
+        versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
+        defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
+        defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
+        hasCurrentMonthAssignments: false,
       });
       setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
-      scheduleStore.currentStep = 5;
-      router.push(
-        buildStep5Route(
-          nextSchedulePublicId,
-          createResponse.createdVersionId,
-          [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
-            (versionId): versionId is string => !!versionId
-          ),
-          {
-            autoStart: !reusedHasCurrentMonthAssignments,
-            defaultVersionId: baseline.defaultRouteFocusVersionId,
-          }
-        )
-      );
+      routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
+        compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+          (versionId): versionId is string => !!versionId
+        ),
+        autoStart: true,
+        defaultVersionId: baseline.defaultRouteFocusVersionId,
+      });
       return;
     }
 
-    await saveScheduleVersionPreferences(
-      baseline.scheduleId,
-      createResponse.createdVersionId,
-      constraints.value,
-      constraintNotes.value
-    );
-    await deleteThisMonthVersionAssignments(
-      baseline.scheduleId,
-      createResponse.createdVersionId,
+    const reusedAssignmentData = await getScheduleVersionAssignments(createResponse.createdVersionId);
+    const reusedHasCurrentMonthAssignments = hasCurrentMonthAssignments(
+      reusedAssignmentData.assignments,
       scheduleStore.basicInfo!.month
     );
 
+    if (hasNoteChanges) {
+      await saveScheduleVersionPreferences(
+        baseline.scheduleId,
+        createResponse.createdVersionId,
+        constraints.value,
+        constraintNotes.value
+      );
+    }
+
     scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
     scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    const nextSchedulePublicId =
-      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
     baselineState.value = createBaselineState({
       scheduleId: baseline.scheduleId,
       schedulePublicId: nextSchedulePublicId,
       previewVersionId: createResponse.createdVersionId,
       selectedVersionId: createResponse.selectedVersionId,
       defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-      hasCurrentMonthAssignments: false,
+      hasExecutedHistory: baseline.hasExecutedHistory,
+      versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
+      defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
+      defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
+      hasCurrentMonthAssignments: reusedHasCurrentMonthAssignments,
     });
     setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
-    scheduleStore.currentStep = 5;
-    router.push(
-      buildStep5Route(
-        nextSchedulePublicId,
-        createResponse.createdVersionId,
-        [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
-          (versionId): versionId is string => !!versionId
-        ),
-        {
-          autoStart: shouldAutoStartSolver,
-          defaultVersionId: baseline.defaultRouteFocusVersionId,
-        }
-      )
-    );
+    routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
+      compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+        (versionId): versionId is string => !!versionId
+      ),
+      autoStart: !reusedHasCurrentMonthAssignments,
+      defaultVersionId: baseline.defaultRouteFocusVersionId,
+    });
+    return;
+  }
+
+  await saveScheduleVersionPreferences(
+    baseline.scheduleId,
+    createResponse.createdVersionId,
+    constraints.value,
+    constraintNotes.value
+  );
+  await deleteThisMonthVersionAssignments(
+    baseline.scheduleId,
+    createResponse.createdVersionId,
+    scheduleStore.basicInfo!.month
+  );
+
+  scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+  scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
+  const nextSchedulePublicId =
+    createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+  baselineState.value = createBaselineState({
+    scheduleId: baseline.scheduleId,
+    schedulePublicId: nextSchedulePublicId,
+    previewVersionId: createResponse.createdVersionId,
+    selectedVersionId: createResponse.selectedVersionId,
+    defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+    hasExecutedHistory: baseline.hasExecutedHistory,
+    versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
+    defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
+    defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
+    hasCurrentMonthAssignments: false,
+  });
+  setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
+  routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
+    compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
+      (versionId): versionId is string => !!versionId
+    ),
+    autoStart: context.shouldAutoStartSolver,
+    defaultVersionId: baseline.defaultRouteFocusVersionId,
+  });
+}
+
+async function executePendingHandoff(
+  name: string,
+  mode: 'new' | 'overwrite',
+  overwriteVersionId?: string
+): Promise<void> {
+  const action = pendingHandoffAction.value;
+  const context = pendingHandoffContext.value;
+  if (!action || !context) {
+    showError('진행할 버전 정보가 없습니다. 다시 시도해 주세요.');
+    return;
+  }
+
+  if (isSubmitting.value) return;
+  isSubmitting.value = true;
+
+  try {
+    if (action === 'first_run') {
+      await routeFirstRunAfterName(context, name);
+    } else {
+      pendingHandoffAction.value = mode === 'overwrite' ? 'overwrite_re_solve' : 'new_re_solve';
+      await createAndRouteReSolveVersion(context, name, mode, overwriteVersionId);
+    }
+    clearPendingVersionHandoff();
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
   } finally {
     isSubmitting.value = false;
+  }
+}
+
+async function handleConfirmVersionName() {
+  const name = pendingVersionName.value.trim();
+  if (!name) {
+    showError('버전 이름을 입력해 주세요.');
+    return;
+  }
+
+  if (pendingHandoffAction.value === 'first_run') {
+    duplicateVersionCandidate.value = null;
+    await executePendingHandoff(name, 'new');
+    return;
+  }
+
+  const duplicate = findDuplicateVersionByName(name);
+  if (duplicate) {
+    if (isVersionBlockedForOverwrite(duplicate)) {
+      duplicateVersionCandidate.value = null;
+      showError('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.');
+      return;
+    }
+
+    duplicateVersionCandidate.value = duplicate;
+    return;
+  }
+
+  duplicateVersionCandidate.value = null;
+  await executePendingHandoff(name, 'new');
+}
+
+async function handleConfirmOverwriteVersion() {
+  const duplicate = duplicateVersionCandidate.value;
+  const name = pendingVersionName.value.trim();
+  if (!duplicate || !name) {
+    showError('덮어쓸 버전 정보가 없습니다. 다시 시도해 주세요.');
+    return;
+  }
+
+  const currentDuplicate = findDuplicateVersionByName(name);
+  if (!currentDuplicate || currentDuplicate.id !== duplicate.id) {
+    duplicateVersionCandidate.value = null;
+    showError('버전 이름이 변경되었습니다. 다시 확인해 주세요.');
+    return;
+  }
+
+  if (isVersionBlockedForOverwrite(duplicate)) {
+    duplicateVersionCandidate.value = null;
+    showError('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.');
+    return;
+  }
+
+  await executePendingHandoff(name, 'overwrite', duplicate.id);
+}
+
+function handleCancelVersionNameModal() {
+  clearPendingVersionHandoff();
+}
+
+async function handleNext() {
+  if (isSubmitting.value) return;
+
+  try {
+    const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
+    const { baseline } = context;
+
+    if (!hasStep4Changes) {
+      if (context.shouldAutoStartSolver) {
+        openVersionNameModal('first_run', context);
+        return;
+      }
+
+      routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
+        autoStart: context.shouldAutoStartSolver,
+        defaultVersionId: baseline.defaultRouteFocusVersionId,
+      });
+      return;
+    }
+
+    if (!hasConstraintChanges) {
+      if (context.shouldAutoStartSolver) {
+        openVersionNameModal('first_run', context);
+        return;
+      }
+
+      if (context.hasNoteChanges) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          baseline.previewVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+      }
+
+      setBaselinePreferenceSnapshot(baseline.previewVersionId, context.currentSnapshot);
+      routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
+        autoStart: context.shouldAutoStartSolver,
+        defaultVersionId: baseline.defaultRouteFocusVersionId,
+      });
+      return;
+    }
+
+    openVersionNameModal('new_re_solve', context);
+  } catch (error) {
+    console.error(error);
+    showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
   }
 }
 </script>

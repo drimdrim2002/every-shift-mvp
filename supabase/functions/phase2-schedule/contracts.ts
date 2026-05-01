@@ -58,6 +58,8 @@ export interface ScheduleInputDiffSummary {
   note: string | null;
 }
 
+export type ScheduleInputSnapshot = Record<string, unknown>;
+
 export interface ScheduleCompareMetrics {
   offRequestReflectionRate: number | null;
   nightShiftMin: number | null;
@@ -191,10 +193,13 @@ export interface SelectResponse {
 }
 
 export interface CreateVersionRequest {
-  baseVersionId: string;
-  name: string | null;
-  sourceType: ScheduleVersionSourceType;
+  baseVersionId?: string;
+  name: string;
+  creationMode: 'new' | 'overwrite';
+  overwriteVersionId?: string;
+  sourceType?: ScheduleVersionSourceType;
   inputDiffSummary: ScheduleInputDiffSummary;
+  inputSnapshot?: ScheduleInputSnapshot;
 }
 
 export interface CreateVersionResponse {
@@ -203,6 +208,7 @@ export interface CreateVersionResponse {
   organizationId: string;
   month: string;
   createdVersionId: string;
+  wasCreated: boolean;
   selectedVersionId: string | null;
   finalizedVersionId: string | null;
   versions: ScheduleVersionSummary[];
@@ -578,6 +584,18 @@ function parseInputDiffSummary(value: unknown): ScheduleInputDiffSummary {
   };
 }
 
+function parseInputSnapshot(value: unknown): ScheduleInputSnapshot {
+  if (value === undefined) {
+    return {};
+  }
+
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new ContractError('bad_request', 'inputSnapshot must be a JSON object', 400);
+  }
+
+  return value as ScheduleInputSnapshot;
+}
+
 function parseResetRosterEmployee(payload: unknown): ResetRosterEmployeeInput {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw new ContractError('bad_request', 'employee must be a JSON object', 400);
@@ -697,31 +715,49 @@ export function parseCreateVersionRequest(payload: unknown): CreateVersionReques
   }
 
   const record = payload as Record<string, unknown>;
+  const creationMode = record.creationMode;
   const baseVersionId = typeof record.baseVersionId === 'string' ? record.baseVersionId : '';
-  const name = record.name;
-  const sourceType = record.sourceType;
+  const overwriteVersionId =
+    typeof record.overwriteVersionId === 'string' ? record.overwriteVersionId : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
 
-  if (!baseVersionId || !isValidUuid(baseVersionId)) {
-    throw new ContractError('bad_request', 'baseVersionId must be a valid UUID', 400);
+  if (!name) {
+    throw new ContractError('bad_request', 'name is required', 400);
   }
 
-  if (name !== null && name !== undefined && typeof name !== 'string') {
-    throw new ContractError('bad_request', 'name must be a string or null', 400);
+  if (name.length > 100) {
+    throw new ContractError('bad_request', 'name must be 100 characters or fewer', 400);
   }
 
-  if (
-    sourceType !== 'initial_solve'
-    && sourceType !== 're_solve'
-    && sourceType !== 'manual_variant'
-  ) {
-    throw new ContractError('bad_request', 'sourceType is invalid', 400);
+  if (creationMode !== 'new' && creationMode !== 'overwrite') {
+    throw new ContractError('bad_request', 'creationMode must be new or overwrite', 400);
+  }
+
+  const baseRequest = {
+    name,
+    creationMode,
+    inputDiffSummary: parseInputDiffSummary(record.inputDiffSummary),
+    inputSnapshot: parseInputSnapshot(record.inputSnapshot),
+  };
+
+  if (creationMode === 'new') {
+    if (!baseVersionId || !isValidUuid(baseVersionId)) {
+      throw new ContractError('bad_request', 'baseVersionId must be a valid UUID', 400);
+    }
+
+    return {
+      ...baseRequest,
+      baseVersionId,
+    };
+  }
+
+  if (!overwriteVersionId || !isValidUuid(overwriteVersionId)) {
+    throw new ContractError('bad_request', 'overwriteVersionId must be a valid UUID', 400);
   }
 
   return {
-    baseVersionId,
-    name: typeof name === 'string' ? name : null,
-    sourceType,
-    inputDiffSummary: parseInputDiffSummary(record.inputDiffSummary),
+    ...baseRequest,
+    overwriteVersionId,
   };
 }
 

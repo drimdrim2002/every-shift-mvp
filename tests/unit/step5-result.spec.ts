@@ -2151,6 +2151,26 @@ describe('Step5Result', () => {
       version: 'version-1',
       autoStart: '1',
     }
+    getPhase2ScheduleCompareMock.mockReset()
+    getPhase2ScheduleReviewMock.mockReset()
+    getScheduleVersionAssignmentsMock.mockReset()
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId))
+    })
     getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
       assignments: versionId === 'version-1'
         ? {}
@@ -2177,6 +2197,124 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
     expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+  })
+
+  it('strips autoStart without starting the solver when any executed history exists', async () => {
+    routeMock.query = {
+      version: 'version-1',
+      autoStart: '1',
+    }
+    getPhase2ScheduleCompareMock.mockReset()
+    getPhase2ScheduleReviewMock.mockReset()
+    getScheduleVersionAssignmentsMock.mockReset()
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'review_ready',
+          latestEvaluationId: 'evaluation-2',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId))
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-1'
+        ? {}
+        : {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+      offReasons: {},
+      comments: {},
+    }))
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
+    expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
+  })
+
+  it('strips autoStart without starting the solver when another version is actively solving', async () => {
+    routeMock.query = {
+      version: 'version-1',
+      autoStart: '1',
+    }
+    getPhase2ScheduleCompareMock.mockReset()
+    getPhase2ScheduleReviewMock.mockReset()
+    getScheduleVersionAssignmentsMock.mockReset()
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-2',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-2',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId))
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-1'
+        ? {}
+        : {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+      offReasons: {},
+      comments: {},
+    }))
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
+    expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
   it('strips autoStart without starting the solver when current-month assignments already exist', async () => {
