@@ -1,8 +1,13 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+  <AuthPageShell
+    eyebrow="EveryShift에 오신 것을 환영합니다"
+    title="로그인"
+    description="승인된 병원 계정으로 근무표 작업 공간에 들어갑니다."
+  >
     <n-card
-      class="w-full max-w-md"
-      title="everyshift 로그인"
+      data-test="login-card"
+      class="mx-auto w-full max-w-lg"
+      title="로그인"
     >
       <n-alert
         v-if="signupState === 'pending_approval'"
@@ -68,7 +73,7 @@
         </n-button>
       </n-form>
     </n-card>
-  </div>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">
@@ -76,6 +81,7 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormItemRule } from 'naive-ui'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import { LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH, resolvePostAuthRedirectPath } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
 import { showError, showSuccess } from '@/utils/message'
