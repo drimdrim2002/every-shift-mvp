@@ -15,10 +15,15 @@ const authState = {
   loading: ref(false),
 }
 
+const routeState = ref({
+  query: {} as Record<string, string>,
+})
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
   }),
+  useRoute: () => routeState.value,
 }))
 
 vi.mock('@/api/hospital', () => ({
@@ -190,6 +195,7 @@ describe('Signup view', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.loading.value = false
+    routeState.value = { query: {} }
     searchHospitalsMock.mockResolvedValue([
       {
         id: 'hospital-1',
@@ -200,6 +206,39 @@ describe('Signup view', () => {
     submitSignupMock.mockResolvedValue({
       nextState: 'pending_approval',
     })
+  })
+
+  it('defaults signup to admin when role query is missing', () => {
+    const wrapper = mount(Signup)
+
+    expect(wrapper.text()).toContain('병원 목록 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
+  })
+
+  it('opens invite-code signup when role=user is provided', () => {
+    routeState.value = { query: { role: 'user' } }
+
+    const wrapper = mount(Signup)
+
+    expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('병원 목록 출처: 공공데이터포털(data.go.kr)')
+  })
+
+  it('falls back to admin when role query is invalid', () => {
+    routeState.value = { query: { role: 'operator' } }
+
+    const wrapper = mount(Signup)
+
+    expect(wrapper.text()).toContain('병원 목록 출처: 공공데이터포털(data.go.kr)')
+  })
+
+  it('shows the launch-ready signup context', () => {
+    const wrapper = mount(Signup)
+
+    expect(wrapper.text()).toContain('EveryShift')
+    expect(wrapper.text()).toContain('관리자는 병원을 선택해 가입 신청하고, 사용자는 초대코드로 참여합니다.')
+    expect(wrapper.get('[data-test="signup-submit"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="signup-to-login"]').text()).toContain('로그인으로 이동')
   })
 
   it('switches between hospital lookup and invite-code signup on one route', async () => {
