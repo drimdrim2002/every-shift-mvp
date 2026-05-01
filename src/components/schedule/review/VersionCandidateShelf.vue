@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { NTooltip } from 'naive-ui'
 import type { ScheduleVersionSummary } from '@/types/schedule'
 import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy'
 
@@ -15,6 +16,7 @@ const emit = defineEmits<{
   (event: 'toggle-compare', versionId: string): void
   (event: 'focus-version', versionId: string): void
   (event: 'select-version', versionId: string): void
+  (event: 'delete-version', versionId: string): void
 }>()
 
 const compareVersionSet = computed(() => new Set(props.compareVersionIds))
@@ -40,6 +42,22 @@ function getCompareActionState(version: ScheduleVersionSummary) {
     disabled: false,
   }
 }
+
+function canDeleteVersion(version: ScheduleVersionSummary) {
+  return version.id !== props.focusedVersionId
+    && version.id !== props.lockedVersionId
+    && !version.isFinalized
+    && version.status !== 'solving'
+    && !version.activeSolverExecutionId
+}
+
+function handleDeleteVersion(version: ScheduleVersionSummary) {
+  if (!canDeleteVersion(version)) {
+    return
+  }
+
+  emit('delete-version', version.id)
+}
 </script>
 
 <template>
@@ -62,9 +80,27 @@ function getCompareActionState(version: ScheduleVersionSummary) {
       <article
         v-for="version in versions"
         :key="version.id"
-        class="rounded-xl border border-slate-200 bg-slate-50 p-4"
+        class="relative rounded-xl border border-slate-200 bg-slate-50 p-4"
         :class="version.id === focusedVersionId ? 'ring-2 ring-sky-100' : ''"
       >
+        <n-tooltip
+          v-if="canDeleteVersion(version)"
+          trigger="hover"
+        >
+          <template #trigger>
+            <button
+              type="button"
+              aria-label="이 안 삭제"
+              :data-test="`delete-version-${version.id}`"
+              class="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-full border border-transparent text-sm font-semibold text-slate-400 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
+              @click.stop="handleDeleteVersion(version)"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </template>
+          <span>이 안 삭제</span>
+        </n-tooltip>
+
         <div class="mb-3 flex flex-wrap items-center gap-2">
           <span class="text-sm font-semibold text-slate-900">
             {{ formatVersionLabel(version) }}

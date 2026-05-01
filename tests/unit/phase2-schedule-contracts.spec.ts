@@ -5,7 +5,9 @@ import {
   isValidSchedulePublicId,
   matchRoute,
   normalizePathSegments,
+  parseDeleteGeneratedResultsRequest,
   parseDeleteMonthRequest,
+  parseDeleteScheduleVersionRequest,
   parseEnsureRequest,
   parseCreateVersionRequest,
   parsePatchScheduleVersionAssignmentsRequest,
@@ -128,6 +130,30 @@ describe('phase2 schedule contracts', () => {
       },
     });
 
+    expect(
+      matchRoute(
+        normalizePathSegments('/functions/v1/phase2-schedule/schedule-versions/version-1/delete')
+      )
+    ).toEqual({
+      route: 'deleteVersion',
+      params: {
+        versionId: 'version-1',
+      },
+    });
+
+    expect(
+      matchRoute(
+        normalizePathSegments(
+          '/functions/v1/phase2-schedule/schedules/schedule-1/delete-generated-results'
+        )
+      )
+    ).toEqual({
+      route: 'deleteGeneratedResults',
+      params: {
+        scheduleId: 'schedule-1',
+      },
+    });
+
     expect(allowedMethods('createVersion')).toEqual(['POST']);
     expect(allowedMethods('resetRoster')).toEqual(['POST']);
     expect(allowedMethods('resetActiveFlow')).toEqual(['POST']);
@@ -137,6 +163,8 @@ describe('phase2 schedule contracts', () => {
     expect(allowedMethods('patchAssignments')).toEqual(['PATCH']);
     expect(allowedMethods('recheck')).toEqual(['POST']);
     expect(allowedMethods('finalize')).toEqual(['POST']);
+    expect(allowedMethods('deleteVersion')).toEqual(['POST']);
+    expect(allowedMethods('deleteGeneratedResults')).toEqual(['POST']);
   });
 
   it('parses create version request bodies', () => {
@@ -353,6 +381,43 @@ describe('phase2 schedule contracts', () => {
         month: '2026-13',
       })
     ).toThrow();
+  });
+
+  it('parses delete version request bodies with an optional replacementSelectedVersionId', () => {
+    expect(parseDeleteScheduleVersionRequest({})).toEqual({});
+
+    expect(
+      parseDeleteScheduleVersionRequest({
+        replacementSelectedVersionId: '11111111-1111-4111-8111-111111111111',
+      })
+    ).toEqual({
+      replacementSelectedVersionId: '11111111-1111-4111-8111-111111111111',
+    });
+
+    expect(() =>
+      parseDeleteScheduleVersionRequest({
+        replacementSelectedVersionId: 'not-a-uuid',
+      })
+    ).toThrow('replacementSelectedVersionId must be a valid UUID');
+  });
+
+  it('parses delete generated results request bodies with a required sourceVersionId', () => {
+    expect(
+      parseDeleteGeneratedResultsRequest({
+        sourceVersionId: '22222222-2222-4222-8222-222222222222',
+      })
+    ).toEqual({
+      sourceVersionId: '22222222-2222-4222-8222-222222222222',
+    });
+
+    expect(() => parseDeleteGeneratedResultsRequest({})).toThrow(
+      'sourceVersionId must be a valid UUID'
+    );
+    expect(() =>
+      parseDeleteGeneratedResultsRequest({
+        sourceVersionId: 'not-a-uuid',
+      })
+    ).toThrow('sourceVersionId must be a valid UUID');
   });
 
   it('accepts canonical postgres uuids used by seeded organizations', () => {

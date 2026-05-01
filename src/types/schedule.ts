@@ -304,6 +304,12 @@ export interface CreateScheduleVersionResponse {
   versions: ScheduleVersionSummary[];
 }
 
+export interface DeleteScheduleVersionRequest {
+  replacementSelectedVersionId?: string;
+}
+
+export type DeleteScheduleVersionResponse = ScheduleCompareResponse;
+
 export interface ScheduleVersionSolveRequest {
   solverExecutionId: string;
   inputSnapshot?: ScheduleInputSnapshot;
@@ -387,6 +393,12 @@ export interface ResetScheduleRosterResponse {
   deletedScheduleId: string | null;
   employeeCount: number;
 }
+
+export interface DeleteGeneratedResultsRequest {
+  sourceVersionId: string;
+}
+
+export type DeleteGeneratedResultsResponse = ScheduleCompareResponse;
 
 export interface DeleteScheduleMonthRequest {
   organizationId: string;

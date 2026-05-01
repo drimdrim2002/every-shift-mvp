@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import * as scheduleWriteRepository from '@/../supabase/functions/phase2-schedule/repository.ts';
 import {
   createVersion,
   deleteScheduleMonth,
@@ -234,6 +235,36 @@ const AUTH_CONTEXT: Phase2ScheduleAuthContext = {
   userId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   organizationId: '33333333-3333-4333-8333-333333333333',
 };
+
+type DeleteVersionFn = (
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string,
+  request: {
+    replacementSelectedVersionId?: string;
+  }
+) => Promise<unknown>;
+
+type DeleteGeneratedResultsFn = (
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  scheduleId: string,
+  request: {
+    sourceVersionId: string;
+  }
+) => Promise<unknown>;
+
+function getDeleteVersion(): DeleteVersionFn {
+  const candidate = (scheduleWriteRepository as Record<string, unknown>).deleteVersion;
+  expect(candidate).toBeTypeOf('function');
+  return candidate as DeleteVersionFn;
+}
+
+function getDeleteGeneratedResults(): DeleteGeneratedResultsFn {
+  const candidate = (scheduleWriteRepository as Record<string, unknown>).deleteGeneratedResults;
+  expect(candidate).toBeTypeOf('function');
+  return candidate as DeleteGeneratedResultsFn;
+}
 
 describe('phase2 schedule write repository', () => {
   it('archives the active non-finalized flow and returns the empty active compare state', async () => {
@@ -2789,6 +2820,389 @@ describe('phase2 schedule write repository', () => {
       hardScore: null,
       softScore: null,
       failureReason: 'latest duplicate',
+    });
+  });
+
+  it('archives one version through the atomic delete rpc and returns the refreshed compare response', async () => {
+    const deleteVersion = getDeleteVersion();
+    const { client, rpcSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-2',
+            schedule_id: 'schedule-1',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            status: 'review_ready',
+            current_revision: 1,
+            manual_edit_count: 2,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+            archived_at: null,
+          },
+          error: null,
+        },
+        {
+          data: [
+            {
+              id: 'version-1',
+              schedule_id: 'schedule-1',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'review_ready',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              active_solver_execution_id: null,
+              archived_at: null,
+            },
+            {
+              id: 'version-3',
+              schedule_id: 'schedule-1',
+              version_no: 3,
+              name: 'V3',
+              source_type: 'manual_variant',
+              base_version_id: 'version-1',
+              status: 'draft',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              active_solver_execution_id: null,
+              archived_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            public_id: 'sch_deletev0001',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-2',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-1',
+            public_id: 'sch_deletev0001',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:05:00Z',
+            selected_version_id: 'version-3',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+      ],
+    }, {
+      archive_schedule_version_atomic: [
+        {
+          data: {
+            schedule_id: 'schedule-1',
+            archived_version_id: 'version-2',
+            selected_version_id: 'version-3',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await deleteVersion(client, AUTH_CONTEXT, 'version-2', {
+      replacementSelectedVersionId: 'version-3',
+    });
+
+    expect(result).toEqual({
+      scheduleId: 'schedule-1',
+      schedulePublicId: 'sch_deletev0001',
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+      selectedVersionId: 'version-3',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        expect.objectContaining({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: false,
+        }),
+        expect.objectContaining({
+          id: 'version-3',
+          versionNo: 3,
+          isSelected: true,
+        }),
+      ],
+    });
+    expect(rpcSpies.archive_schedule_version_atomic).toHaveBeenCalledWith({
+      p_version_id: 'version-2',
+      p_replacement_selected_version_id: 'version-3',
+      p_archived_by: AUTH_CONTEXT.userId,
+    });
+  });
+
+  it('maps delete-version last_version conflicts to 409 contract errors', async () => {
+    const deleteVersion = getDeleteVersion();
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-only',
+            schedule_id: 'schedule-1',
+            version_no: 1,
+            name: 'V1',
+            source_type: 'initial_solve',
+            base_version_id: null,
+            status: 'draft',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+            archived_at: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-only',
+            finalized_version_id: null,
+            latest_version_no: 1,
+          },
+          error: null,
+        },
+      ],
+    }, {
+      archive_schedule_version_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'last_version',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      deleteVersion(client, AUTH_CONTEXT, 'version-only', {
+        replacementSelectedVersionId: 'version-replacement',
+      })
+    ).rejects.toMatchObject({
+      code: 'last_version',
+      status: 409,
+    });
+  });
+
+  it('resets generated results through the atomic rpc and keeps the source version as the only active compare candidate', async () => {
+    const deleteGeneratedResults = getDeleteGeneratedResults();
+    const { client, rpcSpies } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-1',
+            schedule_id: 'schedule-1',
+            version_no: 1,
+            name: 'V1',
+            source_type: 'initial_solve',
+            base_version_id: null,
+            status: 'review_ready',
+            current_revision: 3,
+            manual_edit_count: 5,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+            archived_at: null,
+          },
+          error: null,
+        },
+        {
+          data: [
+            {
+              id: 'version-1',
+              schedule_id: 'schedule-1',
+              version_no: 1,
+              name: 'V1',
+              source_type: 'initial_solve',
+              base_version_id: null,
+              status: 'draft',
+              current_revision: 0,
+              manual_edit_count: 0,
+              input_diff_summary: {},
+              latest_evaluation_id: null,
+              active_solver_execution_id: null,
+              archived_at: null,
+            },
+          ],
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            public_id: 'sch_resetg0001',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            hard_score: 88,
+            soft_score: 12,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-3',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+        {
+          data: {
+            id: 'schedule-1',
+            public_id: 'sch_resetg0001',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'created',
+            solver_execution_id: null,
+            hard_score: null,
+            soft_score: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:10:00Z',
+            selected_version_id: 'version-1',
+            finalized_version_id: null,
+            latest_version_no: 3,
+          },
+          error: null,
+        },
+      ],
+    }, {
+      reset_schedule_generated_results_atomic: [
+        {
+          data: {
+            schedule_id: 'schedule-1',
+            source_version_id: 'version-1',
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await deleteGeneratedResults(client, AUTH_CONTEXT, 'schedule-1', {
+      sourceVersionId: 'version-1',
+    });
+
+    expect(result).toEqual({
+      scheduleId: 'schedule-1',
+      schedulePublicId: 'sch_resetg0001',
+      organizationId: AUTH_CONTEXT.organizationId,
+      month: '2026-04',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        expect.objectContaining({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'draft',
+          manualEditCount: 0,
+          isSelected: true,
+        }),
+      ],
+    });
+    expect(rpcSpies.reset_schedule_generated_results_atomic).toHaveBeenCalledWith({
+      p_schedule_id: 'schedule-1',
+      p_source_version_id: 'version-1',
+      p_reset_by: AUTH_CONTEXT.userId,
+    });
+  });
+
+  it('maps delete-generated-results solving conflicts to 409 contract errors', async () => {
+    const deleteGeneratedResults = getDeleteGeneratedResults();
+    const { client } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-1',
+            schedule_id: 'schedule-1',
+            version_no: 1,
+            name: 'V1',
+            source_type: 'initial_solve',
+            base_version_id: null,
+            status: 'review_ready',
+            current_revision: 0,
+            manual_edit_count: 0,
+            input_diff_summary: {},
+            latest_evaluation_id: null,
+            active_solver_execution_id: null,
+            archived_at: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-1',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'running',
+            solver_execution_id: 'exec-1',
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-1',
+            finalized_version_id: null,
+            latest_version_no: 1,
+          },
+          error: null,
+        },
+      ],
+    }, {
+      reset_schedule_generated_results_atomic: [
+        {
+          data: null,
+          error: {
+            message: 'version_locked_for_solving',
+            code: 'P0001',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      deleteGeneratedResults(client, AUTH_CONTEXT, 'schedule-1', {
+        sourceVersionId: 'version-1',
+      })
+    ).rejects.toMatchObject({
+      code: 'version_locked_for_solving',
+      status: 409,
     });
   });
 });

@@ -5,6 +5,10 @@ import type {
   AssignmentMap,
   CreateScheduleVersionRequest,
   CreateScheduleVersionResponse,
+  DeleteGeneratedResultsRequest,
+  DeleteGeneratedResultsResponse,
+  DeleteScheduleVersionRequest,
+  DeleteScheduleVersionResponse,
   ConstraintCode,
   ConstraintMap,
   OffReasonMap,
@@ -376,6 +380,19 @@ export async function createPhase2ScheduleVersion(
   );
 }
 
+export async function deletePhase2ScheduleVersion(
+  versionId: string,
+  request: DeleteScheduleVersionRequest = {}
+): Promise<DeleteScheduleVersionResponse> {
+  return callPhase2Schedule<DeleteScheduleVersionResponse>(
+    `/schedule-versions/${versionId}/delete`,
+    {
+      method: 'POST',
+      body: request,
+    }
+  );
+}
+
 export async function solvePhase2ScheduleVersion(
   versionId: string,
   request: ScheduleVersionSolveRequest
@@ -433,6 +450,19 @@ export async function finalizePhase2ScheduleVersion(
     `/schedule-versions/${versionId}/finalize`,
     {
       method: 'POST',
+    }
+  );
+}
+
+export async function deletePhase2ScheduleGeneratedResults(
+  scheduleId: string,
+  request: DeleteGeneratedResultsRequest
+): Promise<DeleteGeneratedResultsResponse> {
+  return callPhase2Schedule<DeleteGeneratedResultsResponse>(
+    `/schedules/${scheduleId}/delete-generated-results`,
+    {
+      method: 'POST',
+      body: request,
     }
   );
 }

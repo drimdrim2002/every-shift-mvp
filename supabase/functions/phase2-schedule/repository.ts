@@ -159,6 +159,25 @@ interface DeleteScheduleMonthAtomicRow {
   deleted_schedule_id: string | null;
 }
 
+interface ArchiveScheduleVersionAtomicRow {
+  schedule_id: string;
+  archived_version_id: string;
+  selected_version_id: string | null;
+}
+
+interface ResetScheduleGeneratedResultsAtomicRow {
+  schedule_id: string;
+  source_version_id: string;
+}
+
+export interface DeleteVersionRequest {
+  replacementSelectedVersionId?: string;
+}
+
+export interface DeleteGeneratedResultsRequest {
+  sourceVersionId: string;
+}
+
 interface SchedulePreferenceRow {
   id: string;
   schedule_id: string;
@@ -794,6 +813,86 @@ function remapDeleteMonthRpcConflict(error: unknown): never {
 
     if (message === 'already_finalized') {
       throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (message === 'version_locked_for_solving') {
+      throw new ContractError(
+        'version_locked_for_solving',
+        'Version is locked while solving is active',
+        409
+      );
+    }
+  }
+
+  throw error;
+}
+
+function remapDeleteVersionRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    const { message } = error.dbError;
+
+    if (message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
+
+    if (message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (message === 'version_archived') {
+      throw new ContractError('version_archived', 'Version is archived', 409);
+    }
+
+    if (message === 'version_locked_for_solving') {
+      throw new ContractError(
+        'version_locked_for_solving',
+        'Version is locked while solving is active',
+        409
+      );
+    }
+
+    if (message === 'last_version') {
+      throw new ContractError('last_version', 'Cannot delete the last active version', 409);
+    }
+
+    if (message === 'replacement_selected_version_required') {
+      throw new ContractError(
+        'bad_request',
+        'replacementSelectedVersionId is required when deleting the selected version',
+        400
+      );
+    }
+
+    if (message === 'replacement_selected_version_invalid') {
+      throw new ContractError(
+        'bad_request',
+        'replacementSelectedVersionId must point to another active version on the same schedule',
+        400
+      );
+    }
+  }
+
+  throw error;
+}
+
+function remapDeleteGeneratedResultsRpcConflict(error: unknown): never {
+  if (error instanceof DatabaseError) {
+    const { message } = error.dbError;
+
+    if (message === 'schedule_not_found') {
+      throw new ContractError('schedule_not_found', 'Schedule not found', 404);
+    }
+
+    if (message === 'version_not_found') {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
+
+    if (message === 'already_finalized') {
+      throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
+    }
+
+    if (message === 'version_archived') {
+      throw new ContractError('version_archived', 'Version is archived', 409);
     }
 
     if (message === 'version_locked_for_solving') {
@@ -2127,6 +2226,77 @@ export async function deleteScheduleMonth(
   } catch (error: unknown) {
     remapDeleteMonthRpcConflict(error);
   }
+}
+
+export async function deleteVersion(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string,
+  request: DeleteVersionRequest
+): Promise<CompareResponse> {
+  const { schedule, version } = await loadAuthorizedVersionContext(client, auth, versionId);
+
+  if (schedule.selected_version_id === version.id && !request.replacementSelectedVersionId) {
+    throw new ContractError(
+      'bad_request',
+      'replacementSelectedVersionId is required when deleting the selected version',
+      400
+    );
+  }
+
+  if (request.replacementSelectedVersionId === version.id) {
+    throw new ContractError(
+      'bad_request',
+      'replacementSelectedVersionId must point to a different active version',
+      400
+    );
+  }
+
+  try {
+    await rpcSingle<ArchiveScheduleVersionAtomicRow>(client, 'archive_schedule_version_atomic', {
+      p_version_id: version.id,
+      p_replacement_selected_version_id: request.replacementSelectedVersionId ?? null,
+      p_archived_by: auth.userId,
+    });
+  } catch (error: unknown) {
+    remapDeleteVersionRpcConflict(error);
+  }
+
+  const refreshedSchedule = await loadAuthorizedSchedule(client, auth, schedule.id);
+  return buildCompareResponse(client, refreshedSchedule);
+}
+
+export async function deleteGeneratedResults(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  scheduleId: string,
+  request: DeleteGeneratedResultsRequest
+): Promise<CompareResponse> {
+  const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
+  const sourceVersion = await loadVersionById(client, request.sourceVersionId);
+
+  if (!sourceVersion || sourceVersion.schedule_id !== schedule.id) {
+    throw new ContractError('version_not_found', 'Version not found', 404);
+  }
+
+  assertVersionNotArchived(sourceVersion);
+
+  try {
+    await rpcSingle<ResetScheduleGeneratedResultsAtomicRow>(
+      client,
+      'reset_schedule_generated_results_atomic',
+      {
+        p_schedule_id: schedule.id,
+        p_source_version_id: sourceVersion.id,
+        p_reset_by: auth.userId,
+      }
+    );
+  } catch (error: unknown) {
+    remapDeleteGeneratedResultsRpcConflict(error);
+  }
+
+  const refreshedSchedule = await loadAuthorizedSchedule(client, auth, schedule.id);
+  return buildCompareResponse(client, refreshedSchedule);
 }
 
 export async function ensure(

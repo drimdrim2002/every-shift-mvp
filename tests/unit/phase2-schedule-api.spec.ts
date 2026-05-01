@@ -1292,4 +1292,75 @@ describe('phase2 schedule api helpers', () => {
       })
     );
   });
+
+  it('calls the delete version and delete generated results mutation routes through phase2-schedule edge function', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-delete-routes',
+        },
+      },
+      error: null,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-44',
+            schedulePublicId: 'sch_a1b2c3d4e5f6',
+            organizationId: '11111111-1111-4111-8111-111111111111',
+            month: '2026-04',
+            selectedVersionId: 'version-45',
+            finalizedVersionId: null,
+            activeSolvingVersionId: null,
+            versions: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-44',
+            schedulePublicId: 'sch_a1b2c3d4e5f6',
+            organizationId: '11111111-1111-4111-8111-111111111111',
+            month: '2026-04',
+            selectedVersionId: null,
+            finalizedVersionId: null,
+            activeSolvingVersionId: null,
+            versions: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      );
+
+    const {
+      deletePhase2ScheduleGeneratedResults,
+      deletePhase2ScheduleVersion,
+    } = await import('@/api/schedule');
+
+    await deletePhase2ScheduleVersion('version-44');
+    await deletePhase2ScheduleGeneratedResults('schedule-44', {
+      sourceVersionId: '22222222-2222-4222-8222-222222222222',
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-44/delete',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-44/delete-generated-results',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          sourceVersionId: '22222222-2222-4222-8222-222222222222',
+        }),
+      })
+    );
+  });
 });

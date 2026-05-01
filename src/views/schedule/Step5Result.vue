@@ -54,6 +54,7 @@
             @toggle-compare="handleToggleCompareVersion"
             @focus-version="handleFocusVersionChange"
             @select-version="handleSelectCandidateVersion"
+            @delete-version="handleDeleteVersion"
           />
 
           <div class="my-6">
@@ -320,26 +321,6 @@
 
             <div class="flex flex-col gap-4 sm:flex-row">
               <n-button
-                v-if="canCancel && shouldShowResultDetails"
-                size="medium"
-                type="warning"
-                :disabled="isVersionReadOnly"
-                @click="handleResetCurrentVersion"
-              >
-                현재 안 초기화
-              </n-button>
-
-              <n-button
-                v-if="canCancel && shouldShowResultDetails"
-                size="medium"
-                type="error"
-                :disabled="isResetActiveFlowDisabled"
-                @click="handleResetActiveMonthFlow"
-              >
-                이번 달 새로 시작
-              </n-button>
-
-              <n-button
                 v-if="scheduleId && scheduleStore.basicInfo"
                 size="medium"
                 type="error"
@@ -439,15 +420,15 @@ import {
   getScheduleStatus,
   getScheduleVersionAssignments,
   getScheduleVersionPreferences,
-  resetPhase2ScheduleActiveFlow,
   deletePhase2ScheduleMonth,
+  deletePhase2ScheduleGeneratedResults,
+  deletePhase2ScheduleVersion,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
   selectPhase2ScheduleVersion,
   recheckPhase2ScheduleVersion,
   finalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
-  deleteThisMonthVersionAssignments,
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
@@ -673,9 +654,6 @@ const isInputEditDisabled = computed(() => {
   return isRunning.value
     || previewVersionStatus.value === 'solving'
     || getActiveSolvingVersionId() !== null;
-});
-const isResetActiveFlowDisabled = computed(() => {
-  return Boolean(lockedVersionId.value) || !scheduleId.value;
 });
 const isDeleteMonthScheduleDisabled = computed(() => {
   const basicInfo = scheduleStore.basicInfo;
@@ -919,26 +897,6 @@ const shiftColors = computed(() => {
 
 const knownShiftCodes = computed(() => {
   return new Set(organizationStore.shifts.map((shift) => shift.code));
-});
-
-const canCancel = computed(() => {
-  if (solver.status.value === 'complete' || solver.status.value === 'changed') {
-    return true;
-  }
-
-  if (!scheduleStore.basicInfo?.month) return false;
-
-  const currentMonth = scheduleStore.basicInfo.month;
-
-  for (const dateMap of Object.values(currentScheduleAssignments.value)) {
-    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
-      if (date.startsWith(currentMonth) && shiftCode) {
-        return true;
-      }
-    }
-  }
-
-  return false;
 });
 
 function resetRealtimeState() {
@@ -2138,6 +2096,45 @@ async function handleSelectCandidateVersion(versionId: string) {
   }
 }
 
+function getDeleteVersionReplacement(versionId: string): string | undefined {
+  if (versionId !== selectedVersionId.value) {
+    return undefined;
+  }
+
+  return previewVersionId.value ?? undefined;
+}
+
+async function handleDeleteVersion(versionId: string) {
+  if (versionId === previewVersionId.value) {
+    return;
+  }
+
+  if (changedCells.value.size > 0) {
+    showInfo('저장되지 않은 변경사항이 있어 비교안을 삭제할 수 없습니다. 먼저 저장하거나 변경 사항을 취소해주세요.');
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '이 안 삭제',
+    content: '이 안을 삭제할까요? 삭제한 안의 생성 결과와 비교 이력은 사라집니다. 현재 자세히 보는 안은 유지됩니다.',
+    positiveText: '삭제',
+    negativeText: '취소',
+    onPositiveClick: async () => {
+      try {
+        await deletePhase2ScheduleVersion(versionId, {
+          replacementSelectedVersionId: getDeleteVersionReplacement(versionId),
+        });
+
+        await hub.hydrate();
+        showSuccess('안을 삭제했습니다.');
+      } catch (error) {
+        console.warn('비교안 삭제 중 오류:', error);
+        showError(error instanceof Error ? error.message : '안을 삭제하는 중 오류가 발생했습니다.');
+      }
+    },
+  });
+}
+
 async function handlePrimaryAction() {
   if (isPrimaryActionRunning.value) {
     return;
@@ -2372,84 +2369,92 @@ function handleSave() {
   });
 }
 
-async function handleResetCurrentVersion() {
-  window.$dialog?.warning({
-    title: '현재 안 초기화',
-    content: `현재 보고 있는 안의 이번 달 결과만 비우고 Step4로 돌아가시겠습니까?\n\n비교안 이력은 유지되며, 이 안의 이번 달 배정만 초기화됩니다.`,
-    positiveText: '초기화',
-    negativeText: '취소',
-    onPositiveClick: async () => {
-      try {
-        const currentMonth = scheduleStore.basicInfo?.month;
-        if (!currentMonth) {
-          showError('현재 월 정보를 찾을 수 없습니다');
-          return;
-        }
-        if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-          showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
-          return;
-        }
-
-        await deleteThisMonthVersionAssignments(
-          ensureScheduleId(),
-          previewVersionId.value,
-          currentMonth
-        );
-
-        solver.stopPolling();
-        stopAssignmentsRefresh();
-
-        currentScheduleAssignments.value = {};
-        rebuildDisplayAssignments();
-
-        clearTempPreferenceStorage();
-
-        showSuccess('현재 안의 이번 달 결과를 초기화했습니다.');
-        router.push(getScheduleStepRoutePath(4));
-      } catch (error) {
-        console.error('Current version reset error:', error);
-        showError('현재 안 초기화 중 오류가 발생했습니다');
-      }
-    },
-  });
+function clearResultOnlyLocalState() {
+  currentScheduleAssignments.value = {};
+  changedCells.value.clear();
+  originalCurrentAssignments.value = {};
+  policyRejectionSummariesCurrentMonth.value = [];
+  scheduleStore.setLatestEvaluation(null);
+  resetRealtimeState();
+  rebuildDisplayAssignments({});
 }
 
-async function handleResetActiveMonthFlow() {
-  if (isResetActiveFlowDisabled.value) {
-    showInfo('확정본이 있는 월은 이번 달 새로 시작을 사용할 수 없습니다.');
+async function handleDeleteGeneratedResults() {
+  if (!canMutatePreviewVersion.value || !previewVersionId.value) {
+    showInfo('현재 자세히 보는 안 상태에서는 생성 결과를 삭제할 수 없습니다.');
     return;
   }
 
-  window.$dialog?.warning({
-    title: '이번 달 새로 시작',
-    content: `비교안, 저장된 입력 요청, 이번 달 결과를 초기화하고 새로 시작하시겠습니까?\n\n확정본이 없는 현재 작업 흐름만 정리되며, 이 작업은 되돌릴 수 없습니다.`,
-    positiveText: '새로 시작',
-    negativeText: '취소',
-    onPositiveClick: async () => {
-      try {
-        const resetResponse = await resetPhase2ScheduleActiveFlow(ensureScheduleId());
+  try {
+    const resetResponse = await deletePhase2ScheduleGeneratedResults(ensureScheduleId(), {
+      sourceVersionId: previewVersionId.value,
+    });
 
-        solver.stopPolling();
-        stopAssignmentsRefresh();
+    solver.stopPolling();
+    stopAssignmentsRefresh();
+    clearResultOnlyLocalState();
 
-        currentScheduleAssignments.value = {};
-        changedCells.value.clear();
-        originalCurrentAssignments.value = {};
-        rebuildDisplayAssignments();
+    scheduleStore.setCompareMatrix(resetResponse);
+    scheduleStore.setSelectedVersionId(resetResponse.selectedVersionId);
+    scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
 
-        clearTempPreferenceStorage();
-        scheduleStore.setCompareMatrix(resetResponse);
-        scheduleStore.setSelectedVersionId(resetResponse.selectedVersionId);
-        scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
+    await loadPreferencesForDisplay();
+    clearTempPreferenceStorage();
 
-        showSuccess('이번 달을 새로 시작합니다. Step4에서 다시 입력해주세요.');
-        router.push(getScheduleStepRoutePath(4));
-      } catch (error) {
-        console.error('Reset active flow error:', error);
-        showError(error instanceof Error ? error.message : '이번 달 새로 시작 중 오류가 발생했습니다.');
-      }
-    },
-  });
+    showSuccess('생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.');
+    await router.push(getScheduleStepRoutePath(4));
+  } catch (error) {
+    console.error('Delete generated results error:', error);
+    showError(error instanceof Error ? error.message : '생성 결과 삭제 중 오류가 발생했습니다.');
+  }
+}
+
+async function handleDeleteWholeMonthSchedule() {
+  const basicInfo = scheduleStore.basicInfo;
+  if (!basicInfo?.organizationId || !basicInfo.month) {
+    showError('조직 또는 월 정보를 찾을 수 없습니다.');
+    return;
+  }
+
+  isDeletingMonthSchedule.value = true;
+
+  try {
+    await deletePhase2ScheduleMonth({
+      organizationId: basicInfo.organizationId,
+      month: basicInfo.month,
+    });
+
+    solver.stopPolling();
+    stopAssignmentsRefresh();
+    resetRealtimeState();
+
+    currentScheduleAssignments.value = {};
+    previousMonthAssignments.value = {};
+    changedCells.value.clear();
+    originalCurrentAssignments.value = {};
+    offRequestsCurrentMonth.value = {};
+    offRequestNotesCurrentMonth.value = {};
+    policyRejectionSummariesCurrentMonth.value = [];
+    rebuildDisplayAssignments({});
+
+    clearTempPreferenceStorage();
+    scheduleStore.setBasicInfo({
+      ...basicInfo,
+      scheduleId: undefined,
+      schedulePublicId: undefined,
+    });
+    scheduleStore.resetReviewState();
+    scheduleStore.setAssignments({});
+    scheduleStore.setComments({});
+
+    showSuccess('이번 달 근무표를 삭제했습니다.');
+    await router.replace(getAppHomeRoutePath());
+  } catch (error) {
+    console.error('Delete month schedule error:', error);
+    showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');
+  } finally {
+    isDeletingMonthSchedule.value = false;
+  }
 }
 
 async function handleDeleteMonthSchedule() {
@@ -2466,50 +2471,11 @@ async function handleDeleteMonthSchedule() {
 
   window.$dialog?.warning({
     title: '이번 달 근무표 삭제',
-    content: `${basicInfo.month} 근무표의 비교안, 입력 요청, 생성 결과를 모두 삭제합니다.\n\n확정본이 있는 월은 삭제할 수 없습니다. 이 작업은 되돌릴 수 없습니다.`,
-    positiveText: '삭제',
-    negativeText: '취소',
-    onPositiveClick: async () => {
-      isDeletingMonthSchedule.value = true;
-
-      try {
-        await deletePhase2ScheduleMonth({
-          organizationId: basicInfo.organizationId,
-          month: basicInfo.month,
-        });
-
-        solver.stopPolling();
-        stopAssignmentsRefresh();
-        resetRealtimeState();
-
-        currentScheduleAssignments.value = {};
-        previousMonthAssignments.value = {};
-        changedCells.value.clear();
-        originalCurrentAssignments.value = {};
-        offRequestsCurrentMonth.value = {};
-        offRequestNotesCurrentMonth.value = {};
-        policyRejectionSummariesCurrentMonth.value = [];
-        rebuildDisplayAssignments({});
-
-        clearTempPreferenceStorage();
-        scheduleStore.setBasicInfo({
-          ...basicInfo,
-          scheduleId: undefined,
-          schedulePublicId: undefined,
-        });
-        scheduleStore.resetReviewState();
-        scheduleStore.setAssignments({});
-        scheduleStore.setComments({});
-
-        showSuccess('이번 달 근무표를 삭제했습니다.');
-        await router.replace(getAppHomeRoutePath());
-      } catch (error) {
-        console.error('Delete month schedule error:', error);
-        showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');
-      } finally {
-        isDeletingMonthSchedule.value = false;
-      }
-    },
+    content: `${basicInfo.month} 근무표 삭제 범위를 선택해주세요.\n\n생성 결과만 삭제하면 Off 요청은 유지한 채 Step4로 돌아갑니다. 이번 달 전체 삭제는 입력 요청과 생성 결과를 모두 삭제하고 홈으로 이동합니다.`,
+    positiveText: '생성 결과만 삭제',
+    negativeText: '이번 달 전체 삭제',
+    onPositiveClick: () => handleDeleteGeneratedResults(),
+    onNegativeClick: () => handleDeleteWholeMonthSchedule(),
   });
 }
 

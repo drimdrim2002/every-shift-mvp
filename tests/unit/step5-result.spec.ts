@@ -31,6 +31,8 @@ const {
   finalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonthMock,
+  deletePhase2ScheduleGeneratedResultsMock,
+  deletePhase2ScheduleVersionMock,
   createPhase2ScheduleVersionMock,
   patchPhase2ScheduleVersionAssignmentsMock,
   refreshPreferenceResolutionByVersionMock,
@@ -58,6 +60,8 @@ const {
   finalizePhase2ScheduleVersionMock: vi.fn(),
   resetPhase2ScheduleActiveFlowMock: vi.fn(),
   deletePhase2ScheduleMonthMock: vi.fn(),
+  deletePhase2ScheduleGeneratedResultsMock: vi.fn(),
+  deletePhase2ScheduleVersionMock: vi.fn(),
   createPhase2ScheduleVersionMock: vi.fn(),
   patchPhase2ScheduleVersionAssignmentsMock: vi.fn(),
   refreshPreferenceResolutionByVersionMock: vi.fn(),
@@ -94,6 +98,8 @@ vi.mock('@/api/schedule', () => ({
   finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlow: resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonth: deletePhase2ScheduleMonthMock,
+  deletePhase2ScheduleGeneratedResults: deletePhase2ScheduleGeneratedResultsMock,
+  deletePhase2ScheduleVersion: deletePhase2ScheduleVersionMock,
   refreshPreferenceResolutionByVersion: refreshPreferenceResolutionByVersionMock,
   resetPreferenceResolutionByVersion: resetPreferenceResolutionByVersionMock,
   submitPhase2ScheduleVersionSolverResult: submitPhase2ScheduleVersionSolverResultMock,
@@ -595,6 +601,34 @@ describe('Step5Result', () => {
     deletePhase2ScheduleMonthMock.mockResolvedValue({
       deletedScheduleId: 'schedule-1',
     })
+    deletePhase2ScheduleGeneratedResultsMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+      ],
+    })
+    deletePhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'review_ready',
+        }),
+      ],
+    })
     submitPhase2ScheduleVersionSolverResultMock.mockResolvedValue({
       scheduleVersionId: 'version-2',
       status: 'solve_failed',
@@ -967,7 +1001,7 @@ describe('Step5Result', () => {
     expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
-  it('splits reset actions and resets the active month flow through the new API', async () => {
+  it('removes the old reset CTAs and opens a two-path delete dialog', async () => {
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       warning: warningMock,
@@ -976,17 +1010,38 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('현재 안 초기화')
-    expect(wrapper.text()).toContain('이번 달 새로 시작')
+    expect(wrapper.text()).not.toContain('현재 안 초기화')
+    expect(wrapper.text()).not.toContain('이번 달 새로 시작')
 
-    const resetMonthButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('이번 달 새로 시작'))
-    expect(resetMonthButton).toBeTruthy()
+    const deleteMonthButton = wrapper.get('[data-test="delete-month-schedule-button"]')
 
-    await resetMonthButton!.trigger('click')
+    await deleteMonthButton.trigger('click')
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
+    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
+      positiveText?: string
+      negativeText?: string
+    }
+
+    expect(dialogConfig.positiveText).toBe('생성 결과만 삭제')
+    expect(dialogConfig.negativeText).toBe('이번 달 전체 삭제')
+  })
+
+  it('deletes generated results only and routes back to Step4', async () => {
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      warning: warningMock,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    const deleteMonthButton = wrapper.get('[data-test="delete-month-schedule-button"]')
+
+    await deleteMonthButton.trigger('click')
+    await flushPromises()
 
     const dialogConfig = warningMock.mock.calls[0]?.[0] as {
       onPositiveClick?: () => void | Promise<void>
@@ -994,41 +1049,25 @@ describe('Step5Result', () => {
     await dialogConfig.onPositiveClick?.()
     await flushPromises()
 
-    expect(resetPhase2ScheduleActiveFlowMock).toHaveBeenCalledWith('schedule-1')
+    expect(deletePhase2ScheduleGeneratedResultsMock).toHaveBeenCalledWith('schedule-1', {
+      sourceVersionId: 'version-2',
+    })
+    expect(solverMock.stopPolling).toHaveBeenCalled()
+    expect(scheduleStoreMock.setCompareMatrix).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+      })
+    )
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(showSuccessMock).toHaveBeenCalledWith(
+      '생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+    )
     expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
-  it('disables month reset when the schedule is already finalized', async () => {
-    getPhase2ScheduleCompareMock.mockResolvedValue({
-      scheduleId: 'schedule-1',
-      selectedVersionId: 'version-2',
-      finalizedVersionId: 'version-2',
-      activeSolvingVersionId: null,
-      versions: [
-        createVersionSummary({ id: 'version-1', versionNo: 1 }),
-        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true, isFinalized: true, status: 'finalized' }),
-      ],
-    })
-    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) =>
-      Promise.resolve(createReviewResponse(versionId, {
-        finalizedVersionId: 'version-2',
-        version: {
-          status: versionId === 'version-2' ? 'finalized' : 'draft',
-          isFinalized: versionId === 'version-2',
-        },
-      }))
-    )
-
-    const wrapper = createWrapper()
-    await flushPromises()
-
-    const resetMonthButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('이번 달 새로 시작'))
-    expect(resetMonthButton).toBeTruthy()
-    expect(resetMonthButton?.attributes('disabled')).toBeDefined()
-  })
-
-  it('deletes every schedule record for the organization month after confirmation', async () => {
+  it('deletes the whole month after choosing the full-delete path', async () => {
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       warning: warningMock,
@@ -1046,9 +1085,9 @@ describe('Step5Result', () => {
     expect(warningMock).toHaveBeenCalledTimes(1)
 
     const dialogConfig = warningMock.mock.calls[0]?.[0] as {
-      onPositiveClick?: () => void | Promise<void>
+      onNegativeClick?: () => void | Promise<void>
     }
-    await dialogConfig.onPositiveClick?.()
+    await dialogConfig.onNegativeClick?.()
     await flushPromises()
 
     expect(deletePhase2ScheduleMonthMock).toHaveBeenCalledWith({
@@ -1096,6 +1135,107 @@ describe('Step5Result', () => {
     const deleteMonthButton = wrapper.get('[data-test="delete-month-schedule-button"]')
 
     expect(deleteMonthButton.attributes('disabled')).toBeDefined()
+  })
+
+  it('deletes a selected non-focused compare card with preview replacement and rehydrates the route', async () => {
+    routeMock.query = {
+      version: 'version-1',
+      compare: 'version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'review_ready',
+          manualEditCount: 1,
+          latestEvaluationId: 'evaluation-1',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_ready',
+          manualEditCount: 2,
+          latestEvaluationId: 'evaluation-2',
+        }),
+      ],
+    })
+
+    const warningMock = vi.fn()
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      warning: warningMock,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    routeMock.query = {
+      version: 'version-1',
+      compare: 'version-2',
+    }
+
+    await wrapper.get('[data-test="delete-version-version-2"]').trigger('click')
+    await flushPromises()
+
+    expect(warningMock).toHaveBeenCalledTimes(1)
+
+    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => void | Promise<void>
+    }
+    await dialogConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(deletePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2', {
+      replacementSelectedVersionId: 'version-1',
+    })
+    expect(showSuccessMock).toHaveBeenCalledWith('안을 삭제했습니다.')
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalled()
+  })
+
+  it('blocks compare-card deletion when the preview has unsaved changes', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'review_ready',
+          manualEditCount: 1,
+          latestEvaluationId: 'evaluation-1',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_ready',
+          manualEditCount: 2,
+          latestEvaluationId: 'evaluation-2',
+        }),
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="delete-version-version-1"]').trigger('click')
+    await flushPromises()
+
+    expect(deletePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith(
+      '저장되지 않은 변경사항이 있어 비교안을 삭제할 수 없습니다. 먼저 저장하거나 변경 사항을 취소해주세요.'
+    )
   })
 
   it('hides comparison tools on first entry when there is only a single working version state', async () => {

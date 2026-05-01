@@ -4,7 +4,9 @@ import {
   allowedMethods,
   ContractError,
   parseCreateVersionRequest,
+  parseDeleteGeneratedResultsRequest,
   parseDeleteMonthRequest,
+  parseDeleteScheduleVersionRequest,
   type ErrorEnvelope,
   type HttpMethod,
   matchRoute,
@@ -22,6 +24,8 @@ import { createCorsHeaders } from './cors.ts';
 import {
   compare as compareVersion,
   createVersion,
+  deleteGeneratedResults,
+  deleteVersion,
   deleteScheduleMonth,
   ensure as ensureSchedule,
   finalizeVersion,
@@ -37,6 +41,8 @@ import {
 import type {
   CompareResponse,
   CreateVersionResponse,
+  DeleteGeneratedResultsResponse,
+  DeleteScheduleVersionResponse,
   DeleteMonthResponse,
   EnsureResponse,
   PatchAssignmentsResponse,
@@ -53,6 +59,8 @@ import type {
 type ApiResponseBody =
   | CompareResponse
   | CreateVersionResponse
+  | DeleteGeneratedResultsResponse
+  | DeleteScheduleVersionResponse
   | DeleteMonthResponse
   | EnsureResponse
   | PatchAssignmentsResponse
@@ -252,6 +260,19 @@ Deno.serve(async (request) => {
       return createResponse(request, result, 200);
     }
 
+    if (route.route === 'deleteVersion') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const payload = await parseJsonBody(request);
+      const deleteVersionInput = parseDeleteScheduleVersionRequest(payload);
+      const result: DeleteScheduleVersionResponse = await deleteVersion(
+        repositoryClient,
+        auth,
+        versionId,
+        deleteVersionInput
+      );
+      return createResponse(request, result, 200);
+    }
+
     if (route.route === 'resetRoster') {
       const payload = await parseJsonBody(request);
       const resetRosterInput = parseResetRosterRequest(payload);
@@ -269,6 +290,19 @@ Deno.serve(async (request) => {
         repositoryClient,
         auth,
         scheduleId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'deleteGeneratedResults') {
+      const scheduleId = parseUuidParam('scheduleId', route.params.scheduleId);
+      const payload = await parseJsonBody(request);
+      const deleteGeneratedResultsInput = parseDeleteGeneratedResultsRequest(payload);
+      const result: DeleteGeneratedResultsResponse = await deleteGeneratedResults(
+        repositoryClient,
+        auth,
+        scheduleId,
+        deleteGeneratedResultsInput
       );
       return createResponse(request, result, 200);
     }

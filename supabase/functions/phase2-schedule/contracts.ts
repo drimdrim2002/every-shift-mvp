@@ -5,8 +5,10 @@ export type RouteName =
   | 'review'
   | 'select'
   | 'createVersion'
+  | 'deleteVersion'
   | 'resetRoster'
   | 'resetActiveFlow'
+  | 'deleteGeneratedResults'
   | 'deleteMonth'
   | 'solve'
   | 'solverResult'
@@ -214,6 +216,12 @@ export interface CreateVersionResponse {
   versions: ScheduleVersionSummary[];
 }
 
+export interface DeleteScheduleVersionRequest {
+  replacementSelectedVersionId?: string;
+}
+
+export type DeleteScheduleVersionResponse = CompareResponse;
+
 export interface ResetRosterEmployeeInput {
   employeeId: string;
   name: string;
@@ -241,6 +249,12 @@ export interface ResetActiveFlowResponse {
   activeSolvingVersionId: string | null;
   versions: ScheduleVersionSummary[];
 }
+
+export interface DeleteGeneratedResultsRequest {
+  sourceVersionId: string;
+}
+
+export type DeleteGeneratedResultsResponse = CompareResponse;
 
 export interface DeleteMonthRequest {
   organizationId: string;
@@ -367,6 +381,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     segments: ['schedules', 'reset-roster'],
   },
   {
+    name: 'deleteGeneratedResults',
+    methods: ['POST'],
+    segments: ['schedules', ':scheduleId', 'delete-generated-results'],
+  },
+  {
     name: 'resetActiveFlow',
     methods: ['POST'],
     segments: ['schedules', ':scheduleId', 'reset-active-flow'],
@@ -385,6 +404,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'select',
     methods: ['POST'],
     segments: ['schedule-versions', ':versionId', 'select'],
+  },
+  {
+    name: 'deleteVersion',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'delete'],
   },
   {
     name: 'solve',
@@ -815,6 +839,58 @@ export function parseDeleteMonthRequest(payload: unknown): DeleteMonthRequest {
   }
 
   return { organizationId, month };
+}
+
+export function parseDeleteScheduleVersionRequest(
+  payload: unknown
+): DeleteScheduleVersionRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError('bad_request', 'delete version request must be a JSON object', 400);
+  }
+
+  const record = payload as Record<string, unknown>;
+  const replacementSelectedVersionId = record.replacementSelectedVersionId;
+
+  if (
+    replacementSelectedVersionId !== undefined
+    && (
+      typeof replacementSelectedVersionId !== 'string'
+      || !isValidUuid(replacementSelectedVersionId)
+    )
+  ) {
+    throw new ContractError(
+      'bad_request',
+      'replacementSelectedVersionId must be a valid UUID',
+      400
+    );
+  }
+
+  return typeof replacementSelectedVersionId === 'string'
+    ? { replacementSelectedVersionId }
+    : {};
+}
+
+export function parseDeleteGeneratedResultsRequest(
+  payload: unknown
+): DeleteGeneratedResultsRequest {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new ContractError(
+      'bad_request',
+      'delete generated results request must be a JSON object',
+      400
+    );
+  }
+
+  const record = payload as Record<string, unknown>;
+  const sourceVersionId = typeof record.sourceVersionId === 'string'
+    ? record.sourceVersionId
+    : '';
+
+  if (!isValidUuid(sourceVersionId)) {
+    throw new ContractError('bad_request', 'sourceVersionId must be a valid UUID', 400);
+  }
+
+  return { sourceVersionId };
 }
 
 export function parseScheduleVersionSolveRequest(payload: unknown): SolveRequest {
