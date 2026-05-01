@@ -1,8 +1,12 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+  <AuthPageShell
+    eyebrow="EveryShift 시작하기"
+    title="회원가입"
+    description="관리자는 병원을 선택해 가입 신청하고, 사용자는 초대코드로 참여합니다."
+  >
     <n-card
-      class="w-full max-w-xl"
-      title="everyshift 회원가입"
+      class="mx-auto w-full max-w-xl lg:mr-0"
+      title="회원가입"
     >
       <n-alert
         v-if="resultNextState === 'pending_approval'"
@@ -155,12 +159,12 @@
         </n-button>
       </n-form>
     </n-card>
-  </div>
+  </AuthPageShell>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormItemRule, FormRules, SelectOption } from 'naive-ui'
 import {
   NAlert,
@@ -175,6 +179,7 @@ import {
 } from 'naive-ui'
 import { searchHospitals } from '@/api/hospital'
 import { getSignupErrorMessage, submitSignup } from '@/api/signup'
+import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 import { LOGIN_ROUTE_PATH } from '@/constants/routes'
 import type { SignupNextState, SignupRole } from '@/types/signup'
 import { showError, showInfo, showSuccess } from '@/utils/message'
@@ -189,6 +194,11 @@ interface SignupFormValue {
   inviteCode: string
 }
 
+function resolveInitialSignupRole(value: unknown): SignupRole {
+  return value === 'user' ? 'user' : 'admin'
+}
+
+const route = useRoute()
 const router = useRouter()
 
 const formRef = ref<FormInst | null>(null)
@@ -202,7 +212,7 @@ const formValue = ref<SignupFormValue>({
   name: '',
   email: '',
   password: '',
-  role: 'admin',
+  role: resolveInitialSignupRole(route.query.role),
   hospitalKeyword: '',
   hospitalId: null,
   inviteCode: '',
