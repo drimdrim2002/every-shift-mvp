@@ -2,7 +2,7 @@
   <AuthPageShell
     eyebrow="EveryShift에 오신 것을 환영합니다"
     title="로그인"
-    description="승인된 병원 계정으로 근무표 작업 공간에 들어갑니다."
+    description="승인된 계정으로 근무표 작업 공간에 들어갑니다."
   >
     <n-card
       data-test="login-card"
