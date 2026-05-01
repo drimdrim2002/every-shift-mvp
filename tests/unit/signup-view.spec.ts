@@ -230,6 +230,15 @@ describe('Signup view', () => {
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
   })
 
+  it('opens admin signup when role=admin is provided', () => {
+    routeState.value = { query: { role: 'admin' } }
+
+    const wrapper = mount(Signup)
+
+    expect(wrapper.text()).toContain('병원 목록 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
+  })
+
   it('opens invite-code signup when role=user is provided', () => {
     routeState.value = { query: { role: 'user' } }
 
