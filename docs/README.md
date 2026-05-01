@@ -9,12 +9,25 @@
 ```
 docs/
 ├── README.md                    # 이 파일 (문서 안내)
+├── database/                    # 현재 DB/ERD 문서
 ├── launch/                      # Public Beta 출시 문서
 ├── prd/                         # 제품 기획서 (Product Requirements Document)
 ├── setup/                       # 설정 및 설치 가이드
 ├── integration/                 # 통합 가이드
 └── verification/                # 테스트 및 검증
 ```
+
+---
+
+## 🗄️ Database (현재 DB/ERD)
+
+**경로**: `database/`
+
+현재 Supabase schema 중 실제 런타임에서 사용하는 테이블과 관계를 설명합니다.
+
+| 파일                    | 용도                                     |
+| ----------------------- | ---------------------------------------- |
+| `used-tables-erd.ko.md` | 현재 사용 테이블 기준 ERD 및 테이블 역할 |
 
 ---
 
