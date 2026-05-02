@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "database/used-tables-erd.ko.md",
+                "file": "integration/frontend-integration-guide.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "used-tables-erd.ko"
+              "title": "frontend-integration-guide"
             }
           }
         ]
@@ -94,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "database/used-tables-erd.ko.md",
+                "file": "integration/frontend-integration-guide.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -104,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "used-tables-erd.ko 의 백링크"
+              "title": "frontend-integration-guide 의 백링크"
             }
           },
           {
@@ -113,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "database/used-tables-erd.ko.md",
+                "file": "integration/frontend-integration-guide.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "used-tables-erd.ko 의 나가는 링크"
+              "title": "frontend-integration-guide 의 나가는 링크"
             }
           },
           {
@@ -156,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "database/used-tables-erd.ko.md",
+                "file": "integration/frontend-integration-guide.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "used-tables-erd.ko 의 개요"
+              "title": "frontend-integration-guide 의 개요"
             }
           }
         ]
@@ -184,5 +184,22 @@
     }
   },
   "active": "b48a9e68260cb090",
-  "lastOpenFiles": ["integration/frontend-integration-guide.md", "database/used-tables-erd.ko.md"]
+  "lastOpenFiles": [
+    "plans/2026-05-01-step5-version-delete-month-delete-ux.ko.md",
+    "plans/2026-05-01-social-auth-login-signup-session-handoff.ko.md",
+    "plans/2026-05-01-social-auth-login-signup.ko.md",
+    "todo/image.png",
+    "todo/06-login-signup-improvement.md",
+    "todo/05-first-impression.md",
+    "todo/04-dashboard-analystics.md",
+    "todo/03-rolling-process.md",
+    "todo/02-compare-version.md",
+    "todo/01-result-review.md",
+    "todo",
+    "plans/2026-05-01-auth-login-signup-redesign.md",
+    "plans/2026-05-01-auth-login-signup-redesign.ko.md",
+    "database/used-tables-erd.ko.md",
+    "database",
+    "integration/frontend-integration-guide.md"
+  ]
 }
