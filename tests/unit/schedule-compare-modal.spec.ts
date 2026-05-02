@@ -148,6 +148,37 @@ describe('ScheduleCompareModal', () => {
     expect(wrapper.emitted('delete-version')).toEqual([['version-2']])
   })
 
+  it('describes the modal as an Off-request and mandatory-rule decision surface', async () => {
+    mountModal()
+    await flushPromises()
+
+    expect(document.body.textContent).toContain(
+      'Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.',
+    )
+  })
+
+  it('renders the decision workspace before the candidate shelf when two plans can be compared', async () => {
+    mountModal()
+    await flushPromises()
+
+    const workspace = document.querySelector('[data-test="comparison-workspace"]')
+    const shelf = document.querySelector('[data-test="comparison-candidate-shelf-section"]')
+
+    expect(workspace).toBeTruthy()
+    expect(shelf).toBeTruthy()
+    expect(
+      workspace!.compareDocumentPosition(shelf!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('keeps loading state modal-local and does not render the decision workspace while loading', async () => {
+    mountModal({ loading: true })
+    await flushPromises()
+
+    expect(document.querySelector('[data-test="compare-modal-loading"]')).toBeTruthy()
+    expect(document.querySelector('[data-test="comparison-workspace"]')).toBeNull()
+  })
+
   it('keeps load failures modal-local and emits retry', async () => {
     const wrapper = mountModal({
       errorMessage: '네트워크 오류',
