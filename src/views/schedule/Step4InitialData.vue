@@ -586,7 +586,7 @@ const hasHiddenUnappliedDraft = computed(() => {
   return hasUnappliedDraft.value && !isRequestDrawerOpen.value;
 });
 const requestDrawerCtaLabel = computed(() => {
-  return hasHiddenUnappliedDraft.value ? '요청 입력 계속하기' : 'Off 요청 입력하기';
+  return hasHiddenUnappliedDraft.value ? '요청 입력 계속하기' : 'Off 요청 입력';
 });
 const requestDrawerStatusCopy = computed(() => {
   return hasHiddenUnappliedDraft.value
