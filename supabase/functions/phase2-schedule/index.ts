@@ -20,7 +20,7 @@ import {
   parseScheduleVersionSolveRequest,
   parseScheduleVersionSolverResultRequest,
 } from './contracts.ts';
-import { createCorsHeaders } from './cors.ts';
+import { createErrorResponse, createJsonResponse, withCorsHeaders } from './http.ts';
 import {
   compare as compareVersion,
   createVersion,
@@ -74,87 +74,8 @@ type ApiResponseBody =
   | SolverResultResponse
   | ErrorEnvelope;
 
-function withCorsHeaders(request: Request, init: ResponseInit = {}): ResponseInit {
-  return {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...createCorsHeaders(request),
-      ...(init.headers || {}),
-    },
-  };
-}
-
 function createResponse(request: Request, body: ApiResponseBody, status = 200): Response {
-  return new Response(JSON.stringify(body), withCorsHeaders(request, { status }));
-}
-
-function createErrorResponse(request: Request, code: string, message: string, status: number): Response {
-  return createResponse(request, { code, message }, status);
-}
-
-function mapErrorToStatus(code: string): number {
-  switch (code) {
-    case 'unauthorized':
-      return 401;
-    case 'organization_context_missing':
-    case 'organization_access_denied':
-      return 403;
-    case 'already_finalized':
-    case 'invalid_selection_state':
-    case 'solver_execution_mismatch':
-    case 'stale_solver_callback':
-    case 'another_version_solving':
-    case 'stale_evaluation':
-    case 'review_not_passed':
-    case 'not_review_ready':
-    case 'gate_blocked':
-    case 'not_selected_version':
-    case 'version_locked_for_solving':
-    case 'conflict':
-      return 409;
-    case 'not_found':
-    case 'schedule_not_found':
-    case 'version_not_found':
-    case 'missing_schedule':
-    case 'missing_version':
-      return 404;
-    case 'method_not_allowed':
-      return 405;
-    case 'bad_request':
-      return 400;
-    default:
-      return 500;
-  }
-}
-
-function errorEnvelopeFromUnknown(error: unknown): ErrorEnvelope {
-  if (error instanceof ContractError) {
-    return { code: error.code, message: error.message };
-  }
-
-  if (typeof error === 'object' && error !== null) {
-    const candidate = error as { code?: unknown; message?: unknown };
-
-    if (typeof candidate.code === 'string' && typeof candidate.message === 'string') {
-      return {
-        code: candidate.code,
-        message: candidate.message,
-      };
-    }
-  }
-
-  if (error instanceof Error) {
-    return {
-      code: 'internal_error',
-      message: error.message,
-    };
-  }
-
-  return {
-    code: 'internal_error',
-    message: 'Internal server error',
-  };
+  return createJsonResponse(request, body, status);
 }
 
 function createAuthClient() {
@@ -206,7 +127,7 @@ Deno.serve(async (request) => {
   const route = matchRoute(normalizePathSegments(pathname));
 
   if (!route) {
-    return createErrorResponse(request, 'not_found', 'Not found', 404);
+    return createJsonResponse(request, { code: 'not_found', message: 'Not found' }, 404);
   }
 
   const method = request.method.toUpperCase();
@@ -215,7 +136,11 @@ Deno.serve(async (request) => {
     const methods = allowedMethods(route.route);
 
     if (!methods.includes(method as HttpMethod)) {
-      return createErrorResponse(request, 'method_not_allowed', `${method} is not allowed`, 405);
+      return createJsonResponse(
+        request,
+        { code: 'method_not_allowed', message: `${method} is not allowed` },
+        405
+      );
     }
 
     const authClient = createAuthClient();
@@ -379,10 +304,6 @@ Deno.serve(async (request) => {
 
     throw new ContractError('not_found', 'Route handler not implemented', 404);
   } catch (error: unknown) {
-    const envelope = errorEnvelopeFromUnknown(error);
-    const status = error instanceof ContractError
-      ? error.status
-      : mapErrorToStatus(envelope.code);
-    return createResponse(request, envelope, status);
+    return createErrorResponse(request, error);
   }
 });
