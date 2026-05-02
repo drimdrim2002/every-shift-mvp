@@ -67,6 +67,10 @@ function createViolation(index: number): ScheduleComplianceViolation {
   };
 }
 
+function getRevealButton(wrapper: ReturnType<typeof mount>) {
+  return wrapper.get('[data-test="compliance-violation-reveal"]');
+}
+
 describe('ScheduleCompliancePanel', () => {
   it('renders the pass decision and four passed rule rows', () => {
     const wrapper = mount(ScheduleCompliancePanel, {
@@ -75,6 +79,7 @@ describe('ScheduleCompliancePanel', () => {
       },
     });
 
+    expect(wrapper.get('[data-test="compliance-panel"]').attributes('class') ?? '').not.toContain('mb-4');
     expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족');
     expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
 
@@ -169,6 +174,7 @@ describe('ScheduleCompliancePanel', () => {
   });
 
   it('uses a real button for reveal when hidden violations remain', async () => {
+    const firstViolations = [createViolation(1), createViolation(2), createViolation(3)];
     const wrapper = mount(ScheduleCompliancePanel, {
       props: {
         initialDetailLimit: 2,
@@ -182,19 +188,52 @@ describe('ScheduleCompliancePanel', () => {
             createSummary('rest_after_two_nights'),
             createSummary('monthly_night_limit'),
           ],
-          violations: [createViolation(1), createViolation(2), createViolation(3)],
+          violations: firstViolations,
         }),
       },
     });
 
-    const revealButton = wrapper.get('button');
+    const list = wrapper.get('[data-test="compliance-violation-list"]');
+    const revealButton = getRevealButton(wrapper);
     expect(revealButton.attributes('type')).toBe('button');
+    expect(revealButton.attributes('aria-expanded')).toBe('false');
+    expect(revealButton.attributes('aria-controls')).toBe(list.attributes('id'));
     expect(revealButton.text()).toContain('1건 더 보기');
 
     await revealButton.trigger('click');
 
     expect(wrapper.get('[data-test="compliance-violation-list"]').text()).toContain('김간호3');
-    expect(wrapper.get('button').text()).toContain('접기');
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('true');
+    expect(getRevealButton(wrapper).text()).toContain('접기');
+
+    await getRevealButton(wrapper).trigger('click');
+
+    expect(wrapper.get('[data-test="compliance-violation-list"]').text()).not.toContain('김간호3');
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('false');
+    expect(getRevealButton(wrapper).text()).toContain('1건 더 보기');
+
+    await getRevealButton(wrapper).trigger('click');
+
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('true');
+
+    await wrapper.setProps({
+      result: createResult({
+        mandatoryPassed: false,
+        canFinalizeLocally: false,
+        mandatoryViolationCount: 3,
+        summaries: [
+          createSummary('nod_pattern'),
+          createSummary('triple_night', 'failed', 3),
+          createSummary('rest_after_two_nights'),
+          createSummary('monthly_night_limit'),
+        ],
+        violations: [createViolation(4), createViolation(5), createViolation(6)],
+      }),
+    });
+
+    expect(wrapper.get('[data-test="compliance-violation-list"]').text()).toContain('김간호4');
+    expect(wrapper.get('[data-test="compliance-violation-list"]').text()).not.toContain('김간호6');
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('false');
   });
 
   it('does not render nested n-card surfaces', () => {
@@ -226,9 +265,11 @@ describe('VersionReviewDetail compliance slot', () => {
     const focusIndex = html.indexOf('data-test="review-focus-heading"');
     const complianceIndex = html.indexOf('data-test="compliance-panel"');
     const gridTabIndex = html.indexOf('data-test="review-tab-grid"');
+    const complianceParent = wrapper.get('[data-test="compliance-panel"]').element.parentElement;
 
     expect(focusIndex).toBeGreaterThanOrEqual(0);
     expect(complianceIndex).toBeGreaterThan(focusIndex);
     expect(gridTabIndex).toBeGreaterThan(complianceIndex);
+    expect(complianceParent?.className).toContain('mb-4');
   });
 });

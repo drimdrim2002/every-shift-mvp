@@ -17,6 +17,7 @@ const props = withDefaults(
 );
 
 const showAllViolations = ref(false);
+const violationListId = 'compliance-violation-list';
 
 const normalizedDetailLimit = computed(() => Math.max(1, Math.floor(props.initialDetailLimit)));
 
@@ -166,7 +167,7 @@ function toggleViolationReveal() {
 <template>
   <section
     data-test="compliance-panel"
-    class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+    class="rounded-xl border border-slate-200 bg-slate-50 p-4"
   >
     <header
       class="rounded-lg border p-4"
@@ -231,6 +232,7 @@ function toggleViolationReveal() {
         위반 상세
       </h4>
       <ul
+        :id="violationListId"
         data-test="compliance-violation-list"
         class="mt-2 space-y-2"
       >
@@ -254,6 +256,9 @@ function toggleViolationReveal() {
       <button
         v-if="hiddenViolationCount > 0 || showAllViolations"
         type="button"
+        data-test="compliance-violation-reveal"
+        :aria-controls="violationListId"
+        :aria-expanded="showAllViolations"
         class="mt-3 min-h-11 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
         @click="toggleViolationReveal"
       >

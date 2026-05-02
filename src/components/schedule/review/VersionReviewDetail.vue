@@ -52,10 +52,12 @@ function isTabActive(tab: ScheduleReviewTab) {
       </h3>
     </div>
 
-    <slot
+    <div
       v-if="$slots.compliance"
-      name="compliance"
-    />
+      class="mb-4"
+    >
+      <slot name="compliance" />
+    </div>
 
     <div
       v-if="leadPanel === 'pending'"
