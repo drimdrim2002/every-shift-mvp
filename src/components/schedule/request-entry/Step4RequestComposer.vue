@@ -239,7 +239,12 @@ function focusSearchInput() {
   searchContainerRef.value?.querySelector('input')?.focus();
 }
 
+function prefillSearchQuery(value: string) {
+  searchQuery.value = value;
+}
+
 defineExpose({
   focusSearchInput,
+  prefillSearchQuery,
 });
 </script>

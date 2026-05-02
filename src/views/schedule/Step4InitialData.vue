@@ -50,7 +50,7 @@
         <div class="space-y-2">
           <div class="flex items-center gap-2">
             <h2 class="text-lg font-bold text-slate-900">
-              {{ scheduleStore.basicInfo?.month }} 요청 입력
+              {{ scheduleStore.basicInfo?.month }} 사전 Off 요청 입력
             </h2>
             <span
               v-if="orgStore.current"
@@ -60,7 +60,7 @@
             </span>
           </div>
           <p class="text-sm text-slate-600">
-            요청 입력 drawer를 열어 요청을 작성하고, 반영된 결과를 월간 검토 워크스페이스에서 확인합니다.
+            사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.
           </p>
         </div>
         <div class="flex flex-col items-end gap-2 text-right">
@@ -76,18 +76,14 @@
           <n-button
             v-if="!isRequestDrawerOpen"
             data-test="request-drawer-toggle"
-            secondary
             type="primary"
+            size="large"
+            strong
+            class="min-w-[168px] font-semibold shadow-sm"
             @click="handleOpenRequestDrawer"
           >
             {{ requestDrawerCtaLabel }}
           </n-button>
-          <p
-            v-else
-            class="text-xs text-slate-500"
-          >
-            요청 입력 drawer가 열려 있습니다.
-          </p>
         </div>
       </div>
     </div>
@@ -96,18 +92,20 @@
       <div
         class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
       >
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
           <div class="space-y-1">
             <h3 class="text-base font-semibold text-slate-900">
-              월간 검토 워크스페이스
+              사전 Off 요청 캘린더
             </h3>
-            <p class="text-sm text-slate-600">
-              {{ selectedEmployeeName || '근무자를 선택하세요' }}
-              <span v-if="selectedDateSummary"> · {{ selectedDateSummary }}</span>
+            <p
+              v-if="selectedEmployeeName || selectedDateSummary"
+              class="text-sm text-slate-600"
+            >
+              <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
+              <span v-if="selectedDateSummary">
+                <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
+              </span>
             </p>
-          </div>
-          <div class="text-xs text-slate-500">
-            셀 클릭은 선택만 바꾸며, 실제 반영은 요청 입력 drawer의 `요청 반영`으로 진행합니다.
           </div>
         </div>
 
@@ -182,13 +180,23 @@
         class="flex h-full flex-col bg-white"
       >
         <div class="border-b border-slate-200 px-5 py-4">
-          <div class="space-y-1">
-            <h3 class="text-base font-semibold text-slate-900">
-              요청 입력
-            </h3>
-            <p class="text-sm text-slate-600">
-              근무자를 찾고 날짜를 선택한 뒤 요청을 반영합니다.
-            </p>
+          <div class="flex items-start justify-between gap-4">
+            <div class="space-y-1">
+              <h3 class="text-base font-semibold text-slate-900">
+                요청 입력
+              </h3>
+              <p class="text-sm text-slate-600">
+                근무자와 날짜를 선택해 Off 요청을 반영하세요.
+              </p>
+            </div>
+            <n-button
+              data-test="request-drawer-close-button"
+              size="small"
+              secondary
+              @click="handleCloseRequestDrawer"
+            >
+              닫기
+            </n-button>
           </div>
         </div>
 
@@ -370,7 +378,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
@@ -451,7 +459,10 @@ const hasShownExistingHistoryChoiceModal = ref(false);
 const pendingVersionName = ref('');
 const isVersionNameModalOpen = ref(false);
 const duplicateVersionCandidate = ref<ScheduleVersionSummary | null>(null);
-const requestComposerRef = ref<{ focusSearchInput?: () => void } | null>(null);
+const requestComposerRef = ref<{
+  focusSearchInput?: () => void;
+  prefillSearchQuery?: (value: string) => void;
+} | null>(null);
 const isRequestDrawerOpen = ref(false);
 
 const selectedEmployeeId = ref<string | null>(null);
@@ -541,9 +552,9 @@ const pendingHandoffAction = ref<PendingHandoffAction | null>(null);
 const pendingHandoffContext = ref<PendingHandoffContext | null>(null);
 
 const requestCatalog = STEP4_REQUEST_CATALOG;
-const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 요청 반영 또는 선택 초기화를 진행해 주세요.';
+const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.';
 const HIDDEN_DRAFT_BLOCKED_REASON =
-  '미반영 요청이 있습니다. 요청 입력을 다시 열어 반영 또는 선택 초기화를 진행해 주세요.';
+  '미반영 요청이 있습니다. 요청 입력을 다시 열어 마무리해 주세요.';
 const selectedEmployee = computed(() => {
   if (!selectedEmployeeId.value) return null;
   return grid.employees.value.find((employee) => employee.id === selectedEmployeeId.value) ?? null;
@@ -575,12 +586,12 @@ const hasHiddenUnappliedDraft = computed(() => {
   return hasUnappliedDraft.value && !isRequestDrawerOpen.value;
 });
 const requestDrawerCtaLabel = computed(() => {
-  return hasHiddenUnappliedDraft.value ? '요청 입력 다시 열기' : '요청 입력 열기';
+  return hasHiddenUnappliedDraft.value ? '요청 입력 계속하기' : 'Off 요청 입력하기';
 });
 const requestDrawerStatusCopy = computed(() => {
   return hasHiddenUnappliedDraft.value
     ? HIDDEN_DRAFT_BLOCKED_REASON
-    : '필요할 때만 요청 입력 drawer를 열어 요청을 추가할 수 있습니다.';
+    : '필요할 때만 요청 입력 창을 열어 Off 요청을 추가할 수 있습니다.';
 });
 const pageLevelBlockedReason = computed(() => {
   if (!hasUnappliedDraft.value) return null;
@@ -1535,6 +1546,7 @@ function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; no
 
 async function focusRequestComposerSearch(): Promise<void> {
   await nextTick();
+  requestComposerRef.value?.prefillSearchQuery?.(selectedEmployeeName.value);
   requestComposerRef.value?.focusSearchInput?.();
 }
 
@@ -1563,6 +1575,14 @@ function scrollEmployeeRowIntoView(employeeId: string): void {
       .querySelector<HTMLElement>(`[data-employee-id="${employeeId}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   });
+}
+
+function handleWindowKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !isRequestDrawerOpen.value) {
+    return;
+  }
+
+  handleCloseRequestDrawer();
 }
 
 function migrateLegacyTempPreferencesIfNeeded(): void {
@@ -1675,6 +1695,8 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
 
 // Lifecycle
 onMounted(async () => {
+  window.addEventListener('keydown', handleWindowKeydown);
+
   if (!scheduleStore.basicInfo) {
     router.push(getScheduleStepRoutePath(1));
     return;
@@ -1697,6 +1719,10 @@ onMounted(async () => {
   grid.generateDates(scheduleStore.basicInfo.month, 0);
   ensureEmployeeMaps();
   await restoreData();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleWindowKeydown);
 });
 
 async function restoreData(forceRefresh = false) {

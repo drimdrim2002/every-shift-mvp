@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils';
-import { defineComponent } from 'vue';
+import { defineComponent, nextTick } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('naive-ui', () => ({
@@ -167,6 +167,17 @@ describe('Step4RequestComposer', () => {
     await searchInput.setValue('E001');
     expect(wrapper.find('[data-test="employee-option-emp-1"]').exists()).toBe(true);
     expect(wrapper.find('[data-test="employee-option-emp-2"]').exists()).toBe(false);
+  });
+
+  it('prefills the search field and narrows employee options through the exposed API', async () => {
+    const wrapper = createWrapper();
+
+    (wrapper.vm as unknown as { prefillSearchQuery: (value: string) => void }).prefillSearchQuery('이둘');
+    await nextTick();
+
+    expect(wrapper.get('[data-test="step4-employee-search"]').element.value).toBe('이둘');
+    expect(wrapper.find('[data-test="employee-option-emp-2"]').exists()).toBe(true);
+    expect(wrapper.find('[data-test="employee-option-emp-1"]').exists()).toBe(false);
   });
 
   it('shows the disabled reason and keeps apply disabled when the draft cannot be applied', () => {

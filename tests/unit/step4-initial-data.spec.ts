@@ -18,6 +18,7 @@ const {
   showSuccessMock,
   showInfoMock,
   showErrorMock,
+  prefillSearchQueryMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -34,6 +35,7 @@ const {
   showSuccessMock: vi.fn(),
   showInfoMock: vi.fn(),
   showErrorMock: vi.fn(),
+  prefillSearchQueryMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -257,6 +259,7 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
     setup(_, { emit, expose }) {
       expose({
         focusSearchInput: () => {},
+        prefillSearchQuery: prefillSearchQueryMock,
       })
 
       return {
@@ -547,8 +550,16 @@ describe('Step4InitialData', () => {
     await flushPromises()
 
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
-    expect(wrapper.text()).toContain('월간 검토 워크스페이스')
-    expect(wrapper.text()).toContain('요청 입력 열기')
+    expect(wrapper.text()).toContain('사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.')
+    expect(wrapper.text()).toContain('사전 Off 요청 캘린더')
+    expect(wrapper.text()).toContain('Off 요청 입력하기')
+    expect(wrapper.text()).not.toContain('월간 검토 워크스페이스')
+    expect(wrapper.text()).not.toContain('근무자를 선택하세요')
+    expect(wrapper.text()).not.toContain('셀 클릭은 선택만 바꾸며')
+    const requestDrawerButton = wrapper.find('[data-test="request-drawer-toggle"]')
+    expect(requestDrawerButton.exists()).toBe(true)
+    expect(requestDrawerButton.attributes('size')).toBe('large')
+    expect(requestDrawerButton.attributes('strong')).toBeDefined()
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
     expect(wrapper.vm.selectedEmployeeId).toBeNull()
@@ -566,12 +577,45 @@ describe('Step4InitialData', () => {
 
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
 
-    await clickButtonByText(wrapper, '요청 입력 열기')
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
     await flushPromises()
 
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="drawer-close"]').exists()).toBe(true)
+  })
+
+  it('closes the request drawer when the explicit close button is clicked', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="request-drawer-close-button"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="request-drawer-close-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
+  })
+
+  it('closes the request drawer when Escape is pressed', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
   })
 
   it('keeps grid cell selection as selection-only and does not auto-open the request drawer', async () => {
@@ -588,7 +632,7 @@ describe('Step4InitialData', () => {
 
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('요청 입력 열기')
+    expect(wrapper.text()).toContain('Off 요청 입력하기')
     expect(wrapper.vm.constraints).toEqual({
       'emp-1': {},
       'emp-2': {},
@@ -598,11 +642,24 @@ describe('Step4InitialData', () => {
     expect(wrapper.vm.hasUnappliedDraft).toBe(false)
   })
 
+  it('prefills the request search with the clicked employee when the drawer is opened after a grid selection', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await flushPromises()
+
+    expect(prefillSearchQueryMock).toHaveBeenCalledWith('Kim')
+  })
+
   it('preserves the draft after closing the drawer and shows hidden-draft status with a reopen CTA', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, '요청 입력 열기')
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
@@ -621,14 +678,14 @@ describe('Step4InitialData', () => {
     expect(wrapper.vm.hasUnappliedDraft).toBe(true)
     expect(wrapper.find('[data-test="hidden-request-draft-alert"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('미반영 요청이 있습니다')
-    expect(wrapper.text()).toContain('요청 입력 다시 열기')
+    expect(wrapper.text()).toContain('요청 입력 계속하기')
   })
 
   it('request-entry unapplied drafts disable page-level persistence actions', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, '요청 입력 열기')
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
@@ -647,7 +704,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, '요청 입력 열기')
+    await clickButtonByText(wrapper, 'Off 요청 입력하기')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
