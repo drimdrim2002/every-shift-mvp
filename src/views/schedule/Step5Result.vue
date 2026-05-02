@@ -159,6 +159,10 @@
             :active-tab="activeReviewTab"
             @update:tab="handleReviewTabChange"
           >
+            <template #compliance>
+              <ScheduleCompliancePanel :result="complianceResult" />
+            </template>
+
             <template #headerActions>
               <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                 <span
@@ -248,6 +252,13 @@
           </div>
 
           <div class="flex flex-col items-start gap-3">
+            <p
+              v-if="shouldShowFinalizeAction && visibleFinalizeBlockReason"
+              data-test="finalize-block-reason"
+              class="text-sm font-medium text-rose-700"
+            >
+              {{ visibleFinalizeBlockReason }}
+            </p>
             <div class="flex flex-col gap-4 sm:flex-row">
               <n-button
                 v-if="shouldShowCompareAction"
@@ -482,6 +493,7 @@ import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import ScheduleCompareModal from '@/components/schedule/review/ScheduleCompareModal.vue';
+import ScheduleCompliancePanel from '@/components/schedule/review/ScheduleCompliancePanel.vue';
 import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
@@ -506,6 +518,7 @@ import {
 } from '@/api/schedule';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
+import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { resolveDefaultReviewTab } from '@/utils/scheduleReviewState';
@@ -913,6 +926,32 @@ const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
+const complianceResult = computed(() => {
+  return evaluateScheduleCompliance({
+    month: scheduleStore.basicInfo?.month ?? '',
+    employees: grid.employees.value,
+    assignments: mergeComplianceAssignments(
+      previousMonthAssignments.value,
+      currentScheduleAssignments.value,
+    ),
+    offRequests: offRequestsCurrentMonth.value,
+    shifts: organizationStore.shifts,
+  });
+});
+const complianceFinalizeBlockReason = computed(() => {
+  if (complianceResult.value.checkRequiredCount > 0) {
+    return '법적 기준을 확인한 뒤 확정할 수 있습니다.';
+  }
+
+  if (complianceResult.value.mandatoryViolationCount > 0) {
+    return `법적 기준 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
+  }
+
+  return null;
+});
+const visibleFinalizeBlockReason = computed(() => {
+  return complianceFinalizeBlockReason.value ?? primaryAction.value.disabledReason;
+});
 const activeReviewTab = computed(() => scheduleStore.reviewTab);
 const previewVersionExecutionId = computed(() => {
   return previewVersionSummary.value?.activeSolverExecutionId ?? null;
@@ -938,6 +977,7 @@ const shouldShowFinalizeAction = computed(() => {
 const isFinalizeActionDisabled = computed(() => {
   return (
     isPrimaryActionRunning.value
+    || Boolean(complianceFinalizeBlockReason.value)
     || primaryAction.value.kind !== 'finalize'
     || !primaryAction.value.targetVersionId
     || Boolean(primaryAction.value.disabledReason)
@@ -1225,6 +1265,26 @@ function getDisplayedLastMonthDates(): Set<string> {
       .filter((date) => date.isLastMonth)
       .map((date) => date.date)
   );
+}
+
+function mergeComplianceAssignments(
+  previousAssignments: AssignmentMap,
+  currentAssignments: AssignmentMap,
+): AssignmentMap {
+  const merged: AssignmentMap = {};
+
+  for (const [employeeId, dateMap] of Object.entries(previousAssignments || {})) {
+    merged[employeeId] = { ...(dateMap || {}) };
+  }
+
+  for (const [employeeId, dateMap] of Object.entries(currentAssignments || {})) {
+    merged[employeeId] = {
+      ...(merged[employeeId] || {}),
+      ...(dateMap || {}),
+    };
+  }
+
+  return merged;
 }
 
 function rebuildDisplayAssignments(baseCurrentAssignments: AssignmentMap = currentScheduleAssignments.value) {
@@ -2269,7 +2329,9 @@ async function handlePrimaryAction() {
 
 async function handleFinalizeAction() {
   if (isFinalizeActionDisabled.value) {
-    if (primaryAction.value.disabledReason) {
+    if (complianceFinalizeBlockReason.value) {
+      showInfo(complianceFinalizeBlockReason.value);
+    } else if (primaryAction.value.disabledReason) {
       showInfo(primaryAction.value.disabledReason);
     }
     return;

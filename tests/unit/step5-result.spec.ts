@@ -382,6 +382,51 @@ function createReviewResponse(versionId: string, overrides: Record<string, unkno
   }
 }
 
+function mockSingleFinalizeReview(options: {
+  assignments?: Record<string, Record<string, string>>
+  primaryAction?: Record<string, unknown>
+} = {}) {
+  getPhase2ScheduleCompareMock.mockResolvedValue({
+    scheduleId: 'schedule-1',
+    selectedVersionId: 'version-1',
+    finalizedVersionId: null,
+    activeSolvingVersionId: null,
+    versions: [
+      createVersionSummary({
+        id: 'version-1',
+        versionNo: 1,
+        isSelected: true,
+        status: 'review_ready',
+      }),
+    ],
+  })
+  getPhase2ScheduleReviewMock.mockResolvedValue(
+    createReviewResponse('version-1', {
+      selectedVersionId: 'version-1',
+      version: {
+        status: 'review_ready',
+        isSelected: true,
+      },
+      primaryAction: {
+        kind: 'finalize',
+        targetVersionId: 'version-1',
+        label: 'Finalize',
+        disabledReason: null,
+        ...options.primaryAction,
+      },
+    })
+  )
+  getScheduleVersionAssignmentsMock.mockResolvedValue({
+    assignments: options.assignments ?? {
+      'emp-1': {
+        '2025-12-01': 'D',
+      },
+    },
+    offReasons: {},
+    comments: {},
+  })
+}
+
 describe('Step5Result', () => {
   afterEach(() => {
     while (mountedWrappers.length > 0) {
@@ -1800,6 +1845,158 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('trace-123')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
+  })
+
+  it('renders compliance panel before review tabs after assignments load', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const panel = wrapper.get('[data-test="compliance-panel"]')
+    const firstReviewTab = wrapper.get('[data-test="review-tab-grid"]')
+
+    expect(panel.text()).toContain('법적 기준 충족')
+    expect(panel.text()).toContain('요청 없음')
+    expect(
+      panel.element.compareDocumentPosition(firstReviewTab.element) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it('disables finalization when local compliance has mandatory violations', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+
+    await wrapper.get('[data-test="finalize-schedule-button"]').trigger('click')
+    await flushPromises()
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
+  it('shows local compliance blocker before backend disabled reason', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).not.toContain('백엔드 사유')
+  })
+
+  it('keeps backend disabled reason when local compliance passes', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
+  })
+
+  it('uses previousMonthAssignments instead of slider-visible assignments for validation', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-11-29': 'N',
+          '2025-11-30': 'O',
+          '2025-12-01': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.assignments.value = {
+      'emp-1': {
+        '2025-12-01': 'D',
+      },
+    }
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+  })
+
+  it('updates compliance text after a manual grid edit', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.find('[data-test="finalize-block-reason"]').exists()).toBe(false)
+  })
+
+  it('shows check-required blocker when validation cannot safely run', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'X',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+    )
   })
 
   it('finalizes the current single version from the bottom action bar', async () => {
