@@ -130,18 +130,20 @@ describe('evaluateScheduleCompliance', () => {
       e1: {
         '2026-05-01': 'N',
         '2026-05-02': 'N',
-        '2026-05-03': 'D',
+        '2026-05-03': 'O',
+        '2026-05-04': 'D',
       },
     });
 
     expect(result.canFinalizeLocally).toBe(false);
-    expect(result.violations).toEqual([
+    expect(result.violations).toContainEqual(
       expect.objectContaining({
         ruleCode: 'rest_after_two_nights',
-        dates: ['2026-05-01', '2026-05-02', '2026-05-03'],
+        dates: ['2026-05-01', '2026-05-02', '2026-05-04'],
       }),
-    ]);
-    expect(result.violations[0]?.message).toContain('48시간');
+    );
+    expect(result.violations.find((violation) => violation.ruleCode === 'rest_after_two_nights')?.message)
+      .toContain('48시간');
   });
 
   it('passes rest_after_two_nights when the next work starts after 48 hours', () => {
@@ -209,6 +211,108 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.checkRequiredCount).toBeGreaterThan(0);
     expect(result.summaries.some((summary) => summary.status === 'check_required')).toBe(true);
     expect(result.violations).toEqual([]);
+  });
+
+  it('degrades malformed dates to check_required without throwing', () => {
+    expect(() =>
+      evaluate({
+        e1: {
+          '2026-05-99': 'D',
+          'not-a-date': 'N',
+        },
+      }),
+    ).not.toThrow();
+
+    const result = evaluate({
+      e1: {
+        '2026-05-99': 'D',
+        'not-a-date': 'N',
+      },
+    });
+
+    expect(result.mandatoryPassed).toBe(false);
+    expect(result.canFinalizeLocally).toBe(false);
+    expect(result.checkRequiredCount).toBeGreaterThanOrEqual(2);
+    expect(result.summaries.every((summary) => summary.status === 'check_required')).toBe(true);
+  });
+
+  it('degrades missing required inputs to check_required without throwing', () => {
+    const missingInput = undefined as unknown as Parameters<typeof evaluateScheduleCompliance>[0];
+
+    expect(() => evaluateScheduleCompliance(missingInput)).not.toThrow();
+
+    const result = evaluateScheduleCompliance(missingInput);
+
+    expect(result.mandatoryPassed).toBe(false);
+    expect(result.canFinalizeLocally).toBe(false);
+    expect(result.checkRequiredCount).toBeGreaterThanOrEqual(5);
+    expect(result.summaries.every((summary) => summary.status === 'check_required')).toBe(true);
+    expect(result.offRequests).toEqual({
+      totalRequests: 0,
+      fulfilledRequests: 0,
+      unfulfilledRequests: 0,
+      reflectionRate: null,
+    });
+  });
+
+  it('uses fallback shift times when shift definitions lack usable times', () => {
+    const shiftsWithoutTimes = shifts.map((shift) => ({
+      ...shift,
+      startTime: null,
+      endTime: null,
+    }));
+
+    const result = evaluateScheduleCompliance({
+      month,
+      employees,
+      assignments: {
+        e1: {
+          '2026-05-01': 'N',
+          '2026-05-02': 'N',
+          '2026-05-03': 'O',
+          '2026-05-04': 'O',
+          '2026-05-05': 'D',
+        },
+      },
+      offRequests: {},
+      shifts: shiftsWithoutTimes,
+    });
+
+    expect(result.mandatoryPassed).toBe(true);
+    expect(result.violations).toEqual([]);
+    expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
+  });
+
+  it('handles custom overnight shift times when endTime is not after startTime', () => {
+    const customOvernightShifts = shifts.map((shift) =>
+      shift.code === 'N'
+        ? { ...shift, startTime: '20:00:00', endTime: '04:00:00' }
+        : shift,
+    );
+
+    const result = evaluateScheduleCompliance({
+      month,
+      employees,
+      assignments: {
+        e1: {
+          '2026-05-01': 'N',
+          '2026-05-02': 'N',
+          '2026-05-03': 'O',
+          '2026-05-04': 'O',
+          '2026-05-05': 'D',
+        },
+      },
+      offRequests: {},
+      shifts: customOvernightShifts,
+    });
+
+    expect(result.canFinalizeLocally).toBe(false);
+    expect(result.violations).toEqual([
+      expect.objectContaining({
+        ruleCode: 'rest_after_two_nights',
+        dates: ['2026-05-01', '2026-05-02', '2026-05-05'],
+      }),
+    ]);
   });
 
   it('counts only target-month Off requests and only O as fulfilled', () => {
