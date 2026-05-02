@@ -9,6 +9,7 @@ const pushMock = vi.fn()
 const replaceMock = vi.fn()
 const loginMock = vi.fn()
 const logoutMock = vi.fn()
+const startOAuthMock = vi.fn()
 const { showErrorMock, showSuccessMock } = vi.hoisted(() => ({
   showErrorMock: vi.fn(),
   showSuccessMock: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('@/stores/auth', () => ({
     loading: authState.loading.value,
     login: loginMock,
     logout: logoutMock,
+    startOAuth: startOAuthMock,
   }),
 }))
 
@@ -117,6 +119,7 @@ describe('Login view', () => {
     authState.loading.value = false
     loginMock.mockResolvedValue({ success: true, accessState: 'user_active' })
     logoutMock.mockResolvedValue({ success: true })
+    startOAuthMock.mockResolvedValue({ success: true })
   })
 
   afterEach(() => {
@@ -141,11 +144,14 @@ describe('Login view', () => {
     })
   })
 
-  it('shows the launch-ready login context without changing form selectors', () => {
+  it('shows the launch-ready login context without changing form selectors', async () => {
     const wrapper = mount(Login)
 
     expect(wrapper.text()).toContain('EveryShift')
-    expect(wrapper.text()).toContain('승인된 병원 계정으로 근무표 작업 공간에 들어갑니다.')
+    expect(wrapper.text()).toContain('승인된 계정으로 근무표 작업 공간에 들어갑니다.')
+
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
     expect(wrapper.get('[data-test="login-card"]').classes()).toContain('max-w-lg')
     expect(wrapper.get('[data-test="login-email"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="login-password"]').exists()).toBe(true)
@@ -153,8 +159,31 @@ describe('Login view', () => {
     expect(wrapper.get('[data-test="login-to-signup"]').text()).toContain('회원가입')
   })
 
+  it('shows social choices first and expands the ID login form on request', async () => {
+    const wrapper = mount(Login)
+
+    expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="login-email"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
+    expect(wrapper.get('[data-test="login-email"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="login-password"]').exists()).toBe(true)
+  })
+
+  it('starts Google login OAuth from the login screen', async () => {
+    startOAuthMock.mockResolvedValue({ success: true })
+
+    const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-google"]').trigger('click')
+
+    expect(startOAuthMock).toHaveBeenCalledWith('google', 'login')
+  })
+
   it('redirects a successful login into the resolved active route', async () => {
     const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('user@example.com')
     await inputs[1]?.setValue('password123')
@@ -173,6 +202,8 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('rejected@example.com')
     await inputs[1]?.setValue('password123')
@@ -191,6 +222,8 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('pending@example.com')
     await inputs[1]?.setValue('password123')
@@ -209,6 +242,8 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('unknown@example.com')
     await inputs[1]?.setValue('password123')

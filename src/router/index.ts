@@ -10,8 +10,10 @@ import {
   LEGACY_APP_ROUTE_REDIRECTS,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LOGIN_ROUTE_PATH,
+  OAUTH_CALLBACK_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
+  SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
   getLegacyRedirectTarget,
   getScheduleStep5RoutePath,
   isScheduleRoutePath,
@@ -56,6 +58,18 @@ const baseRoutes: RouteRecordRaw[] = [
     name: 'Signup',
     component: () => import('@/views/auth/Signup.vue'),
     meta: { requiresAuth: false, title: '회원가입' },
+  },
+  {
+    path: OAUTH_CALLBACK_ROUTE_PATH,
+    name: 'OAuthCallback',
+    component: () => import('@/views/auth/OAuthCallback.vue'),
+    meta: { requiresAuth: false, title: '인증 처리', allowsNoMembership: true },
+  },
+  {
+    path: SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
+    name: 'SocialSignupComplete',
+    component: () => import('@/views/auth/SocialSignupComplete.vue'),
+    meta: { requiresAuth: true, title: '가입 완료', allowsNoMembership: true },
   },
   {
     path: ACCESS_PENDING_ROUTE_PATH,
@@ -255,6 +269,7 @@ router.beforeEach(async (to, from, next) => {
     requiredOrgRole: to.matched.some((record) => record.meta.requiredOrgRole === 'admin')
       ? 'admin'
       : undefined,
+    allowsNoMembership: to.matched.some((record) => record.meta.allowsNoMembership),
   });
 
   if (routeAccessRedirect) {

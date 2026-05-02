@@ -7,6 +7,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     requiresOrgContext?: boolean
     requiredOrgRole?: 'admin'
+    allowsNoMembership?: boolean
   }
 }
 

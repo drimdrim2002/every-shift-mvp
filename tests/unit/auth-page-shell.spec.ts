@@ -3,6 +3,24 @@ import { describe, expect, it } from 'vitest'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
 describe('AuthPageShell', () => {
+  it('supports the compact launch auth shell variant', () => {
+    const wrapper = mount(AuthPageShell, {
+      props: {
+        eyebrow: 'EveryShift 시작하기',
+        title: '로그인/회원가입',
+        description: '간편하게 시작하세요.',
+        variant: 'compact',
+      },
+      slots: {
+        default: '<div data-test="slot">content</div>',
+      },
+    })
+
+    expect(wrapper.get('[data-test="auth-shell-root"]').classes()).toContain('bg-white')
+    expect(wrapper.get('[data-test="auth-shell-product"]').text()).toBe('EveryShift')
+    expect(wrapper.get('[data-test="slot"]').text()).toBe('content')
+  })
+
   it('stacks the auth context above the form at every viewport size', () => {
     const wrapper = mount(AuthPageShell, {
       props: {

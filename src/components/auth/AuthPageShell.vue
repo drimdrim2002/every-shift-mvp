@@ -1,5 +1,8 @@
 <template>
-  <main class="min-h-screen bg-slate-50 px-5 py-10 text-slate-950 sm:px-6 lg:px-8">
+  <main
+    data-test="auth-shell-root"
+    :class="rootClasses"
+  >
     <div class="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-3xl flex-col justify-center gap-8">
       <section class="space-y-5 text-center">
         <p class="text-sm font-semibold text-teal-700">
@@ -35,9 +38,19 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+
+const props = withDefaults(defineProps<{
   eyebrow: string
   title: string
   description: string
-}>()
+  variant?: 'default' | 'compact'
+}>(), {
+  variant: 'default',
+})
+
+const rootClasses = computed(() => [
+  'min-h-screen px-5 text-slate-950 sm:px-6 lg:px-8',
+  props.variant === 'compact' ? 'bg-white py-8' : 'bg-slate-50 py-10',
+])
 </script>

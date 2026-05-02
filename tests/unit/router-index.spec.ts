@@ -8,8 +8,10 @@ import {
   LEGACY_APP_ROUTE_REDIRECTS,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LOGIN_ROUTE_PATH,
+  OAUTH_CALLBACK_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
+  SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
   getScheduleStep5RoutePath,
   getStep5ScheduleKeyFromPath,
   normalizeAppContractPath,
@@ -146,6 +148,24 @@ describe('router dev-only routes', () => {
     }
 
     expect(findTopLevelRouteByPath(routes, APP_HOME_ROUTE_PATH)?.children?.length).toBeGreaterThan(0)
+  })
+
+  it('registers social auth completion routes outside DefaultLayout', () => {
+    const routes = createAppRoutes(false)
+
+    expect(findTopLevelRouteByPath(routes, OAUTH_CALLBACK_ROUTE_PATH)?.meta).toMatchObject({
+      requiresAuth: false,
+      title: '인증 처리',
+      allowsNoMembership: true,
+    })
+    expect(findTopLevelRouteByPath(routes, OAUTH_CALLBACK_ROUTE_PATH)?.children).toBeUndefined()
+
+    expect(findTopLevelRouteByPath(routes, SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH)?.meta).toMatchObject({
+      requiresAuth: true,
+      title: '가입 완료',
+      allowsNoMembership: true,
+    })
+    expect(findTopLevelRouteByPath(routes, SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH)?.children).toBeUndefined()
   })
 
   it('registers canonical workspace children as relative /app routes', () => {

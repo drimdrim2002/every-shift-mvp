@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import type { AuthError, User } from '@supabase/supabase-js';
 
 const {
   signInWithPasswordMock,
+  signInWithOAuthMock,
+  exchangeCodeForSessionMock,
   signOutMock,
   getSessionMock,
   syncWithAccessScopeMock,
@@ -13,6 +15,8 @@ const {
   rbacStoreState,
 } = vi.hoisted(() => ({
   signInWithPasswordMock: vi.fn(),
+  signInWithOAuthMock: vi.fn(),
+  exchangeCodeForSessionMock: vi.fn(),
   signOutMock: vi.fn(),
   getSessionMock: vi.fn(),
   syncWithAccessScopeMock: vi.fn(),
@@ -36,6 +40,8 @@ vi.mock('@/api/supabase', () => ({
   supabase: {
     auth: {
       signInWithPassword: signInWithPasswordMock,
+      signInWithOAuth: signInWithOAuthMock,
+      exchangeCodeForSession: exchangeCodeForSessionMock,
       signOut: signOutMock,
       getSession: getSessionMock,
     },
@@ -87,6 +93,10 @@ describe('useAuthStore', () => {
     rbacStoreState.accessState = 'admin_active';
     rbacStoreState.selectedOrganizationId = 'org-1';
     rbacStoreState.effectiveMembership = null;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('syncs schedule access scope after successful login', async () => {
@@ -220,5 +230,73 @@ describe('useAuthStore', () => {
       userId: 'user-1',
       organizationId: null,
     });
+  });
+
+  it('starts Kakao signup OAuth with callback intent', async () => {
+    vi.stubGlobal('location', {
+      ...window.location,
+      origin: 'http://localhost:5173',
+    });
+    signInWithOAuthMock.mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const store = useAuthStore();
+    const result = await store.startOAuth('kakao', 'signup');
+
+    expect(result).toEqual({ success: true });
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: 'kakao',
+      options: {
+        redirectTo: 'http://localhost:5173/auth/callback?intent=signup',
+      },
+    });
+  });
+
+  it('starts Naver login OAuth with the custom provider id', async () => {
+    vi.stubGlobal('location', {
+      ...window.location,
+      origin: 'http://localhost:5173',
+    });
+    signInWithOAuthMock.mockResolvedValue({
+      data: {},
+      error: null,
+    });
+
+    const store = useAuthStore();
+    const result = await store.startOAuth('custom:naver', 'login');
+
+    expect(result).toEqual({ success: true });
+    expect(signInWithOAuthMock).toHaveBeenCalledWith({
+      provider: 'custom:naver',
+      options: {
+        redirectTo: 'http://localhost:5173/auth/callback?intent=login',
+      },
+    });
+  });
+
+  it('hydrates RBAC context when handling OAuth callback session', async () => {
+    const user = createAuthUser();
+    rbacStoreState.accessState = 'no_membership_or_inactive';
+    exchangeCodeForSessionMock.mockResolvedValue({ error: null });
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user,
+        },
+      },
+    });
+
+    const store = useAuthStore();
+    const result = await store.handleOAuthCallback('signup', 'oauth-code');
+
+    expect(result).toEqual({
+      success: true,
+      intent: 'signup',
+      accessState: 'no_membership_or_inactive',
+    });
+    expect(exchangeCodeForSessionMock).toHaveBeenCalledWith('oauth-code');
+    expect(ensureAccessContextLoadedMock).toHaveBeenCalledTimes(1);
   });
 });

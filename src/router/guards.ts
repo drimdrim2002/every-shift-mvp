@@ -46,6 +46,7 @@ interface ResolveRouteAccessTargetInput {
   selectedOrganizationId?: string | null;
   requiresOrgContext?: boolean;
   requiredOrgRole?: 'admin';
+  allowsNoMembership?: boolean;
 }
 
 function resolveAuthenticatedFallbackPath(
@@ -105,9 +106,14 @@ export function resolveRouteAccessTarget({
   selectedOrganizationId = null,
   requiresOrgContext = false,
   requiredOrgRole,
+  allowsNoMembership = false,
 }: ResolveRouteAccessTargetInput): string | null {
   const normalizedToPath = normalizeAppContractPath(toPath);
   const fallbackPath = resolveAuthenticatedFallbackPath(accessState, abilities);
+
+  if (accessState === 'no_membership_or_inactive') {
+    return allowsNoMembership ? null : LOGIN_ROUTE_PATH;
+  }
 
   if (normalizedToPath === getAppHomeRoutePath()) {
     if (abilities.canViewApprovalQueue && !hasOrgAdminAccess(abilities)) {
@@ -143,10 +149,6 @@ export function resolveRouteAccessTarget({
 
   if (requiredOrgRole === 'admin' && !hasOrgAdminAccess(abilities)) {
     return fallbackPath === normalizedToPath ? getAppHomeRoutePath() : fallbackPath;
-  }
-
-  if (accessState === 'no_membership_or_inactive') {
-    return LOGIN_ROUTE_PATH;
   }
 
   return null;

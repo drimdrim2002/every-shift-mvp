@@ -12,6 +12,8 @@ export const APP_SCHEDULE_ROUTE_PREFIX = `${APP_HOME_ROUTE_PATH}/schedule/`
 
 export const LOGIN_ROUTE_PATH = '/login'
 export const SIGNUP_ROUTE_PATH = '/signup'
+export const OAUTH_CALLBACK_ROUTE_PATH = '/auth/callback'
+export const SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH = '/auth/signup-complete'
 export const ACCESS_PENDING_ROUTE_PATH = '/access/pending'
 export const ACCESS_REJECTED_ROUTE_PATH = '/access/rejected'
 
@@ -181,6 +183,10 @@ export const LEGACY_APP_ROUTE_REDIRECTS = Object.freeze({
 
 export function isAuthPagePath(path: string): boolean {
   return AUTH_PAGE_PATH_SET.has(path)
+}
+
+export function isSocialSignupCompleteRoutePath(path: string): boolean {
+  return path === SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH
 }
 
 export function isAccessStateRoutePath(path: string): boolean {

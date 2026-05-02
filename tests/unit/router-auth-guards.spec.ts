@@ -8,8 +8,10 @@ import {
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
   LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
   LEGACY_SCHEDULE_STEP1_ROUTE_PATH,
-  PUBLIC_ROOT_ROUTE_PATH,
   LOGIN_ROUTE_PATH,
+  OAUTH_CALLBACK_ROUTE_PATH,
+  PUBLIC_ROOT_ROUTE_PATH,
+  SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
   buildCanonicalStep5RouteLocation,
   getApprovalQueueRoutePath,
   getLegacyRedirectTarget,
@@ -255,6 +257,59 @@ describe('resolveRouteAccessTarget', () => {
         canManageSchedules: true,
       },
       selectedOrganizationId: 'org-1',
+    })
+
+    expect(redirect).toBeNull()
+  })
+
+  it('redirects no-membership users away from app home when the route does not allow no membership', () => {
+    const redirect = resolveRouteAccessTarget({
+      toPath: APP_HOME_ROUTE_PATH,
+      accessState: 'no_membership_or_inactive',
+      abilities: {
+        canViewApprovalQueue: false,
+        canSwitchOrganization: false,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: false,
+        canManageEmployees: false,
+        canManageSchedules: false,
+      },
+    })
+
+    expect(redirect).toBe(LOGIN_ROUTE_PATH)
+  })
+
+  it('allows no-membership social users to complete signup on the social completion route', () => {
+    const redirect = resolveRouteAccessTarget({
+      toPath: SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
+      accessState: 'no_membership_or_inactive',
+      abilities: {
+        canViewApprovalQueue: false,
+        canSwitchOrganization: false,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: false,
+        canManageEmployees: false,
+        canManageSchedules: false,
+      },
+      allowsNoMembership: true,
+    })
+
+    expect(redirect).toBeNull()
+  })
+
+  it('allows no-membership social users to enter the OAuth callback route', () => {
+    const redirect = resolveRouteAccessTarget({
+      toPath: OAUTH_CALLBACK_ROUTE_PATH,
+      accessState: 'no_membership_or_inactive',
+      abilities: {
+        canViewApprovalQueue: false,
+        canSwitchOrganization: false,
+        canViewRestrictedUserHome: false,
+        canManageOrganizationSetup: false,
+        canManageEmployees: false,
+        canManageSchedules: false,
+      },
+      allowsNoMembership: true,
     })
 
     expect(redirect).toBeNull()

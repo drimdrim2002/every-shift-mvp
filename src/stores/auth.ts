@@ -2,10 +2,18 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { supabase } from '@/api/supabase'
 import type { User } from '@supabase/supabase-js'
+import { OAUTH_CALLBACK_ROUTE_PATH } from '@/constants/routes'
 import { useOrganizationStore } from '@/stores/organization'
 import { useScheduleStore } from '@/stores/schedule'
 import { useRbacStore } from '@/stores/rbac'
+import type {
+  OAuthCallbackResult,
+  SocialAuthIntent,
+  SocialAuthProviderId,
+} from '@/types/auth'
 import type { AccessState } from '@/types/rbac'
+
+type SupabaseOAuthInput = Parameters<typeof supabase.auth.signInWithOAuth>[0]
 
 function mapLoginErrorMessage(error: unknown): string {
   const authError = error as { code?: unknown; message?: unknown } | null
@@ -20,6 +28,24 @@ function mapLoginErrorMessage(error: unknown): string {
   }
 
   return error instanceof Error ? error.message : 'Unknown error'
+}
+
+function buildOAuthRedirectTo(intent: SocialAuthIntent): string {
+  return `${window.location.origin}${OAUTH_CALLBACK_ROUTE_PATH}?intent=${intent}`
+}
+
+function buildSupabaseOAuthInput(
+  provider: SocialAuthProviderId,
+  intent: SocialAuthIntent,
+): SupabaseOAuthInput {
+  return {
+    // Supabase supports custom OAuth provider IDs at runtime, but this SDK version's
+    // Provider type does not include project-specific values like custom:naver.
+    provider: provider as SupabaseOAuthInput['provider'],
+    options: {
+      redirectTo: buildOAuthRedirectTo(intent),
+    },
+  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -94,6 +120,28 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function startOAuth(provider: SocialAuthProviderId, intent: SocialAuthIntent) {
+    loading.value = true
+    try {
+      const { error } = await supabase.auth.signInWithOAuth(
+        buildSupabaseOAuthInput(provider, intent),
+      )
+
+      if (error) {
+        throw error
+      }
+
+      return { success: true as const }
+    } catch (error: unknown) {
+      return {
+        success: false as const,
+        error: error instanceof Error ? error.message : '소셜 인증을 시작하지 못했습니다.',
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   /**
    * 로그아웃
    */
@@ -126,11 +174,52 @@ export const useAuthStore = defineStore('auth', () => {
     await pendingSessionCheck
   }
 
+  async function refreshSessionContext() {
+    const rbacStore = useRbacStore()
+    await checkSession()
+    return rbacStore.accessState as AccessState
+  }
+
+  async function handleOAuthCallback(
+    intent: SocialAuthIntent,
+    code?: string | null,
+  ): Promise<OAuthCallbackResult> {
+    try {
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+        if (error) {
+          throw error
+        }
+      }
+
+      const accessState = await refreshSessionContext()
+
+      if (!user.value) {
+        return { success: false, error: '인증 세션을 확인할 수 없습니다.' }
+      }
+
+      return {
+        success: true,
+        intent,
+        accessState,
+      }
+    } catch (error: unknown) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : '소셜 인증 처리에 실패했습니다.',
+      }
+    }
+  }
+
   return {
     user,
     loading,
     login,
+    startOAuth,
     logout,
     checkSession,
+    refreshSessionContext,
+    handleOAuthCallback,
   }
 })

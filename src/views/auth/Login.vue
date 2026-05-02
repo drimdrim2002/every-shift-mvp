@@ -1,14 +1,11 @@
 <template>
   <AuthPageShell
+    variant="compact"
     eyebrow="EveryShift에 오신 것을 환영합니다"
     title="로그인"
     description="승인된 계정으로 근무표 작업 공간에 들어갑니다."
   >
-    <n-card
-      data-test="login-card"
-      class="mx-auto w-full max-w-lg"
-      title="로그인"
-    >
+    <div class="mx-auto w-full max-w-lg">
       <n-alert
         v-if="signupState === 'pending_approval'"
         type="info"
@@ -24,55 +21,69 @@
         가입이 완료되었습니다. 로그인할 수 있습니다.
       </n-alert>
 
-      <n-form
-        ref="formRef"
-        :model="formValue"
-        :rules="rules"
+      <SocialAuthOptions
+        v-if="!isIdLoginOpen"
+        :loading-provider="loadingProvider"
+        @start-id="isIdLoginOpen = true"
+        @start-social="handleSocialStart"
+      />
+
+      <n-card
+        v-else
+        data-test="login-card"
+        class="mx-auto w-full max-w-lg"
+        title="로그인"
       >
-        <n-form-item
-          label="이메일"
-          path="email"
+        <n-form
+          ref="formRef"
+          :model="formValue"
+          :rules="rules"
         >
-          <n-input
-            v-model:value="formValue.email"
-            data-test="login-email"
-            placeholder="admin@everyshift.com"
-            @keydown.enter="handleLogin"
-          />
-        </n-form-item>
-        <n-form-item
-          label="비밀번호"
-          path="password"
-        >
-          <n-input
-            v-model:value="formValue.password"
-            data-test="login-password"
-            type="password"
-            show-password-on="click"
-            placeholder="비밀번호 입력"
-            @keydown.enter="handleLogin"
-          />
-        </n-form-item>
-        <n-button
-          data-test="login-submit"
-          type="primary"
-          block
-          :loading="authStore.loading"
-          @click="handleLogin"
-        >
-          로그인
-        </n-button>
-        <n-button
-          data-test="login-to-signup"
-          tertiary
-          block
-          class="mt-3"
-          @click="moveToSignup"
-        >
-          회원가입
-        </n-button>
-      </n-form>
-    </n-card>
+          <n-form-item
+            label="이메일"
+            path="email"
+          >
+            <n-input
+              v-model:value="formValue.email"
+              data-test="login-email"
+              placeholder="admin@everyshift.com"
+              @keydown.enter="handleLogin"
+            />
+          </n-form-item>
+          <n-form-item
+            label="비밀번호"
+            path="password"
+          >
+            <n-input
+              v-model:value="formValue.password"
+              data-test="login-password"
+              type="password"
+              show-password-on="click"
+              placeholder="비밀번호 입력"
+              @keydown.enter="handleLogin"
+            />
+          </n-form-item>
+          <n-button
+            data-test="login-submit"
+            type="primary"
+            block
+            :loading="authStore.loading"
+            @click="handleLogin"
+          >
+            로그인
+          </n-button>
+          <n-button
+            data-test="login-to-signup"
+            tertiary
+            block
+            class="mt-3"
+            @click="moveToSignup"
+          >
+            회원가입
+          </n-button>
+        </n-form>
+      </n-card>
+    </div>
   </AuthPageShell>
 </template>
 
@@ -82,9 +93,11 @@ import { useRoute, useRouter } from 'vue-router'
 import type { FormInst, FormItemRule } from 'naive-ui'
 import { NAlert, NButton, NCard, NForm, NFormItem, NInput } from 'naive-ui'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
+import SocialAuthOptions from '@/components/auth/SocialAuthOptions.vue'
 import { LOGIN_ROUTE_PATH, SIGNUP_ROUTE_PATH, resolvePostAuthRedirectPath } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
 import { showError, showSuccess } from '@/utils/message'
+import type { SocialAuthProviderId } from '@/types/auth'
 import type { SignupNextState } from '@/types/signup'
 import type { AccessState } from '@/types/rbac'
 
@@ -98,6 +111,8 @@ const formValue = ref({
   password: '',
 })
 const signupState = ref<SignupNextState | null>(null)
+const isIdLoginOpen = ref(false)
+const loadingProvider = ref<SocialAuthProviderId | null>(null)
 
 watch(
   () => route.query.signupState,
@@ -137,6 +152,22 @@ function isActiveAccessState(accessState: AccessState) {
     || accessState === 'admin_active'
     || accessState === 'user_active'
   )
+}
+
+async function handleSocialStart(provider: SocialAuthProviderId) {
+  loadingProvider.value = provider
+
+  try {
+    const result = await authStore.startOAuth(provider, 'login')
+
+    if (!result.success) {
+      showError(result.error || '소셜 로그인을 시작하지 못했습니다.')
+    }
+  } catch (error) {
+    showError(error instanceof Error ? error.message : '소셜 로그인을 시작하지 못했습니다.')
+  } finally {
+    loadingProvider.value = null
+  }
 }
 
 async function handleLogin() {
