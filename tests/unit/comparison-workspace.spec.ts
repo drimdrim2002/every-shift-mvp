@@ -270,8 +270,8 @@ describe('ComparisonWorkspace', () => {
 
     expect(leftButton.text()).toBe('이 근무표안 자세히 보기');
     expect(rightButton.text()).toBe('이 근무표안 자세히 보기');
-    expect(leftButton.attributes('aria-label')).toBe('왼쪽 근무표안 자세히 보기');
-    expect(rightButton.attributes('aria-label')).toBe('오른쪽 근무표안 자세히 보기');
+    expect(leftButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 왼쪽 근무표안');
+    expect(rightButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 오른쪽 근무표안');
     expect(wrapper.get('[data-test="comparison-slot-left"]').text()).not.toContain('현재 확인 중');
     expect(wrapper.get('[data-test="comparison-slot-right"]').text()).toContain('현재 확인 중');
   });

@@ -213,7 +213,7 @@ function isFocused(versionId: string | null | undefined) {
                 v-if="leftVersion"
                 :data-test="`detail-version-${leftVersion.id}`"
                 type="button"
-                aria-label="왼쪽 근무표안 자세히 보기"
+                aria-label="이 근무표안 자세히 보기 - 왼쪽 근무표안"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', leftVersion.id)"
               >
@@ -253,7 +253,7 @@ function isFocused(versionId: string | null | undefined) {
                 v-if="rightVersion"
                 :data-test="`detail-version-${rightVersion.id}`"
                 type="button"
-                aria-label="오른쪽 근무표안 자세히 보기"
+                aria-label="이 근무표안 자세히 보기 - 오른쪽 근무표안"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', rightVersion.id)"
               >
