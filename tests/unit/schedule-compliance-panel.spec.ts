@@ -227,6 +227,28 @@ describe('ScheduleCompliancePanel', () => {
           createSummary('rest_after_two_nights'),
           createSummary('monthly_night_limit'),
         ],
+        violations: firstViolations,
+      }),
+    });
+
+    expect(wrapper.get('[data-test="compliance-violation-list"]').text()).not.toContain('김간호3');
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('false');
+
+    await getRevealButton(wrapper).trigger('click');
+
+    expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('true');
+
+    await wrapper.setProps({
+      result: createResult({
+        mandatoryPassed: false,
+        canFinalizeLocally: false,
+        mandatoryViolationCount: 3,
+        summaries: [
+          createSummary('nod_pattern'),
+          createSummary('triple_night', 'failed', 3),
+          createSummary('rest_after_two_nights'),
+          createSummary('monthly_night_limit'),
+        ],
         violations: [createViolation(4), createViolation(5), createViolation(6)],
       }),
     });
@@ -234,6 +256,45 @@ describe('ScheduleCompliancePanel', () => {
     expect(wrapper.get('[data-test="compliance-violation-list"]').text()).toContain('김간호4');
     expect(wrapper.get('[data-test="compliance-violation-list"]').text()).not.toContain('김간호6');
     expect(getRevealButton(wrapper).attributes('aria-expanded')).toBe('false');
+  });
+
+  it('uses unique controlled list ids for multiple panel instances', () => {
+    const result = createResult({
+      mandatoryPassed: false,
+      canFinalizeLocally: false,
+      mandatoryViolationCount: 3,
+      summaries: [
+        createSummary('nod_pattern'),
+        createSummary('triple_night', 'failed', 3),
+        createSummary('rest_after_two_nights'),
+        createSummary('monthly_night_limit'),
+      ],
+      violations: [createViolation(1), createViolation(2), createViolation(3)],
+    });
+
+    const wrapper = mount({
+      components: { ScheduleCompliancePanel },
+      template: `
+        <div>
+          <ScheduleCompliancePanel :result="result" :initial-detail-limit="2" />
+          <ScheduleCompliancePanel :result="result" :initial-detail-limit="2" />
+        </div>
+      `,
+      setup() {
+        return { result };
+      },
+    });
+
+    const lists = wrapper.findAll('[data-test="compliance-violation-list"]');
+    const buttons = wrapper.findAll('[data-test="compliance-violation-reveal"]');
+    const listIds = lists.map((list) => list.attributes('id'));
+
+    expect(lists).toHaveLength(2);
+    expect(buttons).toHaveLength(2);
+    expect(listIds.every(Boolean)).toBe(true);
+    expect(listIds[0]).not.toBe(listIds[1]);
+    expect(buttons[0]?.attributes('aria-controls')).toBe(listIds[0]);
+    expect(buttons[1]?.attributes('aria-controls')).toBe(listIds[1]);
   });
 
   it('does not render nested n-card surfaces', () => {

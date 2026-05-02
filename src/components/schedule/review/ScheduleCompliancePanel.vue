@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, useId, watch } from 'vue';
 import type {
   ScheduleComplianceResult,
   ScheduleComplianceRuleStatus,
@@ -17,7 +17,7 @@ const props = withDefaults(
 );
 
 const showAllViolations = ref(false);
-const violationListId = 'compliance-violation-list';
+const violationListId = `compliance-violation-list-${useId()}`;
 
 const normalizedDetailLimit = computed(() => Math.max(1, Math.floor(props.initialDetailLimit)));
 
@@ -105,7 +105,7 @@ const offRequestText = computed(() => {
 });
 
 watch(
-  () => props.result.violations,
+  () => props.result,
   () => {
     showAllViolations.value = false;
   },
