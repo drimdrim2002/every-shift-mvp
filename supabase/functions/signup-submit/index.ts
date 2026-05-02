@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import {
+  createSignupSubmitContextFromRequest,
   processSignupSubmit,
   SignupSubmitServiceError,
   type SignupSubmitRequest,
@@ -80,7 +81,12 @@ export async function handleSignupSubmitRequest(request: Request): Promise<Respo
 
   try {
     const client = createServiceClient()
-    const data = await processSignupSubmit(client as never, payload)
+    const data = await processSignupSubmit(
+      client as never,
+      payload,
+      {},
+      createSignupSubmitContextFromRequest(request),
+    )
 
     return jsonResponse(200, {
       success: true,

@@ -14,6 +14,10 @@ type SignupSubmitRawSuccessData = Omit<SignupSubmitSuccessData, 'nextState'> & {
   nextState?: SignupNextState
 }
 
+type SignupSubmitHeaders = {
+  Authorization: string
+}
+
 function resolveLegacySignupErrorCode(code: unknown): SignupErrorCode | null {
   if (typeof code !== 'string') {
     return null
@@ -46,10 +50,21 @@ function normalizeSignupErrorCode(
 function normalizeSignupRequest(request: SignupSubmitRequest): SignupSubmitRequest {
   if (request.role === 'admin') {
     const hospitalId = request.hospitalId ?? request.organizationId
+
+    if (!hospitalId) {
+      return {
+        ...request,
+        requestedRole: request.role,
+        organizationSelectionMode: 'manual',
+        hospitalSource: 'manual',
+      }
+    }
+
     return {
       ...request,
       requestedRole: request.role,
       organizationSelectionMode: 'existing',
+      hospitalSource: 'data.go.kr',
       hospitalId,
       organizationId: hospitalId,
     }
@@ -131,6 +146,28 @@ function shouldBypassRemoteSignupInvoke(): boolean {
   }
 
   return shouldUseDevMockFallback()
+}
+
+async function resolveExistingSessionHeaders(
+  request: SignupSubmitRequest,
+): Promise<SignupSubmitHeaders | undefined> {
+  if (request.authMode !== 'existing_session') {
+    return undefined
+  }
+
+  const { data, error } = await supabase.auth.getSession()
+  if (error) {
+    throw error
+  }
+
+  const accessToken = data.session?.access_token
+  if (!accessToken) {
+    throw new SignupSubmitApiError('AUTH_SESSION_REQUIRED')
+  }
+
+  return {
+    Authorization: `Bearer ${accessToken}`,
+  }
 }
 
 export class SignupSubmitApiError extends Error {
@@ -221,8 +258,11 @@ export async function submitSignup(
     return createDevMockSuccessData(normalizedRequest)
   }
 
+  const headers = await resolveExistingSessionHeaders(normalizedRequest)
+
   const { data, error } = await supabase.functions.invoke<SignupSubmitResponse>('signup-submit', {
     body: normalizedRequest,
+    ...(headers ? { headers } : {}),
   })
 
   if (error) {

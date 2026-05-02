@@ -1,13 +1,18 @@
 type SignupRole = 'admin' | 'user'
+type SignupAuthMode = 'password' | 'existing_session'
+type SignupOrganizationSelectionMode = 'existing' | 'manual'
 type SignupPath = 'admin_submit' | 'user_invite_redeem'
 type SignupNextState = 'pending_approval' | 'active'
 type SignupRequestStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'withdrawn'
 type MembershipStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'none'
+type HospitalSource = 'data.go.kr' | 'manual'
 type SignupErrorCode =
   | 'VALIDATION_ERROR'
   | 'INVALID_INVITE_CODE'
   | 'DUPLICATE_REQUEST'
   | 'INTERNAL_ERROR'
+  | 'OAUTH_EMAIL_REQUIRED'
+  | 'AUTH_SESSION_REQUIRED'
 type InviteInvalidReason =
   | 'INVITE_NOT_FOUND'
   | 'INVITE_EXPIRED'
@@ -16,6 +21,7 @@ type InviteInvalidReason =
   | 'INVITE_ROLE_MISMATCH'
 
 export interface SignupSubmitRequest {
+  authMode?: unknown
   email?: unknown
   password?: unknown
   name?: unknown
@@ -49,6 +55,15 @@ interface ServiceErrorLike {
 
 interface ServiceClient {
   auth: {
+    getUser(jwt: string): Promise<{
+      data: {
+        user: {
+          id?: string
+          email?: string | null
+        } | null
+      }
+      error: ServiceErrorLike | null
+    }>
     admin: {
       createUser(payload: Record<string, unknown>): Promise<{
         data: {
@@ -57,6 +72,12 @@ interface ServiceClient {
         error: ServiceErrorLike | null
       }>
       deleteUser(userId: string): Promise<{
+        data: {
+          user: AuthAdminUser | null
+        }
+        error: ServiceErrorLike | null
+      }>
+      updateUserById(userId: string, payload: Record<string, unknown>): Promise<{
         data: {
           user: AuthAdminUser | null
         }
@@ -149,9 +170,13 @@ interface SignupSubmitDependencies {
   ) => Promise<InviteValidationResult>
   resolveAdminOrganizationId?: (
     client: ServiceClient,
-    hospitalId: string,
+    hospitalId: string | null,
     hospitalName: string,
   ) => Promise<string>
+}
+
+export interface SignupSubmitContext {
+  accessToken?: string | null
 }
 
 interface AdminSignupRpcRow {
@@ -169,13 +194,16 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const MIN_PASSWORD_LENGTH = 8
-const HOSPITAL_SOURCE = 'data.go.kr'
+const DEFAULT_EXISTING_HOSPITAL_SOURCE: HospitalSource = 'data.go.kr'
+const DEFAULT_MANUAL_HOSPITAL_SOURCE: HospitalSource = 'manual'
 
 const SIGNUP_ERROR_MESSAGES: Record<SignupErrorCode, string> = {
   VALIDATION_ERROR: '입력값을 다시 확인해주세요.',
   INVALID_INVITE_CODE: '초대코드가 유효하지 않습니다.',
   DUPLICATE_REQUEST: '동일한 가입 신청이 이미 접수되어 있습니다.',
   INTERNAL_ERROR: '회원가입 처리 중 오류가 발생했습니다.',
+  OAUTH_EMAIL_REQUIRED: '소셜 계정에서 이메일을 확인할 수 없습니다.',
+  AUTH_SESSION_REQUIRED: '인증 세션이 만료되었습니다. 다시 로그인해 주세요.',
 }
 
 export class SignupSubmitServiceError extends Error {
@@ -201,13 +229,47 @@ function asNonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
+function getBearerTokenFromAuthorizationHeader(header: string | null): string | null {
+  const match = header?.match(/^Bearer\s+(.+)$/i)
+  return match?.[1]?.trim() || null
+}
+
+export function createSignupSubmitContextFromRequest(request: {
+  headers: {
+    get(name: string): string | null
+  }
+}): SignupSubmitContext {
+  return {
+    accessToken: getBearerTokenFromAuthorizationHeader(request.headers.get('authorization')),
+  }
+}
+
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value)
+}
+
+function isResolvedOrganizationId(value: string): boolean {
+  return isUuid(value) || /^org-[A-Za-z0-9_-]+$/.test(value)
 }
 
 function normalizeRole(payload: SignupSubmitRequest): SignupRole | null {
   const rawRole = payload.role ?? payload.requestedRole
   return rawRole === 'admin' || rawRole === 'user' ? rawRole : null
+}
+
+function resolveAuthMode(payload: SignupSubmitRequest): SignupAuthMode {
+  return payload.authMode === 'existing_session' ? 'existing_session' : 'password'
+}
+
+function resolveOrganizationSelectionMode(
+  payload: SignupSubmitRequest,
+): SignupOrganizationSelectionMode | null {
+  const selectionMode = asNonEmptyString(payload.organizationSelectionMode)
+  if (selectionMode === 'existing' || selectionMode === 'manual') {
+    return selectionMode
+  }
+
+  return null
 }
 
 function resolveOrganizationId(payload: SignupSubmitRequest): string | null {
@@ -239,10 +301,10 @@ function requireCommonFields(payload: SignupSubmitRequest) {
   }
 
   const selectionMode = asNonEmptyString(payload.organizationSelectionMode)
-  if (selectionMode && selectionMode !== 'existing') {
+  if (selectionMode && selectionMode !== 'existing' && selectionMode !== 'manual') {
     throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
       field: 'organizationSelectionMode',
-      expected: 'existing',
+      expected: ['existing', 'manual'],
     })
   }
 
@@ -253,16 +315,25 @@ function requireCommonFields(payload: SignupSubmitRequest) {
   }
 }
 
+function requireExistingSessionFields(payload: SignupSubmitRequest) {
+  const name = asNonEmptyString(payload.name)
+
+  if (!name) {
+    throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
+      field: 'name',
+    })
+  }
+
+  return {
+    name,
+  }
+}
+
 function requireAdminFields(payload: SignupSubmitRequest) {
   const organizationId = resolveOrganizationId(payload)
   const hospitalName = asNonEmptyString(payload.hospitalName)
   const hospitalSource = asNonEmptyString(payload.hospitalSource)
-
-  if (!organizationId) {
-    throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
-      field: 'hospitalId',
-    })
-  }
+  const selectionMode = resolveOrganizationSelectionMode(payload)
 
   if (!hospitalName) {
     throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
@@ -270,16 +341,29 @@ function requireAdminFields(payload: SignupSubmitRequest) {
     })
   }
 
-  if (hospitalSource !== HOSPITAL_SOURCE) {
+  if (selectionMode === 'existing' && !organizationId) {
+    throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
+      field: 'hospitalId',
+    })
+  }
+
+  if (
+    hospitalSource &&
+    hospitalSource !== DEFAULT_EXISTING_HOSPITAL_SOURCE &&
+    hospitalSource !== DEFAULT_MANUAL_HOSPITAL_SOURCE
+  ) {
     throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
       field: 'hospitalSource',
-      expected: HOSPITAL_SOURCE,
+      expected: [DEFAULT_EXISTING_HOSPITAL_SOURCE, DEFAULT_MANUAL_HOSPITAL_SOURCE],
     })
   }
 
   return {
     organizationId,
     hospitalName,
+    hospitalSource:
+      hospitalSource ??
+      (organizationId ? DEFAULT_EXISTING_HOSPITAL_SOURCE : DEFAULT_MANUAL_HOSPITAL_SOURCE),
   }
 }
 
@@ -424,6 +508,43 @@ function toCreateUserError(error: ServiceErrorLike): SignupSubmitServiceError {
   })
 }
 
+async function resolveExistingSessionUser(
+  client: ServiceClient,
+  accessToken: string | null | undefined,
+) {
+  if (!accessToken) {
+    throw new SignupSubmitServiceError(
+      'AUTH_SESSION_REQUIRED',
+      SIGNUP_ERROR_MESSAGES.AUTH_SESSION_REQUIRED,
+      401,
+    )
+  }
+
+  const { data, error } = await client.auth.getUser(accessToken)
+
+  if (error || !data.user?.id) {
+    throw new SignupSubmitServiceError(
+      'AUTH_SESSION_REQUIRED',
+      SIGNUP_ERROR_MESSAGES.AUTH_SESSION_REQUIRED,
+      401,
+    )
+  }
+
+  const email = asNonEmptyString(data.user.email)
+  if (!email || !EMAIL_PATTERN.test(email)) {
+    throw new SignupSubmitServiceError(
+      'OAUTH_EMAIL_REQUIRED',
+      SIGNUP_ERROR_MESSAGES.OAUTH_EMAIL_REQUIRED,
+      400,
+    )
+  }
+
+  return {
+    userId: data.user.id,
+    email,
+  }
+}
+
 function toRpcError(error: ServiceErrorLike): SignupSubmitServiceError {
   if (/duplicate_signup_request|duplicate_approved_membership|duplicate/i.test(error.message)) {
     return new SignupSubmitServiceError('DUPLICATE_REQUEST', SIGNUP_ERROR_MESSAGES.DUPLICATE_REQUEST, 409)
@@ -449,10 +570,10 @@ function toRpcError(error: ServiceErrorLike): SignupSubmitServiceError {
 
 async function resolveAdminOrganizationId(
   client: ServiceClient,
-  hospitalId: string,
+  hospitalId: string | null,
   hospitalName: string,
 ): Promise<string> {
-  if (isUuid(hospitalId)) {
+  if (hospitalId && isResolvedOrganizationId(hospitalId)) {
     return hospitalId
   }
 
@@ -509,11 +630,28 @@ async function rollbackAuthUser(client: ServiceClient, userId: string | null) {
   }
 }
 
+function buildAuthUserMetadata(
+  name: string,
+  organizationId: string,
+  role: SignupRole,
+  membershipStatus: Exclude<MembershipStatus, 'none'>,
+) {
+  return {
+    user_metadata: {
+      display_name: name,
+      name,
+    },
+    app_metadata: buildAppMetadata(organizationId, role, membershipStatus),
+  }
+}
+
 export async function processSignupSubmit(
   client: ServiceClient,
   payload: SignupSubmitRequest,
   dependencies: SignupSubmitDependencies = {},
+  context: SignupSubmitContext = {},
 ): Promise<SignupSubmitSuccessData> {
+  const authMode = resolveAuthMode(payload)
   const role = normalizeRole(payload)
   if (!role) {
     throw new SignupSubmitServiceError('VALIDATION_ERROR', SIGNUP_ERROR_MESSAGES.VALIDATION_ERROR, 400, {
@@ -521,7 +659,25 @@ export async function processSignupSubmit(
     })
   }
 
-  const { email, password, name } = requireCommonFields(payload)
+  let email: string
+  let name: string
+  let password: string | null = null
+  let userId: string | null = null
+
+  if (authMode === 'password') {
+    const commonFields = requireCommonFields(payload)
+    email = commonFields.email
+    password = commonFields.password
+    name = commonFields.name
+  } else {
+    const existingSessionFields = requireExistingSessionFields(payload)
+    name = existingSessionFields.name
+
+    const existingSessionUser = await resolveExistingSessionUser(client, context.accessToken)
+    userId = existingSessionUser.userId
+    email = existingSessionUser.email
+  }
+
   const inviteValidator = dependencies.validateInviteCode ?? validateInviteCode
   const adminOrganizationResolver = dependencies.resolveAdminOrganizationId ?? resolveAdminOrganizationId
 
@@ -591,24 +747,28 @@ export async function processSignupSubmit(
     path = 'user_invite_redeem'
   }
 
-  const { data: authData, error: authError } = await client.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      display_name: name,
-      name,
-    },
-    app_metadata: buildAppMetadata(organizationId, role, membershipStatus),
-  })
+  if (authMode === 'password') {
+    const { data: authData, error: authError } = await client.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      ...buildAuthUserMetadata(name, organizationId, role, membershipStatus),
+    })
 
-  if (authError || !authData.user?.id) {
-    throw toCreateUserError(authError ?? { message: 'Unable to create auth user.' })
+    if (authError || !authData.user?.id) {
+      throw toCreateUserError(authError ?? { message: 'Unable to create auth user.' })
+    }
+
+    userId = authData.user.id
   }
 
-  const userId = authData.user.id
-
   try {
+    if (!userId) {
+      throw new SignupSubmitServiceError('INTERNAL_ERROR', 'Unable to resolve auth user.', 500, {
+        stage: 'auth_user_resolve',
+      })
+    }
+
     const { data, error } = await client.rpc(rpcName, {
       p_user_id: userId,
       p_requester_email: email,
@@ -619,13 +779,15 @@ export async function processSignupSubmit(
       throw toRpcError(error)
     }
 
+    let response: SignupSubmitSuccessData
+
     if (role === 'admin') {
       const row = extractRpcRow<AdminSignupRpcRow>(data)
       if (!row?.signup_request_id || !row.organization_id) {
         throw new SignupSubmitServiceError('INTERNAL_ERROR', 'Invalid admin signup rpc response.', 500)
       }
 
-      return {
+      response = {
         path,
         nextState,
         signupRequestStatus: 'pending',
@@ -633,23 +795,45 @@ export async function processSignupSubmit(
         signupRequestId: row.signup_request_id,
         organizationId: row.organization_id,
       }
+    } else {
+      const row = extractRpcRow<UserInviteRpcRow>(data)
+      if (!row?.signup_request_id || !row.organization_id) {
+        throw new SignupSubmitServiceError('INTERNAL_ERROR', 'Invalid invite signup rpc response.', 500)
+      }
+
+      response = {
+        path,
+        nextState,
+        signupRequestStatus: 'approved',
+        membershipStatus: 'approved',
+        signupRequestId: row.signup_request_id,
+        organizationId: row.organization_id,
+      }
     }
 
-    const row = extractRpcRow<UserInviteRpcRow>(data)
-    if (!row?.signup_request_id || !row.organization_id) {
-      throw new SignupSubmitServiceError('INTERNAL_ERROR', 'Invalid invite signup rpc response.', 500)
+    if (authMode === 'existing_session') {
+      const { data: authData, error: authError } = await client.auth.admin.updateUserById(
+        userId,
+        buildAuthUserMetadata(name, organizationId, role, membershipStatus),
+      )
+
+      if (authError || !authData.user?.id) {
+        throw new SignupSubmitServiceError(
+          'INTERNAL_ERROR',
+          authError?.message ?? SIGNUP_ERROR_MESSAGES.INTERNAL_ERROR,
+          500,
+          {
+            stage: 'auth_user_update',
+          },
+        )
+      }
     }
 
-    return {
-      path,
-      nextState,
-      signupRequestStatus: 'approved',
-      membershipStatus: 'approved',
-      signupRequestId: row.signup_request_id,
-      organizationId: row.organization_id,
-    }
+    return response
   } catch (error) {
-    await rollbackAuthUser(client, userId)
+    if (authMode === 'password') {
+      await rollbackAuthUser(client, userId)
+    }
 
     if (error instanceof SignupSubmitServiceError) {
       throw error
