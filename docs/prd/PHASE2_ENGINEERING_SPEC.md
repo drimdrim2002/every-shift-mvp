@@ -14,7 +14,7 @@ This document must answer:
 
 - What DB model should represent `version / revision / evaluation / finalization`?
 - What API boundaries should own solver, evaluator, and finalization logic?
-- How should the current `Step5Result.vue` evolve into a review hub?
+- How should the current `Step5Result.vue` become a result-detail screen with a separate compare modal?
 - How should failures be split across `review_blocked`, `infeasible`, and `solve_failed`?
 - In what order should implementation proceed to minimize risk?
 
@@ -54,7 +54,7 @@ Because of this baseline, Phase2A must shift from “overwriting a single workin
   -> solver execution
   -> backend evaluator
   -> schedule_evaluations (immutable review artifact)
-  -> Step5 Review Hub
+  -> Step5 result detail + compare modal
   -> finalize transaction
 ```
 
@@ -504,79 +504,74 @@ Return `409` or `422` for:
 
 Phase2A should keep existing routes where possible.
 
-| Route                                            | Action                   |
-| ------------------------------------------------ | ------------------------ |
-| `/schedule/step1`                                | keep                     |
-| `/schedule/step2`                                | keep                     |
-| `/schedule/step3`                                | keep                     |
-| `/schedule/step4`                                | keep                     |
-| `/schedule/step5/:scheduleId?version=:versionId` | expand into `Review Hub` |
+| Route                                            | Action                       |
+| ------------------------------------------------ | ---------------------------- |
+| `/schedule/step1`                                | keep                         |
+| `/schedule/step2`                                | keep                         |
+| `/schedule/step3`                                | keep                         |
+| `/schedule/step4`                                | keep                         |
+| `/schedule/step5/:scheduleId?version=:versionId` | keep as result detail screen |
 
 Key migration rule:
 
-- Keep `Step5Result.vue` and expand it into the review hub.
-- Use the `version` query parameter only for deep-linking and preview view state.
+- Keep `Step5Result.vue` and simplify it into the result detail screen.
+- Use the `version` query parameter only as an initial focused-plan hint, then canonicalize the route.
+- Use the `compare` query parameter only as a candidate hint; it must not auto-render comparison UI on the base page.
 - Keep authoritative version selection state in backend `selected_version_id`.
 - Changing the query parameter alone must never change the finalization target.
 
-### 8.2 Step5 Review Hub
+### 8.2 Step5 Result Detail And Compare Modal
 
-Extend [Step5Result.vue](../../src/views/schedule/Step5Result.vue) into:
+[Step5Result.vue](../../src/views/schedule/Step5Result.vue) remains focused on the current generated result. Candidate comparison lives in a controlled `근무표안 비교` modal.
 
 ```text
-Review Hub
-  - Header row 1:
-      - current preview version
-      - current selected version
-      - finalized badge
-  - Header row 2:
-      - Preview summary: version / revision / status
-      - Selected gate summary: selected version / finalization gate / blocking reasons
-  - Left panel: candidate version list with preview / selected / finalized markers
-  - Compare surface (always visible): compact version compare summary
-  - State-driven detail area for current preview version
+Step5 result detail
+  - current focused plan / selected plan / status
+  - finalization gate and top blocking reasons
+  - State-driven detail area for current focused version
       - review_ready, finalized -> assignment grid first
       - review_pending -> assignment grid + recheck blocker summary first
       - review_blocked -> hard-constraint proof first
       - infeasible -> infeasibility panel first
       - solve_failed -> failure panel first
-  - Detail tabs for current preview version:
+  - Detail tabs for current focused version:
       - assignment grid
       - hard-constraint proof
       - unfulfilled off requests
   - Action area:
       - one primary CTA based on current state
-      - secondary actions: re-solve, save edit, export
+      - secondary actions: compare plans, re-solve, save edit, export, delete
+  - Compare modal:
+      - candidate plan list
+      - two-plan comparison workspace
+      - focus/select/delete candidate actions
 ```
 
 ```text
 +----------------------------------------------------------------------------------+
-| Preview V3                                    | Selected V2                         |
-| preview: review_blocked / rev 4              | gate: blocked / recheck required    |
+| Current plan V3                               | Selected plan V2                    |
+| status: review_blocked / rev 4               | gate: blocked / recheck required    |
 +----------------------------------------------------------------------------------+
-| Compare Surface (always visible)                                                |
-| V1 [ok] 0 viol 72% | V2 [ok][selected] 0 viol 81% | V3 [preview][blocked] 2 viol 79% |
-+----------------------------------------------------------------------------------+
-| Detail Area (preview-driven)                                                     |
+| Detail Area (current-plan driven)                                                |
 | default panel = proof                                                            |
 | tabs: grid | proof | off requests                                                |
 +----------------------------------------------------------------------------------+
-| Primary CTA: Select as candidate / Recheck / Finalize version                    |
-| Secondary: Re-solve | Save edits | Export                                        |
+| Primary CTA: Select this plan / Recheck / Finalize this plan                     |
+| Secondary: Compare plans | Re-solve | Save edits | Export | Delete schedule       |
 +----------------------------------------------------------------------------------+
 ```
 
 New UI rules:
 
-- Show both the current preview version and the current selected version in the header at the same time.
-- The version list may show `preview`, `selected`, and `finalized` markers simultaneously when needed.
-- Clicking a version changes preview only.
+- Show both the current focused plan and the selected plan in the header at the same time.
+- Mount comparison UI only after the user clicks `근무표안 비교`.
+- Load compared review payloads lazily when the modal opens.
+- Clicking a candidate plan changes the focused plan only.
 - Changing `selected_version_id` happens only through an explicit CTA.
-- The detail area and tabs always reflect the current preview version.
-- The finalization gate and finalize CTA always reflect the selected version.
-- Keep the compare surface visible at the top of Step5 for all states, including failures.
-- The compare surface is limited to `finalizable or not`, `hard-constraint status`, `off request reflection rate`, `night/weekend spread summary`, and `one-line input change summary`.
-- Long diffs, full metric tables, and full violation lists belong in the detail area, not the compare surface.
+- The detail area and tabs always reflect the current focused plan.
+- The finalization gate and finalize CTA always reflect the selected plan.
+- Do not keep candidate lists or comparison workspaces mounted on the base Step5 page.
+- Long diffs, full metric tables, and full violation lists belong in detail tabs or the compare modal.
 - Default to the assignment grid for `review_ready`.
 - Default to a read-only assignment grid for `finalized`.
 - Default to assignment grid plus `cannot finalize before recheck` blocker summary for `review_pending`.
@@ -584,9 +579,9 @@ New UI rules:
 - Default to the infeasibility panel for `infeasible`.
 - Default to a lightweight failure panel with one-line error explanation, retry CTA, and operator-facing trace id for `solve_failed`.
 - Only one CTA should be visually primary at a time.
-- If `preview != selected`, the primary CTA is `Select this version as the finalization candidate`.
+- If `preview != selected`, the primary CTA is `Use this plan as the selected plan`.
 - If `preview == selected` and status is `review_pending` or `review_blocked`, the primary CTA is `Run recheck`.
-- If the selected version gate reports `allowed = true`, the primary CTA is `Finalize this version`.
+- If the selected version gate reports `allowed = true`, the primary CTA is `Finalize this plan`.
 - If status is `solve_failed`, the primary CTA is `Retry`.
 - When `Finalize` is disabled, the action area must explain the blocking reason and the next action immediately next to the CTA.
 

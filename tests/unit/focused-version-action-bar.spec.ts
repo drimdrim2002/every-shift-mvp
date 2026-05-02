@@ -59,8 +59,8 @@ describe('FocusedVersionActionBar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('현재 자세히 보는 안')
-    expect(wrapper.text()).toContain('현재 기준안')
+    expect(wrapper.text()).toContain('현재 보는 근무표안')
+    expect(wrapper.text()).toContain('선택한 근무표안')
     expect(wrapper.text()).toContain('V1')
     expect(wrapper.text()).toContain('V2')
   })
@@ -82,8 +82,8 @@ describe('FocusedVersionActionBar', () => {
       },
     })
 
-    expect(wrapper.text()).not.toContain('현재 자세히 보는 안')
-    expect(wrapper.text()).not.toContain('현재 기준안')
+    expect(wrapper.text()).not.toContain('현재 보는 근무표안')
+    expect(wrapper.text()).not.toContain('선택한 근무표안')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(true)
   })
 
@@ -112,7 +112,7 @@ describe('FocusedVersionActionBar', () => {
 
     expect(wrapper.text()).toContain('수정 후 다시 검사 필요')
     expect(wrapper.text()).toContain('최종 확정됨')
-    expect(wrapper.text()).toContain('이 안으로 최종 확정')
+    expect(wrapper.text()).toContain('이 근무표안 확정')
     expect(wrapper.text()).toContain('직접 수정이 있어 다시 검사가 필요합니다.')
   })
 

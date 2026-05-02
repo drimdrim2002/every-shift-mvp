@@ -49,7 +49,7 @@ Phase1 can generate schedules, but the following elements are still missing for 
 - Proof that generated results satisfy hard constraints
 - Explanations for why generation is impossible
 - Explanations for why off requests were not reflected
-- Comparison across candidate versions and rationale for selecting the final version
+- Comparison across generated schedule plans and rationale for selecting the final plan
 - Fairness management from a cumulative perspective rather than a month-only view
 - Administrator-centered initial onboarding for actual deployment
 
@@ -104,7 +104,7 @@ Users should not simply receive a result. They must also be able to get answers 
 
 - Is this result legally safe?
 - Why were some off requests not reflected?
-- Why is this version more appropriate than the other candidate versions?
+- Why is this plan more appropriate than the other generated plans?
 - If fairness is not perfect this month, how is it corrected from a cumulative perspective?
 
 ### 3.3 Deployment Principle
@@ -145,9 +145,9 @@ Principles:
 
 #### Trust Layer Fixed Rules
 
-- Multiple candidate versions may exist for the same target month.
-- A materially different set of off requests, locked assignments, policies, or input conditions creates a new version.
-- Re-solving, manual edits, and rechecks within the same version are tracked by increasing the revision.
+- Multiple schedule plans (`schedule_versions`) may exist for the same target month.
+- A materially different set of off requests, locked assignments, policies, or input conditions creates a new plan.
+- Re-solving, manual edits, and rechecks within the same plan are tracked by increasing the revision.
 - An evaluation is stored as an immutable snapshot at the `version + revision` level.
 - The backend evaluator calculates hard-constraint proof, unreflected off-request explanations, and review state from the saved assignments.
 - `review_blocked` means a result exists, but hard-constraint violations were found.
@@ -208,14 +208,14 @@ Required output items:
 
 #### D. Candidate Version Comparison Report
 
-For the same target month, compare multiple generated candidate versions and select one of them as the finalization target.
+For the same target month, compare multiple generated schedule plans and select one of them as the finalization target. The base Step5 screen focuses on the current result detail; comparison opens only inside the `근무표안 비교` modal.
 
 Comparison conditions:
 
 - Same organization / ward
 - Same target month
-- The changed inputs for each version, such as off requests, locked assignments, policies, or manual edits, must be recorded explicitly
-- The purpose of compare is to choose one finalization target version
+- The changed inputs for each plan, such as off requests, locked assignments, policies, or manual edits, must be recorded explicitly
+- The purpose of compare is to choose one finalization target plan
 
 Comparison metrics:
 
@@ -225,7 +225,7 @@ Comparison metrics:
 - Weekend-shift variance
 - Rolling fairness impact
 - Number of manual edits
-- Summary of input differences across versions
+- Summary of input differences across plans
 
 Notes:
 
@@ -237,9 +237,9 @@ Notes:
 - If at least one hard-constraint violation exists, finalization is not allowed.
 - If the version is `infeasible`, finalization is not allowed.
 - Unreflected off requests do not block finalization, but their reasons must remain inspectable.
-- If an operator manually edits the selected version, the state must move to `review_pending` and proof / explanation artifacts must be recalculated.
-- Finalization is only allowed when the latest passed evaluation matches the current revision of the selected version.
-- Other unfinalized versions may remain visible as compare candidates.
+- If an operator manually edits the selected plan, the state must move to `review_pending` and proof / explanation artifacts must be recalculated.
+- Finalization is only allowed when the latest passed evaluation matches the current revision of the selected plan.
+- Other unfinalized plans may remain visible as compare candidates inside the compare modal.
 
 ### 4.4 Phase2A-2 - Go-Live Ops Layer
 
@@ -327,7 +327,7 @@ The following items are not missing requirements. They are intentionally deferre
 Trust Layer criteria:
 
 - Zero hard-constraint violations
-- Operators can understand the tradeoffs across candidate versions and choose one version
+- Operators can understand the tradeoffs across generated plans and choose one plan
 - Operators receive explanations for unreflected off requests that they find understandable and acceptable
 - Proof and explanation artifacts can be reviewed before finalization
 
@@ -344,7 +344,7 @@ Trust Layer deliverables:
 - A hard-constraint compliance proof screen
 - An infeasibility explanation screen
 - An unreflected off-request explanation screen
-- A candidate-version comparison report
+- A generated-plan comparison report
 - A finalization gate
 
 Go-Live Ops Layer deliverables:
@@ -359,7 +359,7 @@ Go-Live Ops Layer deliverables:
 #### A. Core Entities
 
 - One target month is managed as one schedule container.
-- Multiple candidate versions can exist under one schedule container.
+- Multiple generated plans can exist under one schedule container.
 - Each version can have multiple revisions.
 - An evaluation is an immutable review artifact stored per `version + revision`.
 
@@ -386,15 +386,15 @@ review_ready
 
 #### C. Finalization Rules
 
-- Finalization is performed at the selected version level, not at the whole month level.
+- Finalization is performed at the selected plan level, not at the whole month level.
 - Finalization is allowed only when `selected version + current revision + latest passed evaluation` all match.
 - Only the finalized version is treated as the operationally confirmed result, and rolling fairness ledger writes must also follow the finalized version.
 
 #### D. Compare Rules
 
-- The default compare unit is a candidate version, not a manual baseline.
-- The compare screen must show both input differences and result differences across versions.
-- Operators must compare versions and then finalize one chosen version.
+- The default compare unit is a generated schedule plan, not a manual baseline.
+- The base Step5 screen must not keep the compare screen always visible; the compare modal shows both input differences and result differences across plans.
+- Operators must compare plans and then finalize one chosen plan.
 
 ---
 
@@ -549,7 +549,7 @@ Deployment criteria:
 - Organization and employee data can be entered or uploaded
 - Off requests can be entered and results can be generated
 - Users can view proof that the generated result is legally safe
-- Users can review unreflected requests and candidate-version comparison results
+- Users can review unreflected requests and generated-plan comparison results
 
 ### 8.2 Second Deployment Goal
 

@@ -5,7 +5,10 @@ import {
   resolveDefaultReviewTab,
   resolveReviewLeadPanel,
 } from '@/utils/scheduleReviewState';
-import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy';
+import {
+  formatScheduleVersionLabel,
+  formatScheduleVersionStatus,
+} from '@/utils/scheduleReviewCopy';
 import type {
   ScheduleEvaluation,
   ScheduleFinalizationGate,
@@ -92,6 +95,14 @@ describe('scheduleReviewState', () => {
     expect(formatScheduleVersionStatus('infeasible')).toBe('조건 충돌로 생성 불가');
     expect(formatScheduleVersionStatus('solve_failed')).toBe('생성 중 오류 발생');
     expect(formatScheduleVersionStatus('finalized')).toBe('최종 확정됨');
+  });
+
+  it('uses Korean schedule candidate fallback labels', () => {
+    expect(formatScheduleVersionLabel({ name: null, versionNo: 2 })).toBe('2안');
+    expect(formatScheduleVersionLabel({ name: '  집중 근무안  ', versionNo: 3 })).toBe('집중 근무안');
+    expect(formatScheduleVersionLabel(null, '비교할 안을 하나 더 선택하세요')).toBe(
+      '비교할 안을 하나 더 선택하세요'
+    );
   });
 
   it('prefers disabled copy, then latest failure summary, then gate copy for primary actions', () => {

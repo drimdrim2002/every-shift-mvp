@@ -9,7 +9,7 @@ function createVersionSummary(overrides: Partial<ScheduleVersionSummary> = {}): 
     id: `version-${versionNo}`,
     scheduleId: 'schedule-1',
     versionNo,
-    name: `V${versionNo}`,
+    name: `${versionNo}안`,
     sourceType: versionNo === 1 ? 'initial_solve' : 're_solve',
     baseVersionId: versionNo === 1 ? null : 'version-1',
     status: 'review_ready',
@@ -57,7 +57,7 @@ describe('scheduleComparisonSummary', () => {
   it('builds plain-language bullets from truthful reflection-rate data', () => {
     const leftVersion = createVersionSummary({
       versionNo: 2,
-      name: 'V2',
+      name: '2안',
       status: 'review_ready',
       manualEditCount: 0,
       inputDiffSummary: {
@@ -77,7 +77,7 @@ describe('scheduleComparisonSummary', () => {
     });
     const rightVersion = createVersionSummary({
       versionNo: 3,
-      name: 'V3',
+      name: '3안',
       status: 'review_pending',
       manualEditCount: 2,
       inputDiffSummary: {
@@ -104,16 +104,16 @@ describe('scheduleComparisonSummary', () => {
         createReviewResponse(rightVersion)
       )
     ).toEqual([
-      'V3안의 Off 요청 반영률이 더 높습니다.',
-      'V2안은 바로 확정할 수 있습니다.',
-      'V3안은 직접 수정이 있어 다시 검사가 필요합니다.',
+      '3안의 Off 요청 반영률이 더 높습니다.',
+      '2안은 바로 확정할 수 있습니다.',
+      '3안은 직접 수정이 있어 다시 검사가 필요합니다.',
     ]);
   });
 
   it('omits Off-request claims when reflection rates are unavailable', () => {
     const leftVersion = createVersionSummary({
       versionNo: 2,
-      name: 'V2',
+      name: '2안',
       status: 'review_ready',
       inputDiffSummary: {
         changedOffRequests: 1,
@@ -125,7 +125,7 @@ describe('scheduleComparisonSummary', () => {
     });
     const rightVersion = createVersionSummary({
       versionNo: 3,
-      name: 'V3',
+      name: '3안',
       status: 'review_ready',
       inputDiffSummary: {
         changedOffRequests: 8,

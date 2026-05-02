@@ -261,11 +261,13 @@ describe('phase2 schedule contracts', () => {
         ...basePayload,
         creationMode: 'overwrite',
         overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+        sourceType: 'initial_solve',
       })
     ).toEqual({
       name: 'V2',
       creationMode: 'overwrite',
       overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+      sourceType: 'initial_solve',
       inputDiffSummary: {
         changedOffRequests: 0,
         changedLockedAssignments: 0,
@@ -274,6 +276,15 @@ describe('phase2 schedule contracts', () => {
       },
       inputSnapshot: {},
     });
+
+    expect(() =>
+      parseCreateVersionRequest({
+        ...basePayload,
+        creationMode: 'overwrite',
+        overwriteVersionId: '22222222-2222-4222-8222-222222222222',
+        sourceType: 'invalid',
+      })
+    ).toThrow('sourceType must be a valid schedule version source type');
 
     expect(
       parseCreateVersionRequest({
@@ -401,23 +412,50 @@ describe('phase2 schedule contracts', () => {
     ).toThrow('replacementSelectedVersionId must be a valid UUID');
   });
 
-  it('parses delete generated results request bodies with a required sourceVersionId', () => {
+  it('parses scoped delete generated results request bodies', () => {
     expect(
       parseDeleteGeneratedResultsRequest({
+        scope: 'selected_version',
         sourceVersionId: '22222222-2222-4222-8222-222222222222',
       })
     ).toEqual({
+      scope: 'selected_version',
       sourceVersionId: '22222222-2222-4222-8222-222222222222',
     });
 
-    expect(() => parseDeleteGeneratedResultsRequest({})).toThrow(
+    expect(
+      parseDeleteGeneratedResultsRequest({
+        scope: 'all_active_versions',
+      })
+    ).toEqual({
+      scope: 'all_active_versions',
+    });
+
+    expect(() => parseDeleteGeneratedResultsRequest({})).toThrow('scope is required');
+    expect(() =>
+      parseDeleteGeneratedResultsRequest({
+        scope: 'selected_version',
+      })
+    ).toThrow(
       'sourceVersionId must be a valid UUID'
     );
     expect(() =>
       parseDeleteGeneratedResultsRequest({
+        scope: 'selected_version',
         sourceVersionId: 'not-a-uuid',
       })
     ).toThrow('sourceVersionId must be a valid UUID');
+    expect(() =>
+      parseDeleteGeneratedResultsRequest({
+        scope: 'all_active_versions',
+        sourceVersionId: '22222222-2222-4222-8222-222222222222',
+      })
+    ).toThrow('sourceVersionId is not allowed for all_active_versions');
+    expect(() =>
+      parseDeleteGeneratedResultsRequest({
+        scope: 'invalid_scope',
+      })
+    ).toThrow('scope must be selected_version or all_active_versions');
   });
 
   it('accepts canonical postgres uuids used by seeded organizations', () => {

@@ -1341,6 +1341,7 @@ describe('phase2 schedule api helpers', () => {
 
     await deletePhase2ScheduleVersion('version-44');
     await deletePhase2ScheduleGeneratedResults('schedule-44', {
+      scope: 'selected_version',
       sourceVersionId: '22222222-2222-4222-8222-222222222222',
     });
 
@@ -1358,7 +1359,50 @@ describe('phase2 schedule api helpers', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
+          scope: 'selected_version',
           sourceVersionId: '22222222-2222-4222-8222-222222222222',
+        }),
+      })
+    );
+  });
+
+  it('posts all-active generated result reset requests with explicit scope', async () => {
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'token-delete-generated-all',
+        },
+      },
+      error: null,
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          scheduleId: 'schedule-44',
+          schedulePublicId: 'sch_a1b2c3d4e5f6',
+          organizationId: '11111111-1111-4111-8111-111111111111',
+          month: '2026-04',
+          selectedVersionId: null,
+          finalizedVersionId: null,
+          activeSolvingVersionId: null,
+          versions: [],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    );
+
+    const { deletePhase2ScheduleGeneratedResults } = await import('@/api/schedule');
+
+    await deletePhase2ScheduleGeneratedResults('schedule-44', {
+      scope: 'all_active_versions',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedules/schedule-44/delete-generated-results',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          scope: 'all_active_versions',
         }),
       })
     );

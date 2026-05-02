@@ -24,6 +24,10 @@ function dedupeVersionIds(versionIds: string[]): string[] {
   return [...new Set(versionIds)];
 }
 
+type HydrateOptions = {
+  loadComparedReviews?: boolean;
+};
+
 export function useScheduleReviewHub() {
   const route = useRoute();
   const router = useRouter();
@@ -220,7 +224,10 @@ export function useScheduleReviewHub() {
     };
   }
 
-  async function hydrate(requestedQuery?: Step5QueryState | null) {
+  async function hydrate(
+    requestedQuery?: Step5QueryState | null,
+    options: HydrateOptions = {}
+  ) {
     isLoading.value = true;
 
     try {
@@ -231,11 +238,18 @@ export function useScheduleReviewHub() {
           canonicalizeRoute: nextRequestedQuery.canonicalizeRoute,
         }
       );
-      await loadReviews(resolvedState.compareVersionIds, resolvedState.previewVersionId);
+      await loadReviews(
+        options.loadComparedReviews ? resolvedState.compareVersionIds : [],
+        resolvedState.previewVersionId
+      );
       hasHydratedOnce.value = true;
     } finally {
       isLoading.value = false;
     }
+  }
+
+  async function hydrateComparedReviews() {
+    await loadReviews(compareVersionIds.value, previewVersionId.value);
   }
 
   async function setPreviewVersion(versionId: string) {
@@ -299,6 +313,7 @@ export function useScheduleReviewHub() {
     selectedVersionId,
     previewVersionId,
     hydrate,
+    hydrateComparedReviews,
     setPreviewVersion,
     selectPreviewVersion,
   };

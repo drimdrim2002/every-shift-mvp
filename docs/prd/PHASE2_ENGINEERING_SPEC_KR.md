@@ -14,7 +14,7 @@
 
 - 어떤 DB 구조로 `version / revision / evaluation / finalization`을 표현할 것인가
 - 어떤 API 경계에서 solver, evaluator, finalize를 처리할 것인가
-- 현재 `Step5Result.vue`를 어떤 review hub로 바꿀 것인가
+- 현재 `Step5Result.vue`를 결과 상세 중심 화면과 비교 modal로 어떻게 정리할 것인가
 - 어떤 실패를 `review_blocked`, `infeasible`, `solve_failed`로 구분할 것인가
 - 어떤 순서로 구현해야 리스크가 가장 낮은가
 
@@ -54,7 +54,7 @@
   -> solver execution
   -> backend evaluator
   -> schedule_evaluations (immutable review artifact)
-  -> Step5 Review Hub
+  -> Step5 result detail + compare modal
   -> finalize transaction
 ```
 
@@ -510,73 +510,68 @@ Phase2A에서는 기존 route를 최대한 유지한다.
 | `/schedule/step2`                                | 유지                |
 | `/schedule/step3`                                | 유지                |
 | `/schedule/step4`                                | 유지                |
-| `/schedule/step5/:scheduleId?version=:versionId` | `Review Hub`로 확장 |
+| `/schedule/step5/:scheduleId?version=:versionId` | 결과 상세 화면 유지 |
 
 핵심 방침:
 
-- `Step5Result.vue`를 버리지 않고 review hub로 확장한다.
-- `version` query parameter는 deep-link와 preview view state 용도로만 사용한다.
+- `Step5Result.vue`를 버리지 않고 결과 상세 화면으로 정리한다.
+- `version` query parameter는 최초 진입 시 현재 보는 근무표안 힌트로만 사용하고 canonical route로 정리한다.
+- `compare` query parameter는 비교 후보 힌트로만 소비하며 Step5 기본 화면에 비교 UI를 자동 표시하지 않는다.
 - authoritative version selection state는 backend `selected_version_id`를 사용한다.
 - query parameter 변경만으로 finalization target이 바뀌면 안 된다.
 
-### 8.2 Step5 Review Hub
+### 8.2 Step5 결과 상세와 비교 modal
 
-기존 [Step5Result.vue](../../src/views/schedule/Step5Result.vue)를 다음 구조로 확장한다.
+기존 [Step5Result.vue](../../src/views/schedule/Step5Result.vue)는 결과 상세를 기본 화면으로 유지하고, 비교는 `근무표안 비교` modal에서만 연다.
 
 ```text
-Review Hub
-  - Header row 1:
-      - 현재 보고 있는 안 (Preview)
-      - 실제 확정 후보 (Selected)
-      - finalized badge
-  - Header row 2:
-      - Preview summary: version / revision / status
-      - Selected gate summary: selected version / finalization gate / blocking reasons
-  - Left panel: candidate version list with preview / selected / finalized markers
-  - Compare surface (always visible): compact version compare summary
-  - State-driven detail area for current preview version
+Step5 결과 상세
+  - 현재 보는 근무표안 / 선택한 근무표안 / 상태
+  - 확정 가능 여부와 주요 차단 사유
+  - State-driven detail area for current focused version
       - review_ready, finalized -> assignment grid first
       - review_pending -> assignment grid + recheck blocker summary first
       - review_blocked -> hard-constraint proof first
       - infeasible -> infeasibility panel first
       - solve_failed -> failure panel first
-  - Detail tabs for current preview version:
+  - Detail tabs for current focused version:
       - assignment grid
       - hard-constraint proof
       - unfulfilled off requests
   - Action area:
       - one primary CTA based on current state
-      - secondary actions: re-solve, save edit, export
+      - secondary actions: 근무표안 비교, re-solve, save edit, export, delete
+  - Compare modal:
+      - candidate plan list
+      - two-plan comparison workspace
+      - focus/select/delete candidate actions
 ```
 
 ```text
 +----------------------------------------------------------------------------------+
-| 현재 보고 있는 안 V3                         | 실제 확정 후보 V2                    |
-| preview: review_blocked / rev 4             | gate: 확정 불가 / 재검토 필요        |
+| 현재 보는 근무표안 V3                         | 선택한 근무표안 V2                    |
+| status: review_blocked / rev 4              | gate: 확정 불가 / 재검토 필요        |
 +----------------------------------------------------------------------------------+
-| Compare Surface (always visible)                                                |
-| V1 [가능] 0위반 72% | V2 [가능][확정 후보] 0위반 81% | V3 [미리보기][불가] 2위반 79%     |
-+----------------------------------------------------------------------------------+
-| Detail Area (preview 기준)                                                       |
+| Detail Area (현재 보는 근무표안 기준)                                             |
 | default panel = proof                                                            |
 | tabs: grid | proof | off requests                                                |
 +----------------------------------------------------------------------------------+
-| Primary CTA: 이 안을 확정 후보로 선택 / 재검토 실행 / 이 버전 확정              |
-| Secondary: 다시 생성 | 수정 저장 | 엑셀 내보내기                                 |
+| Primary CTA: 이 근무표안을 선택 / 재검토 실행 / 이 근무표안 확정                |
+| Secondary: 근무표안 비교 | 다시 생성 | 수정 저장 | 엑셀 내보내기 | 근무표 삭제     |
 +----------------------------------------------------------------------------------+
 ```
 
 새 UI 규칙:
 
-- Header에는 `현재 보고 있는 안`과 `실제 확정 후보`를 동시에 표시한다.
-- version list는 필요 시 `미리보기`, `확정 후보`, `확정 완료` 마커를 함께 표시할 수 있다.
-- version click은 preview만 변경한다.
+- Header에는 `현재 보는 근무표안`과 `선택한 근무표안`을 동시에 표시한다.
+- 근무표안 비교 modal은 사용자가 `근무표안 비교`를 클릭할 때만 mount한다.
+- compare 후보 review payload는 modal open 시점에 lazy-load한다.
+- 근무표안 후보 click은 현재 보는 근무표안만 변경한다.
 - `selected_version_id` 변경은 명시적 CTA로만 수행한다.
-- detail area와 detail tabs의 내용은 항상 current preview version 기준이다.
-- finalization gate와 finalize CTA는 항상 selected version 기준이다.
-- compare surface는 Step5 상단에서 항상 보이며, failure state에서도 숨기지 않는다.
-- compare surface의 고정 항목은 `확정 가능 여부`, `하드 제약 상태`, `off 요청 반영률`, `야간/주말 분산 요약`, `입력 변경 한 줄 요약`이다.
-- 긴 diff, 전체 metric table, 전체 violation 목록은 compare surface가 아니라 detail area로 내린다.
+- detail area와 detail tabs의 내용은 항상 현재 보는 근무표안 기준이다.
+- finalization gate와 finalize CTA는 항상 선택한 근무표안 기준이다.
+- Step5 기본 화면에는 후보 list나 비교 workspace를 항상 렌더링하지 않는다.
+- 긴 diff, 전체 metric table, 전체 violation 목록은 detail tab 또는 비교 modal 안에서만 다룬다.
 - `review_ready`는 assignment grid를 기본으로 연다.
 - `finalized`는 assignment grid를 읽기 전용으로 연다.
 - `review_pending`은 assignment grid와 `재검토 전 확정 불가` blocker summary를 함께 먼저 보여준다.
@@ -584,9 +579,9 @@ Review Hub
 - `infeasible`은 assignment grid 대신 infeasibility panel을 먼저 보여준다.
 - `solve_failed`는 한 줄 오류 설명, retry CTA, 운영자용 trace id를 먼저 보여준다.
 - action area에서 강하게 강조되는 primary CTA는 항상 1개만 둔다.
-- `preview != selected`이면 primary CTA는 `이 안을 확정 후보로 선택`이다.
+- `preview != selected`이면 primary CTA는 `이 근무표안을 기준안으로 사용`이다.
 - `preview == selected`이고 상태가 `review_pending` 또는 `review_blocked`이면 primary CTA는 `재검토 실행`이다.
-- selected version의 finalization gate가 `allowed = true`이면 primary CTA는 `이 버전 확정`이다.
+- selected version의 finalization gate가 `allowed = true`이면 primary CTA는 `이 근무표안 확정`이다.
 - `solve_failed`이면 primary CTA는 `재시도`다.
 - `Finalize`가 비활성화될 때는 action area에서 blocking reason과 다음 행동을 즉시 읽을 수 있어야 한다.
 

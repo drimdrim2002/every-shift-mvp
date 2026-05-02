@@ -817,6 +817,48 @@ describe('Step4InitialData', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('요청이 저장되었습니다.')
   })
 
+  it('stages request-entry apply locally in edit-off mode without saving or rechecking the preview version', async () => {
+    routeQueryMock.intent = 'edit-off'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    saveScheduleVersionPreferencesMock.mockClear()
+    recheckPhase2ScheduleVersionMock.mockClear()
+
+    await openRequestDrawer(wrapper)
+    await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-note"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {},
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({
+      'emp-1': {
+        '2025-12-01': '연차',
+      },
+      'emp-2': {},
+    })
+    expect(wrapper.vm.hasUnappliedDraft).toBe(false)
+    expect(wrapper.vm.hasUnpersistedAppliedChanges).toBe(true)
+    expect(wrapper.vm.selectedEmployeeIds).toEqual([])
+    expect(wrapper.vm.selectedEmployeeId).toBeNull()
+    expect(wrapper.vm.draftSelectedDates).toEqual([])
+    expect(wrapper.vm.draftNote).toBe('')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
+    expect(showSuccessMock).toHaveBeenCalledWith('요청이 새 근무표안 입력에 반영되었습니다.')
+  })
+
   it('applies one request draft to every selected employee', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -1142,6 +1184,27 @@ describe('Step4InitialData', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('변경사항이 저장되었습니다.')
   })
 
+  it('keeps save-applied changes staged locally in edit-off mode without updating the baseline snapshot', async () => {
+    routeQueryMock.intent = 'edit-off'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickComposerSaveAppliedChanges(wrapper)
+
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(wrapper.vm.hasUnpersistedAppliedChanges).toBe(true)
+    expect(showSuccessMock).toHaveBeenCalledWith('새 근무표안 입력으로 임시 반영되었습니다.')
+  })
+
   it('shows user-friendly existing-result branch actions before editing Step4', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -1306,6 +1369,26 @@ describe('Step4InitialData', () => {
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     })
+  })
+
+  it('blocks unchanged edit-off next without creating or routing to a version', async () => {
+    routeQueryMock.intent = 'edit-off'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('생성 시작으로 이동')
+    expect(wrapper.text()).not.toContain('결과 확인으로 이동')
+
+    await wrapper.vm.handleNext()
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith(
+      'Off 요청을 수정한 뒤 새 근무표안을 생성할 수 있습니다.'
+    )
   })
 
   it('shows the direct AI-generate label instead of result-check when no solver run history exists', async () => {
@@ -1903,6 +1986,88 @@ describe('Step4InitialData', () => {
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
     })
+  })
+
+  it('creates a new re-solve version for note-only edit-off changes and saves preferences to the new version', async () => {
+    routeQueryMock.intent = 'edit-off'
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {},
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          shift_code: 'O',
+          request_note: null,
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleContextMenu({
+      event: new MouseEvent('contextmenu'),
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+    })
+    await flushPromises()
+
+    wrapper.vm.handleSaveComment('메모만 변경')
+    await flushPromises()
+
+    await wrapper.vm.handleNext()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('새 근무표안 이름')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+
+    await clickExactButtonByText(wrapper, '이 이름으로 생성')
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).toHaveBeenCalledWith(
+      'schedule-1',
+      expect.objectContaining({
+        baseVersionId: 'version-2',
+        name: '3안',
+        creationMode: 'new',
+        sourceType: 're_solve',
+        inputDiffSummary: {
+          changedOffRequests: 0,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: 'step4_notes_changed:1',
+        },
+        inputSnapshot,
+      })
+    )
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-3',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {
+          '2025-12-01': '메모만 변경',
+        },
+        'emp-2': {},
+      }
+    )
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      expect.any(Object),
+      expect.any(Object)
+    )
   })
 
   it('blocks empty or whitespace-only 근무표안 names before calling the create API', async () => {
@@ -2777,6 +2942,63 @@ describe('Step4InitialData', () => {
       }
     )
     expect(showInfoMock).toHaveBeenCalledWith('브라우저 임시 저장 데이터를 불러왔습니다.')
+  })
+
+  it('replaces restored preferences on retry instead of retaining stale Off requests', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValueOnce({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+      },
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '연차',
+        },
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {},
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({
+      'emp-1': {
+        '2025-12-01': '연차',
+      },
+      'emp-2': {},
+    })
+
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
+    })
+
+    await wrapper.vm.handleRetryBaseline()
+    await flushPromises()
+
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {},
+      'emp-2': {},
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({
+      'emp-1': {},
+      'emp-2': {},
+    })
   })
 
   it('keeps DB preferences as restore priority over scoped localStorage fallback', async () => {

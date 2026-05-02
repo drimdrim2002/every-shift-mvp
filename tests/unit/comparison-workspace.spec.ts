@@ -11,7 +11,7 @@ function createVersionSummary(overrides: Partial<ScheduleVersionSummary> = {}): 
     id: `version-${versionNo}`,
     scheduleId: 'schedule-1',
     versionNo,
-    name: `V${versionNo}`,
+    name: `${versionNo}안`,
     sourceType: versionNo === 1 ? 'initial_solve' : 're_solve',
     baseVersionId: versionNo === 1 ? null : 'version-1',
     status: 'review_ready',
@@ -87,7 +87,7 @@ describe('ComparisonWorkspace', () => {
   it('shows truthful comparison text from reflection-rate metrics instead of input diff counts', () => {
     const leftVersion = createVersionSummary({
       versionNo: 2,
-      name: 'V2',
+      name: '2안',
       status: 'review_ready',
       inputDiffSummary: {
         changedOffRequests: 12,
@@ -106,7 +106,7 @@ describe('ComparisonWorkspace', () => {
     });
     const rightVersion = createVersionSummary({
       versionNo: 3,
-      name: 'V3',
+      name: '3안',
       status: 'review_pending',
       manualEditCount: 2,
       inputDiffSummary: {
@@ -137,17 +137,17 @@ describe('ComparisonWorkspace', () => {
 
     const summaryText = wrapper.get('[data-test="comparison-summary"]').text();
 
-    expect(summaryText).toContain('V3안의 Off 요청 반영률이 더 높습니다.');
+    expect(summaryText).toContain('3안의 Off 요청 반영률이 더 높습니다.');
     expect(summaryText).not.toContain('Off 요청을 11건 더 반영했습니다.');
     expect(summaryText).not.toContain('Off 요청을 3건 더 반영했습니다.');
-    expect(summaryText).toContain('V2안은 바로 확정할 수 있습니다.');
-    expect(summaryText).toContain('V3안은 직접 수정이 있어 다시 검사가 필요합니다.');
+    expect(summaryText).toContain('2안은 바로 확정할 수 있습니다.');
+    expect(summaryText).toContain('3안은 직접 수정이 있어 다시 검사가 필요합니다.');
   });
 
   it('falls back to a neutral summary when both rates are missing', () => {
     const leftVersion = createVersionSummary({
       versionNo: 2,
-      name: 'V2',
+      name: '2안',
       inputDiffSummary: {
         changedOffRequests: 1,
         changedLockedAssignments: 0,
@@ -158,7 +158,7 @@ describe('ComparisonWorkspace', () => {
     });
     const rightVersion = createVersionSummary({
       versionNo: 3,
-      name: 'V3',
+      name: '3안',
       inputDiffSummary: {
         changedOffRequests: 5,
         changedLockedAssignments: 0,

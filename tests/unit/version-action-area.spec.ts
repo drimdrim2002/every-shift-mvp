@@ -59,8 +59,8 @@ describe('VersionActionArea', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('미리보기 버전')
-    expect(wrapper.text()).toContain('선택된 버전')
+    expect(wrapper.text()).toContain('현재 보는 근무표안')
+    expect(wrapper.text()).toContain('선택한 근무표안')
   })
 
   it('emits primary-action for the current primary CTA', async () => {
@@ -107,7 +107,7 @@ describe('VersionActionArea', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('이 안으로 최종 확정')
+    expect(wrapper.text()).toContain('이 근무표안 확정')
     expect(wrapper.text()).toContain('재검토가 완료되어 확정할 수 있습니다.')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(true)
   })
@@ -133,7 +133,7 @@ describe('VersionActionArea', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('이 안을 기준안으로 사용')
+    expect(wrapper.text()).toContain('이 근무표안을 기준안으로 사용')
     expect(wrapper.text()).toContain('확정 가능')
     expect(wrapper.text()).toContain('생성 중 오류 발생')
     expect(wrapper.text()).not.toContain('Select this version as the finalization candidate')

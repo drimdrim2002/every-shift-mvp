@@ -175,6 +175,7 @@ const scheduleStoreMock = reactive({
     scheduleStoreMock.compareMatrix = null
     scheduleStoreMock.latestEvaluation = null
     scheduleStoreMock.reviewTab = 'grid'
+    scheduleStoreMock.siteRequirements = []
   }),
   setAssignments: vi.fn(),
   setComments: vi.fn(),
@@ -309,6 +310,20 @@ function createWrapper() {
   return wrapper
 }
 
+async function clickDocumentTestId(testId: string) {
+  const target = document.querySelector<HTMLElement>(`[data-test="${testId}"]`)
+  expect(target).toBeTruthy()
+  target!.click()
+  await flushPromises()
+}
+
+async function selectDeleteScope(testId: string) {
+  const input = document.querySelector<HTMLInputElement>(`[data-test="${testId}"] input[type="radio"]`)
+  expect(input).toBeTruthy()
+  input!.click()
+  await flushPromises()
+}
+
 function createVersionSummary(overrides: Record<string, unknown> = {}) {
   const versionNo = (overrides.versionNo as number | undefined) ?? 1
   const id = (overrides.id as string | undefined) ?? `version-${versionNo}`
@@ -372,6 +387,7 @@ describe('Step5Result', () => {
     while (mountedWrappers.length > 0) {
       mountedWrappers.pop()?.unmount()
     }
+    document.body.innerHTML = ''
   })
 
   beforeEach(() => {
@@ -402,6 +418,7 @@ describe('Step5Result', () => {
     scheduleStoreMock.compareMatrix = null
     scheduleStoreMock.latestEvaluation = null
     scheduleStoreMock.reviewTab = 'grid'
+    scheduleStoreMock.siteRequirements = []
     authStoreMock.user = {
       id: 'user-1',
     }
@@ -666,14 +683,13 @@ describe('Step5Result', () => {
     expect(replaceMock).not.toHaveBeenCalled()
   })
 
-  it('renders the read-only fairness summary from checklist data', async () => {
+  it('keeps the rolling fairness summary hidden until rolling history is supported', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(getChecklistMock).toHaveBeenCalledWith('org-1')
-    expect(wrapper.text()).toContain('공정성 요약')
-    expect(wrapper.text()).toContain('최근 3개월')
-    expect(wrapper.text()).toContain('확정 1건')
+    expect(getChecklistMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('공정성 요약')
+    expect(wrapper.text()).not.toContain('최근 3개월')
   })
 
   it('shows a dedicated initial loading placeholder before Step5 hydration completes', async () => {
@@ -738,7 +754,7 @@ describe('Step5Result', () => {
 
     expect(getPhase2ScheduleCompareMock.mock.calls.length).toBeGreaterThanOrEqual(2)
     expect(wrapper.find('[data-test="step5-initial-load-error"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('공정성 요약')
+    expect(wrapper.text()).not.toContain('공정성 요약')
   })
 
   it('hides result-only UI and shows the empty state when the preview version has no current-month assignments', async () => {
@@ -930,10 +946,10 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('입력 수정으로 돌아가면 비교안을 만들 수 있습니다.')
+    expect(wrapper.text()).not.toContain('입력 수정으로 돌아가면 새 근무표안을 만들 수 있습니다.')
 
     const step4Button = wrapper.findAll('button')
-      .find((button) => button.text().includes('입력 수정'))
+      .find((button) => button.text().includes('Off 수정'))
     expect(step4Button).toBeTruthy()
 
     await step4Button!.trigger('click')
@@ -991,7 +1007,7 @@ describe('Step5Result', () => {
     vi.clearAllMocks()
 
     const step4Button = wrapper.findAll('button')
-      .find((button) => button.text().includes('입력 수정'))
+      .find((button) => button.text().includes('Off 수정'))
     expect(step4Button).toBeTruthy()
     expect(step4Button!.attributes('disabled')).toBeDefined()
 
@@ -1001,7 +1017,7 @@ describe('Step5Result', () => {
     expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
-  it('removes the old reset CTAs and opens a two-path delete dialog', async () => {
+  it('opens delete scope selection with three explicit options', async () => {
     const warningMock = vi.fn()
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       warning: warningMock,
@@ -1018,22 +1034,14 @@ describe('Step5Result', () => {
     await deleteMonthButton.trigger('click')
     await flushPromises()
 
-    expect(warningMock).toHaveBeenCalledTimes(1)
-    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
-      positiveText?: string
-      negativeText?: string
-    }
-
-    expect(dialogConfig.positiveText).toBe('생성 결과만 삭제')
-    expect(dialogConfig.negativeText).toBe('이번 달 전체 삭제')
+    expect(warningMock).not.toHaveBeenCalled()
+    expect(document.querySelector('[data-test="delete-scope-modal"]')).toBeTruthy()
+    expect(document.body.textContent).toContain('선택한 안의 생성 결과 삭제')
+    expect(document.body.textContent).toContain('모든 안의 생성 결과 삭제')
+    expect(document.body.textContent).toContain('이번 달 근무표 전체 삭제')
   })
 
-  it('deletes generated results only and routes back to Step4', async () => {
-    const warningMock = vi.fn()
-    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
-      warning: warningMock,
-    }
-
+  it('deletes selected generated results only and routes back to Step4', async () => {
     const wrapper = createWrapper()
     await flushPromises()
     vi.clearAllMocks()
@@ -1043,13 +1051,11 @@ describe('Step5Result', () => {
     await deleteMonthButton.trigger('click')
     await flushPromises()
 
-    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
-      onPositiveClick?: () => void | Promise<void>
-    }
-    await dialogConfig.onPositiveClick?.()
-    await flushPromises()
+    await selectDeleteScope('delete-scope-option-selected-version')
+    await clickDocumentTestId('delete-scope-confirm-button')
 
     expect(deletePhase2ScheduleGeneratedResultsMock).toHaveBeenCalledWith('schedule-1', {
+      scope: 'selected_version',
       sourceVersionId: 'version-2',
     })
     expect(solverMock.stopPolling).toHaveBeenCalled()
@@ -1062,17 +1068,32 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-1')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
     expect(showSuccessMock).toHaveBeenCalledWith(
-      '생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+      '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+    )
+    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+  })
+
+  it('deletes all active generated results and routes back to Step4', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="delete-month-schedule-button"]').trigger('click')
+    await flushPromises()
+    await selectDeleteScope('delete-scope-option-all-active-versions')
+    await clickDocumentTestId('delete-scope-confirm-button')
+
+    expect(deletePhase2ScheduleGeneratedResultsMock).toHaveBeenCalledWith('schedule-1', {
+      scope: 'all_active_versions',
+    })
+    expect(solverMock.stopPolling).toHaveBeenCalled()
+    expect(showSuccessMock).toHaveBeenCalledWith(
+      '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
     )
     expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
   it('deletes the whole month after choosing the full-delete path', async () => {
-    const warningMock = vi.fn()
-    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
-      warning: warningMock,
-    }
-
     const wrapper = createWrapper()
     await flushPromises()
     vi.clearAllMocks()
@@ -1082,13 +1103,8 @@ describe('Step5Result', () => {
     await deleteMonthButton.trigger('click')
     await flushPromises()
 
-    expect(warningMock).toHaveBeenCalledTimes(1)
-
-    const dialogConfig = warningMock.mock.calls[0]?.[0] as {
-      onNegativeClick?: () => void | Promise<void>
-    }
-    await dialogConfig.onNegativeClick?.()
-    await flushPromises()
+    await selectDeleteScope('delete-scope-option-whole-month')
+    await clickDocumentTestId('delete-scope-confirm-button')
 
     expect(deletePhase2ScheduleMonthMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
@@ -1108,7 +1124,7 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith(getAppHomeRoutePath())
   })
 
-  it('disables the full month delete action when the schedule is already finalized', async () => {
+  it('blocks delete scope options for finalized months', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-2',
@@ -1134,7 +1150,14 @@ describe('Step5Result', () => {
 
     const deleteMonthButton = wrapper.get('[data-test="delete-month-schedule-button"]')
 
-    expect(deleteMonthButton.attributes('disabled')).toBeDefined()
+    expect(deleteMonthButton.attributes('disabled')).toBeUndefined()
+
+    await deleteMonthButton.trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('확정된 근무표는 삭제할 수 없습니다.')
+    expect(document.body.textContent).not.toContain('선택한 안의 생성 결과 삭제')
+    expect(document.body.textContent).not.toContain('이번 달 근무표 전체 삭제')
   })
 
   it('deletes a selected non-focused compare card with preview replacement and rehydrates the route', async () => {
@@ -1179,8 +1202,9 @@ describe('Step5Result', () => {
       compare: 'version-2',
     }
 
-    await wrapper.get('[data-test="delete-version-version-2"]').trigger('click')
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
+    await clickDocumentTestId('delete-version-version-2')
 
     expect(warningMock).toHaveBeenCalledTimes(1)
 
@@ -1193,7 +1217,7 @@ describe('Step5Result', () => {
     expect(deletePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2', {
       replacementSelectedVersionId: 'version-1',
     })
-    expect(showSuccessMock).toHaveBeenCalledWith('안을 삭제했습니다.')
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표안을 삭제했습니다.')
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalled()
   })
@@ -1227,10 +1251,11 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-test="delete-version-version-1"]').trigger('click')
-    await flushPromises()
+    await clickDocumentTestId('delete-version-version-1')
 
     expect(deletePhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(showInfoMock).toHaveBeenCalledWith(
@@ -1238,7 +1263,7 @@ describe('Step5Result', () => {
     )
   })
 
-  it('hides comparison tools on first entry when there is only a single working version state', async () => {
+  it('keeps comparison UI off the base page when there is only a single working version state', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-1',
@@ -1282,11 +1307,12 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('비교 후보')
     expect(wrapper.text()).not.toContain('비교 도구')
-    expect(wrapper.text()).not.toContain('현재 자세히 보는 안')
-    expect(wrapper.text()).not.toContain('현재 기준안')
+    expect(wrapper.text()).not.toContain('현재 보는 근무표안')
+    expect(wrapper.text()).not.toContain('선택한 근무표안')
+    expect(wrapper.text()).not.toContain('근무표안 비교')
   })
 
-  it('shows comparison tools only after a real compare candidate exists and can collapse them', async () => {
+  it('opens comparison UI only after clicking the compare button', async () => {
     routeMock.query = {
       version: 'version-3',
       compare: 'version-3,version-2',
@@ -1322,25 +1348,21 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('비교 후보')
-    expect(wrapper.text()).toContain('V3')
-    expect(wrapper.text()).not.toContain('V1')
-
-    await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
-    await flushPromises()
-
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('비교 후보')
     expect(scheduleStoreMock.previewVersionId).toBe('version-3')
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
 
-    await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('비교 후보')
+    expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
+    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('근무표안 비교')
+    expect(document.body.textContent).toContain('여러 안의 결과를 비교하고 최종으로 볼 안을 선택하세요.')
+    expect(document.body.textContent).toContain('V3')
+    expect(document.body.textContent).not.toContain('V1')
   })
 
   it('hides solve_failed versions from comparison candidates even when requested by query', async () => {
@@ -1396,12 +1418,18 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('성공본')
-    expect(wrapper.text()).toContain('V1')
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('성공본')
     expect(wrapper.text()).not.toContain('실패본')
     expect(scheduleStoreMock.previewVersionId).toBe('version-3')
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
+
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('V1')
+    expect(document.body.textContent).not.toContain('실패본')
   })
 
   it('canonicalizes finalized months to the locked preview version and hides comparison tools', async () => {
@@ -1489,8 +1517,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="focus-version-3"]').trigger('click')
+    expect(wrapper.find('[data-test="focus-version-3"]').exists()).toBe(false)
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
+    await clickDocumentTestId('focus-version-3')
 
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-3')
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
@@ -1535,10 +1565,11 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-test="focus-version-2"]').trigger('click')
-    await flushPromises()
+    await clickDocumentTestId('focus-version-2')
 
     expect(warningMock).toHaveBeenCalledTimes(1)
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-2')
@@ -1612,7 +1643,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="primary-action-button"]').trigger('click')
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    await clickDocumentTestId('select-version-1')
     await flushPromises()
 
     expect(selectPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
@@ -1686,7 +1720,8 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.setReviewTab).toHaveBeenCalledWith('proof')
     expect(wrapper.text()).toContain('하드 제약 위반 요약')
     expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="primary-action-button"]').text()).toContain('다시 검사')
+    expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
   })
 
   it('shows solve_failed support copy and dispatches retry from the shared Step5 frame', async () => {
@@ -1761,10 +1796,51 @@ describe('Step5Result', () => {
 
     expect(wrapper.text()).toContain('solver crashed')
     expect(wrapper.text()).toContain('trace-123')
-    await wrapper.get('[data-test="primary-action-button"]').trigger('click')
+    expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
+  })
+
+  it('finalizes the current single version from the bottom action bar', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'review_ready',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-1', {
+        selectedVersionId: 'version-1',
+        version: {
+          status: 'review_ready',
+          isSelected: true,
+        },
+        primaryAction: {
+          kind: 'finalize',
+          targetVersionId: 'version-1',
+          label: 'Finalize',
+          disabledReason: null,
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
     await flushPromises()
 
-    expect(solverMock.startSolver).toHaveBeenCalled()
+    expect(wrapper.find('[data-test="step5-compare-button"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="finalize-schedule-button"]').trigger('click')
+    await flushPromises()
+
+    expect(finalizePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표안을 확정했습니다.')
   })
 
   it('loads preview data by previewVersionId and allows mutation when preview status is editable', async () => {
@@ -1821,7 +1897,7 @@ describe('Step5Result', () => {
     expect(gridMock.dates.value.some((date) => date.date === '2025-03-31')).toBe(true)
   })
 
-  it('generates the full previous-month window when fallback already spans the default five days', async () => {
+  it('generates the full previous-month window up to seven days', async () => {
     routeMock.query = { version: 'version-1' }
     scheduleStoreMock.basicInfo = {
       ...scheduleStoreMock.basicInfo,
@@ -1837,6 +1913,8 @@ describe('Step5Result', () => {
           '2025-03-29': 'D',
           '2025-03-30': 'D',
           '2025-03-31': 'D',
+          '2025-03-25': 'D',
+          '2025-03-26': 'D',
         },
       },
       planningAssignments: [],
@@ -1851,9 +1929,9 @@ describe('Step5Result', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(gridMock.generateDates).toHaveBeenCalledWith('2025-04', 5)
-    expect(gridMock.dates.value.filter((date) => date.isLastMonth)).toHaveLength(5)
-    expect(gridMock.dates.value[0]?.date).toBe('2025-03-27')
+    expect(gridMock.generateDates).toHaveBeenCalledWith('2025-04', 7)
+    expect(gridMock.dates.value.filter((date) => date.isLastMonth)).toHaveLength(7)
+    expect(gridMock.dates.value[0]?.date).toBe('2025-03-25')
     expect(gridMock.assignments.value['emp-1']?.['2025-03-31']).toBe('D')
   })
 
@@ -2131,7 +2209,7 @@ describe('Step5Result', () => {
     await startSolverButton.trigger('click')
     await flushPromises()
 
-    expect(showErrorMock).toHaveBeenCalledWith('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.')
+    expect(showErrorMock).toHaveBeenCalledWith('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.')
     expect(getPhase2ScheduleCompareMock.mock.calls.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -2397,10 +2475,11 @@ describe('Step5Result', () => {
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
+    expect(solverMock.startSolver).toHaveBeenCalledTimes(1)
     expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
   })
 
-  it('strips autoStart without starting the solver when any executed history exists', async () => {
+  it('starts the solver for a mutable draft preview even when another version has executed history', async () => {
     routeMock.query = {
       version: 'version-1',
       autoStart: '1',
@@ -2455,8 +2534,8 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
-    expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
-    expect(solverMock.startSolver).not.toHaveBeenCalled()
+    expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
+    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
   })
 
   it('strips autoStart without starting the solver when another version is actively solving', async () => {
@@ -2533,6 +2612,7 @@ describe('Step5Result', () => {
         autoStart: true,
       })
     )
+    expect(replaceMock).toHaveBeenLastCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
@@ -2749,11 +2829,12 @@ describe('Step5Result', () => {
     const saveButton = wrapper.findAll('button')
       .find((button) => button.text().trim() === '저장')
     expect(saveButton).toBeTruthy()
+    expect(saveButton!.attributes('disabled')).toBeDefined()
 
     await saveButton!.trigger('click')
     await flushPromises()
 
-    expect(showInfoMock).toHaveBeenCalledWith('변경사항이 없습니다')
+    expect(showInfoMock).not.toHaveBeenCalledWith('변경사항이 없습니다')
     expect(dialogInfoMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
   })

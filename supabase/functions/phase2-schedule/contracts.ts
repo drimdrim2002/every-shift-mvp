@@ -32,6 +32,11 @@ export type ScheduleEvaluationResultStatus =
 export type ScheduleReviewTab = 'grid' | 'proof' | 'offRequests';
 export type SchedulePrimaryActionKind = 'select' | 'recheck' | 'finalize' | 'retry' | 'none';
 export type ScheduleVersionSourceType = 'initial_solve' | 're_solve' | 'manual_variant';
+const SCHEDULE_VERSION_SOURCE_TYPES = new Set<ScheduleVersionSourceType>([
+  'initial_solve',
+  're_solve',
+  'manual_variant',
+]);
 
 export interface ErrorEnvelope {
   code: string;
@@ -250,9 +255,14 @@ export interface ResetActiveFlowResponse {
   versions: ScheduleVersionSummary[];
 }
 
-export interface DeleteGeneratedResultsRequest {
-  sourceVersionId: string;
-}
+export type DeleteGeneratedResultsRequest =
+  | {
+      scope: 'selected_version';
+      sourceVersionId: string;
+    }
+  | {
+      scope: 'all_active_versions';
+    };
 
 export type DeleteGeneratedResultsResponse = CompareResponse;
 
@@ -744,6 +754,7 @@ export function parseCreateVersionRequest(payload: unknown): CreateVersionReques
   const overwriteVersionId =
     typeof record.overwriteVersionId === 'string' ? record.overwriteVersionId : '';
   const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const sourceType = record.sourceType;
 
   if (!name) {
     throw new ContractError('bad_request', 'name is required', 400);
@@ -757,9 +768,17 @@ export function parseCreateVersionRequest(payload: unknown): CreateVersionReques
     throw new ContractError('bad_request', 'creationMode must be new or overwrite', 400);
   }
 
+  if (
+    sourceType !== undefined
+    && (typeof sourceType !== 'string' || !SCHEDULE_VERSION_SOURCE_TYPES.has(sourceType as ScheduleVersionSourceType))
+  ) {
+    throw new ContractError('bad_request', 'sourceType must be a valid schedule version source type', 400);
+  }
+
   const baseRequest = {
     name,
     creationMode,
+    ...(sourceType ? { sourceType: sourceType as ScheduleVersionSourceType } : {}),
     inputDiffSummary: parseInputDiffSummary(record.inputDiffSummary),
     inputSnapshot: parseInputSnapshot(record.inputSnapshot),
   };
@@ -882,15 +901,41 @@ export function parseDeleteGeneratedResultsRequest(
   }
 
   const record = payload as Record<string, unknown>;
-  const sourceVersionId = typeof record.sourceVersionId === 'string'
-    ? record.sourceVersionId
-    : '';
+  const scope = record.scope;
 
-  if (!isValidUuid(sourceVersionId)) {
-    throw new ContractError('bad_request', 'sourceVersionId must be a valid UUID', 400);
+  if (scope === 'selected_version') {
+    const sourceVersionId = typeof record.sourceVersionId === 'string'
+      ? record.sourceVersionId
+      : '';
+
+    if (!isValidUuid(sourceVersionId)) {
+      throw new ContractError('bad_request', 'sourceVersionId must be a valid UUID', 400);
+    }
+
+    return { scope, sourceVersionId };
   }
 
-  return { sourceVersionId };
+  if (scope === 'all_active_versions') {
+    if (record.sourceVersionId !== undefined) {
+      throw new ContractError(
+        'bad_request',
+        'sourceVersionId is not allowed for all_active_versions',
+        400
+      );
+    }
+
+    return { scope };
+  }
+
+  if (scope === undefined) {
+    throw new ContractError('bad_request', 'scope is required', 400);
+  }
+
+  throw new ContractError(
+    'bad_request',
+    'scope must be selected_version or all_active_versions',
+    400
+  );
 }
 
 export function parseScheduleVersionSolveRequest(payload: unknown): SolveRequest {

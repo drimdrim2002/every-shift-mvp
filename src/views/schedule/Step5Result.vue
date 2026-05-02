@@ -38,49 +38,6 @@
       </div>
 
       <template v-else>
-        <ComparisonToolsSection
-          v-if="shouldShowResultDetails && shouldShowComparisonTools"
-          :collapsed="isComparisonToolsCollapsed"
-          :candidate-count="comparisonCandidateVersions.length"
-          :compare-count="compareVersionIds.length"
-          @toggle-collapsed="handleToggleComparisonTools"
-        >
-          <VersionCandidateShelf
-            :versions="comparisonCandidateVersions"
-            :compare-version-ids="compareVersionIds"
-            :focused-version-id="previewVersionId"
-            :selected-version-id="selectedVersionId"
-            :locked-version-id="lockedVersionId"
-            @toggle-compare="handleToggleCompareVersion"
-            @focus-version="handleFocusVersionChange"
-            @select-version="handleSelectCandidateVersion"
-            @delete-version="handleDeleteVersion"
-          />
-
-          <div class="my-6">
-            <ComparisonWorkspace
-              :left-version="leftComparedVersion"
-              :right-version="rightComparedVersion"
-              :left-review="leftComparedReview"
-              :right-review="rightComparedReview"
-              :focused-version-id="previewVersionId"
-              @focus-version="handleFocusVersionChange"
-            />
-          </div>
-        </ComparisonToolsSection>
-
-        <FocusedVersionActionBar
-          v-if="shouldShowResultDetails"
-          :focused-version="previewVersionSummary"
-          :selected-version="selectedVersionSummary"
-          :primary-action="primaryAction"
-          :support-copy="primaryActionSupportCopy"
-          :selecting="isSelectingPreview"
-          :acting="isPrimaryActionRunning"
-          :show-version-context="shouldShowComparisonTools"
-          @primary-action="handlePrimaryAction"
-        />
-
         <!-- 상태 표시 -->
         <div
           v-if="shouldShowStatusCard"
@@ -106,43 +63,6 @@
             <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
           </div>
         </div>
-
-        <n-card
-          v-if="shouldShowResultDetails && fairnessSummary.length > 0"
-          title="공정성 요약"
-          size="small"
-          class="mb-6"
-        >
-          <p class="mb-4 text-xs text-slate-500">
-            이 요약은 확정된 이력만 읽는 읽기 전용 정보입니다.
-          </p>
-          <div class="grid gap-3 md:grid-cols-3">
-            <div
-              v-for="window in fairnessSummary"
-              :key="window.months"
-              class="rounded-lg border border-slate-200 bg-white p-3"
-            >
-              <div class="flex items-baseline justify-between gap-3">
-                <h3 class="text-sm font-semibold text-slate-800">
-                  최근 {{ window.months }}개월
-                </h3>
-                <span class="text-xs text-slate-500">
-                  {{ window.windowStartMonth ?? '미정' }} ~ {{ window.windowEndMonth ?? '미정' }}
-                </span>
-              </div>
-              <p class="mt-2 text-sm text-slate-700">
-                확정 {{ window.finalizedVersionCount }}건
-              </p>
-              <p class="mt-2 text-xs leading-5 text-slate-500">
-                주간 {{ window.proofSummary.weeklyHoursViolations }} ·
-                야간 {{ window.proofSummary.nnnViolations }} ·
-                주말 {{ window.proofSummary.nodViolations }} ·
-                최소휴식 {{ window.proofSummary.minimumRestViolations }} ·
-                인력부족 {{ window.proofSummary.staffingShortfalls }}
-              </p>
-            </div>
-          </div>
-        </n-card>
 
         <n-alert
           v-if="policyRejectionSummariesCurrentMonth.length > 0"
@@ -175,7 +95,7 @@
         </div>
 
         <div
-          v-if="shouldShowResultDetails"
+          v-if="shouldShowLastMonthDayControl"
           class="mb-6"
         >
           <div class="mb-2 flex items-center justify-between">
@@ -198,7 +118,7 @@
           type="warning"
           class="mb-6"
         >
-          현재 자세히 보고 있는 안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
+          현재 보는 근무표안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
         </n-alert>
 
         <n-alert
@@ -232,23 +152,39 @@
           </n-button>
         </div>
 
-        <!-- 변경 사항 알림 -->
-        <n-alert
-          v-if="changedCells.size > 0"
-          type="warning"
-          class="mb-6"
-        >
-          <strong>{{ changedCells.size }}개의 변경사항</strong>이 있습니다. "저장" 버튼을 클릭하여 저장하세요.
-        </n-alert>
-
         <div class="my-6">
           <VersionReviewDetail
             v-if="shouldShowResultDetails"
             :review="review"
             :active-tab="activeReviewTab"
-            :focus-title="reviewFocusTitle"
             @update:tab="handleReviewTabChange"
           >
+            <template #headerActions>
+              <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                <span
+                  v-if="changedCells.size > 0"
+                  class="text-xs font-medium text-amber-700"
+                >
+                  {{ changedCells.size }}개 변경됨
+                </span>
+                <n-button
+                  size="small"
+                  :disabled="isManualEditActionDisabled"
+                  @click="handleReset"
+                >
+                  변경 사항 취소
+                </n-button>
+                <n-button
+                  size="small"
+                  type="primary"
+                  :disabled="isManualEditActionDisabled"
+                  @click="handleSave"
+                >
+                  저장
+                </n-button>
+              </div>
+            </template>
+
             <template #grid>
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0"
@@ -300,7 +236,7 @@
               :disabled="isInputEditDisabled"
               @click="handleBack"
             >
-              입력 수정
+              Off 수정
             </n-button>
             <n-button
               size="medium"
@@ -312,14 +248,16 @@
           </div>
 
           <div class="flex flex-col items-start gap-3">
-            <p
-              v-if="isFinished && shouldShowResultDetails"
-              class="text-xs leading-5 text-slate-500"
-            >
-              같은 안을 다시 생성하려면 더 개선하기를 사용하고, 입력 수정으로 돌아가면 비교안을 만들 수 있습니다.
-            </p>
-
             <div class="flex flex-col gap-4 sm:flex-row">
+              <n-button
+                v-if="shouldShowCompareAction"
+                size="medium"
+                data-test="step5-compare-button"
+                @click="handleOpenCompareModal"
+              >
+                근무표안 비교
+              </n-button>
+
               <n-button
                 v-if="scheduleId && scheduleStore.basicInfo"
                 size="medium"
@@ -327,19 +265,10 @@
                 ghost
                 data-test="delete-month-schedule-button"
                 :loading="isDeletingMonthSchedule"
-                :disabled="isDeleteMonthScheduleDisabled"
+                :disabled="isDeleteScheduleButtonDisabled"
                 @click="handleDeleteMonthSchedule"
               >
-                이번 달 근무표 삭제
-              </n-button>
-
-              <n-button
-                v-if="isFinished && shouldShowResultDetails"
-                size="medium"
-                :disabled="isVersionReadOnly"
-                @click="handleCreateCompareCandidate"
-              >
-                입력 변경 후 비교안 만들기
+                근무표 삭제
               </n-button>
 
               <n-button
@@ -352,15 +281,6 @@
                 @click="handleStartSolver"
               >
                 근무표 생성 (AI)
-              </n-button>
-
-              <n-button
-                v-if="isFinished && shouldShowResultDetails && changedCells.size > 0"
-                size="medium"
-                :disabled="isVersionReadOnly"
-                @click="handleReset"
-              >
-                변경 사항 취소
               </n-button>
 
               <n-button
@@ -381,16 +301,171 @@
               </n-button>
 
               <n-button
-                v-if="isFinished && shouldShowResultDetails"
+                v-if="shouldShowFinalizeAction"
                 size="medium"
-                :disabled="isVersionReadOnly"
-                @click="handleSave"
+                type="primary"
+                data-test="finalize-schedule-button"
+                :loading="isPrimaryActionRunning"
+                :disabled="isFinalizeActionDisabled"
+                @click="handleFinalizeAction"
               >
-                저장
+                확정
               </n-button>
             </div>
           </div>
         </div>
+
+        <ScheduleCompareModal
+          v-if="isCompareModalOpen"
+          :show="isCompareModalOpen"
+          :versions="comparisonCandidateVersions"
+          :compare-version-ids="compareVersionIds"
+          :focused-version-id="previewVersionId"
+          :selected-version-id="selectedVersionId"
+          :locked-version-id="lockedVersionId"
+          :left-version="leftComparedVersion"
+          :right-version="rightComparedVersion"
+          :left-review="leftComparedReview"
+          :right-review="rightComparedReview"
+          :loading="isCompareModalLoading"
+          :error-message="compareModalErrorMessage"
+          @update:show="handleCompareModalVisibility"
+          @toggle-compare="handleToggleCompareVersion"
+          @focus-version="handleFocusVersionChange"
+          @select-version="handleSelectCandidateVersion"
+          @delete-version="handleDeleteVersion"
+          @request-edit="handleCompareModalRequestEdit"
+          @retry="handleOpenCompareModal"
+        />
+
+        <n-modal
+          :show="isDeleteScopeModalOpen"
+          preset="card"
+          class="w-[min(640px,calc(100vw-32px))]"
+          :mask-closable="!isDeletingMonthSchedule"
+          @update:show="handleDeleteScopeModalVisibility"
+        >
+          <template #header>
+            근무표 삭제
+          </template>
+
+          <div
+            data-test="delete-scope-modal"
+            class="space-y-4"
+          >
+            <p class="text-sm leading-6 text-slate-600">
+              {{ scheduleStore.basicInfo?.month ?? '선택한 달' }} 근무표에서 삭제할 범위를 선택하세요.
+            </p>
+
+            <n-alert
+              v-if="deleteScopeBlockReason"
+              type="warning"
+              data-test="delete-scope-block"
+            >
+              {{ deleteScopeBlockReason }}
+            </n-alert>
+
+            <div
+              v-else
+              class="space-y-3"
+              role="radiogroup"
+              aria-label="근무표 삭제 범위"
+            >
+              <label
+                class="flex cursor-pointer gap-3 rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                :class="selectedDeleteScope === 'selected_version' ? 'border-slate-900 ring-1 ring-slate-900' : ''"
+                data-test="delete-scope-option-selected-version"
+              >
+                <input
+                  v-model="selectedDeleteScope"
+                  class="mt-1"
+                  type="radio"
+                  value="selected_version"
+                  :disabled="!previewVersionId"
+                >
+                <span>
+                  <span class="block text-sm font-semibold text-slate-900">
+                    선택한 안의 생성 결과 삭제
+                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-slate-500">
+                    현재 보는 근무표안의 배정 결과만 지우고 Off 요청과 다른 근무표안은 유지합니다.
+                  </span>
+                </span>
+              </label>
+
+              <label
+                class="flex cursor-pointer gap-3 rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
+                :class="selectedDeleteScope === 'all_active_versions' ? 'border-slate-900 ring-1 ring-slate-900' : ''"
+                data-test="delete-scope-option-all-active-versions"
+              >
+                <input
+                  v-model="selectedDeleteScope"
+                  class="mt-1"
+                  type="radio"
+                  value="all_active_versions"
+                >
+                <span>
+                  <span class="block text-sm font-semibold text-slate-900">
+                    모든 안의 생성 결과 삭제
+                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-slate-500">
+                    이 달의 모든 근무표안 배정 결과를 지우고 Off 요청은 유지합니다.
+                  </span>
+                </span>
+              </label>
+
+              <label
+                class="flex cursor-pointer gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 transition hover:bg-rose-100"
+                :class="selectedDeleteScope === 'whole_month' ? 'border-rose-700 ring-1 ring-rose-700' : ''"
+                data-test="delete-scope-option-whole-month"
+              >
+                <input
+                  v-model="selectedDeleteScope"
+                  class="mt-1"
+                  type="radio"
+                  value="whole_month"
+                >
+                <span>
+                  <span class="block text-sm font-semibold text-rose-900">
+                    이번 달 근무표 전체 삭제
+                  </span>
+                  <span class="mt-1 block text-xs leading-5 text-rose-700">
+                    입력한 Off 요청과 생성 결과를 모두 삭제하고 근무표 관리로 이동합니다.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <n-alert
+              v-if="deleteScopeErrorMessage"
+              type="error"
+              data-test="delete-scope-error"
+            >
+              {{ deleteScopeErrorMessage }}
+            </n-alert>
+          </div>
+
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <n-button
+                data-test="delete-scope-cancel-button"
+                :disabled="isDeletingMonthSchedule"
+                @click="handleCloseDeleteScopeModal"
+              >
+                취소
+              </n-button>
+              <n-button
+                type="error"
+                data-test="delete-scope-confirm-button"
+                :loading="isDeletingMonthSchedule"
+                :disabled="isDeleteScopeConfirmDisabled"
+                @click="handleConfirmDeleteScope"
+              >
+                삭제
+              </n-button>
+            </div>
+          </template>
+        </n-modal>
       </template>
     </n-card>
   </div>
@@ -398,18 +473,15 @@
 
 <script setup lang="ts">
 import dayjs from 'dayjs';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NSlider, NSpin } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NSlider, NSpin, NModal } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import ComparisonToolsSection from '@/components/schedule/review/ComparisonToolsSection.vue';
-import VersionCandidateShelf from '@/components/schedule/review/VersionCandidateShelf.vue';
-import ComparisonWorkspace from '@/components/schedule/review/ComparisonWorkspace.vue';
-import FocusedVersionActionBar from '@/components/schedule/review/FocusedVersionActionBar.vue';
+import ScheduleCompareModal from '@/components/schedule/review/ScheduleCompareModal.vue';
 import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
@@ -432,17 +504,13 @@ import {
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
-import { getChecklist } from '@/api/ops';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
+import { resolveDefaultReviewTab } from '@/utils/scheduleReviewState';
 import {
-  buildPrimaryActionSupportCopy,
-  resolveDefaultReviewTab,
-} from '@/utils/scheduleReviewState';
-import {
-  hasExecutedVersionHistory,
+  getCanonicalCompareVersionIds,
   isSolverFailedVersion,
 } from '@/utils/scheduleVersionResolver';
 import {
@@ -466,7 +534,6 @@ import type {
   ScheduleVersionSummary,
   ScheduleVersionStatus,
 } from '@/types/schedule';
-import type { FairnessLedgerWindowSummary } from '@/types/ops';
 
 const route = useRoute();
 const router = useRouter();
@@ -519,9 +586,14 @@ const initialLoadErrorMessage = ref<string | null>(null);
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
 const isDeletingMonthSchedule = ref(false);
-const isSelectingPreview = computed(() => hub.isSelecting.value);
+type DeleteScope = 'selected_version' | 'all_active_versions' | 'whole_month';
+const isDeleteScopeModalOpen = ref(false);
+const selectedDeleteScope = ref<DeleteScope | null>(null);
+const deleteScopeErrorMessage = ref<string | null>(null);
 const isPrimaryActionRunning = ref(false);
-const isComparisonToolsCollapsed = ref(false);
+const isCompareModalOpen = ref(false);
+const isCompareModalLoading = ref(false);
+const compareModalErrorMessage = ref<string | null>(null);
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -533,7 +605,6 @@ const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
 const policyRejectionSummariesCurrentMonth = ref<string[]>([]);
-const fairnessSummary = ref<FairnessLedgerWindowSummary[]>([]);
 const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
   kind: 'none',
   targetVersionId: null,
@@ -658,17 +729,32 @@ const isInputEditDisabled = computed(() => {
     || previewVersionStatus.value === 'solving'
     || getActiveSolvingVersionId() !== null;
 });
-const isDeleteMonthScheduleDisabled = computed(() => {
+const isDeleteScheduleButtonDisabled = computed(() => {
   const basicInfo = scheduleStore.basicInfo;
   return (
     isDeletingMonthSchedule.value
-    || Boolean(lockedVersionId.value)
-    || isRunning.value
-    || previewVersionStatus.value === 'solving'
-    || getActiveSolvingVersionId() !== null
     || !scheduleId.value
     || !basicInfo?.organizationId
     || !basicInfo.month
+  );
+});
+const deleteScopeBlockReason = computed(() => {
+  if (lockedVersionId.value) {
+    return '확정된 근무표는 삭제할 수 없습니다.';
+  }
+
+  if (isRunning.value || previewVersionStatus.value === 'solving' || getActiveSolvingVersionId() !== null) {
+    return '생성 중인 근무표안이 있어 삭제할 수 없습니다.';
+  }
+
+  return null;
+});
+const isDeleteScopeConfirmDisabled = computed(() => {
+  return (
+    isDeletingMonthSchedule.value
+    || Boolean(deleteScopeBlockReason.value)
+    || selectedDeleteScope.value === null
+    || (selectedDeleteScope.value === 'selected_version' && !previewVersionId.value)
   );
 });
 const previousMonthPrefix = computed(() => {
@@ -760,11 +846,6 @@ const shouldShowFirstRunEmptyState = computed(() => {
   );
 });
 
-function formatVersionLabel(version: ScheduleVersionSummary | null): string {
-  if (!version) return '없음';
-  return version.name ?? `V${version.versionNo}`;
-}
-
 function hasCompareCandidateSignal(version: ScheduleVersionSummary): boolean {
   return (
     version.manualEditCount > 0
@@ -790,10 +871,6 @@ const previewVersionSummary = computed(() => {
 
   return comparedVersion ?? reviewedVersion;
 });
-const selectedVersionSummary = computed(() => {
-  if (!selectedVersionId.value) return null;
-  return compareVersions.value.find((version) => version.id === selectedVersionId.value) ?? null;
-});
 const comparisonCandidateVersions = computed(() => {
   return compareVersions.value.filter((version) => {
     if (isSolverFailedVersion(version)) {
@@ -802,6 +879,7 @@ const comparisonCandidateVersions = computed(() => {
 
     return (
       version.id === selectedVersionId.value
+      || version.id === previewVersionId.value
       || compareVersionIds.value.includes(version.id)
       || hasCompareCandidateSignal(version)
     );
@@ -832,28 +910,10 @@ const leftComparedReview = computed<ScheduleReviewResponse | null>(() => {
 const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
   return rightComparedVersion.value ? comparedReviews.value[rightComparedVersion.value.id] ?? null : null;
 });
-const focusedVersionTitle = computed(() => {
-  return previewVersionSummary.value ? `${formatVersionLabel(previewVersionSummary.value)}안` : null;
-});
-const reviewFocusTitle = computed(() => {
-  return shouldShowComparisonTools.value ? focusedVersionTitle.value : null;
-});
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
 const activeReviewTab = computed(() => scheduleStore.reviewTab);
-const selectedGate = computed(() => {
-  return selectedVersionSummary.value?.finalizationGate
-    ?? scheduleStore.latestEvaluation?.finalizationGate
-    ?? null;
-});
-const primaryActionSupportCopy = computed(() => {
-  return buildPrimaryActionSupportCopy({
-    action: primaryAction.value,
-    gate: selectedGate.value,
-    latestEvaluation: review.value?.latestEvaluation ?? null,
-  });
-});
 const previewVersionExecutionId = computed(() => {
   return previewVersionSummary.value?.activeSolverExecutionId ?? null;
 });
@@ -861,15 +921,27 @@ const canRecoverSolverState = computed(() => {
   return previewVersionStatus.value === 'solving';
 });
 const isFinalizedMonth = computed(() => Boolean(lockedVersionId.value));
-const hasExecutedHistory = computed(() => {
-  return hasExecutedVersionHistory({ versions: compareVersions.value });
+const shouldShowCompareAction = computed(() => {
+  return shouldShowResultDetails.value
+    && !isFinalizedMonth.value
+    && comparisonCandidateVersions.value.length > 1;
 });
-const shouldShowComparisonTools = computed(() => {
-  if (isFinalizedMonth.value) {
-    return false;
-  }
-
-  return compareVersionIds.value.length >= 2 && comparisonCandidateVersions.value.length >= 2;
+const shouldShowLastMonthDayControl = computed(() => {
+  return shouldShowResultDetails.value && maxVisibleLastMonthDays.value > 0;
+});
+const isManualEditActionDisabled = computed(() => {
+  return changedCells.value.size === 0 || !canMutatePreviewVersion.value;
+});
+const shouldShowFinalizeAction = computed(() => {
+  return isFinished.value && shouldShowResultDetails.value && !isFinalizedMonth.value;
+});
+const isFinalizeActionDisabled = computed(() => {
+  return (
+    isPrimaryActionRunning.value
+    || primaryAction.value.kind !== 'finalize'
+    || !primaryAction.value.targetVersionId
+    || Boolean(primaryAction.value.disabledReason)
+  );
 });
 
 function syncReviewTabForPreview() {
@@ -1107,23 +1179,6 @@ async function loadPreferencesForDisplay() {
   syncPolicyRejectionDisplay(preferences as PreferenceWithPolicyResult[], currentMonth);
 }
 
-async function loadFairnessSummary() {
-  const organizationId = scheduleStore.basicInfo?.organizationId ?? null;
-
-  if (!organizationId) {
-    fairnessSummary.value = [];
-    return;
-  }
-
-  try {
-    const result = await getChecklist(organizationId);
-    fairnessSummary.value = result.fairnessSummary;
-  } catch (error) {
-    console.warn('공정성 요약 조회 중 오류:', error);
-    fairnessSummary.value = [];
-  }
-}
-
 function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
   if (previousDates.size === 0) return 0;
 
@@ -1133,7 +1188,7 @@ function calculateMaxVisibleLastMonthDays(previousDates: Set<string>): number {
   if (!minDate || !maxDate) return 0;
 
   const visibleRangeDays = dayjs(maxDate).diff(dayjs(minDate), 'day') + 1;
-  return Math.min(5, Math.max(1, visibleRangeDays));
+  return Math.min(7, Math.max(1, visibleRangeDays));
 }
 
 function syncLastMonthDayWindow(previousDates: Set<string>) {
@@ -1332,7 +1387,7 @@ async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearCh
   const mergedPreviousAssignments = mergeAssignmentMapsWithFallback(
     previousAssignments,
     previousMonthFallbackAssignments.value,
-    buildRollingHistoryWindow(currentMonth, 5).previousMonthDates,
+    buildRollingHistoryWindow(currentMonth, 7).previousMonthDates,
   );
 
   if (solver.status.value !== 'running') {
@@ -1455,7 +1510,7 @@ async function buildSolverRequest() {
     throw new Error('기본 정보가 없습니다. Step1부터 다시 진행해주세요.');
   }
   if (!versionId) {
-    throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다. 다시 진입해주세요.');
+    throw new Error('현재 보는 근무표안 정보를 찾을 수 없습니다. 다시 진입해주세요.');
   }
 
   if (organizationStore.shifts.length === 0) {
@@ -1539,7 +1594,7 @@ async function handleStartSolver() {
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
+    showInfo('현재 보는 근무표안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
   }
 
@@ -1562,7 +1617,7 @@ async function handleStartSolver() {
   } catch (error) {
     console.warn('근무표 생성 시작 중 오류:', error);
     if (readErrorCode(error) === 'another_version_solving') {
-      showError('다른 버전이 생성 중입니다. 완료 후 다시 시도해주세요.');
+      showError('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
       try {
         await hub.hydrate();
         if (getActiveSolvingVersionId() !== previewVersionId.value) {
@@ -1608,8 +1663,7 @@ async function consumeRouteAutoStart(shouldAutoStart = parseStep5RouteQuery(rout
   }
 
   if (
-    hasExecutedHistory.value
-    || !canMutatePreviewVersion.value
+    !canMutatePreviewVersion.value
     || hasCurrentMonthAssignments.value
     || hasOtherActiveSolvingVersion()
   ) {
@@ -1667,7 +1721,7 @@ async function handleSyncSolverState() {
 async function handleForceResetSolverState() {
   if (isRecoveringSolver.value) return;
   if (!previewVersionId.value) {
-    showError('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
+    showError('현재 보는 근무표안 정보를 찾을 수 없습니다.');
     return;
   }
   if (previewVersionStatus.value !== 'solving') {
@@ -1683,7 +1737,7 @@ async function handleForceResetSolverState() {
     await hub.hydrate();
     const currentPreviewVersionId = previewVersionId.value;
     if (!currentPreviewVersionId) {
-      throw new Error('현재 자세히 보는 안 정보를 찾을 수 없습니다.');
+      throw new Error('현재 보는 근무표안 정보를 찾을 수 없습니다.');
     }
 
     const currentPreview = compareVersions.value.find((version) => version.id === currentPreviewVersionId);
@@ -1790,7 +1844,6 @@ async function loadStep5InitialData() {
       syncOriginal: true,
       clearChanges: true,
     });
-    await loadFairnessSummary();
     await consumeRouteAutoStart(shouldAutoStart);
     hasInitialLoadCompleted.value = true;
   } catch (error) {
@@ -1948,26 +2001,47 @@ function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
   scheduleStore.setReviewTab(tab);
 }
 
-function handleToggleComparisonTools() {
-  isComparisonToolsCollapsed.value = !isComparisonToolsCollapsed.value;
+function handleCloseCompareModal() {
+  isCompareModalOpen.value = false;
+  compareModalErrorMessage.value = null;
+  void nextTick(() => {
+    document.querySelector<HTMLElement>('[data-test="step5-compare-button"]')?.focus();
+  });
 }
 
-function dedupeVersionIds(versionIds: string[]): string[] {
-  return [...new Set(versionIds)];
-}
-
-function getCanonicalCompareVersionIds(
-  versionIds: string[],
-  focusVersionId: string | null
-): string[] {
-  const deduped = dedupeVersionIds(versionIds);
-
-  if (!focusVersionId) {
-    return deduped.slice(0, 2);
+async function handleOpenCompareModal() {
+  if (!shouldShowCompareAction.value) {
+    return;
   }
 
-  const withoutFocus = deduped.filter((versionId) => versionId !== focusVersionId);
-  return [focusVersionId, ...withoutFocus].slice(0, 2);
+  isCompareModalOpen.value = true;
+  isCompareModalLoading.value = true;
+  compareModalErrorMessage.value = null;
+
+  try {
+    await hub.hydrateComparedReviews();
+  } catch (error) {
+    console.warn('근무표안 비교 로드 중 오류:', error);
+    compareModalErrorMessage.value = error instanceof Error
+      ? error.message
+      : '근무표안 비교 정보를 불러오는 중 오류가 발생했습니다.';
+  } finally {
+    isCompareModalLoading.value = false;
+  }
+}
+
+function handleCompareModalVisibility(show: boolean) {
+  if (show) {
+    void handleOpenCompareModal();
+    return;
+  }
+
+  handleCloseCompareModal();
+}
+
+function handleCompareModalRequestEdit() {
+  handleCloseCompareModal();
+  handleCreateCompareCandidate();
 }
 
 async function syncComparisonWorkspace(
@@ -1980,6 +2054,8 @@ async function syncComparisonWorkspace(
   await hub.hydrate({
     requestedFocusVersionId: focusVersionId,
     requestedCompareVersionIds: nextCompareVersionIds,
+  }, {
+    loadComparedReviews: true,
   });
 }
 
@@ -2087,17 +2163,19 @@ async function handleSelectCandidateVersion(versionId: string) {
 
   try {
     await selectPhase2ScheduleVersion(versionId);
-    showSuccess('기준안을 변경했습니다.');
+    showSuccess('선택한 근무표안을 변경했습니다.');
 
-    await hub.hydrate();
+    await hub.hydrate(undefined, {
+      loadComparedReviews: isCompareModalOpen.value,
+    });
     await syncPreviewWorkspace({
       syncOriginal: true,
       clearChanges: false,
       forceAssignmentSync: true,
     });
   } catch (error) {
-    console.warn('기준안 변경 중 오류:', error);
-    showError(error instanceof Error ? error.message : '기준안 변경 중 오류가 발생했습니다.');
+    console.warn('선택한 근무표안 변경 중 오류:', error);
+    showError(error instanceof Error ? error.message : '선택한 근무표안 변경 중 오류가 발생했습니다.');
   } finally {
     isPrimaryActionRunning.value = false;
   }
@@ -2122,8 +2200,8 @@ async function handleDeleteVersion(versionId: string) {
   }
 
   window.$dialog?.warning({
-    title: '이 안 삭제',
-    content: '이 안을 삭제할까요? 삭제한 안의 생성 결과와 비교 이력은 사라집니다. 현재 자세히 보는 안은 유지됩니다.',
+    title: '근무표안 삭제',
+    content: '이 근무표안을 삭제할까요? 삭제한 근무표안의 생성 결과와 비교 이력은 사라집니다. 현재 보는 근무표안은 유지됩니다.',
     positiveText: '삭제',
     negativeText: '취소',
     onPositiveClick: async () => {
@@ -2132,11 +2210,13 @@ async function handleDeleteVersion(versionId: string) {
           replacementSelectedVersionId: getDeleteVersionReplacement(versionId),
         });
 
-        await hub.hydrate();
-        showSuccess('안을 삭제했습니다.');
+        await hub.hydrate(undefined, {
+          loadComparedReviews: isCompareModalOpen.value,
+        });
+        showSuccess('근무표안을 삭제했습니다.');
       } catch (error) {
         console.warn('비교안 삭제 중 오류:', error);
-        showError(error instanceof Error ? error.message : '안을 삭제하는 중 오류가 발생했습니다.');
+        showError(error instanceof Error ? error.message : '근무표안을 삭제하는 중 오류가 발생했습니다.');
       }
     },
   });
@@ -2154,7 +2234,7 @@ async function handlePrimaryAction() {
       case 'select':
         if (!previewVersionId.value) return;
         await selectPhase2ScheduleVersion(previewVersionId.value);
-        showSuccess('기준안을 변경했습니다.');
+        showSuccess('선택한 근무표안을 변경했습니다.');
         break;
       case 'recheck':
         if (!primaryAction.value.targetVersionId) return;
@@ -2164,7 +2244,7 @@ async function handlePrimaryAction() {
       case 'finalize':
         if (!primaryAction.value.targetVersionId) return;
         await finalizePhase2ScheduleVersion(primaryAction.value.targetVersionId);
-        showSuccess('버전을 확정했습니다.');
+        showSuccess('근무표안을 확정했습니다.');
         break;
       case 'retry':
         await handleStartSolver();
@@ -2185,6 +2265,17 @@ async function handlePrimaryAction() {
   } finally {
     isPrimaryActionRunning.value = false;
   }
+}
+
+async function handleFinalizeAction() {
+  if (isFinalizeActionDisabled.value) {
+    if (primaryAction.value.disabledReason) {
+      showInfo(primaryAction.value.disabledReason);
+    }
+    return;
+  }
+
+  await handlePrimaryAction();
 }
 
 function isCurrentMonthDate(date: string) {
@@ -2210,7 +2301,7 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 
 function handleReset() {
   if (!canMutatePreviewVersion.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 보는 근무표안 상태에서는 편집할 수 없습니다.');
     return;
   }
 
@@ -2238,7 +2329,7 @@ function handleReset() {
 
 async function handleRegenerate() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 생성할 수 없습니다.');
+    showInfo('현재 보는 근무표안 상태에서는 생성할 수 없습니다.');
     return;
   }
 
@@ -2252,7 +2343,7 @@ async function handleRegenerate() {
 
 function handleCreateCompareCandidate() {
   if (!canMutatePreviewVersion.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 비교안을 만들 수 없습니다.');
+    showInfo('현재 보는 근무표안 상태에서는 새 근무표안을 만들 수 없습니다.');
     return;
   }
 
@@ -2296,7 +2387,7 @@ function handleExport() {
 
 function handleSave() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 편집할 수 없습니다.');
+    showInfo('현재 보는 근무표안 상태에서는 편집할 수 없습니다.');
     return;
   }
   const targetVersionId = previewVersionId.value;
@@ -2386,82 +2477,78 @@ function clearResultOnlyLocalState() {
   rebuildDisplayAssignments({});
 }
 
-async function handleDeleteGeneratedResults() {
-  if (!canMutatePreviewVersion.value || !previewVersionId.value) {
-    showInfo('현재 자세히 보는 안 상태에서는 생성 결과를 삭제할 수 없습니다.');
-    return;
+async function handleDeleteGeneratedResults(scope: 'selected_version' | 'all_active_versions') {
+  if (scope === 'selected_version' && !previewVersionId.value) {
+    throw new Error('현재 보는 근무표안을 확인할 수 없습니다.');
   }
 
-  try {
-    const resetResponse = await deletePhase2ScheduleGeneratedResults(ensureScheduleId(), {
-      sourceVersionId: previewVersionId.value,
-    });
+  const resetResponse = await deletePhase2ScheduleGeneratedResults(
+    ensureScheduleId(),
+    scope === 'selected_version'
+      ? {
+          scope,
+          sourceVersionId: previewVersionId.value!,
+        }
+      : {
+          scope,
+        }
+  );
 
-    solver.stopPolling();
-    stopAssignmentsRefresh();
-    clearResultOnlyLocalState();
+  solver.stopPolling();
+  stopAssignmentsRefresh();
+  clearResultOnlyLocalState();
 
-    scheduleStore.setCompareMatrix(resetResponse);
-    scheduleStore.setSelectedVersionId(resetResponse.selectedVersionId);
-    scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
+  scheduleStore.setCompareMatrix(resetResponse);
+  scheduleStore.setSelectedVersionId(resetResponse.selectedVersionId);
+  scheduleStore.setPreviewVersionId(resetResponse.selectedVersionId);
 
-    await loadPreferencesForDisplay();
-    clearTempPreferenceStorage();
+  await loadPreferencesForDisplay();
+  clearTempPreferenceStorage();
 
-    showSuccess('생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.');
-    await router.push(getScheduleStepRoutePath(4));
-  } catch (error) {
-    console.error('Delete generated results error:', error);
-    showError(error instanceof Error ? error.message : '생성 결과 삭제 중 오류가 발생했습니다.');
-  }
+  showSuccess(
+    scope === 'selected_version'
+      ? '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+      : '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+  );
+  await router.push(getScheduleStepRoutePath(4));
 }
 
 async function handleDeleteWholeMonthSchedule() {
   const basicInfo = scheduleStore.basicInfo;
   if (!basicInfo?.organizationId || !basicInfo.month) {
-    showError('조직 또는 월 정보를 찾을 수 없습니다.');
-    return;
+    throw new Error('조직 또는 월 정보를 찾을 수 없습니다.');
   }
 
-  isDeletingMonthSchedule.value = true;
+  await deletePhase2ScheduleMonth({
+    organizationId: basicInfo.organizationId,
+    month: basicInfo.month,
+  });
 
-  try {
-    await deletePhase2ScheduleMonth({
-      organizationId: basicInfo.organizationId,
-      month: basicInfo.month,
-    });
+  solver.stopPolling();
+  stopAssignmentsRefresh();
+  resetRealtimeState();
 
-    solver.stopPolling();
-    stopAssignmentsRefresh();
-    resetRealtimeState();
+  currentScheduleAssignments.value = {};
+  previousMonthAssignments.value = {};
+  changedCells.value.clear();
+  originalCurrentAssignments.value = {};
+  offRequestsCurrentMonth.value = {};
+  offRequestNotesCurrentMonth.value = {};
+  policyRejectionSummariesCurrentMonth.value = [];
+  rebuildDisplayAssignments({});
 
-    currentScheduleAssignments.value = {};
-    previousMonthAssignments.value = {};
-    changedCells.value.clear();
-    originalCurrentAssignments.value = {};
-    offRequestsCurrentMonth.value = {};
-    offRequestNotesCurrentMonth.value = {};
-    policyRejectionSummariesCurrentMonth.value = [];
-    rebuildDisplayAssignments({});
+  clearTempPreferenceStorage();
+  scheduleStore.setBasicInfo({
+    ...basicInfo,
+    scheduleId: undefined,
+    schedulePublicId: undefined,
+  });
+  scheduleStore.resetReviewState();
+  scheduleStore.setAssignments({});
+  scheduleStore.setComments({});
 
-    clearTempPreferenceStorage();
-    scheduleStore.setBasicInfo({
-      ...basicInfo,
-      scheduleId: undefined,
-      schedulePublicId: undefined,
-    });
-    scheduleStore.resetReviewState();
-    scheduleStore.setAssignments({});
-    scheduleStore.setComments({});
-
-    showSuccess('이번 달 근무표를 삭제했습니다.');
-    await router.replace(getAppHomeRoutePath());
-  } catch (error) {
-    console.error('Delete month schedule error:', error);
-    showError(error instanceof Error ? error.message : '이번 달 근무표 삭제 중 오류가 발생했습니다.');
-  } finally {
-    isDeletingMonthSchedule.value = false;
-  }
+  showSuccess('이번 달 근무표를 삭제했습니다.');
+  await router.replace(getAppHomeRoutePath());
 }
 
 async function handleDeleteMonthSchedule() {
@@ -2471,19 +2558,55 @@ async function handleDeleteMonthSchedule() {
     return;
   }
 
-  if (isDeleteMonthScheduleDisabled.value) {
-    showInfo('확정본이 있거나 생성 중인 월은 삭제할 수 없습니다.');
+  selectedDeleteScope.value = null;
+  deleteScopeErrorMessage.value = null;
+  isDeleteScopeModalOpen.value = true;
+}
+
+function handleCloseDeleteScopeModal() {
+  if (isDeletingMonthSchedule.value) {
     return;
   }
 
-  window.$dialog?.warning({
-    title: '이번 달 근무표 삭제',
-    content: `${basicInfo.month} 근무표 삭제 범위를 선택해주세요.\n\n생성 결과만 삭제하면 Off 요청은 유지한 채 Step4로 돌아갑니다. 이번 달 전체 삭제는 입력 요청과 생성 결과를 모두 삭제하고 홈으로 이동합니다.`,
-    positiveText: '생성 결과만 삭제',
-    negativeText: '이번 달 전체 삭제',
-    onPositiveClick: () => handleDeleteGeneratedResults(),
-    onNegativeClick: () => handleDeleteWholeMonthSchedule(),
-  });
+  isDeleteScopeModalOpen.value = false;
+  selectedDeleteScope.value = null;
+  deleteScopeErrorMessage.value = null;
+}
+
+function handleDeleteScopeModalVisibility(show: boolean) {
+  if (show) {
+    isDeleteScopeModalOpen.value = true;
+    return;
+  }
+
+  handleCloseDeleteScopeModal();
+}
+
+async function handleConfirmDeleteScope() {
+  if (isDeleteScopeConfirmDisabled.value || !selectedDeleteScope.value) {
+    return;
+  }
+
+  isDeletingMonthSchedule.value = true;
+  deleteScopeErrorMessage.value = null;
+
+  try {
+    if (selectedDeleteScope.value === 'whole_month') {
+      await handleDeleteWholeMonthSchedule();
+    } else {
+      await handleDeleteGeneratedResults(selectedDeleteScope.value);
+    }
+
+    isDeleteScopeModalOpen.value = false;
+    selectedDeleteScope.value = null;
+  } catch (error) {
+    console.error('Delete schedule scope error:', error);
+    const message = error instanceof Error ? error.message : '근무표 삭제 중 오류가 발생했습니다.';
+    deleteScopeErrorMessage.value = message;
+    showError(message);
+  } finally {
+    isDeletingMonthSchedule.value = false;
+  }
 }
 
 function clearTempPreferenceStorage() {

@@ -53,9 +53,9 @@ describe('VersionCandidateShelf', () => {
     })
 
     expect(wrapper.text()).toContain('비교 후보')
-    expect(wrapper.text()).toContain('현재 기준안')
+    expect(wrapper.text()).toContain('선택한 근무표안')
     expect(wrapper.text()).toContain('비교 중')
-    expect(wrapper.text()).toContain('지금 자세히 보는 안')
+    expect(wrapper.text()).toContain('현재 보는 근무표안')
   })
 
   it('emits explicit actions for compare, focus, and select on non-focused versions', async () => {
@@ -198,7 +198,7 @@ describe('VersionCandidateShelf', () => {
 
     const deleteButton = wrapper.get('[data-test="delete-version-version-2"]')
 
-    expect(deleteButton.attributes('aria-label')).toBe('이 안 삭제')
+    expect(deleteButton.attributes('aria-label')).toBe('이 근무표안 삭제')
     expect(deleteButton.classes()).toContain('size-8')
     expect(deleteButton.classes()).toContain('bg-white/95')
   })

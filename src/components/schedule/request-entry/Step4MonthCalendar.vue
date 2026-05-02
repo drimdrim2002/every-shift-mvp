@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import dayjs from 'dayjs'
+import { NTooltip } from 'naive-ui'
 
 import type { GridColumn } from '@/types/schedule'
 import {
@@ -18,9 +19,11 @@ const props = withDefaults(defineProps<{
   selectionMode: Step4SelectionMode
   selectedDates: string[]
   existingRequestDates?: string[]
+  existingRequestSummaries?: Record<string, string[]>
   transitionBlocked?: boolean
 }>(), {
   existingRequestDates: () => [],
+  existingRequestSummaries: () => ({}),
   transitionBlocked: false,
 })
 
@@ -34,7 +37,12 @@ const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'] as const
 const currentMonthDates = computed(() => getCurrentMonthGridDates(props.dates))
 const calendarWeeks = computed(() => buildMonthCalendarMatrix(props.dates))
 const normalizedSelectedDates = computed(() => normalizeSelectedDates(props.selectedDates, props.dates))
-const existingRequestDateSet = computed(() => new Set(props.existingRequestDates))
+const existingRequestDateSet = computed(() => {
+  return new Set([
+    ...props.existingRequestDates,
+    ...Object.keys(props.existingRequestSummaries),
+  ])
+})
 const selectedDateSummary = computed(() => buildSelectedDateSummary(props.selectedDates, props.dates))
 const activeDate = ref<string | null>(null)
 const dayButtonRefs = ref<Record<string, HTMLButtonElement | null>>({})
@@ -156,6 +164,35 @@ function isExistingRequestDate(date: string) {
   return existingRequestDateSet.value.has(date)
 }
 
+function getExistingRequestNames(date: string) {
+  const names = props.existingRequestSummaries[date] ?? []
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)))
+}
+
+function getExistingRequestDisplayLabel(date: string) {
+  const names = getExistingRequestNames(date)
+
+  if (names.length === 0) {
+    return isExistingRequestDate(date) ? '요청 있음' : ''
+  }
+
+  if (names.length === 1) {
+    return names[0]
+  }
+
+  return `${names[0]} 외 ${names.length - 1}명`
+}
+
+function getExistingRequestTooltipText(date: string) {
+  const names = getExistingRequestNames(date)
+
+  if (names.length === 0) {
+    return isExistingRequestDate(date) ? '기존 요청' : ''
+  }
+
+  return names.join(', ')
+}
+
 function isActiveDate(date: string) {
   return activeDate.value === date
 }
@@ -168,7 +205,8 @@ function getDayButtonLabel(cell: GridColumn) {
   }
 
   if (isExistingRequestDate(cell.date)) {
-    tokens.push('기존 요청')
+    const names = getExistingRequestNames(cell.date)
+    tokens.push(names.length > 0 ? `${names.join(', ')} 요청` : '기존 요청')
   }
 
   return tokens.join(', ')
@@ -240,7 +278,7 @@ function getCellKey(cell: Step4MonthCalendarCell, index: number) {
             :aria-pressed="isSelected(cell.date)"
             :data-test="`calendar-day-${cell.date}`"
             :tabindex="isActiveDate(cell.date) ? 0 : -1"
-            class="flex h-16 flex-col items-start justify-between rounded-xl border px-3 py-2 text-left transition-colors"
+            class="flex h-16 min-w-0 flex-col items-start justify-between rounded-xl border p-2 text-left transition-colors"
             :class="getDayButtonClasses(cell)"
             type="button"
             @click="requestSelection(cell.date)"
@@ -248,12 +286,23 @@ function getCellKey(cell: Step4MonthCalendarCell, index: number) {
             @keydown="handleDayKeydown(cell.date, $event)"
           >
             <span class="text-sm font-semibold">{{ cell.day }}</span>
-            <span
+            <n-tooltip
               v-if="isExistingRequestDate(cell.date)"
-              class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+              :disabled="!getExistingRequestTooltipText(cell.date)"
+              trigger="hover"
             >
-              기존 요청
-            </span>
+              <template #trigger>
+                <span
+                  class="max-w-full truncate whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+                  :title="getExistingRequestTooltipText(cell.date)"
+                >
+                  {{ getExistingRequestDisplayLabel(cell.date) }}
+                </span>
+              </template>
+              <div class="max-w-56 whitespace-pre-wrap break-words">
+                {{ getExistingRequestTooltipText(cell.date) }}
+              </div>
+            </n-tooltip>
           </button>
         </template>
       </div>

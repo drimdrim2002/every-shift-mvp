@@ -18,7 +18,7 @@ const emit = defineEmits<{
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          비교 도구
+          근무표안 비교
         </p>
         <h3 class="text-base font-semibold text-slate-900">
           여러 안을 나란히 비교해 보세요
@@ -33,7 +33,7 @@ const emit = defineEmits<{
           v-else
           class="mt-1 text-sm text-slate-600"
         >
-          비교 후보와 비교 워크스페이스를 보고, 필요한 경우 잠시 숨길 수 있습니다.
+          비교 후보와 비교 영역을 보고, 필요한 경우 잠시 숨길 수 있습니다.
         </p>
       </div>
 

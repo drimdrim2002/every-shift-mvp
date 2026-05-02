@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { ScheduleVersionSummary } from '@/types/schedule';
-import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy';
+import {
+  formatScheduleVersionLabel,
+  formatScheduleVersionStatus,
+} from '@/utils/scheduleReviewCopy';
 
 const props = defineProps<{
   versions: ScheduleVersionSummary[];
@@ -13,9 +16,7 @@ const emit = defineEmits<{
   (event: 'preview-change', versionId: string): void;
 }>();
 
-function formatVersionLabel(version: ScheduleVersionSummary) {
-  return version.name ?? `V${version.versionNo ?? '?'}`;
-}
+const formatVersionLabel = formatScheduleVersionLabel;
 
 function formatPercent(value: number | null) {
   if (value === null) return null;
@@ -43,13 +44,13 @@ function handlePreviewChange(versionId: string) {
     <div class="mb-3 flex items-center justify-between gap-3">
       <div>
         <h3 class="text-sm font-semibold text-slate-900">
-          버전 비교
+          근무표안 비교
         </h3>
         <p class="text-xs text-slate-500">
           클릭하면 미리보기만 변경됩니다.
         </p>
       </div>
-      <span class="text-xs text-slate-500">{{ versions.length }}개 버전</span>
+      <span class="text-xs text-slate-500">{{ versions.length }}개 안</span>
     </div>
 
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

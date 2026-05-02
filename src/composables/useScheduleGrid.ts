@@ -12,7 +12,7 @@ export function useScheduleGrid() {
   const comments = ref<CommentMap>({});
   const dates = ref<GridColumn[]>([]);
   const loading = ref(false);
-  const lastMonthDays = ref(5); // 전월 일수 (0-5, 기본값 5)
+  const lastMonthDays = ref(5); // 전월 일수
 
   // Supabase 응답 타입 (snake_case)
   interface EmployeeRow {

@@ -16,7 +16,7 @@ describe('ComparisonToolsSection', () => {
       },
     })
 
-    expect(wrapper.get('[data-test="comparison-tools-section"]').text()).toContain('비교 도구')
+    expect(wrapper.get('[data-test="comparison-tools-section"]').text()).toContain('근무표안 비교')
     expect(wrapper.get('[data-test="comparison-tools-body"]').text()).toContain('body')
 
     await wrapper.get('[data-test="comparison-tools-toggle"]').trigger('click')

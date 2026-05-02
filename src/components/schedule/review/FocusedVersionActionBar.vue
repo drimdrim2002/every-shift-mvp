@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import type { SchedulePrimaryAction, ScheduleVersionSummary } from '@/types/schedule'
 import {
   formatSchedulePrimaryActionLabel,
+  formatScheduleVersionLabel,
   formatScheduleVersionStatus,
 } from '@/utils/scheduleReviewCopy'
 
@@ -43,13 +44,7 @@ const primaryActionPendingLabel = computed(() => {
   return primaryActionLabel.value
 })
 
-function formatVersionLabel(version: ScheduleVersionSummary | null) {
-  if (!version) {
-    return '없음'
-  }
-
-  return version.name ?? `V${version.versionNo}`
-}
+const formatVersionLabel = formatScheduleVersionLabel
 </script>
 
 <template>
@@ -64,7 +59,7 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
       >
         <div class="rounded-xl bg-slate-50 p-4">
           <p class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-            현재 자세히 보는 안
+            현재 보는 근무표안
           </p>
           <p class="mt-2 text-lg font-semibold text-slate-900">
             {{ formatVersionLabel(focusedVersion) }}
@@ -76,7 +71,7 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
 
         <div class="rounded-xl bg-slate-50 p-4">
           <p class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-            현재 기준안
+            선택한 근무표안
           </p>
           <p class="mt-2 text-lg font-semibold text-slate-900">
             {{ formatVersionLabel(selectedVersion) }}

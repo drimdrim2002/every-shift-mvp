@@ -394,9 +394,14 @@ export interface ResetScheduleRosterResponse {
   employeeCount: number;
 }
 
-export interface DeleteGeneratedResultsRequest {
-  sourceVersionId: string;
-}
+export type DeleteGeneratedResultsRequest =
+  | {
+      scope: 'selected_version';
+      sourceVersionId: string;
+    }
+  | {
+      scope: 'all_active_versions';
+    };
 
 export type DeleteGeneratedResultsResponse = ScheduleCompareResponse;
 

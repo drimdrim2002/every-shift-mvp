@@ -45,7 +45,7 @@ function isTabActive(tab: ScheduleReviewTab) {
       class="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
     >
       <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-        현재 자세히 보는 안
+        현재 보는 근무표안
       </p>
       <h3 class="mt-1 text-base font-semibold text-slate-900">
         {{ focusTitle }}
@@ -117,20 +117,24 @@ function isTabActive(tab: ScheduleReviewTab) {
       </p>
     </div>
 
-    <div class="mb-4 flex flex-wrap gap-2">
-      <button
-        v-for="tab in tabOptions"
-        :key="tab.id"
-        type="button"
-        class="rounded-full px-3 py-1 text-sm transition"
-        :class="isTabActive(tab.id)
-          ? 'bg-slate-900 text-white'
-          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
-        :data-test="`review-tab-${tab.id}`"
-        @click="emit('update:tab', tab.id)"
-      >
-        {{ tab.label }}
-      </button>
+    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="tab in tabOptions"
+          :key="tab.id"
+          type="button"
+          class="rounded-full px-3 py-1 text-sm transition"
+          :class="isTabActive(tab.id)
+            ? 'bg-slate-900 text-white'
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'"
+          :data-test="`review-tab-${tab.id}`"
+          @click="emit('update:tab', tab.id)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <slot name="headerActions" />
     </div>
 
     <div

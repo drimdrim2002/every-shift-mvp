@@ -170,13 +170,23 @@ interface ResetScheduleGeneratedResultsAtomicRow {
   source_version_id: string;
 }
 
+interface ResetScheduleAllGeneratedResultsAtomicRow {
+  schedule_id: string;
+  reset_version_count: number;
+}
+
 export interface DeleteVersionRequest {
   replacementSelectedVersionId?: string;
 }
 
-export interface DeleteGeneratedResultsRequest {
-  sourceVersionId: string;
-}
+export type DeleteGeneratedResultsRequest =
+  | {
+      scope: 'selected_version';
+      sourceVersionId: string;
+    }
+  | {
+      scope: 'all_active_versions';
+    };
 
 interface SchedulePreferenceRow {
   id: string;
@@ -777,6 +787,14 @@ function remapOverwriteVersionConflict(error: unknown): never {
 
     if (error.dbError.message === 'version_archived') {
       throw new ContractError('version_archived', 'Version is archived', 409);
+    }
+
+    if (error.dbError.message === 'version_not_solve_failed') {
+      throw new ContractError(
+        'version_not_solve_failed',
+        'Only failed versions can be overwritten',
+        409
+      );
     }
 
     if (error.dbError.message === 'another_version_solving') {
@@ -1944,6 +1962,7 @@ export async function createVersion(
           p_schedule_id: schedule.id,
           p_overwrite_version_id: overwriteVersionId,
           p_name: request.name,
+          p_source_type: request.sourceType ?? 're_solve',
           p_input_diff_summary: request.inputDiffSummary,
           p_input_snapshot: request.inputSnapshot ?? {},
         }
@@ -2273,26 +2292,42 @@ export async function deleteGeneratedResults(
   request: DeleteGeneratedResultsRequest
 ): Promise<CompareResponse> {
   const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
-  const sourceVersion = await loadVersionById(client, request.sourceVersionId);
 
-  if (!sourceVersion || sourceVersion.schedule_id !== schedule.id) {
-    throw new ContractError('version_not_found', 'Version not found', 404);
-  }
+  if (request.scope === 'selected_version') {
+    const sourceVersion = await loadVersionById(client, request.sourceVersionId);
 
-  assertVersionNotArchived(sourceVersion);
+    if (!sourceVersion || sourceVersion.schedule_id !== schedule.id) {
+      throw new ContractError('version_not_found', 'Version not found', 404);
+    }
 
-  try {
-    await rpcSingle<ResetScheduleGeneratedResultsAtomicRow>(
-      client,
-      'reset_schedule_generated_results_atomic',
-      {
-        p_schedule_id: schedule.id,
-        p_source_version_id: sourceVersion.id,
-        p_reset_by: auth.userId,
-      }
-    );
-  } catch (error: unknown) {
-    remapDeleteGeneratedResultsRpcConflict(error);
+    assertVersionNotArchived(sourceVersion);
+
+    try {
+      await rpcSingle<ResetScheduleGeneratedResultsAtomicRow>(
+        client,
+        'reset_schedule_generated_results_atomic',
+        {
+          p_schedule_id: schedule.id,
+          p_source_version_id: sourceVersion.id,
+          p_reset_by: auth.userId,
+        }
+      );
+    } catch (error: unknown) {
+      remapDeleteGeneratedResultsRpcConflict(error);
+    }
+  } else {
+    try {
+      await rpcSingle<ResetScheduleAllGeneratedResultsAtomicRow>(
+        client,
+        'reset_schedule_all_generated_results_atomic',
+        {
+          p_schedule_id: schedule.id,
+          p_reset_by: auth.userId,
+        }
+      );
+    } catch (error: unknown) {
+      remapDeleteGeneratedResultsRpcConflict(error);
+    }
   }
 
   const refreshedSchedule = await loadAuthorizedSchedule(client, auth, schedule.id);

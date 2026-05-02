@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
-import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy';
+import {
+  formatScheduleVersionLabel,
+  formatScheduleVersionStatus,
+} from '@/utils/scheduleReviewCopy';
 import { buildScheduleComparisonSummary } from '@/utils/scheduleComparisonSummary';
 
 const props = defineProps<{
@@ -32,8 +35,7 @@ const summaryBullets = computed(() => {
 });
 
 function formatVersionLabel(version: ScheduleVersionSummary | null) {
-  if (!version) return '비교할 안을 하나 더 선택하세요';
-  return version.name ?? `V${version.versionNo}`;
+  return formatScheduleVersionLabel(version, '비교할 안을 하나 더 선택하세요');
 }
 
 function isFocused(versionId: string | null | undefined) {
@@ -49,17 +51,17 @@ function isFocused(versionId: string | null | undefined) {
     <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p class="text-xs font-medium uppercase tracking-[0.14em] text-slate-500">
-          비교 워크스페이스
+          근무표안 비교
         </p>
         <h3 class="text-base font-semibold text-slate-900">
-          비교 중인 안
+          비교 중인 근무표안
         </h3>
         <p class="mt-1 text-sm text-slate-600">
-          두 안의 차이를 먼저 보고, 하나를 자세히 열어볼 수 있습니다.
+          두 근무표안의 차이를 먼저 보고, 하나를 자세히 열어볼 수 있습니다.
         </p>
       </div>
       <p class="text-xs text-slate-500">
-        {{ hasTwoVersions ? '2개 안 비교 중' : '비교할 안을 하나 더 선택하세요' }}
+        {{ hasTwoVersions ? '2개 안 비교 중' : '비교할 근무표안을 하나 더 선택하세요' }}
       </p>
     </div>
 
@@ -92,7 +94,7 @@ function isFocused(versionId: string | null | undefined) {
         <div class="mb-3 flex items-center justify-between gap-3">
           <div>
             <p class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-              왼쪽 안
+              왼쪽 근무표안
             </p>
             <h4 class="text-base font-semibold text-slate-900">
               {{ formatVersionLabel(leftVersion) }}
@@ -105,7 +107,7 @@ function isFocused(versionId: string | null | undefined) {
             class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800"
             @click="emit('focus-version', leftVersion.id)"
           >
-            왼쪽 안 자세히 보기
+            왼쪽 근무표안 자세히 보기
           </button>
         </div>
 
@@ -136,7 +138,7 @@ function isFocused(versionId: string | null | undefined) {
           v-else
           class="text-sm text-slate-500"
         >
-          비교할 첫 번째 안을 선택하세요.
+          비교할 첫 번째 근무표안을 선택하세요.
         </p>
       </article>
 
@@ -148,7 +150,7 @@ function isFocused(versionId: string | null | undefined) {
         <div class="mb-3 flex items-center justify-between gap-3">
           <div>
             <p class="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-              오른쪽 안
+              오른쪽 근무표안
             </p>
             <h4 class="text-base font-semibold text-slate-900">
               {{ formatVersionLabel(rightVersion) }}
@@ -161,7 +163,7 @@ function isFocused(versionId: string | null | undefined) {
             class="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-800"
             @click="emit('focus-version', rightVersion.id)"
           >
-            오른쪽 안 자세히 보기
+            오른쪽 근무표안 자세히 보기
           </button>
         </div>
 
@@ -192,7 +194,7 @@ function isFocused(versionId: string | null | undefined) {
           v-else
           class="text-sm text-slate-500"
         >
-          비교할 두 번째 안을 선택하세요.
+          비교할 두 번째 근무표안을 선택하세요.
         </p>
       </article>
     </div>

@@ -691,7 +691,17 @@ const hasPendingStep4Changes = computed(() => {
   );
 });
 
+const isExistingResultEditMode = computed(() => {
+  return hasExplicitEditIntent() && baselineState.value?.hasExecutedHistory === true;
+});
+
 const nextStepLabel = computed(() => {
+  if (isExistingResultEditMode.value) {
+    return baselineState.value?.hasCurrentMonthAssignments
+      ? '생성 시작으로 이동'
+      : '근무표 생성(AI)';
+  }
+
   if (!baselineState.value?.hasCurrentMonthAssignments) {
     return '근무표 생성(AI)';
   }
@@ -1023,24 +1033,21 @@ function buildDraftAppliedPreferenceMaps(): {
   };
 }
 
-function mergeConstraintMap(source: ConstraintMap): void {
-  Object.entries(source).forEach(([employeeId, dateMap]) => {
-    if (!constraints.value[employeeId]) constraints.value[employeeId] = {};
-    Object.entries(dateMap || {}).forEach(([date, code]) => {
-      constraints.value[employeeId]![date] = code;
-    });
-  });
-  constraints.value = { ...constraints.value };
-}
-
-function mergeCommentMap(source: CommentMap): void {
-  Object.entries(source).forEach(([employeeId, dateMap]) => {
-    if (!constraintNotes.value[employeeId]) constraintNotes.value[employeeId] = {};
-    Object.entries(dateMap || {}).forEach(([date, comment]) => {
-      constraintNotes.value[employeeId]![date] = comment;
-    });
-  });
-  constraintNotes.value = { ...constraintNotes.value };
+function replacePreferenceMapsFromSnapshot(snapshot: {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+}): {
+  removedEmployeeIds: string[];
+  removedOffRequestCount: number;
+  removedNoteCount: number;
+} {
+  const sanitized = sanitizeSnapshotToCurrentEmployees(snapshot);
+  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  return {
+    removedEmployeeIds: sanitized.removedEmployeeIds,
+    removedOffRequestCount: sanitized.removedOffRequestCount,
+    removedNoteCount: sanitized.removedNoteCount,
+  };
 }
 
 function removeConstraintNote(employeeId: string, date: string): void {
@@ -1267,26 +1274,48 @@ async function applyDraftRequest(): Promise<void> {
   }
 
   isApplyRequestSaving.value = true;
-  setRequestApplyStatus('요청을 저장하는 중입니다.', 'info');
+  setRequestApplyStatus(
+    isExistingResultEditMode.value ? '요청을 반영하는 중입니다.' : '요청을 저장하는 중입니다.',
+    'info'
+  );
 
   try {
     const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
-    const result = await persistStep4PreferenceMaps(
-      nextPreferenceMaps.constraints,
-      nextPreferenceMaps.notes,
-      {
-        successMessage: '요청이 저장되었습니다.',
-        staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
-        logMessage: 'Saving request-entry preferences',
-      }
-    );
+    const result = isExistingResultEditMode.value
+      ? stageStep4PreferenceMaps(
+          nextPreferenceMaps.constraints,
+          nextPreferenceMaps.notes,
+          {
+            successMessage: '요청이 새 근무표안 입력에 반영되었습니다.',
+            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 반영합니다.',
+            logMessage: 'Staging edit-off request-entry preferences',
+          }
+        )
+      : await persistStep4PreferenceMaps(
+          nextPreferenceMaps.constraints,
+          nextPreferenceMaps.notes,
+          {
+            successMessage: '요청이 저장되었습니다.',
+            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
+            logMessage: 'Saving request-entry preferences',
+          }
+        );
 
     if (!result) return;
 
-    editingRequestKey.value = null;
-    dirtySinceLastApply.value = false;
-    blockedTransitionReason.value = null;
-    setRequestApplyStatus('요청이 DB에 저장되었습니다.', 'success');
+    if (isExistingResultEditMode.value) {
+      resetDraftState();
+    } else {
+      editingRequestKey.value = null;
+      dirtySinceLastApply.value = false;
+      blockedTransitionReason.value = null;
+    }
+    setRequestApplyStatus(
+      isExistingResultEditMode.value
+        ? '요청이 새 근무표안 입력에 반영되었습니다.'
+        : '요청이 DB에 저장되었습니다.',
+      'success'
+    );
 
     if (isRequestDrawerOpen.value) {
       void focusRequestComposerSearch();
@@ -1930,9 +1959,10 @@ async function restoreData(forceRefresh = false) {
       });
 
       if (versionPreferenceData.preferences.length > 0) {
-        mergeConstraintMap(versionPreferenceData.constraints);
-        mergeCommentMap(versionPreferenceData.notes);
-        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        const sanitized = replacePreferenceMapsFromSnapshot({
+          constraints: versionPreferenceData.constraints,
+          notes: versionPreferenceData.notes,
+        });
         if (sanitized.removedEmployeeIds.length > 0) {
           logRestoreTrace('Removed stale employee keys from version preferences', sanitized);
         }
@@ -1951,9 +1981,10 @@ async function restoreData(forceRefresh = false) {
     });
 
     if (schedulePreferenceData.preferences.length > 0) {
-      mergeConstraintMap(schedulePreferenceData.constraints);
-      mergeCommentMap(schedulePreferenceData.notes);
-      const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+      const sanitized = replacePreferenceMapsFromSnapshot({
+        constraints: schedulePreferenceData.constraints,
+        notes: schedulePreferenceData.notes,
+      });
       if (sanitized.removedEmployeeIds.length > 0) {
         logRestoreTrace('Removed stale employee keys from legacy schedule preferences', sanitized);
       }
@@ -1978,9 +2009,10 @@ async function restoreData(forceRefresh = false) {
       });
 
       if (offRequestCount > 0 || hasNotes) {
-        mergeConstraintMap(localSnapshot.constraints);
-        mergeCommentMap(localSnapshot.notes);
-        const sanitized = sanitizePreferenceMapsToCurrentEmployees();
+        const sanitized = replacePreferenceMapsFromSnapshot({
+          constraints: localSnapshot.constraints,
+          notes: localSnapshot.notes,
+        });
         if (sanitized.removedEmployeeIds.length > 0) {
           logRestoreTrace('Removed stale employee keys from localStorage preferences', sanitized);
         }
@@ -1994,6 +2026,10 @@ async function restoreData(forceRefresh = false) {
     }
 
     logRestoreTrace('No saved preference data found in all scopes');
+    replacePreferenceMapsFromSnapshot({
+      constraints: {},
+      notes: {},
+    });
 
     if (previewVersionId) {
       setBaselinePreferenceSnapshot(
@@ -2161,6 +2197,42 @@ async function persistStep4PreferenceMaps(
   return { scheduleId, previewVersionId };
 }
 
+function stageStep4PreferenceMaps(
+  nextConstraints: ConstraintMap,
+  nextNotes: CommentMap,
+  options: {
+    successMessage: string;
+    staleEmployeeMessage: string;
+    logMessage: string;
+  }
+): boolean {
+  if (!scheduleStore.basicInfo) return false;
+  if (grid.employees.value.length === 0) {
+    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
+    return false;
+  }
+
+  const sanitized = sanitizeSnapshotToCurrentEmployees({
+    constraints: nextConstraints,
+    notes: nextNotes,
+  });
+  if (sanitized.removedEmployeeIds.length > 0) {
+    logRestoreTrace('Removed stale employee keys before staged preference update', sanitized);
+    showInfo(options.staleEmployeeMessage);
+  }
+
+  logRestoreTrace(options.logMessage, {
+    scheduleId: baselineState.value?.scheduleId ?? scheduleStore.basicInfo.scheduleId ?? null,
+    scheduleVersionId: baselineState.value?.previewVersionId ?? null,
+    offRequestCount: countStoredOffRequests(sanitized.constraints),
+    hasNotes: hasAnyConstraintNotes(sanitized.notes),
+  });
+
+  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  showSuccess(options.successMessage);
+  return true;
+}
+
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
   if (hasUnappliedDraft.value) {
@@ -2170,6 +2242,19 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   }
 
   try {
+    if (isExistingResultEditMode.value) {
+      stageStep4PreferenceMaps(
+        constraints.value,
+        constraintNotes.value,
+        {
+          successMessage: '새 근무표안 입력으로 임시 반영되었습니다.',
+          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 임시 반영합니다.',
+          logMessage: 'Staging edit-off preferences',
+        }
+      );
+      return;
+    }
+
     return await persistStep4PreferenceMaps(
       constraints.value,
       constraintNotes.value,
@@ -2602,6 +2687,19 @@ async function handleNext() {
   try {
     const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
     const { baseline } = context;
+
+    if (isExistingResultEditMode.value) {
+      if (!hasStep4Changes) {
+        showInfo('Off 요청을 수정한 뒤 새 근무표안을 생성할 수 있습니다.');
+        return;
+      }
+
+      openVersionNameModal('new_re_solve', {
+        ...context,
+        shouldAutoStartSolver: true,
+      });
+      return;
+    }
 
     if (!baseline.hasExecutedHistory && context.shouldAutoStartSolver) {
       openVersionNameModal('first_run', context);

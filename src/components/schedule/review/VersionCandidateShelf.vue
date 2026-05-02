@@ -2,7 +2,10 @@
 import { computed } from 'vue'
 import { NTooltip } from 'naive-ui'
 import type { ScheduleVersionSummary } from '@/types/schedule'
-import { formatScheduleVersionStatus } from '@/utils/scheduleReviewCopy'
+import {
+  formatScheduleVersionLabel,
+  formatScheduleVersionStatus,
+} from '@/utils/scheduleReviewCopy'
 
 const props = defineProps<{
   versions: ScheduleVersionSummary[]
@@ -21,9 +24,7 @@ const emit = defineEmits<{
 
 const compareVersionSet = computed(() => new Set(props.compareVersionIds))
 
-function formatVersionLabel(version: ScheduleVersionSummary) {
-  return version.name ?? `V${version.versionNo}`
-}
+const formatVersionLabel = formatScheduleVersionLabel
 
 function isLockedOut(versionId: string) {
   return !!props.lockedVersionId && versionId !== props.lockedVersionId
@@ -68,11 +69,11 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
           비교 후보
         </h3>
         <p class="text-xs text-slate-500">
-          여러 안을 골라 비교하고, 하나를 자세히 보거나 기준안으로 사용할 수 있습니다.
+          여러 근무표안을 골라 비교하고, 하나를 자세히 보거나 기준안으로 사용할 수 있습니다.
         </p>
       </div>
       <p class="text-xs text-slate-500">
-        {{ versions.length }}개 버전
+        {{ versions.length }}개 안
       </p>
     </div>
 
@@ -90,7 +91,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
           <template #trigger>
             <button
               type="button"
-              aria-label="이 안 삭제"
+              aria-label="이 근무표안 삭제"
               :data-test="`delete-version-${version.id}`"
               class="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-base font-bold leading-none text-slate-500 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               @click.stop="handleDeleteVersion(version)"
@@ -98,7 +99,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
               <span aria-hidden="true">×</span>
             </button>
           </template>
-          <span>이 안 삭제</span>
+          <span>이 근무표안 삭제</span>
         </n-tooltip>
 
         <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -109,7 +110,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
             v-if="version.id === selectedVersionId"
             class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
           >
-            현재 기준안
+            선택한 근무표안
           </span>
           <span
             v-if="compareVersionSet.has(version.id)"
@@ -122,7 +123,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
             v-if="version.id === focusedVersionId"
             class="rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-700"
           >
-            지금 자세히 보는 안
+            현재 보는 근무표안
           </span>
           <span
             v-if="version.id === lockedVersionId"
@@ -163,7 +164,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
             :disabled="isLockedOut(version.id) || version.id === focusedVersionId"
             @click="emit('focus-version', version.id)"
           >
-            이 안 자세히 보기
+            이 근무표안 자세히 보기
           </button>
 
           <button
@@ -173,7 +174,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
             :disabled="isLockedOut(version.id) || version.id === selectedVersionId"
             @click="emit('select-version', version.id)"
           >
-            이 안을 기준안으로 사용
+            이 근무표안을 기준안으로 사용
           </button>
         </div>
       </article>

@@ -1,6 +1,18 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+vi.mock('naive-ui', () => ({
+  NTooltip: {
+    props: ['disabled'],
+    template: `
+      <span>
+        <slot name="trigger" />
+        <span v-if="!disabled" data-test="request-name-tooltip"><slot /></span>
+      </span>
+    `,
+  },
+}))
 
 import Step4MonthCalendar from '@/components/schedule/request-entry/Step4MonthCalendar.vue'
 import { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date'
@@ -16,6 +28,7 @@ function mountCalendar(options: {
   selectionMode: Step4SelectionMode
   selectedDates?: string[]
   existingRequestDates?: string[]
+  existingRequestSummaries?: Record<string, string[]>
   transitionBlocked?: boolean
 }): ReturnType<typeof mount> {
   const Harness = defineComponent({
@@ -38,6 +51,7 @@ function mountCalendar(options: {
         blockedCount,
         dates: gridDates,
         existingRequestDates: options.existingRequestDates ?? [],
+        existingRequestSummaries: options.existingRequestSummaries ?? {},
         handleBlockedTransition,
         handleUpdate,
         selectedDates,
@@ -52,6 +66,7 @@ function mountCalendar(options: {
           :selection-mode="selectionMode"
           :selected-dates="selectedDates"
           :existing-request-dates="existingRequestDates"
+          :existing-request-summaries="existingRequestSummaries"
           :transition-blocked="transitionBlocked"
           @update:selected-dates="handleUpdate"
           @request-blocked-transition="handleBlockedTransition"
@@ -124,11 +139,13 @@ describe('Step4MonthCalendar', () => {
     expect(wrapper.get('[data-test="selected-model"]').text()).toBe('2025-05-02,2025-05-03')
   })
 
-  it('renders selected summary plus existing request badge and selected highlight', () => {
+  it('renders selected summary plus existing request names and selected highlight', () => {
     const wrapper = mountCalendar({
       selectionMode: 'multi',
       selectedDates: ['2025-05-10', '2025-05-11', '2025-05-12'],
-      existingRequestDates: ['2025-05-11'],
+      existingRequestSummaries: {
+        '2025-05-11': ['김서연', '이하나'],
+      },
     })
 
     expect(wrapper.get('[data-test="selected-date-summary"]').text()).toContain(
@@ -138,7 +155,9 @@ describe('Step4MonthCalendar', () => {
     const selectedExistingDay = wrapper.get('[data-test="calendar-day-2025-05-11"]')
 
     expect(selectedExistingDay.attributes('aria-pressed')).toBe('true')
-    expect(selectedExistingDay.text()).toContain('기존 요청')
+    expect(selectedExistingDay.text()).toContain('김서연 외 1명')
+    expect(selectedExistingDay.attributes('aria-label')).toContain('김서연, 이하나 요청')
+    expect(wrapper.get('[data-test="request-name-tooltip"]').text()).toBe('김서연, 이하나')
   })
 
   it('emits a blocked transition signal instead of changing dates when selection is guarded', async () => {

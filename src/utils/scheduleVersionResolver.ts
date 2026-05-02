@@ -28,7 +28,7 @@ function dedupeVersionIds(versionIds: string[]): string[] {
   return uniqueVersionIds;
 }
 
-function getCanonicalCompareVersionIds(
+export function getCanonicalCompareVersionIds(
   versionIds: string[],
   focusVersionId: string | null
 ): string[] {

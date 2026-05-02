@@ -19,6 +19,7 @@ import {
 import {
   buildStep5Route,
   getDefaultScheduleVersionId,
+  getCanonicalCompareVersionIds,
   getDefaultCompareVersionIds,
   getDefaultExecutedFocusVersionId,
   hasExecutedVersionHistory,
@@ -331,6 +332,17 @@ describe('scheduleVersionResolver', () => {
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
+  })
+
+  it('exports canonical compare id normalization for Step5 and compare modal reuse', () => {
+    expect(getCanonicalCompareVersionIds(['version-3', 'version-2', 'version-3'], 'version-2')).toEqual([
+      'version-2',
+      'version-3',
+    ])
+    expect(getCanonicalCompareVersionIds(['version-3', 'version-2', 'version-1'], null)).toEqual([
+      'version-3',
+      'version-2',
+    ])
   })
 
   it('canonicalizes Step5 preview to the finalized version when the month is locked', () => {
