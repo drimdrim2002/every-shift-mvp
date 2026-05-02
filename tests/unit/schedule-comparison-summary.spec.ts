@@ -113,6 +113,32 @@ function createReviewWithEvaluation(
   });
 }
 
+function createMalformedReviewWithEvaluation(
+  version: ScheduleVersionSummary,
+  latestEvaluationOverrides: Record<string, unknown>
+): ScheduleReviewResponse {
+  return createReviewResponse(version, {
+    latestEvaluation: {
+      id: 'evaluation-malformed',
+      scheduleId: version.scheduleId,
+      scheduleVersionId: version.id,
+      revisionNo: version.currentRevision,
+      resultStatus: 'passed',
+      violationDetails: [],
+      infeasibility: null,
+      finalizationGate: {
+        allowed: true,
+        blockingReasons: [],
+      },
+      assignmentHash: 'hash-malformed',
+      solverExecutionId: null,
+      evaluatorVersion: 'test',
+      createdAt: '2026-05-03T00:00:00.000Z',
+      ...latestEvaluationOverrides,
+    } as NonNullable<ScheduleReviewResponse['latestEvaluation']>,
+  });
+}
+
 function createOffRequestResult(
   overrides: Partial<ScheduleOffRequestResult> = {}
 ): ScheduleOffRequestResult {
@@ -157,11 +183,31 @@ describe('scheduleComparisonSummary', () => {
     const model = buildScheduleComparisonDecisionModel({
       leftVersion,
       rightVersion,
-      leftReview: createReviewWithEvaluation(leftVersion),
-      rightReview: createReviewWithEvaluation(rightVersion),
+      leftReview: createReviewWithEvaluation(leftVersion, {
+        comparisonMetrics: {
+          offRequestReflectionRate: null,
+          nightShiftMin: null,
+          nightShiftMax: 15,
+          weekendShiftMin: null,
+          weekendShiftMax: null,
+          manualEditCount: 0,
+        },
+      }),
+      rightReview: createReviewWithEvaluation(rightVersion, {
+        comparisonMetrics: {
+          offRequestReflectionRate: null,
+          nightShiftMin: null,
+          nightShiftMax: 15,
+          weekendShiftMin: null,
+          weekendShiftMax: null,
+          manualEditCount: 0,
+        },
+      }),
     });
 
     expect(model.summaryBullets).toHaveLength(2);
+    expect(model.summaryBullets).toContain('두 안 모두 필수 기준을 통과했습니다.');
+    expect(model.summaryBullets).toContain('비교할 Off 요청이 없습니다.');
     expect(model.offInputRows).toEqual([
       {
         label: '변경 Off 요청',
@@ -240,6 +286,68 @@ describe('scheduleComparisonSummary', () => {
           rightText: '검토 정보 없음',
         }),
       ])
+    );
+    expect(model.summaryBullets[0]).toBe(
+      '검토 정보가 없는 항목이 있어 필수 기준 판단은 제한적입니다.'
+    );
+  });
+
+  it('검토 응답의 중첩 필드가 누락돼도 통과로 오인하지 않고 검토 정보 없음으로 표시한다', () => {
+    const leftVersion = createVersionSummary({
+      versionNo: 2,
+      name: '2안',
+    });
+    const rightVersion = createVersionSummary({
+      versionNo: 3,
+      name: '3안',
+    });
+
+    const buildModel = () =>
+      buildScheduleComparisonDecisionModel({
+        leftVersion,
+        rightVersion,
+        leftReview: createMalformedReviewWithEvaluation(leftVersion, {
+          proofSummary: undefined,
+          comparisonMetrics: undefined,
+          offRequestResults: undefined,
+        }),
+        rightReview: createReviewWithEvaluation(rightVersion),
+      });
+
+    expect(buildModel).not.toThrow();
+
+    const model = buildModel();
+    expect(model.requirementRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: 'NOD 근무 불가',
+          leftStatus: 'unknown',
+          leftText: '검토 정보 없음',
+        }),
+        expect.objectContaining({
+          label: '3연속 야간(N) 근무 불가',
+          leftStatus: 'unknown',
+          leftText: '검토 정보 없음',
+        }),
+        expect.objectContaining({
+          label: '2연속 야간(N) 후 48시간 이상 휴식',
+          leftStatus: 'unknown',
+          leftText: '검토 정보 없음',
+        }),
+        expect.objectContaining({
+          label: '야간 근무 월 15회 이하',
+          leftStatus: 'unknown',
+          leftText: '검토 정보 없음',
+        }),
+        expect.objectContaining({
+          label: 'Off 요청 준수',
+          leftStatus: 'unknown',
+          leftText: '검토 정보 없음',
+        }),
+      ])
+    );
+    expect(model.summaryBullets[0]).toBe(
+      '검토 정보가 없는 항목이 있어 필수 기준 판단은 제한적입니다.'
     );
   });
 
@@ -338,6 +446,58 @@ describe('scheduleComparisonSummary', () => {
     });
 
     expect(model.summaryBullets[0]).toBe('2안의 필수 기준 위반이 2건 더 적습니다.');
+  });
+
+  it('두 안의 필수 기준 위반 수가 같고 0보다 크면 공통 위반 수를 표시한다', () => {
+    const leftVersion = createVersionSummary({
+      versionNo: 2,
+      name: '2안',
+    });
+    const rightVersion = createVersionSummary({
+      versionNo: 3,
+      name: '3안',
+    });
+
+    const model = buildScheduleComparisonDecisionModel({
+      leftVersion,
+      rightVersion,
+      leftReview: createReviewWithEvaluation(leftVersion, {
+        proofSummary: {
+          weeklyHoursViolations: 0,
+          nnnViolations: 1,
+          nodViolations: 0,
+          minimumRestViolations: 0,
+          staffingShortfalls: 0,
+        },
+        comparisonMetrics: {
+          offRequestReflectionRate: null,
+          nightShiftMin: null,
+          nightShiftMax: 15,
+          weekendShiftMin: null,
+          weekendShiftMax: null,
+          manualEditCount: 0,
+        },
+      }),
+      rightReview: createReviewWithEvaluation(rightVersion, {
+        proofSummary: {
+          weeklyHoursViolations: 0,
+          nnnViolations: 0,
+          nodViolations: 1,
+          minimumRestViolations: 0,
+          staffingShortfalls: 0,
+        },
+        comparisonMetrics: {
+          offRequestReflectionRate: null,
+          nightShiftMin: null,
+          nightShiftMax: 15,
+          weekendShiftMin: null,
+          weekendShiftMax: null,
+          manualEditCount: 0,
+        },
+      }),
+    });
+
+    expect(model.summaryBullets[0]).toBe('두 안 모두 필수 기준 위반 1건이 있습니다.');
   });
 
   it('정확한 Off 요청 결과가 반영률 대체 지표보다 우선한다', () => {

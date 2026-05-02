@@ -131,7 +131,7 @@ function buildOffReflectionDisplay(
   }
 
   const fallbackRate = normalizePercent(
-    review?.latestEvaluation?.comparisonMetrics.offRequestReflectionRate ??
+    review?.latestEvaluation?.comparisonMetrics?.offRequestReflectionRate ??
       version.comparisonMetrics?.offRequestReflectionRate
   );
   if (fallbackRate != null) {
@@ -392,22 +392,22 @@ export function buildScheduleComparisonDecisionModel({
   const requirementRows: ScheduleComparisonRequirementRow[] = [
     buildRequirementRow(
       'NOD 근무 불가',
-      leftEvaluation?.proofSummary.nodViolations,
-      rightEvaluation?.proofSummary.nodViolations
+      leftEvaluation?.proofSummary?.nodViolations,
+      rightEvaluation?.proofSummary?.nodViolations
     ),
     buildRequirementRow(
       '3연속 야간(N) 근무 불가',
-      leftEvaluation?.proofSummary.nnnViolations,
-      rightEvaluation?.proofSummary.nnnViolations
+      leftEvaluation?.proofSummary?.nnnViolations,
+      rightEvaluation?.proofSummary?.nnnViolations
     ),
     buildRequirementRow(
       '2연속 야간(N) 후 48시간 이상 휴식',
-      leftEvaluation?.proofSummary.minimumRestViolations,
-      rightEvaluation?.proofSummary.minimumRestViolations
+      leftEvaluation?.proofSummary?.minimumRestViolations,
+      rightEvaluation?.proofSummary?.minimumRestViolations
     ),
     buildNightShiftRow(
-      leftEvaluation?.comparisonMetrics.nightShiftMax,
-      rightEvaluation?.comparisonMetrics.nightShiftMax
+      leftEvaluation?.comparisonMetrics?.nightShiftMax,
+      rightEvaluation?.comparisonMetrics?.nightShiftMax
     ),
     buildOffRow(leftOffDisplay, rightOffDisplay),
   ];
