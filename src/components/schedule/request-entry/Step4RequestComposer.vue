@@ -67,6 +67,7 @@
       :selection-mode="draftSelectionMode"
       :selected-dates="draftSelectedDates"
       :existing-request-dates="existingRequestDates"
+      :existing-request-summaries="existingRequestSummaries"
       :transition-blocked="false"
       @update:selected-dates="emit('update:selected-dates', $event)"
     />
@@ -87,24 +88,30 @@
       />
     </div>
 
-    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+    <div
+      v-if="blockedTransitionReason || applyDisabledReason || requestApplyStatusMessage || hasUnappliedDraft || hasUnpersistedAppliedChanges"
+      class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+    >
       <p
         v-if="blockedTransitionReason"
         class="font-medium text-amber-700"
       >
         {{ blockedTransitionReason }}
       </p>
-      <p v-else-if="applyDisabledReason">
-        {{ applyDisabledReason }}
+      <p
+        v-else-if="requestApplyStatusMessage"
+        :class="requestApplyStatusClass"
+      >
+        {{ requestApplyStatusMessage }}
       </p>
       <p v-else-if="hasUnappliedDraft">
-        미반영 draft가 있습니다. `요청 반영` 후 페이지 저장을 진행해 주세요.
+        아직 저장되지 않은 요청입니다. `요청 반영`을 누르면 DB에 저장됩니다.
       </p>
       <p v-else-if="hasUnpersistedAppliedChanges">
-        요청은 로컬에 반영되었습니다. 하단 `임시 저장` 또는 `다음 단계`로 서버 저장을 진행해 주세요.
+        저장되지 않은 변경이 있습니다. '변경사항 저장' 또는 '다음 단계'에서 저장됩니다.
       </p>
-      <p v-else>
-        요청 반영 전까지는 월간 검토 워크스페이스와 목록이 바뀌지 않습니다.
+      <p v-else-if="applyDisabledReason">
+        {{ applyDisabledReason }}
       </p>
     </div>
 
@@ -112,7 +119,8 @@
       <n-button
         type="primary"
         data-test="apply-request"
-        :disabled="Boolean(applyDisabledReason)"
+        :disabled="Boolean(applyDisabledReason) || isApplyRequestSaving"
+        :loading="isApplyRequestSaving"
         @click="emit('apply-request')"
       >
         요청 반영
@@ -122,6 +130,15 @@
         @click="emit('reset-draft')"
       >
         선택 초기화
+      </n-button>
+      <n-button
+        secondary
+        data-test="save-applied-changes"
+        :disabled="!canSaveAppliedChanges || Boolean(saveAppliedChangesDisabledReason) || isSaveAppliedChangesSaving"
+        :loading="isSaveAppliedChangesSaving"
+        @click="emit('save-applied-changes')"
+      >
+        변경사항 저장
       </n-button>
     </div>
 
@@ -144,6 +161,7 @@ import EmployeeRequestList from '@/components/schedule/request-entry/EmployeeReq
 import type { Step4SelectionMode } from '@/components/schedule/request-entry/requestEntryUtils';
 
 type Step4RequestTypeId = 'off';
+type RequestApplyStatusTone = 'neutral' | 'info' | 'success' | 'error';
 
 interface RequestCatalogItem {
   id: Step4RequestTypeId;
@@ -175,6 +193,12 @@ interface Props {
   currentEmployeeRequests: EmployeeRequestRowVM[];
   hasUnappliedDraft: boolean;
   hasUnpersistedAppliedChanges: boolean;
+  canSaveAppliedChanges: boolean;
+  isSaveAppliedChangesSaving: boolean;
+  saveAppliedChangesDisabledReason: string | null;
+  isApplyRequestSaving: boolean;
+  requestApplyStatusMessage: string | null;
+  requestApplyStatusTone: RequestApplyStatusTone;
   applyDisabledReason: string | null;
   blockedTransitionReason: string | null;
 }
@@ -186,6 +210,7 @@ interface Emits {
   (e: 'update:selected-dates', dates: string[]): void;
   (e: 'update:note', note: string): void;
   (e: 'apply-request'): void;
+  (e: 'save-applied-changes'): void;
   (e: 'reset-draft'): void;
   (e: 'edit-request', requestKey: string): void;
   (e: 'delete-request', requestKey: string): void;
@@ -230,6 +255,40 @@ const filteredEmployeeOptions = computed(() => {
 
 const existingRequestDates = computed(() => {
   return props.currentEmployeeRequests.flatMap((row) => row.dates);
+});
+
+const existingRequestSummaries = computed(() => {
+  const employeeNameById = new Map(
+    props.employees.map((employee) => [employee.id, employee.name]),
+  );
+  const summaries: Record<string, string[]> = {};
+
+  props.currentEmployeeRequests.forEach((row) => {
+    const employeeName = employeeNameById.get(row.employeeId) ?? row.employeeId;
+
+    row.dates.forEach((date) => {
+      summaries[date] ??= [];
+
+      if (!summaries[date].includes(employeeName)) {
+        summaries[date].push(employeeName);
+      }
+    });
+  });
+
+  return summaries;
+});
+
+const requestApplyStatusClass = computed(() => {
+  switch (props.requestApplyStatusTone) {
+    case 'info':
+      return 'font-medium text-sky-700';
+    case 'success':
+      return 'font-medium text-emerald-700';
+    case 'error':
+      return 'font-medium text-red-700';
+    default:
+      return '';
+  }
 });
 
 function focusSearchInput() {

@@ -65,7 +65,7 @@
         </div>
         <div class="flex flex-col items-end gap-2 text-right">
           <p class="text-xs font-medium text-slate-500">
-            {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 페이지 저장 필요' : '저장된 변경 없음' }}
+            {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 요청 입력에서 저장 필요' : '저장된 변경 없음' }}
           </p>
           <p
             v-if="pageLevelBlockedReason"
@@ -171,7 +171,7 @@
     <n-drawer
       :show="isRequestDrawerOpen"
       placement="right"
-      width="min(100vw, 460px)"
+      width="min(100vw, 720px)"
       :auto-focus="false"
       @update:show="handleRequestDrawerVisibility"
     >
@@ -215,6 +215,12 @@
             :current-employee-requests="currentEmployeeRequests"
             :has-unapplied-draft="hasUnappliedDraft"
             :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
+            :can-save-applied-changes="canSaveAppliedChanges"
+            :is-save-applied-changes-saving="isSavingStep4Preferences"
+            :save-applied-changes-disabled-reason="saveAppliedChangesDisabledReason"
+            :is-apply-request-saving="isApplyRequestSaving"
+            :request-apply-status-message="requestApplyStatusMessage"
+            :request-apply-status-tone="requestApplyStatusTone"
             :apply-disabled-reason="applyDisabledReason"
             :blocked-transition-reason="blockedTransitionReason"
             @select-employee="handleSelectEmployee"
@@ -223,6 +229,7 @@
             @update:selected-dates="handleDraftSelectedDatesUpdate"
             @update:note="handleDraftNoteUpdate"
             @apply-request="applyDraftRequest"
+            @save-applied-changes="handleSaveAppliedChanges"
             @reset-draft="resetDraftState({ preserveEmployee: true })"
             @edit-request="hydrateDraftFromRequestRow"
             @delete-request="handleDeleteRequest"
@@ -252,6 +259,14 @@
         >
           ← 이전 단계
         </n-button>
+        <n-button
+          size="large"
+          secondary
+          type="error"
+          @click="handleClearAllOffRequests"
+        >
+          모든 Off 요청 초기화
+        </n-button>
       </div>
 
       <div class="flex flex-col items-end gap-2">
@@ -262,13 +277,6 @@
           {{ pageLevelBlockedReason }}
         </p>
         <div class="flex gap-3">
-          <n-button
-            size="large"
-            :disabled="isSubmitting || !canPersistStep4"
-            @click="handleSave"
-          >
-            임시 저장
-          </n-button>
           <n-button
             type="primary"
             size="large"
@@ -308,20 +316,20 @@
       :closable="false"
     >
       <template #header>
-        기존 생성 결과가 있습니다
+        이미 만든 근무표안이 있습니다
       </template>
       <p class="mb-5 text-sm leading-6 text-gray-600">
-        이미 생성된 근무표 결과가 있습니다. Off 요청을 수정해 다시 실행하거나 기존 결과를 확인할 수 있습니다.
+        기존 결과를 먼저 확인하거나, Off 요청을 수정해 새 근무표안을 만들 수 있습니다.
       </p>
       <div class="flex justify-end gap-2">
-        <n-button @click="handleChooseEditExistingHistory">
-          Off 수정 후 다시 실행
-        </n-button>
         <n-button
           type="primary"
           @click="handleChooseReviewExistingHistory"
         >
-          결과 확인
+          기존 결과 보기
+        </n-button>
+        <n-button @click="handleChooseEditExistingHistory">
+          요청 수정해서 새 근무표안 만들기
         </n-button>
       </div>
     </n-modal>
@@ -334,24 +342,28 @@
       :closable="false"
     >
       <template #header>
-        버전 이름
+        새 근무표안 이름
       </template>
       <div class="space-y-4">
         <p class="text-sm leading-6 text-gray-600">
-          생성할 근무표 버전 이름을 입력해 주세요.
+          근무표안 이름
         </p>
         <n-input
-          v-model:value="pendingVersionName"
+          :value="pendingVersionName"
           data-test="version-name-input"
           maxlength="100"
-          placeholder="예: V3"
+          placeholder="예: 2안"
+          @update:value="handlePendingVersionNameUpdate"
           @keyup.enter="handleConfirmVersionName"
         />
+        <p class="text-xs leading-5 text-gray-500">
+          나중에 비교할 때 알아보기 쉬운 이름을 입력하세요.
+        </p>
         <div
           v-if="duplicateVersionCandidate"
           class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
         >
-          이미 같은 이름의 버전이 있습니다. 이 버전을 덮어쓰거나 다른 이름을 입력해 주세요.
+          같은 이름의 생성 실패 안이 있습니다. 이 입력으로 실패 안을 교체해 다시 생성합니다.
         </div>
         <div class="flex justify-end gap-2">
           <n-button @click="handleCancelVersionNameModal">
@@ -362,13 +374,14 @@
             type="warning"
             @click="handleConfirmOverwriteVersion"
           >
-            덮어쓰기
+            실패 안 교체하고 생성
           </n-button>
           <n-button
+            v-else
             type="primary"
             @click="handleConfirmVersionName"
           >
-            확인
+            이 이름으로 생성
           </n-button>
         </div>
       </div>
@@ -438,6 +451,7 @@ const grid = useScheduleGrid();
 const solverRequestBuilder = useScheduleSolverRequest();
 
 const isSubmitting = ref(false);
+const isSavingStep4Preferences = ref(false);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
 const isReturningToDashboard = ref(false);
@@ -472,9 +486,13 @@ const draftNote = ref('');
 const editingRequestKey = ref<string | null>(null);
 const dirtySinceLastApply = ref(false);
 const blockedTransitionReason = ref<string | null>(null);
+const isApplyRequestSaving = ref(false);
+const requestApplyStatusMessage = ref<string | null>(null);
+const requestApplyStatusTone = ref<RequestApplyStatusTone>('neutral');
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
 type PendingHandoffAction = 'first_run' | 'new_re_solve' | 'overwrite_re_solve';
+type RequestApplyStatusTone = 'neutral' | 'info' | 'success' | 'error';
 type PreferenceSnapshot = {
   constraints: ConstraintMap;
   notes: CommentMap;
@@ -590,7 +608,9 @@ const hasHiddenUnappliedDraft = computed(() => {
   return hasUnappliedDraft.value && !isRequestDrawerOpen.value;
 });
 const requestDrawerCtaLabel = computed(() => {
-  return hasHiddenUnappliedDraft.value ? '요청 입력 계속하기' : 'Off 요청 입력';
+  if (hasHiddenUnappliedDraft.value) return '요청 입력 계속하기';
+  if (hasUnpersistedAppliedChanges.value) return '변경사항 저장하기';
+  return 'Off 요청 입력';
 });
 const requestDrawerStatusCopy = computed(() => {
   return hasHiddenUnappliedDraft.value
@@ -638,6 +658,22 @@ const canPersistStep4 = computed(() => {
     !!baselineState.value &&
     grid.employees.value.length > 0
   );
+});
+
+const saveAppliedChangesDisabledReason = computed(() => {
+  if (hasUnappliedDraft.value) {
+    return pageLevelBlockedReason.value ?? OPEN_DRAFT_BLOCKED_REASON;
+  }
+  if (isBaselineLoading.value) return '기준 버전을 확인하는 중입니다.';
+  if (baselineErrorMessage.value) return baselineErrorMessage.value;
+  if (!baselineState.value) return '기준 버전을 먼저 확인해 주세요.';
+  if (grid.employees.value.length === 0) return '직원 정보가 없습니다.';
+  if (!hasUnpersistedAppliedChanges.value) return '저장할 변경사항이 없습니다.';
+  return null;
+});
+
+const canSaveAppliedChanges = computed(() => {
+  return saveAppliedChangesDisabledReason.value === null && canPersistStep4.value;
 });
 
 const hasPendingStep4Changes = computed(() => {
@@ -902,6 +938,91 @@ function sanitizeSnapshotToCurrentEmployees(snapshot: {
   };
 }
 
+function cloneConstraintMap(source: ConstraintMap): ConstraintMap {
+  return Object.fromEntries(
+    Object.entries(source).map(([employeeId, dateMap]) => [employeeId, { ...(dateMap ?? {}) }])
+  );
+}
+
+function cloneCommentMap(source: CommentMap): CommentMap {
+  return Object.fromEntries(
+    Object.entries(source).map(([employeeId, dateMap]) => [employeeId, { ...(dateMap ?? {}) }])
+  );
+}
+
+function removeConstraintNoteFromMap(map: CommentMap, employeeId: string, date: string): void {
+  if (!map[employeeId]?.[date]) return;
+  delete map[employeeId]![date];
+}
+
+function clearRequestApplyStatus(): void {
+  requestApplyStatusMessage.value = null;
+  requestApplyStatusTone.value = 'neutral';
+}
+
+function setRequestApplyStatus(message: string, tone: RequestApplyStatusTone): void {
+  requestApplyStatusMessage.value = message;
+  requestApplyStatusTone.value = tone;
+}
+
+function commitPreferenceMaps(nextConstraints: ConstraintMap, nextNotes: CommentMap): void {
+  constraints.value = nextConstraints;
+  constraintNotes.value = nextNotes;
+  scheduleStore.setAssignments(nextConstraints);
+  scheduleStore.setComments(nextNotes);
+}
+
+function clearCurrentScopedTempPreferencesStorage(): void {
+  clearScopedTempPreferencesStorage({
+    userId: authStore.user?.id,
+    organizationId: scheduleStore.basicInfo?.organizationId,
+    month: scheduleStore.basicInfo?.month,
+  });
+}
+
+function buildDraftAppliedPreferenceMaps(): {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+} {
+  const nextConstraints = cloneConstraintMap(constraints.value);
+  const nextNotes = cloneCommentMap(constraintNotes.value);
+  const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
+
+  if (editingRow) {
+    if (!nextConstraints[editingRow.employeeId]) {
+      nextConstraints[editingRow.employeeId] = {};
+    }
+    editingRow.dates.forEach((date) => {
+      nextConstraints[editingRow.employeeId]![date] = '';
+      removeConstraintNoteFromMap(nextNotes, editingRow.employeeId, date);
+    });
+  }
+
+  const normalizedNote = draftNote.value.trim();
+  selectedEmployeeIds.value.forEach((employeeId) => {
+    if (!nextConstraints[employeeId]) {
+      nextConstraints[employeeId] = {};
+    }
+    if (!nextNotes[employeeId]) {
+      nextNotes[employeeId] = {};
+    }
+
+    draftSelectedDates.value.forEach((date) => {
+      nextConstraints[employeeId]![date] = 'O';
+      if (normalizedNote.length > 0) {
+        nextNotes[employeeId]![date] = normalizedNote;
+      } else {
+        removeConstraintNoteFromMap(nextNotes, employeeId, date);
+      }
+    });
+  });
+
+  return {
+    constraints: nextConstraints,
+    notes: nextNotes,
+  };
+}
+
 function mergeConstraintMap(source: ConstraintMap): void {
   Object.entries(source).forEach(([employeeId, dateMap]) => {
     if (!constraints.value[employeeId]) constraints.value[employeeId] = {};
@@ -1028,6 +1149,7 @@ function findCurrentEmployeeRequest(requestKey: string): EmployeeRequestRowVM | 
 }
 
 function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
+  clearRequestApplyStatus();
   if (!options.preserveEmployee) {
     selectedEmployeeIds.value = [];
   }
@@ -1070,6 +1192,7 @@ function handleSelectEmployee(employeeIds: string[]): void {
     return;
   }
 
+  clearRequestApplyStatus();
   selectedEmployeeIds.value = [...employeeIds];
   draftSelectedDates.value = [];
   draftNote.value = '';
@@ -1079,17 +1202,20 @@ function handleSelectEmployee(employeeIds: string[]): void {
 }
 
 function handleDraftSelectionModeUpdate(mode: Step4SelectionMode): void {
+  clearRequestApplyStatus();
   draftSelectionMode.value = mode;
   blockedTransitionReason.value = null;
 }
 
 function handleDraftSelectedDatesUpdate(dates: string[]): void {
+  clearRequestApplyStatus();
   draftSelectedDates.value = sortDates(dates);
   dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
   blockedTransitionReason.value = null;
 }
 
 function handleDraftNoteUpdate(note: string): void {
+  clearRequestApplyStatus();
   draftNote.value = note;
   dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
   blockedTransitionReason.value = null;
@@ -1103,6 +1229,7 @@ function handleGridCellSelect(payload: { employeeId: string; date: string }): vo
   }
 
   selectedEmployeeIds.value = [payload.employeeId];
+  clearRequestApplyStatus();
   draftRequestTypeId.value = 'off';
   draftSelectionMode.value = 'single';
   draftSelectedDates.value = [payload.date];
@@ -1121,6 +1248,7 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
   }
 
   selectedEmployeeIds.value = [requestRow.employeeId];
+  clearRequestApplyStatus();
   draftRequestTypeId.value = requestRow.requestTypeId;
   draftSelectionMode.value = requestRow.dates.length > 1 ? 'multi' : 'single';
   draftSelectedDates.value = [...requestRow.dates];
@@ -1131,51 +1259,44 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
   scrollEmployeeRowIntoView(requestRow.employeeId);
 }
 
-function applyDraftRequest(): void {
+async function applyDraftRequest(): Promise<void> {
   const employeeIds = [...selectedEmployeeIds.value];
 
-  if (employeeIds.length === 0 || !canApplyDraft.value) {
+  if (employeeIds.length === 0 || !canApplyDraft.value || isApplyRequestSaving.value) {
     return;
   }
 
-  const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
-  if (editingRow) {
-    if (!constraints.value[editingRow.employeeId]) {
-      constraints.value[editingRow.employeeId] = {};
-    }
-    editingRow.dates.forEach((date) => {
-      constraints.value[editingRow.employeeId]![date] = '';
-      removeConstraintNote(editingRow.employeeId, date);
-    });
-  }
+  isApplyRequestSaving.value = true;
+  setRequestApplyStatus('요청을 저장하는 중입니다.', 'info');
 
-  const normalizedNote = draftNote.value.trim();
-  employeeIds.forEach((employeeId) => {
-    if (!constraints.value[employeeId]) {
-      constraints.value[employeeId] = {};
-    }
-    if (!constraintNotes.value[employeeId]) {
-      constraintNotes.value[employeeId] = {};
-    }
-
-    draftSelectedDates.value.forEach((date) => {
-      constraints.value[employeeId]![date] = 'O';
-      if (normalizedNote.length > 0) {
-        constraintNotes.value[employeeId]![date] = normalizedNote;
-      } else {
-        removeConstraintNote(employeeId, date);
+  try {
+    const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
+    const result = await persistStep4PreferenceMaps(
+      nextPreferenceMaps.constraints,
+      nextPreferenceMaps.notes,
+      {
+        successMessage: '요청이 저장되었습니다.',
+        staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
+        logMessage: 'Saving request-entry preferences',
       }
-    });
-  });
+    );
 
-  constraints.value = { ...constraints.value };
-  constraintNotes.value = { ...constraintNotes.value };
-  editingRequestKey.value = null;
-  dirtySinceLastApply.value = false;
-  blockedTransitionReason.value = null;
+    if (!result) return;
 
-  if (isRequestDrawerOpen.value) {
-    void focusRequestComposerSearch();
+    editingRequestKey.value = null;
+    dirtySinceLastApply.value = false;
+    blockedTransitionReason.value = null;
+    setRequestApplyStatus('요청이 DB에 저장되었습니다.', 'success');
+
+    if (isRequestDrawerOpen.value) {
+      void focusRequestComposerSearch();
+    }
+  } catch (error) {
+    const message = '요청 저장 실패: ' + toErrorMessage(error);
+    setRequestApplyStatus(message, 'error');
+    showError(message);
+  } finally {
+    isApplyRequestSaving.value = false;
   }
 }
 
@@ -1186,6 +1307,7 @@ function handleDeleteRequest(requestKey: string): void {
     return;
   }
 
+  clearRequestApplyStatus();
   requestRow.dates.forEach((date) => {
     if (constraints.value[requestRow.employeeId]) {
       constraints.value[requestRow.employeeId]![date] = '';
@@ -1273,6 +1395,10 @@ watchDebounced(
     if (isReturningToDashboard.value) return;
     const scope = tempPreferenceScope.value;
     if (!scope) return;
+    if (countStoredOffRequests(latestConstraints) === 0 && !hasAnyConstraintNotes(latestNotes)) {
+      clearCurrentScopedTempPreferencesStorage();
+      return;
+    }
     writeTempPreferencesEnvelopeV2(scope, latestConstraints, latestNotes);
   },
   { debounce: 2000 }
@@ -1457,14 +1583,27 @@ function buildStep4InputDiffSummary(
 
 function getNextVersionNameDefault(): string {
   const versions = baselineState.value?.versions ?? [];
-  const latestVersionNo = versions.reduce((latest, version) => {
-    if (isSolverFailedVersion(version)) {
-      return latest;
+  const usedNumericNames = new Set<number>();
+
+  versions.forEach((version) => {
+    if (isSolverFailedVersion(version) || version.archivedAt) {
+      return;
     }
 
-    return Math.max(latest, version.versionNo);
-  }, 0);
-  return `V${latestVersionNo + 1}`;
+    const match = normalizeVersionName(version.name).match(/^(\d+)안$/);
+    const numericName = match?.[1] ? Number(match[1]) : NaN;
+
+    if (Number.isInteger(numericName) && numericName > 0) {
+      usedNumericNames.add(numericName);
+    }
+  });
+
+  let nextNameNumber = 1;
+  while (usedNumericNames.has(nextNameNumber)) {
+    nextNameNumber += 1;
+  }
+
+  return `${nextNameNumber}안`;
 }
 
 function normalizeVersionName(name: string | null): string {
@@ -1507,8 +1646,19 @@ function openVersionNameModal(
   pendingHandoffAction.value = action;
   pendingHandoffContext.value = context;
   duplicateVersionCandidate.value = null;
-  pendingVersionName.value = action === 'first_run' ? 'V1' : getNextVersionNameDefault();
+  pendingVersionName.value = action === 'first_run' ? '1안' : getNextVersionNameDefault();
   isVersionNameModalOpen.value = true;
+}
+
+function handlePendingVersionNameUpdate(value: string): void {
+  pendingVersionName.value = value;
+
+  if (
+    duplicateVersionCandidate.value
+    && normalizeVersionName(value) !== normalizeVersionName(duplicateVersionCandidate.value.name)
+  ) {
+    duplicateVersionCandidate.value = null;
+  }
 }
 
 function setBaselinePreferenceSnapshot(
@@ -1883,16 +2033,14 @@ function handleChooseReviewExistingHistory() {
 
   showExistingHistoryChoiceModal.value = false;
   scheduleStore.currentStep = 5;
-  router.push(
-    buildStep5Route(
-      baseline.schedulePublicId ?? baseline.scheduleId,
-      baseline.defaultStep5FocusVersionId,
-      baseline.defaultStep5CompareVersionIds,
-      {
-        defaultVersionId: baseline.defaultStep5FocusVersionId,
-      }
-    )
-  );
+  router.push(buildStep5Route(
+    baseline.schedulePublicId ?? baseline.scheduleId,
+    baseline.defaultStep5FocusVersionId,
+    [],
+    {
+      defaultVersionId: baseline.defaultStep5FocusVersionId,
+    }
+  ));
 }
 
 function handlePrev() {
@@ -1913,21 +2061,108 @@ function handlePrev() {
 
 function handleReturnToDashboard() {
   isReturningToDashboard.value = true;
-  clearScopedTempPreferencesStorage({
-    userId: authStore.user?.id,
-    organizationId: scheduleStore.basicInfo?.organizationId,
-    month: scheduleStore.basicInfo?.month,
-  });
+  clearCurrentScopedTempPreferencesStorage();
   scheduleStore.reset();
   router.push(getAppHomeRoutePath());
 }
 
-async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
+function clearAllOffRequestsInMemory(): void {
+  commitPreferenceMaps({}, {});
+  policyRejectionReasons.value = {};
+  policyCheckStatuses.value = {};
+  selectedCell.value = null;
+  showCommentModal.value = false;
+  blockedTransitionReason.value = null;
+  resetDraftState();
+  clearCurrentScopedTempPreferencesStorage();
+  showSuccess('모든 Off 요청을 초기화했습니다.');
+}
+
+function handleClearAllOffRequests(): void {
+  if (!window.$dialog?.warning) {
+    showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    return;
+  }
+
+  window.$dialog.warning({
+    title: 'Off 요청을 모두 초기화할까요?',
+    content: '현재 입력한 Off 요청과 메모가 모두 지워집니다.',
+    positiveText: '초기화',
+    negativeText: '취소',
+    positiveButtonProps: {
+      type: 'error',
+    },
+    negativeButtonProps: {
+      autofocus: true,
+    },
+    onPositiveClick: () => {
+      clearAllOffRequestsInMemory();
+    },
+  });
+}
+
+async function persistStep4PreferenceMaps(
+  nextConstraints: ConstraintMap,
+  nextNotes: CommentMap,
+  options: {
+    successMessage: string;
+    staleEmployeeMessage: string;
+    logMessage: string;
+  }
+): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
   if (grid.employees.value.length === 0) {
     showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
     return;
   }
+
+  const sanitized = sanitizeSnapshotToCurrentEmployees({
+    constraints: nextConstraints,
+    notes: nextNotes,
+  });
+  if (sanitized.removedEmployeeIds.length > 0) {
+    logRestoreTrace('Removed stale employee keys before preference persistence', sanitized);
+    showInfo(options.staleEmployeeMessage);
+  }
+
+  const { scheduleId, previewVersionId } = await ensureBaselineVersion();
+  const offRequestCount = countStoredOffRequests(sanitized.constraints);
+
+  logRestoreTrace(options.logMessage, {
+    scheduleId,
+    scheduleVersionId: previewVersionId,
+    offRequestCount,
+    hasNotes: hasAnyConstraintNotes(sanitized.notes),
+  });
+
+  await saveScheduleVersionPreferences(
+    scheduleId,
+    previewVersionId,
+    sanitized.constraints,
+    sanitized.notes
+  );
+  await recheckPhase2ScheduleVersion(previewVersionId);
+  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  setBaselinePreferenceSnapshot(
+    previewVersionId,
+    createPreferenceSnapshot(sanitized.constraints, sanitized.notes)
+  );
+
+  const verification = await getScheduleVersionPreferences(previewVersionId);
+  logRestoreTrace('Saved preferences verification', {
+    scheduleVersionId: previewVersionId,
+    preferenceCount: verification.preferences.length,
+    offRequestCount: countStoredOffRequests(verification.constraints),
+    hasNotes: hasAnyConstraintNotes(verification.notes),
+  });
+  syncPolicyRejectionDisplay(verification.preferences as PreferenceWithPolicyResult[]);
+
+  showSuccess(options.successMessage);
+  return { scheduleId, previewVersionId };
+}
+
+async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
+  if (!scheduleStore.basicInfo) return;
   if (hasUnappliedDraft.value) {
     blockedTransitionReason.value = pageLevelBlockedReason.value;
     showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
@@ -1935,47 +2170,37 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   }
 
   try {
-    const sanitizedBeforeSave = sanitizePreferenceMapsToCurrentEmployees();
-    if (sanitizedBeforeSave.removedEmployeeIds.length > 0) {
-      logRestoreTrace('Removed stale employee keys before save', sanitizedBeforeSave);
-      showInfo('현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.');
-    }
-
-    scheduleStore.setAssignments(constraints.value);
-    scheduleStore.setComments(constraintNotes.value);
-
-    const { scheduleId, previewVersionId } = await ensureBaselineVersion();
-    const offRequestCount = countStoredOffRequests(constraints.value);
-
-    logRestoreTrace('Saving preferences', {
-      scheduleId,
-      scheduleVersionId: previewVersionId,
-      offRequestCount,
-      hasNotes: hasAnyConstraintNotes(constraintNotes.value),
-    });
-
-    await saveScheduleVersionPreferences(
-      scheduleId,
-      previewVersionId,
+    return await persistStep4PreferenceMaps(
       constraints.value,
-      constraintNotes.value
+      constraintNotes.value,
+      {
+        successMessage: '변경사항이 저장되었습니다.',
+        staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
+        logMessage: 'Saving preferences',
+      }
     );
-    await recheckPhase2ScheduleVersion(previewVersionId);
-    setBaselinePreferenceSnapshot(previewVersionId, getCurrentPreferenceSnapshot());
-
-    const verification = await getScheduleVersionPreferences(previewVersionId);
-    logRestoreTrace('Saved preferences verification', {
-      scheduleVersionId: previewVersionId,
-      preferenceCount: verification.preferences.length,
-      offRequestCount: countStoredOffRequests(verification.constraints),
-      hasNotes: hasAnyConstraintNotes(verification.notes),
-    });
-    syncPolicyRejectionDisplay(verification.preferences as PreferenceWithPolicyResult[]);
-
-    showSuccess('임시 저장되었습니다.');
-    return { scheduleId, previewVersionId };
   } catch (error) {
     showError('저장 실패: ' + toErrorMessage(error));
+  }
+}
+
+async function handleSaveAppliedChanges(): Promise<void> {
+  if (isSavingStep4Preferences.value) return;
+
+  const disabledReason = saveAppliedChangesDisabledReason.value;
+  if (disabledReason) {
+    if (hasUnappliedDraft.value) {
+      blockedTransitionReason.value = disabledReason;
+    }
+    showInfo(disabledReason);
+    return;
+  }
+
+  isSavingStep4Preferences.value = true;
+  try {
+    await handleSave();
+  } finally {
+    isSavingStep4Preferences.value = false;
   }
 }
 
@@ -2258,7 +2483,7 @@ async function executePendingHandoff(
   const action = pendingHandoffAction.value;
   const context = pendingHandoffContext.value;
   if (!action || !context) {
-    showError('진행할 버전 정보가 없습니다. 다시 시도해 주세요.');
+    showError('진행할 근무표안 정보가 없습니다. 다시 시도해 주세요.');
     return;
   }
 
@@ -2285,17 +2510,12 @@ async function executePendingHandoff(
       const duplicate = findDuplicateVersionByName(name);
       duplicateVersionCandidate.value = duplicate;
 
-      if (duplicate && !isVersionBlockedForOverwrite(duplicate)) {
-        showError('이미 같은 이름의 활성 버전이 있습니다. 덮어쓰거나 다른 이름을 입력해 주세요.');
+      if (duplicate && isSolverFailedVersion(duplicate) && !isVersionBlockedForOverwrite(duplicate)) {
         return;
       }
 
-      if (duplicate) {
-        showError('이미 같은 이름의 버전이 있습니다. 이 버전은 덮어쓸 수 없어 다른 이름을 입력해 주세요.');
-        return;
-      }
-
-      showError('이미 같은 이름의 버전이 있습니다. 보관된 버전을 포함해 중복 없이 다른 이름을 입력해 주세요.');
+      duplicateVersionCandidate.value = null;
+      showError('이미 같은 이름의 근무표안이 있습니다.');
       return;
     }
 
@@ -2308,31 +2528,34 @@ async function executePendingHandoff(
 async function handleConfirmVersionName() {
   const name = pendingVersionName.value.trim();
   if (!name) {
-    showError('버전 이름을 입력해 주세요.');
-    return;
-  }
-
-  if (pendingHandoffAction.value === 'first_run') {
-    duplicateVersionCandidate.value = null;
-    await executePendingHandoff(name, 'new');
+    showError('근무표안 이름을 입력해 주세요.');
     return;
   }
 
   const duplicate = findDuplicateVersionByName(name);
   if (duplicate) {
-    if (isVersionBlockedForOverwrite(duplicate)) {
-      duplicateVersionCandidate.value = null;
-      showError('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.');
-      return;
-    }
-
     if (isSolverFailedVersion(duplicate)) {
-      duplicateVersionCandidate.value = null;
-      await executePendingHandoff(name, 'overwrite', duplicate.id);
+      if (isVersionBlockedForOverwrite(duplicate)) {
+        duplicateVersionCandidate.value = null;
+        showError('이미 같은 이름의 근무표안이 있습니다.');
+        return;
+      }
+
+      duplicateVersionCandidate.value = duplicate;
       return;
     }
 
-    duplicateVersionCandidate.value = duplicate;
+    if (
+      pendingHandoffAction.value === 'first_run'
+      && pendingHandoffContext.value?.baseline.previewVersionId === duplicate.id
+    ) {
+      duplicateVersionCandidate.value = null;
+      await executePendingHandoff(name, 'new');
+      return;
+    }
+
+    duplicateVersionCandidate.value = null;
+    showError('이미 같은 이름의 근무표안이 있습니다.');
     return;
   }
 
@@ -2344,20 +2567,20 @@ async function handleConfirmOverwriteVersion() {
   const duplicate = duplicateVersionCandidate.value;
   const name = pendingVersionName.value.trim();
   if (!duplicate || !name) {
-    showError('덮어쓸 버전 정보가 없습니다. 다시 시도해 주세요.');
+    showError('교체할 실패 안 정보가 없습니다. 다시 시도해 주세요.');
     return;
   }
 
   const currentDuplicate = findDuplicateVersionByName(name);
   if (!currentDuplicate || currentDuplicate.id !== duplicate.id) {
     duplicateVersionCandidate.value = null;
-    showError('버전 이름이 변경되었습니다. 다시 확인해 주세요.');
+    showError('근무표안 이름이 변경되었습니다. 다시 확인해 주세요.');
     return;
   }
 
-  if (isVersionBlockedForOverwrite(duplicate)) {
+  if (!isSolverFailedVersion(duplicate) || isVersionBlockedForOverwrite(duplicate)) {
     duplicateVersionCandidate.value = null;
-    showError('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.');
+    showError('이미 같은 이름의 근무표안이 있습니다.');
     return;
   }
 

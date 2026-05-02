@@ -1056,7 +1056,13 @@ export async function applyRequest(page: Page) {
 }
 
 export async function saveStep4(page: Page) {
-  await page.getByRole('button', { name: '임시 저장' }).click()
+  const saveButton = page.getByRole('button', { name: '변경사항 저장' })
+
+  if (!(await saveButton.isVisible())) {
+    await page.locator(STEP4_REQUEST_DRAWER_TOGGLE_SELECTOR).first().click()
+  }
+
+  await saveButton.click()
 }
 
 export async function assertPolicyRejection(page: Page, rejectionReason: string) {

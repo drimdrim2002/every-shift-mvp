@@ -105,6 +105,12 @@ vi.mock('naive-ui', () => ({
 import Step4RequestComposer from '@/components/schedule/request-entry/Step4RequestComposer.vue';
 
 const Step4MonthCalendarStub = defineComponent({
+  props: {
+    existingRequestSummaries: {
+      type: Object,
+      default: () => ({}),
+    },
+  },
   emits: ['update:selected-dates'],
   template: `
     <button
@@ -168,6 +174,12 @@ function createWrapper() {
       currentEmployeeRequests: [],
       hasUnappliedDraft: false,
       hasUnpersistedAppliedChanges: false,
+      canSaveAppliedChanges: false,
+      isSaveAppliedChangesSaving: false,
+      saveAppliedChangesDisabledReason: null,
+      isApplyRequestSaving: false,
+      requestApplyStatusMessage: null,
+      requestApplyStatusTone: 'neutral',
       applyDisabledReason: '근무자를 먼저 선택해 주세요.',
       blockedTransitionReason: null,
     },
@@ -218,6 +230,12 @@ function createWrapperWithProps(propOverrides: Record<string, unknown> = {}) {
       currentEmployeeRequests: [],
       hasUnappliedDraft: false,
       hasUnpersistedAppliedChanges: false,
+      canSaveAppliedChanges: false,
+      isSaveAppliedChangesSaving: false,
+      saveAppliedChangesDisabledReason: null,
+      isApplyRequestSaving: false,
+      requestApplyStatusMessage: null,
+      requestApplyStatusTone: 'neutral',
       applyDisabledReason: '근무자를 먼저 선택해 주세요.',
       blockedTransitionReason: null,
       ...propOverrides,
@@ -336,11 +354,108 @@ describe('Step4RequestComposer', () => {
     expect(wrapper.find('[data-test="selection-mode-range"]').exists()).toBe(false);
   });
 
+  it('passes employee names grouped by request date to the calendar', () => {
+    const wrapper = createWrapperWithProps({
+      currentEmployeeRequests: [
+        {
+          requestKey: 'request-1',
+          employeeId: 'emp-1',
+          dates: ['2025-12-03'],
+          requestTypeId: 'off',
+          requestCode: 'O',
+          note: '',
+          status: 'local-pending',
+          policyRejectionReason: null,
+        },
+        {
+          requestKey: 'request-2',
+          employeeId: 'emp-2',
+          dates: ['2025-12-03'],
+          requestTypeId: 'off',
+          requestCode: 'O',
+          note: '',
+          status: 'local-pending',
+          policyRejectionReason: null,
+        },
+      ],
+    });
+
+    expect(wrapper.getComponent(Step4MonthCalendarStub).props('existingRequestSummaries')).toEqual({
+      '2025-12-03': ['김하나', '이둘'],
+    });
+  });
+
   it('shows the disabled reason and keeps apply disabled when the draft cannot be applied', () => {
     const wrapper = createWrapper();
 
     expect(wrapper.text()).toContain('근무자를 먼저 선택해 주세요.');
     expect(wrapper.get('[data-test="apply-request"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('shows DB save progress copy and disables apply while saving', () => {
+    const wrapper = createWrapperWithProps({
+      selectedEmployeeIds: ['emp-1'],
+      applyDisabledReason: null,
+      isApplyRequestSaving: true,
+      requestApplyStatusMessage: '요청을 저장하는 중입니다.',
+      requestApplyStatusTone: 'info',
+    });
+
+    expect(wrapper.text()).toContain('요청을 저장하는 중입니다.');
+    expect(wrapper.get('[data-test="apply-request"]').attributes('disabled')).toBeDefined();
+  });
+
+  it('shows DB saved copy after apply persistence completes', () => {
+    const wrapper = createWrapperWithProps({
+      selectedEmployeeIds: ['emp-1'],
+      applyDisabledReason: null,
+      requestApplyStatusMessage: '요청이 DB에 저장되었습니다.',
+      requestApplyStatusTone: 'success',
+    });
+
+    expect(wrapper.text()).toContain('요청이 DB에 저장되었습니다.');
+  });
+
+  it('shows and emits 변경사항 저장 for unpersisted applied changes', async () => {
+    const wrapper = createWrapperWithProps({
+      hasUnpersistedAppliedChanges: true,
+      canSaveAppliedChanges: true,
+      applyDisabledReason: '근무자를 먼저 선택해 주세요.',
+    });
+
+    const saveButton = wrapper.get('[data-test="save-applied-changes"]');
+
+    expect(wrapper.text()).toContain("저장되지 않은 변경이 있습니다. '변경사항 저장' 또는 '다음 단계'에서 저장됩니다.");
+    expect(wrapper.text()).not.toContain('하단 임시 저장');
+    expect(wrapper.text()).not.toContain('근무자를 먼저 선택해 주세요.');
+    expect(saveButton.text()).toBe('변경사항 저장');
+    expect(saveButton.attributes('disabled')).toBeUndefined();
+
+    await saveButton.trigger('click');
+
+    expect(wrapper.emitted('save-applied-changes')).toHaveLength(1);
+  });
+
+  it('disables 변경사항 저장 while saving or when a save-specific reason exists', async () => {
+    const disabledReasonWrapper = createWrapperWithProps({
+      hasUnpersistedAppliedChanges: true,
+      canSaveAppliedChanges: true,
+      saveAppliedChangesDisabledReason: '미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.',
+    });
+    const loadingWrapper = createWrapperWithProps({
+      hasUnpersistedAppliedChanges: true,
+      canSaveAppliedChanges: true,
+      isSaveAppliedChangesSaving: true,
+    });
+
+    expect(disabledReasonWrapper.get('[data-test="save-applied-changes"]').attributes('disabled')).toBeDefined();
+    expect(loadingWrapper.get('[data-test="save-applied-changes"]').attributes('disabled')).toBeDefined();
+
+    await disabledReasonWrapper.get('[data-test="save-applied-changes"]').trigger('click');
+    await loadingWrapper.get('[data-test="save-applied-changes"]').trigger('click');
+
+    expect(disabledReasonWrapper.emitted('save-applied-changes')).toBeUndefined();
+    expect(loadingWrapper.emitted('save-applied-changes')).toBeUndefined();
   });
 
   it('emits select, selected-dates, apply, and reset intents', async () => {
