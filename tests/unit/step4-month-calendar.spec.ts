@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import Step4MonthCalendar from '@/components/schedule/request-entry/Step4MonthCalendar.vue'
 import { getDaysInMonth, getLastDaysOfPreviousMonth } from '@/utils/date'
 
-type Step4SelectionMode = 'single' | 'range' | 'multi'
+type Step4SelectionMode = 'single' | 'multi'
 
 const gridDates = [
   ...getLastDaysOfPreviousMonth('2025-05', 5),
@@ -80,19 +80,6 @@ describe('Step4MonthCalendar', () => {
     expect(wrapper.get('[data-test="selected-model"]').text()).toBe('')
   })
 
-  it('builds an inclusive range from start to end in range mode', async () => {
-    const wrapper = mountCalendar({
-      selectionMode: 'range',
-    })
-
-    await wrapper.get('[data-test="calendar-day-2025-05-10"]').trigger('click')
-    await wrapper.get('[data-test="calendar-day-2025-05-13"]').trigger('click')
-
-    expect(wrapper.get('[data-test="selected-model"]').text()).toBe(
-      '2025-05-10,2025-05-11,2025-05-12,2025-05-13',
-    )
-  })
-
   it('adds and removes dates in multi mode without losing chronological order', async () => {
     const wrapper = mountCalendar({
       selectionMode: 'multi',
@@ -139,7 +126,7 @@ describe('Step4MonthCalendar', () => {
 
   it('renders selected summary plus existing request badge and selected highlight', () => {
     const wrapper = mountCalendar({
-      selectionMode: 'range',
+      selectionMode: 'multi',
       selectedDates: ['2025-05-10', '2025-05-11', '2025-05-12'],
       existingRequestDates: ['2025-05-11'],
     })

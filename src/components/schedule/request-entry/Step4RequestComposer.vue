@@ -5,29 +5,22 @@
   >
     <div class="space-y-2">
       <label class="text-sm font-medium text-slate-700">근무자 검색</label>
-      <div ref="searchContainerRef">
-        <n-input
-          v-model:value="searchQuery"
-          data-test="step4-employee-search"
-          placeholder="이름 또는 사번으로 검색"
-        />
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="employee in filteredEmployees"
-          :key="employee.id"
-          type="button"
-          class="rounded-2xl border px-3 py-2 text-left text-sm transition-colors"
-          :class="employee.id === selectedEmployeeId
-            ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
-            : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'"
-          :data-test="`employee-option-${employee.id}`"
-          @click="emit('select-employee', employee.id)"
-        >
-          <span class="block font-medium">{{ employee.name }}</span>
-          <span class="block text-xs text-slate-500">{{ employee.employeeId }}</span>
-        </button>
-      </div>
+      <n-select
+        ref="employeeSelectRef"
+        :value="selectedEmployeeIds"
+        :options="filteredEmployeeOptions"
+        :render-label="renderEmployeeLabel"
+        data-test="step4-employee-select"
+        filterable
+        multiple
+        remote
+        :show-checkmark="false"
+        :virtual-scroll="false"
+        max-tag-count="responsive"
+        placeholder="이름 또는 사번으로 검색"
+        @search="handleEmployeeSearch"
+        @update:value="handleEmployeeSelect"
+      />
     </div>
 
     <div class="space-y-2">
@@ -141,8 +134,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { NButton, NInput } from 'naive-ui';
+import { computed, h, ref } from 'vue';
+import { NButton, NCheckbox, NInput, NSelect } from 'naive-ui';
 
 import type { Employee } from '@/types/employee';
 import type { GridColumn } from '@/types/schedule';
@@ -172,8 +165,7 @@ interface EmployeeRequestRowVM {
 interface Props {
   employees: Employee[];
   dates: GridColumn[];
-  selectedEmployeeId: string | null;
-  selectedEmployeeName: string;
+  selectedEmployeeIds: string[];
   requestCatalog: RequestCatalogItem[];
   draftRequestTypeId: Step4RequestTypeId;
   draftSelectionMode: Step4SelectionMode;
@@ -188,7 +180,7 @@ interface Props {
 }
 
 interface Emits {
-  (e: 'select-employee', employeeId: string): void;
+  (e: 'select-employee', employeeIds: string[]): void;
   (e: 'update:request-type', requestTypeId: Step4RequestTypeId): void;
   (e: 'update:selection-mode', mode: Step4SelectionMode): void;
   (e: 'update:selected-dates', dates: string[]): void;
@@ -202,33 +194,38 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const searchQuery = ref('');
-const searchContainerRef = ref<HTMLElement | null>(null);
+type EmployeeSelectValue = string | number | (string | number)[] | null;
+type EmployeeSelectOption = {
+  label?: unknown;
+  value?: unknown;
+};
+
+const employeeSearchQuery = ref('');
+const employeeSelectRef = ref<{
+  focus?: () => void;
+  focusInput?: () => void;
+} | null>(null);
 const selectionModes = [
   { id: 'single' as const, label: '하루' },
-  { id: 'range' as const, label: '연속 기간' },
-  { id: 'multi' as const, label: '개별 여러 날' },
+  { id: 'multi' as const, label: '여러 날' },
 ];
 
-const filteredEmployees = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  const employees = props.employees.map((employee) => ({
-    ...employee,
-    requestCount: props.currentEmployeeRequests.reduce((total, row) => total + row.dates.length, 0),
+const employeeOptions = computed(() => {
+  return props.employees.map((employee) => ({
+    label: `${employee.name} (${employee.employeeId})`,
+    value: employee.id,
   }));
+});
 
+const filteredEmployeeOptions = computed(() => {
+  const query = employeeSearchQuery.value.trim().toLowerCase();
   if (!query) {
-    return employees.slice(0, 8);
+    return employeeOptions.value;
   }
 
-  return employees
-    .filter((employee) => {
-      return (
-        employee.name.toLowerCase().includes(query)
-        || employee.employeeId.toLowerCase().includes(query)
-      );
-    })
-    .slice(0, 8);
+  return employeeOptions.value.filter((option) => {
+    return option.label.toLowerCase().includes(query);
+  });
 });
 
 const existingRequestDates = computed(() => {
@@ -236,11 +233,48 @@ const existingRequestDates = computed(() => {
 });
 
 function focusSearchInput() {
-  searchContainerRef.value?.querySelector('input')?.focus();
+  if (employeeSelectRef.value?.focusInput) {
+    employeeSelectRef.value.focusInput();
+    return;
+  }
+
+  employeeSelectRef.value?.focus?.();
 }
 
 function prefillSearchQuery(value: string) {
-  searchQuery.value = value;
+  employeeSearchQuery.value = value;
+}
+
+function handleEmployeeSearch(query: string) {
+  employeeSearchQuery.value = query;
+}
+
+function handleEmployeeSelect(value: EmployeeSelectValue) {
+  if (!Array.isArray(value)) {
+    return;
+  }
+
+  employeeSearchQuery.value = '';
+  emit('select-employee', value.filter((employeeId): employeeId is string => typeof employeeId === 'string'));
+}
+
+function renderEmployeeLabel(option: EmployeeSelectOption, selected: boolean) {
+  return h(
+    'div',
+    {
+      class: 'flex items-center gap-2',
+    },
+    [
+      h(NCheckbox, {
+        checked: selected,
+        focusable: false,
+        tabindex: -1,
+        'aria-hidden': true,
+        class: 'pointer-events-none shrink-0',
+      }),
+      h('span', { class: 'min-w-0 truncate' }, String(option.label ?? '')),
+    ],
+  );
 }
 
 defineExpose({

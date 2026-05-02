@@ -205,8 +205,7 @@
             ref="requestComposerRef"
             :employees="grid.employees.value"
             :dates="grid.dates.value"
-            :selected-employee-id="selectedEmployeeId"
-            :selected-employee-name="selectedEmployeeName"
+            :selected-employee-ids="selectedEmployeeIds"
             :request-catalog="requestCatalog"
             :draft-request-type-id="draftRequestTypeId"
             :draft-selection-mode="draftSelectionMode"
@@ -465,7 +464,7 @@ const requestComposerRef = ref<{
 } | null>(null);
 const isRequestDrawerOpen = ref(false);
 
-const selectedEmployeeId = ref<string | null>(null);
+const selectedEmployeeIds = ref<string[]>([]);
 const draftRequestTypeId = ref<Step4RequestTypeId>('off');
 const draftSelectionMode = ref<Step4SelectionMode>('single');
 const draftSelectedDates = ref<string[]>([]);
@@ -507,7 +506,7 @@ type PendingHandoffContext = {
 };
 
 type Step4RequestTypeId = 'off';
-type Step4SelectionMode = 'single' | 'range' | 'multi';
+type Step4SelectionMode = 'single' | 'multi';
 type PolicyCheckStatus = 'pending' | 'passed' | 'rejected' | null;
 
 type Step4RequestCatalogItem = {
@@ -537,7 +536,7 @@ const STEP4_REQUEST_CATALOG: Step4RequestCatalogItem[] = [
     label: 'Off',
     shortCode: 'O',
     colorToken: 'shift-off',
-    selectionModeSupport: ['single', 'range', 'multi'],
+    selectionModeSupport: ['single', 'multi'],
     noteRequired: false,
     isActive: true,
   },
@@ -555,11 +554,16 @@ const requestCatalog = STEP4_REQUEST_CATALOG;
 const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.';
 const HIDDEN_DRAFT_BLOCKED_REASON =
   '미반영 요청이 있습니다. 요청 입력을 다시 열어 마무리해 주세요.';
-const selectedEmployee = computed(() => {
-  if (!selectedEmployeeId.value) return null;
-  return grid.employees.value.find((employee) => employee.id === selectedEmployeeId.value) ?? null;
+const selectedEmployeeId = computed(() => selectedEmployeeIds.value[0] ?? null);
+const selectedEmployees = computed(() => {
+  const selectedEmployeeIdSet = new Set(selectedEmployeeIds.value);
+  return grid.employees.value.filter((employee) => selectedEmployeeIdSet.has(employee.id));
 });
-const selectedEmployeeName = computed(() => selectedEmployee.value?.name ?? '');
+const selectedEmployeeName = computed(() => {
+  if (selectedEmployees.value.length === 0) return '';
+  if (selectedEmployees.value.length === 1) return selectedEmployees.value[0]?.name ?? '';
+  return `${selectedEmployees.value[0]?.name ?? ''} 외 ${selectedEmployees.value.length - 1}명`;
+});
 const selectedDateSummary = computed(() => {
   const dates = [...draftSelectedDates.value].sort();
   if (dates.length === 0) return '';
@@ -580,7 +584,7 @@ const selectedDateSummary = computed(() => {
   return dates.map((date) => formatDateChip(date)).join(', ');
 });
 const hasUnappliedDraft = computed(() => {
-  return dirtySinceLastApply.value && selectedEmployeeId.value !== null && draftSelectedDates.value.length > 0;
+  return dirtySinceLastApply.value && selectedEmployeeIds.value.length > 0 && draftSelectedDates.value.length > 0;
 });
 const hasHiddenUnappliedDraft = computed(() => {
   return hasUnappliedDraft.value && !isRequestDrawerOpen.value;
@@ -600,14 +604,14 @@ const pageLevelBlockedReason = computed(() => {
     : OPEN_DRAFT_BLOCKED_REASON;
 });
 const applyDisabledReason = computed(() => {
-  if (!selectedEmployeeId.value) return '근무자를 먼저 선택해 주세요.';
+  if (selectedEmployeeIds.value.length === 0) return '근무자를 먼저 선택해 주세요.';
   if (draftSelectedDates.value.length === 0) return '날짜를 먼저 선택해 주세요.';
   return null;
 });
 const canApplyDraft = computed(() => applyDisabledReason.value === null);
 const hasUnpersistedAppliedChanges = computed(() => hasPendingStep4Changes.value);
 const currentEmployeeRequests = computed<EmployeeRequestRowVM[]>(() => {
-  return buildCurrentEmployeeRequests(selectedEmployeeId.value);
+  return selectedEmployeeIds.value.flatMap((employeeId) => buildCurrentEmployeeRequests(employeeId));
 });
 const policyRejectionSummaries = computed(() => {
   const summaries: string[] = [];
@@ -1025,7 +1029,7 @@ function findCurrentEmployeeRequest(requestKey: string): EmployeeRequestRowVM | 
 
 function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
   if (!options.preserveEmployee) {
-    selectedEmployeeId.value = null;
+    selectedEmployeeIds.value = [];
   }
   draftRequestTypeId.value = 'off';
   draftSelectionMode.value = 'single';
@@ -1037,7 +1041,7 @@ function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
 }
 
 function guardDraftTransition(
-  nextEmployeeId: string | null,
+  nextEmployeeIds: string[],
   nextDates: string[],
   nextEditingRequestKey: string | null
 ): boolean {
@@ -1046,7 +1050,8 @@ function guardDraftTransition(
     return true;
   }
 
-  const sameEmployee = selectedEmployeeId.value === nextEmployeeId;
+  const sameEmployee =
+    JSON.stringify([...selectedEmployeeIds.value].sort()) === JSON.stringify([...nextEmployeeIds].sort());
   const sameDates =
     JSON.stringify(sortDates(draftSelectedDates.value)) === JSON.stringify(sortDates(nextDates));
   const sameEditingRequest = editingRequestKey.value === nextEditingRequestKey;
@@ -1060,12 +1065,12 @@ function guardDraftTransition(
   return false;
 }
 
-function handleSelectEmployee(employeeId: string): void {
-  if (!guardDraftTransition(employeeId, [], null)) {
+function handleSelectEmployee(employeeIds: string[]): void {
+  if (!guardDraftTransition(employeeIds, [], null)) {
     return;
   }
 
-  selectedEmployeeId.value = employeeId;
+  selectedEmployeeIds.value = [...employeeIds];
   draftSelectedDates.value = [];
   draftNote.value = '';
   editingRequestKey.value = null;
@@ -1093,11 +1098,11 @@ function handleDraftNoteUpdate(note: string): void {
 function handleGridCellSelect(payload: { employeeId: string; date: string }): void {
   const existingRow =
     buildCurrentEmployeeRequests(payload.employeeId).find((row) => row.dates.includes(payload.date)) ?? null;
-  if (!guardDraftTransition(payload.employeeId, [payload.date], existingRow?.requestKey ?? null)) {
+  if (!guardDraftTransition([payload.employeeId], [payload.date], existingRow?.requestKey ?? null)) {
     return;
   }
 
-  selectedEmployeeId.value = payload.employeeId;
+  selectedEmployeeIds.value = [payload.employeeId];
   draftRequestTypeId.value = 'off';
   draftSelectionMode.value = 'single';
   draftSelectedDates.value = [payload.date];
@@ -1111,13 +1116,13 @@ function handleGridCellSelect(payload: { employeeId: string; date: string }): vo
 function hydrateDraftFromRequestRow(requestKey: string): void {
   const requestRow = findCurrentEmployeeRequest(requestKey);
   if (!requestRow) return;
-  if (!guardDraftTransition(requestRow.employeeId, requestRow.dates, requestRow.requestKey)) {
+  if (!guardDraftTransition([requestRow.employeeId], requestRow.dates, requestRow.requestKey)) {
     return;
   }
 
-  selectedEmployeeId.value = requestRow.employeeId;
+  selectedEmployeeIds.value = [requestRow.employeeId];
   draftRequestTypeId.value = requestRow.requestTypeId;
-  draftSelectionMode.value = requestRow.dates.length > 1 ? 'range' : 'single';
+  draftSelectionMode.value = requestRow.dates.length > 1 ? 'multi' : 'single';
   draftSelectedDates.value = [...requestRow.dates];
   draftNote.value = requestRow.note;
   editingRequestKey.value = requestRow.requestKey;
@@ -1127,35 +1132,40 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 }
 
 function applyDraftRequest(): void {
-  const employeeId = selectedEmployeeId.value;
+  const employeeIds = [...selectedEmployeeIds.value];
 
-  if (!employeeId || !canApplyDraft.value) {
+  if (employeeIds.length === 0 || !canApplyDraft.value) {
     return;
-  }
-
-  if (!constraints.value[employeeId]) {
-    constraints.value[employeeId] = {};
-  }
-  if (!constraintNotes.value[employeeId]) {
-    constraintNotes.value[employeeId] = {};
   }
 
   const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
   if (editingRow) {
+    if (!constraints.value[editingRow.employeeId]) {
+      constraints.value[editingRow.employeeId] = {};
+    }
     editingRow.dates.forEach((date) => {
-      constraints.value[employeeId]![date] = '';
-      removeConstraintNote(employeeId, date);
+      constraints.value[editingRow.employeeId]![date] = '';
+      removeConstraintNote(editingRow.employeeId, date);
     });
   }
 
   const normalizedNote = draftNote.value.trim();
-  draftSelectedDates.value.forEach((date) => {
-    constraints.value[employeeId]![date] = 'O';
-    if (normalizedNote.length > 0) {
-      constraintNotes.value[employeeId]![date] = normalizedNote;
-    } else {
-      removeConstraintNote(employeeId, date);
+  employeeIds.forEach((employeeId) => {
+    if (!constraints.value[employeeId]) {
+      constraints.value[employeeId] = {};
     }
+    if (!constraintNotes.value[employeeId]) {
+      constraintNotes.value[employeeId] = {};
+    }
+
+    draftSelectedDates.value.forEach((date) => {
+      constraints.value[employeeId]![date] = 'O';
+      if (normalizedNote.length > 0) {
+        constraintNotes.value[employeeId]![date] = normalizedNote;
+      } else {
+        removeConstraintNote(employeeId, date);
+      }
+    });
   });
 
   constraints.value = { ...constraints.value };
@@ -1172,7 +1182,7 @@ function applyDraftRequest(): void {
 function handleDeleteRequest(requestKey: string): void {
   const requestRow = findCurrentEmployeeRequest(requestKey);
   if (!requestRow) return;
-  if (!guardDraftTransition(requestRow.employeeId, requestRow.dates, requestRow.requestKey)) {
+  if (!guardDraftTransition([requestRow.employeeId], requestRow.dates, requestRow.requestKey)) {
     return;
   }
 
