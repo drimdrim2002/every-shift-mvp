@@ -27,268 +27,313 @@
       </div>
     </n-alert>
 
-    <n-alert
-      v-if="policyRejectionSummaries.length > 0"
-      type="warning"
-      class="mb-4"
+    <div
+      v-if="isInitialDataLoading && !baselineErrorMessage"
+      data-test="step4-initial-loading"
+      class="flex min-h-[520px] flex-1 items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-10"
     >
-      <template #header>
-        정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
-      </template>
-      <ul class="space-y-1 text-sm">
-        <li
-          v-for="summary in policyRejectionSummaries.slice(0, 3)"
-          :key="summary"
-        >
-          {{ summary }}
-        </li>
-      </ul>
-    </n-alert>
-
-    <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div class="space-y-2">
-          <div class="flex items-center gap-2">
-            <h2 class="text-lg font-bold text-slate-900">
-              {{ scheduleStore.basicInfo?.month }} 사전 Off 요청 입력
-            </h2>
-            <span
-              v-if="orgStore.current"
-              class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
-            >
-              {{ orgStore.current.name }}
-            </span>
-          </div>
-          <p class="text-sm text-slate-600">
-            사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.
-          </p>
-        </div>
-        <div class="flex flex-col items-end gap-2 text-right">
-          <p class="text-xs font-medium text-slate-500">
-            {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 요청 입력에서 저장 필요' : '저장된 변경 없음' }}
-          </p>
-          <p
-            v-if="pageLevelBlockedReason"
-            class="text-sm font-medium text-amber-700"
-          >
-            {{ pageLevelBlockedReason }}
-          </p>
-          <n-button
-            v-if="!isRequestDrawerOpen"
-            data-test="request-drawer-toggle"
-            type="primary"
-            size="large"
-            strong
-            class="min-w-[168px] font-semibold shadow-sm"
-            @click="handleOpenRequestDrawer"
-          >
-            {{ requestDrawerCtaLabel }}
-          </n-button>
-        </div>
+      <div class="flex flex-col items-center gap-3 text-center text-sm text-slate-500">
+        <n-spin size="large" />
+        <p>사전 Off 요청 데이터를 불러오는 중입니다.</p>
       </div>
     </div>
 
-    <div class="flex min-h-[780px] flex-1 flex-col gap-4 xl:min-h-[860px] 2xl:min-h-[920px]">
-      <div
-        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+    <template v-else>
+      <n-alert
+        v-if="policyRejectionSummaries.length > 0"
+        type="warning"
+        class="mb-4"
       >
-        <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-          <div class="space-y-1">
-            <h3 class="text-base font-semibold text-slate-900">
-              사전 Off 요청 캘린더
-            </h3>
-            <p
-              v-if="selectedEmployeeName || selectedDateSummary"
-              class="text-sm text-slate-600"
-            >
-              <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
-              <span v-if="selectedDateSummary">
-                <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
-              </span>
-            </p>
-          </div>
-        </div>
+        <template #header>
+          정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
+        </template>
+        <ul class="space-y-1 text-sm">
+          <li
+            v-for="summary in policyRejectionSummaries.slice(0, 3)"
+            :key="summary"
+          >
+            {{ summary }}
+          </li>
+        </ul>
+      </n-alert>
 
-        <n-alert
-          v-if="hasHiddenUnappliedDraft"
-          data-test="hidden-request-draft-alert"
-          type="warning"
-          class="mx-5 mt-4"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-3">
-            <p class="text-sm font-medium">
-              {{ requestDrawerStatusCopy }}
-            </p>
+      <n-alert
+        v-if="hasPendingLocalDraft"
+        data-test="pending-local-draft-alert"
+        type="info"
+        class="mb-4"
+      >
+        <template #header>
+          이전에 입력하던 Off 요청이 있습니다
+        </template>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm leading-6 text-slate-600">
+            저장된 데이터와 다를 수 있어 자동으로 반영하지 않았습니다. 필요한 경우 직접 불러와 이어서 작업하세요.
+          </p>
+          <div class="flex gap-2">
             <n-button
-              data-test="request-drawer-toggle"
+              size="small"
+              type="primary"
+              @click="handleLoadPendingLocalDraft"
+            >
+              불러오기
+            </n-button>
+            <n-button
               size="small"
               secondary
-              type="warning"
+              @click="handleDiscardPendingLocalDraft"
+            >
+              삭제
+            </n-button>
+          </div>
+        </div>
+      </n-alert>
+
+      <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="space-y-2">
+            <div class="flex items-center gap-2">
+              <h2 class="text-lg font-bold text-slate-900">
+                {{ scheduleStore.basicInfo?.month }} 사전 Off 요청 입력
+              </h2>
+              <span
+                v-if="orgStore.current"
+                class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+              >
+                {{ orgStore.current.name }}
+              </span>
+            </div>
+            <p class="text-sm text-slate-600">
+              사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.
+            </p>
+          </div>
+          <div class="flex flex-col items-end gap-2 text-right">
+            <p class="text-xs font-medium text-slate-500">
+              {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 요청 입력에서 저장 필요' : '저장된 변경 없음' }}
+            </p>
+            <p
+              v-if="pageLevelBlockedReason"
+              class="text-sm font-medium text-amber-700"
+            >
+              {{ pageLevelBlockedReason }}
+            </p>
+            <n-button
+              v-if="!isRequestDrawerOpen"
+              data-test="request-drawer-toggle"
+              type="primary"
+              size="large"
+              strong
+              class="min-w-[168px] font-semibold shadow-sm"
               @click="handleOpenRequestDrawer"
             >
               {{ requestDrawerCtaLabel }}
             </n-button>
           </div>
-        </n-alert>
-
-        <div class="relative min-h-0 flex-1 overflow-hidden">
-          <n-spin
-            :show="grid.loading.value"
-            class="h-full"
-          >
-            <div class="h-full overflow-hidden">
-              <ScheduleGrid
-                v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
-                class="h-full"
-                mode="planning"
-                :employees="grid.employees.value"
-                :dates="grid.dates.value"
-                :constraints="constraints"
-                :comments="displayConstraintNotes"
-                :readonly="false"
-                :show-last-month="false"
-                :selected-employee-id="selectedEmployeeId"
-                :selected-dates="draftSelectedDates"
-                planning-interaction-mode="select"
-                @update:assignment="handleAssignmentUpdate"
-                @context-menu="handleContextMenu"
-                @header-click="handleHeaderClick"
-                @cell-select="handleGridCellSelect"
-              />
-              <div
-                v-else-if="!grid.loading.value"
-                class="flex h-full items-center justify-center text-gray-400"
-              >
-                직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }},
-                Date: {{ grid.dates.value.length }})
-              </div>
-            </div>
-          </n-spin>
         </div>
       </div>
-    </div>
 
-    <n-drawer
-      :show="isRequestDrawerOpen"
-      placement="right"
-      width="min(100vw, 720px)"
-      :auto-focus="false"
-      @update:show="handleRequestDrawerVisibility"
-    >
-      <div
-        data-test="step4-request-drawer"
-        class="flex h-full flex-col bg-white"
-      >
-        <div class="border-b border-slate-200 px-5 py-4">
-          <div class="flex items-start justify-between gap-4">
+      <div class="flex min-h-[780px] flex-1 flex-col gap-4 xl:min-h-[860px] 2xl:min-h-[920px]">
+        <div
+          class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+        >
+          <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
             <div class="space-y-1">
               <h3 class="text-base font-semibold text-slate-900">
-                요청 입력
+                사전 Off 요청 캘린더
               </h3>
-              <p class="text-sm text-slate-600">
-                근무자와 날짜를 선택해 Off 요청을 반영하세요.
+              <p
+                v-if="selectedEmployeeName || selectedDateSummary"
+                class="text-sm text-slate-600"
+              >
+                <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
+                <span v-if="selectedDateSummary">
+                  <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
+                </span>
               </p>
             </div>
-            <n-button
-              data-test="request-drawer-close-button"
-              size="small"
-              secondary
-              @click="handleCloseRequestDrawer"
+          </div>
+
+          <n-alert
+            v-if="hasHiddenUnappliedDraft"
+            data-test="hidden-request-draft-alert"
+            type="warning"
+            class="mx-5 mt-4"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <p class="text-sm font-medium">
+                {{ requestDrawerStatusCopy }}
+              </p>
+              <n-button
+                data-test="request-drawer-toggle"
+                size="small"
+                secondary
+                type="warning"
+                @click="handleOpenRequestDrawer"
+              >
+                {{ requestDrawerCtaLabel }}
+              </n-button>
+            </div>
+          </n-alert>
+
+          <div class="relative min-h-0 flex-1 overflow-hidden">
+            <n-spin
+              :show="grid.loading.value"
+              class="h-full"
             >
-              닫기
+              <div class="h-full overflow-hidden">
+                <ScheduleGrid
+                  v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
+                  class="h-full"
+                  mode="planning"
+                  :employees="grid.employees.value"
+                  :dates="grid.dates.value"
+                  :constraints="constraints"
+                  :comments="displayConstraintNotes"
+                  :readonly="false"
+                  :show-last-month="false"
+                  :selected-employee-id="selectedEmployeeId"
+                  :selected-dates="draftSelectedDates"
+                  planning-interaction-mode="select"
+                  @update:assignment="handleAssignmentUpdate"
+                  @context-menu="handleContextMenu"
+                  @header-click="handleHeaderClick"
+                  @cell-select="handleGridCellSelect"
+                />
+                <div
+                  v-else-if="!grid.loading.value"
+                  class="flex h-full items-center justify-center text-gray-400"
+                >
+                  직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }},
+                  Date: {{ grid.dates.value.length }})
+                </div>
+              </div>
+            </n-spin>
+          </div>
+        </div>
+      </div>
+
+      <n-drawer
+        :show="isRequestDrawerOpen"
+        placement="right"
+        width="min(100vw, 720px)"
+        :auto-focus="false"
+        @update:show="handleRequestDrawerVisibility"
+      >
+        <div
+          data-test="step4-request-drawer"
+          class="flex h-full flex-col bg-white"
+        >
+          <div class="border-b border-slate-200 px-5 py-4">
+            <div class="flex items-start justify-between gap-4">
+              <div class="space-y-1">
+                <h3 class="text-base font-semibold text-slate-900">
+                  요청 입력
+                </h3>
+                <p class="text-sm text-slate-600">
+                  근무자와 날짜를 선택해 Off 요청을 반영하세요.
+                </p>
+              </div>
+              <n-button
+                data-test="request-drawer-close-button"
+                size="small"
+                secondary
+                @click="handleCloseRequestDrawer"
+              >
+                닫기
+              </n-button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-5 py-4">
+            <Step4RequestComposer
+              ref="requestComposerRef"
+              :employees="grid.employees.value"
+              :dates="grid.dates.value"
+              :selected-employee-ids="selectedEmployeeIds"
+              :request-catalog="requestCatalog"
+              :draft-request-type-id="draftRequestTypeId"
+              :draft-selection-mode="draftSelectionMode"
+              :draft-selected-dates="draftSelectedDates"
+              :draft-note="draftNote"
+              :selected-date-summary="selectedDateSummary"
+              :current-employee-requests="currentEmployeeRequests"
+              :has-unapplied-draft="hasUnappliedDraft"
+              :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
+              :can-save-applied-changes="canSaveAppliedChanges"
+              :is-save-applied-changes-saving="isSavingStep4Preferences"
+              :save-applied-changes-disabled-reason="saveAppliedChangesDisabledReason"
+              :is-apply-request-saving="isApplyRequestSaving"
+              :request-apply-status-message="requestApplyStatusMessage"
+              :request-apply-status-tone="requestApplyStatusTone"
+              :apply-disabled-reason="applyDisabledReason"
+              :blocked-transition-reason="blockedTransitionReason"
+              @select-employee="handleSelectEmployee"
+              @update:request-type="draftRequestTypeId = $event"
+              @update:selection-mode="handleDraftSelectionModeUpdate"
+              @update:selected-dates="handleDraftSelectedDatesUpdate"
+              @update:note="handleDraftNoteUpdate"
+              @apply-request="applyDraftRequest"
+              @save-applied-changes="handleSaveAppliedChanges"
+              @reset-draft="resetDraftState({ preserveEmployee: true })"
+              @edit-request="hydrateDraftFromRequestRow"
+              @delete-request="handleDeleteRequest"
+            />
+          </div>
+        </div>
+      </n-drawer>
+
+      <!-- Bottom Actions -->
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t bg-white py-4">
+        <div class="flex gap-3">
+          <n-popconfirm
+            v-if="cameFromDashboard"
+            @positive-click="handleReturnToDashboard"
+          >
+            <template #trigger>
+              <n-button size="large">
+                근무표 관리로 돌아가기
+              </n-button>
+            </template>
+            근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+          </n-popconfirm>
+          <n-button
+            v-if="!cameFromDashboard"
+            size="large"
+            @click="handlePrev"
+          >
+            ← 이전 단계
+          </n-button>
+          <n-button
+            size="large"
+            secondary
+            type="error"
+            @click="handleClearAllOffRequests"
+          >
+            모든 Off 요청 초기화
+          </n-button>
+        </div>
+
+        <div class="flex flex-col items-end gap-2">
+          <p
+            v-if="pageLevelBlockedReason"
+            class="text-sm text-amber-700"
+          >
+            {{ pageLevelBlockedReason }}
+          </p>
+          <div class="flex gap-3">
+            <n-button
+              type="primary"
+              size="large"
+              :loading="isSubmitting"
+              :disabled="isSubmitting || !canPersistStep4"
+              @click="handleNext"
+            >
+              {{ nextStepLabel }}
             </n-button>
           </div>
         </div>
-
-        <div class="flex-1 overflow-y-auto px-5 py-4">
-          <Step4RequestComposer
-            ref="requestComposerRef"
-            :employees="grid.employees.value"
-            :dates="grid.dates.value"
-            :selected-employee-ids="selectedEmployeeIds"
-            :request-catalog="requestCatalog"
-            :draft-request-type-id="draftRequestTypeId"
-            :draft-selection-mode="draftSelectionMode"
-            :draft-selected-dates="draftSelectedDates"
-            :draft-note="draftNote"
-            :selected-date-summary="selectedDateSummary"
-            :current-employee-requests="currentEmployeeRequests"
-            :has-unapplied-draft="hasUnappliedDraft"
-            :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
-            :can-save-applied-changes="canSaveAppliedChanges"
-            :is-save-applied-changes-saving="isSavingStep4Preferences"
-            :save-applied-changes-disabled-reason="saveAppliedChangesDisabledReason"
-            :is-apply-request-saving="isApplyRequestSaving"
-            :request-apply-status-message="requestApplyStatusMessage"
-            :request-apply-status-tone="requestApplyStatusTone"
-            :apply-disabled-reason="applyDisabledReason"
-            :blocked-transition-reason="blockedTransitionReason"
-            @select-employee="handleSelectEmployee"
-            @update:request-type="draftRequestTypeId = $event"
-            @update:selection-mode="handleDraftSelectionModeUpdate"
-            @update:selected-dates="handleDraftSelectedDatesUpdate"
-            @update:note="handleDraftNoteUpdate"
-            @apply-request="applyDraftRequest"
-            @save-applied-changes="handleSaveAppliedChanges"
-            @reset-draft="resetDraftState({ preserveEmployee: true })"
-            @edit-request="hydrateDraftFromRequestRow"
-            @delete-request="handleDeleteRequest"
-          />
-        </div>
       </div>
-    </n-drawer>
-
-    <!-- Bottom Actions -->
-    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t bg-white py-4">
-      <div class="flex gap-3">
-        <n-popconfirm
-          v-if="cameFromDashboard"
-          @positive-click="handleReturnToDashboard"
-        >
-          <template #trigger>
-            <n-button size="large">
-              근무표 관리로 돌아가기
-            </n-button>
-          </template>
-          근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
-        </n-popconfirm>
-        <n-button
-          v-if="!cameFromDashboard"
-          size="large"
-          @click="handlePrev"
-        >
-          ← 이전 단계
-        </n-button>
-        <n-button
-          size="large"
-          secondary
-          type="error"
-          @click="handleClearAllOffRequests"
-        >
-          모든 Off 요청 초기화
-        </n-button>
-      </div>
-
-      <div class="flex flex-col items-end gap-2">
-        <p
-          v-if="pageLevelBlockedReason"
-          class="text-sm text-amber-700"
-        >
-          {{ pageLevelBlockedReason }}
-        </p>
-        <div class="flex gap-3">
-          <n-button
-            type="primary"
-            size="large"
-            :loading="isSubmitting"
-            :disabled="isSubmitting || !canPersistStep4"
-            @click="handleNext"
-          >
-            {{ nextStepLabel }}
-          </n-button>
-        </div>
-      </div>
-    </div>
+    </template>
 
     <!-- Modals -->
     <CommentModal
@@ -331,6 +376,57 @@
         <n-button @click="handleChooseEditExistingHistory">
           요청 수정해서 새 근무표안 만들기
         </n-button>
+      </div>
+    </n-modal>
+
+    <n-modal
+      :show="isEditOffStartModalOpen"
+      preset="card"
+      class="max-w-md"
+      :mask-closable="!isCreatingEditOffDraftVersion"
+      :closable="false"
+    >
+      <template #header>
+        새 근무표안으로 Off 요청 수정
+      </template>
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <p class="text-sm font-medium leading-6 text-gray-700">
+            근무표안 이름
+          </p>
+          <n-input
+            :value="pendingEditOffDraftVersionName"
+            data-test="edit-off-start-version-name-input"
+            maxlength="100"
+            placeholder="예: 3안"
+            :disabled="isCreatingEditOffDraftVersion"
+            @update:value="pendingEditOffDraftVersionName = $event"
+            @keyup.enter="handleConfirmEditOffDraftStart"
+          />
+        </div>
+        <n-checkbox
+          :checked="shouldCopyExistingOffRequests"
+          data-test="edit-off-copy-off-checkbox"
+          :disabled="isCreatingEditOffDraftVersion"
+          @update:checked="shouldCopyExistingOffRequests = $event"
+        >
+          기존 Off 요청을 새 근무표안으로 복사
+        </n-checkbox>
+        <div class="flex justify-end gap-2">
+          <n-button
+            :disabled="isCreatingEditOffDraftVersion"
+            @click="handleCancelEditOffDraftStart"
+          >
+            취소
+          </n-button>
+          <n-button
+            type="primary"
+            :loading="isCreatingEditOffDraftVersion"
+            @click="handleConfirmEditOffDraftStart"
+          >
+            새 근무표안 만들기
+          </n-button>
+        </div>
       </div>
     </n-modal>
 
@@ -407,7 +503,7 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NDrawer, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
+import { NAlert, NButton, NCheckbox, NDrawer, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -451,6 +547,7 @@ const grid = useScheduleGrid();
 const solverRequestBuilder = useScheduleSolverRequest();
 
 const isSubmitting = ref(false);
+const isInitialDataLoading = ref(true);
 const isSavingStep4Preferences = ref(false);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
@@ -469,6 +566,10 @@ const showDaySummaryModal = ref(false);
 const selectedDaySummaryDate = ref<string>('');
 const showExistingHistoryChoiceModal = ref(false);
 const hasShownExistingHistoryChoiceModal = ref(false);
+const isEditOffStartModalOpen = ref(false);
+const pendingEditOffDraftVersionName = ref('');
+const shouldCopyExistingOffRequests = ref(true);
+const isCreatingEditOffDraftVersion = ref(false);
 const pendingVersionName = ref('');
 const isVersionNameModalOpen = ref(false);
 const duplicateVersionCandidate = ref<ScheduleVersionSummary | null>(null);
@@ -567,6 +668,7 @@ const baselinePreferenceSnapshot = ref<{
 } | null>(null);
 const pendingHandoffAction = ref<PendingHandoffAction | null>(null);
 const pendingHandoffContext = ref<PendingHandoffContext | null>(null);
+const pendingLocalDraftSnapshot = ref<PreferenceSnapshot | null>(null);
 
 const requestCatalog = STEP4_REQUEST_CATALOG;
 const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.';
@@ -652,9 +754,10 @@ const policyRejectionSummaries = computed(() => {
 
 const canPersistStep4 = computed(() => {
   return (
+    !isInitialDataLoading.value &&
     !isBaselineLoading.value &&
     !baselineErrorMessage.value &&
-    !hasUnappliedDraft.value &&
+    (!hasUnappliedDraft.value || isEditOffDraftVersionMode.value) &&
     !!baselineState.value &&
     grid.employees.value.length > 0
   );
@@ -664,6 +767,7 @@ const saveAppliedChangesDisabledReason = computed(() => {
   if (hasUnappliedDraft.value) {
     return pageLevelBlockedReason.value ?? OPEN_DRAFT_BLOCKED_REASON;
   }
+  if (isInitialDataLoading.value) return '데이터를 불러오는 중입니다.';
   if (isBaselineLoading.value) return '기준 버전을 확인하는 중입니다.';
   if (baselineErrorMessage.value) return baselineErrorMessage.value;
   if (!baselineState.value) return '기준 버전을 먼저 확인해 주세요.';
@@ -691,11 +795,28 @@ const hasPendingStep4Changes = computed(() => {
   );
 });
 
+const hasPendingLocalDraft = computed(() => pendingLocalDraftSnapshot.value !== null);
+const routePreviewVersionId = computed(() => normalizeRouteQueryString(route.query.version));
+const routeSourceVersionId = computed(() => normalizeRouteQueryString(route.query.sourceVersion));
+const isEditOffDraftVersionMode = computed(() => {
+  return (
+    hasExplicitEditIntent()
+    && routePreviewVersionId.value !== null
+    && baselineState.value?.previewVersionId === routePreviewVersionId.value
+  );
+});
 const isExistingResultEditMode = computed(() => {
   return hasExplicitEditIntent() && baselineState.value?.hasExecutedHistory === true;
 });
+const isLegacyExistingResultEditMode = computed(() => {
+  return isExistingResultEditMode.value && !isEditOffDraftVersionMode.value;
+});
 
 const nextStepLabel = computed(() => {
+  if (isEditOffDraftVersionMode.value) {
+    return '근무표 생성(AI)';
+  }
+
   if (isExistingResultEditMode.value) {
     return baselineState.value?.hasCurrentMonthAssignments
       ? '생성 시작으로 이동'
@@ -763,21 +884,12 @@ const tempPreferenceScope = computed(() => {
   });
 });
 
-function hasExplicitEditIntent(): boolean {
-  return route.query.intent === 'edit-off';
+function normalizeRouteQueryString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
 }
 
-function buildRouteQueryWithEditIntent(): Record<string, string> {
-  const query: Record<string, string> = {};
-
-  Object.entries(route.query).forEach(([key, value]) => {
-    if (typeof value === 'string' && value.length > 0 && key !== 'intent') {
-      query[key] = value;
-    }
-  });
-
-  query.intent = 'edit-off';
-  return query;
+function hasExplicitEditIntent(): boolean {
+  return route.query.intent === 'edit-off';
 }
 
 function maybeOpenExistingHistoryChoiceModal(): void {
@@ -1275,13 +1387,23 @@ async function applyDraftRequest(): Promise<void> {
 
   isApplyRequestSaving.value = true;
   setRequestApplyStatus(
-    isExistingResultEditMode.value ? '요청을 반영하는 중입니다.' : '요청을 저장하는 중입니다.',
+    hasExplicitEditIntent() ? '요청을 반영하는 중입니다.' : '요청을 저장하는 중입니다.',
     'info'
   );
 
   try {
     const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
-    const result = isExistingResultEditMode.value
+    const result = isEditOffDraftVersionMode.value
+      ? await saveEditOffDraftPreferenceMaps(
+          nextPreferenceMaps.constraints,
+          nextPreferenceMaps.notes,
+          {
+            successMessage: '요청이 새 근무표안에 저장되었습니다.',
+            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
+            logMessage: 'Saving edit-off draft request-entry preferences',
+          }
+        )
+      : isLegacyExistingResultEditMode.value
       ? stageStep4PreferenceMaps(
           nextPreferenceMaps.constraints,
           nextPreferenceMaps.notes,
@@ -1303,7 +1425,7 @@ async function applyDraftRequest(): Promise<void> {
 
     if (!result) return;
 
-    if (isExistingResultEditMode.value) {
+    if (isLegacyExistingResultEditMode.value) {
       resetDraftState();
     } else {
       editingRequestKey.value = null;
@@ -1311,7 +1433,9 @@ async function applyDraftRequest(): Promise<void> {
       blockedTransitionReason.value = null;
     }
     setRequestApplyStatus(
-      isExistingResultEditMode.value
+      isEditOffDraftVersionMode.value
+        ? '요청이 새 근무표안에 저장되었습니다.'
+        : isLegacyExistingResultEditMode.value
         ? '요청이 새 근무표안 입력에 반영되었습니다.'
         : '요청이 DB에 저장되었습니다.',
       'success'
@@ -1422,6 +1546,7 @@ watchDebounced(
   [() => constraints.value, () => constraintNotes.value],
   ([latestConstraints, latestNotes]) => {
     if (isReturningToDashboard.value) return;
+    if (pendingLocalDraftSnapshot.value) return;
     const scope = tempPreferenceScope.value;
     if (!scope) return;
     if (countStoredOffRequests(latestConstraints) === 0 && !hasAnyConstraintNotes(latestNotes)) {
@@ -1486,7 +1611,7 @@ function hasCurrentPreferences(): boolean {
 }
 
 function getPreferredPreviewVersionId(): string | null {
-  return scheduleStore.previewVersionId;
+  return routePreviewVersionId.value ?? scheduleStore.previewVersionId;
 }
 
 function createPreferenceSnapshot(
@@ -1735,6 +1860,69 @@ function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; no
   };
 }
 
+function storePendingLocalDraftSnapshot(snapshot: {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+} | null): boolean {
+  pendingLocalDraftSnapshot.value = null;
+  if (!snapshot) return false;
+
+  const sanitized = sanitizeSnapshotToCurrentEmployees(snapshot);
+  const offRequestCount = countStoredOffRequests(sanitized.constraints);
+  const hasNotes = hasAnyConstraintNotes(sanitized.notes);
+
+  logRestoreTrace('Found pending local Step4 draft', {
+    storageKey: tempPreferenceScope.value
+      ? buildTempPreferencesStorageKey(tempPreferenceScope.value)
+      : null,
+    offRequestCount,
+    hasNotes,
+  });
+
+  if (sanitized.removedEmployeeIds.length > 0) {
+    logRestoreTrace('Removed stale employee keys from pending local Step4 draft', {
+      removedEmployeeIds: sanitized.removedEmployeeIds,
+      removedOffRequestCount: sanitized.removedOffRequestCount,
+      removedNoteCount: sanitized.removedNoteCount,
+    });
+  }
+
+  if (offRequestCount === 0 && !hasNotes) {
+    return false;
+  }
+
+  pendingLocalDraftSnapshot.value = {
+    constraints: sanitized.constraints,
+    notes: sanitized.notes,
+  };
+  return true;
+}
+
+function handleLoadPendingLocalDraft(): void {
+  const snapshot = pendingLocalDraftSnapshot.value;
+  if (!snapshot) return;
+
+  const sanitized = sanitizeSnapshotToCurrentEmployees(snapshot);
+  if (
+    countStoredOffRequests(sanitized.constraints) === 0
+    && !hasAnyConstraintNotes(sanitized.notes)
+  ) {
+    pendingLocalDraftSnapshot.value = null;
+    showInfo('현재 직원 목록에 맞는 Off 요청이 없어 불러오지 않았습니다.');
+    return;
+  }
+
+  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  pendingLocalDraftSnapshot.value = null;
+  showSuccess('이전에 입력하던 Off 요청을 불러왔습니다.');
+}
+
+function handleDiscardPendingLocalDraft(): void {
+  pendingLocalDraftSnapshot.value = null;
+  clearCurrentScopedTempPreferencesStorage();
+  showSuccess('이전에 입력하던 Off 요청을 삭제했습니다.');
+}
+
 async function focusRequestComposerSearch(): Promise<void> {
   await nextTick();
   requestComposerRef.value?.prefillSearchQuery?.(selectedEmployeeName.value);
@@ -1893,28 +2081,43 @@ onMounted(async () => {
     return;
   }
 
-  if (!orgStore.current || orgStore.employees.length === 0) {
-    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
-    if (!loadResult.success) {
-      baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
-      showError(baselineErrorMessage.value);
-      return;
-    }
-  }
-  grid.employees.value = orgStore.employees;
-  if (grid.employees.value.length === 0) {
-    baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
-    showError(baselineErrorMessage.value);
-    return;
-  }
-  grid.generateDates(scheduleStore.basicInfo.month, 0);
-  ensureEmployeeMaps();
-  await restoreData();
+  await loadStep4InitialData();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleWindowKeydown);
 });
+
+async function loadStep4InitialData(forceRefresh = false) {
+  if (!scheduleStore.basicInfo) return;
+
+  isInitialDataLoading.value = true;
+  baselineErrorMessage.value = null;
+
+  try {
+    if (!orgStore.current || orgStore.employees.length === 0) {
+      const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+      if (!loadResult.success) {
+        baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
+        showError(baselineErrorMessage.value);
+        return;
+      }
+    }
+
+    grid.employees.value = orgStore.employees;
+    if (grid.employees.value.length === 0) {
+      baselineErrorMessage.value = '직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.';
+      showError(baselineErrorMessage.value);
+      return;
+    }
+
+    grid.generateDates(scheduleStore.basicInfo.month, 0);
+    ensureEmployeeMaps();
+    await restoreData(forceRefresh);
+  } finally {
+    isInitialDataLoading.value = false;
+  }
+}
 
 async function restoreData(forceRefresh = false) {
   if (grid.employees.value.length === 0) {
@@ -1925,6 +2128,7 @@ async function restoreData(forceRefresh = false) {
 
   try {
     resetDraftState();
+    pendingLocalDraftSnapshot.value = null;
     migrateLegacyTempPreferencesIfNeeded();
 
     const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
@@ -1941,6 +2145,8 @@ async function restoreData(forceRefresh = false) {
       selectedVersionId,
       versionCandidates,
     });
+
+    const scopedLocalSnapshot = loadTempPreferencesFromLocalStorage();
 
     for (const versionId of versionCandidates) {
       const versionPreferenceData = await getScheduleVersionPreferences(versionId);
@@ -1967,6 +2173,7 @@ async function restoreData(forceRefresh = false) {
           logRestoreTrace('Removed stale employee keys from version preferences', sanitized);
         }
         if (hasCurrentPreferences()) {
+          storePendingLocalDraftSnapshot(scopedLocalSnapshot);
           showInfo('저장된 요청 데이터를 불러왔습니다.');
           maybeOpenExistingHistoryChoiceModal();
           return;
@@ -1989,39 +2196,10 @@ async function restoreData(forceRefresh = false) {
         logRestoreTrace('Removed stale employee keys from legacy schedule preferences', sanitized);
       }
       if (hasCurrentPreferences()) {
+        storePendingLocalDraftSnapshot(scopedLocalSnapshot);
         showInfo('기존 저장 데이터(schedule 기준)를 불러왔습니다.');
         maybeOpenExistingHistoryChoiceModal();
         return;
-      }
-    }
-
-    const localSnapshot = loadTempPreferencesFromLocalStorage();
-    if (localSnapshot) {
-      const offRequestCount = countStoredOffRequests(localSnapshot.constraints);
-      const hasNotes = hasAnyConstraintNotes(localSnapshot.notes);
-
-      logRestoreTrace('Fetched preferences by localStorage fallback', {
-        storageKey: tempPreferenceScope.value
-          ? buildTempPreferencesStorageKey(tempPreferenceScope.value)
-          : null,
-        offRequestCount,
-        hasNotes,
-      });
-
-      if (offRequestCount > 0 || hasNotes) {
-        const sanitized = replacePreferenceMapsFromSnapshot({
-          constraints: localSnapshot.constraints,
-          notes: localSnapshot.notes,
-        });
-        if (sanitized.removedEmployeeIds.length > 0) {
-          logRestoreTrace('Removed stale employee keys from localStorage preferences', sanitized);
-        }
-        if (hasCurrentPreferences()) {
-          showInfo('브라우저 임시 저장 데이터를 불러왔습니다.');
-          maybeOpenExistingHistoryChoiceModal();
-          return;
-        }
-        showInfo('브라우저 임시 저장 데이터가 현재 직원 목록과 일치하지 않아 불러오지 않았습니다.');
       }
     }
 
@@ -2038,6 +2216,7 @@ async function restoreData(forceRefresh = false) {
       );
     }
     syncPolicyRejectionDisplay([]);
+    storePendingLocalDraftSnapshot(scopedLocalSnapshot);
     maybeOpenExistingHistoryChoiceModal();
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
@@ -2045,7 +2224,7 @@ async function restoreData(forceRefresh = false) {
 }
 
 async function handleRetryBaseline() {
-  await restoreData(true);
+  await loadStep4InitialData(true);
   if (isRequestDrawerOpen.value) {
     await focusRequestComposerSearch();
   }
@@ -2055,9 +2234,213 @@ async function handleRetryBaseline() {
 function handleChooseEditExistingHistory() {
   showExistingHistoryChoiceModal.value = false;
   hasShownExistingHistoryChoiceModal.value = true;
-  void router.replace({
-    query: buildRouteQueryWithEditIntent(),
+  pendingEditOffDraftVersionName.value = getNextVersionNameDefault();
+  shouldCopyExistingOffRequests.value = true;
+  isEditOffStartModalOpen.value = true;
+}
+
+function handleCancelEditOffDraftStart(): void {
+  if (isCreatingEditOffDraftVersion.value) return;
+  isEditOffStartModalOpen.value = false;
+}
+
+function buildRouteQueryWithEditOffDraftVersion(
+  draftVersionId: string,
+  sourceVersionId: string
+): Record<string, string> {
+  const query: Record<string, string> = {};
+
+  Object.entries(route.query).forEach(([key, value]) => {
+    if (
+      typeof value === 'string'
+      && value.length > 0
+      && key !== 'intent'
+      && key !== 'version'
+      && key !== 'sourceVersion'
+    ) {
+      query[key] = value;
+    }
   });
+
+  query.intent = 'edit-off';
+  query.version = draftVersionId;
+  query.sourceVersion = sourceVersionId;
+  return query;
+}
+
+function createEmptyPreferenceMapsForCurrentEmployees(): PreferenceSnapshot {
+  const emptyConstraints: ConstraintMap = {};
+  const emptyNotes: CommentMap = {};
+
+  grid.employees.value.forEach((employee) => {
+    emptyConstraints[employee.id] = {};
+    emptyNotes[employee.id] = {};
+  });
+
+  return {
+    constraints: emptyConstraints,
+    notes: emptyNotes,
+  };
+}
+
+function buildCreatedDraftVersionSummary(
+  baseline: BaselineState,
+  input: {
+    versionId: string;
+    sourceVersionId: string;
+    name: string;
+    inputDiffSummary: ReturnType<typeof buildStep4InputDiffSummary>;
+  }
+): ScheduleVersionSummary {
+  const maxVersionNo = baseline.versions.reduce(
+    (max, version) => Math.max(max, version.versionNo),
+    0
+  );
+
+  return {
+    id: input.versionId,
+    scheduleId: baseline.scheduleId,
+    versionNo: maxVersionNo + 1,
+    name: input.name,
+    sourceType: 're_solve',
+    baseVersionId: input.sourceVersionId,
+    status: 'draft',
+    currentRevision: 1,
+    manualEditCount: 0,
+    inputDiffSummary: input.inputDiffSummary,
+    latestEvaluationId: null,
+    latestEvaluationResultStatus: null,
+    comparisonMetrics: null,
+    finalizationGate: null,
+    activeSolverExecutionId: null,
+    isSelected: false,
+    isFinalized: false,
+  };
+}
+
+function resolveCreatedVersionList(
+  baseline: BaselineState,
+  responseVersions: ScheduleVersionSummary[],
+  createdVersion: ScheduleVersionSummary
+): ScheduleVersionSummary[] {
+  if (responseVersions.length > 0) {
+    return responseVersions;
+  }
+
+  return [
+    ...baseline.versions.filter((version) => version.id !== createdVersion.id),
+    createdVersion,
+  ];
+}
+
+async function handleConfirmEditOffDraftStart(): Promise<void> {
+  if (isCreatingEditOffDraftVersion.value) return;
+
+  const name = pendingEditOffDraftVersionName.value.trim();
+  if (!name) {
+    showError('근무표안 이름을 입력해 주세요.');
+    return;
+  }
+
+  const duplicate = findDuplicateVersionByName(name);
+  if (duplicate) {
+    showError('이미 같은 이름의 근무표안이 있습니다.');
+    return;
+  }
+
+  isCreatingEditOffDraftVersion.value = true;
+
+  try {
+    const baseline = await ensureBaselineVersion();
+    const sourceVersionId = baseline.previewVersionId;
+    if (!sourceVersionId) {
+      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
+    }
+
+    const baselineSnapshot = await getBaselinePreferenceSnapshot(sourceVersionId);
+    const draftPreferenceMaps = shouldCopyExistingOffRequests.value
+      ? sanitizeSnapshotToCurrentEmployees(baselineSnapshot)
+      : createEmptyPreferenceMapsForCurrentEmployees();
+    const draftSnapshot = createPreferenceSnapshot(
+      draftPreferenceMaps.constraints,
+      draftPreferenceMaps.notes
+    );
+    const inputDiffSummary = buildStep4InputDiffSummary(baselineSnapshot, draftSnapshot);
+    const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
+      baseVersionId: sourceVersionId,
+      name,
+      creationMode: 'new',
+      sourceType: 're_solve',
+      inputDiffSummary,
+    });
+    const draftVersionId = createResponse.createdVersionId;
+
+    await saveScheduleVersionPreferences(
+      baseline.scheduleId,
+      draftVersionId,
+      draftPreferenceMaps.constraints,
+      draftPreferenceMaps.notes
+    );
+    await deleteThisMonthVersionAssignments(
+      baseline.scheduleId,
+      draftVersionId,
+      scheduleStore.basicInfo!.month
+    );
+
+    const nextSchedulePublicId =
+      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
+    const createdVersion = buildCreatedDraftVersionSummary(baseline, {
+      versionId: draftVersionId,
+      sourceVersionId,
+      name,
+      inputDiffSummary,
+    });
+
+    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
+    scheduleStore.setPreviewVersionId(draftVersionId);
+    baselineState.value = createBaselineState({
+      scheduleId: baseline.scheduleId,
+      schedulePublicId: nextSchedulePublicId,
+      previewVersionId: draftVersionId,
+      selectedVersionId: createResponse.selectedVersionId,
+      defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
+      hasExecutedHistory: baseline.hasExecutedHistory,
+      versions: resolveCreatedVersionList(baseline, createResponse.versions, createdVersion),
+      defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
+      defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
+      hasCurrentMonthAssignments: false,
+    });
+    commitPreferenceMaps(draftPreferenceMaps.constraints, draftPreferenceMaps.notes);
+    setBaselinePreferenceSnapshot(draftVersionId, draftSnapshot);
+    syncPolicyRejectionDisplay([]);
+    pendingLocalDraftSnapshot.value = null;
+    clearCurrentScopedTempPreferencesStorage();
+
+    isEditOffStartModalOpen.value = false;
+    await router.replace({
+      query: buildRouteQueryWithEditOffDraftVersion(draftVersionId, sourceVersionId),
+    });
+  } catch (error) {
+    if (readErrorCode(error) === 'version_name_exists') {
+      try {
+        await ensureBaselineVersion(true);
+      } catch (refreshError) {
+        console.warn('새 근무표안 이름 충돌 후 기준 버전 새로고침 실패:', refreshError);
+      }
+      showError('이미 같은 이름의 근무표안이 있습니다.');
+      return;
+    }
+
+    console.error(error);
+    showError(error instanceof Error ? error.message : '새 근무표안 생성 중 오류가 발생했습니다.');
+    try {
+      await ensureBaselineVersion(true);
+    } catch (refreshError) {
+      console.warn('새 근무표안 생성 실패 후 기준 버전 새로고침 실패:', refreshError);
+    }
+  } finally {
+    isCreatingEditOffDraftVersion.value = false;
+  }
 }
 
 function handleChooseReviewExistingHistory() {
@@ -2097,12 +2480,14 @@ function handlePrev() {
 
 function handleReturnToDashboard() {
   isReturningToDashboard.value = true;
+  pendingLocalDraftSnapshot.value = null;
   clearCurrentScopedTempPreferencesStorage();
   scheduleStore.reset();
   router.push(getAppHomeRoutePath());
 }
 
 function clearAllOffRequestsInMemory(): void {
+  pendingLocalDraftSnapshot.value = null;
   commitPreferenceMaps({}, {});
   policyRejectionReasons.value = {};
   policyCheckStatuses.value = {};
@@ -2233,6 +2618,59 @@ function stageStep4PreferenceMaps(
   return true;
 }
 
+async function saveEditOffDraftPreferenceMaps(
+  nextConstraints: ConstraintMap,
+  nextNotes: CommentMap,
+  options: {
+    successMessage: string;
+    staleEmployeeMessage: string;
+    logMessage: string;
+  }
+): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
+  if (!scheduleStore.basicInfo) return;
+  if (grid.employees.value.length === 0) {
+    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
+    return;
+  }
+
+  const sanitized = sanitizeSnapshotToCurrentEmployees({
+    constraints: nextConstraints,
+    notes: nextNotes,
+  });
+  if (sanitized.removedEmployeeIds.length > 0) {
+    logRestoreTrace('Removed stale employee keys before edit-off draft preference persistence', sanitized);
+    showInfo(options.staleEmployeeMessage);
+  }
+
+  const { scheduleId, previewVersionId } = await ensureBaselineVersion();
+  const offRequestCount = countStoredOffRequests(sanitized.constraints);
+
+  logRestoreTrace(options.logMessage, {
+    scheduleId,
+    scheduleVersionId: previewVersionId,
+    offRequestCount,
+    hasNotes: hasAnyConstraintNotes(sanitized.notes),
+  });
+
+  await saveScheduleVersionPreferences(
+    scheduleId,
+    previewVersionId,
+    sanitized.constraints,
+    sanitized.notes
+  );
+  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  setBaselinePreferenceSnapshot(
+    previewVersionId,
+    createPreferenceSnapshot(sanitized.constraints, sanitized.notes)
+  );
+  syncPolicyRejectionDisplay([]);
+  pendingLocalDraftSnapshot.value = null;
+  clearCurrentScopedTempPreferencesStorage();
+
+  showSuccess(options.successMessage);
+  return { scheduleId, previewVersionId };
+}
+
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
   if (hasUnappliedDraft.value) {
@@ -2242,7 +2680,19 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   }
 
   try {
-    if (isExistingResultEditMode.value) {
+    if (isEditOffDraftVersionMode.value) {
+      return await saveEditOffDraftPreferenceMaps(
+        constraints.value,
+        constraintNotes.value,
+        {
+          successMessage: '요청이 새 근무표안에 저장되었습니다.',
+          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
+          logMessage: 'Saving edit-off draft preferences',
+        }
+      );
+    }
+
+    if (isLegacyExistingResultEditMode.value) {
       stageStep4PreferenceMaps(
         constraints.value,
         constraintNotes.value,
@@ -2676,8 +3126,68 @@ function handleCancelVersionNameModal() {
   clearPendingVersionHandoff();
 }
 
+async function handleEditOffDraftNext(): Promise<void> {
+  if (isSubmitting.value) return;
+
+  isSubmitting.value = true;
+  try {
+    const baseline = await ensureBaselineVersion();
+    const draftVersionId = baseline.previewVersionId;
+    if (!draftVersionId) {
+      throw new Error('현재 수정 중인 근무표안 정보를 찾을 수 없습니다.');
+    }
+
+    if (hasUnappliedDraft.value) {
+      const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
+      const saved = await saveEditOffDraftPreferenceMaps(
+        nextPreferenceMaps.constraints,
+        nextPreferenceMaps.notes,
+        {
+          successMessage: '요청이 새 근무표안에 저장되었습니다.',
+          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
+          logMessage: 'Saving edit-off draft preferences before Step5 handoff',
+        }
+      );
+      if (!saved) return;
+      resetDraftState();
+    } else if (hasPendingStep4Changes.value) {
+      const saved = await saveEditOffDraftPreferenceMaps(
+        constraints.value,
+        constraintNotes.value,
+        {
+          successMessage: '요청이 새 근무표안에 저장되었습니다.',
+          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
+          logMessage: 'Saving edit-off draft pending preferences before Step5 handoff',
+        }
+      );
+      if (!saved) return;
+    }
+
+    scheduleStore.setAssignments(constraints.value);
+    scheduleStore.setComments(constraintNotes.value);
+
+    routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, draftVersionId, {
+      compareVersionIds: [routeSourceVersionId.value ?? baseline.selectedVersionId].filter(
+        (versionId): versionId is string => !!versionId
+      ),
+      autoStart: true,
+      defaultVersionId: null,
+    });
+  } catch (error) {
+    console.error(error);
+    showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+
 async function handleNext() {
   if (isSubmitting.value) return;
+  if (isEditOffDraftVersionMode.value) {
+    await handleEditOffDraftNext();
+    return;
+  }
+
   if (hasUnappliedDraft.value) {
     blockedTransitionReason.value = pageLevelBlockedReason.value;
     showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
@@ -2688,7 +3198,7 @@ async function handleNext() {
     const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
     const { baseline } = context;
 
-    if (isExistingResultEditMode.value) {
+    if (isLegacyExistingResultEditMode.value) {
       if (!hasStep4Changes) {
         showInfo('Off 요청을 수정한 뒤 새 근무표안을 생성할 수 있습니다.');
         return;
