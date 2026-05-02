@@ -4,20 +4,27 @@
       <table class="schedule-grid w-full">
         <!-- Column width definitions -->
         <colgroup>
-          <col style="width: 150px" />
-          <col v-for="date in dates" :key="date.date" style="width: var(--day-col-width)" />
+          <col style="width: 150px">
+          <col
+            v-for="date in dates"
+            :key="date.date"
+            style="width: var(--day-col-width)"
+          >
           <col
             v-for="index in statColumnCount"
             :key="`stat-col-${index}`"
             style="width: var(--day-col-width)"
-          />
+          >
         </colgroup>
 
         <!-- 3-level 헤더 -->
         <thead>
           <!-- Level 1: Last Month / This Month -->
           <tr>
-            <th rowspan="3" class="sticky-column header-cell bg-white px-4 py-3 font-semibold">
+            <th
+              rowspan="3"
+              class="sticky-column header-cell bg-white px-4 py-3 font-semibold"
+            >
               근무자
             </th>
             <th
@@ -58,7 +65,7 @@
               class="header-level-3 cursor-pointer bg-gray-50 px-2 py-1 text-center text-sm transition-colors hover:bg-gray-100"
               @click="handleHeaderClick(date.date)"
             >
-              {{ date.day }}일<br />
+              {{ date.day }}일<br>
               <span class="text-xs text-gray-600">({{ date.dayName }})</span>
             </th>
             <template v-if="!isPlanning">
@@ -88,8 +95,16 @@
 
         <!-- 데이터 행 -->
         <tbody>
-          <tr v-for="employee in employees" :key="employee.id" class="data-row">
-            <td class="sticky-column employee-cell text-center">
+          <tr
+            v-for="employee in employees"
+            :key="employee.id"
+            class="data-row"
+            :data-employee-id="employee.id"
+          >
+            <td
+              class="sticky-column employee-cell text-center"
+              :class="getEmployeeCellClass(employee.id)"
+            >
               <div class="font-semibold">
                 {{ employee.name }}
               </div>
@@ -101,7 +116,7 @@
             <td
               v-for="date in dates"
               :key="date.date"
-              :class="getCellClass(date)"
+              :class="getCellClass(date, employee.id)"
               class="shift-cell"
             >
               <!-- Planning Mode: Constraint Selector -->
@@ -113,7 +128,10 @@
                 :has-comment="!!getComment(employee.id, date.date)"
                 :comment="getComment(employee.id, date.date)"
                 :readonly="readonly"
+                :interaction-mode="planningInteractionMode"
+                :selected="isPlanningCellSelected(employee.id, date.date)"
                 @update:constraint="handleConstraintUpdate"
+                @select="handleConstraintSelect"
                 @context-menu="handleContextMenu"
               />
 
@@ -163,8 +181,14 @@
           <!-- 통계 행 (하단 고정) -->
           <template v-if="isPlanning">
             <tr class="stat-row stat-row-total-only bg-gray-100">
-              <td class="sticky-column employee-cell text-center font-bold">Total</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                Total
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.total || 0 }}
               </td>
               <td class="sticky-right sticky-right-total sticky-right-single bg-gray-200" />
@@ -173,8 +197,14 @@
           <template v-else>
             <!-- Total 행 -->
             <tr class="stat-row stat-row-total bg-gray-100">
-              <td class="sticky-column employee-cell text-center font-bold">Total</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                Total
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.total || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-gray-200" />
@@ -185,8 +215,14 @@
 
             <!-- D 행 -->
             <tr class="stat-row stat-row-d bg-blue-50">
-              <td class="sticky-column employee-cell text-center font-bold">D</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                D
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.D || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-blue-100" />
@@ -197,8 +233,14 @@
 
             <!-- E 행 -->
             <tr class="stat-row stat-row-e bg-orange-50">
-              <td class="sticky-column employee-cell text-center font-bold">E</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                E
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.E || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-orange-100" />
@@ -209,8 +251,14 @@
 
             <!-- N 행 -->
             <tr class="stat-row stat-row-n bg-purple-50">
-              <td class="sticky-column employee-cell text-center font-bold">N</td>
-              <td v-for="date in dates" :key="date.date" class="shift-cell text-center">
+              <td class="sticky-column employee-cell text-center font-bold">
+                N
+              </td>
+              <td
+                v-for="date in dates"
+                :key="date.date"
+                class="shift-cell text-center"
+              >
                 {{ statistics?.columnStats[date.date]?.N || 0 }}
               </td>
               <td class="sticky-right sticky-right-d bg-purple-100" />
@@ -249,6 +297,9 @@ interface Props {
   offRequestNotes?: CommentMap;
   preferenceDisplayMode?: 'pre-run' | 'post-run';
   allowPreRunFallbackWhenEmpty?: boolean;
+  selectedEmployeeId?: string | null;
+  selectedDates?: string[];
+  planningInteractionMode?: 'toggle' | 'select';
 }
 
 interface Emits {
@@ -263,6 +314,7 @@ interface Emits {
   (e: 'select-off', payload: { employeeId: string; date: string }): void;
   (e: 'header-click', date: string): void; // added
   (e: 'context-menu', payload: { event: MouseEvent; employeeId: string; date: string }): void; // added
+  (e: 'cell-select', payload: { employeeId: string; date: string }): void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -279,10 +331,14 @@ const props = withDefaults(defineProps<Props>(), {
   comments: () => ({}),
   readonly: false,
   showLastMonth: false,
+  selectedEmployeeId: null,
+  selectedDates: () => [],
+  planningInteractionMode: 'toggle',
 });
 const emit = defineEmits<Emits>();
 const isPlanning = computed(() => props.mode === 'planning');
 const statColumnCount = computed(() => (isPlanning.value ? 1 : 4));
+const selectedDateSet = computed(() => new Set(props.selectedDates));
 
 // 성능 측정
 if (import.meta.env.DEV) {
@@ -364,6 +420,10 @@ function handleConstraintUpdate(payload: { employeeId: string; date: string; con
   });
 }
 
+function handleConstraintSelect(payload: { employeeId: string; date: string }) {
+  emit('cell-select', payload);
+}
+
 function handleSelectOff(payload: { employeeId: string; date: string }) {
   emit('select-off', payload);
 }
@@ -435,10 +495,23 @@ const headerLevel2 = computed(() => {
   return groups;
 });
 
-function getCellClass(date: GridColumn) {
+function isPlanningCellSelected(employeeId: string, date: string): boolean {
+  return props.selectedEmployeeId === employeeId && selectedDateSet.value.has(date);
+}
+
+function getEmployeeCellClass(employeeId: string) {
+  return {
+    'bg-emerald-50': props.selectedEmployeeId === employeeId,
+  };
+}
+
+function getCellClass(date: GridColumn, employeeId: string) {
   return {
     'bg-gray-50': date.isLastMonth,
     'bg-white': !date.isLastMonth,
+    'bg-emerald-50/70': !date.isLastMonth && props.selectedEmployeeId === employeeId,
+    'bg-sky-50': !date.isLastMonth && selectedDateSet.value.has(date.date),
+    'ring-1 ring-inset ring-sky-200': !date.isLastMonth && selectedDateSet.value.has(date.date),
   };
 }
 

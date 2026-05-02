@@ -7,7 +7,7 @@
       <div
         class="constraint-selector relative flex h-8 cursor-pointer select-none items-center justify-center rounded border transition-colors"
         :class="getCellClass(currentConstraint)"
-        @click="handleToggle"
+        @click="handleClick"
         @contextmenu.prevent="handleContextMenu"
       >
         <span class="font-bold">{{ currentConstraint || '' }}</span>
@@ -36,14 +36,20 @@ interface Props {
   hasComment?: boolean;
   comment?: string | null;
   readonly?: boolean;
+  interactionMode?: 'toggle' | 'select';
+  selected?: boolean;
 }
 
 interface Emits {
   (e: 'update:constraint', payload: { employeeId: string; date: string; constraint: string }): void;
   (e: 'context-menu', event: MouseEvent, payload: { employeeId: string; date: string }): void;
+  (e: 'select', payload: { employeeId: string; date: string }): void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  interactionMode: 'toggle',
+  selected: false,
+});
 const emit = defineEmits<Emits>();
 
 // 순환 순서: 빈칸 <-> O
@@ -62,11 +68,22 @@ const tooltipText = computed(() => {
 
 function getCellClass(constraint: string | null) {
   if (props.readonly) return 'bg-gray-50 border-gray-200 cursor-not-allowed';
-  return styleMap[constraint || ''] || styleMap[''];
+  return [
+    styleMap[constraint || ''] || styleMap[''],
+    props.selected ? 'ring-2 ring-emerald-300 ring-inset' : '',
+    tooltipText.value.includes('정책 거부:') ? 'border-amber-300 bg-amber-50' : '',
+  ];
 }
 
-function handleToggle() {
+function handleClick() {
   if (props.readonly) return;
+  if (props.interactionMode === 'select') {
+    emit('select', {
+      employeeId: props.employeeId,
+      date: props.date
+    });
+    return;
+  }
 
   const currentIndex = TOGGLE_ORDER.indexOf(props.currentConstraint || '');
   const nextIndex = (currentIndex + 1) % TOGGLE_ORDER.length;
@@ -81,6 +98,7 @@ function handleToggle() {
 
 function handleContextMenu(event: MouseEvent) {
   if (props.readonly) return;
+  if (props.interactionMode === 'select') return;
   emit('context-menu', event, {
     employeeId: props.employeeId,
     date: props.date
