@@ -1343,6 +1343,67 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('비교 후보')
   })
 
+  it('hides solve_failed versions from comparison candidates even when requested by query', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-3',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          sourceType: 'initial_solve',
+          status: 'review_ready',
+          latestEvaluationId: 'evaluation-1',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          name: '실패본',
+          status: 'solve_failed',
+          latestEvaluationId: 'evaluation-failed',
+          latestEvaluationResultStatus: 'solve_failed',
+          inputDiffSummary: {
+            changedOffRequests: 3,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'failed compare candidate',
+          },
+        }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          name: '성공본',
+          isSelected: true,
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId, {
+        selectedVersionId: 'version-3',
+        version: {
+          name: versionId === 'version-3' ? '성공본' : `V${versionId.at(-1)}`,
+          isSelected: versionId === 'version-3',
+        },
+      }))
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('성공본')
+    expect(wrapper.text()).toContain('V1')
+    expect(wrapper.text()).not.toContain('실패본')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-3')
+    expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
+  })
+
   it('canonicalizes finalized months to the locked preview version and hides comparison tools', async () => {
     routeMock.query = { version: 'version-1' }
 

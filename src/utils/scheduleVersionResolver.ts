@@ -63,7 +63,15 @@ export function getDefaultStep5FocusVersionId(compare: Pick<
   return getDefaultScheduleVersionId(compare.versions);
 }
 
+export function isSolverFailedVersion(version: ScheduleVersionSummary): boolean {
+  return version.status === 'solve_failed';
+}
+
 function isExecutedVersion(version: ScheduleVersionSummary): boolean {
+  if (isSolverFailedVersion(version)) {
+    return false;
+  }
+
   return version.status !== 'draft'
     || version.latestEvaluationId !== null
     || version.activeSolverExecutionId !== null
@@ -221,7 +229,10 @@ function resolvePreferredCompareVersionIds(args: {
   }
 
   const requestedCompareVersionIds = dedupeVersionIds(
-    args.requestedCompareVersionIds.filter((versionId) => hasVersionId(args.compare.versions, versionId))
+    args.requestedCompareVersionIds.filter((versionId) => {
+      const version = args.compare.versions.find((candidate) => candidate.id === versionId);
+      return version !== undefined && !isSolverFailedVersion(version);
+    })
   );
 
   if (!args.resolvedFocusVersionId || requestedCompareVersionIds.length === 0) {
@@ -262,7 +273,10 @@ export function resolveStep5VersionState(
   const requestedCompareVersionIds = normalizedQuery.requestedCompareVersionIds
     .filter(isNonEmptyString);
   const validRequestedCompareVersionIds = dedupeVersionIds(
-    requestedCompareVersionIds.filter((versionId) => hasVersionId(compare.versions, versionId))
+    requestedCompareVersionIds.filter((versionId) => {
+      const version = compare.versions.find((candidate) => candidate.id === versionId);
+      return version !== undefined && !isSolverFailedVersion(version);
+    })
   );
   const hasRequestedCompareTarget = validRequestedCompareVersionIds.some(
     (versionId) => versionId !== previewVersionId

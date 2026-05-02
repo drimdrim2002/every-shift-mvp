@@ -22,6 +22,7 @@ import {
   getDefaultCompareVersionIds,
   getDefaultExecutedFocusVersionId,
   hasExecutedVersionHistory,
+  isSolverFailedVersion,
   resolveStep4VersionState,
   resolveStep5RunningVersion,
   resolveStep5VersionState,
@@ -114,6 +115,11 @@ const initialEntryCompareResponse = {
 }
 
 describe('scheduleVersionResolver', () => {
+  it('identifies solver failed versions through the shared helper', () => {
+    expect(isSolverFailedVersion({ ...compareResponse.versions[0]!, status: 'solve_failed' })).toBe(true)
+    expect(isSolverFailedVersion({ ...compareResponse.versions[0]!, status: 'review_ready' })).toBe(false)
+  })
+
   it('does not treat draft-only version containers as executed history', () => {
     const draftOnlyCompare = {
       ...compareResponse,
@@ -140,6 +146,38 @@ describe('scheduleVersionResolver', () => {
     expect(hasExecutedVersionHistory(draftOnlyCompare)).toBe(false)
     expect(getDefaultExecutedFocusVersionId(draftOnlyCompare)).toBe('version-2')
     expect(getDefaultCompareVersionIds(draftOnlyCompare, 'version-2')).toEqual([])
+  })
+
+  it('does not treat solve_failed versions as executed result history', () => {
+    const failedOnlyCompare = {
+      ...compareResponse,
+      selectedVersionId: null,
+      finalizedVersionId: null,
+      versions: [
+        {
+          ...compareResponse.versions[0]!,
+          status: 'solve_failed' as const,
+          latestEvaluationId: 'evaluation-failed',
+          latestEvaluationResultStatus: 'solve_failed' as const,
+          comparisonMetrics: {
+            offRequestReflectionRate: null,
+            nightShiftMin: null,
+            nightShiftMax: null,
+            weekendShiftMin: null,
+            weekendShiftMax: null,
+            manualEditCount: 0,
+          },
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: ['solver_failed'],
+          },
+        },
+      ],
+    }
+
+    expect(hasExecutedVersionHistory(failedOnlyCompare)).toBe(false)
+    expect(getDefaultExecutedFocusVersionId(failedOnlyCompare)).toBe('version-1')
+    expect(getDefaultCompareVersionIds(failedOnlyCompare, 'version-1')).toEqual([])
   })
 
   it('detects a single executed history version without adding draft compare candidates', () => {
@@ -391,6 +429,51 @@ describe('scheduleVersionResolver', () => {
       query: {
         compare: 'version-3',
       },
+    })
+  })
+
+  it('removes solve_failed versions from explicit Step5 compare query targets', () => {
+    const compareWithFailedMiddleVersion = {
+      ...compareResponse,
+      selectedVersionId: 'version-3',
+      versions: [
+        {
+          ...compareResponse.versions[0]!,
+          status: 'review_ready' as const,
+          latestEvaluationId: 'evaluation-1',
+        },
+        {
+          ...compareResponse.versions[1]!,
+          status: 'solve_failed' as const,
+          latestEvaluationId: 'evaluation-failed',
+          latestEvaluationResultStatus: 'solve_failed' as const,
+          inputDiffSummary: {
+            changedOffRequests: 4,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'failed candidate should be hidden',
+          },
+        },
+        {
+          ...compareResponse.versions[2]!,
+          isSelected: true,
+        },
+      ],
+    }
+
+    expect(
+      resolveStep5VersionState(compareWithFailedMiddleVersion, {
+        requestedFocusVersionId: 'version-3',
+        requestedCompareVersionIds: ['version-2'],
+      })
+    ).toEqual({
+      defaultPreviewVersionId: 'version-3',
+      selectedVersionId: 'version-3',
+      previewVersionId: 'version-3',
+      compareVersionIds: ['version-3', 'version-1'],
+      activeSolvingVersionId: null,
+      versions: compareWithFailedMiddleVersion.versions,
+      shouldCanonicalize: true,
     })
   })
 

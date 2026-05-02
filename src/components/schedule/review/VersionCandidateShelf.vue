@@ -92,7 +92,7 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
               type="button"
               aria-label="이 안 삭제"
               :data-test="`delete-version-${version.id}`"
-              class="absolute right-3 top-3 inline-flex size-7 items-center justify-center rounded-full border border-transparent text-sm font-semibold text-slate-400 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
+              class="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-base font-bold leading-none text-slate-500 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               @click.stop="handleDeleteVersion(version)"
             >
               <span aria-hidden="true">×</span>

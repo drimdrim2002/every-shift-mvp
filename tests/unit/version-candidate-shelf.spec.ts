@@ -199,6 +199,8 @@ describe('VersionCandidateShelf', () => {
     const deleteButton = wrapper.get('[data-test="delete-version-version-2"]')
 
     expect(deleteButton.attributes('aria-label')).toBe('이 안 삭제')
+    expect(deleteButton.classes()).toContain('size-8')
+    expect(deleteButton.classes()).toContain('bg-white/95')
   })
 
   it('emits delete-version when the delete action is clicked', async () => {

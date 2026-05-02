@@ -441,7 +441,10 @@ import {
   buildPrimaryActionSupportCopy,
   resolveDefaultReviewTab,
 } from '@/utils/scheduleReviewState';
-import { hasExecutedVersionHistory } from '@/utils/scheduleVersionResolver';
+import {
+  hasExecutedVersionHistory,
+  isSolverFailedVersion,
+} from '@/utils/scheduleVersionResolver';
 import {
   buildCanonicalStep5RouteLocation,
   getAppHomeRoutePath,
@@ -793,6 +796,10 @@ const selectedVersionSummary = computed(() => {
 });
 const comparisonCandidateVersions = computed(() => {
   return compareVersions.value.filter((version) => {
+    if (isSolverFailedVersion(version)) {
+      return false;
+    }
+
     return (
       version.id === selectedVersionId.value
       || compareVersionIds.value.includes(version.id)
