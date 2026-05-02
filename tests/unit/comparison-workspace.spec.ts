@@ -168,17 +168,26 @@ function mountWorkspace(
   });
 }
 
+function visibleIndex(text: string, label: string) {
+  const index = text.indexOf(label);
+  expect(index, `${label} should be visible`).toBeGreaterThanOrEqual(0);
+  return index;
+}
+
 describe('ComparisonWorkspace', () => {
   it('shows the decision-first sections before detail actions and status text', () => {
     const wrapper = mountWorkspace();
     const text = wrapper.text();
+    const summaryIndex = visibleIndex(text, '핵심 판단');
+    const offInputIndex = visibleIndex(text, 'Off 요청 입력 차이');
+    const requirementsIndex = visibleIndex(text, '요구사항 충족 비교');
+    const detailButtonIndex = visibleIndex(text, '이 근무표안 자세히 보기');
+    const statusIndex = visibleIndex(text, '상태:');
 
-    expect(text.indexOf('핵심 판단')).toBeLessThan(text.indexOf('Off 요청 입력 차이'));
-    expect(text.indexOf('Off 요청 입력 차이')).toBeLessThan(text.indexOf('요구사항 충족 비교'));
-    expect(text.indexOf('요구사항 충족 비교')).toBeLessThan(
-      text.indexOf('이 근무표안 자세히 보기')
-    );
-    expect(text.indexOf('핵심 판단')).toBeLessThan(text.indexOf('상태:'));
+    expect(summaryIndex).toBeLessThan(offInputIndex);
+    expect(offInputIndex).toBeLessThan(requirementsIndex);
+    expect(requirementsIndex).toBeLessThan(detailButtonIndex);
+    expect(summaryIndex).toBeLessThan(statusIndex);
   });
 
   it('shows requirement status text from review data and missing review fallback', () => {
@@ -239,5 +248,31 @@ describe('ComparisonWorkspace', () => {
     await wrapper.get(`[data-test="detail-version-${rightVersion.id}"]`).trigger('click');
 
     expect(wrapper.emitted('focus-version')).toEqual([[leftVersion.id], [rightVersion.id]]);
+  });
+
+  it('uses unique accessible labels and visible focused-state copy for detail actions', () => {
+    const leftVersion = createVersionSummary({ versionNo: 2, name: '2안' });
+    const rightVersion = createVersionSummary({ versionNo: 3, name: '3안' });
+    const wrapper = mountWorkspace({
+      leftVersion,
+      rightVersion,
+      leftReview: createReviewResponse(leftVersion, {
+        latestEvaluation: createEvaluation(leftVersion),
+      }),
+      rightReview: createReviewResponse(rightVersion, {
+        latestEvaluation: createEvaluation(rightVersion),
+      }),
+      focusedVersionId: rightVersion.id,
+    });
+
+    const leftButton = wrapper.get(`[data-test="detail-version-${leftVersion.id}"]`);
+    const rightButton = wrapper.get(`[data-test="detail-version-${rightVersion.id}"]`);
+
+    expect(leftButton.text()).toBe('이 근무표안 자세히 보기');
+    expect(rightButton.text()).toBe('이 근무표안 자세히 보기');
+    expect(leftButton.attributes('aria-label')).toBe('왼쪽 근무표안 자세히 보기');
+    expect(rightButton.attributes('aria-label')).toBe('오른쪽 근무표안 자세히 보기');
+    expect(wrapper.get('[data-test="comparison-slot-left"]').text()).not.toContain('현재 확인 중');
+    expect(wrapper.get('[data-test="comparison-slot-right"]').text()).toContain('현재 확인 중');
   });
 });

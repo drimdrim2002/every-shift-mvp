@@ -88,8 +88,8 @@ function isFocused(versionId: string | null | undefined) {
         </h4>
         <ul class="mt-3 space-y-2 text-sm text-slate-700">
           <li
-            v-for="bullet in decisionModel.summaryBullets"
-            :key="bullet"
+            v-for="(bullet, index) in decisionModel.summaryBullets"
+            :key="`${index}:${bullet}`"
             class="flex gap-2"
           >
             <span class="mt-1.5 size-1.5 shrink-0 rounded-full bg-sky-500" />
@@ -202,11 +202,18 @@ function isFocused(versionId: string | null | undefined) {
                   상태: {{ formatScheduleVersionStatus(leftVersion.status) }} · 수정
                   {{ leftVersion.manualEditCount ?? 0 }}회
                 </p>
+                <p
+                  v-if="isFocused(leftVersion?.id)"
+                  class="mt-2 text-xs font-medium text-sky-700"
+                >
+                  현재 확인 중
+                </p>
               </div>
               <button
                 v-if="leftVersion"
                 :data-test="`detail-version-${leftVersion.id}`"
                 type="button"
+                aria-label="왼쪽 근무표안 자세히 보기"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', leftVersion.id)"
               >
@@ -235,11 +242,18 @@ function isFocused(versionId: string | null | undefined) {
                   상태: {{ formatScheduleVersionStatus(rightVersion.status) }} · 수정
                   {{ rightVersion.manualEditCount ?? 0 }}회
                 </p>
+                <p
+                  v-if="isFocused(rightVersion?.id)"
+                  class="mt-2 text-xs font-medium text-sky-700"
+                >
+                  현재 확인 중
+                </p>
               </div>
               <button
                 v-if="rightVersion"
                 :data-test="`detail-version-${rightVersion.id}`"
                 type="button"
+                aria-label="오른쪽 근무표안 자세히 보기"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', rightVersion.id)"
               >
