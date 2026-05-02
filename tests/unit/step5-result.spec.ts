@@ -310,6 +310,18 @@ function createWrapper() {
   return wrapper
 }
 
+async function emitButtonComponentClick(wrapper: ReturnType<typeof createWrapper>, testId: string) {
+  const buttons = [
+    ...wrapper.findAllComponents({ name: 'NButton' }),
+    ...wrapper.findAllComponents({ name: 'Button' }),
+  ]
+  const button = buttons.find((candidate) => candidate.attributes('data-test') === testId)
+
+  expect(button).toBeTruthy()
+  button!.vm.$emit('click')
+  await flushPromises()
+}
+
 async function clickDocumentTestId(testId: string) {
   const target = document.querySelector<HTMLElement>(`[data-test="${testId}"]`)
   expect(target).toBeTruthy()
@@ -1977,7 +1989,15 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
-    expect(wrapper.find('[data-test="finalize-block-reason"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
+    )
+
+    await emitButtonComponentClick(wrapper, 'finalize-schedule-button')
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.')
   })
 
   it('shows check-required blocker when validation cannot safely run', async () => {

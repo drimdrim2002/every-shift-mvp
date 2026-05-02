@@ -949,8 +949,15 @@ const complianceFinalizeBlockReason = computed(() => {
 
   return null;
 });
+const unsavedFinalizeBlockReason = computed(() => {
+  return changedCells.value.size > 0
+    ? '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
+    : null;
+});
 const visibleFinalizeBlockReason = computed(() => {
-  return complianceFinalizeBlockReason.value ?? primaryAction.value.disabledReason;
+  return complianceFinalizeBlockReason.value
+    ?? unsavedFinalizeBlockReason.value
+    ?? primaryAction.value.disabledReason;
 });
 const activeReviewTab = computed(() => scheduleStore.reviewTab);
 const previewVersionExecutionId = computed(() => {
@@ -978,6 +985,7 @@ const isFinalizeActionDisabled = computed(() => {
   return (
     isPrimaryActionRunning.value
     || Boolean(complianceFinalizeBlockReason.value)
+    || Boolean(unsavedFinalizeBlockReason.value)
     || primaryAction.value.kind !== 'finalize'
     || !primaryAction.value.targetVersionId
     || Boolean(primaryAction.value.disabledReason)
@@ -2331,6 +2339,8 @@ async function handleFinalizeAction() {
   if (isFinalizeActionDisabled.value) {
     if (complianceFinalizeBlockReason.value) {
       showInfo(complianceFinalizeBlockReason.value);
+    } else if (unsavedFinalizeBlockReason.value) {
+      showInfo(unsavedFinalizeBlockReason.value);
     } else if (primaryAction.value.disabledReason) {
       showInfo(primaryAction.value.disabledReason);
     }
