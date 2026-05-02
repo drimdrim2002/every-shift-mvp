@@ -1358,7 +1358,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
-    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('비교 대상 변경')
     expect(document.body.textContent).toContain('근무표안 비교')
     expect(document.body.textContent).toContain(
       'Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.',
@@ -1429,7 +1429,7 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
 
-    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('비교 대상 변경')
     expect(document.body.textContent).toContain('V1')
     expect(document.body.textContent).not.toContain('실패본')
   })

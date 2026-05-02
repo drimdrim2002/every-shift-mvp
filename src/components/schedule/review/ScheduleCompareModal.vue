@@ -129,6 +129,7 @@ const emit = defineEmits<{
           </div>
 
           <VersionCandidateShelf
+            embedded
             :versions="versions"
             :compare-version-ids="compareVersionIds"
             :focused-version-id="focusedVersionId"

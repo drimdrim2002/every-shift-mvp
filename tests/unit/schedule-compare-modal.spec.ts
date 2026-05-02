@@ -134,7 +134,7 @@ describe('ScheduleCompareModal', () => {
 
     expect(document.querySelector('[data-test="schedule-compare-modal"]')).toBeTruthy()
     expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
-    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('비교 대상 변경')
     expect(document.body.textContent).toContain('2안')
 
     await clickDocumentTestId('compare-version-2')

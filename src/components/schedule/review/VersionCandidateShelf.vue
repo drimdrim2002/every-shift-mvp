@@ -13,6 +13,7 @@ const props = defineProps<{
   focusedVersionId: string | null
   selectedVersionId: string | null
   lockedVersionId?: string | null
+  embedded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -62,8 +63,11 @@ function handleDeleteVersion(version: ScheduleVersionSummary) {
 </script>
 
 <template>
-  <section class="rounded-2xl border border-slate-200 bg-white p-4">
-    <div class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+  <section :class="embedded ? '' : 'rounded-2xl border border-slate-200 bg-white p-4'">
+    <div
+      v-if="!embedded"
+      class="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
+    >
       <div>
         <h3 class="text-sm font-semibold text-slate-900">
           비교 후보
