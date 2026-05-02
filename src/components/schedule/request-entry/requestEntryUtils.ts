@@ -2,7 +2,7 @@ import dayjs from 'dayjs'
 
 import type { GridColumn } from '@/types/schedule'
 
-export type Step4SelectionMode = 'single' | 'range' | 'multi'
+export type Step4SelectionMode = 'single' | 'multi'
 
 export type Step4MonthCalendarCell = GridColumn | null
 export type Step4MonthCalendarWeek = Step4MonthCalendarCell[]
@@ -86,21 +86,6 @@ export function getNextSelectedDates(args: {
     return normalizedSelectedDates.length === 1 && normalizedSelectedDates[0] === targetDate
       ? []
       : [targetDate]
-  }
-
-  if (selectionMode === 'range') {
-    if (normalizedSelectedDates.length === 0) {
-      return [targetDate]
-    }
-
-    if (normalizedSelectedDates.length === 1) {
-      const anchorDate = normalizedSelectedDates[0]!
-      return anchorDate === targetDate
-        ? []
-        : buildDateRangeByGridOrder(anchorDate, targetDate, dates)
-    }
-
-    return [targetDate]
   }
 
   const nextSelection = normalizedSelectedDates.includes(targetDate)

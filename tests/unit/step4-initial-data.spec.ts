@@ -268,8 +268,11 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
     },
     template: `
       <div data-test="step4-request-composer">
-        <button data-test="composer-select-employee" @click="$emit('select-employee', 'emp-1')">
+        <button data-test="composer-select-employee" @click="$emit('select-employee', ['emp-1'])">
           composer-select-employee
+        </button>
+        <button data-test="composer-select-two-employees" @click="$emit('select-employee', ['emp-1', 'emp-2'])">
+          composer-select-two-employees
         </button>
         <button
           data-test="composer-update-selected-dates"
@@ -552,7 +555,7 @@ describe('Step4InitialData', () => {
     expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
     expect(wrapper.text()).toContain('사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.')
     expect(wrapper.text()).toContain('사전 Off 요청 캘린더')
-    expect(wrapper.text()).toContain('Off 요청 입력하기')
+    expect(wrapper.text()).toContain('Off 요청 입력')
     expect(wrapper.text()).not.toContain('월간 검토 워크스페이스')
     expect(wrapper.text()).not.toContain('근무자를 선택하세요')
     expect(wrapper.text()).not.toContain('셀 클릭은 선택만 바꾸며')
@@ -577,7 +580,7 @@ describe('Step4InitialData', () => {
 
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
 
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
@@ -589,7 +592,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
 
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
@@ -606,7 +609,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
 
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
@@ -632,7 +635,7 @@ describe('Step4InitialData', () => {
 
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Off 요청 입력하기')
+    expect(wrapper.text()).toContain('Off 요청 입력')
     expect(wrapper.vm.constraints).toEqual({
       'emp-1': {},
       'emp-2': {},
@@ -649,7 +652,7 @@ describe('Step4InitialData', () => {
     await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
 
     expect(prefillSearchQueryMock).toHaveBeenCalledWith('Kim')
@@ -659,7 +662,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
@@ -685,7 +688,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
@@ -704,7 +707,7 @@ describe('Step4InitialData', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력하기')
+    await clickButtonByText(wrapper, 'Off 요청 입력')
     await flushPromises()
     await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
     await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
@@ -722,6 +725,41 @@ describe('Step4InitialData', () => {
         '2025-12-01': 'O',
       },
       'emp-2': {},
+    })
+  })
+
+  it('applies one request draft to every selected employee', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, 'Off 요청 입력')
+    await flushPromises()
+    await wrapper.find('[data-test="composer-select-two-employees"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-note"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
+
+    await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.hasUnappliedDraft).toBe(false)
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {
+        '2025-12-01': 'O',
+      },
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({
+      'emp-1': {
+        '2025-12-01': '연차',
+      },
+      'emp-2': {
+        '2025-12-01': '연차',
+      },
     })
   })
 
