@@ -1360,7 +1360,9 @@ describe('Step5Result', () => {
     expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
     expect(document.body.textContent).toContain('비교 후보')
     expect(document.body.textContent).toContain('근무표안 비교')
-    expect(document.body.textContent).toContain('여러 안의 결과를 비교하고 최종으로 볼 안을 선택하세요.')
+    expect(document.body.textContent).toContain(
+      'Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.',
+    )
     expect(document.body.textContent).toContain('V3')
     expect(document.body.textContent).not.toContain('V1')
   })
