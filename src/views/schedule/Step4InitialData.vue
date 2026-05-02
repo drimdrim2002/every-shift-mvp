@@ -1127,32 +1127,34 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 }
 
 function applyDraftRequest(): void {
-  if (!selectedEmployeeId.value || !canApplyDraft.value) {
+  const employeeId = selectedEmployeeId.value;
+
+  if (!employeeId || !canApplyDraft.value) {
     return;
   }
 
-  if (!constraints.value[selectedEmployeeId.value]) {
-    constraints.value[selectedEmployeeId.value] = {};
+  if (!constraints.value[employeeId]) {
+    constraints.value[employeeId] = {};
   }
-  if (!constraintNotes.value[selectedEmployeeId.value]) {
-    constraintNotes.value[selectedEmployeeId.value] = {};
+  if (!constraintNotes.value[employeeId]) {
+    constraintNotes.value[employeeId] = {};
   }
 
   const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
   if (editingRow) {
     editingRow.dates.forEach((date) => {
-      constraints.value[selectedEmployeeId.value]![date] = '';
-      removeConstraintNote(selectedEmployeeId.value!, date);
+      constraints.value[employeeId]![date] = '';
+      removeConstraintNote(employeeId, date);
     });
   }
 
   const normalizedNote = draftNote.value.trim();
   draftSelectedDates.value.forEach((date) => {
-    constraints.value[selectedEmployeeId.value!]![date] = 'O';
+    constraints.value[employeeId]![date] = 'O';
     if (normalizedNote.length > 0) {
-      constraintNotes.value[selectedEmployeeId.value!]![date] = normalizedNote;
+      constraintNotes.value[employeeId]![date] = normalizedNote;
     } else {
-      removeConstraintNote(selectedEmployeeId.value!, date);
+      removeConstraintNote(employeeId, date);
     }
   });
 
