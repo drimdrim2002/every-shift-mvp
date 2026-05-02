@@ -2513,9 +2513,6 @@ function handleClearAllOffRequests(): void {
     positiveButtonProps: {
       type: 'error',
     },
-    negativeButtonProps: {
-      autofocus: true,
-    },
     onPositiveClick: () => {
       clearAllOffRequestsInMemory();
     },
