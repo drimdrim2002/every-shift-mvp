@@ -45,36 +45,100 @@
       </ul>
     </n-alert>
 
-    <div class="flex min-h-[780px] flex-1 xl:min-h-[860px] 2xl:min-h-[920px]">
-      <!-- Center Panel: Grid -->
-      <div
-        class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border bg-white shadow-sm"
-      >
-        <div class="flex items-center justify-between border-b bg-gray-50 p-4">
+    <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="space-y-2">
           <div class="flex items-center gap-2">
-            <h2 class="text-lg font-bold text-gray-800">
-              {{ scheduleStore.basicInfo?.month }}월 근무 조정 일정 입력
+            <h2 class="text-lg font-bold text-slate-900">
+              {{ scheduleStore.basicInfo?.month }} 요청 입력
             </h2>
             <span
               v-if="orgStore.current"
-              class="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+              class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
             >
               {{ orgStore.current.name }}
             </span>
           </div>
-          <!-- Tips -->
-          <div class="flex gap-3 text-xs text-gray-400">
-            <span>👆 셀 클릭: 빈칸 ↔ O</span>
-            <span>🖱️ 우클릭: O 셀 사유 작성</span>
+          <p class="text-sm text-slate-600">
+            요청 입력 drawer를 열어 요청을 작성하고, 반영된 결과를 월간 검토 워크스페이스에서 확인합니다.
+          </p>
+        </div>
+        <div class="flex flex-col items-end gap-2 text-right">
+          <p class="text-xs font-medium text-slate-500">
+            {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 페이지 저장 필요' : '저장된 변경 없음' }}
+          </p>
+          <p
+            v-if="pageLevelBlockedReason"
+            class="text-sm font-medium text-amber-700"
+          >
+            {{ pageLevelBlockedReason }}
+          </p>
+          <n-button
+            v-if="!isRequestDrawerOpen"
+            data-test="request-drawer-toggle"
+            secondary
+            type="primary"
+            @click="handleOpenRequestDrawer"
+          >
+            {{ requestDrawerCtaLabel }}
+          </n-button>
+          <p
+            v-else
+            class="text-xs text-slate-500"
+          >
+            요청 입력 drawer가 열려 있습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex min-h-[780px] flex-1 flex-col gap-4 xl:min-h-[860px] 2xl:min-h-[920px]">
+      <div
+        class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4">
+          <div class="space-y-1">
+            <h3 class="text-base font-semibold text-slate-900">
+              월간 검토 워크스페이스
+            </h3>
+            <p class="text-sm text-slate-600">
+              {{ selectedEmployeeName || '근무자를 선택하세요' }}
+              <span v-if="selectedDateSummary"> · {{ selectedDateSummary }}</span>
+            </p>
+          </div>
+          <div class="text-xs text-slate-500">
+            셀 클릭은 선택만 바꾸며, 실제 반영은 요청 입력 drawer의 `요청 반영`으로 진행합니다.
           </div>
         </div>
 
-        <div class="relative flex-1 overflow-hidden">
+        <n-alert
+          v-if="hasHiddenUnappliedDraft"
+          data-test="hidden-request-draft-alert"
+          type="warning"
+          class="mx-5 mt-4"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm font-medium">
+              {{ requestDrawerStatusCopy }}
+            </p>
+            <n-button
+              data-test="request-drawer-toggle"
+              size="small"
+              secondary
+              type="warning"
+              @click="handleOpenRequestDrawer"
+            >
+              {{ requestDrawerCtaLabel }}
+            </n-button>
+          </div>
+        </n-alert>
+
+        <div class="relative min-h-0 flex-1 overflow-hidden">
           <n-spin
             :show="grid.loading.value"
             class="h-full"
           >
-            <div class="absolute inset-0 overflow-hidden">
+            <div class="h-full overflow-hidden">
               <ScheduleGrid
                 v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
                 class="h-full"
@@ -85,9 +149,13 @@
                 :comments="displayConstraintNotes"
                 :readonly="false"
                 :show-last-month="false"
+                :selected-employee-id="selectedEmployeeId"
+                :selected-dates="draftSelectedDates"
+                planning-interaction-mode="select"
                 @update:assignment="handleAssignmentUpdate"
                 @context-menu="handleContextMenu"
                 @header-click="handleHeaderClick"
+                @cell-select="handleGridCellSelect"
               />
               <div
                 v-else-if="!grid.loading.value"
@@ -102,8 +170,62 @@
       </div>
     </div>
 
+    <n-drawer
+      :show="isRequestDrawerOpen"
+      placement="right"
+      width="min(100vw, 460px)"
+      :auto-focus="false"
+      @update:show="handleRequestDrawerVisibility"
+    >
+      <div
+        data-test="step4-request-drawer"
+        class="flex h-full flex-col bg-white"
+      >
+        <div class="border-b border-slate-200 px-5 py-4">
+          <div class="space-y-1">
+            <h3 class="text-base font-semibold text-slate-900">
+              요청 입력
+            </h3>
+            <p class="text-sm text-slate-600">
+              근무자를 찾고 날짜를 선택한 뒤 요청을 반영합니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-5 py-4">
+          <Step4RequestComposer
+            ref="requestComposerRef"
+            :employees="grid.employees.value"
+            :dates="grid.dates.value"
+            :selected-employee-id="selectedEmployeeId"
+            :selected-employee-name="selectedEmployeeName"
+            :request-catalog="requestCatalog"
+            :draft-request-type-id="draftRequestTypeId"
+            :draft-selection-mode="draftSelectionMode"
+            :draft-selected-dates="draftSelectedDates"
+            :draft-note="draftNote"
+            :selected-date-summary="selectedDateSummary"
+            :current-employee-requests="currentEmployeeRequests"
+            :has-unapplied-draft="hasUnappliedDraft"
+            :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
+            :apply-disabled-reason="applyDisabledReason"
+            :blocked-transition-reason="blockedTransitionReason"
+            @select-employee="handleSelectEmployee"
+            @update:request-type="draftRequestTypeId = $event"
+            @update:selection-mode="handleDraftSelectionModeUpdate"
+            @update:selected-dates="handleDraftSelectedDatesUpdate"
+            @update:note="handleDraftNoteUpdate"
+            @apply-request="applyDraftRequest"
+            @reset-draft="resetDraftState({ preserveEmployee: true })"
+            @edit-request="hydrateDraftFromRequestRow"
+            @delete-request="handleDeleteRequest"
+          />
+        </div>
+      </div>
+    </n-drawer>
+
     <!-- Bottom Actions -->
-    <div class="mt-4 flex items-center justify-between border-t bg-white py-4">
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t bg-white py-4">
       <div class="flex gap-3">
         <n-popconfirm
           v-if="cameFromDashboard"
@@ -125,23 +247,31 @@
         </n-button>
       </div>
 
-      <div class="flex gap-3">
-        <n-button
-          size="large"
-          :disabled="isSubmitting || !canPersistStep4"
-          @click="handleSave"
+      <div class="flex flex-col items-end gap-2">
+        <p
+          v-if="pageLevelBlockedReason"
+          class="text-sm text-amber-700"
         >
-          임시 저장
-        </n-button>
-        <n-button
-          type="primary"
-          size="large"
-          :loading="isSubmitting"
-          :disabled="isSubmitting || !canPersistStep4"
-          @click="handleNext"
-        >
-          {{ nextStepLabel }}
-        </n-button>
+          {{ pageLevelBlockedReason }}
+        </p>
+        <div class="flex gap-3">
+          <n-button
+            size="large"
+            :disabled="isSubmitting || !canPersistStep4"
+            @click="handleSave"
+          >
+            임시 저장
+          </n-button>
+          <n-button
+            type="primary"
+            size="large"
+            :loading="isSubmitting"
+            :disabled="isSubmitting || !canPersistStep4"
+            @click="handleNext"
+          >
+            {{ nextStepLabel }}
+          </n-button>
+        </div>
       </div>
     </div>
 
@@ -156,7 +286,7 @@
 
     <DaySummaryModal
       v-model:show="showDaySummaryModal"
-      :date="selectedDateSummary || ''"
+      :date="selectedDaySummaryDate || ''"
       :employees="grid.employees.value"
       :assignments="constraints"
       :comments="displayConstraintNotes"
@@ -240,7 +370,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
@@ -257,11 +387,12 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
+import { NAlert, NButton, NDrawer, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
+import Step4RequestComposer from '@/components/schedule/request-entry/Step4RequestComposer.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import {
   buildStep5Route,
@@ -269,6 +400,7 @@ import {
   getDefaultExecutedFocusVersionId,
   getDefaultStep5FocusVersionId,
   hasExecutedVersionHistory,
+  isSolverFailedVersion,
   resolveStep4VersionState,
 } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
@@ -277,6 +409,7 @@ import type {
   CommentMap,
   ConstraintCode,
   ConstraintMap,
+  SchedulePreference,
   ScheduleVersionSummary,
 } from '@/types/schedule';
 import {
@@ -306,18 +439,29 @@ const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 const constraints = ref<ConstraintMap>({});
 const constraintNotes = ref<CommentMap>({});
 const policyRejectionReasons = ref<CommentMap>({});
-const policyRejectionSummaries = ref<string[]>([]);
+const policyCheckStatuses = ref<Record<string, Record<string, PolicyCheckStatus>>>({});
 
 // Modals state
 const showCommentModal = ref(false);
 const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
 const showDaySummaryModal = ref(false);
-const selectedDateSummary = ref<string>('');
+const selectedDaySummaryDate = ref<string>('');
 const showExistingHistoryChoiceModal = ref(false);
 const hasShownExistingHistoryChoiceModal = ref(false);
 const pendingVersionName = ref('');
 const isVersionNameModalOpen = ref(false);
 const duplicateVersionCandidate = ref<ScheduleVersionSummary | null>(null);
+const requestComposerRef = ref<{ focusSearchInput?: () => void } | null>(null);
+const isRequestDrawerOpen = ref(false);
+
+const selectedEmployeeId = ref<string | null>(null);
+const draftRequestTypeId = ref<Step4RequestTypeId>('off');
+const draftSelectionMode = ref<Step4SelectionMode>('single');
+const draftSelectedDates = ref<string[]>([]);
+const draftNote = ref('');
+const editingRequestKey = ref<string | null>(null);
+const dirtySinceLastApply = ref(false);
+const blockedTransitionReason = ref<string | null>(null);
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
 type PendingHandoffAction = 'first_run' | 'new_re_solve' | 'overwrite_re_solve';
@@ -351,6 +495,43 @@ type PendingHandoffContext = {
   shouldAutoStartSolver: boolean;
 };
 
+type Step4RequestTypeId = 'off';
+type Step4SelectionMode = 'single' | 'range' | 'multi';
+type PolicyCheckStatus = 'pending' | 'passed' | 'rejected' | null;
+
+type Step4RequestCatalogItem = {
+  id: Step4RequestTypeId;
+  label: string;
+  shortCode: ConstraintCode;
+  colorToken: 'shift-off';
+  selectionModeSupport: Step4SelectionMode[];
+  noteRequired: boolean;
+  isActive: boolean;
+};
+
+type EmployeeRequestRowVM = {
+  requestKey: string;
+  employeeId: string;
+  dates: string[];
+  requestTypeId: Step4RequestTypeId;
+  requestCode: 'O';
+  note: string;
+  status: 'local-pending' | 'persisted' | 'policy-checking' | 'policy-rejected';
+  policyRejectionReason: string | null;
+};
+
+const STEP4_REQUEST_CATALOG: Step4RequestCatalogItem[] = [
+  {
+    id: 'off',
+    label: 'Off',
+    shortCode: 'O',
+    colorToken: 'shift-off',
+    selectionModeSupport: ['single', 'range', 'multi'],
+    noteRequired: false,
+    isActive: true,
+  },
+];
+
 const baselineState = ref<BaselineState | null>(null);
 const baselinePreferenceSnapshot = ref<{
   previewVersionId: string;
@@ -359,10 +540,86 @@ const baselinePreferenceSnapshot = ref<{
 const pendingHandoffAction = ref<PendingHandoffAction | null>(null);
 const pendingHandoffContext = ref<PendingHandoffContext | null>(null);
 
+const requestCatalog = STEP4_REQUEST_CATALOG;
+const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 요청 반영 또는 선택 초기화를 진행해 주세요.';
+const HIDDEN_DRAFT_BLOCKED_REASON =
+  '미반영 요청이 있습니다. 요청 입력을 다시 열어 반영 또는 선택 초기화를 진행해 주세요.';
+const selectedEmployee = computed(() => {
+  if (!selectedEmployeeId.value) return null;
+  return grid.employees.value.find((employee) => employee.id === selectedEmployeeId.value) ?? null;
+});
+const selectedEmployeeName = computed(() => selectedEmployee.value?.name ?? '');
+const selectedDateSummary = computed(() => {
+  const dates = [...draftSelectedDates.value].sort();
+  if (dates.length === 0) return '';
+
+  if (dates.length === 1) {
+    return formatDateChip(dates[0]!);
+  }
+
+  const isContinuous = dates.every((date, index) => {
+    if (index === 0) return true;
+    return diffDateDays(dates[index - 1]!, date) === 1;
+  });
+
+  if (isContinuous) {
+    return `${formatDateChip(dates[0]!)} ~ ${formatDateChip(dates[dates.length - 1]!)}`
+  }
+
+  return dates.map((date) => formatDateChip(date)).join(', ');
+});
+const hasUnappliedDraft = computed(() => {
+  return dirtySinceLastApply.value && selectedEmployeeId.value !== null && draftSelectedDates.value.length > 0;
+});
+const hasHiddenUnappliedDraft = computed(() => {
+  return hasUnappliedDraft.value && !isRequestDrawerOpen.value;
+});
+const requestDrawerCtaLabel = computed(() => {
+  return hasHiddenUnappliedDraft.value ? '요청 입력 다시 열기' : '요청 입력 열기';
+});
+const requestDrawerStatusCopy = computed(() => {
+  return hasHiddenUnappliedDraft.value
+    ? HIDDEN_DRAFT_BLOCKED_REASON
+    : '필요할 때만 요청 입력 drawer를 열어 요청을 추가할 수 있습니다.';
+});
+const pageLevelBlockedReason = computed(() => {
+  if (!hasUnappliedDraft.value) return null;
+  return hasHiddenUnappliedDraft.value
+    ? HIDDEN_DRAFT_BLOCKED_REASON
+    : OPEN_DRAFT_BLOCKED_REASON;
+});
+const applyDisabledReason = computed(() => {
+  if (!selectedEmployeeId.value) return '근무자를 먼저 선택해 주세요.';
+  if (draftSelectedDates.value.length === 0) return '날짜를 먼저 선택해 주세요.';
+  return null;
+});
+const canApplyDraft = computed(() => applyDisabledReason.value === null);
+const hasUnpersistedAppliedChanges = computed(() => hasPendingStep4Changes.value);
+const currentEmployeeRequests = computed<EmployeeRequestRowVM[]>(() => {
+  return buildCurrentEmployeeRequests(selectedEmployeeId.value);
+});
+const policyRejectionSummaries = computed(() => {
+  const summaries: string[] = [];
+
+  Object.entries(policyRejectionReasons.value).forEach(([employeeId, dateMap]) => {
+    const employeeName =
+      grid.employees.value.find((employee) => employee.id === employeeId)?.name ?? employeeId;
+
+    Object.entries(dateMap ?? {}).forEach(([date, rejectionReason]) => {
+      if (!rejectionReason.trim()) return;
+      if (isCellLocalPending(employeeId, date)) return;
+      summaries.push(`${employeeName} (${date}) - ${rejectionReason}`);
+    });
+  });
+
+  return summaries.sort((left, right) => left.localeCompare(right));
+});
+
 const canPersistStep4 = computed(() => {
   return (
     !isBaselineLoading.value &&
     !baselineErrorMessage.value &&
+    !hasUnappliedDraft.value &&
     !!baselineState.value &&
     grid.employees.value.length > 0
   );
@@ -421,7 +678,9 @@ const displayConstraintNotes = computed(() => {
 
     dates.forEach((date) => {
       const userNote = constraintNotes.value[employeeId]?.[date]?.trim() ?? '';
-      const rejectionReason = policyRejectionReasons.value[employeeId]?.[date]?.trim() ?? '';
+      const rejectionReason = isCellLocalPending(employeeId, date)
+        ? ''
+        : policyRejectionReasons.value[employeeId]?.[date]?.trim() ?? '';
       const displayNote = [userNote, rejectionReason ? `정책 거부: ${rejectionReason}` : '']
         .filter((value) => value.length > 0)
         .join('\n');
@@ -494,24 +753,24 @@ function hasCurrentMonthAssignments(assignments: AssignmentMap, month: string): 
   });
 }
 
-type PreferenceWithPolicyResult = {
-  employee_id: string;
-  date: string;
-  policy_check_status?: string | null;
-  policy_rejection_reason?: string | null;
-};
+type PreferenceWithPolicyResult = Pick<
+  SchedulePreference,
+  'employee_id' | 'date' | 'policy_check_status' | 'policy_rejection_reason'
+>;
 
 function syncPolicyRejectionDisplay(preferences: PreferenceWithPolicyResult[]): void {
   const nextPolicyReasons: CommentMap = {};
-  const nextSummaries: string[] = [];
+  const nextPolicyStatuses: Record<string, Record<string, PolicyCheckStatus>> = {};
 
   preferences.forEach((pref) => {
-    if (pref.policy_check_status !== 'rejected') {
-      return;
+    if (!nextPolicyStatuses[pref.employee_id]) {
+      nextPolicyStatuses[pref.employee_id] = {};
     }
+    nextPolicyStatuses[pref.employee_id]![pref.date] =
+      (pref.policy_check_status as PolicyCheckStatus) ?? null;
 
     const rejectionReason = pref.policy_rejection_reason?.trim() ?? '';
-    if (!rejectionReason) {
+    if (pref.policy_check_status !== 'rejected' || !rejectionReason) {
       return;
     }
 
@@ -519,15 +778,10 @@ function syncPolicyRejectionDisplay(preferences: PreferenceWithPolicyResult[]): 
       nextPolicyReasons[pref.employee_id] = {};
     }
     nextPolicyReasons[pref.employee_id]![pref.date] = rejectionReason;
-
-    const employeeName =
-      grid.employees.value.find((employee) => employee.id === pref.employee_id)?.name ??
-      pref.employee_id;
-    nextSummaries.push(`${employeeName} (${pref.date}) - ${rejectionReason}`);
   });
 
+  policyCheckStatuses.value = nextPolicyStatuses;
   policyRejectionReasons.value = nextPolicyReasons;
-  policyRejectionSummaries.value = nextSummaries;
 }
 
 function sanitizePreferenceMapsToCurrentEmployees(): {
@@ -659,6 +913,271 @@ function removeConstraintNote(employeeId: string, date: string): void {
   constraintNotes.value = { ...constraintNotes.value };
 }
 
+function sortDates(dates: string[]): string[] {
+  return Array.from(new Set(dates)).sort((left, right) => left.localeCompare(right));
+}
+
+function diffDateDays(left: string, right: string): number {
+  const leftTime = new Date(`${left}T00:00:00`).getTime();
+  const rightTime = new Date(`${right}T00:00:00`).getTime();
+  return Math.round((rightTime - leftTime) / (1000 * 60 * 60 * 24));
+}
+
+function formatDateChip(date: string): string {
+  const [, month = '0', day = '0'] = date.split('-');
+  return `${Number(month)}월 ${Number(day)}일`;
+}
+
+function getBaselineRequestCode(employeeId: string, date: string): ConstraintCode | '' {
+  return baselinePreferenceSnapshot.value?.snapshot.constraints[employeeId]?.[date] ?? '';
+}
+
+function getBaselineRequestNote(employeeId: string, date: string): string {
+  return baselinePreferenceSnapshot.value?.snapshot.notes[employeeId]?.[date] ?? '';
+}
+
+function getPolicyStatus(employeeId: string, date: string): PolicyCheckStatus {
+  return policyCheckStatuses.value[employeeId]?.[date] ?? null;
+}
+
+function isCellLocalPending(employeeId: string, date: string): boolean {
+  const currentCode = constraints.value[employeeId]?.[date] ?? '';
+  const currentNote = constraintNotes.value[employeeId]?.[date] ?? '';
+
+  return (
+    getBaselineRequestCode(employeeId, date) !== currentCode
+    || getBaselineRequestNote(employeeId, date) !== currentNote
+  );
+}
+
+function buildRequestKey(employeeId: string, dates: string[], note: string): string {
+  return [employeeId, dates.join(','), note, draftRequestTypeId.value].join('::');
+}
+
+function buildCurrentEmployeeRequests(employeeId: string | null): EmployeeRequestRowVM[] {
+  if (!employeeId) return [];
+
+  const employeeConstraints = constraints.value[employeeId] ?? {};
+  const allDates = Object.keys(employeeConstraints)
+    .filter((date) => employeeConstraints[date] === 'O')
+    .sort((left, right) => left.localeCompare(right));
+
+  const rows: EmployeeRequestRowVM[] = [];
+  let currentGroup: EmployeeRequestRowVM | null = null;
+
+  allDates.forEach((date) => {
+    const note = constraintNotes.value[employeeId]?.[date]?.trim() ?? '';
+    const localPending = isCellLocalPending(employeeId, date);
+    const rejectionReason = localPending
+      ? null
+      : policyRejectionReasons.value[employeeId]?.[date]?.trim() || null;
+    const policyStatus = getPolicyStatus(employeeId, date);
+    const status: EmployeeRequestRowVM['status'] = localPending
+      ? 'local-pending'
+      : policyStatus === 'rejected'
+        ? 'policy-rejected'
+        : policyStatus === 'pending'
+          ? 'policy-checking'
+          : 'persisted';
+
+    if (
+      currentGroup
+      && currentGroup.note === note
+      && currentGroup.status === status
+      && currentGroup.policyRejectionReason === rejectionReason
+      && diffDateDays(currentGroup.dates[currentGroup.dates.length - 1]!, date) === 1
+    ) {
+      currentGroup.dates.push(date);
+      currentGroup.requestKey = buildRequestKey(currentGroup.employeeId, currentGroup.dates, currentGroup.note);
+      return;
+    }
+
+    currentGroup = {
+      requestKey: buildRequestKey(employeeId, [date], note),
+      employeeId,
+      dates: [date],
+      requestTypeId: 'off',
+      requestCode: 'O',
+      note,
+      status,
+      policyRejectionReason: rejectionReason,
+    };
+    rows.push(currentGroup);
+  });
+
+  return rows;
+}
+
+function findCurrentEmployeeRequest(requestKey: string): EmployeeRequestRowVM | null {
+  return currentEmployeeRequests.value.find((row) => row.requestKey === requestKey) ?? null;
+}
+
+function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
+  if (!options.preserveEmployee) {
+    selectedEmployeeId.value = null;
+  }
+  draftRequestTypeId.value = 'off';
+  draftSelectionMode.value = 'single';
+  draftSelectedDates.value = [];
+  draftNote.value = '';
+  editingRequestKey.value = null;
+  dirtySinceLastApply.value = false;
+  blockedTransitionReason.value = null;
+}
+
+function guardDraftTransition(
+  nextEmployeeId: string | null,
+  nextDates: string[],
+  nextEditingRequestKey: string | null
+): boolean {
+  if (!hasUnappliedDraft.value) {
+    blockedTransitionReason.value = null;
+    return true;
+  }
+
+  const sameEmployee = selectedEmployeeId.value === nextEmployeeId;
+  const sameDates =
+    JSON.stringify(sortDates(draftSelectedDates.value)) === JSON.stringify(sortDates(nextDates));
+  const sameEditingRequest = editingRequestKey.value === nextEditingRequestKey;
+
+  if (sameEmployee && sameDates && sameEditingRequest) {
+    blockedTransitionReason.value = null;
+    return true;
+  }
+
+  blockedTransitionReason.value = pageLevelBlockedReason.value ?? OPEN_DRAFT_BLOCKED_REASON;
+  return false;
+}
+
+function handleSelectEmployee(employeeId: string): void {
+  if (!guardDraftTransition(employeeId, [], null)) {
+    return;
+  }
+
+  selectedEmployeeId.value = employeeId;
+  draftSelectedDates.value = [];
+  draftNote.value = '';
+  editingRequestKey.value = null;
+  dirtySinceLastApply.value = false;
+  blockedTransitionReason.value = null;
+}
+
+function handleDraftSelectionModeUpdate(mode: Step4SelectionMode): void {
+  draftSelectionMode.value = mode;
+  blockedTransitionReason.value = null;
+}
+
+function handleDraftSelectedDatesUpdate(dates: string[]): void {
+  draftSelectedDates.value = sortDates(dates);
+  dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
+  blockedTransitionReason.value = null;
+}
+
+function handleDraftNoteUpdate(note: string): void {
+  draftNote.value = note;
+  dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
+  blockedTransitionReason.value = null;
+}
+
+function handleGridCellSelect(payload: { employeeId: string; date: string }): void {
+  const existingRow =
+    buildCurrentEmployeeRequests(payload.employeeId).find((row) => row.dates.includes(payload.date)) ?? null;
+  if (!guardDraftTransition(payload.employeeId, [payload.date], existingRow?.requestKey ?? null)) {
+    return;
+  }
+
+  selectedEmployeeId.value = payload.employeeId;
+  draftRequestTypeId.value = 'off';
+  draftSelectionMode.value = 'single';
+  draftSelectedDates.value = [payload.date];
+  draftNote.value = constraintNotes.value[payload.employeeId]?.[payload.date] ?? '';
+  editingRequestKey.value = existingRow?.requestKey ?? null;
+  dirtySinceLastApply.value = false;
+  blockedTransitionReason.value = null;
+  scrollEmployeeRowIntoView(payload.employeeId);
+}
+
+function hydrateDraftFromRequestRow(requestKey: string): void {
+  const requestRow = findCurrentEmployeeRequest(requestKey);
+  if (!requestRow) return;
+  if (!guardDraftTransition(requestRow.employeeId, requestRow.dates, requestRow.requestKey)) {
+    return;
+  }
+
+  selectedEmployeeId.value = requestRow.employeeId;
+  draftRequestTypeId.value = requestRow.requestTypeId;
+  draftSelectionMode.value = requestRow.dates.length > 1 ? 'range' : 'single';
+  draftSelectedDates.value = [...requestRow.dates];
+  draftNote.value = requestRow.note;
+  editingRequestKey.value = requestRow.requestKey;
+  dirtySinceLastApply.value = false;
+  blockedTransitionReason.value = null;
+  scrollEmployeeRowIntoView(requestRow.employeeId);
+}
+
+function applyDraftRequest(): void {
+  if (!selectedEmployeeId.value || !canApplyDraft.value) {
+    return;
+  }
+
+  if (!constraints.value[selectedEmployeeId.value]) {
+    constraints.value[selectedEmployeeId.value] = {};
+  }
+  if (!constraintNotes.value[selectedEmployeeId.value]) {
+    constraintNotes.value[selectedEmployeeId.value] = {};
+  }
+
+  const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
+  if (editingRow) {
+    editingRow.dates.forEach((date) => {
+      constraints.value[selectedEmployeeId.value]![date] = '';
+      removeConstraintNote(selectedEmployeeId.value!, date);
+    });
+  }
+
+  const normalizedNote = draftNote.value.trim();
+  draftSelectedDates.value.forEach((date) => {
+    constraints.value[selectedEmployeeId.value!]![date] = 'O';
+    if (normalizedNote.length > 0) {
+      constraintNotes.value[selectedEmployeeId.value!]![date] = normalizedNote;
+    } else {
+      removeConstraintNote(selectedEmployeeId.value!, date);
+    }
+  });
+
+  constraints.value = { ...constraints.value };
+  constraintNotes.value = { ...constraintNotes.value };
+  editingRequestKey.value = null;
+  dirtySinceLastApply.value = false;
+  blockedTransitionReason.value = null;
+
+  if (isRequestDrawerOpen.value) {
+    void focusRequestComposerSearch();
+  }
+}
+
+function handleDeleteRequest(requestKey: string): void {
+  const requestRow = findCurrentEmployeeRequest(requestKey);
+  if (!requestRow) return;
+  if (!guardDraftTransition(requestRow.employeeId, requestRow.dates, requestRow.requestKey)) {
+    return;
+  }
+
+  requestRow.dates.forEach((date) => {
+    if (constraints.value[requestRow.employeeId]) {
+      constraints.value[requestRow.employeeId]![date] = '';
+    }
+    removeConstraintNote(requestRow.employeeId, date);
+  });
+
+  constraints.value = { ...constraints.value };
+  constraintNotes.value = { ...constraintNotes.value };
+
+  if (editingRequestKey.value === requestKey) {
+    resetDraftState({ preserveEmployee: true });
+  }
+}
+
 // Callbacks
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
   if (!constraints.value[payload.employeeId]) {
@@ -721,7 +1240,7 @@ function handleSaveComment(comment: string) {
 }
 
 function handleHeaderClick(date: string) {
-  selectedDateSummary.value = date;
+  selectedDaySummaryDate.value = date;
   showDaySummaryModal.value = true;
 }
 
@@ -742,6 +1261,21 @@ function toErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+function readErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
+    return candidate.code;
+  }
+  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
+    return candidate.message;
+  }
+  return null;
 }
 
 function logRestoreTrace(message: string, payload?: Record<string, unknown>): void {
@@ -901,6 +1435,10 @@ function buildStep4InputDiffSummary(
 function getNextVersionNameDefault(): string {
   const versions = baselineState.value?.versions ?? [];
   const latestVersionNo = versions.reduce((latest, version) => {
+    if (isSolverFailedVersion(version)) {
+      return latest;
+    }
+
     return Math.max(latest, version.versionNo);
   }, 0);
   return `V${latestVersionNo + 1}`;
@@ -993,6 +1531,38 @@ function loadTempPreferencesFromLocalStorage(): { constraints: ConstraintMap; no
     constraints: result.envelope.constraints,
     notes: result.envelope.constraintNotes,
   };
+}
+
+async function focusRequestComposerSearch(): Promise<void> {
+  await nextTick();
+  requestComposerRef.value?.focusSearchInput?.();
+}
+
+async function handleOpenRequestDrawer(): Promise<void> {
+  isRequestDrawerOpen.value = true;
+  blockedTransitionReason.value = null;
+  await focusRequestComposerSearch();
+}
+
+function handleCloseRequestDrawer(): void {
+  isRequestDrawerOpen.value = false;
+}
+
+function handleRequestDrawerVisibility(show: boolean): void {
+  if (show) {
+    void handleOpenRequestDrawer();
+    return;
+  }
+
+  handleCloseRequestDrawer();
+}
+
+function scrollEmployeeRowIntoView(employeeId: string): void {
+  void nextTick(() => {
+    document
+      .querySelector<HTMLElement>(`[data-employee-id="${employeeId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  });
 }
 
 function migrateLegacyTempPreferencesIfNeeded(): void {
@@ -1137,6 +1707,7 @@ async function restoreData(forceRefresh = false) {
   }
 
   try {
+    resetDraftState();
     migrateLegacyTempPreferencesIfNeeded();
 
     const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
@@ -1251,6 +1822,9 @@ async function restoreData(forceRefresh = false) {
 
 async function handleRetryBaseline() {
   await restoreData(true);
+  if (isRequestDrawerOpen.value) {
+    await focusRequestComposerSearch();
+  }
 }
 
 // Actions
@@ -1314,6 +1888,11 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   if (!scheduleStore.basicInfo) return;
   if (grid.employees.value.length === 0) {
     showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
+    return;
+  }
+  if (hasUnappliedDraft.value) {
+    blockedTransitionReason.value = pageLevelBlockedReason.value;
+    showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
     return;
   }
 
@@ -1658,6 +2237,30 @@ async function executePendingHandoff(
     clearPendingVersionHandoff();
   } catch (error) {
     console.error(error);
+    if (readErrorCode(error) === 'version_name_exists') {
+      try {
+        await ensureBaselineVersion(true);
+      } catch (refreshError) {
+        console.warn('버전 이름 충돌 후 기준 버전 새로고침 실패:', refreshError);
+      }
+
+      const duplicate = findDuplicateVersionByName(name);
+      duplicateVersionCandidate.value = duplicate;
+
+      if (duplicate && !isVersionBlockedForOverwrite(duplicate)) {
+        showError('이미 같은 이름의 활성 버전이 있습니다. 덮어쓰거나 다른 이름을 입력해 주세요.');
+        return;
+      }
+
+      if (duplicate) {
+        showError('이미 같은 이름의 버전이 있습니다. 이 버전은 덮어쓸 수 없어 다른 이름을 입력해 주세요.');
+        return;
+      }
+
+      showError('이미 같은 이름의 버전이 있습니다. 보관된 버전을 포함해 중복 없이 다른 이름을 입력해 주세요.');
+      return;
+    }
+
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
   } finally {
     isSubmitting.value = false;
@@ -1682,6 +2285,12 @@ async function handleConfirmVersionName() {
     if (isVersionBlockedForOverwrite(duplicate)) {
       duplicateVersionCandidate.value = null;
       showError('이 버전은 덮어쓸 수 없습니다. 다른 이름을 입력해 주세요.');
+      return;
+    }
+
+    if (isSolverFailedVersion(duplicate)) {
+      duplicateVersionCandidate.value = null;
+      await executePendingHandoff(name, 'overwrite', duplicate.id);
       return;
     }
 
@@ -1723,10 +2332,20 @@ function handleCancelVersionNameModal() {
 
 async function handleNext() {
   if (isSubmitting.value) return;
+  if (hasUnappliedDraft.value) {
+    blockedTransitionReason.value = pageLevelBlockedReason.value;
+    showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
+    return;
+  }
 
   try {
     const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
     const { baseline } = context;
+
+    if (!baseline.hasExecutedHistory && context.shouldAutoStartSolver) {
+      openVersionNameModal('first_run', context);
+      return;
+    }
 
     if (!hasStep4Changes) {
       if (context.shouldAutoStartSolver) {

@@ -127,6 +127,9 @@ type PlaywrightSupabaseSession = {
 
 const PUBLIC_LAUNCH_SUPABASE_PROJECT_REF = 'vjmerqaxguovnojinxfq'
 const LOCAL_APP_ORIGIN = 'http://127.0.0.1:5173'
+const STEP4_REQUEST_DRAWER_TOGGLE_SELECTOR = '[data-test="request-drawer-toggle"]'
+const STEP4_REQUEST_SEARCH_INPUT_SELECTOR =
+  '[data-test="step4-employee-search"] input, input[placeholder="이름 또는 사번으로 검색"]'
 
 function buildOrgId(index: number) {
   return `org-${index}`
@@ -804,6 +807,9 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
   await page.goto('/login')
   await expect(page).toHaveURL(/\/login$/)
 
+  await expect(page.getByTestId('social-auth-options')).toBeVisible()
+  await page.getByTestId('social-auth-id').click()
+
   await page
     .locator('[data-test="login-email"] input, input[placeholder="admin@everyshift.com"]')
     .first()
@@ -1017,24 +1023,60 @@ export async function completeStep3Employees(page: Page) {
   await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
 }
 
+export async function searchEmployee(page: Page, keyword = 'E') {
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
+  await expect(page.getByText(/요청 입력/)).toBeVisible()
+  await openStep4RequestDrawer(page)
+  await page.locator(STEP4_REQUEST_SEARCH_INPUT_SELECTOR).first().fill(keyword)
+  await expect(page.locator('[data-test^="employee-option-"]').first()).toBeVisible()
+}
+
+export async function openStep4RequestDrawer(page: Page) {
+  await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
+
+  const searchInput = page.locator(STEP4_REQUEST_SEARCH_INPUT_SELECTOR).first()
+  if (await searchInput.isVisible().catch(() => false)) {
+    return
+  }
+
+  await page.locator(STEP4_REQUEST_DRAWER_TOGGLE_SELECTOR).first().click()
+  await expect(searchInput).toBeVisible()
+}
+
+export async function selectRequestDates(page: Page, indices: number[] = [0]) {
+  await expect(page.locator('[data-test^="calendar-day-"]').first()).toBeVisible()
+
+  for (const index of indices) {
+    await page.locator('[data-test^="calendar-day-"]').nth(index).click()
+  }
+}
+
+export async function applyRequest(page: Page) {
+  await page.getByRole('button', { name: '요청 반영' }).click()
+}
+
+export async function saveStep4(page: Page) {
+  await page.getByRole('button', { name: '임시 저장' }).click()
+}
+
+export async function assertPolicyRejection(page: Page, rejectionReason: string) {
+  await expect(page.getByText(rejectionReason)).toBeVisible()
+}
+
 export async function completeStep4InitialData(
   page: Page,
-  assignments: {
-    rowIndex: number
-    colIndex: number
-    shift: 'O'
-  }[]
 ) {
   await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(4))
-  await expect(page.getByText(/월 근무 조정 일정 입력/)).toBeVisible()
+  await expect(page.getByText(/요청 입력/)).toBeVisible()
+  await expect(page.locator(STEP4_REQUEST_DRAWER_TOGGLE_SELECTOR).first()).toBeVisible()
+  await expect(page.locator('[data-test="step4-employee-search"]')).toHaveCount(0)
   await expect(page.locator('table').first()).toBeVisible()
 
-  for (const assignment of assignments) {
-    const row = page.locator('tbody tr').nth(assignment.rowIndex)
-    const cell = row.locator('.constraint-selector').nth(assignment.colIndex)
-    await cell.click()
-    await expect(cell).toContainText(assignment.shift)
-  }
+  await searchEmployee(page)
+  await page.locator('[data-test^="employee-option-"]').first().click()
+  await selectRequestDates(page, [0])
+  await applyRequest(page)
+  await expect(page.locator('.constraint-selector').first()).toContainText('O')
 
   await page.waitForTimeout(500)
 }

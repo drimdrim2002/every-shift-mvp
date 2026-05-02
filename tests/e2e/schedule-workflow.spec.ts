@@ -179,8 +179,10 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       await completeStep1(page)
       await completeStep2(page, [{ dayOfWeek: 1, D: 10, E: 8, N: 5 }])
       await completeStep3WithEmployeeImport(page)
-      await expect(page.getByText(/근무 조정 일정 입력/)).toBeVisible()
-      await completeStep4InitialData(page, [{ rowIndex: 0, colIndex: 0, shift: 'O' }])
+      await expect(page.getByText(/요청 입력/)).toBeVisible()
+      await expect(page.getByText('월간 검토 워크스페이스')).toBeVisible()
+      await expect(page.locator('[data-test="request-drawer-toggle"]').first()).toBeVisible()
+      await completeStep4InitialData(page)
     })
 
     await test.step('Step4 scoped localStorage가 저장되고 새로고침 후 복원된다', async () => {
