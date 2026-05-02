@@ -21,15 +21,7 @@
         가입이 완료되었습니다. 로그인할 수 있습니다.
       </n-alert>
 
-      <SocialAuthOptions
-        v-if="!isIdLoginOpen"
-        :loading-provider="loadingProvider"
-        @start-id="isIdLoginOpen = true"
-        @start-social="handleSocialStart"
-      />
-
       <n-card
-        v-else
         data-test="login-card"
         class="mx-auto w-full max-w-lg"
         title="로그인"
@@ -72,16 +64,23 @@
           >
             로그인
           </n-button>
-          <n-button
-            data-test="login-to-signup"
-            tertiary
-            block
-            class="mt-3"
-            @click="moveToSignup"
-          >
-            회원가입
-          </n-button>
         </n-form>
+
+        <SocialAuthOptions
+          class="mt-4"
+          :loading-provider="loadingProvider"
+          @start-social="handleSocialStart"
+        />
+
+        <n-button
+          data-test="login-to-signup"
+          tertiary
+          block
+          class="mt-4"
+          @click="moveToSignup"
+        >
+          회원가입
+        </n-button>
       </n-card>
     </div>
   </AuthPageShell>
@@ -111,7 +110,6 @@ const formValue = ref({
   password: '',
 })
 const signupState = ref<SignupNextState | null>(null)
-const isIdLoginOpen = ref(false)
 const loadingProvider = ref<SocialAuthProviderId | null>(null)
 
 watch(

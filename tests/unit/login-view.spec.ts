@@ -144,31 +144,43 @@ describe('Login view', () => {
     })
   })
 
-  it('shows the launch-ready login context without changing form selectors', async () => {
+  it('shows the login form by default without the old ID/Naver social options', () => {
     const wrapper = mount(Login)
 
     expect(wrapper.text()).toContain('EveryShift')
     expect(wrapper.text()).toContain('승인된 계정으로 근무표 작업 공간에 들어갑니다.')
-
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
-
     expect(wrapper.get('[data-test="login-card"]').classes()).toContain('max-w-lg')
     expect(wrapper.get('[data-test="login-email"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="login-password"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="login-submit"]').text()).toContain('로그인')
     expect(wrapper.get('[data-test="login-to-signup"]').text()).toContain('회원가입')
+    expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="social-auth-id"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="social-auth-naver"]').exists()).toBe(false)
   })
 
-  it('shows social choices first and expands the ID login form on request', async () => {
+  it('renders compact social OAuth icon buttons with readable logos', () => {
     const wrapper = mount(Login)
 
-    expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="login-email"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="social-auth-kakao"]').classes()).toContain('size-9')
+    expect(wrapper.get('[data-test="social-auth-google"]').classes()).toContain('size-9')
+    expect(wrapper.get('[data-test="social-auth-kakao"]').classes()).toContain('!p-0')
+    expect(wrapper.get('[data-test="social-auth-google"]').classes()).toContain('!p-0')
+    expect(wrapper.get('[data-test="social-auth-kakao"] svg').classes()).toEqual(
+      expect.arrayContaining(['block', 'size-[22px]']),
+    )
+    expect(wrapper.get('[data-test="social-auth-google"] svg').classes()).toEqual(
+      expect.arrayContaining(['block', 'size-[22px]']),
+    )
+  })
 
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
+  it('starts Kakao login OAuth from the login screen', async () => {
+    startOAuthMock.mockResolvedValue({ success: true })
 
-    expect(wrapper.get('[data-test="login-email"]').exists()).toBe(true)
-    expect(wrapper.get('[data-test="login-password"]').exists()).toBe(true)
+    const wrapper = mount(Login)
+    await wrapper.get('[data-test="social-auth-kakao"]').trigger('click')
+
+    expect(startOAuthMock).toHaveBeenCalledWith('kakao', 'login')
   })
 
   it('starts Google login OAuth from the login screen', async () => {
@@ -182,7 +194,6 @@ describe('Login view', () => {
 
   it('redirects a successful login into the resolved active route', async () => {
     const wrapper = mount(Login)
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
 
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('user@example.com')
@@ -202,7 +213,6 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
 
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('rejected@example.com')
@@ -222,7 +232,6 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
 
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('pending@example.com')
@@ -242,7 +251,6 @@ describe('Login view', () => {
     })
 
     const wrapper = mount(Login)
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
 
     const inputs = wrapper.findAll('input')
     await inputs[0]?.setValue('unknown@example.com')

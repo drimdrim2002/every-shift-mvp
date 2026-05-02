@@ -71,9 +71,8 @@ async function fillCommonFields(page: Page, email: string) {
   await page.getByPlaceholder('8자 이상 입력').fill('password123')
 }
 
-async function openIdSignup(page: Page) {
+async function openSignupForm(page: Page) {
   await expect(page.getByTestId('social-auth-options')).toBeVisible()
-  await page.getByTestId('social-auth-id').click()
   await expect(page.getByTestId('signup-submit')).toBeVisible()
 }
 
@@ -88,21 +87,27 @@ test.describe('/signup flow', () => {
     await page.goto('/signup')
   })
 
-  test('shows social auth choices before ID login and signup forms', async ({ page }) => {
+  test('shows credential forms by default with Kakao and Google only', async ({ page }) => {
     await page.goto('/login')
     await expect(page.getByTestId('social-auth-options')).toBeVisible()
-    await page.getByTestId('social-auth-id').click()
     await expect(page.getByTestId('login-email')).toBeVisible()
+    await expect(page.getByTestId('social-auth-kakao')).toBeVisible()
+    await expect(page.getByTestId('social-auth-google')).toBeVisible()
+    await expect(page.getByTestId('social-auth-id')).toHaveCount(0)
+    await expect(page.getByTestId('social-auth-naver')).toHaveCount(0)
 
     await page.goto('/signup')
     await expect(page.getByTestId('social-auth-options')).toBeVisible()
-    await page.getByTestId('social-auth-id').click()
     await expect(page.getByTestId('signup-submit')).toBeVisible()
+    await expect(page.getByTestId('social-auth-kakao')).toBeVisible()
+    await expect(page.getByTestId('social-auth-google')).toBeVisible()
+    await expect(page.getByTestId('social-auth-id')).toHaveCount(0)
+    await expect(page.getByTestId('social-auth-naver')).toHaveCount(0)
   })
 
   test('opens admin signup from role query', async ({ page }) => {
     await page.goto('/signup?role=admin')
-    await openIdSignup(page)
+    await openSignupForm(page)
 
     await expect(
       page.getByText('병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.'),
@@ -113,14 +118,14 @@ test.describe('/signup flow', () => {
 
   test('opens invite signup from role query', async ({ page }) => {
     await page.goto('/signup?role=user')
-    await openIdSignup(page)
+    await openSignupForm(page)
 
     await expect(page.getByPlaceholder('초대코드 입력')).toBeVisible()
     await expect(page.getByText('검색 결과 출처: 공공데이터포털(data.go.kr)')).toHaveCount(0)
   })
 
   test('routes admin signup success through pending approval login handoff', async ({ page }) => {
-    await openIdSignup(page)
+    await openSignupForm(page)
     await fillCommonFields(page, 'admin-success@example.com')
     await page.getByPlaceholder('병원명을 직접 입력하거나 검색하세요').fill('세브란스병원')
 
@@ -146,7 +151,7 @@ test.describe('/signup flow', () => {
   })
 
   test('routes invite signup success through active login handoff', async ({ page }) => {
-    await openIdSignup(page)
+    await openSignupForm(page)
     await selectUserRole(page)
     await fillCommonFields(page, 'user-success@example.com')
     await page.getByPlaceholder('초대코드 입력').fill('INV-VALID-001')

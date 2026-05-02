@@ -808,7 +808,6 @@ export async function login(page: Page, credentials = getRequiredTestCredentials
   await expect(page).toHaveURL(/\/login$/)
 
   await expect(page.getByTestId('social-auth-options')).toBeVisible()
-  await page.getByTestId('social-auth-id').click()
 
   await page
     .locator('[data-test="login-email"] input, input[placeholder="admin@everyshift.com"]')

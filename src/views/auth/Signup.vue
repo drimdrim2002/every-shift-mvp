@@ -24,20 +24,18 @@
         가입이 완료되었습니다. 로그인 페이지에서 바로 로그인할 수 있습니다.
       </n-alert>
 
-      <SocialAuthOptions
-        v-if="!showPasswordSignup"
-        :loading-provider="loadingProvider"
-        @start-id="showPasswordSignup = true"
-        @start-social="handleSocialStart"
-      />
-
       <SignupApplicationForm
-        v-else
         mode="password"
         :initial-role="initialRole"
         @completed="handleSignupCompleted"
         @cancel="moveToLogin"
         @state-reset="clearSignupState"
+      />
+
+      <SocialAuthOptions
+        class="mt-4"
+        :loading-provider="loadingProvider"
+        @start-social="handleSocialStart"
       />
     </n-card>
   </AuthPageShell>
@@ -65,7 +63,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const initialRole = resolveInitialSignupRole(route.query.role)
-const showPasswordSignup = ref(false)
 const loadingProvider = ref<SocialAuthProviderId | null>(null)
 const resultNextState = ref<SignupNextState | null>(null)
 

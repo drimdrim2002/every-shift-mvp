@@ -228,15 +228,14 @@ describe('Signup view', () => {
     startOAuthMock.mockResolvedValue({ success: true })
   })
 
-  async function openIdSignup() {
+  async function openSignupForm() {
     const wrapper = mount(Signup)
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
     await nextTick()
     return wrapper
   }
 
   it('defaults signup to admin when role query is missing', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
@@ -245,7 +244,7 @@ describe('Signup view', () => {
   it('opens admin signup when role=admin is provided', async () => {
     routeState.value = { query: { role: 'admin' } }
 
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
@@ -254,7 +253,7 @@ describe('Signup view', () => {
   it('opens invite-code signup when role=user is provided', async () => {
     routeState.value = { query: { role: 'user' } }
 
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
@@ -263,7 +262,7 @@ describe('Signup view', () => {
   it('falls back to admin when role query is invalid', async () => {
     routeState.value = { query: { role: 'operator' } }
 
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
   })
@@ -274,32 +273,43 @@ describe('Signup view', () => {
     expect(wrapper.text()).toContain('EveryShift')
     expect(wrapper.text()).toContain('관리자는 병원명을 입력해 가입 신청하고, 병원 검색은 선택사항입니다. 사용자는 초대코드로 참여합니다.')
     expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="social-auth-id"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="social-auth-naver"]').exists()).toBe(false)
   })
 
   it('shows a persistent manual hospital entry hint on admin signup', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     expect(wrapper.get('[data-test="signup-manual-hospital-info"]').text()).toContain(
       '병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.',
     )
   })
 
-  it('shows social choices first and expands ID signup on request', async () => {
+  it('shows the signup form by default without the old ID/Naver social options', () => {
     const wrapper = mount(Signup)
 
     expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="signup-submit"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="social-auth-kakao"]').text()).toContain('카카오로 시작하기')
-    expect(wrapper.get('[data-test="social-auth-id"]').text()).toContain('아이디로 시작하기')
-    expect(wrapper.get('[data-test="social-auth-naver"]').text()).toContain('Naver')
-    expect(wrapper.get('[data-test="social-auth-google"]').text()).toContain('Google')
-
-    await wrapper.get('[data-test="social-auth-id"]').trigger('click')
-
     expect(wrapper.get('[data-test="signup-submit"]').exists()).toBe(true)
     expect(wrapper.find('input[placeholder="name@example.com"]').exists()).toBe(true)
     expect(wrapper.find('input[placeholder="8자 이상 입력"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="signup-to-login"]').text()).toContain('로그인으로 이동')
+    expect(wrapper.find('[data-test="social-auth-id"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="social-auth-naver"]').exists()).toBe(false)
+  })
+
+  it('renders compact social OAuth icon buttons with readable logos', () => {
+    const wrapper = mount(Signup)
+
+    expect(wrapper.get('[data-test="social-auth-kakao"]').classes()).toContain('size-9')
+    expect(wrapper.get('[data-test="social-auth-google"]').classes()).toContain('size-9')
+    expect(wrapper.get('[data-test="social-auth-kakao"]').classes()).toContain('!p-0')
+    expect(wrapper.get('[data-test="social-auth-google"]').classes()).toContain('!p-0')
+    expect(wrapper.get('[data-test="social-auth-kakao"] svg').classes()).toEqual(
+      expect.arrayContaining(['block', 'size-[22px]']),
+    )
+    expect(wrapper.get('[data-test="social-auth-google"] svg').classes()).toEqual(
+      expect.arrayContaining(['block', 'size-[22px]']),
+    )
   })
 
   it('starts Kakao signup OAuth from the signup screen', async () => {
@@ -311,8 +321,17 @@ describe('Signup view', () => {
     expect(startOAuthMock).toHaveBeenCalledWith('kakao', 'signup')
   })
 
+  it('starts Google signup OAuth from the signup screen', async () => {
+    startOAuthMock.mockResolvedValue({ success: true })
+
+    const wrapper = mount(Signup)
+    await wrapper.get('[data-test="social-auth-google"]').trigger('click')
+
+    expect(startOAuthMock).toHaveBeenCalledWith('google', 'signup')
+  })
+
   it('keeps admin submit disabled until a hospital name is entered', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
     const inputs = wrapper.findAll('input')
 
     await inputs[0]?.setValue('관리자')
@@ -329,7 +348,7 @@ describe('Signup view', () => {
   })
 
   it('searches using the live input value when the model update is delayed', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
     const hospitalKeywordInput = wrapper.findAll('input')[3]
 
     ;(hospitalKeywordInput?.element as HTMLInputElement).value = '서울'
@@ -340,7 +359,7 @@ describe('Signup view', () => {
   })
 
   it('hands admin signup success off to login with pending approval state', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
     const inputs = wrapper.findAll('input')
 
     await inputs[0]?.setValue('관리자')
@@ -367,7 +386,7 @@ describe('Signup view', () => {
   })
 
   it('clears pending signup state before login when the role changes after submit', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
     const inputs = wrapper.findAll('input')
 
     await inputs[0]?.setValue('관리자')
@@ -391,7 +410,7 @@ describe('Signup view', () => {
   })
 
   it('fills the hospital name from a searched result when selected', async () => {
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브')
     await wrapper.get('[data-test="signup-search"]').trigger('click')
@@ -406,7 +425,7 @@ describe('Signup view', () => {
 
   it('shows an inline manual-entry warning when hospital search returns no results', async () => {
     searchHospitalsMock.mockResolvedValueOnce([])
-    const wrapper = await openIdSignup()
+    const wrapper = await openSignupForm()
 
     await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('없는병원')
     await wrapper.get('[data-test="signup-search"]').trigger('click')
