@@ -537,6 +537,7 @@ import {
   mergeAssignmentMapsWithFallback,
 } from '@/utils/rollingHistory';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
 import type {
   AssignmentMap,
   ConstraintMap,
@@ -560,6 +561,7 @@ const organizationStore = useOrganizationStore();
 const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
+const PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE = '전월 근무 이력을 불러오지 못해 확인이 필요합니다.';
 
 const routeScheduleKey = computed(() => {
   const paramId = route.params.scheduleKey;
@@ -926,7 +928,7 @@ const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
-const complianceResult = computed(() => {
+const liveComplianceResult = computed(() => {
   return evaluateScheduleCompliance({
     month: scheduleStore.basicInfo?.month ?? '',
     employees: grid.employees.value,
@@ -937,6 +939,30 @@ const complianceResult = computed(() => {
     offRequests: offRequestsCurrentMonth.value,
     shifts: organizationStore.shifts,
   });
+});
+const complianceResult = computed<ScheduleComplianceResult>(() => {
+  const result = liveComplianceResult.value;
+  if (!previousMonthFallbackError.value) {
+    return result;
+  }
+
+  return {
+    ...result,
+    mandatoryPassed: false,
+    canFinalizeLocally: false,
+    checkRequiredCount: result.checkRequiredCount + 1,
+    summaries: result.summaries.map((summary) => {
+      if (summary.status !== 'passed') {
+        return summary;
+      }
+
+      return {
+        ...summary,
+        status: 'check_required',
+        message: PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE,
+      };
+    }),
+  };
 });
 const complianceFinalizeBlockReason = computed(() => {
   if (complianceResult.value.checkRequiredCount > 0) {

@@ -2019,6 +2019,32 @@ describe('Step5Result', () => {
     )
   })
 
+  it('blocks finalization when previous-month fallback lookup fails and current assignments are clean', async () => {
+    getPreviousMonthFinalizedContextMock.mockRejectedValueOnce(new Error('lookup failed'))
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+    )
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+
+    await emitButtonComponentClick(wrapper, 'finalize-schedule-button')
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('법적 기준을 확인한 뒤 확정할 수 있습니다.')
+  })
+
   it('finalizes the current single version from the bottom action bar', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
