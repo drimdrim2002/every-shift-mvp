@@ -458,6 +458,8 @@ function buildWorkInterval(
     return null;
   }
 
+  // Night shifts keep the solver's logical schedule-date-to-next-day offset,
+  // even when custom start/end times are supplied.
   const baseOffset = shiftCode === 'N' ? DAY_IN_MS : 0;
   const start = new Date(parsedDate.time + baseOffset + startTime);
   let end = new Date(parsedDate.time + baseOffset + endTime);
@@ -470,7 +472,10 @@ function buildWorkInterval(
 }
 
 function isTargetMonthDate(date: string, month: string): boolean {
-  return typeof date === 'string' && typeof month === 'string' && date.startsWith(month);
+  return typeof date === 'string'
+    && typeof month === 'string'
+    && date.startsWith(month)
+    && parseDate(date) !== null;
 }
 
 function buildShiftTimeMap(shifts: Shift[]): Map<KnownShiftCode, ShiftTime> {

@@ -283,7 +283,7 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
   });
 
-  it('handles custom overnight shift times when endTime is not after startTime', () => {
+  it('keeps custom overnight Night shifts on the logical next-day offset', () => {
     const customOvernightShifts = shifts.map((shift) =>
       shift.code === 'N'
         ? { ...shift, startTime: '20:00:00', endTime: '04:00:00' }
@@ -343,6 +343,32 @@ describe('evaluateScheduleCompliance', () => {
       fulfilledRequests: 1,
       unfulfilledRequests: 2,
       reflectionRate: 33,
+    });
+  });
+
+  it('ignores malformed target-month-looking Off request dates', () => {
+    const result = evaluate(
+      {
+        e1: {
+          '2026-05-01': 'O',
+          '2026-05-99': 'O',
+        },
+      },
+      {
+        e1: {
+          '2026-05-01': 'O',
+          '2026-05-99': 'O',
+        },
+      },
+    );
+
+    expect(result.canFinalizeLocally).toBe(false);
+    expect(result.checkRequiredCount).toBeGreaterThan(0);
+    expect(result.offRequests).toEqual({
+      totalRequests: 1,
+      fulfilledRequests: 1,
+      unfulfilledRequests: 0,
+      reflectionRate: 100,
     });
   });
 });
