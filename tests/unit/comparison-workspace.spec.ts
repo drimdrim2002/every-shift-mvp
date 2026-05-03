@@ -289,9 +289,13 @@ describe('ComparisonWorkspace', () => {
 
     expect(offInputText).toContain('김간호');
     expect(offInputText).toContain('2026-05-05');
-    expect(offInputText).toContain('왼쪽만 Off');
+    expect(offInputText).toContain('2안만 Off');
     expect(offInputText).toContain('박간호');
-    expect(offInputText).toContain('오른쪽만 Off');
+    expect(offInputText).toContain('3안만 Off');
+    expect(offInputText).toContain('2안 요청');
+    expect(offInputText).toContain('3안 요청');
+    expect(offInputText).not.toContain('왼쪽');
+    expect(offInputText).not.toContain('오른쪽');
   });
 
   it('shows empty Off input diff copy', () => {
@@ -323,7 +327,7 @@ describe('ComparisonWorkspace', () => {
 
     const calendarText = wrapper.get('[data-test="off-diff-calendar"]').text();
     expect(calendarText).toContain('5');
-    expect(calendarText).toContain('김간호 · 왼쪽만 Off');
+    expect(calendarText).toContain('김간호 · 2안만 Off');
   });
 
   it('shows compliance-first requirement status text', () => {
@@ -388,8 +392,10 @@ describe('ComparisonWorkspace', () => {
 
     expect(leftButton.text()).toBe('이 근무표안 자세히 보기');
     expect(rightButton.text()).toBe('이 근무표안 자세히 보기');
-    expect(leftButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 왼쪽 근무표안');
-    expect(rightButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 오른쪽 근무표안');
+    expect(leftButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 2안');
+    expect(rightButton.attributes('aria-label')).toBe('이 근무표안 자세히 보기 - 3안');
+    expect(wrapper.get('[data-test="comparison-slot-left"]').text()).not.toContain('왼쪽 근무표안');
+    expect(wrapper.get('[data-test="comparison-slot-right"]').text()).not.toContain('오른쪽 근무표안');
     expect(wrapper.get('[data-test="comparison-slot-left"]').text()).not.toContain('현재 확인 중');
     expect(wrapper.get('[data-test="comparison-slot-right"]').text()).toContain('현재 확인 중');
   });

@@ -338,9 +338,13 @@ function formatOffInputText(isRequested: boolean, note: string): string {
   return note ? `Off · ${note}` : 'Off';
 }
 
-function getOffInputDiffLabel(changeType: ScheduleComparisonOffDiffType): string {
-  if (changeType === 'left_only') return '왼쪽만 Off';
-  if (changeType === 'right_only') return '오른쪽만 Off';
+function getOffInputDiffLabel(
+  changeType: ScheduleComparisonOffDiffType,
+  leftVersionLabel: string,
+  rightVersionLabel: string
+): string {
+  if (changeType === 'left_only') return `${leftVersionLabel}만 Off`;
+  if (changeType === 'right_only') return `${rightVersionLabel}만 Off`;
   return '메모 변경';
 }
 
@@ -371,6 +375,8 @@ function collectOffInputCells(
 function buildOffInputDiffRows(
   leftOffInput: ScheduleComparisonOffInputSnapshot | null | undefined,
   rightOffInput: ScheduleComparisonOffInputSnapshot | null | undefined,
+  leftVersionLabel: string,
+  rightVersionLabel: string,
   employees: Array<{ id: string; name: string }> = []
 ): ScheduleComparisonOffInputDiffRow[] {
   const cells = new Set<string>();
@@ -395,7 +401,7 @@ function buildOffInputDiffRows(
           leftText: formatOffInputText(true, leftNote),
           rightText: '-',
           changeType: 'left_only' as const,
-          changeTypeLabel: getOffInputDiffLabel('left_only'),
+          changeTypeLabel: getOffInputDiffLabel('left_only', leftVersionLabel, rightVersionLabel),
         };
       }
 
@@ -407,7 +413,7 @@ function buildOffInputDiffRows(
           leftText: '-',
           rightText: formatOffInputText(true, rightNote),
           changeType: 'right_only' as const,
-          changeTypeLabel: getOffInputDiffLabel('right_only'),
+          changeTypeLabel: getOffInputDiffLabel('right_only', leftVersionLabel, rightVersionLabel),
         };
       }
 
@@ -419,7 +425,7 @@ function buildOffInputDiffRows(
           leftText: formatOffInputText(true, leftNote),
           rightText: formatOffInputText(true, rightNote),
           changeType: 'note_changed' as const,
-          changeTypeLabel: getOffInputDiffLabel('note_changed'),
+          changeTypeLabel: getOffInputDiffLabel('note_changed', leftVersionLabel, rightVersionLabel),
         };
       }
 
@@ -637,6 +643,8 @@ export function buildScheduleComparisonDecisionModel({
 }: BuildScheduleComparisonDecisionModelArgs): ScheduleComparisonDecisionModel {
   const leftEvaluation = leftReview?.latestEvaluation;
   const rightEvaluation = rightReview?.latestEvaluation;
+  const leftVersionLabel = formatVersionLabel(leftVersion);
+  const rightVersionLabel = formatVersionLabel(rightVersion);
   const hasComplianceResults = leftComplianceResult !== undefined || rightComplianceResult !== undefined;
   const leftOffDisplay = hasComplianceResults
     ? buildComplianceOffDisplay(leftComplianceResult)
@@ -677,7 +685,13 @@ export function buildScheduleComparisonDecisionModel({
         ),
         buildOffRow(leftOffDisplay, rightOffDisplay),
       ];
-  const offInputDiffRows = buildOffInputDiffRows(leftOffInput, rightOffInput, employees);
+  const offInputDiffRows = buildOffInputDiffRows(
+    leftOffInput,
+    rightOffInput,
+    leftVersionLabel,
+    rightVersionLabel,
+    employees
+  );
 
   return {
     summaryBullets: buildDecisionSummaryBullets(

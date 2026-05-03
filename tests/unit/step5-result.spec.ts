@@ -1525,8 +1525,8 @@ describe('Step5Result', () => {
     expect(document.body.textContent).toContain('1건 중 1건 반영 (100%)')
     expect(document.body.textContent).toContain('1건 중 0건 반영 (0%)')
     expect(document.body.textContent).toContain('Kim')
-    expect(document.body.textContent).toContain('왼쪽만 Off')
-    expect(document.body.textContent).toContain('오른쪽만 Off')
+    expect(document.body.textContent).toContain('V3만 Off')
+    expect(document.body.textContent).toContain('V2만 Off')
     expect(document.body.textContent).not.toContain('2026-01-01')
   })
 

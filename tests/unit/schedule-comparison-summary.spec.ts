@@ -689,8 +689,8 @@ describe('scheduleComparisonSummary', () => {
   });
 
   it('builds employee-date Off input diff rows', () => {
-    const leftVersion = createVersionSummary({ id: 'left-version' });
-    const rightVersion = createVersionSummary({ id: 'right-version' });
+    const leftVersion = createVersionSummary({ id: 'left-version', versionNo: 2, name: '' });
+    const rightVersion = createVersionSummary({ id: 'right-version', versionNo: 3, name: '' });
 
     const model = buildScheduleComparisonDecisionModel({
       leftVersion,
@@ -730,14 +730,14 @@ describe('scheduleComparisonSummary', () => {
         date: '2026-05-05',
         leftText: 'Off',
         rightText: '-',
-        changeTypeLabel: '왼쪽만 Off',
+        changeTypeLabel: '2안만 Off',
       }),
       expect.objectContaining({
         employeeName: '박간호',
         date: '2026-05-06',
         leftText: '-',
         rightText: 'Off',
-        changeTypeLabel: '오른쪽만 Off',
+        changeTypeLabel: '3안만 Off',
       }),
       expect.objectContaining({
         employeeName: '이간호',

@@ -84,6 +84,9 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
   return formatScheduleVersionLabel(version, '비교할 안을 하나 더 선택하세요');
 }
 
+const leftVersionLabel = computed(() => formatVersionLabel(props.leftVersion));
+const rightVersionLabel = computed(() => formatVersionLabel(props.rightVersion));
+
 function getStatusClass(status: ScheduleComparisonRequirementStatus) {
   if (status === 'passed') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
   if (status === 'failed') return 'border-rose-200 bg-rose-50 text-rose-800';
@@ -175,8 +178,8 @@ function isFocused(versionId: string | null | undefined) {
         <div class="mt-3 overflow-hidden rounded-lg border border-slate-200">
           <div class="hidden grid-cols-[1.2fr_1fr_1fr] bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 sm:grid">
             <span>항목</span>
-            <span>왼쪽</span>
-            <span>오른쪽</span>
+            <span>{{ leftVersionLabel }}</span>
+            <span>{{ rightVersionLabel }}</span>
           </div>
           <div
             v-for="row in decisionModel.offInputRows"
@@ -185,11 +188,11 @@ function isFocused(versionId: string | null | undefined) {
           >
             <span class="font-medium text-slate-700">{{ row.label }}</span>
             <span class="text-slate-700">
-              <span class="mr-2 text-xs font-medium text-slate-500 sm:hidden">왼쪽</span>
+              <span class="mr-2 text-xs font-medium text-slate-500 sm:hidden">{{ leftVersionLabel }}</span>
               {{ row.leftText }}
             </span>
             <span class="text-slate-700">
-              <span class="mr-2 text-xs font-medium text-slate-500 sm:hidden">오른쪽</span>
+              <span class="mr-2 text-xs font-medium text-slate-500 sm:hidden">{{ rightVersionLabel }}</span>
               {{ row.rightText }}
             </span>
           </div>
@@ -203,8 +206,8 @@ function isFocused(versionId: string | null | undefined) {
           <div class="hidden grid-cols-[1fr_1fr_1fr_1fr_1fr] bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 md:grid">
             <span>직원</span>
             <span>날짜</span>
-            <span>왼쪽 요청</span>
-            <span>오른쪽 요청</span>
+            <span>{{ leftVersionLabel }} 요청</span>
+            <span>{{ rightVersionLabel }} 요청</span>
             <span>차이</span>
           </div>
           <p
@@ -221,11 +224,11 @@ function isFocused(versionId: string | null | undefined) {
             <span class="font-medium text-slate-800">{{ row.employeeName }}</span>
             <span class="text-slate-600">{{ row.date }}</span>
             <span class="text-slate-700">
-              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">왼쪽 요청</span>
+              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">{{ leftVersionLabel }} 요청</span>
               {{ row.leftText }}
             </span>
             <span class="text-slate-700">
-              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">오른쪽 요청</span>
+              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">{{ rightVersionLabel }} 요청</span>
               {{ row.rightText }}
             </span>
             <span class="w-fit rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
@@ -277,8 +280,8 @@ function isFocused(versionId: string | null | undefined) {
           <div class="hidden grid-cols-[0.8fr_1.2fr_1fr_1fr] bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 md:grid">
             <span>구분</span>
             <span>요구사항</span>
-            <span>왼쪽</span>
-            <span>오른쪽</span>
+            <span>{{ leftVersionLabel }}</span>
+            <span>{{ rightVersionLabel }}</span>
           </div>
           <div
             v-for="row in decisionModel.requirementRows"
@@ -290,7 +293,7 @@ function isFocused(versionId: string | null | undefined) {
             </span>
             <span class="font-medium text-slate-800">{{ row.label }}</span>
             <div>
-              <span class="mb-1 block text-xs font-medium text-slate-500 md:hidden">왼쪽</span>
+              <span class="mb-1 block text-xs font-medium text-slate-500 md:hidden">{{ leftVersionLabel }}</span>
               <span
                 class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
                 :class="getStatusClass(row.leftStatus)"
@@ -299,7 +302,7 @@ function isFocused(versionId: string | null | undefined) {
               </span>
             </div>
             <div>
-              <span class="mb-1 block text-xs font-medium text-slate-500 md:hidden">오른쪽</span>
+              <span class="mb-1 block text-xs font-medium text-slate-500 md:hidden">{{ rightVersionLabel }}</span>
               <span
                 class="inline-flex rounded-full border px-2.5 py-1 text-xs font-medium"
                 :class="getStatusClass(row.rightStatus)"
@@ -326,11 +329,8 @@ function isFocused(versionId: string | null | undefined) {
           >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p class="text-xs font-medium text-slate-500">
-                  왼쪽 근무표안
-                </p>
-                <h5 class="mt-1 text-base font-semibold text-slate-900">
-                  {{ formatVersionLabel(leftVersion) }}
+                <h5 class="text-base font-semibold text-slate-900">
+                  {{ leftVersionLabel }}
                 </h5>
                 <p
                   v-if="leftVersion"
@@ -350,7 +350,7 @@ function isFocused(versionId: string | null | undefined) {
                 v-if="leftVersion"
                 :data-test="`detail-version-${leftVersion.id}`"
                 type="button"
-                aria-label="이 근무표안 자세히 보기 - 왼쪽 근무표안"
+                :aria-label="`이 근무표안 자세히 보기 - ${leftVersionLabel}`"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', leftVersion.id)"
               >
@@ -366,11 +366,8 @@ function isFocused(versionId: string | null | undefined) {
           >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p class="text-xs font-medium text-slate-500">
-                  오른쪽 근무표안
-                </p>
-                <h5 class="mt-1 text-base font-semibold text-slate-900">
-                  {{ formatVersionLabel(rightVersion) }}
+                <h5 class="text-base font-semibold text-slate-900">
+                  {{ rightVersionLabel }}
                 </h5>
                 <p
                   v-if="rightVersion"
@@ -390,7 +387,7 @@ function isFocused(versionId: string | null | undefined) {
                 v-if="rightVersion"
                 :data-test="`detail-version-${rightVersion.id}`"
                 type="button"
-                aria-label="이 근무표안 자세히 보기 - 오른쪽 근무표안"
+                :aria-label="`이 근무표안 자세히 보기 - ${rightVersionLabel}`"
                 class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
                 @click="emit('focus-version', rightVersion.id)"
               >
