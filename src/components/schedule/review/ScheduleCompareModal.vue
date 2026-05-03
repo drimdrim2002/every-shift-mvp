@@ -3,6 +3,8 @@ import { NAlert, NButton, NModal, NSpin } from 'naive-ui';
 import ComparisonWorkspace from '@/components/schedule/review/ComparisonWorkspace.vue';
 import VersionCandidateShelf from '@/components/schedule/review/VersionCandidateShelf.vue';
 import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
+import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 
 defineProps<{
   show: boolean;
@@ -15,6 +17,12 @@ defineProps<{
   rightVersion: ScheduleVersionSummary | null;
   leftReview: ScheduleReviewResponse | null;
   rightReview: ScheduleReviewResponse | null;
+  leftComplianceResult: ScheduleComplianceResult | null;
+  rightComplianceResult: ScheduleComplianceResult | null;
+  leftOffInput: ScheduleComparisonOffInputSnapshot | null;
+  rightOffInput: ScheduleComparisonOffInputSnapshot | null;
+  employees: Array<{ id: string; name: string }>;
+  month: string;
   loading?: boolean;
   errorMessage?: string | null;
 }>();
@@ -47,7 +55,7 @@ const emit = defineEmits<{
       class="max-h-[calc(100vh-120px)] overflow-y-auto pr-1"
     >
       <p class="mb-5 text-sm leading-6 text-slate-600">
-        여러 안의 결과를 비교하고 최종으로 볼 안을 선택하세요.
+        Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.
       </p>
 
       <div
@@ -106,26 +114,47 @@ const emit = defineEmits<{
         v-else
         class="space-y-5"
       >
-        <VersionCandidateShelf
-          :versions="versions"
-          :compare-version-ids="compareVersionIds"
-          :focused-version-id="focusedVersionId"
-          :selected-version-id="selectedVersionId"
-          :locked-version-id="lockedVersionId"
-          @toggle-compare="emit('toggle-compare', $event)"
-          @focus-version="emit('focus-version', $event)"
-          @select-version="emit('select-version', $event)"
-          @delete-version="emit('delete-version', $event)"
-        />
-
         <ComparisonWorkspace
           :left-version="leftVersion"
           :right-version="rightVersion"
           :left-review="leftReview"
           :right-review="rightReview"
+          :left-compliance-result="leftComplianceResult"
+          :right-compliance-result="rightComplianceResult"
+          :left-off-input="leftOffInput"
+          :right-off-input="rightOffInput"
+          :employees="employees"
+          :month="month"
           :focused-version-id="focusedVersionId"
           @focus-version="emit('focus-version', $event)"
         />
+
+        <section
+          data-test="comparison-candidate-shelf-section"
+          class="rounded-2xl border border-slate-200 bg-white p-4"
+        >
+          <div class="mb-3">
+            <h3 class="text-sm font-semibold text-slate-900">
+              비교 대상 변경
+            </h3>
+            <p class="mt-1 text-sm text-slate-600">
+              다른 근무표안을 비교하려면 아래 후보를 선택하세요.
+            </p>
+          </div>
+
+          <VersionCandidateShelf
+            embedded
+            :versions="versions"
+            :compare-version-ids="compareVersionIds"
+            :focused-version-id="focusedVersionId"
+            :selected-version-id="selectedVersionId"
+            :locked-version-id="lockedVersionId"
+            @toggle-compare="emit('toggle-compare', $event)"
+            @focus-version="emit('focus-version', $event)"
+            @select-version="emit('select-version', $event)"
+            @delete-version="emit('delete-version', $event)"
+          />
+        </section>
       </div>
     </div>
   </n-modal>

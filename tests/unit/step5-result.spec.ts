@@ -310,6 +310,18 @@ function createWrapper() {
   return wrapper
 }
 
+async function emitButtonComponentClick(wrapper: ReturnType<typeof createWrapper>, testId: string) {
+  const buttons = [
+    ...wrapper.findAllComponents({ name: 'NButton' }),
+    ...wrapper.findAllComponents({ name: 'Button' }),
+  ]
+  const button = buttons.find((candidate) => candidate.attributes('data-test') === testId)
+
+  expect(button).toBeTruthy()
+  button!.vm.$emit('click')
+  await flushPromises()
+}
+
 async function clickDocumentTestId(testId: string) {
   const target = document.querySelector<HTMLElement>(`[data-test="${testId}"]`)
   expect(target).toBeTruthy()
@@ -380,6 +392,51 @@ function createReviewResponse(versionId: string, overrides: Record<string, unkno
     },
     defaultTab: (overrides.defaultTab as string | undefined) ?? 'grid',
   }
+}
+
+function mockSingleFinalizeReview(options: {
+  assignments?: Record<string, Record<string, string>>
+  primaryAction?: Record<string, unknown>
+} = {}) {
+  getPhase2ScheduleCompareMock.mockResolvedValue({
+    scheduleId: 'schedule-1',
+    selectedVersionId: 'version-1',
+    finalizedVersionId: null,
+    activeSolvingVersionId: null,
+    versions: [
+      createVersionSummary({
+        id: 'version-1',
+        versionNo: 1,
+        isSelected: true,
+        status: 'review_ready',
+      }),
+    ],
+  })
+  getPhase2ScheduleReviewMock.mockResolvedValue(
+    createReviewResponse('version-1', {
+      selectedVersionId: 'version-1',
+      version: {
+        status: 'review_ready',
+        isSelected: true,
+      },
+      primaryAction: {
+        kind: 'finalize',
+        targetVersionId: 'version-1',
+        label: 'Finalize',
+        disabledReason: null,
+        ...options.primaryAction,
+      },
+    })
+  )
+  getScheduleVersionAssignmentsMock.mockResolvedValue({
+    assignments: options.assignments ?? {
+      'emp-1': {
+        '2025-12-01': 'D',
+      },
+    },
+    offReasons: {},
+    comments: {},
+  })
 }
 
 describe('Step5Result', () => {
@@ -1358,11 +1415,206 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
-    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('비교 대상 변경')
     expect(document.body.textContent).toContain('근무표안 비교')
-    expect(document.body.textContent).toContain('여러 안의 결과를 비교하고 최종으로 볼 안을 선택하세요.')
+    expect(document.body.textContent).toContain(
+      'Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.',
+    )
     expect(document.body.textContent).toContain('V3')
     expect(document.body.textContent).not.toContain('V1')
+  })
+
+  it('loads compared version assignments and preferences for compliance comparison', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve' }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          assignments: {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+          offReasons: {},
+          comments: {},
+        })
+      }
+
+      return Promise.resolve({
+        assignments: {
+          'emp-1': {
+            '2025-12-03': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    })
+    getScheduleVersionPreferencesMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          constraints: {
+            'emp-1': {
+              '2025-12-02': 'O',
+              '2026-01-01': 'O',
+            },
+          },
+          notes: {
+            'emp-1': {
+              '2025-12-02': '왼쪽 메모',
+              '2026-01-01': '다음 달 메모',
+            },
+          },
+          preferences: [],
+        })
+      }
+
+      return Promise.resolve({
+        constraints: {
+          'emp-1': {
+            '2025-12-03': 'O',
+          },
+        },
+        notes: {
+          'emp-1': {
+            '2025-12-03': '오른쪽 메모',
+          },
+        },
+        preferences: [],
+      })
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    getScheduleVersionAssignmentsMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          assignments: {
+            'emp-1': {
+              '2025-11-30': 'N',
+            },
+          },
+          offReasons: {},
+          comments: {},
+        })
+      }
+
+      return Promise.resolve({
+        assignments: {
+          'emp-1': {
+            '2025-12-03': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    })
+
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-2')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+    expect(document.body.textContent).toContain('1건 중 1건 반영 (100%)')
+    expect(document.body.textContent).toContain('1건 중 0건 반영 (0%)')
+    expect(document.body.textContent).toContain('Kim')
+    expect(document.body.textContent).toContain('V3만 Off')
+    expect(document.body.textContent).toContain('V2만 Off')
+    expect(document.body.textContent).not.toContain('2026-01-01')
+  })
+
+  it('shows modal-local comparison data errors and retries assignments and preferences', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    getScheduleVersionAssignmentsMock
+      .mockRejectedValueOnce(new Error('assignments failed'))
+      .mockResolvedValue({
+        assignments: {
+          'emp-1': {
+            '2025-12-01': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
+    })
+
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(document.querySelector('[data-test="compare-modal-error"]')).toBeTruthy()
+    expect(document.body.textContent).toContain('비교 데이터를 불러오지 못했습니다.')
+
+    const retryButton = Array.from(document.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('다시 시도'))
+    expect(retryButton).toBeTruthy()
+    retryButton!.click()
+    await flushPromises()
+
+    expect(getScheduleVersionAssignmentsMock.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalled()
   })
 
   it('hides solve_failed versions from comparison candidates even when requested by query', async () => {
@@ -1427,7 +1679,7 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
 
-    expect(document.body.textContent).toContain('비교 후보')
+    expect(document.body.textContent).toContain('비교 대상 변경')
     expect(document.body.textContent).toContain('V1')
     expect(document.body.textContent).not.toContain('실패본')
   })
@@ -1798,6 +2050,192 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('trace-123')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
+  })
+
+  it('renders compliance panel before review tabs after assignments load', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const panel = wrapper.get('[data-test="compliance-panel"]')
+    const firstReviewTab = wrapper.get('[data-test="review-tab-grid"]')
+
+    expect(panel.text()).toContain('법적 기준 충족')
+    expect(panel.text()).toContain('요청 없음')
+    expect(
+      panel.element.compareDocumentPosition(firstReviewTab.element) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+  })
+
+  it('disables finalization when local compliance has mandatory violations', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+
+    await wrapper.get('[data-test="finalize-schedule-button"]').trigger('click')
+    await flushPromises()
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+  })
+
+  it('shows local compliance blocker before backend disabled reason', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).not.toContain('백엔드 사유')
+  })
+
+  it('keeps backend disabled reason when local compliance passes', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
+  })
+
+  it('uses previousMonthAssignments instead of slider-visible assignments for validation', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-11-29': 'N',
+          '2025-11-30': 'O',
+          '2025-12-01': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.assignments.value = {
+      'emp-1': {
+        '2025-12-01': 'D',
+      },
+    }
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+  })
+
+  it('updates compliance text after a manual grid edit', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
+    )
+
+    await emitButtonComponentClick(wrapper, 'finalize-schedule-button')
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.')
+  })
+
+  it('shows check-required blocker when validation cannot safely run', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'X',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+    )
+  })
+
+  it('blocks finalization when previous-month fallback lookup fails and current assignments are clean', async () => {
+    getPreviousMonthFinalizedContextMock.mockRejectedValueOnce(new Error('lookup failed'))
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+    )
+    expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+
+    await emitButtonComponentClick(wrapper, 'finalize-schedule-button')
+
+    expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('법적 기준을 확인한 뒤 확정할 수 있습니다.')
   })
 
   it('finalizes the current single version from the bottom action bar', async () => {

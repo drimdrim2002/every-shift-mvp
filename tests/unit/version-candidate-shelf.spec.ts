@@ -58,6 +58,23 @@ describe('VersionCandidateShelf', () => {
     expect(wrapper.text()).toContain('현재 보는 근무표안')
   })
 
+  it('can render embedded without the standalone candidate heading', () => {
+    const wrapper = mount(VersionCandidateShelf, {
+      props: {
+        embedded: true,
+        versions: [createVersion()],
+        compareVersionIds: ['version-1'],
+        focusedVersionId: 'version-1',
+        selectedVersionId: null,
+        lockedVersionId: null,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('비교 후보')
+    expect(wrapper.text()).toContain('V1')
+    expect(wrapper.get('[data-test="compare-version-1"]').exists()).toBe(true)
+  })
+
   it('emits explicit actions for compare, focus, and select on non-focused versions', async () => {
     const wrapper = mount(VersionCandidateShelf, {
       props: {

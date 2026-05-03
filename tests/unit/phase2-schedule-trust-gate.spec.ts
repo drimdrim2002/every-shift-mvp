@@ -52,6 +52,12 @@ describe('phase2 schedule trust gate evaluator', () => {
           shiftId: 'shift-o',
           isLocked: false,
         },
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-03',
+          shiftId: 'shift-d',
+          isLocked: false,
+        },
       ],
       preferences: [
         {
@@ -63,6 +69,100 @@ describe('phase2 schedule trust gate evaluator', () => {
           resolutionStatus: 'pending',
           resolvedShiftId: null,
           resolvedAt: null,
+        },
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-02',
+          requestCode: 'O',
+          requestNote: null,
+          isSoft: true,
+          resolutionStatus: 'pending',
+          resolvedShiftId: null,
+          resolvedAt: null,
+        },
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-03',
+          requestCode: 'O',
+          requestNote: null,
+          isSoft: true,
+          resolutionStatus: 'pending',
+          resolvedShiftId: null,
+          resolvedAt: null,
+        },
+      ],
+      siteRequirements: [],
+      shifts: [
+        {
+          id: 'shift-o',
+          code: 'O',
+        },
+        {
+          id: 'shift-d',
+          code: 'D',
+        },
+      ],
+      employees: [
+        {
+          id: 'employee-1',
+        },
+      ],
+    });
+
+    expect(result.resultStatus).toBe('passed');
+    expect(result.finalizationGate.allowed).toBe(true);
+    expect(result.comparisonMetrics.offRequestReflectionRate).toBe(0.6667);
+    expect(result.offRequestResults[0]?.fulfilled).toBe(true);
+    expect(result.offRequestResults[1]).toEqual(expect.objectContaining({
+      date: '2026-04-02',
+      fulfilled: true,
+      resolvedShiftId: null,
+      resolutionStatus: 'fulfilled',
+    }));
+    expect(result.offRequestResults[2]).toEqual(expect.objectContaining({
+      date: '2026-04-03',
+      fulfilled: false,
+      resolvedShiftId: 'shift-d',
+      resolutionStatus: 'unfulfilled',
+    }));
+  });
+
+  it('keeps policy-rejected Off requests unfulfilled even when no work shift is assigned', async () => {
+    const result = await evaluateScheduleTrust({
+      month: '2026-04',
+      manualEditCount: 0,
+      assignments: [
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-02',
+          shiftId: 'shift-o',
+          isLocked: false,
+        },
+      ],
+      preferences: [
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-01',
+          requestCode: 'O',
+          requestNote: null,
+          isSoft: true,
+          resolutionStatus: 'pending',
+          resolvedShiftId: null,
+          resolvedAt: null,
+          policyCheckStatus: 'rejected',
+          policyRejectionReason: '월 한도 초과',
+        },
+        {
+          employeeId: 'employee-1',
+          date: '2026-04-02',
+          requestCode: 'O',
+          requestNote: null,
+          isSoft: true,
+          resolutionStatus: 'pending',
+          resolvedShiftId: null,
+          resolvedAt: null,
+          policyCheckStatus: 'rejected',
+          policyRejectionReason: '월 한도 초과',
         },
       ],
       siteRequirements: [],
@@ -79,10 +179,23 @@ describe('phase2 schedule trust gate evaluator', () => {
       ],
     });
 
-    expect(result.resultStatus).toBe('passed');
-    expect(result.finalizationGate.allowed).toBe(true);
-    expect(result.comparisonMetrics.offRequestReflectionRate).toBe(1);
-    expect(result.offRequestResults[0]?.fulfilled).toBe(true);
+    expect(result.comparisonMetrics.offRequestReflectionRate).toBe(0);
+    expect(result.offRequestResults).toEqual([
+      expect.objectContaining({
+        date: '2026-04-01',
+        fulfilled: false,
+        resolutionStatus: 'unfulfilled',
+        resolvedShiftId: null,
+        reason: '월 한도 초과',
+      }),
+      expect.objectContaining({
+        date: '2026-04-02',
+        fulfilled: false,
+        resolutionStatus: 'unfulfilled',
+        resolvedShiftId: 'shift-o',
+        reason: '월 한도 초과',
+      }),
+    ]);
   });
 
   it('supports forced infeasible classification for solver failure boundaries', async () => {

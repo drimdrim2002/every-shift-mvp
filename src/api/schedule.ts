@@ -113,6 +113,26 @@ function normalizePreferenceCode(requestCode: string): ConstraintCode | null {
   return null;
 }
 
+function normalizeAssignedShiftCode(shiftCode: string | null | undefined): string {
+  return shiftCode?.trim().toUpperCase() ?? '';
+}
+
+function resolveOffPreferenceStatus(
+  pref: SchedulePreference,
+  assignment: { shiftId: string; shiftCode: string | null } | undefined
+): PreferenceStatus {
+  if (pref.policy_check_status === 'rejected') {
+    return 'unfulfilled';
+  }
+
+  if (!assignment) {
+    return 'fulfilled';
+  }
+
+  const shiftCode = normalizeAssignedShiftCode(assignment.shiftCode);
+  return shiftCode === '' || shiftCode === 'O' ? 'fulfilled' : 'unfulfilled';
+}
+
 function getPhase2ScheduleBaseUrl(): string {
   const baseUrl = import.meta.env.VITE_SUPABASE_URL;
   if (!baseUrl) {
@@ -835,7 +855,7 @@ async function refreshPreferenceResolutionByScope(
   const resolvedAt = new Date().toISOString();
   const updates = preferences.map((pref) => {
     const match = assignmentMap.get(`${pref.employee_id}_${pref.date}`);
-    const isFulfilled = match?.shiftCode === 'O';
+    const resolutionStatus = resolveOffPreferenceStatus(pref, match);
     return {
       id: pref.id,
       schedule_id: pref.schedule_id,
@@ -845,7 +865,7 @@ async function refreshPreferenceResolutionByScope(
       request_code: pref.request_code,
       request_note: pref.request_note,
       is_soft: pref.is_soft,
-      resolution_status: (isFulfilled ? 'fulfilled' : 'unfulfilled') as PreferenceStatus,
+      resolution_status: resolutionStatus,
       resolved_shift_id: match?.shiftId ?? null,
       resolved_at: resolvedAt,
       policy_check_status: pref.policy_check_status,

@@ -159,6 +159,10 @@
             :active-tab="activeReviewTab"
             @update:tab="handleReviewTabChange"
           >
+            <template #compliance>
+              <ScheduleCompliancePanel :result="complianceResult" />
+            </template>
+
             <template #headerActions>
               <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                 <span
@@ -248,6 +252,13 @@
           </div>
 
           <div class="flex flex-col items-start gap-3">
+            <p
+              v-if="shouldShowFinalizeAction && visibleFinalizeBlockReason"
+              data-test="finalize-block-reason"
+              class="text-sm font-medium text-rose-700"
+            >
+              {{ visibleFinalizeBlockReason }}
+            </p>
             <div class="flex flex-col gap-4 sm:flex-row">
               <n-button
                 v-if="shouldShowCompareAction"
@@ -327,6 +338,12 @@
           :right-version="rightComparedVersion"
           :left-review="leftComparedReview"
           :right-review="rightComparedReview"
+          :left-compliance-result="leftComparisonVersionData?.complianceResult ?? null"
+          :right-compliance-result="rightComparisonVersionData?.complianceResult ?? null"
+          :left-off-input="leftComparisonVersionData?.offInput ?? null"
+          :right-off-input="rightComparisonVersionData?.offInput ?? null"
+          :employees="grid.employees.value"
+          :month="scheduleStore.basicInfo?.month ?? ''"
           :loading="isCompareModalLoading"
           :error-message="compareModalErrorMessage"
           @update:show="handleCompareModalVisibility"
@@ -482,6 +499,7 @@ import { useAISolver } from '@/composables/useAISolver';
 import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import ScheduleCompareModal from '@/components/schedule/review/ScheduleCompareModal.vue';
+import ScheduleCompliancePanel from '@/components/schedule/review/ScheduleCompliancePanel.vue';
 import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
@@ -506,6 +524,7 @@ import {
 } from '@/api/schedule';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
+import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { resolveDefaultReviewTab } from '@/utils/scheduleReviewState';
@@ -524,6 +543,8 @@ import {
   mergeAssignmentMapsWithFallback,
 } from '@/utils/rollingHistory';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
+import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 import type {
   AssignmentMap,
   ConstraintMap,
@@ -547,6 +568,7 @@ const organizationStore = useOrganizationStore();
 const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
+const PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE = '전월 근무 이력을 불러오지 못해 확인이 필요합니다.';
 
 const routeScheduleKey = computed(() => {
   const paramId = route.params.scheduleKey;
@@ -594,6 +616,12 @@ const isPrimaryActionRunning = ref(false);
 const isCompareModalOpen = ref(false);
 const isCompareModalLoading = ref(false);
 const compareModalErrorMessage = ref<string | null>(null);
+interface ComparisonVersionData {
+  assignments: AssignmentMap;
+  offInput: ScheduleComparisonOffInputSnapshot;
+  complianceResult: ScheduleComplianceResult;
+}
+const comparisonVersionDataById = ref<Record<string, ComparisonVersionData>>({});
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -910,8 +938,55 @@ const leftComparedReview = computed<ScheduleReviewResponse | null>(() => {
 const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
   return rightComparedVersion.value ? comparedReviews.value[rightComparedVersion.value.id] ?? null : null;
 });
+const leftComparisonVersionData = computed<ComparisonVersionData | null>(() => {
+  return leftComparedVersion.value
+    ? comparisonVersionDataById.value[leftComparedVersion.value.id] ?? null
+    : null;
+});
+const rightComparisonVersionData = computed<ComparisonVersionData | null>(() => {
+  return rightComparedVersion.value
+    ? comparisonVersionDataById.value[rightComparedVersion.value.id] ?? null
+    : null;
+});
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
+});
+const liveComplianceResult = computed(() => {
+  return evaluateScheduleCompliance({
+    month: scheduleStore.basicInfo?.month ?? '',
+    employees: grid.employees.value,
+    assignments: mergeComplianceAssignments(
+      previousMonthAssignments.value,
+      currentScheduleAssignments.value,
+    ),
+    offRequests: offRequestsCurrentMonth.value,
+    shifts: organizationStore.shifts,
+  });
+});
+const complianceResult = computed<ScheduleComplianceResult>(() => {
+  const result = liveComplianceResult.value;
+  return applyPreviousMonthFallbackWarning(result);
+});
+const complianceFinalizeBlockReason = computed(() => {
+  if (complianceResult.value.checkRequiredCount > 0) {
+    return '법적 기준을 확인한 뒤 확정할 수 있습니다.';
+  }
+
+  if (complianceResult.value.mandatoryViolationCount > 0) {
+    return `법적 기준 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
+  }
+
+  return null;
+});
+const unsavedFinalizeBlockReason = computed(() => {
+  return changedCells.value.size > 0
+    ? '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
+    : null;
+});
+const visibleFinalizeBlockReason = computed(() => {
+  return complianceFinalizeBlockReason.value
+    ?? unsavedFinalizeBlockReason.value
+    ?? primaryAction.value.disabledReason;
 });
 const activeReviewTab = computed(() => scheduleStore.reviewTab);
 const previewVersionExecutionId = computed(() => {
@@ -938,6 +1013,8 @@ const shouldShowFinalizeAction = computed(() => {
 const isFinalizeActionDisabled = computed(() => {
   return (
     isPrimaryActionRunning.value
+    || Boolean(complianceFinalizeBlockReason.value)
+    || Boolean(unsavedFinalizeBlockReason.value)
     || primaryAction.value.kind !== 'finalize'
     || !primaryAction.value.targetVersionId
     || Boolean(primaryAction.value.disabledReason)
@@ -1122,21 +1199,11 @@ function syncPolicyRejectionDisplay(
   policyRejectionSummariesCurrentMonth.value = nextSummaries;
 }
 
-async function loadPreferencesForDisplay() {
-  const emptyConstraints = createEmptyConstraintMapForEmployees();
-  const emptyNotes = createEmptyCommentMapForEmployees();
-  const currentMonth = scheduleStore.basicInfo?.month || '';
-  const versionId = previewVersionId.value;
-
-  if (!currentMonth || !versionId) {
-    offRequestsCurrentMonth.value = emptyConstraints;
-    offRequestNotesCurrentMonth.value = emptyNotes;
-    policyRejectionSummariesCurrentMonth.value = [];
-    return;
-  }
-
-  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
-
+function buildCurrentMonthOffInputSnapshot(
+  constraints: ConstraintMap,
+  notes: CommentMap,
+  currentMonth: string
+): ScheduleComparisonOffInputSnapshot {
   const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
   const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
 
@@ -1157,6 +1224,31 @@ async function loadPreferencesForDisplay() {
       filteredNotes[employeeId]![date] = note;
     }
   }
+
+  return {
+    constraints: filteredConstraints,
+    notes: filteredNotes,
+  };
+}
+
+async function loadPreferencesForDisplay() {
+  const emptyConstraints = createEmptyConstraintMapForEmployees();
+  const emptyNotes = createEmptyCommentMapForEmployees();
+  const currentMonth = scheduleStore.basicInfo?.month || '';
+  const versionId = previewVersionId.value;
+
+  if (!currentMonth || !versionId) {
+    offRequestsCurrentMonth.value = emptyConstraints;
+    offRequestNotesCurrentMonth.value = emptyNotes;
+    policyRejectionSummariesCurrentMonth.value = [];
+    return;
+  }
+
+  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
+
+  const offInput = buildCurrentMonthOffInputSnapshot(constraints, notes, currentMonth);
+  const filteredConstraints = offInput.constraints;
+  const filteredNotes = offInput.notes;
 
   for (const pref of preferences as PreferenceWithPolicyResult[]) {
     if (!pref.date.startsWith(currentMonth)) continue;
@@ -1225,6 +1317,50 @@ function getDisplayedLastMonthDates(): Set<string> {
       .filter((date) => date.isLastMonth)
       .map((date) => date.date)
   );
+}
+
+function mergeComplianceAssignments(
+  previousAssignments: AssignmentMap,
+  currentAssignments: AssignmentMap,
+): AssignmentMap {
+  const merged: AssignmentMap = {};
+
+  for (const [employeeId, dateMap] of Object.entries(previousAssignments || {})) {
+    merged[employeeId] = { ...(dateMap || {}) };
+  }
+
+  for (const [employeeId, dateMap] of Object.entries(currentAssignments || {})) {
+    merged[employeeId] = {
+      ...(merged[employeeId] || {}),
+      ...(dateMap || {}),
+    };
+  }
+
+  return merged;
+}
+
+function applyPreviousMonthFallbackWarning(result: ScheduleComplianceResult): ScheduleComplianceResult {
+  if (!previousMonthFallbackError.value) {
+    return result;
+  }
+
+  return {
+    ...result,
+    mandatoryPassed: false,
+    canFinalizeLocally: false,
+    checkRequiredCount: result.checkRequiredCount + 1,
+    summaries: result.summaries.map((summary) => {
+      if (summary.status !== 'passed') {
+        return summary;
+      }
+
+      return {
+        ...summary,
+        status: 'check_required',
+        message: PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE,
+      };
+    }),
+  };
 }
 
 function rebuildDisplayAssignments(baseCurrentAssignments: AssignmentMap = currentScheduleAssignments.value) {
@@ -1433,6 +1569,79 @@ async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearCh
   if (clearChanges) {
     changedCells.value.clear();
   }
+}
+
+async function loadComparisonVersionData(versionId: string): Promise<ComparisonVersionData> {
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) {
+    throw new Error('비교할 근무표 월 정보를 확인할 수 없습니다.');
+  }
+
+  const [assignmentData, preferenceData] = await Promise.all([
+    getScheduleVersionAssignments(versionId),
+    getScheduleVersionPreferences(versionId),
+  ]);
+  const { currentAssignments, previousAssignments } = splitAssignmentsByMonth(
+    assignmentData.assignments,
+  );
+  const mergedPreviousAssignments = mergeAssignmentMapsWithFallback(
+    previousAssignments,
+    previousMonthFallbackAssignments.value,
+    buildRollingHistoryWindow(currentMonth, 7).previousMonthDates,
+  );
+  const offInput = buildCurrentMonthOffInputSnapshot(
+    preferenceData.constraints,
+    preferenceData.notes,
+    currentMonth,
+  );
+  const complianceResult = applyPreviousMonthFallbackWarning(
+    evaluateScheduleCompliance({
+      month: currentMonth,
+      employees: grid.employees.value,
+      assignments: mergeComplianceAssignments(
+        mergedPreviousAssignments,
+        currentAssignments,
+      ),
+      offRequests: offInput.constraints,
+      shifts: organizationStore.shifts,
+    })
+  );
+
+  return {
+    assignments: currentAssignments,
+    offInput,
+    complianceResult,
+  };
+}
+
+async function hydrateComparisonVersionData(): Promise<void> {
+  const selectedIds = [leftComparedVersion.value?.id, rightComparedVersion.value?.id]
+    .filter((versionId): versionId is string => Boolean(versionId));
+  const selectedIdSet = new Set(selectedIds);
+  const nextCache = { ...comparisonVersionDataById.value };
+
+  for (const cachedId of Object.keys(nextCache)) {
+    if (!selectedIdSet.has(cachedId)) {
+      delete nextCache[cachedId];
+    }
+  }
+
+  if (selectedIds.length < 2) {
+    comparisonVersionDataById.value = nextCache;
+    return;
+  }
+
+  const loadedData = await Promise.all(
+    selectedIds.map(async (versionId) => ({
+      versionId,
+      data: await loadComparisonVersionData(versionId),
+    }))
+  );
+
+  for (const { versionId, data } of loadedData) {
+    nextCache[versionId] = data;
+  }
+  comparisonVersionDataById.value = nextCache;
 }
 
 function startAssignmentsRefresh() {
@@ -2020,11 +2229,10 @@ async function handleOpenCompareModal() {
 
   try {
     await hub.hydrateComparedReviews();
+    await hydrateComparisonVersionData();
   } catch (error) {
     console.warn('근무표안 비교 로드 중 오류:', error);
-    compareModalErrorMessage.value = error instanceof Error
-      ? error.message
-      : '근무표안 비교 정보를 불러오는 중 오류가 발생했습니다.';
+    compareModalErrorMessage.value = '비교 데이터를 불러오지 못했습니다.';
   } finally {
     isCompareModalLoading.value = false;
   }
@@ -2057,6 +2265,10 @@ async function syncComparisonWorkspace(
   }, {
     loadComparedReviews: true,
   });
+
+  if (isCompareModalOpen.value) {
+    await hydrateComparisonVersionData();
+  }
 }
 
 function buildNextCompareVersionIds(versionId: string): string[] {
@@ -2269,7 +2481,11 @@ async function handlePrimaryAction() {
 
 async function handleFinalizeAction() {
   if (isFinalizeActionDisabled.value) {
-    if (primaryAction.value.disabledReason) {
+    if (complianceFinalizeBlockReason.value) {
+      showInfo(complianceFinalizeBlockReason.value);
+    } else if (unsavedFinalizeBlockReason.value) {
+      showInfo(unsavedFinalizeBlockReason.value);
+    } else if (primaryAction.value.disabledReason) {
       showInfo(primaryAction.value.disabledReason);
     }
     return;
