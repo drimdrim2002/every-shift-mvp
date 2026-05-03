@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import dayjs from 'dayjs';
+import { computed, ref } from 'vue';
 import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
 import {
   formatScheduleVersionLabel,
   formatScheduleVersionStatus,
 } from '@/utils/scheduleReviewCopy';
 import {
   buildScheduleComparisonDecisionModel,
+  type ScheduleComparisonOffInputDiffRow,
+  type ScheduleComparisonOffInputSnapshot,
   type ScheduleComparisonRequirementStatus,
 } from '@/utils/scheduleComparisonSummary';
 
@@ -16,6 +20,12 @@ const props = defineProps<{
   leftReview: ScheduleReviewResponse | null;
   rightReview: ScheduleReviewResponse | null;
   focusedVersionId: string | null;
+  leftComplianceResult: ScheduleComplianceResult | null;
+  rightComplianceResult: ScheduleComplianceResult | null;
+  leftOffInput: ScheduleComparisonOffInputSnapshot | null;
+  rightOffInput: ScheduleComparisonOffInputSnapshot | null;
+  employees: Array<{ id: string; name: string }>;
+  month: string;
 }>();
 
 const emit = defineEmits<{
@@ -23,6 +33,7 @@ const emit = defineEmits<{
 }>();
 
 const hasTwoVersions = computed(() => !!props.leftVersion && !!props.rightVersion);
+const offDiffView = ref<'list' | 'calendar'>('list');
 
 const decisionModel = computed(() => {
   if (!props.leftVersion || !props.rightVersion) {
@@ -34,6 +45,38 @@ const decisionModel = computed(() => {
     rightVersion: props.rightVersion,
     leftReview: props.leftReview,
     rightReview: props.rightReview,
+    leftComplianceResult: props.leftComplianceResult ?? undefined,
+    rightComplianceResult: props.rightComplianceResult ?? undefined,
+    leftOffInput: props.leftOffInput ?? undefined,
+    rightOffInput: props.rightOffInput ?? undefined,
+    employees: props.employees,
+  });
+});
+
+const offDiffRowsByDate = computed(() => {
+  const groups = new Map<string, ScheduleComparisonOffInputDiffRow[]>();
+  for (const row of decisionModel.value?.offInputDiffRows ?? []) {
+    const rows = groups.get(row.date) ?? [];
+    rows.push(row);
+    groups.set(row.date, rows);
+  }
+  return groups;
+});
+
+const offDiffCalendarDates = computed(() => {
+  if (!props.month || !dayjs(`${props.month}-01`).isValid()) {
+    return [];
+  }
+
+  const firstDay = dayjs(`${props.month}-01`);
+  return Array.from({ length: firstDay.daysInMonth() }, (_, index) => {
+    const date = firstDay.add(index, 'day');
+    const dateKey = date.format('YYYY-MM-DD');
+    return {
+      date: dateKey,
+      day: date.format('D'),
+      rows: offDiffRowsByDate.value.get(dateKey) ?? [],
+    };
   });
 });
 
@@ -44,6 +87,7 @@ function formatVersionLabel(version: ScheduleVersionSummary | null) {
 function getStatusClass(status: ScheduleComparisonRequirementStatus) {
   if (status === 'passed') return 'border-emerald-200 bg-emerald-50 text-emerald-800';
   if (status === 'failed') return 'border-rose-200 bg-rose-50 text-rose-800';
+  if (status === 'check_required') return 'border-amber-200 bg-amber-50 text-amber-800';
   return 'border-slate-200 bg-slate-100 text-slate-600';
 }
 
@@ -102,9 +146,32 @@ function isFocused(versionId: string | null | undefined) {
         data-test="comparison-off-input"
         class="rounded-xl border border-slate-200 bg-white p-4"
       >
-        <h4 class="text-sm font-semibold text-slate-900">
-          Off 요청 입력 차이
-        </h4>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h4 class="text-sm font-semibold text-slate-900">
+            Off 요청 입력 차이
+          </h4>
+          <div class="inline-flex w-fit rounded-lg border border-slate-200 bg-slate-100 p-1">
+            <button
+              type="button"
+              data-test="off-diff-list-view"
+              class="rounded-md px-3 py-1.5 text-xs font-medium transition"
+              :class="offDiffView === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              @click="offDiffView = 'list'"
+            >
+              목록 보기
+            </button>
+            <button
+              type="button"
+              data-test="off-diff-calendar-view"
+              class="rounded-md px-3 py-1.5 text-xs font-medium transition"
+              :class="offDiffView === 'calendar' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              @click="offDiffView = 'calendar'"
+            >
+              캘린더 보기
+            </button>
+          </div>
+        </div>
+
         <div class="mt-3 overflow-hidden rounded-lg border border-slate-200">
           <div class="hidden grid-cols-[1.2fr_1fr_1fr] bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 sm:grid">
             <span>항목</span>
@@ -125,6 +192,76 @@ function isFocused(versionId: string | null | undefined) {
               <span class="mr-2 text-xs font-medium text-slate-500 sm:hidden">오른쪽</span>
               {{ row.rightText }}
             </span>
+          </div>
+        </div>
+
+        <div
+          v-if="offDiffView === 'list'"
+          data-test="off-diff-list"
+          class="mt-3 overflow-hidden rounded-lg border border-slate-200"
+        >
+          <div class="hidden grid-cols-[1fr_1fr_1fr_1fr_1fr] bg-slate-100 px-3 py-2 text-xs font-medium text-slate-500 md:grid">
+            <span>직원</span>
+            <span>날짜</span>
+            <span>왼쪽 요청</span>
+            <span>오른쪽 요청</span>
+            <span>차이</span>
+          </div>
+          <p
+            v-if="decisionModel.offInputDiffRows.length === 0"
+            class="p-3 text-sm text-slate-500"
+          >
+            {{ decisionModel.offInputDiffEmptyText }}
+          </p>
+          <div
+            v-for="row in decisionModel.offInputDiffRows"
+            :key="`${row.employeeId}:${row.date}:${row.changeType}`"
+            class="grid gap-2 border-t border-slate-200 p-3 text-sm first:border-t-0 md:grid-cols-[1fr_1fr_1fr_1fr_1fr] md:items-center"
+          >
+            <span class="font-medium text-slate-800">{{ row.employeeName }}</span>
+            <span class="text-slate-600">{{ row.date }}</span>
+            <span class="text-slate-700">
+              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">왼쪽 요청</span>
+              {{ row.leftText }}
+            </span>
+            <span class="text-slate-700">
+              <span class="mr-2 text-xs font-medium text-slate-500 md:hidden">오른쪽 요청</span>
+              {{ row.rightText }}
+            </span>
+            <span class="w-fit rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
+              {{ row.changeTypeLabel }}
+            </span>
+          </div>
+        </div>
+
+        <div
+          v-else
+          data-test="off-diff-calendar"
+          class="mt-3 grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200"
+        >
+          <div
+            v-for="date in offDiffCalendarDates"
+            :key="date.date"
+            class="min-h-24 bg-white p-2"
+          >
+            <div class="text-xs font-semibold text-slate-500">
+              {{ date.day }}
+            </div>
+            <div class="mt-2 space-y-1">
+              <span
+                v-for="row in date.rows.slice(0, 3)"
+                :key="`${row.employeeId}:${row.changeType}`"
+                class="block rounded-md bg-sky-50 px-2 py-1 text-[11px] font-medium leading-4 text-sky-800"
+              >
+                {{ row.employeeName }} · {{ row.changeTypeLabel }}
+              </span>
+              <span
+                v-if="date.rows.length > 3"
+                class="block text-[11px] font-medium text-slate-500"
+              >
+                외 {{ date.rows.length - 3 }}건
+              </span>
+            </div>
           </div>
         </div>
       </section>

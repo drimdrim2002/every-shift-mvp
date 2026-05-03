@@ -7,6 +7,8 @@ import type {
   ScheduleReviewResponse,
   ScheduleVersionSummary,
 } from '@/types/schedule';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
+import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 
 function createVersionSummary(overrides: Partial<ScheduleVersionSummary> = {}): ScheduleVersionSummary {
   const versionNo = overrides.versionNo ?? 1;
@@ -75,6 +77,38 @@ function createOffRequestResult(
     reason: null,
     ...overrides,
   };
+}
+
+function createComplianceResult(
+  overrides: Partial<ScheduleComplianceResult> = {}
+): ScheduleComplianceResult {
+  return {
+    mandatoryPassed: true,
+    canFinalizeLocally: true,
+    mandatoryViolationCount: 0,
+    checkRequiredCount: 0,
+    summaries: [
+      { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'triple_night', label: '3연속 야간 금지', status: 'failed', violationCount: 2, message: '위반 2건' },
+      { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'check_required', violationCount: 0, message: '확인 필요' },
+      { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
+    ],
+    violations: [],
+    offRequests: {
+      totalRequests: 0,
+      fulfilledRequests: 0,
+      unfulfilledRequests: 0,
+      reflectionRate: null,
+    },
+    ...overrides,
+  };
+}
+
+function createOffInput(
+  constraints: ScheduleComparisonOffInputSnapshot['constraints'],
+  notes: ScheduleComparisonOffInputSnapshot['notes'] = {}
+): ScheduleComparisonOffInputSnapshot {
+  return { constraints, notes };
 }
 
 function createEvaluation(
@@ -163,6 +197,12 @@ function mountWorkspace(
         latestEvaluation: createEvaluation(rightVersion),
       }),
       focusedVersionId: rightVersion.id,
+      leftComplianceResult: null,
+      rightComplianceResult: null,
+      leftOffInput: null,
+      rightOffInput: null,
+      employees: [],
+      month: '2026-05',
       ...props,
     },
   });
@@ -226,6 +266,84 @@ describe('ComparisonWorkspace', () => {
     expect(requirementsText).toContain('통과');
     expect(requirementsText).toContain('위반 2건');
     expect(requirementsText).toContain('검토 정보 없음');
+    expect(requirementsText).toContain('요청 없음');
+  });
+
+  it('shows employee-date Off input diff rows', () => {
+    const wrapper = mountWorkspace({
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult(),
+      employees: [
+        { id: 'employee-1', name: '김간호' },
+        { id: 'employee-2', name: '박간호' },
+      ],
+      leftOffInput: createOffInput({
+        'employee-1': { '2026-05-05': 'O' },
+      }),
+      rightOffInput: createOffInput({
+        'employee-2': { '2026-05-06': 'O' },
+      }),
+    });
+
+    const offInputText = wrapper.get('[data-test="comparison-off-input"]').text();
+
+    expect(offInputText).toContain('김간호');
+    expect(offInputText).toContain('2026-05-05');
+    expect(offInputText).toContain('왼쪽만 Off');
+    expect(offInputText).toContain('박간호');
+    expect(offInputText).toContain('오른쪽만 Off');
+  });
+
+  it('shows empty Off input diff copy', () => {
+    const wrapper = mountWorkspace({
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult(),
+      leftOffInput: createOffInput({}),
+      rightOffInput: createOffInput({}),
+    });
+
+    expect(wrapper.get('[data-test="comparison-off-input"]').text()).toContain(
+      '두 안의 Off 요청 입력은 같습니다.'
+    );
+  });
+
+  it('switches to calendar view and shows diff badges by date', async () => {
+    const wrapper = mountWorkspace({
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult(),
+      employees: [{ id: 'employee-1', name: '김간호' }],
+      leftOffInput: createOffInput({
+        'employee-1': { '2026-05-05': 'O' },
+      }),
+      rightOffInput: createOffInput({}),
+      month: '2026-05',
+    });
+
+    await wrapper.get('[data-test="off-diff-calendar-view"]').trigger('click');
+
+    const calendarText = wrapper.get('[data-test="off-diff-calendar"]').text();
+    expect(calendarText).toContain('5');
+    expect(calendarText).toContain('김간호 · 왼쪽만 Off');
+  });
+
+  it('shows compliance-first requirement status text', () => {
+    const wrapper = mountWorkspace({
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult({
+        summaries: [
+          { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
+        ],
+      }),
+    });
+
+    const requirementsText = wrapper.get('[data-test="comparison-requirements"]').text();
+
+    expect(requirementsText).toContain('통과');
+    expect(requirementsText).toContain('위반 2건');
+    expect(requirementsText).toContain('확인 필요');
     expect(requirementsText).toContain('요청 없음');
   });
 
