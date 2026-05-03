@@ -1458,8 +1458,7 @@ describe('Step5Result', () => {
         return Promise.resolve({
           assignments: {
             'emp-1': {
-              '2025-11-30': 'N',
-              '2025-12-02': 'O',
+              '2025-12-01': 'D',
             },
           },
           offReasons: {},
@@ -1514,6 +1513,29 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
     vi.clearAllMocks()
+    getScheduleVersionAssignmentsMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          assignments: {
+            'emp-1': {
+              '2025-11-30': 'N',
+            },
+          },
+          offReasons: {},
+          comments: {},
+        })
+      }
+
+      return Promise.resolve({
+        assignments: {
+          'emp-1': {
+            '2025-12-03': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    })
 
     await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()

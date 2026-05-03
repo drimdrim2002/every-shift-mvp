@@ -315,13 +315,16 @@ describe('evaluateScheduleCompliance', () => {
     ]);
   });
 
-  it('counts only target-month Off requests and only O as fulfilled', () => {
+  it('counts target-month Off requests as fulfilled when no work shift is assigned', () => {
     const result = evaluate(
       {
         e1: {
           '2026-05-01': 'O',
           '2026-05-02': 'D',
           '2026-05-03': '',
+          '2026-05-04': 'E',
+          '2026-05-05': 'N',
+          '2026-05-06': 'X',
           '2026-04-30': 'O',
         },
       },
@@ -330,6 +333,10 @@ describe('evaluateScheduleCompliance', () => {
           '2026-05-01': 'O',
           '2026-05-02': 'O',
           '2026-05-03': 'O',
+          '2026-05-04': 'O',
+          '2026-05-05': 'O',
+          '2026-05-06': 'O',
+          '2026-05-07': 'O',
           '2026-04-30': 'O',
         },
         e2: {
@@ -339,10 +346,10 @@ describe('evaluateScheduleCompliance', () => {
     );
 
     expect(result.offRequests).toEqual({
-      totalRequests: 3,
-      fulfilledRequests: 1,
-      unfulfilledRequests: 2,
-      reflectionRate: 33,
+      totalRequests: 7,
+      fulfilledRequests: 3,
+      unfulfilledRequests: 4,
+      reflectionRate: 43,
     });
   });
 

@@ -250,6 +250,11 @@ function roundTo4(value: number): number {
   return Number(value.toFixed(4));
 }
 
+function normalizeShiftCode(shiftCode: string | null | undefined): string | null {
+  const normalized = shiftCode?.trim().toUpperCase() ?? '';
+  return normalized.length > 0 ? normalized : null;
+}
+
 function buildOffRequestResults(
   preferences: EvaluationPreferenceInput[],
   assignmentByCell: Map<string, EvaluationAssignmentInput>,
@@ -263,10 +268,12 @@ function buildOffRequestResults(
     }
 
     const assignment = assignmentByCell.get(`${preference.employeeId}:${preference.date}`) ?? null;
-    const assignedShiftCode = assignment ? shiftCodeById.get(assignment.shiftId) ?? null : null;
-    const fulfilled = assignedShiftCode === 'O';
+    const assignedShiftCode = assignment ? normalizeShiftCode(shiftCodeById.get(assignment.shiftId)) : null;
     const policyRejected = preference.policyCheckStatus === 'rejected';
     const policyRejectionReason = preference.policyRejectionReason?.trim() || null;
+    const fulfilled = policyRejected
+      ? false
+      : assignment === null || assignedShiftCode === 'O';
 
     results.push({
       employeeId: preference.employeeId,

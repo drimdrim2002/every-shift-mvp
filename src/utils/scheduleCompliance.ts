@@ -360,7 +360,7 @@ function evaluateOffRequests(input: NormalizedInput): OffRequestComplianceSummar
       }
 
       totalRequests += 1;
-      if (input.assignments[employeeId]?.[date] === 'O') {
+      if (isOffRequestFulfilledByAssignment(input.assignments[employeeId]?.[date])) {
         fulfilledRequests += 1;
       }
     }
@@ -373,6 +373,15 @@ function evaluateOffRequests(input: NormalizedInput): OffRequestComplianceSummar
     unfulfilledRequests,
     reflectionRate: totalRequests === 0 ? null : Math.round((fulfilledRequests / totalRequests) * 100),
   };
+}
+
+function isOffRequestFulfilledByAssignment(assignment: string | undefined): boolean {
+  if (assignment === undefined) {
+    return true;
+  }
+
+  const shiftCode = normalizeShiftCode(assignment);
+  return shiftCode === '' || shiftCode === 'O';
 }
 
 function buildSummaries(
