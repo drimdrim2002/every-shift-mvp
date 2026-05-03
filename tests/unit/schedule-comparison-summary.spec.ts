@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildScheduleComparisonDecisionModel,
   buildScheduleComparisonSummary,
+  type ScheduleComparisonOffInputSnapshot,
 } from '@/utils/scheduleComparisonSummary';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
 import type {
   ScheduleOffRequestResult,
   ScheduleReviewResponse,
@@ -155,6 +157,38 @@ function createOffRequestResult(
     reason: null,
     ...overrides,
   };
+}
+
+function createComplianceResult(
+  overrides: Partial<ScheduleComplianceResult> = {}
+): ScheduleComplianceResult {
+  return {
+    mandatoryPassed: true,
+    canFinalizeLocally: true,
+    mandatoryViolationCount: 0,
+    checkRequiredCount: 0,
+    summaries: [
+      { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
+    ],
+    violations: [],
+    offRequests: {
+      totalRequests: 45,
+      fulfilledRequests: 45,
+      unfulfilledRequests: 0,
+      reflectionRate: 100,
+    },
+    ...overrides,
+  };
+}
+
+function createOffInput(
+  constraints: ScheduleComparisonOffInputSnapshot['constraints'],
+  notes: ScheduleComparisonOffInputSnapshot['notes'] = {}
+): ScheduleComparisonOffInputSnapshot {
+  return { constraints, notes };
 }
 
 describe('scheduleComparisonSummary', () => {
@@ -562,6 +596,184 @@ describe('scheduleComparisonSummary', () => {
         rightText: '요청 없음',
       })
     );
+  });
+
+  it('uses compliance result instead of latest evaluation for mandatory and Off rows', () => {
+    const leftVersion = createVersionSummary({ id: 'left-version' });
+    const rightVersion = createVersionSummary({ id: 'right-version' });
+
+    const model = buildScheduleComparisonDecisionModel({
+      leftVersion,
+      rightVersion,
+      leftReview: createReviewWithEvaluation(leftVersion, {
+        proofSummary: {
+          weeklyHoursViolations: 0,
+          nnnViolations: 0,
+          nodViolations: 0,
+          minimumRestViolations: 0,
+          staffingShortfalls: 0,
+        },
+        offRequestResults: [],
+      }),
+      rightReview: createReviewWithEvaluation(rightVersion, {
+        proofSummary: {
+          weeklyHoursViolations: 0,
+          nnnViolations: 0,
+          nodViolations: 0,
+          minimumRestViolations: 0,
+          staffingShortfalls: 0,
+        },
+        offRequestResults: [],
+      }),
+      leftComplianceResult: createComplianceResult({
+        summaries: [
+          { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'failed', violationCount: 10, message: '위반 10건' },
+          { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
+        ],
+        offRequests: {
+          totalRequests: 45,
+          fulfilledRequests: 45,
+          unfulfilledRequests: 0,
+          reflectionRate: 100,
+        },
+      }),
+      rightComplianceResult: createComplianceResult(),
+    });
+
+    expect(model.requirementRows).toContainEqual(
+      expect.objectContaining({
+        label: '2연속 야간(N) 후 48시간 이상 휴식',
+        leftStatus: 'failed',
+        leftText: '위반 10건',
+        rightStatus: 'passed',
+        rightText: '통과',
+      })
+    );
+    expect(model.requirementRows).toContainEqual(
+      expect.objectContaining({
+        label: 'Off 요청 준수',
+        leftText: '45건 중 45건 반영 (100%)',
+      })
+    );
+  });
+
+  it('displays check-required compliance rows', () => {
+    const leftVersion = createVersionSummary({ id: 'left-version' });
+    const rightVersion = createVersionSummary({ id: 'right-version' });
+
+    const model = buildScheduleComparisonDecisionModel({
+      leftVersion,
+      rightVersion,
+      leftReview: null,
+      rightReview: null,
+      leftComplianceResult: createComplianceResult({
+        summaries: [
+          { code: 'nod_pattern', label: 'NOD 금지', status: 'check_required', violationCount: 0, message: '확인 필요' },
+          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
+        ],
+      }),
+      rightComplianceResult: createComplianceResult(),
+    });
+
+    expect(model.requirementRows).toContainEqual(
+      expect.objectContaining({
+        label: 'NOD 근무 불가',
+        leftStatus: 'check_required',
+        leftText: '확인 필요',
+      })
+    );
+  });
+
+  it('builds employee-date Off input diff rows', () => {
+    const leftVersion = createVersionSummary({ id: 'left-version' });
+    const rightVersion = createVersionSummary({ id: 'right-version' });
+
+    const model = buildScheduleComparisonDecisionModel({
+      leftVersion,
+      rightVersion,
+      leftReview: null,
+      rightReview: null,
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult(),
+      employees: [
+        { id: 'employee-1', name: '김간호' },
+        { id: 'employee-2', name: '박간호' },
+        { id: 'employee-3', name: '이간호' },
+      ],
+      leftOffInput: createOffInput(
+        {
+          'employee-1': { '2026-05-05': 'O' },
+          'employee-3': { '2026-05-07': 'O' },
+        },
+        {
+          'employee-3': { '2026-05-07': '오전 병원' },
+        }
+      ),
+      rightOffInput: createOffInput(
+        {
+          'employee-2': { '2026-05-06': 'O' },
+          'employee-3': { '2026-05-07': 'O' },
+        },
+        {
+          'employee-3': { '2026-05-07': '가족 일정' },
+        }
+      ),
+    });
+
+    expect(model.offInputDiffRows).toEqual([
+      expect.objectContaining({
+        employeeName: '김간호',
+        date: '2026-05-05',
+        leftText: 'Off',
+        rightText: '-',
+        changeTypeLabel: '왼쪽만 Off',
+      }),
+      expect.objectContaining({
+        employeeName: '박간호',
+        date: '2026-05-06',
+        leftText: '-',
+        rightText: 'Off',
+        changeTypeLabel: '오른쪽만 Off',
+      }),
+      expect.objectContaining({
+        employeeName: '이간호',
+        date: '2026-05-07',
+        leftText: 'Off · 오전 병원',
+        rightText: 'Off · 가족 일정',
+        changeTypeLabel: '메모 변경',
+      }),
+    ]);
+  });
+
+  it('builds empty text when Off input snapshots are identical', () => {
+    const leftVersion = createVersionSummary({ id: 'left-version' });
+    const rightVersion = createVersionSummary({ id: 'right-version' });
+    const offInput = createOffInput(
+      {
+        'employee-1': { '2026-05-05': 'O' },
+      },
+      {
+        'employee-1': { '2026-05-05': '가족 일정' },
+      }
+    );
+
+    const model = buildScheduleComparisonDecisionModel({
+      leftVersion,
+      rightVersion,
+      leftReview: null,
+      rightReview: null,
+      leftComplianceResult: createComplianceResult(),
+      rightComplianceResult: createComplianceResult(),
+      leftOffInput: offInput,
+      rightOffInput: offInput,
+    });
+
+    expect(model.offInputDiffRows).toEqual([]);
+    expect(model.offInputDiffEmptyText).toBe('두 안의 Off 요청 입력은 같습니다.');
   });
 
   it('정확한 Off 요청 반영률이 같으면 계획 문구를 표시한다', () => {

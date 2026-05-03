@@ -1,8 +1,23 @@
-import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
+import type {
+  CommentMap,
+  ConstraintMap,
+  ScheduleReviewResponse,
+  ScheduleVersionSummary,
+} from '@/types/schedule';
+import type {
+  ScheduleComplianceResult,
+  ScheduleComplianceRuleCode,
+  ScheduleComplianceRuleSummary,
+} from '@/types/scheduleCompliance';
 import { formatScheduleVersionLabel } from '@/utils/scheduleReviewCopy';
 
-export type ScheduleComparisonRequirementStatus = 'passed' | 'failed' | 'unknown';
+export type ScheduleComparisonRequirementStatus =
+  | 'passed'
+  | 'failed'
+  | 'check_required'
+  | 'unknown';
 export type ScheduleComparisonRequirementGroup = 'mandatory' | 'optional';
+export type ScheduleComparisonOffDiffType = 'left_only' | 'right_only' | 'note_changed';
 
 export interface ScheduleComparisonTextRow {
   label: string;
@@ -19,9 +34,26 @@ export interface ScheduleComparisonRequirementRow {
   rightText: string;
 }
 
+export interface ScheduleComparisonOffInputSnapshot {
+  constraints: ConstraintMap;
+  notes: CommentMap;
+}
+
+export interface ScheduleComparisonOffInputDiffRow {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  leftText: string;
+  rightText: string;
+  changeType: ScheduleComparisonOffDiffType;
+  changeTypeLabel: string;
+}
+
 export interface ScheduleComparisonDecisionModel {
   summaryBullets: string[];
   offInputRows: ScheduleComparisonTextRow[];
+  offInputDiffRows: ScheduleComparisonOffInputDiffRow[];
+  offInputDiffEmptyText: string;
   requirementRows: ScheduleComparisonRequirementRow[];
 }
 
@@ -30,6 +62,11 @@ export interface BuildScheduleComparisonDecisionModelArgs {
   rightVersion: ScheduleVersionSummary;
   leftReview: ScheduleReviewResponse | null;
   rightReview: ScheduleReviewResponse | null;
+  leftComplianceResult?: ScheduleComplianceResult | null;
+  rightComplianceResult?: ScheduleComplianceResult | null;
+  leftOffInput?: ScheduleComparisonOffInputSnapshot | null;
+  rightOffInput?: ScheduleComparisonOffInputSnapshot | null;
+  employees?: Array<{ id: string; name: string }>;
 }
 
 export interface OffReflectionDisplay {
@@ -42,7 +79,18 @@ export interface OffReflectionDisplay {
 
 const UNKNOWN_TEXT = '검토 정보 없음';
 const NO_REQUEST_TEXT = '요청 없음';
+const OFF_INPUT_DIFF_EMPTY_TEXT = '두 안의 Off 요청 입력은 같습니다.';
 const NIGHT_SHIFT_MAX_LIMIT = 15;
+
+const COMPLIANCE_REQUIREMENT_DEFINITIONS: Array<{
+  code: ScheduleComplianceRuleCode;
+  label: string;
+}> = [
+  { code: 'nod_pattern', label: 'NOD 근무 불가' },
+  { code: 'triple_night', label: '3연속 야간(N) 근무 불가' },
+  { code: 'rest_after_two_nights', label: '2연속 야간(N) 후 48시간 이상 휴식' },
+  { code: 'monthly_night_limit', label: '야간 근무 월 15회 이하' },
+];
 
 function formatVersionLabel(version: ScheduleVersionSummary): string {
   return formatScheduleVersionLabel(version);
@@ -77,6 +125,27 @@ function formatViolationText(violationCount: number | null | undefined): string 
   }
 
   return violationCount === 0 ? '통과' : `위반 ${violationCount}건`;
+}
+
+function findComplianceSummary(
+  compliance: ScheduleComplianceResult | null | undefined,
+  code: ScheduleComplianceRuleCode
+): ScheduleComplianceRuleSummary | null {
+  return compliance?.summaries.find((summary) => summary.code === code) ?? null;
+}
+
+function getComplianceStatus(
+  summary: ScheduleComplianceRuleSummary | null
+): ScheduleComparisonRequirementStatus {
+  if (!summary) return 'unknown';
+  return summary.status;
+}
+
+function formatComplianceText(summary: ScheduleComplianceRuleSummary | null): string {
+  if (!summary) return UNKNOWN_TEXT;
+  if (summary.status === 'passed') return '통과';
+  if (summary.status === 'check_required') return '확인 필요';
+  return `위반 ${summary.violationCount}건`;
 }
 
 function getNightShiftMaxStatus(
@@ -153,6 +222,43 @@ function buildOffReflectionDisplay(
   };
 }
 
+function buildComplianceOffDisplay(
+  compliance: ScheduleComplianceResult | null | undefined
+): OffReflectionDisplay {
+  const offRequests = compliance?.offRequests;
+  if (!offRequests) {
+    return {
+      status: 'unknown',
+      text: UNKNOWN_TEXT,
+      fulfilled: null,
+      total: null,
+      rate: null,
+    };
+  }
+
+  if (offRequests.totalRequests === 0) {
+    return {
+      status: 'unknown',
+      text: NO_REQUEST_TEXT,
+      fulfilled: 0,
+      total: 0,
+      rate: null,
+    };
+  }
+
+  const rate = offRequests.reflectionRate == null
+    ? Math.round((offRequests.fulfilledRequests / offRequests.totalRequests) * 100)
+    : Math.round(offRequests.reflectionRate);
+
+  return {
+    status: offRequests.unfulfilledRequests === 0 ? 'passed' : 'failed',
+    text: `${offRequests.totalRequests}건 중 ${offRequests.fulfilledRequests}건 반영 (${rate}%)`,
+    fulfilled: offRequests.fulfilledRequests,
+    total: offRequests.totalRequests,
+    rate,
+  };
+}
+
 function buildRequirementRow(
   label: string,
   leftViolationCount: number | null | undefined,
@@ -194,6 +300,145 @@ function buildOffRow(
     leftText: leftDisplay.text,
     rightText: rightDisplay.text,
   };
+}
+
+function buildComplianceRequirementRow(
+  label: string,
+  leftSummary: ScheduleComplianceRuleSummary | null,
+  rightSummary: ScheduleComplianceRuleSummary | null
+): ScheduleComparisonRequirementRow {
+  return {
+    group: 'mandatory',
+    label,
+    leftStatus: getComplianceStatus(leftSummary),
+    rightStatus: getComplianceStatus(rightSummary),
+    leftText: formatComplianceText(leftSummary),
+    rightText: formatComplianceText(rightSummary),
+  };
+}
+
+function isOffRequested(
+  snapshot: ScheduleComparisonOffInputSnapshot | null | undefined,
+  employeeId: string,
+  date: string
+): boolean {
+  return snapshot?.constraints?.[employeeId]?.[date] === 'O';
+}
+
+function getTrimmedOffNote(
+  snapshot: ScheduleComparisonOffInputSnapshot | null | undefined,
+  employeeId: string,
+  date: string
+): string {
+  return snapshot?.notes?.[employeeId]?.[date]?.trim() ?? '';
+}
+
+function formatOffInputText(isRequested: boolean, note: string): string {
+  if (!isRequested) return '-';
+  return note ? `Off · ${note}` : 'Off';
+}
+
+function getOffInputDiffLabel(changeType: ScheduleComparisonOffDiffType): string {
+  if (changeType === 'left_only') return '왼쪽만 Off';
+  if (changeType === 'right_only') return '오른쪽만 Off';
+  return '메모 변경';
+}
+
+function buildEmployeeOrderMap(employees: Array<{ id: string; name: string }> = []) {
+  return new Map(employees.map((employee, index) => [employee.id, index]));
+}
+
+function getEmployeeName(
+  employeeId: string,
+  employees: Array<{ id: string; name: string }> = []
+): string {
+  return employees.find((employee) => employee.id === employeeId)?.name ?? employeeId;
+}
+
+function collectOffInputCells(
+  snapshot: ScheduleComparisonOffInputSnapshot | null | undefined,
+  cells: Set<string>
+): void {
+  for (const [employeeId, dateMap] of Object.entries(snapshot?.constraints ?? {})) {
+    for (const [date, requestCode] of Object.entries(dateMap || {})) {
+      if (requestCode === 'O') {
+        cells.add(`${employeeId}::${date}`);
+      }
+    }
+  }
+}
+
+function buildOffInputDiffRows(
+  leftOffInput: ScheduleComparisonOffInputSnapshot | null | undefined,
+  rightOffInput: ScheduleComparisonOffInputSnapshot | null | undefined,
+  employees: Array<{ id: string; name: string }> = []
+): ScheduleComparisonOffInputDiffRow[] {
+  const cells = new Set<string>();
+  collectOffInputCells(leftOffInput, cells);
+  collectOffInputCells(rightOffInput, cells);
+
+  const employeeOrderMap = buildEmployeeOrderMap(employees);
+
+  return Array.from(cells)
+    .map((cell) => {
+      const [employeeId = '', date = ''] = cell.split('::');
+      const leftRequested = isOffRequested(leftOffInput, employeeId, date);
+      const rightRequested = isOffRequested(rightOffInput, employeeId, date);
+      const leftNote = getTrimmedOffNote(leftOffInput, employeeId, date);
+      const rightNote = getTrimmedOffNote(rightOffInput, employeeId, date);
+
+      if (leftRequested && !rightRequested) {
+        return {
+          employeeId,
+          employeeName: getEmployeeName(employeeId, employees),
+          date,
+          leftText: formatOffInputText(true, leftNote),
+          rightText: '-',
+          changeType: 'left_only' as const,
+          changeTypeLabel: getOffInputDiffLabel('left_only'),
+        };
+      }
+
+      if (!leftRequested && rightRequested) {
+        return {
+          employeeId,
+          employeeName: getEmployeeName(employeeId, employees),
+          date,
+          leftText: '-',
+          rightText: formatOffInputText(true, rightNote),
+          changeType: 'right_only' as const,
+          changeTypeLabel: getOffInputDiffLabel('right_only'),
+        };
+      }
+
+      if (leftRequested && rightRequested && leftNote !== rightNote) {
+        return {
+          employeeId,
+          employeeName: getEmployeeName(employeeId, employees),
+          date,
+          leftText: formatOffInputText(true, leftNote),
+          rightText: formatOffInputText(true, rightNote),
+          changeType: 'note_changed' as const,
+          changeTypeLabel: getOffInputDiffLabel('note_changed'),
+        };
+      }
+
+      return null;
+    })
+    .filter((row): row is ScheduleComparisonOffInputDiffRow => row !== null)
+    .sort((left, right) => {
+      const dateOrder = left.date.localeCompare(right.date);
+      if (dateOrder !== 0) return dateOrder;
+
+      const leftOrder = employeeOrderMap.get(left.employeeId) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = employeeOrderMap.get(right.employeeId) ?? Number.MAX_SAFE_INTEGER;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+      const nameOrder = left.employeeName.localeCompare(right.employeeName, 'ko');
+      if (nameOrder !== 0) return nameOrder;
+
+      return left.employeeId.localeCompare(right.employeeId);
+    });
 }
 
 function countMandatoryFailures(
@@ -384,33 +629,55 @@ export function buildScheduleComparisonDecisionModel({
   rightVersion,
   leftReview,
   rightReview,
+  leftComplianceResult,
+  rightComplianceResult,
+  leftOffInput,
+  rightOffInput,
+  employees = [],
 }: BuildScheduleComparisonDecisionModelArgs): ScheduleComparisonDecisionModel {
   const leftEvaluation = leftReview?.latestEvaluation;
   const rightEvaluation = rightReview?.latestEvaluation;
-  const leftOffDisplay = buildOffReflectionDisplay(leftReview, leftVersion);
-  const rightOffDisplay = buildOffReflectionDisplay(rightReview, rightVersion);
-  const requirementRows: ScheduleComparisonRequirementRow[] = [
-    buildRequirementRow(
-      'NOD 근무 불가',
-      leftEvaluation?.proofSummary?.nodViolations,
-      rightEvaluation?.proofSummary?.nodViolations
-    ),
-    buildRequirementRow(
-      '3연속 야간(N) 근무 불가',
-      leftEvaluation?.proofSummary?.nnnViolations,
-      rightEvaluation?.proofSummary?.nnnViolations
-    ),
-    buildRequirementRow(
-      '2연속 야간(N) 후 48시간 이상 휴식',
-      leftEvaluation?.proofSummary?.minimumRestViolations,
-      rightEvaluation?.proofSummary?.minimumRestViolations
-    ),
-    buildNightShiftRow(
-      leftEvaluation?.comparisonMetrics?.nightShiftMax,
-      rightEvaluation?.comparisonMetrics?.nightShiftMax
-    ),
-    buildOffRow(leftOffDisplay, rightOffDisplay),
-  ];
+  const hasComplianceResults = leftComplianceResult !== undefined || rightComplianceResult !== undefined;
+  const leftOffDisplay = hasComplianceResults
+    ? buildComplianceOffDisplay(leftComplianceResult)
+    : buildOffReflectionDisplay(leftReview, leftVersion);
+  const rightOffDisplay = hasComplianceResults
+    ? buildComplianceOffDisplay(rightComplianceResult)
+    : buildOffReflectionDisplay(rightReview, rightVersion);
+  const requirementRows: ScheduleComparisonRequirementRow[] = hasComplianceResults
+    ? [
+        ...COMPLIANCE_REQUIREMENT_DEFINITIONS.map(({ code, label }) =>
+          buildComplianceRequirementRow(
+            label,
+            findComplianceSummary(leftComplianceResult, code),
+            findComplianceSummary(rightComplianceResult, code)
+          )
+        ),
+        buildOffRow(leftOffDisplay, rightOffDisplay),
+      ]
+    : [
+        buildRequirementRow(
+          'NOD 근무 불가',
+          leftEvaluation?.proofSummary?.nodViolations,
+          rightEvaluation?.proofSummary?.nodViolations
+        ),
+        buildRequirementRow(
+          '3연속 야간(N) 근무 불가',
+          leftEvaluation?.proofSummary?.nnnViolations,
+          rightEvaluation?.proofSummary?.nnnViolations
+        ),
+        buildRequirementRow(
+          '2연속 야간(N) 후 48시간 이상 휴식',
+          leftEvaluation?.proofSummary?.minimumRestViolations,
+          rightEvaluation?.proofSummary?.minimumRestViolations
+        ),
+        buildNightShiftRow(
+          leftEvaluation?.comparisonMetrics?.nightShiftMax,
+          rightEvaluation?.comparisonMetrics?.nightShiftMax
+        ),
+        buildOffRow(leftOffDisplay, rightOffDisplay),
+      ];
+  const offInputDiffRows = buildOffInputDiffRows(leftOffInput, rightOffInput, employees);
 
   return {
     summaryBullets: buildDecisionSummaryBullets(
@@ -432,6 +699,8 @@ export function buildScheduleComparisonDecisionModel({
         rightText: rightVersion.inputDiffSummary.note?.trim() || '메모 없음',
       },
     ],
+    offInputDiffRows,
+    offInputDiffEmptyText: OFF_INPUT_DIFF_EMPTY_TEXT,
     requirementRows,
   };
 }
