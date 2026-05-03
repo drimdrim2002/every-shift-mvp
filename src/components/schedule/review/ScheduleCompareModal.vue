@@ -3,6 +3,8 @@ import { NAlert, NButton, NModal, NSpin } from 'naive-ui';
 import ComparisonWorkspace from '@/components/schedule/review/ComparisonWorkspace.vue';
 import VersionCandidateShelf from '@/components/schedule/review/VersionCandidateShelf.vue';
 import type { ScheduleReviewResponse, ScheduleVersionSummary } from '@/types/schedule';
+import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
+import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 
 defineProps<{
   show: boolean;
@@ -15,6 +17,12 @@ defineProps<{
   rightVersion: ScheduleVersionSummary | null;
   leftReview: ScheduleReviewResponse | null;
   rightReview: ScheduleReviewResponse | null;
+  leftComplianceResult: ScheduleComplianceResult | null;
+  rightComplianceResult: ScheduleComplianceResult | null;
+  leftOffInput: ScheduleComparisonOffInputSnapshot | null;
+  rightOffInput: ScheduleComparisonOffInputSnapshot | null;
+  employees: Array<{ id: string; name: string }>;
+  month: string;
   loading?: boolean;
   errorMessage?: string | null;
 }>();
@@ -111,6 +119,12 @@ const emit = defineEmits<{
           :right-version="rightVersion"
           :left-review="leftReview"
           :right-review="rightReview"
+          :left-compliance-result="leftComplianceResult"
+          :right-compliance-result="rightComplianceResult"
+          :left-off-input="leftOffInput"
+          :right-off-input="rightOffInput"
+          :employees="employees"
+          :month="month"
           :focused-version-id="focusedVersionId"
           @focus-version="emit('focus-version', $event)"
         />

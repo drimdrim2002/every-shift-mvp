@@ -338,6 +338,12 @@
           :right-version="rightComparedVersion"
           :left-review="leftComparedReview"
           :right-review="rightComparedReview"
+          :left-compliance-result="leftComparisonVersionData?.complianceResult ?? null"
+          :right-compliance-result="rightComparisonVersionData?.complianceResult ?? null"
+          :left-off-input="leftComparisonVersionData?.offInput ?? null"
+          :right-off-input="rightComparisonVersionData?.offInput ?? null"
+          :employees="grid.employees.value"
+          :month="scheduleStore.basicInfo?.month ?? ''"
           :loading="isCompareModalLoading"
           :error-message="compareModalErrorMessage"
           @update:show="handleCompareModalVisibility"
@@ -538,6 +544,7 @@ import {
 } from '@/utils/rollingHistory';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
+import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 import type {
   AssignmentMap,
   ConstraintMap,
@@ -609,6 +616,12 @@ const isPrimaryActionRunning = ref(false);
 const isCompareModalOpen = ref(false);
 const isCompareModalLoading = ref(false);
 const compareModalErrorMessage = ref<string | null>(null);
+interface ComparisonVersionData {
+  assignments: AssignmentMap;
+  offInput: ScheduleComparisonOffInputSnapshot;
+  complianceResult: ScheduleComplianceResult;
+}
+const comparisonVersionDataById = ref<Record<string, ComparisonVersionData>>({});
 const lastMonthDays = ref(5);
 const maxVisibleLastMonthDays = ref(0);
 const hasInitializedLastMonthDays = ref(false);
@@ -925,6 +938,16 @@ const leftComparedReview = computed<ScheduleReviewResponse | null>(() => {
 const rightComparedReview = computed<ScheduleReviewResponse | null>(() => {
   return rightComparedVersion.value ? comparedReviews.value[rightComparedVersion.value.id] ?? null : null;
 });
+const leftComparisonVersionData = computed<ComparisonVersionData | null>(() => {
+  return leftComparedVersion.value
+    ? comparisonVersionDataById.value[leftComparedVersion.value.id] ?? null
+    : null;
+});
+const rightComparisonVersionData = computed<ComparisonVersionData | null>(() => {
+  return rightComparedVersion.value
+    ? comparisonVersionDataById.value[rightComparedVersion.value.id] ?? null
+    : null;
+});
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
@@ -942,27 +965,7 @@ const liveComplianceResult = computed(() => {
 });
 const complianceResult = computed<ScheduleComplianceResult>(() => {
   const result = liveComplianceResult.value;
-  if (!previousMonthFallbackError.value) {
-    return result;
-  }
-
-  return {
-    ...result,
-    mandatoryPassed: false,
-    canFinalizeLocally: false,
-    checkRequiredCount: result.checkRequiredCount + 1,
-    summaries: result.summaries.map((summary) => {
-      if (summary.status !== 'passed') {
-        return summary;
-      }
-
-      return {
-        ...summary,
-        status: 'check_required',
-        message: PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE,
-      };
-    }),
-  };
+  return applyPreviousMonthFallbackWarning(result);
 });
 const complianceFinalizeBlockReason = computed(() => {
   if (complianceResult.value.checkRequiredCount > 0) {
@@ -1196,21 +1199,11 @@ function syncPolicyRejectionDisplay(
   policyRejectionSummariesCurrentMonth.value = nextSummaries;
 }
 
-async function loadPreferencesForDisplay() {
-  const emptyConstraints = createEmptyConstraintMapForEmployees();
-  const emptyNotes = createEmptyCommentMapForEmployees();
-  const currentMonth = scheduleStore.basicInfo?.month || '';
-  const versionId = previewVersionId.value;
-
-  if (!currentMonth || !versionId) {
-    offRequestsCurrentMonth.value = emptyConstraints;
-    offRequestNotesCurrentMonth.value = emptyNotes;
-    policyRejectionSummariesCurrentMonth.value = [];
-    return;
-  }
-
-  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
-
+function buildCurrentMonthOffInputSnapshot(
+  constraints: ConstraintMap,
+  notes: CommentMap,
+  currentMonth: string
+): ScheduleComparisonOffInputSnapshot {
   const filteredConstraints: ConstraintMap = createEmptyConstraintMapForEmployees();
   const filteredNotes: CommentMap = createEmptyCommentMapForEmployees();
 
@@ -1231,6 +1224,31 @@ async function loadPreferencesForDisplay() {
       filteredNotes[employeeId]![date] = note;
     }
   }
+
+  return {
+    constraints: filteredConstraints,
+    notes: filteredNotes,
+  };
+}
+
+async function loadPreferencesForDisplay() {
+  const emptyConstraints = createEmptyConstraintMapForEmployees();
+  const emptyNotes = createEmptyCommentMapForEmployees();
+  const currentMonth = scheduleStore.basicInfo?.month || '';
+  const versionId = previewVersionId.value;
+
+  if (!currentMonth || !versionId) {
+    offRequestsCurrentMonth.value = emptyConstraints;
+    offRequestNotesCurrentMonth.value = emptyNotes;
+    policyRejectionSummariesCurrentMonth.value = [];
+    return;
+  }
+
+  const { constraints, notes, preferences } = await getScheduleVersionPreferences(versionId);
+
+  const offInput = buildCurrentMonthOffInputSnapshot(constraints, notes, currentMonth);
+  const filteredConstraints = offInput.constraints;
+  const filteredNotes = offInput.notes;
 
   for (const pref of preferences as PreferenceWithPolicyResult[]) {
     if (!pref.date.startsWith(currentMonth)) continue;
@@ -1319,6 +1337,30 @@ function mergeComplianceAssignments(
   }
 
   return merged;
+}
+
+function applyPreviousMonthFallbackWarning(result: ScheduleComplianceResult): ScheduleComplianceResult {
+  if (!previousMonthFallbackError.value) {
+    return result;
+  }
+
+  return {
+    ...result,
+    mandatoryPassed: false,
+    canFinalizeLocally: false,
+    checkRequiredCount: result.checkRequiredCount + 1,
+    summaries: result.summaries.map((summary) => {
+      if (summary.status !== 'passed') {
+        return summary;
+      }
+
+      return {
+        ...summary,
+        status: 'check_required',
+        message: PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE,
+      };
+    }),
+  };
 }
 
 function rebuildDisplayAssignments(baseCurrentAssignments: AssignmentMap = currentScheduleAssignments.value) {
@@ -1527,6 +1569,79 @@ async function loadCurrentAssignments(options: { syncOriginal?: boolean; clearCh
   if (clearChanges) {
     changedCells.value.clear();
   }
+}
+
+async function loadComparisonVersionData(versionId: string): Promise<ComparisonVersionData> {
+  const currentMonth = scheduleStore.basicInfo?.month;
+  if (!currentMonth) {
+    throw new Error('비교할 근무표 월 정보를 확인할 수 없습니다.');
+  }
+
+  const [assignmentData, preferenceData] = await Promise.all([
+    getScheduleVersionAssignments(versionId),
+    getScheduleVersionPreferences(versionId),
+  ]);
+  const { currentAssignments, previousAssignments } = splitAssignmentsByMonth(
+    assignmentData.assignments,
+  );
+  const mergedPreviousAssignments = mergeAssignmentMapsWithFallback(
+    previousAssignments,
+    previousMonthFallbackAssignments.value,
+    buildRollingHistoryWindow(currentMonth, 7).previousMonthDates,
+  );
+  const offInput = buildCurrentMonthOffInputSnapshot(
+    preferenceData.constraints,
+    preferenceData.notes,
+    currentMonth,
+  );
+  const complianceResult = applyPreviousMonthFallbackWarning(
+    evaluateScheduleCompliance({
+      month: currentMonth,
+      employees: grid.employees.value,
+      assignments: mergeComplianceAssignments(
+        mergedPreviousAssignments,
+        currentAssignments,
+      ),
+      offRequests: offInput.constraints,
+      shifts: organizationStore.shifts,
+    })
+  );
+
+  return {
+    assignments: currentAssignments,
+    offInput,
+    complianceResult,
+  };
+}
+
+async function hydrateComparisonVersionData(): Promise<void> {
+  const selectedIds = [leftComparedVersion.value?.id, rightComparedVersion.value?.id]
+    .filter((versionId): versionId is string => Boolean(versionId));
+  const selectedIdSet = new Set(selectedIds);
+  const nextCache = { ...comparisonVersionDataById.value };
+
+  for (const cachedId of Object.keys(nextCache)) {
+    if (!selectedIdSet.has(cachedId)) {
+      delete nextCache[cachedId];
+    }
+  }
+
+  if (selectedIds.length < 2) {
+    comparisonVersionDataById.value = nextCache;
+    return;
+  }
+
+  const loadedData = await Promise.all(
+    selectedIds.map(async (versionId) => ({
+      versionId,
+      data: await loadComparisonVersionData(versionId),
+    }))
+  );
+
+  for (const { versionId, data } of loadedData) {
+    nextCache[versionId] = data;
+  }
+  comparisonVersionDataById.value = nextCache;
 }
 
 function startAssignmentsRefresh() {
@@ -2114,11 +2229,10 @@ async function handleOpenCompareModal() {
 
   try {
     await hub.hydrateComparedReviews();
+    await hydrateComparisonVersionData();
   } catch (error) {
     console.warn('근무표안 비교 로드 중 오류:', error);
-    compareModalErrorMessage.value = error instanceof Error
-      ? error.message
-      : '근무표안 비교 정보를 불러오는 중 오류가 발생했습니다.';
+    compareModalErrorMessage.value = '비교 데이터를 불러오지 못했습니다.';
   } finally {
     isCompareModalLoading.value = false;
   }
@@ -2151,6 +2265,10 @@ async function syncComparisonWorkspace(
   }, {
     loadComparedReviews: true,
   });
+
+  if (isCompareModalOpen.value) {
+    await hydrateComparisonVersionData();
+  }
 }
 
 function buildNextCompareVersionIds(versionId: string): string[] {

@@ -1424,6 +1424,177 @@ describe('Step5Result', () => {
     expect(document.body.textContent).not.toContain('V1')
   })
 
+  it('loads compared version assignments and preferences for compliance comparison', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve' }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          assignments: {
+            'emp-1': {
+              '2025-11-30': 'N',
+              '2025-12-02': 'O',
+            },
+          },
+          offReasons: {},
+          comments: {},
+        })
+      }
+
+      return Promise.resolve({
+        assignments: {
+          'emp-1': {
+            '2025-12-03': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    })
+    getScheduleVersionPreferencesMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          constraints: {
+            'emp-1': {
+              '2025-12-02': 'O',
+              '2026-01-01': 'O',
+            },
+          },
+          notes: {
+            'emp-1': {
+              '2025-12-02': '왼쪽 메모',
+              '2026-01-01': '다음 달 메모',
+            },
+          },
+          preferences: [],
+        })
+      }
+
+      return Promise.resolve({
+        constraints: {
+          'emp-1': {
+            '2025-12-03': 'O',
+          },
+        },
+        notes: {
+          'emp-1': {
+            '2025-12-03': '오른쪽 메모',
+          },
+        },
+        preferences: [],
+      })
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-2')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+    expect(document.body.textContent).toContain('1건 중 1건 반영 (100%)')
+    expect(document.body.textContent).toContain('1건 중 0건 반영 (0%)')
+    expect(document.body.textContent).toContain('Kim')
+    expect(document.body.textContent).toContain('왼쪽만 Off')
+    expect(document.body.textContent).toContain('오른쪽만 Off')
+    expect(document.body.textContent).not.toContain('2026-01-01')
+  })
+
+  it('shows modal-local comparison data errors and retries assignments and preferences', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    getScheduleVersionAssignmentsMock
+      .mockRejectedValueOnce(new Error('assignments failed'))
+      .mockResolvedValue({
+        assignments: {
+          'emp-1': {
+            '2025-12-01': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
+    })
+
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(document.querySelector('[data-test="compare-modal-error"]')).toBeTruthy()
+    expect(document.body.textContent).toContain('비교 데이터를 불러오지 못했습니다.')
+
+    const retryButton = Array.from(document.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('다시 시도'))
+    expect(retryButton).toBeTruthy()
+    retryButton!.click()
+    await flushPromises()
+
+    expect(getScheduleVersionAssignmentsMock.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalled()
+  })
+
   it('hides solve_failed versions from comparison candidates even when requested by query', async () => {
     routeMock.query = {
       version: 'version-3',
