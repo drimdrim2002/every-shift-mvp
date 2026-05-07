@@ -271,7 +271,7 @@ import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
 import { useOrganizationStore } from '@/stores/organization';
 import { useRbacStore } from '@/stores/rbac';
 import { useScheduleStore } from '@/stores/schedule';
-import { getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
+import { deletePhase2ScheduleMonth, getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
 import { showSuccess, showError, showWarning } from '@/utils/message';
@@ -629,6 +629,10 @@ function isSelectableDashboardMonth(month: string) {
   return isSchedulableMonthAvailable(month, existingScheduleMonthSet.value);
 }
 
+function formatDatePickerMonth(year: number, zeroBasedMonth: number) {
+  return `${year}-${String(zeroBasedMonth + 1).padStart(2, '0')}`;
+}
+
 function isMonthDateDisabled(timestamp: number, detail: DatePickerDisableDetail) {
   if (detail.type === 'year') {
     return !schedulableMonthWindow.value.some((month) => {
@@ -644,7 +648,7 @@ function isMonthDateDisabled(timestamp: number, detail: DatePickerDisableDetail)
   }
 
   if (detail.type === 'month') {
-    return !isSelectableDashboardMonth(`${detail.year}-${String(detail.month).padStart(2, '0')}`);
+    return !isSelectableDashboardMonth(formatDatePickerMonth(detail.year, detail.month));
   }
 
   return !isSelectableDashboardMonth(dayjs(timestamp).format('YYYY-MM'));
@@ -767,22 +771,45 @@ function handleDelete(schedule: Schedule) {
     negativeText: '취소',
     onPositiveClick: async () => {
       try {
-        // schedule_assignments 먼저 삭제 (FK 제약)
-        await supabase.from('schedule_assignments').delete().eq('schedule_id', schedule.id);
-
-        // schedule 삭제
-        const { error } = await supabase.from('schedules').delete().eq('id', schedule.id);
-
-        if (error) throw error;
-
+        await deletePhase2ScheduleMonth({
+          organizationId: schedule.organization_id,
+          month: schedule.month,
+        });
         showSuccess('근무표가 삭제되었습니다');
         await loadSchedules();
       } catch (error) {
         console.warn('삭제 실패:', error);
-        showError('삭제 중 오류가 발생했습니다');
+        showError(getDeleteScheduleErrorMessage(error));
       }
     },
   });
+}
+
+function readDeleteScheduleErrorCode(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
+    return candidate.code;
+  }
+  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
+    return candidate.message;
+  }
+
+  return null;
+}
+
+function getDeleteScheduleErrorMessage(error: unknown): string {
+  switch (readDeleteScheduleErrorCode(error)) {
+    case 'already_finalized':
+      return '확정된 근무표는 삭제할 수 없습니다.';
+    case 'version_locked_for_solving':
+      return '근무표 생성이 진행 중입니다. 완료 후 다시 삭제해주세요.';
+    default:
+      return '삭제 중 오류가 발생했습니다';
+  }
 }
 
 function getStatusText(status: string): string {

@@ -69,6 +69,7 @@ async function fillCommonFields(page: Page, email: string) {
   await page.getByPlaceholder('이름 입력').fill('테스트 사용자')
   await page.getByPlaceholder('name@example.com').fill(email)
   await page.getByPlaceholder('8자 이상 입력').fill('password123')
+  await page.getByPlaceholder('비밀번호 재입력').fill('password123')
 }
 
 async function openSignupForm(page: Page) {
@@ -110,9 +111,11 @@ test.describe('/signup flow', () => {
     await openSignupForm(page)
 
     await expect(
-      page.getByText('병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.'),
+      page.getByText('병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.'),
     ).toBeVisible()
-    await expect(page.getByText('검색 결과 출처: 공공데이터포털(data.go.kr)')).toBeVisible()
+    await expect(page.getByTestId('signup-hospital-search-source')).toContainText(
+      '검색 출처: 공공데이터포털(data.go.kr)',
+    )
     await expect(page.getByPlaceholder('초대코드 입력')).toHaveCount(0)
   })
 
@@ -121,7 +124,7 @@ test.describe('/signup flow', () => {
     await openSignupForm(page)
 
     await expect(page.getByPlaceholder('초대코드 입력')).toBeVisible()
-    await expect(page.getByText('검색 결과 출처: 공공데이터포털(data.go.kr)')).toHaveCount(0)
+    await expect(page.getByTestId('signup-hospital-search-source')).toHaveCount(0)
   })
 
   test('routes admin signup success through pending approval login handoff', async ({ page }) => {

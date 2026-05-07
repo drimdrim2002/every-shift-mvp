@@ -182,6 +182,20 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       await expect(page.getByText(/요청 입력/)).toBeVisible()
       await expect(page.getByText('월간 검토 워크스페이스')).toBeVisible()
       await expect(page.locator('[data-test="request-drawer-toggle"]').first()).toBeVisible()
+
+      await test.step('Step4 그리드 셀 클릭으로 요청 Drawer가 열린다', async () => {
+        const firstGridCell = page.locator('tbody tr').nth(0).locator('.constraint-selector').nth(0)
+
+        await expect(page.locator('[data-test="step4-request-composer"]')).toHaveCount(0)
+        await firstGridCell.click()
+        await expect(page.locator('[data-test="step4-request-composer"]')).toBeVisible()
+        await expect(page.locator('[data-test="step4-employee-select"]')).toBeVisible()
+
+        await page.locator('[data-test="reset-draft"]').click()
+        await page.keyboard.press('Escape')
+        await expect(page.locator('[data-test="step4-request-composer"]')).toHaveCount(0)
+      })
+
       await completeStep4InitialData(page)
     })
 

@@ -137,19 +137,47 @@
           class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
         >
           <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-            <div class="space-y-1">
-              <h3 class="text-base font-semibold text-slate-900">
-                사전 Off 요청 캘린더
-              </h3>
-              <p
-                v-if="selectedEmployeeName || selectedDateSummary"
-                class="text-sm text-slate-600"
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="space-y-1">
+                <h3 class="text-base font-semibold text-slate-900">
+                  사전 Off 요청 캘린더
+                </h3>
+                <p
+                  v-if="selectedEmployeeName || selectedDateSummary"
+                  class="text-sm text-slate-600"
+                >
+                  <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
+                  <span v-if="selectedDateSummary">
+                    <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
+                  </span>
+                </p>
+              </div>
+              <n-button
+                data-test="step4-excel-upload-button"
+                size="small"
+                secondary
+                type="success"
+                class="font-semibold"
+                @click="handleOpenOffRequestExcelUploadModal"
               >
-                <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
-                <span v-if="selectedDateSummary">
-                  <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
-                </span>
-              </p>
+                <template #icon>
+                  <svg
+                    class="size-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M17 8l-5-5-5 5" />
+                    <path d="M12 3v12" />
+                  </svg>
+                </template>
+                Excel 업로드
+              </n-button>
             </div>
           </div>
 
@@ -230,7 +258,7 @@
                   요청 입력
                 </h3>
                 <p class="text-sm text-slate-600">
-                  근무자와 날짜를 선택해 Off 요청을 반영하세요.
+                  {{ requestDrawerHelpCopy }}
                 </p>
               </div>
               <n-button
@@ -351,6 +379,15 @@
       :assignments="constraints"
       :comments="displayConstraintNotes"
       @close="showDaySummaryModal = false"
+    />
+
+    <Step4OffRequestExcelUploadModal
+      :show="isOffRequestExcelUploadModalOpen"
+      :employees="grid.employees.value"
+      :dates="grid.dates.value"
+      :month="scheduleStore.basicInfo?.month ?? ''"
+      @update:show="isOffRequestExcelUploadModalOpen = $event"
+      @apply="handleApplyOffRequestExcelUpload"
     />
 
     <n-modal
@@ -508,6 +545,7 @@ import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
+import Step4OffRequestExcelUploadModal from '@/components/schedule/Step4OffRequestExcelUploadModal.vue';
 import Step4RequestComposer from '@/components/schedule/request-entry/Step4RequestComposer.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import {
@@ -564,6 +602,7 @@ const showCommentModal = ref(false);
 const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
 const showDaySummaryModal = ref(false);
 const selectedDaySummaryDate = ref<string>('');
+const isOffRequestExcelUploadModalOpen = ref(false);
 const showExistingHistoryChoiceModal = ref(false);
 const hasShownExistingHistoryChoiceModal = ref(false);
 const isEditOffStartModalOpen = ref(false);
@@ -578,6 +617,7 @@ const requestComposerRef = ref<{
   prefillSearchQuery?: (value: string) => void;
 } | null>(null);
 const isRequestDrawerOpen = ref(false);
+const isRequestDrawerOpenedFromGridShortcut = ref(false);
 
 const selectedEmployeeIds = ref<string[]>([]);
 const draftRequestTypeId = ref<Step4RequestTypeId>('off');
@@ -718,6 +758,13 @@ const requestDrawerStatusCopy = computed(() => {
   return hasHiddenUnappliedDraft.value
     ? HIDDEN_DRAFT_BLOCKED_REASON
     : '필요할 때만 요청 입력 창을 열어 Off 요청을 추가할 수 있습니다.';
+});
+const requestDrawerHelpCopy = computed(() => {
+  if (isRequestDrawerOpenedFromGridShortcut.value && hasUnappliedDraft.value) {
+    return '선택한 셀을 Off 요청으로 반영하려면 요청 반영을 눌러 주세요.';
+  }
+
+  return '근무자와 날짜를 선택해 Off 요청을 반영하세요.';
 });
 const pageLevelBlockedReason = computed(() => {
   if (!hasUnappliedDraft.value) return null;
@@ -1269,6 +1316,7 @@ function findCurrentEmployeeRequest(requestKey: string): EmployeeRequestRowVM | 
 
 function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   if (!options.preserveEmployee) {
     selectedEmployeeIds.value = [];
   }
@@ -1281,6 +1329,32 @@ function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
   blockedTransitionReason.value = null;
 }
 
+function isSameDraftTarget(
+  nextEmployeeIds: string[],
+  nextDates: string[],
+  nextEditingRequestKey: string | null
+): boolean {
+  const sameEmployee =
+    JSON.stringify([...selectedEmployeeIds.value].sort()) === JSON.stringify([...nextEmployeeIds].sort());
+  const sameDates =
+    JSON.stringify(sortDates(draftSelectedDates.value)) === JSON.stringify(sortDates(nextDates));
+  const sameEditingRequest = editingRequestKey.value === nextEditingRequestKey;
+
+  return sameEmployee && sameDates && sameEditingRequest;
+}
+
+function shouldResetGridShortcutDraft(
+  nextEmployeeIds: string[],
+  nextDates: string[],
+  nextEditingRequestKey: string | null
+): boolean {
+  return (
+    isRequestDrawerOpenedFromGridShortcut.value &&
+    hasUnappliedDraft.value &&
+    !isSameDraftTarget(nextEmployeeIds, nextDates, nextEditingRequestKey)
+  );
+}
+
 function guardDraftTransition(
   nextEmployeeIds: string[],
   nextDates: string[],
@@ -1291,13 +1365,7 @@ function guardDraftTransition(
     return true;
   }
 
-  const sameEmployee =
-    JSON.stringify([...selectedEmployeeIds.value].sort()) === JSON.stringify([...nextEmployeeIds].sort());
-  const sameDates =
-    JSON.stringify(sortDates(draftSelectedDates.value)) === JSON.stringify(sortDates(nextDates));
-  const sameEditingRequest = editingRequestKey.value === nextEditingRequestKey;
-
-  if (sameEmployee && sameDates && sameEditingRequest) {
+  if (isSameDraftTarget(nextEmployeeIds, nextDates, nextEditingRequestKey)) {
     blockedTransitionReason.value = null;
     return true;
   }
@@ -1312,6 +1380,7 @@ function handleSelectEmployee(employeeIds: string[]): void {
   }
 
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   selectedEmployeeIds.value = [...employeeIds];
   draftSelectedDates.value = [];
   draftNote.value = '';
@@ -1322,12 +1391,14 @@ function handleSelectEmployee(employeeIds: string[]): void {
 
 function handleDraftSelectionModeUpdate(mode: Step4SelectionMode): void {
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   draftSelectionMode.value = mode;
   blockedTransitionReason.value = null;
 }
 
 function handleDraftSelectedDatesUpdate(dates: string[]): void {
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   draftSelectedDates.value = sortDates(dates);
   dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
   blockedTransitionReason.value = null;
@@ -1335,6 +1406,7 @@ function handleDraftSelectedDatesUpdate(dates: string[]): void {
 
 function handleDraftNoteUpdate(note: string): void {
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   draftNote.value = note;
   dirtySinceLastApply.value = draftSelectedDates.value.length > 0 || draftNote.value.trim().length > 0;
   blockedTransitionReason.value = null;
@@ -1343,20 +1415,31 @@ function handleDraftNoteUpdate(note: string): void {
 function handleGridCellSelect(payload: { employeeId: string; date: string }): void {
   const existingRow =
     buildCurrentEmployeeRequests(payload.employeeId).find((row) => row.dates.includes(payload.date)) ?? null;
-  if (!guardDraftTransition([payload.employeeId], [payload.date], existingRow?.requestKey ?? null)) {
+  const nextDates = existingRow?.dates ?? [payload.date];
+  const nextEditingRequestKey = existingRow?.requestKey ?? null;
+  const nextEmployeeIds = [payload.employeeId];
+
+  if (shouldResetGridShortcutDraft(nextEmployeeIds, nextDates, nextEditingRequestKey)) {
+    resetDraftState();
+  }
+
+  if (!guardDraftTransition(nextEmployeeIds, nextDates, nextEditingRequestKey)) {
+    void handleOpenRequestDrawer({ preserveBlockedReason: true });
     return;
   }
 
-  selectedEmployeeIds.value = [payload.employeeId];
+  isRequestDrawerOpenedFromGridShortcut.value = true;
+  selectedEmployeeIds.value = nextEmployeeIds;
   clearRequestApplyStatus();
   draftRequestTypeId.value = 'off';
-  draftSelectionMode.value = 'single';
-  draftSelectedDates.value = [payload.date];
-  draftNote.value = constraintNotes.value[payload.employeeId]?.[payload.date] ?? '';
-  editingRequestKey.value = existingRow?.requestKey ?? null;
-  dirtySinceLastApply.value = false;
+  draftSelectionMode.value = nextDates.length > 1 ? 'multi' : 'single';
+  draftSelectedDates.value = [...nextDates];
+  draftNote.value = existingRow?.note ?? constraintNotes.value[payload.employeeId]?.[payload.date] ?? '';
+  editingRequestKey.value = nextEditingRequestKey;
+  dirtySinceLastApply.value = existingRow === null;
   blockedTransitionReason.value = null;
   scrollEmployeeRowIntoView(payload.employeeId);
+  void handleOpenRequestDrawer();
 }
 
 function hydrateDraftFromRequestRow(requestKey: string): void {
@@ -1368,6 +1451,7 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 
   selectedEmployeeIds.value = [requestRow.employeeId];
   clearRequestApplyStatus();
+  isRequestDrawerOpenedFromGridShortcut.value = false;
   draftRequestTypeId.value = requestRow.requestTypeId;
   draftSelectionMode.value = requestRow.dates.length > 1 ? 'multi' : 'single';
   draftSelectedDates.value = [...requestRow.dates];
@@ -1929,9 +2013,11 @@ async function focusRequestComposerSearch(): Promise<void> {
   requestComposerRef.value?.focusSearchInput?.();
 }
 
-async function handleOpenRequestDrawer(): Promise<void> {
+async function handleOpenRequestDrawer(options: { preserveBlockedReason?: boolean } = {}): Promise<void> {
   isRequestDrawerOpen.value = true;
-  blockedTransitionReason.value = null;
+  if (!options.preserveBlockedReason) {
+    blockedTransitionReason.value = null;
+  }
   await focusRequestComposerSearch();
 }
 
@@ -1946,6 +2032,29 @@ function handleRequestDrawerVisibility(show: boolean): void {
   }
 
   handleCloseRequestDrawer();
+}
+
+function handleOpenOffRequestExcelUploadModal(): void {
+  if (pageLevelBlockedReason.value) {
+    showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
+    return;
+  }
+
+  isOffRequestExcelUploadModalOpen.value = true;
+}
+
+function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void {
+  pendingLocalDraftSnapshot.value = null;
+  policyRejectionReasons.value = {};
+  policyCheckStatuses.value = {};
+  selectedCell.value = null;
+  showCommentModal.value = false;
+  blockedTransitionReason.value = null;
+  resetDraftState();
+  commitPreferenceMaps(nextConstraints, {});
+  clearCurrentScopedTempPreferencesStorage();
+  isOffRequestExcelUploadModalOpen.value = false;
+  showSuccess('Excel Off 요청을 현재 화면에 반영했습니다. 저장하려면 변경사항 저장을 눌러 주세요.');
 }
 
 function scrollEmployeeRowIntoView(employeeId: string): void {
