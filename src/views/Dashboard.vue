@@ -629,6 +629,10 @@ function isSelectableDashboardMonth(month: string) {
   return isSchedulableMonthAvailable(month, existingScheduleMonthSet.value);
 }
 
+function formatDatePickerMonth(year: number, zeroBasedMonth: number) {
+  return `${year}-${String(zeroBasedMonth + 1).padStart(2, '0')}`;
+}
+
 function isMonthDateDisabled(timestamp: number, detail: DatePickerDisableDetail) {
   if (detail.type === 'year') {
     return !schedulableMonthWindow.value.some((month) => {
@@ -644,7 +648,7 @@ function isMonthDateDisabled(timestamp: number, detail: DatePickerDisableDetail)
   }
 
   if (detail.type === 'month') {
-    return !isSelectableDashboardMonth(`${detail.year}-${String(detail.month).padStart(2, '0')}`);
+    return !isSelectableDashboardMonth(formatDatePickerMonth(detail.year, detail.month));
   }
 
   return !isSelectableDashboardMonth(dayjs(timestamp).format('YYYY-MM'));

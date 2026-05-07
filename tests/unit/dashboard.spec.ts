@@ -776,32 +776,71 @@ describe('Dashboard', () => {
     expect(isDateDisabled(new Date('2025-04-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2025,
-      month: 4,
+      month: 3,
     })).toBe(true)
     expect(isDateDisabled(new Date('2027-06-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2027,
-      month: 6,
+      month: 5,
     })).toBe(true)
     expect(isDateDisabled(new Date('2026-05-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
-      month: 5,
+      month: 4,
     })).toBe(true)
     expect(isDateDisabled(new Date('2026-06-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
-      month: 6,
+      month: 5,
     })).toBe(true)
     expect(isDateDisabled(new Date('2026-07-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
-      month: 7,
+      month: 6,
     })).toBe(false)
     expect(isDateDisabled(new Date('2024-01-01T00:00:00+09:00').getTime(), {
       type: 'year',
       year: 2024,
     })).toBe(true)
+  })
+
+  it('keeps the month after an existing schedule selectable when date picker month detail is zero-based', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      {
+        id: 'schedule-march',
+        public_id: 'sch-march',
+        organization_id: 'org-1',
+        month: '2026-03',
+        status: 'complete',
+        hard_score: null,
+        soft_score: null,
+        created_at: '2026-03-01T00:00:00Z',
+        updated_at: '2026-03-01T00:00:00Z',
+      },
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => void }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+    const isDateDisabled = monthPicker.props('isDateDisabled') as (
+      timestamp: number,
+      detail: { type: 'month'; year: number; month: number }
+    ) => boolean
+
+    expect(isDateDisabled(new Date('2026-03-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 2,
+    })).toBe(true)
+    expect(isDateDisabled(new Date('2026-04-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 3,
+    })).toBe(false)
   })
 
   it('defaults to the nearest available month using the planned priority order', async () => {
