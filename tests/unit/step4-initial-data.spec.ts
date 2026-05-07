@@ -246,6 +246,12 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
         >
           grid-cell-select
         </button>
+        <button
+          data-test="grid-emit-second-cell-select"
+          @click="$emit('cell-select', { employeeId: 'emp-2', date: '2025-12-01' })"
+        >
+          grid-second-cell-select
+        </button>
       </div>
     `,
   }),
@@ -930,7 +936,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
   })
 
-  it('keeps grid cell selection as selection-only and does not auto-open the request drawer', async () => {
+  it('opens the request drawer from an empty grid cell selection without changing constraints', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -942,29 +948,200 @@ describe('Step4InitialData', () => {
     await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Off 요청 입력')
+    expect(wrapper.text()).toContain('선택한 셀을 Off 요청으로 반영하려면 요청 반영을 눌러 주세요.')
     expect(wrapper.vm.constraints).toEqual({
       'emp-1': {},
       'emp-2': {},
     })
     expect(wrapper.vm.selectedEmployeeId).toBe('emp-1')
     expect(wrapper.vm.draftSelectedDates).toEqual(['2025-12-01'])
-    expect(wrapper.vm.hasUnappliedDraft).toBe(false)
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
   })
 
-  it('prefills the request search with the clicked employee when the drawer is opened after a grid selection', async () => {
+  it('prefills the request search with the clicked employee when the drawer opens from grid selection', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
     await flushPromises()
 
-    await clickButtonByText(wrapper, 'Off 요청 입력')
+    expect(prefillSearchQueryMock).toHaveBeenCalledWith('Kim')
+  })
+
+  it('shows the hidden draft alert and blocks next step after closing a grid shortcut draft', async () => {
+    const wrapper = createWrapper()
     await flushPromises()
 
-    expect(prefillSearchQueryMock).toHaveBeenCalledWith('Kim')
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
+
+    await wrapper.find('[data-test="request-drawer-close-button"]').trigger('click')
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('button').find((button) => button.text().includes('이동'))
+
+    expect(wrapper.find('[data-test="step4-request-composer"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="hidden-request-draft-alert"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('미반영 요청이 있습니다. 요청 입력을 다시 열어 마무리해 주세요.')
+    expect(nextButton?.attributes('disabled')).toBeDefined()
+    expect(wrapper.vm.selectedEmployeeId).toBe('emp-1')
+    expect(wrapper.vm.draftSelectedDates).toEqual(['2025-12-01'])
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {},
+      'emp-2': {},
+    })
+  })
+
+  it('hydrates an existing Off request from grid selection without creating dirty draft state', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '연차',
+        },
+      },
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '연차',
+        },
+      ],
+    })
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
+    expect(wrapper.vm.selectedEmployeeId).toBe('emp-1')
+    expect(wrapper.vm.draftSelectedDates).toEqual(['2025-12-01'])
+    expect(wrapper.vm.draftNote).toBe('연차')
+    expect(wrapper.vm.editingRequestKey).toBe('emp-1::2025-12-01::연차::off')
+    expect(wrapper.vm.hasUnappliedDraft).toBe(false)
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+      'emp-2': {},
+    })
+  })
+
+  it('hydrates all dates for a multi-day existing Off request from grid selection', async () => {
+    gridMock.dates.value = [
+      { date: '2025-12-01' },
+      { date: '2025-12-02' },
+      { date: '2025-12-03' },
+    ]
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+          '2025-12-02': 'O',
+          '2025-12-03': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '연차',
+          '2025-12-02': '연차',
+          '2025-12-03': '연차',
+        },
+      },
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '연차',
+        },
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-02',
+          request_code: 'O',
+          request_note: '연차',
+        },
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-03',
+          request_code: 'O',
+          request_note: '연차',
+        },
+      ],
+    })
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.draftSelectionMode).toBe('multi')
+    expect(wrapper.vm.draftSelectedDates).toEqual([
+      '2025-12-01',
+      '2025-12-02',
+      '2025-12-03',
+    ])
+    expect(wrapper.vm.draftNote).toBe('연차')
+    expect(wrapper.vm.editingRequestKey).toBe('emp-1::2025-12-01,2025-12-02,2025-12-03::연차::off')
+    expect(wrapper.vm.hasUnappliedDraft).toBe(false)
+  })
+
+  it('replaces an untouched hidden grid shortcut draft when another grid cell is clicked', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="request-drawer-close-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="hidden-request-draft-alert"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="grid-emit-second-cell-select"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
+    expect(wrapper.vm.selectedEmployeeId).toBe('emp-2')
+    expect(wrapper.vm.draftSelectedDates).toEqual(['2025-12-01'])
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
+  })
+
+  it('preserves a hidden grid shortcut draft after the user edits it inside the drawer', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="composer-update-note"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="request-drawer-close-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="hidden-request-draft-alert"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="grid-emit-second-cell-select"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="drawer-stub"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.')
+    expect(wrapper.vm.selectedEmployeeId).toBe('emp-1')
+    expect(wrapper.vm.draftSelectedDates).toEqual(['2025-12-01'])
+    expect(wrapper.vm.draftNote).toBe('연차')
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
   })
 
   it('preserves the draft after closing the drawer and shows hidden-draft status with a reopen CTA', async () => {
