@@ -263,7 +263,7 @@ describe('SocialSignupComplete view', () => {
     const wrapper = mount(SocialSignupComplete)
 
     expect(wrapper.get('[data-test="signup-manual-hospital-info"]').text()).toContain(
-      '병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.',
+      '병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.',
     )
   })
 
@@ -387,7 +387,7 @@ describe('SocialSignupComplete view', () => {
     await nextTick()
 
     expect(wrapper.get('[data-test="signup-manual-hospital-empty"]').text()).toContain(
-      "'없는병원' 검색 결과가 없습니다.",
+      "'없는병원' 검색 결과가 없습니다. 입력한 병원명으로 가입을 계속 진행할 수 있습니다.",
     )
   })
 })

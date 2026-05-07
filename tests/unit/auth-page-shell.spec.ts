@@ -18,7 +18,42 @@ describe('AuthPageShell', () => {
 
     expect(wrapper.get('[data-test="auth-shell-root"]').classes()).toContain('bg-white')
     expect(wrapper.get('[data-test="auth-shell-product"]').text()).toBe('EveryShift')
+    expect(wrapper.get('[data-test="auth-shell-product"]').classes()).toContain('text-2xl')
+    expect(wrapper.get('[data-test="auth-shell-title"]').classes()).toContain('text-2xl')
+    expect(wrapper.get('[data-test="auth-shell-description"]').classes()).toContain('text-sm')
     expect(wrapper.get('[data-test="slot"]').text()).toBe('content')
+  })
+
+  it('keeps EveryShift as the default product label', () => {
+    const wrapper = mount(AuthPageShell, {
+      props: {
+        eyebrow: 'EveryShift 계정',
+        title: '로그인',
+        description: '승인된 병원 계정으로 근무표 작업 공간에 들어갑니다.',
+      },
+      slots: {
+        default: '<form data-test="auth-form"></form>',
+      },
+    })
+
+    expect(wrapper.get('[data-test="auth-shell-product"]').text()).toBe('EveryShift')
+  })
+
+  it('allows auth pages to override the product label', () => {
+    const wrapper = mount(AuthPageShell, {
+      props: {
+        eyebrow: 'everyshift 시작하기',
+        productLabel: 'everyshift',
+        title: '회원가입',
+        description: '병원 검색을 통해 병원을 입력하시거나 직접 입력하실 수 있습니다.',
+        variant: 'compact',
+      },
+      slots: {
+        default: '<form data-test="auth-form"></form>',
+      },
+    })
+
+    expect(wrapper.get('[data-test="auth-shell-product"]').text()).toBe('everyshift')
   })
 
   it('stacks the auth context above the form at every viewport size', () => {

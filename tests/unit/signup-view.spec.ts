@@ -1,6 +1,6 @@
 /* eslint-disable vue/one-component-per-file */
 
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 
@@ -57,6 +57,26 @@ vi.mock('naive-ui', () => {
       },
     })
 
+  const resolveRules = (rules: unknown): Record<string, unknown> => {
+    if (!rules || typeof rules !== 'object') {
+      return {}
+    }
+
+    return rules as Record<string, unknown>
+  }
+
+  const resolveModel = (model: unknown): Record<string, unknown> => {
+    if (!model || typeof model !== 'object') {
+      return {}
+    }
+
+    if ('value' in model && model.value && typeof model.value === 'object') {
+      return model.value as Record<string, unknown>
+    }
+
+    return model as Record<string, unknown>
+  }
+
   return {
     NAlert: passthrough('div'),
     NButton: defineComponent({
@@ -98,9 +118,43 @@ vi.mock('naive-ui', () => {
       },
     }),
     NForm: defineComponent({
-      setup(_, { slots, expose }) {
+      props: {
+        model: {
+          type: Object,
+          default: () => ({}),
+        },
+        rules: {
+          type: Object,
+          default: () => ({}),
+        },
+      },
+      setup(props, { slots, expose }) {
+        const validate = vi.fn(async () => {
+          for (const [path, rawRules] of Object.entries(resolveRules(props.rules))) {
+            const value = resolveModel(props.model)[path]
+            const rules = Array.isArray(rawRules) ? rawRules : [rawRules]
+
+            for (const rawRule of rules) {
+              const rule = rawRule as {
+                required?: boolean
+                message?: string
+                validator?: (_rule: unknown, value: unknown) => boolean | Error | Promise<boolean | Error>
+              }
+
+              if (rule.required && !value) {
+                throw new Error(rule.message ?? '필수 입력값입니다')
+              }
+
+              const result = await rule.validator?.(rule, value)
+              if (result instanceof Error) {
+                throw result
+              }
+            }
+          }
+        })
+
         expose({
-          validate: vi.fn().mockResolvedValue(undefined),
+          validate,
         })
         return () => h('form', {}, slots.default?.())
       },
@@ -209,6 +263,7 @@ vi.mock('naive-ui', () => {
 })
 
 import Signup from '@/views/auth/Signup.vue'
+import { showError, showInfo } from '@/utils/message'
 
 describe('Signup view', () => {
   beforeEach(() => {
@@ -237,7 +292,10 @@ describe('Signup view', () => {
   it('defaults signup to admin when role query is missing', async () => {
     const wrapper = await openSignupForm()
 
-    expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.text()).toContain('검색 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.get('[data-test="signup-hospital-search-source"]').text()).toContain(
+      '검색 출처: 공공데이터포털(data.go.kr)',
+    )
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
   })
 
@@ -246,7 +304,10 @@ describe('Signup view', () => {
 
     const wrapper = await openSignupForm()
 
-    expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.text()).toContain('검색 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.get('[data-test="signup-hospital-search-source"]').text()).toContain(
+      '검색 출처: 공공데이터포털(data.go.kr)',
+    )
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(false)
   })
 
@@ -256,7 +317,8 @@ describe('Signup view', () => {
     const wrapper = await openSignupForm()
 
     expect(wrapper.find('input[placeholder="초대코드 입력"]').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.text()).not.toContain('검색 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.find('[data-test="signup-hospital-search-source"]').exists()).toBe(false)
   })
 
   it('falls back to admin when role query is invalid', async () => {
@@ -264,14 +326,16 @@ describe('Signup view', () => {
 
     const wrapper = await openSignupForm()
 
-    expect(wrapper.text()).toContain('검색 결과 출처: 공공데이터포털(data.go.kr)')
+    expect(wrapper.text()).toContain('검색 출처: 공공데이터포털(data.go.kr)')
   })
 
   it('shows the launch-ready signup context', () => {
     const wrapper = mount(Signup)
 
-    expect(wrapper.text()).toContain('EveryShift')
-    expect(wrapper.text()).toContain('관리자는 병원명을 입력해 가입 신청하고, 병원 검색은 선택사항입니다. 사용자는 초대코드로 참여합니다.')
+    expect(wrapper.text()).toContain('everyshift 시작하기')
+    expect(wrapper.get('[data-test="auth-shell-product"]').text()).toBe('everyshift')
+    expect(wrapper.text()).toContain('병원 검색을 통해 병원을 입력하시거나 직접 입력하실 수 있습니다.')
+    expect(wrapper.text().match(/회원가입/g) ?? []).toHaveLength(1)
     expect(wrapper.get('[data-test="social-auth-options"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="social-auth-id"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="social-auth-naver"]').exists()).toBe(false)
@@ -281,7 +345,7 @@ describe('Signup view', () => {
     const wrapper = await openSignupForm()
 
     expect(wrapper.get('[data-test="signup-manual-hospital-info"]').text()).toContain(
-      '병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.',
+      '병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.',
     )
   })
 
@@ -332,24 +396,39 @@ describe('Signup view', () => {
 
   it('keeps admin submit disabled until a hospital name is entered', async () => {
     const wrapper = await openSignupForm()
-    const inputs = wrapper.findAll('input')
 
-    await inputs[0]?.setValue('관리자')
-    await inputs[1]?.setValue('admin@example.com')
-    await inputs[2]?.setValue('password123')
+    await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
+    await wrapper.get('input[placeholder="name@example.com"]').setValue('admin@example.com')
+    await wrapper.get('input[placeholder="8자 이상 입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="비밀번호 재입력"]').setValue('password123')
 
     const submitButton = wrapper.get('[data-test="signup-submit"]')
     expect((submitButton.element as HTMLButtonElement).disabled).toBe(true)
 
-    await inputs[3]?.setValue('세브란스병원')
+    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스병원')
     await nextTick()
 
     expect((submitButton.element as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('requires matching password confirmation before password signup submits', async () => {
+    const wrapper = await openSignupForm()
+
+    await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
+    await wrapper.get('input[placeholder="name@example.com"]').setValue('admin@example.com')
+    await wrapper.get('input[placeholder="8자 이상 입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="비밀번호 재입력"]').setValue('password124')
+    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스병원')
+
+    await wrapper.get('[data-test="signup-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(submitSignupMock).not.toHaveBeenCalled()
+  })
+
   it('searches using the live input value when the model update is delayed', async () => {
     const wrapper = await openSignupForm()
-    const hospitalKeywordInput = wrapper.findAll('input')[3]
+    const hospitalKeywordInput = wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]')
 
     ;(hospitalKeywordInput?.element as HTMLInputElement).value = '서울'
     await hospitalKeywordInput?.trigger('keydown', { key: 'Enter' })
@@ -360,15 +439,19 @@ describe('Signup view', () => {
 
   it('hands admin signup success off to login with pending approval state', async () => {
     const wrapper = await openSignupForm()
-    const inputs = wrapper.findAll('input')
 
-    await inputs[0]?.setValue('관리자')
-    await inputs[1]?.setValue('admin@example.com')
-    await inputs[2]?.setValue('password123')
-    await inputs[3]?.setValue('세브란스병원')
-
-    await wrapper.get('[data-test="signup-submit"]').trigger('click')
+    await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
+    await wrapper.get('input[placeholder="name@example.com"]').setValue('admin@example.com')
+    await wrapper.get('input[placeholder="8자 이상 입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="비밀번호 재입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스병원')
     await nextTick()
+
+    expect((wrapper.get('[data-test="signup-submit"]').element as HTMLButtonElement).disabled).toBe(
+      false,
+    )
+    await wrapper.get('[data-test="signup-submit"]').trigger('click')
+    await flushPromises()
 
     expect(submitSignupMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -387,15 +470,16 @@ describe('Signup view', () => {
 
   it('clears pending signup state before login when the role changes after submit', async () => {
     const wrapper = await openSignupForm()
-    const inputs = wrapper.findAll('input')
 
-    await inputs[0]?.setValue('관리자')
-    await inputs[1]?.setValue('admin@example.com')
-    await inputs[2]?.setValue('password123')
-    await inputs[3]?.setValue('세브란스병원')
+    await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
+    await wrapper.get('input[placeholder="name@example.com"]').setValue('admin@example.com')
+    await wrapper.get('input[placeholder="8자 이상 입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="비밀번호 재입력"]').setValue('password123')
+    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스병원')
+    await nextTick()
 
     await wrapper.get('[data-test="signup-submit"]').trigger('click')
-    await nextTick()
+    await flushPromises()
 
     expect(wrapper.text()).toContain('가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.')
 
@@ -435,7 +519,25 @@ describe('Signup view', () => {
       "'없는병원' 검색 결과가 없습니다.",
     )
     expect(wrapper.get('[data-test="signup-manual-hospital-empty"]').text()).toContain(
-      '지금 입력한 병원명으로 그대로 가입 신청할 수 있습니다.',
+      '입력한 병원명으로 가입을 계속 진행할 수 있습니다.',
     )
+  })
+
+  it('shows a manual-entry warning when hospital search fails without exposing upstream errors', async () => {
+    searchHospitalsMock.mockRejectedValueOnce(new Error('upstream timeout'))
+    const wrapper = await openSignupForm()
+
+    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스')
+    await wrapper.get('[data-test="signup-search"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="signup-manual-hospital-error"]').text()).toContain(
+      '병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.',
+    )
+    expect(showInfo).toHaveBeenCalledWith(
+      '병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.',
+    )
+    expect(showError).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('upstream timeout')
   })
 })

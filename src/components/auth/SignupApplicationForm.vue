@@ -57,6 +57,19 @@
     </n-form-item>
 
     <n-form-item
+      v-if="mode === 'password'"
+      label="비밀번호 확인"
+      path="passwordConfirm"
+    >
+      <n-input
+        v-model:value="formValue.passwordConfirm"
+        type="password"
+        show-password-on="click"
+        placeholder="비밀번호 재입력"
+      />
+    </n-form-item>
+
+    <n-form-item
       label="가입 역할"
       path="role"
     >
@@ -78,24 +91,32 @@
         label="병원명"
         path="hospitalName"
       >
-        <div
-          ref="hospitalSearchFieldRef"
-          class="flex w-full gap-2"
-        >
-          <n-input
-            v-model:value="formValue.hospitalName"
-            placeholder="병원명을 직접 입력하거나 검색하세요"
-            @keydown.enter.prevent="handleHospitalSearch"
-          />
-          <n-button
-            data-test="signup-search"
-            secondary
-            :disabled="!canSearchHospital"
-            :loading="hospitalLoading"
-            @click="handleHospitalSearch"
+        <div class="w-full space-y-1">
+          <div
+            ref="hospitalSearchFieldRef"
+            class="flex w-full gap-2"
           >
-            검색
-          </n-button>
+            <n-input
+              v-model:value="formValue.hospitalName"
+              placeholder="병원명을 직접 입력하거나 검색하세요"
+              @keydown.enter.prevent="handleHospitalSearch"
+            />
+            <n-button
+              data-test="signup-search"
+              secondary
+              :disabled="!canSearchHospital"
+              :loading="hospitalLoading"
+              @click="handleHospitalSearch"
+            >
+              검색
+            </n-button>
+          </div>
+          <p
+            class="text-xs text-gray-500"
+            data-test="signup-hospital-search-source"
+          >
+            검색 출처: 공공데이터포털(data.go.kr)
+          </p>
         </div>
       </n-form-item>
 
@@ -104,18 +125,18 @@
         class="mb-2"
         data-test="signup-manual-hospital-info"
       >
-        병원 검색 결과가 없어도, 위에 입력한 병원명 그대로 가입 신청할 수 있습니다.
+        병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.
       </n-alert>
 
       <n-form-item
-        label="검색 결과에서 선택 (선택)"
+        label="검색 결과에서 선택 (선택사항)"
       >
         <n-select
           :value="formValue.hospitalId"
           data-test="signup-hospital-select"
           :options="hospitalOptions"
           :loading="hospitalLoading"
-          placeholder="검색 결과가 있으면 선택해 병원명을 자동 입력하세요"
+          placeholder="검색 결과를 선택하면 병원명이 자동 입력됩니다"
           filterable
           clearable
           @update:value="handleHospitalSelect"
@@ -128,7 +149,7 @@
         class="mb-2"
         data-test="signup-manual-hospital-empty"
       >
-        '{{ hospitalSearchFeedback.keyword }}' 검색 결과가 없습니다. 지금 입력한 병원명으로 그대로 가입 신청할 수 있습니다.
+        '{{ hospitalSearchFeedback.keyword }}' 검색 결과가 없습니다. 입력한 병원명으로 가입을 계속 진행할 수 있습니다.
       </n-alert>
 
       <n-alert
@@ -137,12 +158,8 @@
         class="mb-2"
         data-test="signup-manual-hospital-error"
       >
-        병원 검색이 지연되거나 실패해도, 위에 입력한 병원명으로 가입 신청할 수 있습니다.
+        병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.
       </n-alert>
-
-      <p class="text-xs text-gray-500">
-        검색 결과 출처: 공공데이터포털(data.go.kr)
-      </p>
     </div>
 
     <div
@@ -206,6 +223,7 @@ interface SignupFormValue {
   name: string
   email: string
   password: string
+  passwordConfirm: string
   role: SignupRole
   hospitalName: string
   hospitalId: string | null
@@ -247,6 +265,7 @@ const formValue = ref<SignupFormValue>({
   name: '',
   email: props.sessionEmail ?? '',
   password: '',
+  passwordConfirm: '',
   role: props.initialRole,
   hospitalName: '',
   hospitalId: null,
@@ -304,6 +323,22 @@ const rules = computed<FormRules>(() => ({
             validator: (_rule: FormItemRule, value: string) => {
               if (!value || value.length < 8) {
                 return new Error('비밀번호는 8자 이상이어야 합니다')
+              }
+              return true
+            },
+          },
+        ],
+        passwordConfirm: [
+          {
+            required: true,
+            message: '비밀번호 확인을 입력하세요',
+            trigger: 'blur',
+          },
+          {
+            trigger: ['blur', 'input'],
+            validator: (_rule: FormItemRule, value: string) => {
+              if (value !== formValue.value.password) {
+                return new Error('비밀번호가 일치하지 않습니다')
               }
               return true
             },
@@ -432,13 +467,12 @@ async function handleHospitalSearch() {
     }
 
     hospitalSearchFeedback.value = null
-  } catch (error) {
+  } catch {
     hospitalSearchFeedback.value = {
       type: 'error',
       keyword,
     }
-    const message = error instanceof Error ? error.message : '병원 검색에 실패했습니다.'
-    showError(`${message} 병원명을 직접 입력하고 가입 신청할 수 있습니다.`)
+    showInfo('병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.')
   } finally {
     hospitalLoading.value = false
   }
