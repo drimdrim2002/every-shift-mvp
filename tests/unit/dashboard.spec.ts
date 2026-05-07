@@ -5,6 +5,7 @@ import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
 
 const {
   pushMock,
+  deletePhase2ScheduleMonthMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
   getChecklistMock,
@@ -14,11 +15,14 @@ const {
   setSiteRequirementsMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
+  showSuccessMock,
   showErrorMock,
   showWarningMock,
+  dialogWarningMock,
   supabaseFromMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  deletePhase2ScheduleMonthMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
   getChecklistMock: vi.fn(),
@@ -28,8 +32,12 @@ const {
   setSiteRequirementsMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
+  showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
   showWarningMock: vi.fn(),
+  dialogWarningMock: vi.fn((options: { onPositiveClick?: () => unknown }) => {
+    void options.onPositiveClick?.()
+  }),
   supabaseFromMock: vi.fn(),
 }))
 
@@ -40,6 +48,7 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/api/schedule', () => ({
+  deletePhase2ScheduleMonth: deletePhase2ScheduleMonthMock,
   getScheduleList: getScheduleListMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
 }))
@@ -59,7 +68,7 @@ vi.mock('@/api/supabase', () => ({
 }))
 
 vi.mock('@/utils/message', () => ({
-  showSuccess: vi.fn(),
+  showSuccess: showSuccessMock,
   showError: showErrorMock,
   showWarning: showWarningMock,
 }))
@@ -195,6 +204,9 @@ describe('Dashboard', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-15T09:00:00+09:00'))
+    ;(window as unknown as { $dialog?: { warning: typeof dialogWarningMock } }).$dialog = {
+      warning: dialogWarningMock,
+    }
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -342,10 +354,14 @@ describe('Dashboard', () => {
         },
       ],
     })
+    deletePhase2ScheduleMonthMock.mockResolvedValue({
+      deletedScheduleId: 'schedule-123',
+    })
     supabaseFromMock.mockReset()
   })
 
   afterEach(() => {
+    delete (window as unknown as { $dialog?: unknown }).$dialog
     vi.useRealTimers()
   })
 
@@ -431,6 +447,100 @@ describe('Dashboard', () => {
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_a1b2c3d4e5f6')
     expect(showErrorMock).toHaveBeenCalledWith('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.')
     expect(pushMock).not.toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
+  })
+
+  it('deletes an existing schedule through the Phase2 month delete boundary', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    ;(wrapper.vm as unknown as { handleDelete: (schedule: unknown) => void })
+      .handleDelete({
+        id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(deletePhase2ScheduleMonthMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+    })
+    expect(supabaseFromMock).not.toHaveBeenCalledWith('schedule_assignments')
+    expect(supabaseFromMock).not.toHaveBeenCalledWith('schedules')
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표가 삭제되었습니다')
+    expect(getScheduleListMock).toHaveBeenCalledTimes(1)
+    expect(getScheduleListMock).toHaveBeenCalledWith('org-1')
+  })
+
+  it('shows the finalized guard message when month deletion is rejected by the backend', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    deletePhase2ScheduleMonthMock.mockRejectedValue({
+      code: 'already_finalized',
+      message: 'Schedule is already finalized',
+    })
+
+    ;(wrapper.vm as unknown as { handleDelete: (schedule: unknown) => void })
+      .handleDelete({
+        id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'complete',
+        hard_score: 10,
+        soft_score: 20,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(deletePhase2ScheduleMonthMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+    })
+    expect(showErrorMock).toHaveBeenCalledWith('확정된 근무표는 삭제할 수 없습니다.')
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(getScheduleListMock).not.toHaveBeenCalled()
+  })
+
+  it('shows the active solving guard message when month deletion is rejected by the backend', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+    deletePhase2ScheduleMonthMock.mockRejectedValue({
+      code: 'version_locked_for_solving',
+      message: 'Schedule is locked while solving',
+    })
+
+    ;(wrapper.vm as unknown as { handleDelete: (schedule: unknown) => void })
+      .handleDelete({
+        id: 'schedule-123',
+        public_id: 'sch_a1b2c3d4e5f6',
+        organization_id: 'org-1',
+        month: '2025-12',
+        status: 'running',
+        hard_score: null,
+        soft_score: null,
+        created_at: '2025-01-01T00:00:00Z',
+        updated_at: '2025-01-01T00:00:00Z',
+      })
+    await flushPromises()
+
+    expect(deletePhase2ScheduleMonthMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      month: '2025-12',
+    })
+    expect(showErrorMock).toHaveBeenCalledWith('근무표 생성이 진행 중입니다. 완료 후 다시 삭제해주세요.')
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(getScheduleListMock).not.toHaveBeenCalled()
   })
 
   it('deep-links the foundation card CTA to the hospital setup screen when hospital info is incomplete', async () => {
