@@ -323,6 +323,43 @@ vi.mock('@/components/schedule/DaySummaryModal.vue', () => ({
   default: { template: '<div />' },
 }))
 
+vi.mock('@/components/schedule/Step4OffRequestExcelUploadModal.vue', () => ({
+  default: defineComponent({
+    props: {
+      show: Boolean,
+      employees: {
+        type: Array,
+        default: () => [],
+      },
+      dates: {
+        type: Array,
+        default: () => [],
+      },
+      month: {
+        type: String,
+        default: '',
+      },
+    },
+    emits: ['update:show', 'apply'],
+    template: `
+      <div v-if="show" data-test="off-request-excel-modal-stub">
+        <button
+          data-test="off-request-excel-modal-close"
+          @click="$emit('update:show', false)"
+        >
+          close-upload
+        </button>
+        <button
+          data-test="off-request-excel-modal-apply"
+          @click="$emit('apply', { 'emp-2': { '2025-12-01': 'O' } })"
+        >
+          apply-upload
+        </button>
+      </div>
+    `,
+  }),
+}))
+
 import Step4InitialData from '@/views/schedule/Step4InitialData.vue'
 
 const inputSnapshot = {
@@ -738,6 +775,112 @@ describe('Step4InitialData', () => {
     expect(wrapper.vm.draftNote).toBe('')
     expect(wrapper.vm.hasUnappliedDraft).toBe(false)
     expect(wrapper.vm.currentEmployeeRequests).toEqual([])
+  })
+
+  it('shows the Step4 Off request Excel upload button in the calendar header', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const button = wrapper.find('[data-test="step4-excel-upload-button"]')
+
+    expect(button.exists()).toBe(true)
+    expect(button.text()).toContain('Excel 업로드')
+  })
+
+  it('opens the Step4 Off request Excel upload modal from the calendar header', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="step4-excel-upload-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="off-request-excel-modal-stub"]').exists()).toBe(true)
+  })
+
+  it('blocks the Step4 Off request Excel upload modal when an unapplied draft exists', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await openRequestDrawer(wrapper)
+    await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.hasUnappliedDraft).toBe(true)
+
+    await wrapper.find('[data-test="step4-excel-upload-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="off-request-excel-modal-stub"]').exists()).toBe(false)
+    expect(showInfoMock).toHaveBeenCalledWith('미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.')
+  })
+
+  it('replaces current Off requests and notes from the Step4 Off request Excel upload without persistence calls', async () => {
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      notes: {
+        'emp-1': {
+          '2025-12-01': '기존 메모',
+        },
+      },
+      preferences: [
+        {
+          employee_id: 'emp-1',
+          date: '2025-12-01',
+          request_code: 'O',
+          request_note: '기존 메모',
+          policy_check_status: 'rejected',
+          policy_rejection_reason: '정책상 불가',
+        },
+      ],
+    })
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.find('[data-test="grid-emit-cell-select"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="step4-excel-upload-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="off-request-excel-modal-stub"]').exists()).toBe(true)
+
+    vi.clearAllMocks()
+    await wrapper.find('[data-test="off-request-excel-modal-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.vm.constraints).toEqual({
+      'emp-2': {
+        '2025-12-01': 'O',
+      },
+    })
+    expect(wrapper.vm.constraintNotes).toEqual({})
+    expect(wrapper.vm.policyRejectionReasons).toEqual({})
+    expect(wrapper.vm.policyCheckStatuses).toEqual({})
+    expect(wrapper.vm.selectedEmployeeId).toBeNull()
+    expect(wrapper.vm.draftSelectedDates).toEqual([])
+    expect(wrapper.vm.draftNote).toBe('')
+    expect(wrapper.vm.editingRequestKey).toBeNull()
+    expect(wrapper.vm.dirtySinceLastApply).toBe(false)
+    expect(wrapper.vm.blockedTransitionReason).toBeNull()
+    expect(wrapper.find('[data-test="off-request-excel-modal-stub"]').exists()).toBe(false)
+    expect(scheduleStoreMock.setAssignments).toHaveBeenCalledWith({
+      'emp-2': {
+        '2025-12-01': 'O',
+      },
+    })
+    expect(scheduleStoreMock.setComments).toHaveBeenCalledWith({})
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(ensurePhase2ScheduleMock).not.toHaveBeenCalled()
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showSuccessMock).toHaveBeenCalledWith(
+      'Excel Off 요청을 현재 화면에 반영했습니다. 저장하려면 변경사항 저장을 눌러 주세요.'
+    )
   })
 
   it('opens the Step4 request drawer when 요청 입력 열기 is clicked', async () => {

@@ -137,19 +137,47 @@
           class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
         >
           <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-            <div class="space-y-1">
-              <h3 class="text-base font-semibold text-slate-900">
-                사전 Off 요청 캘린더
-              </h3>
-              <p
-                v-if="selectedEmployeeName || selectedDateSummary"
-                class="text-sm text-slate-600"
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="space-y-1">
+                <h3 class="text-base font-semibold text-slate-900">
+                  사전 Off 요청 캘린더
+                </h3>
+                <p
+                  v-if="selectedEmployeeName || selectedDateSummary"
+                  class="text-sm text-slate-600"
+                >
+                  <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
+                  <span v-if="selectedDateSummary">
+                    <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
+                  </span>
+                </p>
+              </div>
+              <n-button
+                data-test="step4-excel-upload-button"
+                size="small"
+                secondary
+                type="success"
+                class="font-semibold"
+                @click="handleOpenOffRequestExcelUploadModal"
               >
-                <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
-                <span v-if="selectedDateSummary">
-                  <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
-                </span>
-              </p>
+                <template #icon>
+                  <svg
+                    class="size-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <path d="M17 8l-5-5-5 5" />
+                    <path d="M12 3v12" />
+                  </svg>
+                </template>
+                Excel 업로드
+              </n-button>
             </div>
           </div>
 
@@ -353,6 +381,15 @@
       @close="showDaySummaryModal = false"
     />
 
+    <Step4OffRequestExcelUploadModal
+      :show="isOffRequestExcelUploadModalOpen"
+      :employees="grid.employees.value"
+      :dates="grid.dates.value"
+      :month="scheduleStore.basicInfo?.month ?? ''"
+      @update:show="isOffRequestExcelUploadModalOpen = $event"
+      @apply="handleApplyOffRequestExcelUpload"
+    />
+
     <n-modal
       :show="showExistingHistoryChoiceModal"
       preset="card"
@@ -508,6 +545,7 @@ import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
+import Step4OffRequestExcelUploadModal from '@/components/schedule/Step4OffRequestExcelUploadModal.vue';
 import Step4RequestComposer from '@/components/schedule/request-entry/Step4RequestComposer.vue';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import {
@@ -564,6 +602,7 @@ const showCommentModal = ref(false);
 const selectedCell = ref<{ employeeId: string; employeeName: string; date: string } | null>(null);
 const showDaySummaryModal = ref(false);
 const selectedDaySummaryDate = ref<string>('');
+const isOffRequestExcelUploadModalOpen = ref(false);
 const showExistingHistoryChoiceModal = ref(false);
 const hasShownExistingHistoryChoiceModal = ref(false);
 const isEditOffStartModalOpen = ref(false);
@@ -1946,6 +1985,29 @@ function handleRequestDrawerVisibility(show: boolean): void {
   }
 
   handleCloseRequestDrawer();
+}
+
+function handleOpenOffRequestExcelUploadModal(): void {
+  if (pageLevelBlockedReason.value) {
+    showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
+    return;
+  }
+
+  isOffRequestExcelUploadModalOpen.value = true;
+}
+
+function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void {
+  pendingLocalDraftSnapshot.value = null;
+  policyRejectionReasons.value = {};
+  policyCheckStatuses.value = {};
+  selectedCell.value = null;
+  showCommentModal.value = false;
+  blockedTransitionReason.value = null;
+  resetDraftState();
+  commitPreferenceMaps(nextConstraints, {});
+  clearCurrentScopedTempPreferencesStorage();
+  isOffRequestExcelUploadModalOpen.value = false;
+  showSuccess('Excel Off 요청을 현재 화면에 반영했습니다. 저장하려면 변경사항 저장을 눌러 주세요.');
 }
 
 function scrollEmployeeRowIntoView(employeeId: string): void {
