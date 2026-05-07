@@ -124,7 +124,7 @@
               size="large"
               strong
               class="min-w-[168px] font-semibold shadow-sm"
-              @click="handleOpenRequestDrawer"
+              @click="handleOpenRequestDrawerClick"
             >
               {{ requestDrawerCtaLabel }}
             </n-button>
@@ -224,7 +224,7 @@
                 size="small"
                 secondary
                 type="warning"
-                @click="handleOpenRequestDrawer"
+                @click="handleOpenRequestDrawerClick"
               >
                 {{ requestDrawerCtaLabel }}
               </n-button>
@@ -2048,6 +2048,10 @@ async function handleOpenRequestDrawer(options: { preserveBlockedReason?: boolea
     blockedTransitionReason.value = null;
   }
   await focusRequestComposerSearch();
+}
+
+function handleOpenRequestDrawerClick(): void {
+  void handleOpenRequestDrawer();
 }
 
 function handleCloseRequestDrawer(): void {
