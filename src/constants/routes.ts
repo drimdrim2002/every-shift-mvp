@@ -99,6 +99,21 @@ export function getScheduleStepRoutePath(step: 1 | 2 | 3 | 4): string {
   return `${APP_SCHEDULE_ROUTE_PREFIX}step${step}`
 }
 
+export function buildStep4RouteLocation(options?: {
+  versionId?: string | null
+}): RouteLocationRaw {
+  return options?.versionId
+    ? {
+        path: getScheduleStepRoutePath(4),
+        query: {
+          version: options.versionId,
+        },
+      }
+    : {
+        path: getScheduleStepRoutePath(4),
+      }
+}
+
 export function getScheduleStep5RoutePath(scheduleKey: string): string {
   return `${APP_SCHEDULE_STEP5_ROUTE_PREFIX}${scheduleKey}`
 }

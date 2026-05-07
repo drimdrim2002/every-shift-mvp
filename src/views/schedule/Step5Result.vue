@@ -534,6 +534,7 @@ import {
 } from '@/utils/scheduleVersionResolver';
 import {
   buildCanonicalStep5RouteLocation,
+  buildStep4RouteLocation,
   getAppHomeRoutePath,
   getScheduleStepRoutePath,
   parseStep5RouteQuery,
@@ -2164,7 +2165,9 @@ watch(() => solver.intermediateResults.value, (intermediateAssignments) => {
 });
 
 function navigateToStep4() {
-  router.push(getScheduleStepRoutePath(4));
+  router.push(buildStep4RouteLocation({
+    versionId: previewVersionId.value,
+  }));
 }
 
 function handleBack() {
@@ -2726,7 +2729,9 @@ async function handleDeleteGeneratedResults(scope: 'selected_version' | 'all_act
       ? '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
       : '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
   );
-  await router.push(getScheduleStepRoutePath(4));
+  await router.push(buildStep4RouteLocation({
+    versionId: resetResponse.selectedVersionId,
+  }));
 }
 
 async function handleDeleteWholeMonthSchedule() {

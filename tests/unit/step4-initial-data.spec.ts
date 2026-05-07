@@ -732,8 +732,8 @@ describe('Step4InitialData', () => {
     expect(wrapper.find('[data-test="schedule-grid-stub"]').exists()).toBe(true)
   })
 
-  it('keeps the current preview version when returning from Step5', async () => {
-    scheduleStoreMock.previewVersionId = 'version-2'
+  it('uses the selected DB version on plain Step4 entry even when the store has a stale preview version', async () => {
+    scheduleStoreMock.previewVersionId = 'version-1'
 
     createWrapper()
     await flushPromises()
@@ -748,6 +748,30 @@ describe('Step4InitialData', () => {
         scheduleId: 'schedule-1',
       })
     )
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
+  })
+
+  it('keeps an explicit Step4 version query when returning to edit a specific version', async () => {
+    scheduleStoreMock.previewVersionId = 'version-2'
+    routeQueryMock.version = 'version-1'
+
+    createWrapper()
+    await flushPromises()
+
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+  })
+
+  it('falls back to the selected DB version when an explicit Step4 version query is invalid', async () => {
+    scheduleStoreMock.previewVersionId = 'version-1'
+    routeQueryMock.version = 'missing-version'
+
+    createWrapper()
+    await flushPromises()
+
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
   })

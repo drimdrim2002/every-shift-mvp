@@ -45,6 +45,11 @@ If the user specifies an output shape, follow it exactly.
 
 Do not duplicate project architecture, setup steps, or reference indexes here. See `AGENTS.md`, `README.md`, and `docs/prd/*`.
 
+## Verification
+
+Before finalizing, committing, or pushing code changes, follow `AGENTS.md` Workflow Checks exactly, including `pnpm lint:check` and `pnpm run build` when required.
+Do not claim the task is complete if either command fails.
+
 ## Design System
 
 Always read `DESIGN.md` before making any visual or UI decisions.

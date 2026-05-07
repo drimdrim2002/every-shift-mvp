@@ -1724,7 +1724,7 @@ function hasCurrentPreferences(): boolean {
 }
 
 function getPreferredPreviewVersionId(): string | null {
-  return routePreviewVersionId.value ?? scheduleStore.previewVersionId;
+  return routePreviewVersionId.value;
 }
 
 function createPreferenceSnapshot(
@@ -2161,7 +2161,7 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
   if (
     !forceRefresh &&
     baselineState.value &&
-    baselineState.value.previewVersionId === preferredPreviewVersionId
+    (preferredPreviewVersionId === null || baselineState.value.previewVersionId === preferredPreviewVersionId)
   ) {
     return baselineState.value;
   }

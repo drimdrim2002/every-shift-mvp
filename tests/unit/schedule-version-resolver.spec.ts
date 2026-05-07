@@ -12,6 +12,7 @@ import {
   LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
   LEGACY_USER_HOME_ROUTE_PATH,
   buildStep5RouteLocation,
+  buildStep4RouteLocation,
   getLegacyRedirectTarget,
   getStep5ScheduleKeyFromPath,
   parseStep5RouteQuery,
@@ -633,6 +634,16 @@ describe('scheduleVersionResolver', () => {
   })
 
   it('round-trips Step5 query ownership through the route contract helpers', () => {
+    expect(buildStep4RouteLocation()).toEqual({
+      path: '/app/schedule/step4',
+    })
+    expect(buildStep4RouteLocation({ versionId: 'version-2' })).toEqual({
+      path: '/app/schedule/step4',
+      query: {
+        version: 'version-2',
+      },
+    })
+
     const routeLocation = buildStep5RouteLocation('schedule-1', {
       compareVersionId: 'version-3',
       autoStart: true,

@@ -106,9 +106,12 @@ This project uses `createDiscreteApi` in `main.ts`.
 ## Workflow Checks
 
 - After code changes, run `pnpm lint:check`.
-- If ESLint reports errors, the task is not complete.
+- After code changes that touch `.vue`, `.ts`, routing, stores, composables, types, tests, or build config, also run `pnpm run build`.
+- Before committing or pushing code changes, run both `pnpm lint:check` and `pnpm run build`.
+- If ESLint or build reports errors, the task is not complete.
 - If needed, run `pnpm lint:fix` and then rerun `pnpm lint:check`.
-- Report lint status explicitly in the final response.
+- Report lint and build status explicitly in the final response.
+- If unrelated local changes exist, do not include them in the commit unless the user explicitly asks.
 
 ## Documentation Lookup
 

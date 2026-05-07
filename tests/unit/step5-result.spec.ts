@@ -4,9 +4,9 @@ import { reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildCanonicalStep5RouteLocation,
+  buildStep4RouteLocation,
   buildStep5RouteLocation,
   getAppHomeRoutePath,
-  getScheduleStepRoutePath,
 } from '@/constants/routes'
 
 const routeMock = reactive({
@@ -1013,14 +1013,14 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(warningMock).toHaveBeenCalledTimes(1)
-    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+    expect(pushMock).not.toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-2' }))
 
     const dialogConfig = warningMock.mock.calls[0]?.[0] as {
       onPositiveClick?: () => void | Promise<void>
     }
     await dialogConfig.onPositiveClick?.()
 
-    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+    expect(pushMock).toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-2' }))
   })
 
   it('blocks input editing while the focused version is solving', async () => {
@@ -1071,7 +1071,7 @@ describe('Step5Result', () => {
     await step4Button!.trigger('click')
     await flushPromises()
 
-    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+    expect(pushMock).not.toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-2' }))
   })
 
   it('opens delete scope selection with three explicit options', async () => {
@@ -1127,7 +1127,7 @@ describe('Step5Result', () => {
     expect(showSuccessMock).toHaveBeenCalledWith(
       '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
     )
-    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+    expect(pushMock).toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-1' }))
   })
 
   it('deletes all active generated results and routes back to Step4', async () => {
@@ -1147,7 +1147,7 @@ describe('Step5Result', () => {
     expect(showSuccessMock).toHaveBeenCalledWith(
       '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
     )
-    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
+    expect(pushMock).toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-1' }))
   })
 
   it('deletes the whole month after choosing the full-delete path', async () => {
