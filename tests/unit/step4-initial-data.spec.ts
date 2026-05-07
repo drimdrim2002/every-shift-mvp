@@ -15,6 +15,7 @@ const {
   saveScheduleVersionPreferencesMock,
   deleteThisMonthVersionAssignmentsMock,
   buildScheduleSolverRequestMock,
+  downloadOffRequestTemplateMock,
   showSuccessMock,
   showInfoMock,
   showErrorMock,
@@ -33,6 +34,7 @@ const {
   saveScheduleVersionPreferencesMock: vi.fn(),
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   buildScheduleSolverRequestMock: vi.fn(),
+  downloadOffRequestTemplateMock: vi.fn(),
   showSuccessMock: vi.fn(),
   showInfoMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -132,6 +134,11 @@ vi.mock('@/utils/message', () => ({
   showSuccess: showSuccessMock,
   showInfo: showInfoMock,
   showError: showErrorMock,
+}))
+
+vi.mock('@/utils/offRequestExcel', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/offRequestExcel')>()),
+  downloadOffRequestTemplate: downloadOffRequestTemplateMock,
 }))
 
 const scheduleStoreMock = reactive({
@@ -791,6 +798,33 @@ describe('Step4InitialData', () => {
 
     expect(button.exists()).toBe(true)
     expect(button.text()).toContain('Excel 업로드')
+  })
+
+  it('downloads the current Off requests with the upload-compatible Excel template', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    wrapper.vm.constraints = {
+      'emp-1': {
+        '2025-12-01': 'O',
+      },
+    }
+    await nextTick()
+
+    await wrapper.find('[data-test="step4-excel-download-button"]').trigger('click')
+
+    expect(downloadOffRequestTemplateMock).toHaveBeenCalledWith(
+      organizationStoreMock.employees,
+      '2025-12',
+      {
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+          },
+        },
+        dates: gridMock.dates.value,
+      }
+    )
+    expect(showSuccessMock).toHaveBeenCalledWith('Off 요청 Excel 파일을 다운로드했습니다.')
   })
 
   it('opens the Step4 Off request Excel upload modal from the calendar header', async () => {

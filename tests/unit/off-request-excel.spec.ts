@@ -63,6 +63,31 @@ describe('offRequestExcel', () => {
     ]);
   });
 
+  it('builds a workbook with existing Off requests while keeping the upload template format', () => {
+    const workbook = buildOffRequestTemplateWorkbook(employees, '2025-12', {
+      dates,
+      constraints: {
+        'emp-1': {
+          '2025-12-02': 'O',
+          '2025-12-01': 'O',
+          '2025-11-27': 'O',
+        },
+        'emp-2': {},
+      },
+    });
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(workbook.Sheets[OFF_REQUEST_SHEET_NAME]!, {
+      header: 1,
+      defval: '',
+    });
+
+    expect(rows).toEqual([
+      [...OFF_REQUEST_TEMPLATE_HEADERS],
+      ['E001', 'Kim', '2025-12-01', 'O'],
+      ['E001', 'Kim', '2025-12-02', 'O'],
+      ['E002', 'Lee', '', ''],
+    ]);
+  });
+
   it('parses a valid workbook into ConstraintMap keyed by employee UUID', async () => {
     const result = await parseOffRequestExcelFile(
       createWorkbookFile([

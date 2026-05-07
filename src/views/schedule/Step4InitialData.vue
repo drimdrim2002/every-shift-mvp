@@ -152,32 +152,60 @@
                   </span>
                 </p>
               </div>
-              <n-button
-                data-test="step4-excel-upload-button"
-                size="small"
-                secondary
-                type="success"
-                class="font-semibold"
-                @click="handleOpenOffRequestExcelUploadModal"
-              >
-                <template #icon>
-                  <svg
-                    class="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <path d="M17 8l-5-5-5 5" />
-                    <path d="M12 3v12" />
-                  </svg>
-                </template>
-                Excel 업로드
-              </n-button>
+              <div class="flex flex-wrap items-center justify-end gap-2">
+                <n-button
+                  data-test="step4-excel-download-button"
+                  size="small"
+                  secondary
+                  type="success"
+                  class="font-semibold"
+                  @click="handleDownloadOffRequestExcel"
+                >
+                  <template #icon>
+                    <svg
+                      class="size-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <path d="M7 10l5 5 5-5" />
+                      <path d="M12 15V3" />
+                    </svg>
+                  </template>
+                  Excel 다운로드
+                </n-button>
+                <n-button
+                  data-test="step4-excel-upload-button"
+                  size="small"
+                  secondary
+                  type="success"
+                  class="font-semibold"
+                  @click="handleOpenOffRequestExcelUploadModal"
+                >
+                  <template #icon>
+                    <svg
+                      class="size-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <path d="M17 8l-5-5-5 5" />
+                      <path d="M12 3v12" />
+                    </svg>
+                  </template>
+                  Excel 업로드
+                </n-button>
+              </div>
             </div>
           </div>
 
@@ -547,6 +575,7 @@ import CommentModal from '@/components/schedule/CommentModal.vue';
 import DaySummaryModal from '@/components/schedule/DaySummaryModal.vue';
 import Step4OffRequestExcelUploadModal from '@/components/schedule/Step4OffRequestExcelUploadModal.vue';
 import Step4RequestComposer from '@/components/schedule/request-entry/Step4RequestComposer.vue';
+import { downloadOffRequestTemplate } from '@/utils/offRequestExcel';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import {
   buildStep5Route,
@@ -2041,6 +2070,23 @@ function handleOpenOffRequestExcelUploadModal(): void {
   }
 
   isOffRequestExcelUploadModalOpen.value = true;
+}
+
+function handleDownloadOffRequestExcel(): void {
+  if (grid.employees.value.length === 0) {
+    showError('다운로드할 직원 정보가 없습니다.');
+    return;
+  }
+
+  try {
+    downloadOffRequestTemplate(grid.employees.value, scheduleStore.basicInfo?.month ?? '', {
+      constraints: constraints.value,
+      dates: grid.dates.value,
+    });
+    showSuccess('Off 요청 Excel 파일을 다운로드했습니다.');
+  } catch {
+    showError('Excel 다운로드 중 오류가 발생했습니다.');
+  }
 }
 
 function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void {

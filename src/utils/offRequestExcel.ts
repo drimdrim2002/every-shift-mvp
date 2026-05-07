@@ -37,6 +37,11 @@ export interface OffRequestExcelParseResult {
   employeeCount: number;
 }
 
+export interface OffRequestTemplateWorkbookOptions {
+  constraints?: ConstraintMap;
+  dates?: GridColumn[];
+}
+
 type RequiredHeader = (typeof OFF_REQUEST_TEMPLATE_HEADERS)[number];
 type HeaderMap = Record<RequiredHeader, number>;
 
@@ -159,16 +164,26 @@ function emptyResult(errors: OffRequestExcelValidationError[]): OffRequestExcelP
 
 export function buildOffRequestTemplateWorkbook(
   employees: Employee[],
-  month: string
+  month: string,
+  options: OffRequestTemplateWorkbookOptions = {}
 ): XLSX.WorkBook {
+  const allowedDates = options.dates
+    ? new Set(options.dates.filter((date) => !date.isLastMonth).map((date) => date.date))
+    : null;
   const rows = [
     [...OFF_REQUEST_TEMPLATE_HEADERS],
-    ...employees.map((employee) => [
-      employee.employeeId,
-      employee.name,
-      '',
-      '',
-    ]),
+    ...employees.flatMap((employee) => {
+      const offRequestDates = Object.entries(options.constraints?.[employee.id] ?? {})
+        .filter(([date, code]) => code === 'O' && (!allowedDates || allowedDates.has(date)))
+        .map(([date]) => date)
+        .sort();
+
+      if (offRequestDates.length === 0) {
+        return [[employee.employeeId, employee.name, '', '']];
+      }
+
+      return offRequestDates.map((date) => [employee.employeeId, employee.name, date, 'O']);
+    }),
   ];
   const requestSheet = XLSX.utils.aoa_to_sheet(rows);
   requestSheet['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 10 }];
@@ -193,9 +208,10 @@ export function buildOffRequestTemplateWorkbook(
 
 export function downloadOffRequestTemplate(
   employees: Employee[],
-  month: string
+  month: string,
+  options: OffRequestTemplateWorkbookOptions = {}
 ): void {
-  const workbook = buildOffRequestTemplateWorkbook(employees, month);
+  const workbook = buildOffRequestTemplateWorkbook(employees, month, options);
   XLSX.writeFile(workbook, `everyshift_off_requests_${month}.xlsx`);
 }
 
