@@ -300,8 +300,17 @@ function createWrapper() {
         NBadge: { template: '<div />' },
         NProgress: { template: '<div />' },
         NAlert: { template: '<div><slot /></div>' },
-        NSlider: { template: '<div />' },
+        NInputNumber: {
+          name: 'NInputNumber',
+          props: ['value', 'min', 'max', 'step', 'disabled'],
+          template: '<input type="number" :value="value" :min="min" :max="max" :step="step" :disabled="disabled" @input="$emit(\'update:value\', Number($event.target.value))" />',
+        },
         NSpin: { template: '<div><slot /></div>' },
+        NSelect: {
+          name: 'NSelect',
+          props: ['value', 'options'],
+          template: '<select :value="value ?? \'\'" @change="$emit(\'update:value\', $event.target.value || null)"><option value="">직원 선택</option><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
+        },
       },
     },
   })
@@ -485,6 +494,15 @@ describe('Step5Result', () => {
     solverMock.progress.value = 0
     solverMock.intermediateResults.value = null
     solverMock.startSolver.mockResolvedValue('exec-1')
+    gridMock.employees.value = [
+      {
+        id: 'emp-1',
+        employeeId: 'emp-1',
+        name: 'Kim',
+      },
+    ]
+    gridMock.assignments.value = {}
+    gridMock.offReasons.value = {}
     gridMock.generateDates.mockImplementation((month: string, lastMonthDays = 0) => {
       setMockGridDates(month, lastMonthDays)
     })
@@ -2002,7 +2020,7 @@ describe('Step5Result', () => {
     expect(selectPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
   })
 
-  it('opens proof-first when the preview version is review_blocked', async () => {
+  it('keeps review-blocked previews in the local site result shell', async () => {
     getPhase2ScheduleReviewMock.mockResolvedValue(
       createReviewResponse('version-2', {
         version: {
@@ -2024,11 +2042,22 @@ describe('Step5Result', () => {
           violationDetails: [
             {
               code: 'hard_constraints_violated',
-              message: 'Hard-constraint violations were detected.',
+              message: 'Hard-constraint violations were detected. Recheck after fixing assignments.',
               severity: 'error',
               affectedEmployeeIds: ['emp-1'],
               dates: ['2025-12-01'],
               metadata: {},
+            },
+            {
+              code: 'staffing_shortfall',
+              message: 'Staffing shortfall on 2025-12-02: required 2, assigned 1.',
+              severity: 'error',
+              affectedEmployeeIds: [],
+              dates: ['2025-12-02'],
+              metadata: {
+                requiredCount: 2,
+                assignedCount: 1,
+              },
             },
           ],
           infeasibility: null,
@@ -2067,11 +2096,63 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(scheduleStoreMock.setReviewTab).toHaveBeenCalledWith('proof')
-    expect(wrapper.text()).toContain('하드 제약 위반 요약')
-    expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
+    expect(scheduleStoreMock.setReviewTab).not.toHaveBeenCalled()
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-offRequests"]').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'VersionReviewDetail' }).exists()).toBe(false)
+    expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(true)
+    const reviewAttention = wrapper.get('[data-test="step5-review-attention-panel"]')
+    expect(reviewAttention.text()).toContain('검토 필요')
+    expect(reviewAttention.text()).toContain('주간 시간 위반 1건')
+    expect(reviewAttention.text()).toContain('인력 부족 1건')
+    expect(reviewAttention.text()).toContain('검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.')
+    expect(reviewAttention.text()).toContain('2025-12-02 인력 부족: 필요 2명, 배정 1명입니다.')
+    expect(reviewAttention.text()).not.toContain('Hard-constraint')
+    expect(reviewAttention.text()).not.toContain('하드 제약')
+    expect(reviewAttention.text()).not.toContain('Recheck after fixing assignments')
+    expect(reviewAttention.text()).not.toContain('Staffing shortfall')
+    expect(reviewAttention.text()).not.toContain('required 2')
+    expect(reviewAttention.text()).not.toContain('assigned 1')
+    expect(wrapper.get('[data-test="primary-action-button"]').text()).toBe('재검토 실행')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
+
+    vi.clearAllMocks()
+    await emitButtonComponentClick(wrapper, 'primary-action-button')
+
+    expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
+    expect(showSuccessMock).toHaveBeenCalledWith('재검토를 완료했습니다.')
+  })
+
+  it('blocks primary recheck while manual edits are unsaved', async () => {
+    mockSingleFinalizeReview({
+      primaryAction: {
+        kind: 'recheck',
+        targetVersionId: 'version-1',
+        label: 'Recheck',
+        disabledReason: null,
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="primary-action-button"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-test="primary-action-block-reason"]').text()).toBe(
+      '변경사항을 저장하거나 취소한 뒤 재검토할 수 있습니다.'
+    )
+
+    vi.clearAllMocks()
+    await emitButtonComponentClick(wrapper, 'primary-action-button')
+
+    expect(recheckPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('변경사항을 저장하거나 취소한 뒤 재검토할 수 있습니다.')
   })
 
   it('shows solve_failed support copy and dispatches retry from the shared Step5 frame', async () => {
@@ -2150,18 +2231,177 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
   })
 
-  it('renders compliance panel before review tabs after assignments load', async () => {
+  it('renders compliance panel inside the site view without legacy review tabs', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     const panel = wrapper.get('[data-test="compliance-panel"]')
-    const firstReviewTab = wrapper.get('[data-test="review-tab-grid"]')
+    const siteView = wrapper.get('[data-test="step5-site-view"]')
 
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
+    expect(siteView.exists()).toBe(true)
     expect(panel.text()).toContain('보건복지부 가이드라인 충족')
     expect(panel.text()).toContain('요청 없음')
-    expect(
-      panel.element.compareDocumentPosition(firstReviewTab.element) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
+    expect(siteView.find('[data-test="compliance-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="review-tab-offRequests"]').exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'VersionReviewDetail' }).exists()).toBe(false)
+  })
+
+  it('keeps the site grid editable for a mutable preview and scopes manual controls to site view', async () => {
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="step5-site-view"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="grid-edit"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="manual-edit-reset-button"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="manual-edit-save-button"]').exists()).toBe(true)
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="step5-site-view"]').text()).toContain('1개 변경됨')
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="employee-result-detail"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="employee-guideline-status"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="manual-edit-reset-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="manual-edit-save-button"]').exists()).toBe(false)
+  })
+
+  it('uses a previous-month day stepper instead of the slider in site view', async () => {
+    routeMock.query = { version: 'version-1' }
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2025-04',
+    }
+    getPreviousMonthFinalizedContextMock.mockResolvedValue({
+      scheduleId: 'schedule-2025-03',
+      scheduleVersionId: 'version-2025-03-final',
+      displayAssignments: {
+        'emp-1': {
+          '2025-03-30': 'N',
+          '2025-03-31': 'O',
+        },
+      },
+      planningAssignments: [],
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {
+        'emp-1': {
+          '2025-04-01': 'D',
+        },
+      },
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="last-month-days-stepper"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'NSlider' }).exists()).toBe(false)
+  })
+
+  it('selects the first employee with guideline violations when entering employee view', async () => {
+    gridMock.employees.value = [
+      {
+        id: 'emp-1',
+        employeeId: 'emp-1',
+        name: 'Kim',
+      },
+      {
+        id: 'emp-2',
+        employeeId: 'emp-2',
+        name: 'Park',
+      },
+    ]
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+        },
+        'emp-2': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="employee-result-detail"]').text()).toContain('Park님의')
+    expect(wrapper.get('[data-test="employee-guideline-status"]').text()).toContain(
+      '보건복지부 가이드라인 위반 1건'
+    )
+  })
+
+  it('keeps finalized employee previews read-only', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1 }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          isFinalized: true,
+          status: 'finalized',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        finalizedVersionId: 'version-2',
+        version: {
+          status: 'finalized',
+          isFinalized: true,
+        },
+      })
+    )
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="employee-result-select"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="manual-edit-reset-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="manual-edit-save-button"]').exists()).toBe(false)
   })
 
   it('disables finalization when local compliance has mandatory violations', async () => {
