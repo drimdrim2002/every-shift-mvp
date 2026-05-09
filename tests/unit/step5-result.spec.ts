@@ -829,6 +829,7 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('공정성 요약')
     expect(wrapper.text()).not.toContain('Hard Score:')
+    expect(wrapper.text()).not.toContain('Soft Score:')
     expect(wrapper.text()).toContain('근무표 생성 (AI)')
   })
 
@@ -873,7 +874,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Hard Score:')
+    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-summary-card-generation"]').text()).toContain('생성 중')
+    expect(wrapper.text()).not.toContain('Hard Score:')
+    expect(wrapper.text()).not.toContain('Soft Score:')
     expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('공정성 요약')
@@ -947,7 +951,101 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('공정성 요약')
     expect(wrapper.text()).not.toContain('Hard Score:')
+    expect(wrapper.text()).not.toContain('Soft Score:')
     expect(wrapper.text()).toContain('근무표 생성 (AI)')
+  })
+
+  describe('Step5 result summary cards', () => {
+    it('renders reviewer-facing summary cards for a completed result without solver score jargon', async () => {
+      getScheduleStatusMock.mockResolvedValue({
+        status: 'complete',
+        hard_score: 11,
+        soft_score: 22,
+        solver_execution_id: null,
+      })
+      getScheduleVersionPreferencesMock.mockResolvedValue({
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+            '2025-12-02': 'O',
+          },
+        },
+        notes: {},
+        preferences: [],
+      })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      const summary = wrapper.get('[data-test="step5-result-status-summary"]')
+      const generation = wrapper.get('[data-test="step5-summary-card-generation"]')
+      const guideline = wrapper.get('[data-test="step5-summary-card-guideline"]')
+      const offRequests = wrapper.get('[data-test="step5-summary-card-off-requests"]')
+      const finalization = wrapper.get('[data-test="step5-summary-card-finalization"]')
+
+      expect(summary.exists()).toBe(true)
+      expect(generation.text()).toContain('생성 상태')
+      expect(generation.text()).toContain('완료')
+      expect(guideline.text()).toContain('보건복지부 가이드라인')
+      expect(guideline.text()).toContain('충족')
+      expect(offRequests.text()).toContain('Off 요청')
+      expect(offRequests.text()).toContain('1/2')
+      expect(offRequests.text()).toContain('50%')
+      expect(finalization.text()).toContain('확정')
+      expect(wrapper.text()).not.toContain('Hard Score:')
+      expect(wrapper.text()).not.toContain('Soft Score:')
+    })
+
+    it('renders running generation status without Hard Score or Soft Score', async () => {
+      solverMock.progress.value = 37
+      getPhase2ScheduleCompareMock.mockResolvedValueOnce({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: 'version-1',
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: true,
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
+          }),
+        ],
+      })
+      getPhase2ScheduleReviewMock.mockResolvedValueOnce(
+        createReviewResponse('version-1', {
+          selectedVersionId: 'version-1',
+          version: {
+            status: 'solving',
+            activeSolverExecutionId: 'exec-1',
+            isSelected: true,
+          },
+        })
+      )
+      getScheduleStatusMock.mockResolvedValueOnce({
+        status: 'running',
+        hard_score: 11,
+        soft_score: 22,
+        solver_execution_id: 'exec-1',
+      })
+      getScheduleVersionAssignmentsMock.mockResolvedValue({
+        assignments: {},
+        offReasons: {},
+        comments: {},
+      })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="step5-result-status-summary"]').exists()).toBe(true)
+      expect(wrapper.get('[data-test="step5-summary-card-generation"]').text()).toContain('생성 중')
+      expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('보건복지부 가이드라인')
+      expect(wrapper.get('[data-test="step5-summary-card-off-requests"]').text()).toContain('Off 요청')
+      expect(wrapper.get('[data-test="step5-summary-card-finalization"]').text()).toContain('확정')
+      expect(wrapper.text()).not.toContain('Hard Score:')
+      expect(wrapper.text()).not.toContain('Soft Score:')
+    })
   })
 
   it('navigates to dashboard directly when the go-dashboard button is clicked', async () => {

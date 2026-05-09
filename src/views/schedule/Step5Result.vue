@@ -38,31 +38,42 @@
       </div>
 
       <template v-else>
-        <!-- 상태 표시 -->
-        <div
+        <section
           v-if="shouldShowStatusCard"
-          class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
+          data-test="step5-result-status-summary"
+          class="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
         >
-          <div class="flex items-center gap-4">
-            <n-badge
-              :value="statusText"
-              :type="statusType"
-            />
+          <article
+            v-for="card in resultSummaryCards"
+            :key="card.key"
+            :data-test="summaryCardDataTest(card)"
+            class="rounded-lg border bg-white p-4 shadow-sm"
+            :class="summaryCardToneClass(card.tone)"
+          >
+            <p class="text-sm font-medium text-slate-600">
+              {{ card.title }}
+            </p>
+            <div class="mt-2 flex items-center gap-2">
+              <strong class="text-lg font-semibold text-slate-950">
+                {{ card.value }}
+              </strong>
+              <n-badge
+                v-if="card.key === 'generation'"
+                :value="statusText"
+                :type="statusType"
+              />
+            </div>
+            <p class="mt-2 text-sm leading-6 text-slate-600">
+              {{ card.description }}
+            </p>
             <n-progress
-              v-if="isRunning"
+              v-if="card.key === 'generation' && isRunning"
               type="line"
               :percentage="solver.progress.value"
-              class="w-48"
+              class="mt-3"
             />
-          </div>
-          <div
-            v-if="shouldShowScoreSummary"
-            class="text-sm"
-          >
-            <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
-            <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
-          </div>
-        </div>
+          </article>
+        </section>
 
         <n-alert
           v-if="policyRejectionSummariesCurrentMonth.length > 0"
@@ -731,6 +742,14 @@ interface ScheduleStatusRow {
   solver_execution_id: string | null;
 }
 
+interface Step5SummaryCard {
+  key: 'generation' | 'guideline' | 'offRequests' | 'finalization';
+  title: string;
+  value: string;
+  description: string;
+  tone: 'default' | 'info' | 'success' | 'warning' | 'error';
+}
+
 const isRunning = computed(() => solver.status.value === 'running');
 const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
@@ -862,9 +881,6 @@ const hasSolverExecutionHistory = computed(() => {
 const shouldShowResultDetails = computed(() => hasCurrentMonthAssignments.value);
 const shouldShowStatusCard = computed(() => {
   return isRunning.value || hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value;
-});
-const shouldShowScoreSummary = computed(() => {
-  return isRunning.value || hasCurrentMonthAssignments.value;
 });
 const shouldShowFirstRunEmptyState = computed(() => {
   return (
@@ -1021,6 +1037,141 @@ const isFinalizeActionDisabled = computed(() => {
     || Boolean(primaryAction.value.disabledReason)
   );
 });
+const generationSummaryCard = computed<Step5SummaryCard>(() => {
+  const progress = Math.round(solver.progress.value);
+  const description = isRunning.value
+    ? `생성 진행률 ${progress}%입니다.`
+    : hasCurrentMonthAssignments.value
+      ? '검토할 생성 결과가 준비되었습니다.'
+      : hasSolverExecutionHistory.value
+        ? '생성 이력을 확인하세요.'
+        : '생성을 시작하면 결과 상태가 표시됩니다.';
+
+  return {
+    key: 'generation',
+    title: '생성 상태',
+    value: statusText.value,
+    description,
+    tone: statusType.value,
+  };
+});
+const guidelineSummaryCard = computed<Step5SummaryCard>(() => {
+  const { checkRequiredCount, mandatoryViolationCount } = complianceResult.value;
+
+  if (checkRequiredCount > 0) {
+    return {
+      key: 'guideline',
+      title: '보건복지부 가이드라인',
+      value: '확인 필요',
+      description: `자동 확인이 필요한 항목 ${checkRequiredCount}건이 있습니다.`,
+      tone: 'warning',
+    };
+  }
+
+  if (mandatoryViolationCount > 0) {
+    return {
+      key: 'guideline',
+      title: '보건복지부 가이드라인',
+      value: `위반 ${mandatoryViolationCount}건`,
+      description: '확정 전 위반 항목을 해결해야 합니다.',
+      tone: 'error',
+    };
+  }
+
+  return {
+    key: 'guideline',
+    title: '보건복지부 가이드라인',
+    value: '충족',
+    description: '확정 전 필수 기준을 모두 확인했습니다.',
+    tone: 'success',
+  };
+});
+const offRequestSummaryCard = computed<Step5SummaryCard>(() => {
+  const offRequests = complianceResult.value.offRequests;
+
+  if (offRequests.totalRequests === 0) {
+    return {
+      key: 'offRequests',
+      title: 'Off 요청',
+      value: '요청 없음',
+      description: '이번 달 반영할 Off 요청이 없습니다.',
+      tone: 'default',
+    };
+  }
+
+  const reflectionRate = offRequests.reflectionRate ?? 0;
+  return {
+    key: 'offRequests',
+    title: 'Off 요청',
+    value: `${offRequests.fulfilledRequests}/${offRequests.totalRequests} 반영`,
+    description: `반영률 ${reflectionRate}% · 미반영 ${offRequests.unfulfilledRequests}건`,
+    tone: offRequests.unfulfilledRequests === 0 ? 'success' : 'warning',
+  };
+});
+const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
+  if (!shouldShowFinalizeAction.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: isRunning.value ? '대기 중' : '대기',
+      description: isRunning.value
+        ? '생성 완료 후 확정 여부를 확인합니다.'
+        : '생성 결과를 확인한 뒤 확정할 수 있습니다.',
+      tone: isRunning.value ? 'info' : 'default',
+    };
+  }
+
+  if (visibleFinalizeBlockReason.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확인 필요',
+      description: visibleFinalizeBlockReason.value,
+      tone: 'warning',
+    };
+  }
+
+  if (isFinalizeActionDisabled.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확정 대기',
+      description: primaryAction.value.label || '현재 근무표안은 바로 확정할 수 없습니다.',
+      tone: 'default',
+    };
+  }
+
+  return {
+    key: 'finalization',
+    title: '확정',
+    value: '확정 가능',
+    description: '아래 확정 버튼으로 최종 근무표를 확정할 수 있습니다.',
+    tone: 'success',
+  };
+});
+const resultSummaryCards = computed<Step5SummaryCard[]>(() => [
+  generationSummaryCard.value,
+  guidelineSummaryCard.value,
+  offRequestSummaryCard.value,
+  finalizationSummaryCard.value,
+]);
+
+function summaryCardDataTest(card: Step5SummaryCard): string {
+  return card.key === 'offRequests'
+    ? 'step5-summary-card-off-requests'
+    : `step5-summary-card-${card.key}`;
+}
+
+function summaryCardToneClass(tone: Step5SummaryCard['tone']): string {
+  const map: Record<Step5SummaryCard['tone'], string> = {
+    default: 'border-slate-200',
+    info: 'border-sky-200 bg-sky-50/60',
+    success: 'border-emerald-200 bg-emerald-50/60',
+    warning: 'border-amber-200 bg-amber-50/60',
+    error: 'border-rose-200 bg-rose-50/60',
+  };
+  return map[tone];
+}
 
 function syncReviewTabForPreview() {
   scheduleStore.setReviewTab(resolveDefaultReviewTab(previewVersionStatus.value));
