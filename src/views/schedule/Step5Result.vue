@@ -970,11 +970,11 @@ const complianceResult = computed<ScheduleComplianceResult>(() => {
 });
 const complianceFinalizeBlockReason = computed(() => {
   if (complianceResult.value.checkRequiredCount > 0) {
-    return '법적 기준을 확인한 뒤 확정할 수 있습니다.';
+    return '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.';
   }
 
   if (complianceResult.value.mandatoryViolationCount > 0) {
-    return `법적 기준 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
+    return `보건복지부 가이드라인 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
   }
 
   return null;

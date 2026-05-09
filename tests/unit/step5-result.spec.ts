@@ -2059,7 +2059,7 @@ describe('Step5Result', () => {
     const panel = wrapper.get('[data-test="compliance-panel"]')
     const firstReviewTab = wrapper.get('[data-test="review-tab-grid"]')
 
-    expect(panel.text()).toContain('법적 기준 충족')
+    expect(panel.text()).toContain('보건복지부 가이드라인 충족')
     expect(panel.text()).toContain('요청 없음')
     expect(
       panel.element.compareDocumentPosition(firstReviewTab.element) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -2080,10 +2080,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
-      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+      '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
     )
 
     await wrapper.get('[data-test="finalize-schedule-button"]').trigger('click')
@@ -2110,7 +2110,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
-      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+      '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
     )
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).not.toContain('백엔드 사유')
   })
@@ -2130,7 +2130,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
   })
@@ -2156,9 +2156,9 @@ describe('Step5Result', () => {
     }
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반 1건')
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
-      '법적 기준 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+      '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
     )
   })
 
@@ -2176,12 +2176,12 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 1건')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반 1건')
 
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
@@ -2205,10 +2205,10 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 확인 필요')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
-      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+      '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.'
     )
   })
 
@@ -2226,16 +2226,16 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요')
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 확인 필요')
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
-      '법적 기준을 확인한 뒤 확정할 수 있습니다.'
+      '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.'
     )
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
 
     await emitButtonComponentClick(wrapper, 'finalize-schedule-button')
 
     expect(finalizePhase2ScheduleVersionMock).not.toHaveBeenCalled()
-    expect(showInfoMock).toHaveBeenCalledWith('법적 기준을 확인한 뒤 확정할 수 있습니다.')
+    expect(showInfoMock).toHaveBeenCalledWith('보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.')
   })
 
   it('finalizes the current single version from the bottom action bar', async () => {
