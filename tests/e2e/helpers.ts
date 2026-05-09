@@ -1093,11 +1093,13 @@ export async function goToStep5(page: Page, timeout = 30000) {
 
 export async function verifyStep5ReviewHub(page: Page) {
   await expect(page.getByText('근무표 생성 - 결과 확인')).toBeVisible()
-  await expect(page.getByTestId('step5-compare-button')).toBeVisible()
-  await expect(page.getByTestId('review-tab-grid')).toBeVisible()
-  await expect(page.getByTestId('review-tab-proof')).toBeVisible()
-  await expect(page.getByTestId('review-tab-offRequests')).toBeVisible()
-  return page.getByTestId('step5-compare-button').isVisible()
+  await expect(page.getByTestId('step5-result-view-switch')).toBeVisible()
+  await expect(page.getByTestId('step5-result-view-site')).toBeVisible()
+  await expect(page.getByTestId('step5-result-view-site')).toHaveText('사이트')
+  await expect(page.getByTestId('step5-result-view-employee')).toBeVisible()
+  await expect(page.getByTestId('step5-result-view-employee')).toHaveText('근무자')
+  await expect(page.getByTestId('review-tab-grid')).toHaveCount(0)
+  return page.getByTestId('step5-result-view-switch').isVisible()
 }
 
 export async function getTempScheduleFromStorage(page: Page) {

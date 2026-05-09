@@ -9,11 +9,11 @@ test.describe('Step5 review hub', () => {
     })
   })
 
-  test('renders the compare entry point and review tabs in the common Step5 frame', async ({ page }) => {
+  test('renders the result review switch in the common Step5 frame', async ({ page }) => {
     const reviewHubVisible = await verifyStep5ReviewHub(page)
     expect(reviewHubVisible).toBe(true)
 
-    await expect(page.getByTestId('review-tab-panel-grid')).toBeVisible()
+    await expect(page.getByTestId('step5-site-view')).toBeVisible()
     await expect(page).toHaveURL(/\/schedule\/step5\/.+\?version=/)
   })
 
@@ -25,14 +25,17 @@ test.describe('Step5 review hub', () => {
     await expect(page.getByText('근무표안 비교')).toBeVisible()
   })
 
-  test('switches between grid, proof, and off-request tabs inside the shared review shell', async ({ page }) => {
-    await page.getByTestId('review-tab-proof').click()
-    await expect(page.getByTestId('review-tab-panel-proof')).toBeVisible()
+  test('switches between site and employee result views inside the shared review shell', async ({ page }) => {
+    await verifyStep5ReviewHub(page)
+    await expect(page.getByTestId('step5-site-view')).toBeVisible()
+    await expect(page.getByTestId('step5-result-view-site')).toHaveText('사이트')
+    await expect(page.getByTestId('step5-result-view-employee')).toHaveText('근무자')
 
-    await page.getByTestId('review-tab-offRequests').click()
-    await expect(page.getByTestId('review-tab-panel-offRequests')).toBeVisible()
+    await page.getByTestId('step5-result-view-employee').click()
+    await expect(page.getByTestId('step5-employee-view')).toBeVisible()
+    await expect(page.getByTestId('employee-result-detail')).toBeVisible()
 
-    await page.getByTestId('review-tab-grid').click()
-    await expect(page.getByTestId('review-tab-panel-grid')).toBeVisible()
+    await page.getByTestId('step5-result-view-site').click()
+    await expect(page.getByTestId('step5-site-view')).toBeVisible()
   })
 })
