@@ -16,16 +16,22 @@ import {
   filterEmployeeViolations,
 } from '@/utils/employeeResultDetail';
 
-const props = defineProps<{
-  employees: Employee[];
-  dates: GridColumn[];
-  assignments: AssignmentMap;
-  violations: ScheduleComplianceViolation[];
-  offRequests: ConstraintMap;
-  offRequestNotes: CommentMap;
-  offRequestResults: ScheduleOffRequestResult[];
-  selectedEmployeeId: string | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    employees: Employee[];
+    dates: GridColumn[];
+    assignments: AssignmentMap;
+    violations: ScheduleComplianceViolation[];
+    offRequests: ConstraintMap;
+    offRequestNotes: CommentMap;
+    offRequestResults: ScheduleOffRequestResult[];
+    selectedEmployeeId: string | null;
+    shiftColors?: Record<string, string>;
+  }>(),
+  {
+    shiftColors: () => ({}),
+  }
+);
 
 const emit = defineEmits<{
   (event: 'update:selectedEmployeeId', value: string | null): void;
@@ -49,7 +55,24 @@ const selectedViolations = computed(() => {
   return filterEmployeeViolations(props.violations, props.selectedEmployeeId);
 });
 
-const scheduleRows = computed(() => {
+interface CalendarScheduleRow {
+  date: string;
+  day: number;
+  dayOfWeek: number;
+  dayName: string;
+  isLastMonth: boolean;
+  assignment: string;
+  hasOffRequest: boolean;
+  offRequestNote: string | null;
+}
+
+const calendarWeekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+const dayOfWeekByDate = computed(() => {
+  return new Map(props.dates.map((dateColumn) => [dateColumn.date, dateColumn.dayOfWeek]));
+});
+
+const scheduleRows = computed<CalendarScheduleRow[]>(() => {
   if (!props.selectedEmployeeId) {
     return [];
   }
@@ -60,7 +83,52 @@ const scheduleRows = computed(() => {
     assignments: props.assignments,
     offRequests: props.offRequests,
     offRequestNotes: props.offRequestNotes,
-  });
+  })
+    .map((row) => ({
+      ...row,
+      dayOfWeek: dayOfWeekByDate.value.get(row.date) ?? 0,
+    }))
+    .sort((left, right) => left.date.localeCompare(right.date));
+});
+
+const calendarTitle = computed(() => {
+  const titleRow = scheduleRows.value.find((row) => !row.isLastMonth) ?? scheduleRows.value[0];
+
+  if (!titleRow) {
+    return '';
+  }
+
+  const [year, month] = titleRow.date.split('-');
+
+  if (!year || !month) {
+    return titleRow.date;
+  }
+
+  return `${year}년 ${Number(month)}월`;
+});
+
+const calendarMatrix = computed(() => {
+  if (scheduleRows.value.length === 0) {
+    return [] as Array<Array<CalendarScheduleRow | null>>;
+  }
+
+  const leadingNullCount = Math.max(0, Math.min(6, scheduleRows.value[0]?.dayOfWeek ?? 0));
+  const paddedCells: Array<CalendarScheduleRow | null> = [
+    ...Array.from({ length: leadingNullCount }, () => null),
+    ...scheduleRows.value,
+  ];
+
+  while (paddedCells.length % 7 !== 0) {
+    paddedCells.push(null);
+  }
+
+  const weeks: Array<Array<CalendarScheduleRow | null>> = [];
+
+  for (let index = 0; index < paddedCells.length; index += 7) {
+    weeks.push(paddedCells.slice(index, index + 7));
+  }
+
+  return weeks;
 });
 
 const offRequestRows = computed(() => {
@@ -169,6 +237,19 @@ function formatAssignment(assignment: string) {
   return assignment.trim() === '' ? '미배정' : assignment;
 }
 
+function getAssignmentBadgeStyle(assignment: string) {
+  const color = props.shiftColors[assignment];
+
+  if (!color) {
+    return undefined;
+  }
+
+  return {
+    backgroundColor: color,
+    color: '#0f172a',
+  };
+}
+
 function formatReflectionStatus(fulfilled: boolean) {
   return fulfilled ? '반영' : '미반영';
 }
@@ -222,55 +303,82 @@ function formatReflectionStatus(fulfilled: boolean) {
           data-test="employee-result-schedule"
           class="mt-4 overflow-x-auto rounded-lg border border-slate-200"
         >
-          <table class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50 text-xs font-semibold text-slate-600">
-              <tr>
-                <th class="w-24 px-3 py-2 text-left">
-                  날짜
-                </th>
-                <th class="w-16 px-3 py-2 text-left">
-                  요일
-                </th>
-                <th class="w-20 px-3 py-2 text-left">
-                  근무
-                </th>
-                <th class="min-w-32 px-3 py-2 text-left">
-                  Off 요청
-                </th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white">
-              <tr
-                v-for="row in scheduleRows"
-                :key="row.date"
-                :class="row.isLastMonth ? 'bg-slate-50 text-slate-500' : 'text-slate-900'"
+          <div
+            v-if="scheduleRows.length === 0"
+            class="px-3 py-8 text-center text-sm text-slate-500"
+          >
+            선택된 직원이 없습니다.
+          </div>
+          <div
+            v-else
+            class="min-w-[44rem]"
+          >
+            <div class="border-b border-slate-200 px-4 py-3">
+              <h4
+                data-test="employee-calendar-title"
+                class="text-sm font-semibold text-slate-900"
               >
-                <td class="px-3 py-2">
-                  {{ formatShortDate(row.date) }}
-                </td>
-                <td class="px-3 py-2">
-                  {{ row.dayName }}
-                </td>
-                <td class="px-3 py-2 font-semibold">
-                  {{ formatAssignment(row.assignment) }}
-                </td>
-                <td class="px-3 py-2 text-slate-600">
-                  <span v-if="row.hasOffRequest">
-                    O<span v-if="row.offRequestNote"> · {{ row.offRequestNote }}</span>
-                  </span>
-                  <span v-else>-</span>
-                </td>
-              </tr>
-              <tr v-if="scheduleRows.length === 0">
-                <td
-                  colspan="4"
-                  class="px-3 py-8 text-center text-sm text-slate-500"
+                {{ calendarTitle }}
+              </h4>
+            </div>
+            <div class="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+              <div
+                v-for="weekday in calendarWeekdays"
+                :key="weekday"
+                data-test="employee-calendar-weekday"
+                class="px-3 py-2 text-center text-xs font-semibold text-slate-600"
+              >
+                {{ weekday }}
+              </div>
+            </div>
+            <div class="grid grid-cols-7">
+              <template
+                v-for="(cell, cellIndex) in calendarMatrix.flat()"
+                :key="cell ? cell.date : `empty-${cellIndex}`"
+              >
+                <div
+                  v-if="!cell"
+                  data-test="employee-calendar-empty-cell"
+                  aria-hidden="true"
+                  class="min-h-28 border-b border-r border-slate-100 bg-slate-50/50"
+                />
+                <div
+                  v-else
+                  data-test="employee-calendar-date-cell"
+                  :data-date="cell.date"
+                  class="flex min-h-28 flex-col gap-2 border-b border-r border-slate-100 px-3 py-2"
+                  :class="cell.isLastMonth ? 'bg-slate-50 text-slate-500' : 'bg-white text-slate-900'"
                 >
-                  선택된 직원이 없습니다.
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-medium">
+                      {{ formatShortDate(cell.date) }}
+                    </span>
+                    <span class="text-xs">
+                      {{ cell.dayName }}
+                    </span>
+                  </div>
+                  <span
+                    data-test="employee-assignment-badge"
+                    :data-assignment="formatAssignment(cell.assignment)"
+                    class="inline-flex w-fit rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700"
+                    :style="getAssignmentBadgeStyle(cell.assignment)"
+                  >
+                    {{ formatAssignment(cell.assignment) }}
+                  </span>
+                  <button
+                    v-if="cell.hasOffRequest"
+                    type="button"
+                    data-test="employee-calendar-off-request-button"
+                    class="mt-auto w-fit rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    :aria-label="`${cell.date} Off 요청 상세`"
+                    @click="openOffRequestDetail(cell.date)"
+                  >
+                    Off 요청
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -291,7 +291,7 @@ function createDeferred<T>() {
   return { promise, resolve, reject }
 }
 
-function createWrapper() {
+function createWrapper(customStubs: Record<string, unknown> = {}) {
   const wrapper = mount(Step5Result, {
     global: {
       stubs: {
@@ -311,6 +311,7 @@ function createWrapper() {
           props: ['value', 'options'],
           template: '<select :value="value ?? \'\'" @change="$emit(\'update:value\', $event.target.value || null)"><option value="">직원 선택</option><option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option></select>',
         },
+        ...customStubs,
       },
     },
   })
@@ -2420,6 +2421,24 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="manual-edit-reset-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="manual-edit-save-button"]').exists()).toBe(false)
+  })
+
+  it('passes organization shift colors to EmployeeResultDetail in employee view', async () => {
+    const wrapper = createWrapper({
+      EmployeeResultDetail: {
+        name: 'EmployeeResultDetail',
+        props: ['shiftColors'],
+        template: '<div data-test="employee-result-detail-shift-colors">{{ JSON.stringify(shiftColors) }}</div>',
+      },
+    })
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="employee-result-detail-shift-colors"]').text()).toBe(
+      '{"D":"#123456"}'
+    )
   })
 
   it('uses a previous-month day stepper instead of the slider in site view', async () => {

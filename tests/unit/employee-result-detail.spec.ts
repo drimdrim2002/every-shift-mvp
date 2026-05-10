@@ -35,11 +35,17 @@ function createViolation(
   };
 }
 
-function createDate(date: string, day: number, dayName: string, isLastMonth = false): GridColumn {
+function createDate(
+  date: string,
+  day: number,
+  dayName: string,
+  dayOfWeek = 1,
+  isLastMonth = false
+): GridColumn {
   return {
     date,
     day,
-    dayOfWeek: 1,
+    dayOfWeek,
     dayName,
     isLastMonth,
   };
@@ -101,8 +107,8 @@ describe('employee result detail helpers', () => {
     const rows = buildEmployeeScheduleRows({
       employeeId: 'employee-1',
       dates: [
-        createDate('2025-11-30', 30, '일', true),
-        createDate('2025-12-01', 1, '월'),
+        createDate('2025-11-30', 30, '일', 0, true),
+        createDate('2025-12-01', 1, '월', 1),
       ],
       assignments: {
         'employee-1': {
@@ -125,6 +131,7 @@ describe('employee result detail helpers', () => {
       {
         date: '2025-11-30',
         day: 30,
+        dayOfWeek: 0,
         dayName: '일',
         isLastMonth: true,
         assignment: 'N',
@@ -134,6 +141,7 @@ describe('employee result detail helpers', () => {
       {
         date: '2025-12-01',
         day: 1,
+        dayOfWeek: 1,
         dayName: '월',
         isLastMonth: false,
         assignment: '',

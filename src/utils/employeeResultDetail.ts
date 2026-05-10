@@ -11,6 +11,7 @@ import type { ScheduleComplianceViolation } from '@/types/scheduleCompliance';
 export interface EmployeeScheduleRow {
   date: string;
   day: number;
+  dayOfWeek: number;
   dayName: string;
   isLastMonth: boolean;
   assignment: string;
@@ -115,6 +116,7 @@ export function buildEmployeeScheduleRows(
   return dates.map((dateColumn) => ({
     date: dateColumn.date,
     day: dateColumn.day,
+    dayOfWeek: dateColumn.dayOfWeek,
     dayName: dateColumn.dayName,
     isLastMonth: dateColumn.isLastMonth,
     assignment: getEmployeeAssignment(assignments, employeeId, dateColumn.date),

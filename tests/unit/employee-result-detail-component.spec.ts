@@ -79,11 +79,17 @@ function createEmployee(id: string, name: string): Employee {
   };
 }
 
-function createDate(date: string, day: number, dayName: string, isLastMonth = false): GridColumn {
+function createDate(
+  date: string,
+  day: number,
+  dayName: string,
+  isLastMonth = false,
+  dayOfWeek = 1
+): GridColumn {
   return {
     date,
     day,
-    dayOfWeek: 1,
+    dayOfWeek,
     dayName,
     isLastMonth,
   };
@@ -128,22 +134,41 @@ const employees = [
 ];
 
 const dates = [
-  createDate('2025-11-30', 30, '일', true),
-  createDate('2025-12-01', 1, '월'),
-  createDate('2025-12-02', 2, '화'),
+  createDate('2025-11-26', 26, '수', true, 3),
+  createDate('2025-11-27', 27, '목', true, 4),
+  createDate('2025-11-28', 28, '금', true, 5),
+  createDate('2025-11-29', 29, '토', true, 6),
+  createDate('2025-11-30', 30, '일', true, 0),
+  createDate('2025-12-01', 1, '월', false, 1),
+  createDate('2025-12-02', 2, '화', false, 2),
 ];
 
 const assignments: AssignmentMap = {
   'employee-1': {
+    '2025-11-26': 'N',
+    '2025-11-27': 'O',
+    '2025-11-28': '',
+    '2025-11-29': 'E',
     '2025-11-30': 'N',
     '2025-12-01': 'D',
     '2025-12-02': 'D',
   },
   'employee-2': {
+    '2025-11-26': 'O',
+    '2025-11-27': 'O',
+    '2025-11-28': 'E',
+    '2025-11-29': 'N',
     '2025-11-30': 'O',
     '2025-12-01': 'O',
     '2025-12-02': 'E',
   },
+};
+
+const shiftColors = {
+  D: 'rgb(254, 240, 138)',
+  E: 'rgb(187, 247, 208)',
+  N: 'rgb(191, 219, 254)',
+  O: 'rgb(226, 232, 240)',
 };
 
 const offRequests: ConstraintMap = {
@@ -172,21 +197,40 @@ function mountDetail(selectedEmployeeId = 'employee-1') {
       offRequestNotes,
       offRequestResults,
       selectedEmployeeId,
+      shiftColors,
     },
   });
 }
 
 describe('EmployeeResultDetail', () => {
-  it('renders a read-only employee schedule without grid edit controls', () => {
+  it('renders a read-only employee monthly calendar with contract selectors', () => {
     const wrapper = mountDetail();
 
     expect(wrapper.get('[data-test="employee-result-detail"]').exists()).toBe(true);
     const schedule = wrapper.get('[data-test="employee-result-schedule"]');
-    expect(schedule.text()).toContain('11/30');
-    expect(schedule.text()).toContain('12/1');
-    expect(schedule.text()).toContain('12/2');
-    expect(schedule.text()).toContain('N');
-    expect(schedule.text()).toContain('D');
+    expect(wrapper.get('[data-test="employee-calendar-title"]').text()).toBe('2025년 12월');
+    expect(wrapper.findAll('[data-test="employee-calendar-weekday"]').map((node) => node.text())).toEqual([
+      '일',
+      '월',
+      '화',
+      '수',
+      '목',
+      '금',
+      '토',
+    ]);
+    expect(wrapper.findAll('[data-test="employee-calendar-date-cell"]')).toHaveLength(7);
+    expect(wrapper.findAll('[data-test="employee-calendar-empty-cell"]')).toHaveLength(7);
+    expect(
+      wrapper
+        .findAll('[data-test="employee-calendar-empty-cell"]')
+        .every((node) => node.attributes('aria-hidden') === 'true')
+    ).toBe(true);
+    expect(schedule.find('[data-test="employee-calendar-date-cell"][data-date="2025-12-02"]').exists()).toBe(
+      true
+    );
+    expect(wrapper.get('[data-test="employee-calendar-off-request-button"]').attributes('aria-label')).toBe(
+      '2025-12-02 Off 요청 상세'
+    );
     expect(wrapper.find('[data-test="grid-edit"]').exists()).toBe(false);
     expect(wrapper.find('input').exists()).toBe(false);
     expect(wrapper.find('textarea').exists()).toBe(false);
@@ -195,6 +239,24 @@ describe('EmployeeResultDetail', () => {
     expect(wrapper.get('[data-test="employee-result-select"]').attributes('aria-label')).toBe(
       '직원 선택'
     );
+  });
+
+  it('keeps empty state text unchanged when no employee is selected', () => {
+    const wrapper = mountDetail(null);
+
+    expect(wrapper.get('[data-test="employee-result-schedule"]').text().trim()).toBe(
+      '선택된 직원이 없습니다.'
+    );
+  });
+
+  it('applies shift colors to assignment badges with dark text', () => {
+    const wrapper = mountDetail();
+    const dateCell = wrapper.get('[data-test="employee-calendar-date-cell"][data-date="2025-12-01"]');
+    const badge = dateCell.get('[data-test="employee-assignment-badge"]');
+
+    expect(badge.attributes('data-assignment')).toBe('D');
+    expect((badge.element as HTMLSpanElement).style.backgroundColor).toBe('rgb(254, 240, 138)');
+    expect((badge.element as HTMLSpanElement).style.color).toBe('#0f172a');
   });
 
   it('emits selected employee updates and changes to a non-violating employee state', async () => {
@@ -254,7 +316,7 @@ describe('EmployeeResultDetail', () => {
   it('renders Off request detail modal content', async () => {
     const wrapper = mountDetail();
 
-    const detailButton = wrapper.get('[data-test="employee-off-request-detail-button"]');
+    const detailButton = wrapper.get('[data-test="employee-calendar-off-request-button"]');
     expect(detailButton.attributes('aria-label')).toBe('2025-12-02 Off 요청 상세');
 
     await detailButton.trigger('click');
@@ -271,7 +333,7 @@ describe('EmployeeResultDetail', () => {
   it('keeps Off request detail modal synced when row data changes while open', async () => {
     const wrapper = mountDetail();
 
-    await wrapper.get('[data-test="employee-off-request-detail-button"]').trigger('click');
+    await wrapper.get('[data-test="employee-calendar-off-request-button"]').trigger('click');
     await nextTick();
 
     await wrapper.setProps({
@@ -299,7 +361,7 @@ describe('EmployeeResultDetail', () => {
     const wrapper = mountDetail();
 
     await wrapper.get('[data-test="employee-violation-reveal"]').trigger('click');
-    await wrapper.get('[data-test="employee-off-request-detail-button"]').trigger('click');
+    await wrapper.get('[data-test="employee-calendar-off-request-button"]').trigger('click');
     await nextTick();
 
     expect(wrapper.emitted('update:assignments')).toBeUndefined();

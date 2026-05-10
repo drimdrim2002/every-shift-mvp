@@ -275,6 +275,7 @@
               :employees="grid.employees.value"
               :dates="grid.dates.value"
               :assignments="grid.assignments.value"
+              :shift-colors="shiftColors"
               :violations="complianceResult.violations"
               :off-requests="offRequestsCurrentMonth"
               :off-request-notes="offRequestNotesCurrentMonth"
