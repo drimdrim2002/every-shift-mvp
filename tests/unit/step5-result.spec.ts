@@ -1014,6 +1014,147 @@ describe('Step5Result', () => {
       expect(wrapper.text()).not.toContain('Soft Score:')
     })
 
+    it('opens guideline details from the guideline summary value when violations exist', async () => {
+      mockSingleFinalizeReview({
+        assignments: {
+          'emp-1': {
+            '2025-12-01': 'N',
+            '2025-12-02': 'O',
+            '2025-12-03': 'D',
+          },
+        },
+      })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="step5-site-view"] [data-test="compliance-panel"]').exists()).toBe(false)
+
+      const action = wrapper.get('[data-test="step5-summary-card-guideline-action"]')
+      expect(action.text()).toContain('위반 1건')
+
+      await action.trigger('click')
+      await flushPromises()
+
+      expect(document.querySelector('[data-test="step5-guideline-modal"]')).toBeTruthy()
+      expect(document.body.textContent).toContain('보건복지부 가이드라인 상세')
+      expect(document.body.textContent).toContain('NOD 금지')
+      expect(document.body.textContent).toContain('3연속 야간 금지')
+      expect(document.body.textContent).toContain('2연속 야간 후 48시간 휴식')
+      expect(document.body.textContent).toContain('월 야간 15회 이하')
+      expect(document.body.textContent).toContain('위반 상세')
+      expect(document.body.textContent).toContain('Kim')
+      expect(document.body.textContent).not.toContain('Off 요청 반영')
+    })
+
+    it('opens Off request details grouped by employee from the Off request summary value', async () => {
+      gridMock.employees.value = [
+        {
+          id: 'emp-1',
+          employeeId: 'E001',
+          name: '김간호',
+        },
+        {
+          id: 'emp-2',
+          employeeId: 'E002',
+          name: '이간호',
+        },
+      ]
+      getScheduleStatusMock.mockResolvedValue({
+        status: 'complete',
+        hard_score: 11,
+        soft_score: 22,
+        solver_execution_id: null,
+      })
+      getScheduleVersionAssignmentsMock.mockResolvedValue({
+        assignments: {
+          'emp-1': {
+            '2025-12-01': 'O',
+            '2025-12-02': 'D',
+          },
+          'emp-2': {
+            '2025-12-03': '',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+      getScheduleVersionPreferencesMock.mockResolvedValue({
+        constraints: {
+          'emp-1': {
+            '2025-12-01': 'O',
+            '2025-12-02': 'O',
+          },
+          'emp-2': {
+            '2025-12-03': 'O',
+          },
+        },
+        notes: {
+          'emp-1': {
+            '2025-12-01': '가족 일정',
+            '2025-12-02': '외래 진료',
+          },
+          'emp-2': {
+            '2025-12-03': '개인 일정',
+          },
+        },
+        preferences: [],
+      })
+      getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+        return Promise.resolve(createReviewResponse(versionId, {
+          latestEvaluation: {
+            offRequestResults: [
+              {
+                employeeId: 'emp-1',
+                date: '2025-12-02',
+                requestCode: 'O',
+                requestNote: '외래 진료',
+                isSoft: false,
+                resolutionStatus: 'unfulfilled',
+                resolvedShiftId: null,
+                resolvedAt: null,
+                fulfilled: false,
+                reason: '필요 인력 기준 때문에 D 근무로 배정되었습니다.',
+              },
+            ],
+          },
+        }))
+      })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      const action = wrapper.get('[data-test="step5-summary-card-off-requests-action"]')
+      expect(action.text()).toContain('2/3 반영')
+
+      await action.trigger('click')
+      await flushPromises()
+
+      expect(document.querySelector('[data-test="step5-off-request-modal"]')).toBeTruthy()
+      expect(document.querySelectorAll('[data-test="off-request-employee-group"]')).toHaveLength(2)
+      expect(document.querySelectorAll('[data-test="off-request-row"]')).toHaveLength(3)
+      expect(document.body.textContent).toContain('Off 요청 상세')
+      expect(document.body.textContent).toContain('김간호')
+      expect(document.body.textContent).toContain('요청 2건')
+      expect(document.body.textContent).toContain('미반영 1건')
+      expect(document.body.textContent).toContain('외래 진료')
+      expect(document.body.textContent).toContain('실제 배정 D')
+      expect(document.body.textContent).toContain('필요 인력 기준 때문에 D 근무로 배정되었습니다.')
+      expect(document.body.textContent).toContain('이간호')
+      expect(document.body.textContent).toContain('개인 일정')
+      expect(document.body.textContent).toContain('실제 배정 미배정')
+    })
+
+    it('does not render summary value actions for satisfied guidelines or missing Off requests', async () => {
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('충족')
+      expect(wrapper.get('[data-test="step5-summary-card-off-requests"]').text()).toContain('요청 없음')
+      expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-off-requests-action"]').exists()).toBe(false)
+    })
+
     it('renders running generation status without Hard Score or Soft Score', async () => {
       solverMock.progress.value = 37
       getPhase2ScheduleCompareMock.mockResolvedValueOnce({
@@ -2231,19 +2372,17 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
   })
 
-  it('renders compliance panel inside the site view without legacy review tabs', async () => {
+  it('renders the site grid without the inline compliance panel or legacy review tabs', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    const panel = wrapper.get('[data-test="compliance-panel"]')
     const siteView = wrapper.get('[data-test="step5-site-view"]')
 
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
     expect(siteView.exists()).toBe(true)
-    expect(panel.text()).toContain('보건복지부 가이드라인 충족')
-    expect(panel.text()).toContain('요청 없음')
-    expect(siteView.find('[data-test="compliance-panel"]').exists()).toBe(true)
+    expect(siteView.find('[data-test="compliance-panel"]').exists()).toBe(false)
+    expect(siteView.text()).toContain('배정표')
     expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-offRequests"]').exists()).toBe(false)
@@ -2418,7 +2557,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('위반 1건')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
@@ -2468,7 +2607,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('충족')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
   })
@@ -2494,7 +2633,7 @@ describe('Step5Result', () => {
     }
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반 1건')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('위반 1건')
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
     )
@@ -2514,12 +2653,12 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반 1건')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('위반 1건')
 
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('충족')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
@@ -2543,7 +2682,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 확인 필요')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('확인 필요')
     expect(wrapper.get('[data-test="finalize-schedule-button"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.'
@@ -2564,7 +2703,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 확인 필요')
+    expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('확인 필요')
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.'
     )

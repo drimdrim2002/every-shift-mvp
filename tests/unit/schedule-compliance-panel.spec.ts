@@ -93,6 +93,38 @@ describe('ScheduleCompliancePanel', () => {
     }
   });
 
+  it('hides the decision header when requested while keeping rule summaries visible', () => {
+    const wrapper = mount(ScheduleCompliancePanel, {
+      props: {
+        result: createResult(),
+        showDecisionHeader: false,
+      },
+    });
+
+    expect(wrapper.find('[data-test="compliance-decision-status"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+    expect(wrapper.get('[data-test="compliance-rule-nod_pattern"]').text()).toContain('NOD 금지');
+  });
+
+  it('hides the Off request summary when requested', () => {
+    const wrapper = mount(ScheduleCompliancePanel, {
+      props: {
+        result: createResult({
+          offRequests: {
+            totalRequests: 5,
+            fulfilledRequests: 3,
+            unfulfilledRequests: 2,
+            reflectionRate: 60,
+          },
+        }),
+        showOffSummary: false,
+      },
+    });
+
+    expect(wrapper.find('[data-test="compliance-off-summary"]').exists()).toBe(false);
+    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+  });
+
   it('renders the fail decision with capped violation details', () => {
     const violations = Array.from({ length: 6 }, (_, index) => createViolation(index + 1));
     const wrapper = mount(ScheduleCompliancePanel, {
