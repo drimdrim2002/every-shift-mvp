@@ -80,7 +80,9 @@ describe('ScheduleCompliancePanel', () => {
     });
 
     expect(wrapper.get('[data-test="compliance-panel"]').attributes('class') ?? '').not.toContain('mb-4');
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 충족');
+    expect(wrapper.get('[data-test="compliance-panel"]').text()).toContain('보건복지부 가이드라인 확인 결과');
+    expect(wrapper.get('[role="list"]').attributes('aria-label')).toBe('보건복지부 가이드라인 확인 결과');
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족');
     expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
 
     for (const [code, label] of Object.entries(ruleLabels)) {
@@ -111,7 +113,7 @@ describe('ScheduleCompliancePanel', () => {
       },
     });
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 위반 6건');
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 위반 6건');
 
     const list = wrapper.get('[data-test="compliance-violation-list"]');
     expect(list.text()).toContain('김간호1');
@@ -138,9 +140,9 @@ describe('ScheduleCompliancePanel', () => {
       },
     });
 
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('법적 기준 확인 필요');
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 확인 필요');
     expect(wrapper.get('[data-test="compliance-rule-triple_night"]').text()).toContain('확인 필요');
-    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).not.toContain('법적 기준 충족');
+    expect(wrapper.get('[data-test="compliance-decision-status"]').text()).not.toContain('보건복지부 가이드라인 충족');
   });
 
   it('renders 요청 없음 when there are no Off requests', () => {
@@ -318,7 +320,7 @@ describe('VersionReviewDetail compliance slot', () => {
         focusTitle: '2안',
       },
       slots: {
-        compliance: '<div data-test="compliance-panel">법적 기준 검증</div>',
+        compliance: '<div data-test="compliance-panel">보건복지부 가이드라인 확인 결과</div>',
       },
     });
 

@@ -38,31 +38,42 @@
       </div>
 
       <template v-else>
-        <!-- 상태 표시 -->
-        <div
+        <section
           v-if="shouldShowStatusCard"
-          class="mb-6 flex items-center justify-between rounded bg-gray-50 p-4"
+          data-test="step5-result-status-summary"
+          class="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4"
         >
-          <div class="flex items-center gap-4">
-            <n-badge
-              :value="statusText"
-              :type="statusType"
-            />
+          <article
+            v-for="card in resultSummaryCards"
+            :key="card.key"
+            :data-test="summaryCardDataTest(card)"
+            class="rounded-lg border bg-white p-4 shadow-sm"
+            :class="summaryCardToneClass(card.tone)"
+          >
+            <p class="text-sm font-medium text-slate-600">
+              {{ card.title }}
+            </p>
+            <div class="mt-2 flex items-center gap-2">
+              <strong class="text-lg font-semibold text-slate-950">
+                {{ card.value }}
+              </strong>
+              <n-badge
+                v-if="card.key === 'generation'"
+                :value="statusText"
+                :type="statusType"
+              />
+            </div>
+            <p class="mt-2 text-sm leading-6 text-slate-600">
+              {{ card.description }}
+            </p>
             <n-progress
-              v-if="isRunning"
+              v-if="card.key === 'generation' && isRunning"
               type="line"
               :percentage="solver.progress.value"
-              class="w-48"
+              class="mt-3"
             />
-          </div>
-          <div
-            v-if="shouldShowScoreSummary"
-            class="text-sm"
-          >
-            <span class="mr-4">Hard Score: <strong>{{ solver.hardScore.value }}</strong></span>
-            <span>Soft Score: <strong>{{ solver.softScore.value }}</strong></span>
-          </div>
-        </div>
+          </article>
+        </section>
 
         <n-alert
           v-if="policyRejectionSummariesCurrentMonth.length > 0"
@@ -92,25 +103,6 @@
           >
             아직 생성 결과가 없습니다. 아래에서 AI 생성을 시작하세요.
           </n-alert>
-        </div>
-
-        <div
-          v-if="shouldShowLastMonthDayControl"
-          class="mb-6"
-        >
-          <div class="mb-2 flex items-center justify-between">
-            <h3 class="text-sm font-semibold text-gray-700">
-              전월 데이터 표시 일수
-            </h3>
-            <span class="text-sm text-gray-500">{{ lastMonthDays }}일</span>
-          </div>
-          <n-slider
-            v-model:value="lastMonthDays"
-            :min="0"
-            :max="maxVisibleLastMonthDays"
-            :step="1"
-            :disabled="maxVisibleLastMonthDays === 0"
-          />
         </div>
 
         <n-alert
@@ -152,18 +144,44 @@
           </n-button>
         </div>
 
-        <div class="my-6">
-          <VersionReviewDetail
-            v-if="shouldShowResultDetails"
-            :review="review"
-            :active-tab="activeReviewTab"
-            @update:tab="handleReviewTabChange"
+        <section
+          v-if="shouldShowResultDetails"
+          class="my-6"
+        >
+          <div
+            data-test="step5-result-view-switch"
+            class="mb-4 flex flex-wrap gap-2"
           >
-            <template #compliance>
-              <ScheduleCompliancePanel :result="complianceResult" />
-            </template>
+            <n-button
+              size="small"
+              :type="resultViewMode === 'site' ? 'primary' : 'default'"
+              data-test="step5-result-view-site"
+              @click="resultViewMode = 'site'"
+            >
+              사이트
+            </n-button>
+            <n-button
+              size="small"
+              :type="resultViewMode === 'employee' ? 'primary' : 'default'"
+              data-test="step5-result-view-employee"
+              @click="resultViewMode = 'employee'"
+            >
+              근무자
+            </n-button>
+          </div>
 
-            <template #headerActions>
+          <div
+            v-if="resultViewMode === 'site'"
+            data-test="step5-site-view"
+          >
+            <ScheduleCompliancePanel :result="complianceResult" />
+
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm font-semibold text-slate-900">
+                  배정표
+                </p>
+              </div>
               <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                 <span
                   v-if="changedCells.size > 0"
@@ -173,6 +191,7 @@
                 </span>
                 <n-button
                   size="small"
+                  data-test="manual-edit-reset-button"
                   :disabled="isManualEditActionDisabled"
                   @click="handleReset"
                 >
@@ -181,55 +200,123 @@
                 <n-button
                   size="small"
                   type="primary"
+                  data-test="manual-edit-save-button"
                   :disabled="isManualEditActionDisabled"
                   @click="handleSave"
                 >
                   저장
                 </n-button>
               </div>
-            </template>
+            </div>
 
-            <template #grid>
-              <ScheduleGrid
-                v-if="grid.employees.value.length > 0"
-                mode="result"
-                :employees="grid.employees.value"
-                :dates="grid.dates.value"
-                :assignments="grid.assignments.value"
-                :shift-colors="shiftColors"
-                :off-requests="offRequestsCurrentMonth"
-                :off-request-notes="offRequestNotesCurrentMonth"
-                :preference-display-mode="preferenceDisplayMode"
-                :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
-                :readonly="isReadonlyGrid"
-                :show-last-month="true"
-                result-cell-layout="single-box"
-                @update:assignment="handleAssignmentUpdate"
-              />
-              <div
-                v-else
-                class="text-center text-gray-500"
-              >
-                결과 로딩 중...
+            <div
+              v-if="shouldShowLastMonthDayControl"
+              class="mt-4"
+            >
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <h3 class="text-sm font-semibold text-gray-700">
+                  전월 데이터 표시 일수
+                </h3>
+                <span class="text-sm text-gray-500">{{ visibleLastMonthDays }}일</span>
               </div>
-            </template>
+              <n-input-number
+                v-model:value="visibleLastMonthDays"
+                data-test="last-month-days-stepper"
+                class="max-w-40"
+                :min="0"
+                :max="maxVisibleLastMonthDays"
+                :step="1"
+                :disabled="maxVisibleLastMonthDays === 0"
+              />
+            </div>
 
-            <template #proof>
-              <p
-                v-if="review?.latestEvaluation?.violationDetails.length"
-                class="text-sm text-slate-700"
+            <ScheduleGrid
+              v-if="grid.employees.value.length > 0"
+              class="mt-4"
+              mode="result"
+              :employees="grid.employees.value"
+              :dates="grid.dates.value"
+              :assignments="grid.assignments.value"
+              :shift-colors="shiftColors"
+              :off-requests="offRequestsCurrentMonth"
+              :off-request-notes="offRequestNotesCurrentMonth"
+              :preference-display-mode="preferenceDisplayMode"
+              :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
+              :readonly="isReadonlyGrid"
+              :show-last-month="true"
+              result-cell-layout="single-box"
+              @update:assignment="handleAssignmentUpdate"
+            />
+            <div
+              v-else
+              class="mt-4 text-center text-gray-500"
+            >
+              결과 로딩 중...
+            </div>
+          </div>
+
+          <div
+            v-else
+            data-test="step5-employee-view"
+          >
+            <EmployeeResultDetail
+              v-model:selected-employee-id="selectedResultEmployeeId"
+              :employees="grid.employees.value"
+              :dates="grid.dates.value"
+              :assignments="grid.assignments.value"
+              :violations="complianceResult.violations"
+              :off-requests="offRequestsCurrentMonth"
+              :off-request-notes="offRequestNotesCurrentMonth"
+              :off-request-results="selectedEmployeeOffRequestResults"
+            />
+          </div>
+        </section>
+
+        <n-alert
+          v-if="shouldShowReviewAttentionPanel"
+          type="warning"
+          class="mb-6"
+          data-test="step5-review-attention-panel"
+        >
+          <template #header>
+            검토 필요
+          </template>
+          <div class="space-y-2 text-sm leading-6">
+            <p v-if="reviewAttentionSummary">
+              {{ reviewAttentionSummary }}
+            </p>
+            <ul
+              v-if="reviewAttentionMessages.length > 0"
+              class="list-disc space-y-1 pl-5"
+            >
+              <li
+                v-for="message in reviewAttentionMessages"
+                :key="message"
               >
-                {{ review.latestEvaluation.violationDetails[0]?.message }}
-              </p>
-            </template>
+                {{ message }}
+              </li>
+            </ul>
+          </div>
+        </n-alert>
 
-            <template #offRequests>
-              <p class="text-sm text-slate-700">
-                미충족 Off 요청 {{ review?.latestEvaluation?.offRequestResults.length ?? 0 }}건
-              </p>
-            </template>
-          </VersionReviewDetail>
-        </div>
+        <n-alert
+          v-if="review?.latestEvaluation?.infeasibility"
+          type="error"
+          class="mb-6"
+        >
+          <template #header>
+            생성 실패
+          </template>
+          <p class="text-sm">
+            {{ review.latestEvaluation.infeasibility.summary }}
+          </p>
+          <p
+            v-if="review.latestEvaluation.infeasibility.details?.traceId"
+            class="mt-1 text-xs text-slate-600"
+          >
+            {{ review.latestEvaluation.infeasibility.details.traceId }}
+          </p>
+        </n-alert>
 
         <!-- 버튼 -->
         <div class="flex flex-col gap-4 pt-6 sm:flex-row sm:justify-between">
@@ -258,6 +345,13 @@
               class="text-sm font-medium text-rose-700"
             >
               {{ visibleFinalizeBlockReason }}
+            </p>
+            <p
+              v-if="shouldShowPrimaryActionButton && visiblePrimaryActionBlockReason"
+              data-test="primary-action-block-reason"
+              class="text-sm font-medium text-rose-700"
+            >
+              {{ visiblePrimaryActionBlockReason }}
             </p>
             <div class="flex flex-col gap-4 sm:flex-row">
               <n-button
@@ -309,6 +403,18 @@
                 @click="handleExport"
               >
                 엑셀 다운로드
+              </n-button>
+
+              <n-button
+                v-if="shouldShowPrimaryActionButton"
+                size="medium"
+                type="primary"
+                data-test="primary-action-button"
+                :loading="isPrimaryActionRunning"
+                :disabled="isPrimaryActionButtonDisabled"
+                @click="handlePrimaryAction"
+              >
+                {{ primaryActionButtonLabel }}
               </n-button>
 
               <n-button
@@ -492,7 +598,7 @@
 import dayjs from 'dayjs';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NSlider, NSpin, NModal } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NInputNumber, NSpin, NModal } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -500,7 +606,7 @@ import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import ScheduleCompareModal from '@/components/schedule/review/ScheduleCompareModal.vue';
 import ScheduleCompliancePanel from '@/components/schedule/review/ScheduleCompliancePanel.vue';
-import VersionReviewDetail from '@/components/schedule/review/VersionReviewDetail.vue';
+import EmployeeResultDetail from '@/components/schedule/review/EmployeeResultDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
@@ -527,7 +633,7 @@ import { mapToSolverRequest } from '@/utils/solverMapper';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
-import { resolveDefaultReviewTab } from '@/utils/scheduleReviewState';
+import { selectDefaultResultEmployeeId } from '@/utils/employeeResultDetail';
 import {
   getCanonicalCompareVersionIds,
   isSolverFailedVersion,
@@ -551,8 +657,10 @@ import type {
   ConstraintMap,
   CommentMap,
   PlanningAssignment,
+  ScheduleBlockingReason,
   SchedulePrimaryAction,
   ScheduleReviewResponse,
+  ScheduleViolationDetail,
   ScheduleVersionSummary,
   ScheduleVersionStatus,
 } from '@/types/schedule';
@@ -593,6 +701,9 @@ const comparedReviews = computed(() => hub.comparedReviews.value);
 const lockedVersionId = computed(() => {
   return review.value?.finalizedVersionId ?? scheduleStore.compareMatrix?.finalizedVersionId ?? null;
 });
+type ResultViewMode = 'site' | 'employee';
+const resultViewMode = ref<ResultViewMode>('site');
+const selectedResultEmployeeId = ref<string | null>(null);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -731,6 +842,14 @@ interface ScheduleStatusRow {
   solver_execution_id: string | null;
 }
 
+interface Step5SummaryCard {
+  key: 'generation' | 'guideline' | 'offRequests' | 'finalization';
+  title: string;
+  value: string;
+  description: string;
+  tone: 'default' | 'info' | 'success' | 'warning' | 'error';
+}
+
 const isRunning = computed(() => solver.status.value === 'running');
 const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
@@ -863,9 +982,6 @@ const shouldShowResultDetails = computed(() => hasCurrentMonthAssignments.value)
 const shouldShowStatusCard = computed(() => {
   return isRunning.value || hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value;
 });
-const shouldShowScoreSummary = computed(() => {
-  return isRunning.value || hasCurrentMonthAssignments.value;
-});
 const shouldShowFirstRunEmptyState = computed(() => {
   return (
     hasInitialLoadCompleted.value
@@ -970,11 +1086,11 @@ const complianceResult = computed<ScheduleComplianceResult>(() => {
 });
 const complianceFinalizeBlockReason = computed(() => {
   if (complianceResult.value.checkRequiredCount > 0) {
-    return '법적 기준을 확인한 뒤 확정할 수 있습니다.';
+    return '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.';
   }
 
   if (complianceResult.value.mandatoryViolationCount > 0) {
-    return `법적 기준 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
+    return `보건복지부 가이드라인 위반 ${complianceResult.value.mandatoryViolationCount}건을 해결한 뒤 확정할 수 있습니다.`;
   }
 
   return null;
@@ -984,12 +1100,29 @@ const unsavedFinalizeBlockReason = computed(() => {
     ? '변경사항을 저장하거나 취소한 뒤 확정할 수 있습니다.'
     : null;
 });
+const unsavedPrimaryActionBlockReason = computed(() => {
+  if (changedCells.value.size === 0) {
+    return null;
+  }
+
+  if (primaryAction.value.kind === 'recheck') {
+    return '변경사항을 저장하거나 취소한 뒤 재검토할 수 있습니다.';
+  }
+
+  if (primaryAction.value.kind === 'select') {
+    return '변경사항을 저장하거나 취소한 뒤 근무표안을 선택할 수 있습니다.';
+  }
+
+  return null;
+});
+const primaryActionDisabledReason = computed(() => {
+  return formatBackendActionMessage(primaryAction.value.disabledReason);
+});
 const visibleFinalizeBlockReason = computed(() => {
   return complianceFinalizeBlockReason.value
     ?? unsavedFinalizeBlockReason.value
-    ?? primaryAction.value.disabledReason;
+    ?? primaryActionDisabledReason.value;
 });
-const activeReviewTab = computed(() => scheduleStore.reviewTab);
 const previewVersionExecutionId = computed(() => {
   return previewVersionSummary.value?.activeSolverExecutionId ?? null;
 });
@@ -1005,8 +1138,88 @@ const shouldShowCompareAction = computed(() => {
 const shouldShowLastMonthDayControl = computed(() => {
   return shouldShowResultDetails.value && maxVisibleLastMonthDays.value > 0;
 });
+const visibleLastMonthDays = computed({
+  get: () => lastMonthDays.value,
+  set: (value: number | null) => {
+    const numericValue = Number(value ?? 0);
+    const integerValue = Number.isFinite(numericValue) ? Math.floor(numericValue) : 0;
+    lastMonthDays.value = Math.min(
+      maxVisibleLastMonthDays.value,
+      Math.max(0, integerValue)
+    );
+  },
+});
 const isManualEditActionDisabled = computed(() => {
   return changedCells.value.size === 0 || !canMutatePreviewVersion.value;
+});
+const selectedEmployeeOffRequestResults = computed(() => {
+  return review.value?.latestEvaluation?.offRequestResults ?? [];
+});
+const latestReviewEvaluation = computed(() => review.value?.latestEvaluation ?? null);
+const reviewAttentionSummary = computed(() => {
+  const summary = latestReviewEvaluation.value?.proofSummary;
+  if (!summary) {
+    return null;
+  }
+
+  const parts = [
+    summary.weeklyHoursViolations > 0 ? `주간 시간 위반 ${summary.weeklyHoursViolations}건` : null,
+    summary.nnnViolations > 0 ? `야간 연속 위반 ${summary.nnnViolations}건` : null,
+    summary.nodViolations > 0 ? `NOD 패턴 ${summary.nodViolations}건` : null,
+    summary.minimumRestViolations > 0 ? `휴식 기준 위반 ${summary.minimumRestViolations}건` : null,
+    summary.staffingShortfalls > 0 ? `인력 부족 ${summary.staffingShortfalls}건` : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.length > 0 ? parts.join(', ') : null;
+});
+const reviewAttentionMessages = computed(() => {
+  const evaluation = latestReviewEvaluation.value;
+  if (!evaluation) {
+    return [];
+  }
+
+  const messages = [
+    ...(evaluation.finalizationGate?.blockingReasons ?? []).map(formatReviewBlockingReason),
+    ...(evaluation.violationDetails ?? []).map(formatReviewViolationDetail),
+  ].filter((message) => message.length > 0);
+
+  return Array.from(new Set(messages));
+});
+const shouldShowReviewAttentionPanel = computed(() => {
+  const evaluation = latestReviewEvaluation.value;
+  if (!evaluation || evaluation.resultStatus !== 'review_blocked') {
+    return false;
+  }
+
+  return Boolean(reviewAttentionSummary.value) || reviewAttentionMessages.value.length > 0;
+});
+const shouldShowPrimaryActionButton = computed(() => {
+  return (
+    shouldShowResultDetails.value
+    && (primaryAction.value.kind === 'select' || primaryAction.value.kind === 'recheck')
+  );
+});
+const isPrimaryActionButtonDisabled = computed(() => {
+  return (
+    isPrimaryActionRunning.value
+    || Boolean(unsavedPrimaryActionBlockReason.value)
+    || Boolean(primaryActionDisabledReason.value)
+    || !primaryAction.value.targetVersionId
+  );
+});
+const visiblePrimaryActionBlockReason = computed(() => {
+  return unsavedPrimaryActionBlockReason.value ?? primaryActionDisabledReason.value;
+});
+const primaryActionButtonLabel = computed(() => {
+  if (primaryAction.value.kind === 'select') {
+    return '이 근무표안 선택';
+  }
+
+  if (primaryAction.value.kind === 'recheck') {
+    return '재검토 실행';
+  }
+
+  return '작업 실행';
 });
 const shouldShowFinalizeAction = computed(() => {
   return isFinished.value && shouldShowResultDetails.value && !isFinalizedMonth.value;
@@ -1021,9 +1234,214 @@ const isFinalizeActionDisabled = computed(() => {
     || Boolean(primaryAction.value.disabledReason)
   );
 });
+const generationSummaryCard = computed<Step5SummaryCard>(() => {
+  const progress = Math.round(solver.progress.value);
+  const description = isRunning.value
+    ? `생성 진행률 ${progress}%입니다.`
+    : hasCurrentMonthAssignments.value
+      ? '검토할 생성 결과가 준비되었습니다.'
+      : hasSolverExecutionHistory.value
+        ? '생성 이력을 확인하세요.'
+        : '생성을 시작하면 결과 상태가 표시됩니다.';
 
-function syncReviewTabForPreview() {
-  scheduleStore.setReviewTab(resolveDefaultReviewTab(previewVersionStatus.value));
+  return {
+    key: 'generation',
+    title: '생성 상태',
+    value: statusText.value,
+    description,
+    tone: statusType.value,
+  };
+});
+const guidelineSummaryCard = computed<Step5SummaryCard>(() => {
+  const { checkRequiredCount, mandatoryViolationCount } = complianceResult.value;
+
+  if (checkRequiredCount > 0) {
+    return {
+      key: 'guideline',
+      title: '보건복지부 가이드라인',
+      value: '확인 필요',
+      description: `자동 확인이 필요한 항목 ${checkRequiredCount}건이 있습니다.`,
+      tone: 'warning',
+    };
+  }
+
+  if (mandatoryViolationCount > 0) {
+    return {
+      key: 'guideline',
+      title: '보건복지부 가이드라인',
+      value: `위반 ${mandatoryViolationCount}건`,
+      description: '확정 전 위반 항목을 해결해야 합니다.',
+      tone: 'error',
+    };
+  }
+
+  return {
+    key: 'guideline',
+    title: '보건복지부 가이드라인',
+    value: '충족',
+    description: '확정 전 필수 기준을 모두 확인했습니다.',
+    tone: 'success',
+  };
+});
+const offRequestSummaryCard = computed<Step5SummaryCard>(() => {
+  const offRequests = complianceResult.value.offRequests;
+
+  if (offRequests.totalRequests === 0) {
+    return {
+      key: 'offRequests',
+      title: 'Off 요청',
+      value: '요청 없음',
+      description: '이번 달 반영할 Off 요청이 없습니다.',
+      tone: 'default',
+    };
+  }
+
+  const reflectionRate = offRequests.reflectionRate ?? 0;
+  return {
+    key: 'offRequests',
+    title: 'Off 요청',
+    value: `${offRequests.fulfilledRequests}/${offRequests.totalRequests} 반영`,
+    description: `반영률 ${reflectionRate}% · 미반영 ${offRequests.unfulfilledRequests}건`,
+    tone: offRequests.unfulfilledRequests === 0 ? 'success' : 'warning',
+  };
+});
+const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
+  if (!shouldShowFinalizeAction.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: isRunning.value ? '대기 중' : '대기',
+      description: isRunning.value
+        ? '생성 완료 후 확정 여부를 확인합니다.'
+        : '생성 결과를 확인한 뒤 확정할 수 있습니다.',
+      tone: isRunning.value ? 'info' : 'default',
+    };
+  }
+
+  if (visibleFinalizeBlockReason.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확인 필요',
+      description: visibleFinalizeBlockReason.value,
+      tone: 'warning',
+    };
+  }
+
+  if (isFinalizeActionDisabled.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확정 대기',
+      description: primaryAction.value.label || '현재 근무표안은 바로 확정할 수 없습니다.',
+      tone: 'default',
+    };
+  }
+
+  return {
+    key: 'finalization',
+    title: '확정',
+    value: '확정 가능',
+    description: '아래 확정 버튼으로 최종 근무표를 확정할 수 있습니다.',
+    tone: 'success',
+  };
+});
+const resultSummaryCards = computed<Step5SummaryCard[]>(() => [
+  generationSummaryCard.value,
+  guidelineSummaryCard.value,
+  offRequestSummaryCard.value,
+  finalizationSummaryCard.value,
+]);
+
+function summaryCardDataTest(card: Step5SummaryCard): string {
+  return card.key === 'offRequests'
+    ? 'step5-summary-card-off-requests'
+    : `step5-summary-card-${card.key}`;
+}
+
+function summaryCardToneClass(tone: Step5SummaryCard['tone']): string {
+  const map: Record<Step5SummaryCard['tone'], string> = {
+    default: 'border-slate-200',
+    info: 'border-sky-200 bg-sky-50/60',
+    success: 'border-emerald-200 bg-emerald-50/60',
+    warning: 'border-amber-200 bg-amber-50/60',
+    error: 'border-rose-200 bg-rose-50/60',
+  };
+  return map[tone];
+}
+
+function sanitizeReviewMessage(message: string): string {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const sanitized = trimmed
+    .replace(/Hard-constraint violations were detected\./gi, '검토 기준 위반이 감지되었습니다.')
+    .replace(/Recheck after fixing assignments\./gi, '배정을 수정한 뒤 재검토해주세요.')
+    .replace(/No feasible schedule exists for the current input conditions\./gi, '현재 입력 조건으로 생성 가능한 근무표가 없습니다.')
+    .replace(/Solver execution failed\. Retry before finalization\./gi, '생성 중 오류가 발생했습니다. 다시 생성해주세요.')
+    .replace(/hard constraints?/gi, '검토 기준')
+    .replace(/하드 제약/g, '검토 기준');
+
+  return /[A-Za-z]/.test(sanitized) ? '' : sanitized;
+}
+
+function formatBackendActionMessage(message: string | null): string | null {
+  if (!message) {
+    return null;
+  }
+
+  return sanitizeReviewMessage(message) || '현재 상태에서는 이 작업을 진행할 수 없습니다.';
+}
+
+function formatReviewBlockingReason(reason: ScheduleBlockingReason): string {
+  if (reason.code === 'hard_constraints_violated') {
+    return '검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.';
+  }
+
+  if (reason.code === 'infeasible') {
+    return '현재 입력 조건으로 생성 가능한 근무표가 없습니다.';
+  }
+
+  if (reason.code === 'solve_failed') {
+    return '생성 중 오류가 발생했습니다. 다시 생성해주세요.';
+  }
+
+  return sanitizeReviewMessage(reason.message) || '검토가 필요한 항목이 있습니다.';
+}
+
+function formatReviewViolationDetail(detail: ScheduleViolationDetail): string {
+  if (detail.code === 'hard_constraints_violated') {
+    return '검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.';
+  }
+
+  if (detail.code === 'staffing_shortfall') {
+    return formatStaffingShortfallDetail(detail);
+  }
+
+  return sanitizeReviewMessage(detail.message) || '검토가 필요한 항목이 있습니다.';
+}
+
+function getMetadataNumber(metadata: Record<string, unknown>, key: string): number | null {
+  const value = metadata[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function formatStaffingShortfallDetail(detail: ScheduleViolationDetail): string {
+  const date = detail.dates[0] ?? null;
+  const requiredCount = getMetadataNumber(detail.metadata, 'requiredCount');
+  const assignedCount = getMetadataNumber(detail.metadata, 'assignedCount');
+
+  if (date && requiredCount !== null && assignedCount !== null) {
+    return `${date} 인력 부족: 필요 ${requiredCount}명, 배정 ${assignedCount}명입니다.`;
+  }
+
+  if (date) {
+    return `${date} 인력 부족이 있습니다.`;
+  }
+
+  return '인력 부족이 있습니다.';
 }
 
 function getActiveSolvingVersionId(): string | null {
@@ -2090,6 +2508,26 @@ watch(lastMonthDays, (newDays) => {
 });
 
 watch(
+  [
+    resultViewMode,
+    () => grid.employees.value,
+    () => complianceResult.value.violations,
+  ],
+  () => {
+    if (resultViewMode.value !== 'employee') {
+      return;
+    }
+
+    selectedResultEmployeeId.value = selectDefaultResultEmployeeId(
+      grid.employees.value,
+      complianceResult.value.violations,
+      selectedResultEmployeeId.value,
+    );
+  },
+  { immediate: true }
+);
+
+watch(
   () => [
     scheduleStore.basicInfo?.organizationId ?? null,
     scheduleStore.basicInfo?.month ?? null,
@@ -2110,14 +2548,6 @@ watch(
       forceAssignmentSync: true,
     });
   }
-);
-
-watch(
-  () => [review.value?.version?.id ?? null, previewVersionStatus.value],
-  () => {
-    syncReviewTabForPreview();
-  },
-  { immediate: true }
 );
 
 watch(() => solver.status.value, async (newStatus) => {
@@ -2207,10 +2637,6 @@ function handleGoDashboard() {
       router.replace(getAppHomeRoutePath());
     },
   });
-}
-
-function handleReviewTabChange(tab: 'grid' | 'proof' | 'offRequests') {
-  scheduleStore.setReviewTab(tab);
 }
 
 function handleCloseCompareModal() {
@@ -2442,6 +2868,13 @@ async function handlePrimaryAction() {
     return;
   }
 
+  if (isPrimaryActionButtonDisabled.value) {
+    if (visiblePrimaryActionBlockReason.value) {
+      showInfo(visiblePrimaryActionBlockReason.value);
+    }
+    return;
+  }
+
   isPrimaryActionRunning.value = true;
 
   try {
@@ -2488,8 +2921,8 @@ async function handleFinalizeAction() {
       showInfo(complianceFinalizeBlockReason.value);
     } else if (unsavedFinalizeBlockReason.value) {
       showInfo(unsavedFinalizeBlockReason.value);
-    } else if (primaryAction.value.disabledReason) {
-      showInfo(primaryAction.value.disabledReason);
+    } else if (primaryActionDisabledReason.value) {
+      showInfo(primaryActionDisabledReason.value);
     }
     return;
   }

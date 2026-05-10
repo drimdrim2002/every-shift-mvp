@@ -35,14 +35,14 @@ const decisionTone = computed<'pass' | 'fail' | 'check'>(() => {
 
 const decisionTitle = computed(() => {
   if (decisionTone.value === 'check') {
-    return '법적 기준 확인 필요';
+    return '보건복지부 가이드라인 확인 필요';
   }
 
   if (decisionTone.value === 'fail') {
-    return `법적 기준 위반 ${props.result.mandatoryViolationCount}건`;
+    return `보건복지부 가이드라인 위반 ${props.result.mandatoryViolationCount}건`;
   }
 
-  return '법적 기준 충족';
+  return '보건복지부 가이드라인 충족';
 });
 
 const decisionDescription = computed(() => {
@@ -174,7 +174,7 @@ function toggleViolationReveal() {
       :class="decisionClasses.shell"
     >
       <h3 class="text-sm font-semibold text-slate-900">
-        법적 기준 검증
+        보건복지부 가이드라인 확인 결과
       </h3>
       <p
         data-test="compliance-decision-status"
@@ -193,7 +193,7 @@ function toggleViolationReveal() {
 
     <div
       role="list"
-      aria-label="필수 기준 검증 결과"
+      aria-label="보건복지부 가이드라인 확인 결과"
       class="mt-4 grid gap-2 md:grid-cols-2"
     >
       <div
