@@ -54,7 +54,20 @@
               {{ card.title }}
             </p>
             <div class="mt-2 flex items-center gap-2">
-              <strong class="text-lg font-semibold text-slate-950">
+              <button
+                v-if="isSummaryCardActionVisible(card)"
+                type="button"
+                :data-test="summaryCardActionDataTest(card)"
+                class="rounded-md text-left text-lg font-semibold text-slate-950 underline underline-offset-4 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                :aria-label="summaryCardActionLabel(card)"
+                @click="handleSummaryCardAction(card)"
+              >
+                {{ card.value }}
+              </button>
+              <strong
+                v-else
+                class="text-lg font-semibold text-slate-950"
+              >
                 {{ card.value }}
               </strong>
               <n-badge
@@ -174,9 +187,7 @@
             v-if="resultViewMode === 'site'"
             data-test="step5-site-view"
           >
-            <ScheduleCompliancePanel :result="complianceResult" />
-
-            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p class="text-sm font-semibold text-slate-900">
                   배정표
@@ -462,6 +473,50 @@
         />
 
         <n-modal
+          v-model:show="isComplianceModalOpen"
+          preset="card"
+          class="w-[min(760px,calc(100vw-32px))]"
+        >
+          <template #header>
+            보건복지부 가이드라인 상세
+          </template>
+
+          <div
+            data-test="step5-guideline-modal"
+            class="max-h-[min(70vh,720px)] overflow-y-auto pr-1"
+          >
+            <ScheduleCompliancePanel
+              :result="complianceResult"
+              :show-decision-header="false"
+              :show-off-summary="false"
+            />
+          </div>
+        </n-modal>
+
+        <n-modal
+          v-model:show="isOffRequestModalOpen"
+          preset="card"
+          class="w-[min(920px,calc(100vw-32px))]"
+        >
+          <template #header>
+            Off 요청 상세
+          </template>
+
+          <div
+            data-test="step5-off-request-modal"
+            class="max-h-[min(70vh,760px)] overflow-y-auto pr-1"
+          >
+            <ScheduleOffRequestGroupList
+              :employees="grid.employees.value"
+              :assignments="grid.assignments.value"
+              :off-requests="offRequestsCurrentMonth"
+              :off-request-notes="offRequestNotesCurrentMonth"
+              :off-request-results="selectedEmployeeOffRequestResults"
+            />
+          </div>
+        </n-modal>
+
+        <n-modal
           :show="isDeleteScopeModalOpen"
           preset="card"
           class="w-[min(640px,calc(100vw-32px))]"
@@ -606,6 +661,7 @@ import { useScheduleReviewHub } from '@/composables/useScheduleReviewHub';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
 import ScheduleCompareModal from '@/components/schedule/review/ScheduleCompareModal.vue';
 import ScheduleCompliancePanel from '@/components/schedule/review/ScheduleCompliancePanel.vue';
+import ScheduleOffRequestGroupList from '@/components/schedule/review/ScheduleOffRequestGroupList.vue';
 import EmployeeResultDetail from '@/components/schedule/review/EmployeeResultDetail.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
@@ -726,6 +782,8 @@ const selectedDeleteScope = ref<DeleteScope | null>(null);
 const deleteScopeErrorMessage = ref<string | null>(null);
 const isPrimaryActionRunning = ref(false);
 const isCompareModalOpen = ref(false);
+const isComplianceModalOpen = ref(false);
+const isOffRequestModalOpen = ref(false);
 const isCompareModalLoading = ref(false);
 const compareModalErrorMessage = ref<string | null>(null);
 interface ComparisonVersionData {
@@ -1352,11 +1410,65 @@ const resultSummaryCards = computed<Step5SummaryCard[]>(() => [
   offRequestSummaryCard.value,
   finalizationSummaryCard.value,
 ]);
+const canOpenGuidelineDetails = computed(() => {
+  return complianceResult.value.mandatoryViolationCount > 0
+    || complianceResult.value.checkRequiredCount > 0;
+});
+const canOpenOffRequestDetails = computed(() => {
+  return complianceResult.value.offRequests.totalRequests > 0;
+});
 
 function summaryCardDataTest(card: Step5SummaryCard): string {
   return card.key === 'offRequests'
     ? 'step5-summary-card-off-requests'
     : `step5-summary-card-${card.key}`;
+}
+
+function isSummaryCardActionVisible(card: Step5SummaryCard): boolean {
+  if (card.key === 'guideline') {
+    return canOpenGuidelineDetails.value;
+  }
+
+  if (card.key === 'offRequests') {
+    return canOpenOffRequestDetails.value;
+  }
+
+  return false;
+}
+
+function summaryCardActionDataTest(card: Step5SummaryCard): string | undefined {
+  if (card.key === 'guideline') {
+    return 'step5-summary-card-guideline-action';
+  }
+
+  if (card.key === 'offRequests') {
+    return 'step5-summary-card-off-requests-action';
+  }
+
+  return undefined;
+}
+
+function summaryCardActionLabel(card: Step5SummaryCard): string | undefined {
+  if (card.key === 'guideline') {
+    return '보건복지부 가이드라인 상세 보기';
+  }
+
+  if (card.key === 'offRequests') {
+    return 'Off 요청 상세 보기';
+  }
+
+  return undefined;
+}
+
+function handleSummaryCardAction(card: Step5SummaryCard) {
+  if (card.key === 'guideline' && canOpenGuidelineDetails.value) {
+    isComplianceModalOpen.value = true;
+    return;
+  }
+
+  if (card.key === 'offRequests' && canOpenOffRequestDetails.value) {
+    isOffRequestModalOpen.value = true;
+  }
 }
 
 function summaryCardToneClass(tone: Step5SummaryCard['tone']): string {

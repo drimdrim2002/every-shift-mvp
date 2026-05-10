@@ -10,9 +10,13 @@ const props = withDefaults(
   defineProps<{
     result: ScheduleComplianceResult;
     initialDetailLimit?: number;
+    showDecisionHeader?: boolean;
+    showOffSummary?: boolean;
   }>(),
   {
     initialDetailLimit: 5,
+    showDecisionHeader: true,
+    showOffSummary: true,
   },
 );
 
@@ -170,6 +174,7 @@ function toggleViolationReveal() {
     class="rounded-xl border border-slate-200 bg-slate-50 p-4"
   >
     <header
+      v-if="showDecisionHeader"
       class="rounded-lg border p-4"
       :class="decisionClasses.shell"
     >
@@ -267,6 +272,7 @@ function toggleViolationReveal() {
     </div>
 
     <div
+      v-if="showOffSummary"
       data-test="compliance-off-summary"
       class="mt-4 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm leading-6 text-slate-800"
     >
