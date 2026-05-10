@@ -169,8 +169,8 @@ function createComplianceResult(
     checkRequiredCount: 0,
     summaries: [
       { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
-      { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
-      { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'triple_night', label: '4연속 야간 금지 (3연속 허용)', status: 'passed', violationCount: 0, message: '통과' },
+      { code: 'rest_after_two_nights', label: '연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
       { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
     ],
     violations: [],
@@ -256,8 +256,8 @@ describe('scheduleComparisonSummary', () => {
     ]);
     expect(model.requirementRows.map((row) => row.label)).toEqual([
       'NOD 근무 불가',
-      '3연속 야간(N) 근무 불가',
-      '2연속 야간(N) 후 48시간 이상 휴식',
+      '4연속 야간(N) 근무 불가 (3연속 허용)',
+      '연속 야간(N) 후 48시간 이상 휴식',
       '야간 근무 월 15회 이하',
       'Off 요청 준수',
     ]);
@@ -306,7 +306,7 @@ describe('scheduleComparisonSummary', () => {
           rightText: '검토 정보 없음',
         }),
         expect.objectContaining({
-          label: '3연속 야간(N) 근무 불가',
+          label: '4연속 야간(N) 근무 불가 (3연속 허용)',
           leftStatus: 'failed',
           leftText: '위반 2건',
           rightStatus: 'unknown',
@@ -359,12 +359,12 @@ describe('scheduleComparisonSummary', () => {
           leftText: '검토 정보 없음',
         }),
         expect.objectContaining({
-          label: '3연속 야간(N) 근무 불가',
+          label: '4연속 야간(N) 근무 불가 (3연속 허용)',
           leftStatus: 'unknown',
           leftText: '검토 정보 없음',
         }),
         expect.objectContaining({
-          label: '2연속 야간(N) 후 48시간 이상 휴식',
+          label: '연속 야간(N) 후 48시간 이상 휴식',
           leftStatus: 'unknown',
           leftText: '검토 정보 없음',
         }),
@@ -628,8 +628,8 @@ describe('scheduleComparisonSummary', () => {
       leftComplianceResult: createComplianceResult({
         summaries: [
           { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
-          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
-          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'failed', violationCount: 10, message: '위반 10건' },
+          { code: 'triple_night', label: '4연속 야간 금지 (3연속 허용)', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '연속 야간 후 48시간 휴식', status: 'failed', violationCount: 10, message: '위반 10건' },
           { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
         ],
         offRequests: {
@@ -644,7 +644,7 @@ describe('scheduleComparisonSummary', () => {
 
     expect(model.requirementRows).toContainEqual(
       expect.objectContaining({
-        label: '2연속 야간(N) 후 48시간 이상 휴식',
+        label: '연속 야간(N) 후 48시간 이상 휴식',
         leftStatus: 'failed',
         leftText: '위반 10건',
         rightStatus: 'passed',
@@ -671,8 +671,8 @@ describe('scheduleComparisonSummary', () => {
       leftComplianceResult: createComplianceResult({
         summaries: [
           { code: 'nod_pattern', label: 'NOD 금지', status: 'check_required', violationCount: 0, message: '확인 필요' },
-          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
-          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'triple_night', label: '4연속 야간 금지 (3연속 허용)', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
           { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
         ],
       }),

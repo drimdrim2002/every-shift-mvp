@@ -89,8 +89,8 @@ function createComplianceResult(
     checkRequiredCount: 0,
     summaries: [
       { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
-      { code: 'triple_night', label: '3연속 야간 금지', status: 'failed', violationCount: 2, message: '위반 2건' },
-      { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'check_required', violationCount: 0, message: '확인 필요' },
+      { code: 'triple_night', label: '4연속 야간 금지 (3연속 허용)', status: 'failed', violationCount: 2, message: '위반 2건' },
+      { code: 'rest_after_two_nights', label: '연속 야간 후 48시간 휴식', status: 'check_required', violationCount: 0, message: '확인 필요' },
       { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
     ],
     violations: [],
@@ -336,8 +336,8 @@ describe('ComparisonWorkspace', () => {
       rightComplianceResult: createComplianceResult({
         summaries: [
           { code: 'nod_pattern', label: 'NOD 금지', status: 'passed', violationCount: 0, message: '통과' },
-          { code: 'triple_night', label: '3연속 야간 금지', status: 'passed', violationCount: 0, message: '통과' },
-          { code: 'rest_after_two_nights', label: '2연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'triple_night', label: '4연속 야간 금지 (3연속 허용)', status: 'passed', violationCount: 0, message: '통과' },
+          { code: 'rest_after_two_nights', label: '연속 야간 후 48시간 휴식', status: 'passed', violationCount: 0, message: '통과' },
           { code: 'monthly_night_limit', label: '월 야간 15회 이하', status: 'passed', violationCount: 0, message: '통과' },
         ],
       }),

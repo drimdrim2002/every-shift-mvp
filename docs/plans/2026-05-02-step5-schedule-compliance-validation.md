@@ -16,11 +16,19 @@ Step5에 `법적 기준 검증` 패널을 추가한다. Mandatory 기준은 하�
 
 이 패널의 목적은 "근무표가 안전한가"를 첫눈에 답하는 것이다. 기존 Step5의 배정표와 비교 기능은 유지하되, 현재 보는 근무표안의 확정 가능 여부를 `DESIGN.md`의 Step5 원칙처럼 decision status first, proof/detail second 순서로 올린다.
 
+## Errata (2026-05-10)
+
+- 이 문서의 초기 표현 중 `3연속 야간 금지`, `2연속 야간 후 48시간 휴식`은 정책 해석 정정으로 폐기한다.
+- 정정 기준:
+  - `4연속 야간 금지 (3연속 허용)`: `N -> N -> N -> N`이면 위반이다.
+  - `연속 야간 후 48시간 휴식`: 연속 야간 블록의 마지막 `N` 종료 시점부터 다음 실제 근무(`D/E/N`) 시작까지 48시간 미만이면 위반이다.
+- 아래 본문과 예시는 정정 기준에 맞춰 교체/주석 처리했다.
+
 확정된 규칙 의미:
 
 - `NOD 금지`: 날짜상 연속 3일의 셀 값이 `N -> O -> D`이면 위반이다.
-- `3연속 야간 금지`: 날짜상 연속 3일의 셀 값이 `N -> N -> N`이면 위반이다.
-- `2연속 야간 후 48시간 휴식`: `N -> N` 이후 첫 실제 근무(`D/E/N`) 시작 시간이 두 번째 Night 종료 후 48시간 미만이면 위반이다.
+- `4연속 야간 금지 (3연속 허용)`: 날짜상 연속 4일의 셀 값이 `N -> N -> N -> N`이면 위반이다.
+- `연속 야간 후 48시간 휴식`: 연속 야간의 마지막 Night 종료 후 첫 실제 근무(`D/E/N`) 시작 시간이 48시간 미만이면 위반이다.
 - `월 야간 15회 이하`: 대상 월 내부의 `N`만 카운트하고 16회 이상이면 위반이다.
 - Off 요청 수락: 요청 날짜의 최종 배정이 정확히 `O`이면 수락이다.
 
@@ -430,8 +438,8 @@ evaluateScheduleCompliance(input)
   │
   ├─ build sorted employee timelines from all assignment dates
   │   ├─ N O D -> nod_pattern
-  │   ├─ N N N -> triple_night
-  │   └─ N N then next work interval < 48h -> rest_after_two_nights
+  │   ├─ N N N N -> triple_night
+  │   └─ consecutive N block then next work interval < 48h from last N end -> rest_after_two_nights
   │
   ├─ count target-month N assignments only
   │   └─ > 15 -> monthly_night_limit
@@ -476,9 +484,9 @@ CODE PATH COVERAGE TARGET
     ├── evaluateScheduleCompliance()
     │   ├── [GAP] valid pass, zero violations
     │   ├── [GAP] nod_pattern: N -> O -> D
-    │   ├── [GAP] triple_night: N -> N -> N
-    │   ├── [GAP] rest_after_two_nights fail: N -> N -> O -> D
-    │   ├── [GAP] rest_after_two_nights pass: N -> N -> O -> O -> D
+    │   ├── [GAP] triple_night: N -> N -> N -> N
+    │   ├── [GAP] rest_after_two_nights fail: N -> N -> N -> O -> D (last N 종료 후 48h 미만)
+    │   ├── [GAP] rest_after_two_nights pass: N -> N -> N -> O -> O -> D (last N 종료 후 48h 이상)
     │   ├── [GAP] monthly_night_limit fail at 16 target-month N
     │   ├── [GAP] previous-month N excluded from monthly night cap
     │   ├── [GAP] previous-month context included in sequence/rest checks
@@ -743,8 +751,10 @@ Create `tests/unit/schedule-compliance.spec.ts` with one `describe('evaluateSche
 ```ts
 it('passes when mandatory rules have no violations');
 it('reports N O D as a nod_pattern violation');
-it('reports N N N as a triple_night violation');
-it('blocks when first work after two nights starts before 48 hours');
+it('reports N N N N as a triple_night violation');
+it(
+  'blocks when first work after a consecutive night block starts before 48 hours from last night end'
+);
 it('passes rest_after_two_nights when the next work starts after 48 hours');
 it('counts only target-month nights for monthly_night_limit');
 it('uses previous-month context for sequence checks');
@@ -918,8 +928,8 @@ git commit -m "feat: add schedule compliance evaluator"
   - Check required: `법적 기준 확인 필요`
 - [ ] Show four mandatory rule summaries:
   - `NOD 금지`
-  - `3연속 야간 금지`
-  - `2연속 야간 후 48시간 휴식`
+  - `4연속 야간 금지 (3연속 허용)`
+  - `연속 야간 후 48시간 휴식`
   - `월 야간 15회 이하`
 - [ ] Show violation details with employee name, date/date range, and reason.
 - [ ] Show Optional Off request summary:
@@ -989,14 +999,14 @@ const wrapper = mount(ScheduleCompliancePanel, {
         },
         {
           code: 'triple_night',
-          label: '3연속 야간 금지',
+          label: '4연속 야간 금지 (3연속 허용)',
           status: 'passed',
           violationCount: 0,
           message: '충족',
         },
         {
           code: 'rest_after_two_nights',
-          label: '2연속 야간 후 48시간 휴식',
+          label: '연속 야간 후 48시간 휴식',
           status: 'passed',
           violationCount: 0,
           message: '충족',
@@ -1403,9 +1413,9 @@ git commit -m "feat: gate Step5 finalization on compliance"
 - [ ] Add `tests/unit/schedule-compliance.spec.ts`.
 - [ ] Test a no-violation schedule returns `mandatoryPassed: true` and four passed summaries.
 - [ ] Test `N -> O -> D` is reported as `nod_pattern`.
-- [ ] Test `N -> N -> N` is reported as `triple_night`.
-- [ ] Test `N -> N -> O -> D` fails the 48-hour rest rule.
-- [ ] Test `N -> N -> O -> O -> D` passes the 48-hour rest rule.
+- [ ] Test `N -> N -> N -> N` is reported as `triple_night`.
+- [ ] Test `N -> N -> N -> O -> D` fails the 48-hour rest rule from last night end.
+- [ ] Test `N -> N -> N -> O -> O -> D` passes the 48-hour rest rule from last night end.
 - [ ] Test 16 target-month `N` assignments fail `monthly_night_limit`.
 - [ ] Test previous-month `N` assignments are excluded from monthly night count.
 - [ ] Test previous-month context can trigger sequence/rest violations across the month boundary.

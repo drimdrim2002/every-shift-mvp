@@ -13,8 +13,8 @@ import type {
 
 const ruleLabels: Record<ScheduleComplianceRuleCode, string> = {
   nod_pattern: 'NOD 금지',
-  triple_night: '3연속 야간 금지',
-  rest_after_two_nights: '2연속 야간 후 48시간 휴식',
+  triple_night: '4연속 야간 금지 (3연속 허용)',
+  rest_after_two_nights: '연속 야간 후 48시간 휴식',
   monthly_night_limit: '월 야간 15회 이하',
 };
 

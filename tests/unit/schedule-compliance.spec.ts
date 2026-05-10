@@ -100,38 +100,50 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.summaries.find((summary) => summary.code === 'nod_pattern')?.status).toBe('failed');
   });
 
-  it('reports N N N as a triple_night violation', () => {
+  it('allows three consecutive nights without triple_night violation', () => {
     const result = evaluate({
       e1: {
         '2026-05-01': 'N',
         '2026-05-02': 'N',
         '2026-05-03': 'N',
+        '2026-05-04': 'O',
+        '2026-05-05': 'O',
+        '2026-05-06': 'D',
       },
     });
 
-    expect(result.mandatoryPassed).toBe(false);
-    expect(result.violations).toEqual([
-      expect.objectContaining({
-        ruleCode: 'triple_night',
-        employeeId: 'e1',
-        dates: ['2026-05-01', '2026-05-02', '2026-05-03'],
-      }),
-      expect.objectContaining({
-        ruleCode: 'rest_after_two_nights',
-        employeeId: 'e1',
-        dates: ['2026-05-01', '2026-05-02', '2026-05-03'],
-      }),
-    ]);
-    expect(result.summaries.find((summary) => summary.code === 'triple_night')?.status).toBe('failed');
+    expect(result.violations.some((violation) => violation.ruleCode === 'triple_night')).toBe(false);
+    expect(result.summaries.find((summary) => summary.code === 'triple_night')?.status).toBe('passed');
   });
 
-  it('blocks when first work after two nights starts before 48 hours', () => {
+  it('reports four consecutive nights as triple_night violation', () => {
     const result = evaluate({
       e1: {
         '2026-05-01': 'N',
         '2026-05-02': 'N',
-        '2026-05-03': 'O',
-        '2026-05-04': 'D',
+        '2026-05-03': 'N',
+        '2026-05-04': 'N',
+      },
+    });
+
+    expect(result.violations).toContainEqual(
+      expect.objectContaining({
+        ruleCode: 'triple_night',
+        employeeId: 'e1',
+        dates: ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04'],
+      }),
+    );
+    expect(result.summaries.find((summary) => summary.code === 'triple_night')?.status).toBe('failed');
+  });
+
+  it('blocks when first work after a three-night streak starts before 48 hours from last night end', () => {
+    const result = evaluate({
+      e1: {
+        '2026-05-01': 'N',
+        '2026-05-02': 'N',
+        '2026-05-03': 'N',
+        '2026-05-04': 'O',
+        '2026-05-05': 'D',
       },
     });
 
@@ -139,27 +151,28 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.violations).toContainEqual(
       expect.objectContaining({
         ruleCode: 'rest_after_two_nights',
-        dates: ['2026-05-01', '2026-05-02', '2026-05-04'],
+        dates: ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-05'],
       }),
     );
     expect(result.violations.find((violation) => violation.ruleCode === 'rest_after_two_nights')?.message)
       .toContain('48시간');
   });
 
-  it('passes rest_after_two_nights when the next work starts after 48 hours', () => {
+  it('passes when first work starts at least 48 hours after last night in streak', () => {
     const result = evaluate({
       e1: {
         '2026-05-01': 'N',
         '2026-05-02': 'N',
-        '2026-05-03': 'O',
+        '2026-05-03': 'N',
         '2026-05-04': 'O',
-        '2026-05-05': 'D',
+        '2026-05-05': 'O',
+        '2026-05-06': 'O',
+        '2026-05-07': 'D',
       },
     });
 
-    expect(result.mandatoryPassed).toBe(true);
+    expect(result.violations.some((violation) => violation.ruleCode === 'rest_after_two_nights')).toBe(false);
     expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
-    expect(result.violations).toEqual([]);
   });
 
   it('counts only target-month nights for monthly_night_limit', () => {

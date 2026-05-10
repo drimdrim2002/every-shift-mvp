@@ -54,7 +54,7 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     headline: '보건복지부 근무 가이드라인을 준수합니다',
     description:
       '근로기준법 근무 시간, 야간 근무에 대한 규정 등을 준수하고 위반 여부를 화면에서 바로 확인하도록 설계했습니다.',
-    details: ['연속 야간 근무는 최대 3일', '야간 후 휴식 시간 보장', '위반 여부를 쉽게 확인'],
+    details: ['연속 야간 근무는 최대 3일', '연속 야간 종료 후 48시간 이상 휴식 보장', '위반 여부를 쉽게 확인'],
     preview: 'guide',
   },
   {

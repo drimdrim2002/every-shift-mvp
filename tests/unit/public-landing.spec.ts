@@ -118,9 +118,12 @@ describe('PublicLandingView', () => {
     expect(wrapper.text()).toContain('버전 A')
     expect(wrapper.text()).toContain('버전 B')
     expect(wrapper.text()).toContain('연속 야간 제한')
+    expect(wrapper.text()).toContain('연속 야간 4회 이상 배치가 없도록 점검합니다.')
     expect(wrapper.text()).toContain('야간 후 휴식')
+    expect(wrapper.text()).toContain('연속 야간이 끝난 뒤 48시간 이상 휴식이 확보되는지 확인합니다.')
     expect(wrapper.text()).toContain('NOD 금지')
     expect(wrapper.text()).toContain('필요 인력 충족')
+    expect(wrapper.text()).toContain('연속 야간 종료 후 48시간 이상 휴식 보장')
   })
 
   it('renders public sections without authenticated app chrome text', () => {

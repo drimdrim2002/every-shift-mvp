@@ -3,7 +3,9 @@ import type { Shift } from './shift';
 
 export type ScheduleComplianceRuleCode =
   | 'nod_pattern'
+  // Legacy key kept for API compatibility: violations now start at 4 consecutive nights (3 allowed).
   | 'triple_night'
+  // Legacy key kept for API compatibility: evaluates 48h rest after the end of a consecutive night streak.
   | 'rest_after_two_nights'
   | 'monthly_night_limit';
 

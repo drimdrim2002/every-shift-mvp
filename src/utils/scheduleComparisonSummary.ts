@@ -87,8 +87,8 @@ const COMPLIANCE_REQUIREMENT_DEFINITIONS: Array<{
   label: string;
 }> = [
   { code: 'nod_pattern', label: 'NOD 근무 불가' },
-  { code: 'triple_night', label: '3연속 야간(N) 근무 불가' },
-  { code: 'rest_after_two_nights', label: '2연속 야간(N) 후 48시간 이상 휴식' },
+  { code: 'triple_night', label: '4연속 야간(N) 근무 불가 (3연속 허용)' },
+  { code: 'rest_after_two_nights', label: '연속 야간(N) 후 48시간 이상 휴식' },
   { code: 'monthly_night_limit', label: '야간 근무 월 15회 이하' },
 ];
 
@@ -670,12 +670,12 @@ export function buildScheduleComparisonDecisionModel({
           rightEvaluation?.proofSummary?.nodViolations
         ),
         buildRequirementRow(
-          '3연속 야간(N) 근무 불가',
+          '4연속 야간(N) 근무 불가 (3연속 허용)',
           leftEvaluation?.proofSummary?.nnnViolations,
           rightEvaluation?.proofSummary?.nnnViolations
         ),
         buildRequirementRow(
-          '2연속 야간(N) 후 48시간 이상 휴식',
+          '연속 야간(N) 후 48시간 이상 휴식',
           leftEvaluation?.proofSummary?.minimumRestViolations,
           rightEvaluation?.proofSummary?.minimumRestViolations
         ),

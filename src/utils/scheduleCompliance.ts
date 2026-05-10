@@ -63,8 +63,8 @@ const RULE_ORDER: ScheduleComplianceRuleCode[] = [
 
 export const RULE_LABELS: Record<ScheduleComplianceRuleCode, string> = {
   nod_pattern: 'NOD 금지',
-  triple_night: '3연속 야간 금지',
-  rest_after_two_nights: '2연속 야간 후 48시간 휴식',
+  triple_night: '4연속 야간 금지 (3연속 허용)',
+  rest_after_two_nights: '연속 야간 후 48시간 휴식',
   monthly_night_limit: '월 야간 15회 이하',
 };
 
@@ -78,7 +78,9 @@ const FALLBACK_SHIFT_TIMES: Record<KnownShiftCode, ShiftTime> = {
 const KNOWN_SHIFT_CODES = new Set<string>(['D', 'E', 'N', 'O']);
 const WORK_SHIFT_CODES = new Set<string>(['D', 'E', 'N']);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const REST_AFTER_TWO_NIGHTS_MS = 48 * 60 * 60 * 1000;
+const MAX_CONSECUTIVE_NIGHTS = 3;
+const CONSECUTIVE_NIGHT_VIOLATION_THRESHOLD = MAX_CONSECUTIVE_NIGHTS + 1;
+const MIN_REST_AFTER_CONSECUTIVE_NIGHTS_MS = 48 * 60 * 60 * 1000;
 
 export function evaluateScheduleCompliance(
   input: EvaluateScheduleComplianceInput
@@ -87,7 +89,7 @@ export function evaluateScheduleCompliance(
   const timelines = buildEmployeeTimelines(normalized);
   const violations = [
     ...evaluateNodPattern(timelines),
-    ...evaluateTripleNight(timelines),
+    ...evaluateConsecutiveNightLimit(timelines),
     ...evaluateRestAfterTwoNights(timelines, normalized.shiftTimes),
     ...evaluateMonthlyNightLimit(timelines, normalized.month),
   ].sort((left, right) => compareViolations(left, right, normalized.employeeOrder));
@@ -242,12 +244,12 @@ function evaluateNodPattern(timelines: EmployeeTimeline[]): ScheduleComplianceVi
   return violations;
 }
 
-function evaluateTripleNight(timelines: EmployeeTimeline[]): ScheduleComplianceViolation[] {
+function evaluateConsecutiveNightLimit(timelines: EmployeeTimeline[]): ScheduleComplianceViolation[] {
   const violations: ScheduleComplianceViolation[] = [];
 
   for (const timeline of timelines) {
-    for (let index = 0; index <= timeline.entries.length - 3; index += 1) {
-      const window = timeline.entries.slice(index, index + 3);
+    for (let index = 0; index <= timeline.entries.length - CONSECUTIVE_NIGHT_VIOLATION_THRESHOLD; index += 1) {
+      const window = timeline.entries.slice(index, index + CONSECUTIVE_NIGHT_VIOLATION_THRESHOLD);
       if (hasConsecutiveDates(window) && window.every((entry) => entry.shiftCode === 'N')) {
         const dates = window.map((entry) => entry.date);
         violations.push(createViolation(
@@ -255,7 +257,7 @@ function evaluateTripleNight(timelines: EmployeeTimeline[]): ScheduleComplianceV
           timeline.employeeId,
           timeline.employeeName,
           dates,
-          `${timeline.employeeName}님에게 ${dates.join(', ')} 3연속 야간 근무가 배정되었습니다.`
+          `${timeline.employeeName}님에게 ${dates.join(', ')} 4연속 야간 근무가 배정되었습니다. 3연속까지는 허용됩니다.`
         ));
       }
     }
@@ -271,49 +273,50 @@ function evaluateRestAfterTwoNights(
   const violations: ScheduleComplianceViolation[] = [];
 
   for (const timeline of timelines) {
-    for (let index = 0; index <= timeline.entries.length - 2; index += 1) {
-      const firstNight = timeline.entries[index];
-      const secondNight = timeline.entries[index + 1];
-
-      if (
-        !firstNight
-        || !secondNight
-        || firstNight.shiftCode !== 'N'
-        || secondNight.shiftCode !== 'N'
-        || !areConsecutiveDates(firstNight, secondNight)
-      ) {
+    for (let index = 0; index < timeline.entries.length; index += 1) {
+      const streak = collectConsecutiveNightStreak(timeline.entries, index);
+      if (!streak) {
         continue;
       }
 
-      const secondNightInterval = buildWorkInterval(secondNight.date, 'N', shiftTimes);
-      if (!secondNightInterval) {
+      const { endIndex, entries } = streak;
+      const lastNight = entries[entries.length - 1];
+      const lastNightInterval = lastNight
+        ? buildWorkInterval(lastNight.date, 'N', shiftTimes)
+        : null;
+      if (!lastNightInterval) {
+        index = endIndex;
         continue;
       }
 
-      const nextWork = timeline.entries.slice(index + 2).find((entry) =>
+      const nextWork = timeline.entries.slice(endIndex + 1).find((entry) =>
         WORK_SHIFT_CODES.has(entry.shiftCode)
       );
 
       if (!nextWork) {
+        index = endIndex;
         continue;
       }
 
       const nextWorkInterval = buildWorkInterval(nextWork.date, nextWork.shiftCode as WorkShiftCode, shiftTimes);
       if (!nextWorkInterval) {
+        index = endIndex;
         continue;
       }
 
-      const restMs = nextWorkInterval.start.getTime() - secondNightInterval.end.getTime();
-      if (restMs < REST_AFTER_TWO_NIGHTS_MS) {
-        const dates = [firstNight.date, secondNight.date, nextWork.date];
+      const restMs = nextWorkInterval.start.getTime() - lastNightInterval.end.getTime();
+      if (restMs < MIN_REST_AFTER_CONSECUTIVE_NIGHTS_MS) {
+        const dates = [...entries.map((entry) => entry.date), nextWork.date];
         violations.push(createViolation(
           'rest_after_two_nights',
           timeline.employeeId,
           timeline.employeeName,
           dates,
-          `${timeline.employeeName}님은 2연속 야간 후 48시간 휴식 전에 다음 근무가 배정되었습니다.`
+          `${timeline.employeeName}님은 연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다.`
         ));
       }
+
+      index = endIndex;
     }
   }
 
@@ -606,6 +609,34 @@ function areConsecutiveDates(left: TimelineEntry, right: TimelineEntry): boolean
   }
 
   return right.dateTime - left.dateTime === DAY_IN_MS;
+}
+
+function collectConsecutiveNightStreak(
+  entries: TimelineEntry[],
+  startIndex: number
+): { endIndex: number; entries: TimelineEntry[] } | null {
+  const first = entries[startIndex];
+  if (!first || first.shiftCode !== 'N') {
+    return null;
+  }
+
+  const streak: TimelineEntry[] = [first];
+  let endIndex = startIndex;
+
+  for (let index = startIndex + 1; index < entries.length; index += 1) {
+    const previous = entries[index - 1];
+    const current = entries[index];
+    if (!previous || !current || current.shiftCode !== 'N' || !areConsecutiveDates(previous, current)) {
+      break;
+    }
+
+    streak.push(current);
+    endIndex = index;
+  }
+
+  return streak.length >= 2
+    ? { endIndex, entries: streak }
+    : null;
 }
 
 function findUnknownEmployeeIds(

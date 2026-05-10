@@ -472,12 +472,12 @@ const offRequests: readonly OffRequestPreview[] = [
 const guideChecks: readonly GuideCheckPreview[] = [
   {
     label: '연속 야간 제한',
-    description: '연속 야간 3회 이상 배치가 없도록 점검합니다.',
+    description: '연속 야간 4회 이상 배치가 없도록 점검합니다.',
     warning: true,
   },
   {
     label: '야간 후 휴식',
-    description: '야간 근무 뒤 충분한 휴식 간격을 확인합니다.',
+    description: '연속 야간이 끝난 뒤 48시간 이상 휴식이 확보되는지 확인합니다.',
     warning: false,
   },
   {
