@@ -10,7 +10,7 @@
         data-test="step5-initial-load-error"
       >
         <template #header>
-          결과 화면 초기화 실패
+          결과 화면을 불러오지 못했습니다
         </template>
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-sm">
@@ -38,6 +38,22 @@
       </div>
 
       <template v-else>
+        <section
+          v-if="isRunning"
+          data-test="step5-running-progress"
+          class="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-8"
+        >
+          <div class="mx-auto flex max-w-2xl flex-col items-center gap-4 text-center">
+            <n-progress
+              type="line"
+              :percentage="solver.progress.value"
+            />
+            <p class="text-sm font-medium text-slate-700">
+              근무표를 생성하고 있습니다. 잠시만 기다려 주세요.
+            </p>
+          </div>
+        </section>
+
         <section
           v-if="shouldShowStatusCard"
           data-test="step5-result-status-summary"
@@ -79,17 +95,11 @@
             <p class="mt-2 text-sm leading-6 text-slate-600">
               {{ card.description }}
             </p>
-            <n-progress
-              v-if="card.key === 'generation' && isRunning"
-              type="line"
-              :percentage="solver.progress.value"
-              class="mt-3"
-            />
           </article>
         </section>
 
         <n-alert
-          v-if="policyRejectionSummariesCurrentMonth.length > 0"
+          v-if="!isRunning && policyRejectionSummariesCurrentMonth.length > 0"
           type="warning"
           class="mb-6"
         >
@@ -119,19 +129,11 @@
         </div>
 
         <n-alert
-          v-if="isVersionReadOnly"
+          v-if="!isRunning && isVersionReadOnly"
           type="warning"
           class="mb-6"
         >
           현재 보는 근무표안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
-        </n-alert>
-
-        <n-alert
-          v-if="showIntermediateWaitingHint"
-          type="info"
-          class="mb-6"
-        >
-          중간 결과 대기 중 (엔진이 아직 partial result를 제공하지 않았습니다)
         </n-alert>
 
         <div
@@ -144,7 +146,7 @@
             :disabled="isRecoveringSolver"
             @click="handleSyncSolverState"
           >
-            상태 재동기화
+            상태 새로고침
           </n-button>
           <n-button
             size="small"
@@ -271,7 +273,7 @@
             data-test="step5-employee-view"
           >
             <EmployeeResultDetail
-              v-model:selected-employee-id="selectedResultEmployeeId"
+              :selected-employee-id="selectedResultEmployeeId"
               :employees="grid.employees.value"
               :dates="grid.dates.value"
               :assignments="grid.assignments.value"
@@ -280,6 +282,7 @@
               :off-requests="offRequestsCurrentMonth"
               :off-request-notes="offRequestNotesCurrentMonth"
               :off-request-results="selectedEmployeeOffRequestResults"
+              @update:selected-employee-id="handleSelectedResultEmployeeUpdate"
             />
           </div>
         </section>
@@ -320,13 +323,13 @@
             생성 실패
           </template>
           <p class="text-sm">
-            {{ review.latestEvaluation.infeasibility.summary }}
+            {{ formatInfeasibilitySummary(review.latestEvaluation.infeasibility.summary) }}
           </p>
           <p
             v-if="review.latestEvaluation.infeasibility.details?.traceId"
             class="mt-1 text-xs text-slate-600"
           >
-            {{ review.latestEvaluation.infeasibility.details.traceId }}
+            문제가 반복되면 고객지원에 문의해주세요.
           </p>
         </n-alert>
 
@@ -733,7 +736,6 @@ const organizationStore = useOrganizationStore();
 
 const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
-const WAITING_HINT_TICKS = 3;
 const PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE = '전월 근무 이력을 불러오지 못해 확인이 필요합니다.';
 const LOCAL_SOLVER_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 
@@ -765,8 +767,9 @@ const lockedVersionId = computed(() => {
   return review.value?.finalizedVersionId ?? scheduleStore.compareMatrix?.finalizedVersionId ?? null;
 });
 type ResultViewMode = 'site' | 'employee';
-const resultViewMode = ref<ResultViewMode>('site');
+const resultViewMode = ref<ResultViewMode>('employee');
 const selectedResultEmployeeId = ref<string | null>(null);
+const autoSelectedResultEmployeeId = ref<string | null>(null);
 const changedCells = ref<Set<string>>(new Set());
 const originalCurrentAssignments = ref<AssignmentMap>({});
 let assignmentRefreshInterval: number | null = null;
@@ -847,7 +850,7 @@ function ensureScheduleId(): string {
   const currentScheduleId = scheduleId.value;
 
   if (!currentScheduleId) {
-    throw new Error('스케줄 ID를 확인할 수 없습니다. Step4부터 다시 시도해주세요.');
+    throw new Error('근무표 정보를 확인할 수 없습니다. 다시 불러오거나 이전 단계부터 진행해주세요.');
   }
 
   syncScheduleContextToStore(currentScheduleId);
@@ -858,7 +861,7 @@ function ensureScheduleRouteKey(): string {
   const currentScheduleRouteKey = scheduleRouteKey.value;
 
   if (!currentScheduleRouteKey) {
-    throw new Error('스케줄 URL 키를 확인할 수 없습니다. Step5를 다시 불러주세요.');
+    throw new Error('근무표 정보를 확인할 수 없습니다. 다시 불러오거나 이전 단계부터 진행해주세요.');
   }
 
   return currentScheduleRouteKey;
@@ -1025,13 +1028,6 @@ const preferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
 });
 const allowPreRunFallbackWhenEmpty = computed(() => solver.status.value === 'running');
 
-const showIntermediateWaitingHint = computed(() => {
-  return (
-    solver.status.value === 'running'
-    && !hasIntermediateResult.value
-    && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
-  );
-});
 const visibleCurrentMonthAssignments = computed<AssignmentMap>(() => {
   return extractCurrentMonthAssignments(
     grid.assignments.value,
@@ -1069,14 +1065,13 @@ const hasCurrentMonthAssignments = computed(() => {
 });
 const hasSolverExecutionHistory = computed(() => {
   return Boolean(
-    isRunning.value
-    || previewVersionExecutionId.value
+    previewVersionExecutionId.value
     || review.value?.latestEvaluation?.solverExecutionId
   );
 });
-const shouldShowResultDetails = computed(() => hasCurrentMonthAssignments.value);
+const shouldShowResultDetails = computed(() => !isRunning.value && hasCurrentMonthAssignments.value);
 const shouldShowStatusCard = computed(() => {
-  return isRunning.value || hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value;
+  return !isRunning.value && (hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value);
 });
 const shouldShowFirstRunEmptyState = computed(() => {
   return (
@@ -1554,6 +1549,45 @@ function sanitizeReviewMessage(message: string): string {
     .replace(/하드 제약/g, '검토 기준');
 
   return /[A-Za-z]/.test(sanitized) ? '' : sanitized;
+}
+
+function containsInternalErrorTerm(message: string): boolean {
+  return /\b(api|backend|database|db|execution|hash|id|local|score|solver|sql|step5|trace|uuid)\b/i.test(message);
+}
+
+function toUserFacingErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  const message = error.message.trim();
+  if (!message) {
+    return fallback;
+  }
+
+  const sanitized = sanitizeReviewMessage(message);
+  if (sanitized) {
+    return sanitized;
+  }
+
+  if (containsInternalErrorTerm(message)) {
+    return fallback;
+  }
+
+  return message;
+}
+
+function formatInfeasibilitySummary(summary: string | null | undefined): string {
+  if (!summary?.trim()) {
+    return '근무표 생성 중 문제가 발생했습니다. 다시 생성해주세요.';
+  }
+
+  const sanitized = sanitizeReviewMessage(summary);
+  if (sanitized && !containsInternalErrorTerm(sanitized)) {
+    return sanitized;
+  }
+
+  return '근무표 생성 중 문제가 발생했습니다. 다시 생성해주세요.';
 }
 
 function formatBackendActionMessage(message: string | null): string | null {
@@ -2628,7 +2662,7 @@ async function handleStartSolver() {
     return;
   }
   if (isLocalSolverHost()) {
-    showError('근무표 생성은 Local에서 불가능합니다');
+    showError('현재 환경에서는 근무표를 생성할 수 없습니다.');
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
@@ -2667,12 +2701,12 @@ async function handleStartSolver() {
           forceAssignmentSync: true,
         });
       } catch (syncError) {
-        console.warn('충돌 후 상태 재동기화 중 오류:', syncError);
+        console.warn('충돌 후 상태 새로고침 중 오류:', syncError);
       }
       return;
     }
 
-    showError(error instanceof Error ? error.message : '근무표 생성 시작 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '근무표 생성을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
     isStartingSolver.value = false;
   }
@@ -2739,7 +2773,7 @@ async function syncSolverStateInternal() {
     clearChanges: true,
     forceAssignmentSync: true,
   });
-  showSuccess('최신 상태로 동기화했습니다.');
+  showSuccess('최신 상태로 새로고침했습니다.');
 }
 
 async function handleSyncSolverState() {
@@ -2749,8 +2783,8 @@ async function handleSyncSolverState() {
   try {
     await syncSolverStateInternal();
   } catch (error) {
-    console.warn('상태 재동기화 중 오류:', error);
-    showError(error instanceof Error ? error.message : '상태 재동기화 중 오류가 발생했습니다.');
+    console.warn('상태 새로고침 중 오류:', error);
+    showError(toUserFacingErrorMessage(error, '최신 상태를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
     isRecoveringSolver.value = false;
   }
@@ -2788,7 +2822,7 @@ async function handleForceResetSolverState() {
         clearChanges: true,
         forceAssignmentSync: true,
       });
-      showSuccess('이미 생성 상태가 해제되어 최신 상태로 동기화했습니다.');
+      showSuccess('이미 생성 상태가 해제되어 최신 상태로 새로고침했습니다.');
       return;
     }
 
@@ -2799,7 +2833,7 @@ async function handleForceResetSolverState() {
     }
 
     if (!executionId) {
-      throw new Error('실행 ID를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.');
+      throw new Error('생성 작업 정보를 확인할 수 없습니다. 잠시 후 다시 시도해주세요.');
     }
 
     await submitPhase2ScheduleVersionSolverResult(currentPreviewVersionId, {
@@ -2831,7 +2865,7 @@ async function handleForceResetSolverState() {
       return;
     }
 
-    showError(error instanceof Error ? error.message : '생성 상태 초기화 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '생성 상태를 정리하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
     isRecoveringSolver.value = false;
   }
@@ -2851,11 +2885,10 @@ async function resumePollingFromSchedule(schedule: ScheduleStatusRow): Promise<b
 }
 
 function toInitialLoadErrorMessage(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return '데이터 로드 중 오류가 발생했습니다.';
+  return toUserFacingErrorMessage(
+    error,
+    '결과 화면을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
+  );
 }
 
 async function loadStep5InitialData() {
@@ -2871,7 +2904,7 @@ async function loadStep5InitialData() {
     const shouldAutoStart = parseStep5RouteQuery(route.query).autoStart;
     await hub.hydrate();
     if (!scheduleStore.basicInfo) {
-      throw new Error('Step5에 필요한 스케줄 컨텍스트를 복원하지 못했습니다.');
+      throw new Error('근무표 정보를 다시 불러오지 못했습니다. 이전 단계부터 다시 진행해주세요.');
     }
     await organizationStore.loadOrganization(scheduleStore.basicInfo.organizationId);
     syncBasicInfoFromOrganizationStore();
@@ -2917,6 +2950,11 @@ watch(lastMonthDays, (newDays) => {
   rebuildDisplayAssignments();
 });
 
+function handleSelectedResultEmployeeUpdate(employeeId: string | null) {
+  selectedResultEmployeeId.value = employeeId;
+  autoSelectedResultEmployeeId.value = null;
+}
+
 watch(
   [
     resultViewMode,
@@ -2928,11 +2966,21 @@ watch(
       return;
     }
 
-    selectedResultEmployeeId.value = selectDefaultResultEmployeeId(
+    const isCurrentSelectionManual = (
+      selectedResultEmployeeId.value !== null
+      && selectedResultEmployeeId.value !== autoSelectedResultEmployeeId.value
+    );
+    const currentEmployeeId = isCurrentSelectionManual ? selectedResultEmployeeId.value : null;
+
+    const nextEmployeeId = selectDefaultResultEmployeeId(
       grid.employees.value,
       complianceResult.value.violations,
-      selectedResultEmployeeId.value,
+      currentEmployeeId,
     );
+    selectedResultEmployeeId.value = nextEmployeeId;
+    autoSelectedResultEmployeeId.value = isCurrentSelectionManual && nextEmployeeId === currentEmployeeId
+      ? null
+      : nextEmployeeId;
   },
   { immediate: true }
 );
@@ -3155,7 +3203,7 @@ async function handleFocusVersionChange(versionId: string) {
       });
     } catch (error) {
       console.warn('상세 보기 버전 전환 중 오류:', error);
-      showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
+      showError(toUserFacingErrorMessage(error, '자세히 보는 안을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
     }
   };
 
@@ -3174,7 +3222,7 @@ async function handleFocusVersionChange(versionId: string) {
     await switchFocusedVersion();
   } catch (error) {
     console.warn('상세 보기 버전 전환 중 오류:', error);
-    showError(error instanceof Error ? error.message : '자세히 보는 안 전환 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '자세히 보는 안을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
   }
 }
 
@@ -3197,7 +3245,7 @@ async function handleToggleCompareVersion(versionId: string) {
     await syncComparisonWorkspace(previewVersionId.value, nextCompareVersionIds);
   } catch (error) {
     console.warn('비교 후보 갱신 중 오류:', error);
-    showError(error instanceof Error ? error.message : '비교 후보를 갱신하는 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '비교할 근무표안을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
   }
 }
 
@@ -3226,7 +3274,7 @@ async function handleSelectCandidateVersion(versionId: string) {
     });
   } catch (error) {
     console.warn('선택한 근무표안 변경 중 오류:', error);
-    showError(error instanceof Error ? error.message : '선택한 근무표안 변경 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '선택한 근무표안으로 변경하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
     isPrimaryActionRunning.value = false;
   }
@@ -3267,7 +3315,7 @@ async function handleDeleteVersion(versionId: string) {
         showSuccess('근무표안을 삭제했습니다.');
       } catch (error) {
         console.warn('비교안 삭제 중 오류:', error);
-        showError(error instanceof Error ? error.message : '근무표안을 삭제하는 중 오류가 발생했습니다.');
+        showError(toUserFacingErrorMessage(error, '근무표안을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.'));
       }
     },
   });
@@ -3319,7 +3367,7 @@ async function handlePrimaryAction() {
     });
   } catch (error) {
     console.warn('Primary action 처리 중 오류:', error);
-    showError(error instanceof Error ? error.message : '작업 처리 중 오류가 발생했습니다.');
+    showError(toUserFacingErrorMessage(error, '요청한 작업을 완료하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
     isPrimaryActionRunning.value = false;
   }
@@ -3671,7 +3719,7 @@ async function handleConfirmDeleteScope() {
     selectedDeleteScope.value = null;
   } catch (error) {
     console.error('Delete schedule scope error:', error);
-    const message = error instanceof Error ? error.message : '근무표 삭제 중 오류가 발생했습니다.';
+    const message = toUserFacingErrorMessage(error, '근무표를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');
     deleteScopeErrorMessage.value = message;
     showError(message);
   } finally {
