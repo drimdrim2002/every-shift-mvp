@@ -310,4 +310,58 @@ describe('computeWorkPerformanceFairness', () => {
     expect(result.highlightThresholdDays).toBe(1)
     expect(result.rows.find((row) => row.employeeName === '김민지')?.metrics.weekendHoliday.highlighted).toBe(true)
   })
+
+  it('does not count null, empty, or whitespace shift codes as weekend or holiday work', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'edge-employee', name: '검증간호사' }
+    const assignments = fullOffAssignments(employee.id)
+
+    assignments.find((assignment) => assignment.date === '2026-01-01')!.shiftCode = null
+    assignments.find((assignment) => assignment.date === '2026-01-03')!.shiftCode = ''
+    assignments.find((assignment) => assignment.date === '2026-01-04')!.shiftCode = '   '
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments,
+      offRequests: [],
+      publicHolidayDates: ['2026-01-01'],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+      count: 0,
+      evidenceDates: [],
+    })
+  })
+
+  it('normalizes lowercase and padded night and Off shift codes', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'normalized-employee', name: '정규화간호사' }
+    const assignments = fullOffAssignments(employee.id)
+
+    assignments.find((assignment) => assignment.date === '2026-01-02')!.shiftCode = ' n '
+    assignments.find((assignment) => assignment.date === '2026-01-03')!.shiftCode = ' o '
+    assignments.find((assignment) => assignment.date === '2026-01-04')!.shiftCode = ' d '
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments,
+      offRequests: [offRequest(employee.id, '2026-01-03')],
+      publicHolidayDates: ['2026-01-01'],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows[0]?.metrics.night).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-02'],
+    })
+    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-04'],
+    })
+    expect(result.rows[0]?.metrics.offRequestAccepted).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-03'],
+    })
+  })
 })

@@ -136,12 +136,20 @@ function mapKey(employeeId: string, date: string): string {
   return `${employeeId}\u0000${date}`
 }
 
+function normalizeShiftCode(shiftCode: string | null | undefined): string | null {
+  const normalizedShiftCode = shiftCode?.trim().toUpperCase() ?? ''
+
+  return normalizedShiftCode.length > 0 ? normalizedShiftCode : null
+}
+
 function isOffAssignment(assignment: WorkPerformanceAssignmentRow | undefined): boolean {
-  return assignment?.shiftCode === OFF_SHIFT_CODE
+  return normalizeShiftCode(assignment?.shiftCode) === OFF_SHIFT_CODE
 }
 
 function isWorkedAssignment(assignment: WorkPerformanceAssignmentRow | undefined): boolean {
-  return assignment !== undefined && !isOffAssignment(assignment)
+  const shiftCode = normalizeShiftCode(assignment?.shiftCode)
+
+  return shiftCode !== null && shiftCode !== OFF_SHIFT_CODE
 }
 
 function calculateAverage(values: readonly number[]): number {
@@ -265,7 +273,7 @@ export function computeWorkPerformanceFairness({
       const isWeekend = getIsoDayOfWeek(date) === 0 || getIsoDayOfWeek(date) === 6
       const isHoliday = holidayDateSet.has(date)
 
-      if (assignment?.shiftCode === NIGHT_SHIFT_CODE) {
+      if (normalizeShiftCode(assignment?.shiftCode) === NIGHT_SHIFT_CODE) {
         nightEvidenceDates.push(date)
       }
 
