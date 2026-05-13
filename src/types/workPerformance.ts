@@ -1,5 +1,7 @@
 export type WorkPerformanceMetricKey = 'night' | 'weekendHoliday' | 'offRequestAccepted'
 
+export type WorkPerformanceMetricDirection = 'aboveAverage' | 'belowAverage'
+
 export interface WorkPerformancePeriod {
   year: number
   startMonth: number
@@ -43,4 +45,33 @@ export interface WorkPerformanceEmployeeResult {
   employeeName: string
   priorityScore: number
   metrics: Record<WorkPerformanceMetricKey, WorkPerformanceMetricResult>
+}
+
+export interface WorkPerformanceMetricDefinition {
+  key: WorkPerformanceMetricKey
+  label: string
+  unfavorableDirection: WorkPerformanceMetricDirection
+}
+
+export interface WorkPerformanceMetricSummary {
+  average: number
+  min: number
+  max: number
+}
+
+export interface ComputeWorkPerformanceFairnessInput {
+  period: WorkPerformancePeriod
+  employees: WorkPerformanceEmployeeRow[]
+  assignments: WorkPerformanceAssignmentRow[]
+  offRequests: WorkPerformancePreferenceRow[]
+  publicHolidayDates: string[]
+  highlightThresholdDays: number
+}
+
+export interface WorkPerformanceFairnessResult {
+  metricDefinitions: readonly WorkPerformanceMetricDefinition[]
+  highlightThresholdDays: number
+  rows: WorkPerformanceEmployeeResult[]
+  summary: Record<WorkPerformanceMetricKey, WorkPerformanceMetricSummary>
+  excludedEmployeeCount: number
 }
