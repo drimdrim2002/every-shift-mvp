@@ -250,20 +250,31 @@
                 평균보다 불리한 방향으로 많이 벗어난 근무자가 먼저 표시됩니다.
               </p>
             </div>
-            <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-              <span>강조 기준</span>
-              <input
-                :value="thresholdDays"
-                data-test="work-performance-threshold"
-                type="number"
-                min="1"
-                max="10"
-                class="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                aria-label="강조 기준 일수"
-                @input="updateThreshold"
+            <div class="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                data-test="work-performance-sort-priority"
+                class="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                :aria-pressed="sortKey === 'priority'"
+                @click="changeSort('priority')"
               >
-              <span>일</span>
-            </label>
+                우선순위순
+              </button>
+              <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <span>강조 기준</span>
+                <input
+                  :value="thresholdDays"
+                  data-test="work-performance-threshold"
+                  type="number"
+                  min="1"
+                  max="10"
+                  class="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  aria-label="강조 기준 일수"
+                  @input="updateThreshold"
+                >
+                <span>일</span>
+              </label>
+            </div>
           </div>
 
           <p
@@ -346,17 +357,9 @@
                   <th
                     class="px-4 py-3"
                     scope="col"
-                    :aria-sort="getAriaSort('priority')"
-                    data-test="work-performance-sort-priority"
-                    @click="changeSort('priority')"
+                    data-test="work-performance-detail-header"
                   >
-                    <button
-                      type="button"
-                      class="font-semibold text-slate-600"
-                      @click.stop="changeSort('priority')"
-                    >
-                      우선순위
-                    </button>
+                    상세
                   </th>
                 </tr>
               </thead>

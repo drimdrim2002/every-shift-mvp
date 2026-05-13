@@ -246,6 +246,7 @@ describe('WorkPerformance', () => {
     expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '3')
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
     expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('평균 대비')
+    expect(wrapper.get('[data-test="work-performance-detail-header"]').text()).toBe('상세')
     expect(wrapper.find('[data-test="work-performance-emphasis-label"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('선택 기간에 Off 요청이 없습니다')
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledWith({
@@ -329,13 +330,13 @@ describe('WorkPerformance', () => {
 
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('descending')
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-pressed')).toBe('true')
     expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '박하늘', '이서연'])
 
     await wrapper.get('[data-test="work-performance-sort-name"]').trigger('click')
     await flush()
 
-    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('none')
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-pressed')).toBe('false')
     expect(wrapper.get('[data-test="work-performance-sort-name"]').attributes('aria-sort')).toBe('ascending')
     expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '박하늘', '이서연'])
 
@@ -350,6 +351,52 @@ describe('WorkPerformance', () => {
 
     expect(wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').attributes('aria-sort')).toBe('ascending')
     expect(getEmployeeRowNames(wrapper).slice(0, 2)).not.toContain('김민지')
+  })
+
+  it('sorts night and weekend holiday columns with aria-sort updates', async () => {
+    const employees = [
+      { id: 'night-many', name: '김민지' },
+      { id: 'middle', name: '이서연' },
+      { id: 'weekend-many', name: '박하늘' },
+    ]
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
+      employees,
+      assignments: buildAssignmentsFromShiftCodes(employees, {
+        'night-many': {
+          '2026-01-05': 'N',
+          '2026-01-06': 'N',
+          '2026-01-07': 'N',
+        },
+        middle: {
+          '2026-01-03': 'D',
+          '2026-01-08': 'N',
+        },
+        'weekend-many': {
+          '2026-01-03': 'D',
+          '2026-01-04': 'D',
+          '2026-01-10': 'D',
+        },
+      }),
+      offRequests: [],
+      publicHolidayDates: [],
+    }))
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    await wrapper.get('[data-test="work-performance-sort-night"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-night"]').attributes('aria-sort')).toBe('descending')
+    expect(wrapper.get('[data-test="work-performance-sort-weekendHoliday"]').attributes('aria-sort')).toBe('none')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '이서연', '박하늘'])
+
+    await wrapper.get('[data-test="work-performance-sort-weekendHoliday"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-night"]').attributes('aria-sort')).toBe('none')
+    expect(wrapper.get('[data-test="work-performance-sort-weekendHoliday"]').attributes('aria-sort')).toBe('descending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['박하늘', '이서연', '김민지'])
   })
 
   it('preserves calculation tie-break order when default priority scores tie', async () => {
@@ -385,7 +432,7 @@ describe('WorkPerformance', () => {
 
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('descending')
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-pressed')).toBe('true')
     expect(getEmployeeRowNames(wrapper)).toEqual(['이서연', '김민지', '박하늘'])
   })
 
