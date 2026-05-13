@@ -28,6 +28,10 @@ vi.mock('naive-ui', async () => {
           type: Array,
           default: () => [],
         },
+        filterable: {
+          type: Boolean,
+          default: false,
+        },
       },
       emits: ['update:value'],
       setup(props, { emit, attrs }) {
@@ -272,6 +276,23 @@ describe('EmployeeResultDetail', () => {
       '보건복지부 가이드라인 충족'
     );
     expect(wrapper.find('[data-test="employee-violation-reveal"]').exists()).toBe(false);
+  });
+
+  it('keeps employee selector labels searchable by name and employee ID', () => {
+    const wrapper = mountDetail();
+    const select = wrapper.getComponent({ name: 'NSelect' });
+
+    expect(select.props('filterable')).toBe(true);
+    expect(select.props('options')).toEqual([
+      {
+        label: '김민지 (employee-1)',
+        value: 'employee-1',
+      },
+      {
+        label: '박서연 (employee-2)',
+        value: 'employee-2',
+      },
+    ]);
   });
 
   it('auto-expands violation details for a violating employee', () => {

@@ -281,6 +281,7 @@ function formatReflectionStatus(fulfilled: boolean) {
         :options="employeeOptions"
         placeholder="직원 선택"
         clearable
+        filterable
         @update:value="handleEmployeeUpdate"
       />
     </header>

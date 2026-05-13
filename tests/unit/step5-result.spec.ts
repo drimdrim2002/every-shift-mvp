@@ -339,6 +339,11 @@ async function clickDocumentTestId(testId: string) {
   await flushPromises()
 }
 
+async function switchToSiteView(wrapper: ReturnType<typeof createWrapper>) {
+  await wrapper.get('[data-test="step5-result-view-site"]').trigger('click')
+  await flushPromises()
+}
+
 async function selectDeleteScope(testId: string) {
   const input = document.querySelector<HTMLInputElement>(`[data-test="${testId}"] input[type="radio"]`)
   expect(input).toBeTruthy()
@@ -834,16 +839,19 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="step5-initial-loading"]').exists()).toBe(false)
   })
 
-  it('shows an inline initialization error instead of the empty state when Step5 first load fails', async () => {
-    getPhase2ScheduleCompareMock.mockRejectedValueOnce(new Error('Step5 failed'))
+  it('shows a user-facing initialization error instead of leaking internal Step5 details', async () => {
+    getPhase2ScheduleCompareMock.mockRejectedValueOnce(new Error('Step5 failed: database score mismatch'))
 
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.find('[data-test="step5-initial-load-error"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Step5 failed')
+    expect(wrapper.text()).toContain('결과 화면을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+    expect(wrapper.text()).not.toContain('Step5')
+    expect(wrapper.text()).not.toContain('database')
+    expect(wrapper.text()).not.toContain('score')
     expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
-    expect(showErrorMock).toHaveBeenCalledWith('Step5 failed')
+    expect(showErrorMock).toHaveBeenCalledWith('결과 화면을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
   })
 
   it('retries Step5 initial loading from the inline error state', async () => {
@@ -874,6 +882,8 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-running-progress"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('공정성 요약')
@@ -882,7 +892,8 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('근무표 생성 (AI)')
   })
 
-  it('keeps the running status visible while result details stay hidden until assignments arrive', async () => {
+  it('shows only the running progress state while the engine is generating', async () => {
+    solverMock.progress.value = 37
     getPhase2ScheduleCompareMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       selectedVersionId: 'version-1',
@@ -917,7 +928,7 @@ describe('Step5Result', () => {
     getScheduleVersionAssignmentsMock.mockResolvedValue({
       assignments: {
         'emp-1': {
-          '2025-12-02': 'D',
+          '2025-12-01': 'D',
         },
       },
       offReasons: {},
@@ -927,13 +938,16 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="step5-summary-card-generation"]').text()).toContain('생성 중')
+    expect(wrapper.find('[data-test="step5-running-progress"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('근무표를 생성하고 있습니다. 잠시만 기다려 주세요.')
+    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('Hard Score:')
     expect(wrapper.text()).not.toContain('Soft Score:')
     expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-panel-grid"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('공정성 요약')
+    expect(wrapper.text()).not.toContain('중간 결과 대기 중')
   })
 
   it('keeps execution-history status visible without showing the first-run empty state when solver ran but assignments are empty', async () => {
@@ -998,6 +1012,8 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-running-progress"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('실패')
     expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
@@ -1199,7 +1215,7 @@ describe('Step5Result', () => {
       expect(document.body.textContent).not.toContain('Off 요청 반영')
     })
 
-    it('renders running generation status without Hard Score or Soft Score', async () => {
+    it('hides result summary cards during generation even before partial results arrive', async () => {
       solverMock.progress.value = 37
       getPhase2ScheduleCompareMock.mockResolvedValueOnce({
         scheduleId: 'schedule-1',
@@ -1241,13 +1257,16 @@ describe('Step5Result', () => {
       const wrapper = createWrapper()
       await flushPromises()
 
-      expect(wrapper.get('[data-test="step5-result-status-summary"]').exists()).toBe(true)
-      expect(wrapper.get('[data-test="step5-summary-card-generation"]').text()).toContain('생성 중')
-      expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('보건복지부 가이드라인')
-      expect(wrapper.get('[data-test="step5-summary-card-off-requests"]').text()).toContain('Off 요청')
-      expect(wrapper.get('[data-test="step5-summary-card-finalization"]').text()).toContain('확정')
+      expect(wrapper.find('[data-test="step5-running-progress"]').exists()).toBe(true)
+      expect(wrapper.text()).toContain('근무표를 생성하고 있습니다. 잠시만 기다려 주세요.')
+      expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-generation"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-guideline"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-off-requests"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-finalization"]').exists()).toBe(false)
       expect(wrapper.text()).not.toContain('Hard Score:')
       expect(wrapper.text()).not.toContain('Soft Score:')
+      expect(wrapper.text()).not.toContain('중간 결과 대기 중')
     })
   })
 
@@ -1273,6 +1292,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -1301,6 +1321,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -1609,6 +1630,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
@@ -2253,6 +2275,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
     await flushPromises()
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
@@ -2419,6 +2442,9 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.setReviewTab).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
+
+    await switchToSiteView(wrapper)
+
     expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
@@ -2566,6 +2592,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -2651,23 +2678,33 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('solver crashed')
-    expect(wrapper.text()).toContain('trace-123')
+    expect(wrapper.text()).toContain('근무표 생성 중 문제가 발생했습니다. 다시 생성해주세요.')
+    expect(wrapper.text()).toContain('문제가 반복되면 고객지원에 문의해주세요.')
+    expect(wrapper.text()).not.toContain('solver crashed')
+    expect(wrapper.text()).not.toContain('trace-123')
     expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
   })
 
-  it('renders the site grid without the inline compliance panel or legacy review tabs', async () => {
+  it('starts in employee view and switches to the site grid on demand', async () => {
     const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
+    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
+    expect(wrapper.find('[data-test="step5-employee-view"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="employee-result-detail"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="step5-result-view-site"]').trigger('click')
     await flushPromises()
 
     const siteView = wrapper.get('[data-test="step5-site-view"]')
 
-    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
-    expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
     expect(siteView.exists()).toBe(true)
     expect(siteView.find('[data-test="compliance-panel"]').exists()).toBe(false)
     expect(siteView.text()).toContain('배정표')
+    expect(wrapper.find('[data-test="step5-employee-view"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="review-tab-offRequests"]').exists()).toBe(false)
@@ -2683,6 +2720,9 @@ describe('Step5Result', () => {
     })
 
     const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-site"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-test="step5-site-view"]').exists()).toBe(true)
@@ -2715,9 +2755,6 @@ describe('Step5Result', () => {
         template: '<div data-test="employee-result-detail-shift-colors">{{ JSON.stringify(shiftColors) }}</div>',
       },
     })
-    await flushPromises()
-
-    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-test="employee-result-detail-shift-colors"]').text()).toBe(
@@ -2756,11 +2793,14 @@ describe('Step5Result', () => {
     await flushPromises()
     await flushPromises()
 
+    await wrapper.get('[data-test="step5-result-view-site"]').trigger('click')
+    await flushPromises()
+
     expect(wrapper.get('[data-test="last-month-days-stepper"]').exists()).toBe(true)
     expect(wrapper.findComponent({ name: 'NSlider' }).exists()).toBe(false)
   })
 
-  it('selects the first employee with guideline violations when entering employee view', async () => {
+  it('selects the first employee with guideline violations on initial employee view entry', async () => {
     gridMock.employees.value = [
       {
         id: 'emp-1',
@@ -2797,9 +2837,7 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
-    await flushPromises()
-
+    expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="employee-result-detail"]').text()).toContain('Park님의')
     expect(wrapper.get('[data-test="employee-guideline-status"]').text()).toContain(
       '보건복지부 가이드라인 위반 1건'
@@ -2834,9 +2872,6 @@ describe('Step5Result', () => {
     )
 
     const wrapper = createWrapper()
-    await flushPromises()
-
-    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)
@@ -3248,7 +3283,8 @@ describe('Step5Result', () => {
         '2025-12-03': 'D',
       },
     })
-    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-running-progress"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-result-status-summary"]').exists()).toBe(false)
   })
 
   it('updates compliance text after a manual grid edit', async () => {
@@ -3267,6 +3303,7 @@ describe('Step5Result', () => {
 
     expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('위반 1건')
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -3546,7 +3583,7 @@ describe('Step5Result', () => {
       await startSolverButton.trigger('click')
       await flushPromises()
 
-      expect(showErrorMock).toHaveBeenCalledWith('근무표 생성은 Local에서 불가능합니다')
+      expect(showErrorMock).toHaveBeenCalledWith('현재 환경에서는 근무표를 생성할 수 없습니다.')
       expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
       expect(mapToSolverRequestMock).not.toHaveBeenCalled()
       expect(solverMock.startSolver).not.toHaveBeenCalled()
@@ -3901,6 +3938,61 @@ describe('Step5Result', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('생성 상태를 초기화했습니다. 다시 생성을 시도할 수 있습니다.')
   })
 
+  it('uses user-facing copy for stale solving state refresh controls and errors', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-1',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-1', {
+        selectedVersionId: 'version-1',
+        version: {
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+          isSelected: true,
+        },
+      })
+    )
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'running',
+      hard_score: null,
+      soft_score: null,
+      solver_execution_id: 'exec-1',
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('상태 새로고침')
+    expect(wrapper.text()).not.toContain('상태 재동기화')
+
+    getPhase2ScheduleCompareMock.mockRejectedValueOnce(new Error('DB execution score failed'))
+    vi.clearAllMocks()
+
+    const refreshButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('상태 새로고침'))
+    expect(refreshButton).toBeTruthy()
+
+    await refreshButton!.trigger('click')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('최신 상태를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+    expect(showErrorMock).not.toHaveBeenCalledWith(expect.stringContaining('DB'))
+    expect(showErrorMock).not.toHaveBeenCalledWith(expect.stringContaining('execution'))
+    expect(showErrorMock).not.toHaveBeenCalledWith(expect.stringContaining('score'))
+  })
+
   it('re-solves the current preview version without creating a new candidate version', async () => {
     solverMock.status.value = 'complete'
     getScheduleStatusMock.mockResolvedValue({
@@ -4184,6 +4276,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -4260,6 +4353,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -4349,6 +4443,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -4460,6 +4555,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -4558,6 +4654,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
@@ -4665,6 +4762,8 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    await switchToSiteView(wrapper)
+
     const saveButton = wrapper.findAll('button')
       .find((button) => button.text().trim() === '저장')
     expect(saveButton).toBeTruthy()
@@ -4698,6 +4797,7 @@ describe('Step5Result', () => {
     await flushPromises()
     vi.clearAllMocks()
 
+    await switchToSiteView(wrapper)
     await wrapper.get('[data-test="grid-edit"]').trigger('click')
     await flushPromises()
 
