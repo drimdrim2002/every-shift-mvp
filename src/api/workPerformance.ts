@@ -37,6 +37,11 @@ export type WorkPerformanceLoadResult =
   | { status: 'noFinalizedSchedule' }
   | { status: 'missingHolidayCoverage' };
 
+export interface WorkPerformanceLatestFinalizedMonth {
+  year: number;
+  month: number;
+}
+
 interface ScheduleRow {
   id: string | null;
   month: string | null;
@@ -149,6 +154,26 @@ function normalizeEmployee(row: EmployeeRow): WorkPerformanceEmployeeRow {
   };
 }
 
+function parseScheduleMonth(month: string | null): WorkPerformanceLatestFinalizedMonth | null {
+  if (typeof month !== 'string') {
+    return null;
+  }
+
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const parsedMonth = Number(match[2]);
+
+  if (!Number.isInteger(year) || !Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) {
+    return null;
+  }
+
+  return { year, month: parsedMonth };
+}
+
 async function hasAnyFinalizedSchedule(organizationId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('schedules')
@@ -244,6 +269,34 @@ async function loadEmployees(organizationId: string): Promise<WorkPerformanceEmp
   );
 
   return rows.map(normalizeEmployee);
+}
+
+export async function loadLatestFinalizedWorkPerformanceMonth(
+  organizationId: string,
+): Promise<WorkPerformanceLatestFinalizedMonth | null> {
+  try {
+    const { data, error } = await supabase
+      .from('schedules')
+      .select('month')
+      .eq('organization_id', organizationId)
+      .not('finalized_version_id', 'is', null)
+      .order('month', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw createWorkPerformanceLoadError();
+    }
+
+    const [latestSchedule] = (data ?? []) as Pick<ScheduleRow, 'month'>[];
+
+    return parseScheduleMonth(latestSchedule?.month ?? null);
+  } catch (error) {
+    if (error instanceof Error && error.message === WORK_PERFORMANCE_LOAD_ERROR) {
+      throw error;
+    }
+
+    throw createWorkPerformanceLoadError();
+  }
 }
 
 export async function loadWorkPerformancePeriod(

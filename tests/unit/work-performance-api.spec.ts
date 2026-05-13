@@ -123,6 +123,44 @@ describe('work performance api boundary', () => {
     vi.clearAllMocks();
   });
 
+  it('loads the latest finalized month as the default period source', async () => {
+    const calls = createSupabaseMock({
+      schedules: [
+        {
+          data: [{ month: '2026-04' }],
+          error: null,
+        },
+      ],
+    });
+
+    const { loadLatestFinalizedWorkPerformanceMonth } = await import('@/api/workPerformance');
+    const result = await loadLatestFinalizedWorkPerformanceMonth('org-1');
+
+    expect(result).toEqual({ year: 2026, month: 4 });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].table).toBe('schedules');
+    expect(calls[0].select).toBe('month');
+    expect(calls[0].eq).toContainEqual(['organization_id', 'org-1']);
+    expect(calls[0].not).toContainEqual(['finalized_version_id', 'is', null]);
+    expect(calls[0].order).toEqual([['month', { ascending: false }]]);
+    expect(calls[0].limit).toEqual([1]);
+  });
+
+  it('returns null when no finalized month exists for the default period source', async () => {
+    createSupabaseMock({
+      schedules: [
+        {
+          data: [],
+          error: null,
+        },
+      ],
+    });
+
+    const { loadLatestFinalizedWorkPerformanceMonth } = await import('@/api/workPerformance');
+
+    await expect(loadLatestFinalizedWorkPerformanceMonth('org-1')).resolves.toBeNull();
+  });
+
   it('loads finalized schedules, assignments, off requests, employees, and holiday dates for the selected period', async () => {
     const assignmentsPage1 = buildRows(1000, (index) => ({
       schedule_version_id: index < 31 ? 'version-jan' : 'version-feb',

@@ -10,8 +10,15 @@ import type {
   WorkPerformancePreferenceRow,
 } from '@/types/workPerformance'
 
-const { pushMock, loadWorkPerformancePeriodMock, loadOrganizationMock, organizationStore } = vi.hoisted(() => ({
+const {
+  pushMock,
+  loadLatestFinalizedWorkPerformanceMonthMock,
+  loadWorkPerformancePeriodMock,
+  loadOrganizationMock,
+  organizationStore,
+} = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  loadLatestFinalizedWorkPerformanceMonthMock: vi.fn(),
   loadWorkPerformancePeriodMock: vi.fn(),
   loadOrganizationMock: vi.fn(),
   organizationStore: {
@@ -27,6 +34,7 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/api/workPerformance', () => ({
+  loadLatestFinalizedWorkPerformanceMonth: loadLatestFinalizedWorkPerformanceMonthMock,
   loadWorkPerformancePeriod: loadWorkPerformancePeriodMock,
 }))
 
@@ -67,9 +75,10 @@ function createDeferred<T>() {
 }
 
 async function flush() {
-  await nextTick()
-  await Promise.resolve()
-  await nextTick()
+  for (let index = 0; index < 4; index += 1) {
+    await nextTick()
+    await Promise.resolve()
+  }
 }
 
 function listMonthDates(year: number, month: number) {
@@ -176,6 +185,7 @@ async function runQuery(wrapper: ReturnType<typeof createWrapper>) {
 describe('WorkPerformance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    loadLatestFinalizedWorkPerformanceMonthMock.mockResolvedValue(null)
     organizationStore.current = { id: 'org-1' }
     organizationStore.loadOrganization = loadOrganizationMock
   })
@@ -187,6 +197,36 @@ describe('WorkPerformance', () => {
     expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 편차를 확인합니다.')
     expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
+  })
+
+  it('defaults the draft period to the latest finalized month without auto-querying', async () => {
+    loadLatestFinalizedWorkPerformanceMonthMock.mockResolvedValueOnce({ year: 2026, month: 4 })
+    const wrapper = createWrapper()
+
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-year"]').element).toHaveProperty('value', '2026')
+    expect(wrapper.get('[data-test="work-performance-start-month"]').element).toHaveProperty('value', '4')
+    expect(wrapper.get('[data-test="work-performance-end-month"]').element).toHaveProperty('value', '4')
+    expect(loadLatestFinalizedWorkPerformanceMonthMock).toHaveBeenCalledWith('org-1')
+    expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite draft period changes when latest finalized month lookup finishes late', async () => {
+    const deferredLatest = createDeferred<{ year: number; month: number } | null>()
+    loadLatestFinalizedWorkPerformanceMonthMock.mockReturnValueOnce(deferredLatest.promise)
+    const wrapper = createWrapper()
+
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('5')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('6')
+
+    deferredLatest.resolve({ year: 2026, month: 4 })
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-year"]').element).toHaveProperty('value', '2027')
+    expect(wrapper.get('[data-test="work-performance-start-month"]').element).toHaveProperty('value', '5')
+    expect(wrapper.get('[data-test="work-performance-end-month"]').element).toHaveProperty('value', '6')
   })
 
   it('disables query and shows validation when the start month is after the end month', async () => {

@@ -25,6 +25,8 @@
               max="2100"
               class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="조회 연도"
+              @input="markDraftPeriodTouched"
+              @change="markDraftPeriodTouched"
             >
           </label>
           <label class="space-y-1 text-sm font-medium text-slate-700">
@@ -34,6 +36,7 @@
               data-test="work-performance-start-month"
               class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="시작 월"
+              @change="markDraftPeriodTouched"
             >
               <option
                 v-for="month in monthOptions"
@@ -51,6 +54,7 @@
               data-test="work-performance-end-month"
               class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="종료 월"
+              @change="markDraftPeriodTouched"
             >
               <option
                 v-for="month in monthOptions"
@@ -303,7 +307,7 @@
                   >
                     <button
                       type="button"
-                      class="font-semibold text-slate-600"
+                      class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       @click.stop="changeSort('employeeName')"
                     >
                       직원
@@ -318,7 +322,7 @@
                   >
                     <button
                       type="button"
-                      class="font-semibold text-slate-600"
+                      class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       @click.stop="changeSort('night')"
                     >
                       야간 근무
@@ -333,7 +337,7 @@
                   >
                     <button
                       type="button"
-                      class="font-semibold text-slate-600"
+                      class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       @click.stop="changeSort('weekendHoliday')"
                     >
                       주말·휴일 근무
@@ -348,7 +352,7 @@
                   >
                     <button
                       type="button"
-                      class="font-semibold text-slate-600"
+                      class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       @click.stop="changeSort('offRequestAccepted')"
                     >
                       Off 요청 수락
@@ -383,7 +387,7 @@
                       v-for="metric in metricKeys"
                       :key="metric"
                       class="px-4 py-3 text-slate-700"
-                      :class="row.metrics[metric].highlighted ? 'bg-red-50 text-red-800 ring-1 ring-inset ring-red-200' : ''"
+                      :class="row.metrics[metric].highlighted ? 'bg-amber-50 text-amber-900 ring-1 ring-inset ring-amber-200' : ''"
                       :aria-label="getMetricCellLabel(row.metrics[metric])"
                       :data-test="`work-performance-cell-${row.employeeId}-${metric}`"
                     >
@@ -396,7 +400,7 @@
                       </span>
                       <span
                         v-if="row.metrics[metric].highlighted"
-                        class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                        class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
                       >
                         강조
                       </span>
@@ -411,7 +415,7 @@
                     <td class="px-4 py-3 text-right">
                       <button
                         type="button"
-                        class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        class="min-h-11 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
                         :aria-expanded="isDetailExpanded(row.employeeId)"
                         :aria-controls="getDetailId(row.employeeId)"
                         :data-test="`work-performance-detail-${row.employeeId}`"
@@ -506,10 +510,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NSpin } from 'naive-ui'
 import {
+  loadLatestFinalizedWorkPerformanceMonth,
   loadWorkPerformancePeriod,
   type WorkPerformanceLoadResult,
   type WorkPerformanceLoadSuccess,
@@ -556,6 +561,8 @@ const appliedQuery = ref<WorkPerformanceQuery | null>(null)
 const sortKey = ref<WorkPerformanceSortKey>('priority')
 const sortDirection = ref<SortDirection>('descending')
 const expandedEmployeeId = ref<string | null>(null)
+const draftPeriodTouched = ref(false)
+let organizationLoadPromise: Promise<void> | null = null
 
 const isInvalidRange = computed(() => draftStartMonth.value > draftEndMonth.value)
 const hasPreviousResult = computed(() => Boolean(loadResult.value))
@@ -602,6 +609,57 @@ const sortedRows = computed(() => {
   return [...fairnessResult.value.rows].sort(compareWorkPerformanceRows)
 })
 
+onMounted(() => {
+  void initializeDefaultPeriod()
+})
+
+function markDraftPeriodTouched() {
+  draftPeriodTouched.value = true
+}
+
+async function getOrganizationIdForWorkPerformance(): Promise<string> {
+  if (!orgStore.current?.id) {
+    if (typeof orgStore.loadOrganization !== 'function') {
+      throw new Error('organization_not_found')
+    }
+
+    if (!organizationLoadPromise) {
+      organizationLoadPromise = Promise.resolve(orgStore.loadOrganization())
+        .then(() => undefined)
+        .finally(() => {
+          organizationLoadPromise = null
+        })
+    }
+
+    await organizationLoadPromise
+  }
+
+  const organizationId = orgStore.current?.id
+
+  if (!organizationId) {
+    throw new Error('organization_not_found')
+  }
+
+  return organizationId
+}
+
+async function initializeDefaultPeriod() {
+  try {
+    const organizationId = await getOrganizationIdForWorkPerformance()
+    const latestFinalizedMonth = await loadLatestFinalizedWorkPerformanceMonth(organizationId)
+
+    if (!latestFinalizedMonth || draftPeriodTouched.value || hasQueried.value) {
+      return
+    }
+
+    draftYear.value = latestFinalizedMonth.year
+    draftStartMonth.value = latestFinalizedMonth.month
+    draftEndMonth.value = latestFinalizedMonth.month
+  } catch (error) {
+    console.warn('최근 확정 근무표 조회 실패:', error)
+  }
+}
+
 async function loadPerformance() {
   if (isInvalidRange.value || loading.value) {
     return
@@ -618,15 +676,7 @@ async function loadPerformance() {
   loadError.value = false
 
   try {
-    if (!orgStore.current?.id && typeof orgStore.loadOrganization === 'function') {
-      await orgStore.loadOrganization()
-    }
-
-    const organizationId = orgStore.current?.id
-
-    if (!organizationId) {
-      throw new Error('organization_not_found')
-    }
+    const organizationId = await getOrganizationIdForWorkPerformance()
 
     loadResult.value = await loadWorkPerformancePeriod({
       organizationId,
