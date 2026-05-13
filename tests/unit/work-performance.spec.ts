@@ -97,10 +97,38 @@ function buildAssignments(
   )
 }
 
+function buildAssignmentsFromShiftCodes(
+  employees: WorkPerformanceEmployeeRow[],
+  shiftsByEmployeeDate: Record<string, Record<string, string>>,
+): WorkPerformanceAssignmentRow[] {
+  const dates = listMonthDates(2026, 1)
+
+  return employees.flatMap((employee) =>
+    dates.map((date) => ({
+      scheduleVersionId: 'version-1',
+      employeeId: employee.id,
+      date,
+      shiftId: null,
+      shiftCode: shiftsByEmployeeDate[employee.id]?.[date] ?? 'O',
+      shiftName: null,
+    })),
+  )
+}
+
+function preference(employeeId: string, date: string): WorkPerformancePreferenceRow {
+  return {
+    scheduleVersionId: 'version-1',
+    employeeId,
+    date,
+    requestCode: 'O',
+  }
+}
+
 function successResult(options?: {
   employees?: WorkPerformanceEmployeeRow[]
   assignments?: WorkPerformanceAssignmentRow[]
   offRequests?: WorkPerformancePreferenceRow[]
+  publicHolidayDates?: string[]
 }): WorkPerformanceLoadResult {
   const period: WorkPerformancePeriod = {
     year: 2026,
@@ -128,7 +156,7 @@ function successResult(options?: {
         requestCode: 'O',
       },
     ],
-    publicHolidayDates: ['2026-01-01'],
+    publicHolidayDates: options?.publicHolidayDates ?? ['2026-01-01'],
     finalizedMonths: ['2026-01'],
     finalizedVersionIds: ['version-1'],
   }
@@ -269,6 +297,11 @@ describe('WorkPerformance', () => {
 
     expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '1')
     expect(nightCell().text()).toContain('강조')
+
+    await wrapper.get('[data-test="work-performance-threshold"]').setValue('0')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '1')
   })
 
   it('shows visible deltas and accessible descriptions for highlighted cells', async () => {
@@ -317,6 +350,78 @@ describe('WorkPerformance', () => {
 
     expect(wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').attributes('aria-sort')).toBe('ascending')
     expect(getEmployeeRowNames(wrapper).slice(0, 2)).not.toContain('김민지')
+  })
+
+  it('preserves calculation tie-break order when default priority scores tie', async () => {
+    const employees = [
+      { id: 'night-heavy', name: '이서연' },
+      { id: 'weekend-heavy', name: '김민지' },
+      { id: 'baseline', name: '박하늘' },
+    ]
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
+      employees,
+      assignments: buildAssignmentsFromShiftCodes(employees, {
+        'night-heavy': {
+          '2026-01-05': 'N',
+          '2026-01-06': 'N',
+          '2026-01-07': 'N',
+          '2026-01-08': 'N',
+        },
+        'weekend-heavy': {
+          '2026-01-03': 'D',
+          '2026-01-04': 'D',
+          '2026-01-12': 'N',
+          '2026-01-13': 'N',
+          '2026-01-14': 'N',
+        },
+        baseline: {
+          '2026-01-10': 'D',
+        },
+      }),
+      offRequests: [],
+      publicHolidayDates: [],
+    }))
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('descending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['이서연', '김민지', '박하늘'])
+  })
+
+  it('sorts Off request accepted rows by exact accepted count order', async () => {
+    const employees = [
+      { id: 'two-off', name: '김민지' },
+      { id: 'zero-off', name: '박하늘' },
+      { id: 'one-off', name: '이서연' },
+    ]
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
+      employees,
+      assignments: buildAssignmentsFromShiftCodes(employees, {
+        'two-off': {
+          '2026-01-06': 'O',
+          '2026-01-07': 'O',
+        },
+        'one-off': {
+          '2026-01-08': 'O',
+        },
+      }),
+      offRequests: [
+        preference('two-off', '2026-01-06'),
+        preference('two-off', '2026-01-07'),
+        preference('one-off', '2026-01-08'),
+      ],
+      publicHolidayDates: [],
+    }))
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    await wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').attributes('aria-sort')).toBe('ascending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['박하늘', '이서연', '김민지'])
   })
 
   it('toggles inline detail expansion without moving focus from the detail button', async () => {

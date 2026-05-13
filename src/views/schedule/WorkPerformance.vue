@@ -582,6 +582,15 @@ const appliedPeriodLabel = computed(() => (
   appliedQuery.value ? formatQueryPeriodLabel(appliedQuery.value) : null
 ))
 const publicHolidayDateSet = computed(() => new Set(successResult.value?.publicHolidayDates ?? []))
+const calculatedRowOrder = computed(() => {
+  const order = new Map<string, number>()
+
+  fairnessResult.value?.rows.forEach((row, index) => {
+    order.set(row.employeeId, index)
+  })
+
+  return order
+})
 const sortedRows = computed(() => {
   if (!fairnessResult.value) {
     return []
@@ -633,7 +642,10 @@ async function loadPerformance() {
 
 function updateThreshold(event: Event) {
   const target = event.target as HTMLInputElement
-  thresholdDays.value = clampWorkPerformanceThresholdDays(Number(target.value))
+  const clampedThreshold = clampWorkPerformanceThresholdDays(Number(target.value))
+
+  thresholdDays.value = clampedThreshold
+  target.value = String(clampedThreshold)
 }
 
 function getDefaultSortDirection(key: WorkPerformanceSortKey): SortDirection {
@@ -670,6 +682,10 @@ function compareWorkPerformanceRows(
       left.employeeId.localeCompare(right.employeeId)
   } else if (sortKey.value === 'priority') {
     result = left.priorityScore - right.priorityScore
+
+    if (result === 0) {
+      return getCalculatedRowIndex(left.employeeId) - getCalculatedRowIndex(right.employeeId)
+    }
   } else {
     result = left.metrics[sortKey.value].count - right.metrics[sortKey.value].count
   }
@@ -680,6 +696,10 @@ function compareWorkPerformanceRows(
 
   return left.employeeName.localeCompare(right.employeeName, 'ko') ||
     left.employeeId.localeCompare(right.employeeId)
+}
+
+function getCalculatedRowIndex(employeeId: string): number {
+  return calculatedRowOrder.value.get(employeeId) ?? Number.MAX_SAFE_INTEGER
 }
 
 function formatNumber(value: number): string {
