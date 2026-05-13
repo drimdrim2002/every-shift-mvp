@@ -200,6 +200,10 @@ async function loadAssignments(
       .in('schedule_version_id', finalizedVersionIds)
       .gte('date', startDate)
       .lte('date', endDate)
+      .order('schedule_version_id', { ascending: true })
+      .order('date', { ascending: true })
+      .order('employee_id', { ascending: true })
+      .order('shift_id', { ascending: true })
       .range(from, to),
   );
 
@@ -219,6 +223,9 @@ async function loadOffRequests(
       .eq('request_code', 'O')
       .gte('date', startDate)
       .lte('date', endDate)
+      .order('schedule_version_id', { ascending: true })
+      .order('date', { ascending: true })
+      .order('employee_id', { ascending: true })
       .range(from, to),
   );
 
@@ -226,17 +233,17 @@ async function loadOffRequests(
 }
 
 async function loadEmployees(organizationId: string): Promise<WorkPerformanceEmployeeRow[]> {
-  const { data, error } = await supabase
-    .from('employees')
-    .select('id, name')
-    .eq('organization_id', organizationId)
-    .order('name', { ascending: true });
+  const rows = await loadPagedRows<EmployeeRow>((from, to) =>
+    supabase
+      .from('employees')
+      .select('id, name')
+      .eq('organization_id', organizationId)
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  );
 
-  if (error) {
-    throw createWorkPerformanceLoadError();
-  }
-
-  return ((data ?? []) as EmployeeRow[]).map(normalizeEmployee);
+  return rows.map(normalizeEmployee);
 }
 
 export async function loadWorkPerformancePeriod(

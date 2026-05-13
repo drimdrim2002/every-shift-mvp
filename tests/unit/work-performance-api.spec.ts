@@ -20,6 +20,7 @@ interface QueryResponse {
 interface QueryCall {
   table: string;
   select?: string;
+  operations: string[];
   eq: Array<[string, unknown]>;
   not: Array<[string, string, unknown]>;
   in: Array<[string, unknown[]]>;
@@ -36,6 +37,7 @@ function createSupabaseMock(responses: Record<string, QueryResponse[]>) {
   supabaseFromMock.mockImplementation((table: string) => {
     const call: QueryCall = {
       table,
+      operations: [],
       eq: [],
       not: [],
       in: [],
@@ -59,40 +61,50 @@ function createSupabaseMock(responses: Record<string, QueryResponse[]>) {
     const builder = {
       select: vi.fn((columns: string) => {
         call.select = columns;
+        call.operations.push('select');
         return builder;
       }),
       eq: vi.fn((column: string, value: unknown) => {
         call.eq.push([column, value]);
+        call.operations.push(`eq:${column}`);
         return builder;
       }),
       not: vi.fn((column: string, operator: string, value: unknown) => {
         call.not.push([column, operator, value]);
+        call.operations.push(`not:${column}`);
         return builder;
       }),
       in: vi.fn((column: string, value: unknown[]) => {
         call.in.push([column, value]);
+        call.operations.push(`in:${column}`);
         return builder;
       }),
       gte: vi.fn((column: string, value: unknown) => {
         call.gte.push([column, value]);
+        call.operations.push(`gte:${column}`);
         return builder;
       }),
       lte: vi.fn((column: string, value: unknown) => {
         call.lte.push([column, value]);
+        call.operations.push(`lte:${column}`);
         return builder;
       }),
       order: vi.fn((column: string, options?: unknown) => {
         call.order.push([column, options]);
-        return resolveNext();
+        call.operations.push(`order:${column}`);
+        return builder;
       }),
       range: vi.fn((from: number, to: number) => {
         call.range.push([from, to]);
+        call.operations.push('range');
         return resolveNext();
       }),
       limit: vi.fn((count: number) => {
         call.limit.push(count);
+        call.operations.push('limit');
         return resolveNext();
       }),
+      then: vi.fn((onFulfilled, onRejected) => resolveNext().then(onFulfilled, onRejected)),
     };
 
     return builder;
@@ -166,9 +178,15 @@ describe('work performance api boundary', () => {
       ],
       employees: [
         {
+          data: buildRows(1000, (index) => ({
+            id: `emp-${String(index + 1).padStart(4, '0')}`,
+            name: `간호사 ${String(index + 1).padStart(4, '0')}`,
+          })),
+          error: null,
+        },
+        {
           data: [
-            { id: 'emp-1', name: '김간호' },
-            { id: 'emp-2', name: '박간호' },
+            { id: 'emp-1001', name: '간호사 1001' },
           ],
           error: null,
         },
@@ -211,6 +229,8 @@ describe('work performance api boundary', () => {
       shiftName: '주간',
     });
     expect(result.offRequests).toHaveLength(1001);
+    expect(result.employees).toHaveLength(1001);
+    expect(result.employees[1000]).toEqual({ id: 'emp-1001', name: '간호사 1001' });
     expect(result.publicHolidayDates).toEqual(['2026-01-01', '2026-02-17']);
 
     const scheduleQuery = calls.find((call) => call.table === 'schedules')!;
@@ -233,6 +253,15 @@ describe('work performance api boundary', () => {
     expect(assignmentQueries[0].in).toContainEqual(['schedule_version_id', ['version-jan', 'version-feb']]);
     expect(assignmentQueries[0].gte).toContainEqual(['date', '2026-01-01']);
     expect(assignmentQueries[0].lte).toContainEqual(['date', '2026-02-28']);
+    expect(assignmentQueries[0].order).toEqual([
+      ['schedule_version_id', { ascending: true }],
+      ['date', { ascending: true }],
+      ['employee_id', { ascending: true }],
+      ['shift_id', { ascending: true }],
+    ]);
+    expect(assignmentQueries[0].operations.indexOf('order:shift_id')).toBeLessThan(
+      assignmentQueries[0].operations.indexOf('range'),
+    );
     expect(assignmentQueries.map((call) => call.range[0])).toEqual([
       [0, 999],
       [1000, 1999],
@@ -245,15 +274,34 @@ describe('work performance api boundary', () => {
     expect(preferenceQueries[0].eq).toContainEqual(['request_code', 'O']);
     expect(preferenceQueries[0].gte).toContainEqual(['date', '2026-01-01']);
     expect(preferenceQueries[0].lte).toContainEqual(['date', '2026-02-28']);
+    expect(preferenceQueries[0].order).toEqual([
+      ['schedule_version_id', { ascending: true }],
+      ['date', { ascending: true }],
+      ['employee_id', { ascending: true }],
+    ]);
+    expect(preferenceQueries[0].operations.indexOf('order:employee_id')).toBeLessThan(
+      preferenceQueries[0].operations.indexOf('range'),
+    );
     expect(preferenceQueries.map((call) => call.range[0])).toEqual([
       [0, 999],
       [1000, 1999],
     ]);
 
-    const employeeQuery = calls.find((call) => call.table === 'employees')!;
-    expect(employeeQuery.select).toBe('id, name');
-    expect(employeeQuery.eq).toContainEqual(['organization_id', 'org-1']);
-    expect(employeeQuery.order).toContainEqual(['name', { ascending: true }]);
+    const employeeQueries = calls.filter((call) => call.table === 'employees');
+    expect(employeeQueries).toHaveLength(2);
+    expect(employeeQueries[0].select).toBe('id, name');
+    expect(employeeQueries[0].eq).toContainEqual(['organization_id', 'org-1']);
+    expect(employeeQueries[0].order).toEqual([
+      ['name', { ascending: true }],
+      ['id', { ascending: true }],
+    ]);
+    expect(employeeQueries[0].operations.indexOf('order:id')).toBeLessThan(
+      employeeQueries[0].operations.indexOf('range'),
+    );
+    expect(employeeQueries.map((call) => call.range[0])).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
   });
 
   it('returns noFinalizedSchedule when the organization has no finalized schedules at all', async () => {
