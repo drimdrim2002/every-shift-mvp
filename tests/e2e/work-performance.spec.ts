@@ -44,6 +44,8 @@ type WorkPerformanceFixture = {
 }
 
 const organizationId = 'org-1'
+const january2026StartDate = '2026-01-01'
+const january2026EndDate = '2026-01-31'
 
 async function fulfillJson(route: Route, body: unknown) {
   await route.fulfill({
@@ -74,6 +76,48 @@ function getShiftForEmployee(employeeId: string, day: number) {
   }
 
   return { code: 'O', name: 'Off' }
+}
+
+function assertQueryParam(url: URL, key: string, expectedValue: string) {
+  const actualValues = url.searchParams.getAll(key)
+
+  expect(
+    actualValues,
+    `${url.pathname} should include ${key}=${expectedValue}`,
+  ).toContain(expectedValue)
+}
+
+function assertRangeIfVisible(route: Route) {
+  const url = new URL(route.request().url())
+  const rangeHeader = route.request().headers().range
+
+  if (rangeHeader) {
+    expect(rangeHeader, `${url.pathname} should request the first Supabase page`).toBe('0-999')
+    return
+  }
+
+  if (url.searchParams.has('offset') || url.searchParams.has('limit')) {
+    assertQueryParam(url, 'offset', '0')
+    assertQueryParam(url, 'limit', '1000')
+  }
+}
+
+function getExpectedFinalizedVersionIds(fixture: WorkPerformanceFixture) {
+  return fixture.schedules
+    .map((schedule) => schedule.finalized_version_id)
+    .filter((versionId): versionId is string => typeof versionId === 'string' && versionId.length > 0)
+}
+
+function assertFinalizedVersionFilter(url: URL, fixture: WorkPerformanceFixture) {
+  const expectedVersionIds = getExpectedFinalizedVersionIds(fixture)
+
+  expect(expectedVersionIds, 'work performance fixture should include finalized version IDs').not.toHaveLength(0)
+  assertQueryParam(url, 'schedule_version_id', `in.(${expectedVersionIds.join(',')})`)
+}
+
+function assertJanuary2026DateRange(url: URL, key: string) {
+  assertQueryParam(url, key, `gte.${january2026StartDate}`)
+  assertQueryParam(url, key, `lte.${january2026EndDate}`)
 }
 
 function createSuccessfulFixture(): WorkPerformanceFixture {
@@ -156,11 +200,27 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
     const finalizedFilter = url.searchParams.get('finalized_version_id')
 
     if (finalizedFilter === 'not.is.null') {
+      assertQueryParam(url, 'organization_id', `eq.${organizationId}`)
+      assertQueryParam(url, 'limit', '1')
       await fulfillJson(route, fixture.schedules.filter((schedule) => schedule.finalized_version_id))
       return
     }
 
-    await fulfillJson(route, fixture.schedules)
+    assertQueryParam(url, 'organization_id', `eq.${organizationId}`)
+
+    const months = fixture.schedules.map((schedule) => schedule.month).sort()
+    const startMonth = months[0]
+    const endMonth = months[months.length - 1]
+
+    expect(startMonth, 'work performance fixture should include a start month').toBeTruthy()
+    expect(endMonth, 'work performance fixture should include an end month').toBeTruthy()
+    assertQueryParam(url, 'month', `gte.${startMonth}`)
+    assertQueryParam(url, 'month', `lte.${endMonth}`)
+
+    await fulfillJson(
+      route,
+      fixture.schedules.filter((schedule) => schedule.month >= startMonth && schedule.month <= endMonth),
+    )
   })
 
   await page.route('**/rest/v1/public_holidays*', async (route) => {
@@ -170,9 +230,20 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
     }
 
     const url = new URL(route.request().url())
-    const isCoverageCheck = url.searchParams.has('limit')
+    assertQueryParam(url, 'country_code', 'eq.KR')
+    assertQueryParam(url, 'is_holiday', 'eq.true')
+
+    const isCoverageCheck = url.searchParams.get('limit') === '1'
     const holidays = fixture.publicHolidays.map((holiday_date) => ({ holiday_date }))
 
+    if (isCoverageCheck) {
+      assertQueryParam(url, 'holiday_date', 'gte.2026-01-01')
+      assertQueryParam(url, 'holiday_date', 'lte.2026-12-31')
+      await fulfillJson(route, holidays.slice(0, 1))
+      return
+    }
+
+    assertJanuary2026DateRange(url, 'holiday_date')
     await fulfillJson(route, isCoverageCheck ? holidays.slice(0, 1) : holidays)
   })
 
@@ -181,6 +252,11 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
       await route.fulfill({ status: 204 })
       return
     }
+
+    const url = new URL(route.request().url())
+    assertFinalizedVersionFilter(url, fixture)
+    assertJanuary2026DateRange(url, 'date')
+    assertRangeIfVisible(route)
 
     await fulfillJson(route, fixture.assignments)
   })
@@ -191,6 +267,12 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
       return
     }
 
+    const url = new URL(route.request().url())
+    assertFinalizedVersionFilter(url, fixture)
+    assertQueryParam(url, 'request_code', 'eq.O')
+    assertJanuary2026DateRange(url, 'date')
+    assertRangeIfVisible(route)
+
     await fulfillJson(route, fixture.preferences)
   })
 
@@ -199,6 +281,10 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
       await route.fulfill({ status: 204 })
       return
     }
+
+    const url = new URL(route.request().url())
+    assertQueryParam(url, 'organization_id', `eq.${organizationId}`)
+    assertRangeIfVisible(route)
 
     await fulfillJson(route, fixture.employees)
   })
@@ -220,7 +306,7 @@ test.describe('work performance', () => {
 
     await expect(page).toHaveURL((url) => url.pathname === getWorkPerformanceRoutePath())
     await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
-    await expect(page.getByText('준비 중입니다')).toHaveCount(0)
+    await expect(page.getByTestId('work-performance-initial')).toBeVisible()
   })
 
   test('queries finalized schedules and renders summary, employee rows, and deltas', async ({ page }) => {
@@ -236,7 +322,6 @@ test.describe('work performance', () => {
     await expect(page.getByTestId('work-performance-employee-row')).toHaveCount(3)
     await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
     await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균 대비 +3.3일')
-    await expect(page.getByText('준비 중입니다')).toHaveCount(0)
   })
 
   test('blocks a selected period when any month is not finalized', async ({ page }) => {
