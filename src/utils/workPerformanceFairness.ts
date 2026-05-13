@@ -213,7 +213,7 @@ export function clampWorkPerformanceThresholdDays(value: number): number {
     return 1
   }
 
-  return Math.max(1, value)
+  return Math.min(10, Math.max(1, value))
 }
 
 export function computeWorkPerformanceFairness({

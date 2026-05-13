@@ -13,6 +13,7 @@ import {
   isIsoDate,
   listMonthDates,
   listPeriodDates,
+  clampWorkPerformanceThresholdDays,
 } from '@/utils/workPerformanceFairness'
 
 describe('work performance fairness date helpers', () => {
@@ -295,7 +296,7 @@ describe('computeWorkPerformanceFairness', () => {
     ])
   })
 
-  it('clamps highlight threshold below one day for calculations', () => {
+  it('clamps highlight threshold to the supported one to ten day range', () => {
     const { assignments, offRequests } = buildFairnessFixture()
 
     const result = computeWorkPerformanceFairness({
@@ -307,6 +308,13 @@ describe('computeWorkPerformanceFairness', () => {
       highlightThresholdDays: 0,
     })
 
+    expect(clampWorkPerformanceThresholdDays(-1)).toBe(1)
+    expect(clampWorkPerformanceThresholdDays(0)).toBe(1)
+    expect(clampWorkPerformanceThresholdDays(1)).toBe(1)
+    expect(clampWorkPerformanceThresholdDays(10)).toBe(10)
+    expect(clampWorkPerformanceThresholdDays(999)).toBe(10)
+    expect(clampWorkPerformanceThresholdDays(Number.NaN)).toBe(1)
+    expect(clampWorkPerformanceThresholdDays(Number.POSITIVE_INFINITY)).toBe(1)
     expect(result.highlightThresholdDays).toBe(1)
     expect(result.rows.find((row) => row.employeeName === '김민지')?.metrics.weekendHoliday.highlighted).toBe(true)
   })
