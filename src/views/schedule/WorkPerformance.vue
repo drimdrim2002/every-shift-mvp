@@ -84,14 +84,24 @@
       <div
         v-if="loading && hasPreviousResult"
         data-test="work-performance-refreshing"
+        aria-live="polite"
         class="rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800"
       >
         이전 조회 결과를 표시하는 중입니다. 새 근무 실적을 계산하고 있습니다.
       </div>
 
+      <p
+        v-if="appliedPeriodLabel"
+        data-test="work-performance-applied-period"
+        class="text-sm font-semibold text-slate-700"
+      >
+        조회 기간: {{ appliedPeriodLabel }}
+      </p>
+
       <div
         v-if="loading && !hasPreviousResult"
         data-test="work-performance-loading"
+        aria-live="polite"
         class="rounded-lg border border-slate-200 bg-white px-5 py-12 text-center"
       >
         <n-spin size="medium" />
@@ -103,6 +113,8 @@
       <div
         v-else-if="loadError"
         data-test="work-performance-error"
+        aria-live="assertive"
+        role="alert"
         class="rounded-lg border border-red-200 bg-red-50 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-red-900">
@@ -138,6 +150,7 @@
       <div
         v-else-if="loadStatus === 'missingFinalizedMonth'"
         data-test="work-performance-state"
+        aria-live="polite"
         class="rounded-lg border border-amber-200 bg-amber-50 px-5 py-10"
       >
         <h2 class="text-xl font-semibold text-amber-950">
@@ -168,6 +181,7 @@
       <div
         v-else-if="loadStatus === 'noFinalizedSchedule'"
         data-test="work-performance-state"
+        aria-live="polite"
         class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-slate-900">
@@ -197,6 +211,7 @@
       <div
         v-else-if="loadStatus === 'missingHolidayCoverage'"
         data-test="work-performance-state"
+        aria-live="polite"
         class="rounded-lg border border-amber-200 bg-amber-50 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-amber-950">
@@ -210,6 +225,7 @@
       <div
         v-else-if="fairnessResult && fairnessResult.rows.length === 0"
         data-test="work-performance-state"
+        aria-live="polite"
         class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-slate-900">
@@ -264,16 +280,28 @@
             >
               <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
-                  <th class="px-4 py-3">
+                  <th
+                    class="px-4 py-3"
+                    scope="col"
+                  >
                     직원
                   </th>
-                  <th class="px-4 py-3">
+                  <th
+                    class="px-4 py-3"
+                    scope="col"
+                  >
                     야간 근무
                   </th>
-                  <th class="px-4 py-3">
+                  <th
+                    class="px-4 py-3"
+                    scope="col"
+                  >
                     주말·휴일 근무
                   </th>
-                  <th class="px-4 py-3">
+                  <th
+                    class="px-4 py-3"
+                    scope="col"
+                  >
                     Off 요청 수락
                   </th>
                 </tr>
@@ -291,10 +319,27 @@
                     :key="metric"
                     class="px-4 py-3 text-slate-700"
                     :class="row.metrics[metric].highlighted ? 'bg-red-50 text-red-800' : ''"
+                    :aria-label="getMetricCellLabel(row.metrics[metric])"
                   >
                     {{ row.metrics[metric].count }}일
                     <span class="ml-1 text-xs text-slate-500">
                       평균 {{ formatNumber(row.metrics[metric].average) }}일
+                    </span>
+                    <span class="ml-1 text-xs font-medium text-slate-600">
+                      평균 대비 {{ formatDelta(row.metrics[metric].delta) }}일
+                    </span>
+                    <span
+                      v-if="row.metrics[metric].highlighted"
+                      class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                    >
+                      강조
+                    </span>
+                    <span
+                      v-if="row.metrics[metric].highlighted"
+                      data-test="work-performance-emphasis-label"
+                      class="sr-only"
+                    >
+                      강조: 기준 편차 이상입니다.
                     </span>
                   </td>
                 </tr>
@@ -320,6 +365,9 @@
             </p>
             <p class="mt-1 text-sm text-slate-500">
               최소 {{ fairnessResult.summary[definition.key].min }}일 · 최대 {{ fairnessResult.summary[definition.key].max }}일
+            </p>
+            <p class="mt-1 text-sm font-medium text-slate-600">
+              최대 편차 {{ formatNumber(getMaxDeviation(definition.key)) }}일
             </p>
           </div>
         </div>
@@ -350,7 +398,17 @@ import {
 } from '@/utils/workPerformanceFairness'
 import { useOrganizationStore } from '@/stores/organization'
 import { getScheduleResultsRoutePath, getScheduleStepRoutePath } from '@/constants/routes'
-import type { WorkPerformanceFairnessResult, WorkPerformanceMetricKey } from '@/types/workPerformance'
+import type {
+  WorkPerformanceFairnessResult,
+  WorkPerformanceMetricKey,
+  WorkPerformanceMetricResult,
+} from '@/types/workPerformance'
+
+interface WorkPerformanceQuery {
+  year: number
+  startMonth: number
+  endMonth: number
+}
 
 const router = useRouter()
 const orgStore = useOrganizationStore()
@@ -362,11 +420,12 @@ const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekendHoliday', 'offR
 const draftYear = ref(currentDate.getFullYear())
 const draftStartMonth = ref(currentDate.getMonth() + 1)
 const draftEndMonth = ref(currentDate.getMonth() + 1)
-const thresholdDays = ref(2)
+const thresholdDays = ref(3)
 const loading = ref(false)
 const hasQueried = ref(false)
 const loadError = ref(false)
 const loadResult = ref<WorkPerformanceLoadResult | null>(null)
+const appliedQuery = ref<WorkPerformanceQuery | null>(null)
 
 const isInvalidRange = computed(() => draftStartMonth.value > draftEndMonth.value)
 const hasPreviousResult = computed(() => Boolean(loadResult.value))
@@ -392,10 +451,19 @@ const fairnessResult = computed<WorkPerformanceFairnessResult | null>(() => {
   })
 })
 const hasNoOffRequests = computed(() => successResult.value?.offRequests.length === 0)
+const appliedPeriodLabel = computed(() => (
+  appliedQuery.value ? formatQueryPeriodLabel(appliedQuery.value) : null
+))
 
 async function loadPerformance() {
   if (isInvalidRange.value || loading.value) {
     return
+  }
+
+  const query: WorkPerformanceQuery = {
+    year: draftYear.value,
+    startMonth: draftStartMonth.value,
+    endMonth: draftEndMonth.value,
   }
 
   loading.value = true
@@ -415,14 +483,14 @@ async function loadPerformance() {
 
     loadResult.value = await loadWorkPerformancePeriod({
       organizationId,
-      year: draftYear.value,
-      startMonth: draftStartMonth.value,
-      endMonth: draftEndMonth.value,
+      ...query,
     })
+    appliedQuery.value = query
   } catch (error) {
     console.warn('근무 실적 로드 실패:', error)
     loadResult.value = null
     loadError.value = true
+    appliedQuery.value = query
   } finally {
     loading.value = false
   }
@@ -437,10 +505,39 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
+function formatDelta(value: number): string {
+  if (Object.is(value, -0)) {
+    return '0'
+  }
+
+  return value > 0 ? `+${formatNumber(value)}` : formatNumber(value)
+}
+
 function formatMonthLabel(month: string): string {
   const [year, monthValue] = month.split('-')
 
   return `${year}년 ${Number(monthValue)}월`
+}
+
+function formatQueryPeriodLabel(query: WorkPerformanceQuery): string {
+  const startLabel = `${query.year}년 ${query.startMonth}월`
+  const endLabel = `${query.year}년 ${query.endMonth}월`
+
+  return query.startMonth === query.endMonth ? startLabel : `${startLabel} ~ ${endLabel}`
+}
+
+function getMaxDeviation(metric: WorkPerformanceMetricKey): number {
+  if (!fairnessResult.value) {
+    return 0
+  }
+
+  return Math.max(...fairnessResult.value.rows.map((row) => Math.abs(row.metrics[metric].delta)), 0)
+}
+
+function getMetricCellLabel(metric: WorkPerformanceMetricResult): string {
+  const emphasisLabel = metric.highlighted ? ', 강조 기준 편차 이상' : ''
+
+  return `${metric.count}일, 평균 ${formatNumber(metric.average)}일, 평균 대비 ${formatDelta(metric.delta)}일${emphasisLabel}`
 }
 
 function goToScheduleResults() {

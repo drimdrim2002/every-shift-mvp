@@ -88,7 +88,7 @@ function buildAssignments(
       employeeId: employee.id,
       date,
       shiftId: null,
-      shiftCode: index % 11 === 0 && employee.id === 'emp-1' ? 'N' : index % 7 === 0 ? 'O' : 'D',
+      shiftCode: index % 5 === 0 && employee.id === 'emp-1' ? 'N' : index % 7 === 0 ? 'O' : 'D',
       shiftName: null,
     })),
   )
@@ -198,18 +198,76 @@ describe('WorkPerformance', () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({ offRequests: [] }))
     const wrapper = createWrapper()
 
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
     await runQuery(wrapper)
 
     expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무')
-    expect(wrapper.get('[data-test="work-performance-threshold"]').exists()).toBe(true)
+    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('최대 편차')
+    expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '3')
+    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
+    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('평균 대비')
+    expect(wrapper.find('[data-test="work-performance-emphasis-label"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('선택 기간에 Off 요청이 없습니다')
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
-      year: expect.any(Number),
-      startMonth: expect.any(Number),
-      endMonth: expect.any(Number),
+      year: 2026,
+      startMonth: 1,
+      endMonth: 1,
     })
+  })
+
+  it('keeps the applied result label unchanged when draft controls change before query', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
+    const wrapper = createWrapper()
+
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
+    await runQuery(wrapper)
+
+    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
+
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('2')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('3')
+
+    expect(loadWorkPerformancePeriodMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
+  })
+
+  it('captures query params before async organization loading can finish', async () => {
+    const deferredOrg = createDeferred<void>()
+    organizationStore.current = null
+    loadOrganizationMock.mockImplementationOnce(async () => {
+      await deferredOrg.promise
+      organizationStore.current = { id: 'org-loaded' }
+    })
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
+    const wrapper = createWrapper()
+
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-query"]').trigger('click')
+    await nextTick()
+
+    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
+    await wrapper.get('[data-test="work-performance-start-month"]').setValue('5')
+    await wrapper.get('[data-test="work-performance-end-month"]').setValue('6')
+
+    deferredOrg.resolve()
+    await flush()
+
+    expect(loadWorkPerformancePeriodMock).toHaveBeenCalledWith({
+      organizationId: 'org-loaded',
+      year: 2026,
+      startMonth: 1,
+      endMonth: 1,
+    })
+    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
   })
 
   it('renders the missing finalized month state with navigation to generated schedules', async () => {
