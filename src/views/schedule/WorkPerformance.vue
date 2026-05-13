@@ -247,7 +247,7 @@
                 직원별 근무 실적 비교
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                평균보다 불리한 편차가 큰 직원이 먼저 표시됩니다.
+                평균보다 불리한 방향으로 많이 벗어난 근무자가 먼저 표시됩니다.
               </p>
             </div>
             <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -278,71 +278,190 @@
               data-test="work-performance-table"
               class="min-w-full divide-y divide-slate-200 text-sm"
             >
+              <caption class="sr-only">
+                평균보다 불리한 방향으로 많이 벗어난 근무자가 먼저 표시됩니다
+              </caption>
               <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                 <tr>
                   <th
                     class="px-4 py-3"
                     scope="col"
+                    :aria-sort="getAriaSort('employeeName')"
+                    data-test="work-performance-sort-name"
+                    @click="changeSort('employeeName')"
                   >
-                    직원
+                    <button
+                      type="button"
+                      class="font-semibold text-slate-600"
+                      @click.stop="changeSort('employeeName')"
+                    >
+                      직원
+                    </button>
                   </th>
                   <th
                     class="px-4 py-3"
                     scope="col"
+                    :aria-sort="getAriaSort('night')"
+                    data-test="work-performance-sort-night"
+                    @click="changeSort('night')"
                   >
-                    야간 근무
+                    <button
+                      type="button"
+                      class="font-semibold text-slate-600"
+                      @click.stop="changeSort('night')"
+                    >
+                      야간 근무
+                    </button>
                   </th>
                   <th
                     class="px-4 py-3"
                     scope="col"
+                    :aria-sort="getAriaSort('weekendHoliday')"
+                    data-test="work-performance-sort-weekendHoliday"
+                    @click="changeSort('weekendHoliday')"
                   >
-                    주말·휴일 근무
+                    <button
+                      type="button"
+                      class="font-semibold text-slate-600"
+                      @click.stop="changeSort('weekendHoliday')"
+                    >
+                      주말·휴일 근무
+                    </button>
                   </th>
                   <th
                     class="px-4 py-3"
                     scope="col"
+                    :aria-sort="getAriaSort('offRequestAccepted')"
+                    data-test="work-performance-sort-offRequestAccepted"
+                    @click="changeSort('offRequestAccepted')"
                   >
-                    Off 요청 수락
+                    <button
+                      type="button"
+                      class="font-semibold text-slate-600"
+                      @click.stop="changeSort('offRequestAccepted')"
+                    >
+                      Off 요청 수락
+                    </button>
+                  </th>
+                  <th
+                    class="px-4 py-3"
+                    scope="col"
+                    :aria-sort="getAriaSort('priority')"
+                    data-test="work-performance-sort-priority"
+                    @click="changeSort('priority')"
+                  >
+                    <button
+                      type="button"
+                      class="font-semibold text-slate-600"
+                      @click.stop="changeSort('priority')"
+                    >
+                      우선순위
+                    </button>
                   </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 bg-white">
-                <tr
-                  v-for="row in fairnessResult.rows"
+                <template
+                  v-for="row in sortedRows"
                   :key="row.employeeId"
                 >
-                  <td class="px-4 py-3 font-semibold text-slate-900">
-                    {{ row.employeeName }}
-                  </td>
-                  <td
-                    v-for="metric in metricKeys"
-                    :key="metric"
-                    class="px-4 py-3 text-slate-700"
-                    :class="row.metrics[metric].highlighted ? 'bg-red-50 text-red-800' : ''"
-                    :aria-label="getMetricCellLabel(row.metrics[metric])"
+                  <tr data-test="work-performance-employee-row">
+                    <td class="max-w-48 px-4 py-3 font-semibold text-slate-900">
+                      <span
+                        data-test="work-performance-employee-name"
+                        class="block truncate"
+                        :title="row.employeeName"
+                        :aria-label="row.employeeName"
+                      >
+                        {{ row.employeeName }}
+                      </span>
+                    </td>
+                    <td
+                      v-for="metric in metricKeys"
+                      :key="metric"
+                      class="px-4 py-3 text-slate-700"
+                      :class="row.metrics[metric].highlighted ? 'bg-red-50 text-red-800 ring-1 ring-inset ring-red-200' : ''"
+                      :aria-label="getMetricCellLabel(row.metrics[metric])"
+                      :data-test="`work-performance-cell-${row.employeeId}-${metric}`"
+                    >
+                      {{ row.metrics[metric].count }}일
+                      <span class="ml-1 text-xs text-slate-500">
+                        평균 {{ formatNumber(row.metrics[metric].average) }}일
+                      </span>
+                      <span class="ml-1 text-xs font-medium text-slate-600">
+                        평균 대비 {{ formatDelta(row.metrics[metric].delta) }}일
+                      </span>
+                      <span
+                        v-if="row.metrics[metric].highlighted"
+                        class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                      >
+                        강조
+                      </span>
+                      <span
+                        v-if="row.metrics[metric].highlighted"
+                        data-test="work-performance-emphasis-label"
+                        class="sr-only"
+                      >
+                        {{ getHighlightDescription(row.metrics[metric]) }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        :aria-expanded="isDetailExpanded(row.employeeId)"
+                        :aria-controls="getDetailId(row.employeeId)"
+                        :data-test="`work-performance-detail-${row.employeeId}`"
+                        @click="toggleDetail(row.employeeId)"
+                      >
+                        상세 보기
+                      </button>
+                    </td>
+                  </tr>
+                  <tr
+                    v-if="isDetailExpanded(row.employeeId)"
+                    :id="getDetailId(row.employeeId)"
+                    :data-test="`work-performance-detail-row-${row.employeeId}`"
                   >
-                    {{ row.metrics[metric].count }}일
-                    <span class="ml-1 text-xs text-slate-500">
-                      평균 {{ formatNumber(row.metrics[metric].average) }}일
-                    </span>
-                    <span class="ml-1 text-xs font-medium text-slate-600">
-                      평균 대비 {{ formatDelta(row.metrics[metric].delta) }}일
-                    </span>
-                    <span
-                      v-if="row.metrics[metric].highlighted"
-                      class="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800"
+                    <td
+                      colspan="5"
+                      class="bg-slate-50 p-4"
                     >
-                      강조
-                    </span>
-                    <span
-                      v-if="row.metrics[metric].highlighted"
-                      data-test="work-performance-emphasis-label"
-                      class="sr-only"
-                    >
-                      강조: 기준 편차 이상입니다.
-                    </span>
-                  </td>
-                </tr>
+                      <div class="grid gap-3 md:grid-cols-3">
+                        <section
+                          v-for="definition in fairnessResult.metricDefinitions"
+                          :key="definition.key"
+                          class="rounded-md border border-slate-200 bg-white p-3"
+                        >
+                          <h3 class="text-sm font-semibold text-slate-900">
+                            {{ definition.label }}
+                          </h3>
+                          <ul class="mt-2 flex flex-wrap gap-2 text-sm text-slate-600">
+                            <li
+                              v-for="date in row.metrics[definition.key].evidenceDates"
+                              :key="date"
+                              class="rounded-full bg-slate-100 px-2.5 py-1"
+                            >
+                              {{ formatKoreanMonthDay(date) }}
+                              <span
+                                v-if="isPublicHoliday(date)"
+                                class="ml-1 text-xs font-semibold text-red-700"
+                              >
+                                공휴일
+                              </span>
+                            </li>
+                            <li
+                              v-if="row.metrics[definition.key].evidenceDates.length === 0"
+                              class="text-slate-500"
+                            >
+                              해당 날짜 없음
+                            </li>
+                          </ul>
+                        </section>
+                      </div>
+                    </td>
+                  </tr>
+                </template>
               </tbody>
             </table>
           </div>
@@ -395,11 +514,13 @@ import {
 import {
   clampWorkPerformanceThresholdDays,
   computeWorkPerformanceFairness,
+  formatKoreanMonthDay,
 } from '@/utils/workPerformanceFairness'
 import { useOrganizationStore } from '@/stores/organization'
 import { getScheduleResultsRoutePath, getScheduleStepRoutePath } from '@/constants/routes'
 import type {
   WorkPerformanceFairnessResult,
+  WorkPerformanceEmployeeResult,
   WorkPerformanceMetricKey,
   WorkPerformanceMetricResult,
 } from '@/types/workPerformance'
@@ -409,6 +530,9 @@ interface WorkPerformanceQuery {
   startMonth: number
   endMonth: number
 }
+
+type WorkPerformanceSortKey = 'priority' | 'employeeName' | WorkPerformanceMetricKey
+type SortDirection = 'ascending' | 'descending'
 
 const router = useRouter()
 const orgStore = useOrganizationStore()
@@ -426,6 +550,9 @@ const hasQueried = ref(false)
 const loadError = ref(false)
 const loadResult = ref<WorkPerformanceLoadResult | null>(null)
 const appliedQuery = ref<WorkPerformanceQuery | null>(null)
+const sortKey = ref<WorkPerformanceSortKey>('priority')
+const sortDirection = ref<SortDirection>('descending')
+const expandedEmployeeId = ref<string | null>(null)
 
 const isInvalidRange = computed(() => draftStartMonth.value > draftEndMonth.value)
 const hasPreviousResult = computed(() => Boolean(loadResult.value))
@@ -454,6 +581,14 @@ const hasNoOffRequests = computed(() => successResult.value?.offRequests.length 
 const appliedPeriodLabel = computed(() => (
   appliedQuery.value ? formatQueryPeriodLabel(appliedQuery.value) : null
 ))
+const publicHolidayDateSet = computed(() => new Set(successResult.value?.publicHolidayDates ?? []))
+const sortedRows = computed(() => {
+  if (!fairnessResult.value) {
+    return []
+  }
+
+  return [...fairnessResult.value.rows].sort(compareWorkPerformanceRows)
+})
 
 async function loadPerformance() {
   if (isInvalidRange.value || loading.value) {
@@ -501,6 +636,52 @@ function updateThreshold(event: Event) {
   thresholdDays.value = clampWorkPerformanceThresholdDays(Number(target.value))
 }
 
+function getDefaultSortDirection(key: WorkPerformanceSortKey): SortDirection {
+  if (key === 'employeeName' || key === 'offRequestAccepted') {
+    return 'ascending'
+  }
+
+  return 'descending'
+}
+
+function changeSort(key: WorkPerformanceSortKey) {
+  if (sortKey.value === key) {
+    sortDirection.value = sortDirection.value === 'ascending' ? 'descending' : 'ascending'
+    return
+  }
+
+  sortKey.value = key
+  sortDirection.value = getDefaultSortDirection(key)
+}
+
+function getAriaSort(key: WorkPerformanceSortKey): 'ascending' | 'descending' | 'none' {
+  return sortKey.value === key ? sortDirection.value : 'none'
+}
+
+function compareWorkPerformanceRows(
+  left: WorkPerformanceEmployeeResult,
+  right: WorkPerformanceEmployeeResult,
+): number {
+  const directionMultiplier = sortDirection.value === 'ascending' ? 1 : -1
+  let result = 0
+
+  if (sortKey.value === 'employeeName') {
+    result = left.employeeName.localeCompare(right.employeeName, 'ko') ||
+      left.employeeId.localeCompare(right.employeeId)
+  } else if (sortKey.value === 'priority') {
+    result = left.priorityScore - right.priorityScore
+  } else {
+    result = left.metrics[sortKey.value].count - right.metrics[sortKey.value].count
+  }
+
+  if (result !== 0) {
+    return result * directionMultiplier
+  }
+
+  return left.employeeName.localeCompare(right.employeeName, 'ko') ||
+    left.employeeId.localeCompare(right.employeeId)
+}
+
 function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
@@ -535,9 +716,32 @@ function getMaxDeviation(metric: WorkPerformanceMetricKey): number {
 }
 
 function getMetricCellLabel(metric: WorkPerformanceMetricResult): string {
-  const emphasisLabel = metric.highlighted ? ', 강조 기준 편차 이상' : ''
+  const emphasisLabel = metric.highlighted ? `, ${getHighlightDescription(metric)}` : ''
 
   return `${metric.count}일, 평균 ${formatNumber(metric.average)}일, 평균 대비 ${formatDelta(metric.delta)}일${emphasisLabel}`
+}
+
+function getHighlightDescription(metric: WorkPerformanceMetricResult): string {
+  const absoluteDelta = Math.abs(metric.delta)
+  const directionLabel = metric.delta >= 0 ? '많음' : '적음'
+
+  return `강조, 평균보다 ${formatNumber(absoluteDelta)}일 ${directionLabel}`
+}
+
+function isDetailExpanded(employeeId: string): boolean {
+  return expandedEmployeeId.value === employeeId
+}
+
+function getDetailId(employeeId: string): string {
+  return `work-performance-detail-${employeeId}`
+}
+
+function toggleDetail(employeeId: string) {
+  expandedEmployeeId.value = isDetailExpanded(employeeId) ? null : employeeId
+}
+
+function isPublicHoliday(date: string): boolean {
+  return publicHolidayDateSet.value.has(date)
 }
 
 function goToScheduleResults() {

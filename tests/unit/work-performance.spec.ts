@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, type MountingOptions } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
 import { getScheduleResultsRoutePath, getScheduleStepRoutePath } from '@/constants/routes'
@@ -36,10 +36,13 @@ vi.mock('@/stores/organization', () => ({
 
 import WorkPerformance from '@/views/schedule/WorkPerformance.vue'
 
-function createWrapper() {
+function createWrapper(options: MountingOptions<unknown> = {}) {
   return mount(WorkPerformance, {
+    ...options,
     global: {
+      ...options.global,
       stubs: {
+        ...options.global?.stubs,
         NButton: {
           props: ['loading', 'disabled', 'type', 'secondary', 'size'],
           template: '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
@@ -129,6 +132,12 @@ function successResult(options?: {
     finalizedMonths: ['2026-01'],
     finalizedVersionIds: ['version-1'],
   }
+}
+
+function getEmployeeRowNames(wrapper: ReturnType<typeof createWrapper>): string[] {
+  return wrapper
+    .findAll('[data-test="work-performance-employee-row"]')
+    .map((row) => row.get('[data-test="work-performance-employee-name"]').text())
 }
 
 async function runQuery(wrapper: ReturnType<typeof createWrapper>) {
@@ -236,6 +245,117 @@ describe('WorkPerformance', () => {
 
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledTimes(1)
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
+    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
+    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('이서연')
+  })
+
+  it('clamps threshold input between 1 and 10 and updates highlight state immediately', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    const nightCell = () => wrapper.get('[data-test="work-performance-cell-emp-1-night"]')
+    expect(nightCell().text()).toContain('강조')
+
+    await wrapper.get('[data-test="work-performance-threshold"]').setValue('999')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '10')
+    expect(nightCell().text()).not.toContain('강조')
+
+    await wrapper.get('[data-test="work-performance-threshold"]').setValue('-5')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '1')
+    expect(nightCell().text()).toContain('강조')
+  })
+
+  it('shows visible deltas and accessible descriptions for highlighted cells', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    const nightCell = wrapper.get('[data-test="work-performance-cell-emp-1-night"]')
+    expect(nightCell.text()).toContain('7일')
+    expect(nightCell.text()).toContain('평균 대비 +3.5일')
+    expect(nightCell.text()).toContain('강조')
+    expect(nightCell.attributes('aria-label')).toContain('강조, 평균보다 3.5일 많음')
+  })
+
+  it('sorts rows with aria-sort updates when metric and name headers are clicked', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
+      employees: [
+        { id: 'emp-1', name: '김민지' },
+        { id: 'emp-2', name: '이서연' },
+        { id: 'emp-3', name: '박하늘' },
+      ],
+    }))
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('descending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '박하늘', '이서연'])
+
+    await wrapper.get('[data-test="work-performance-sort-name"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-priority"]').attributes('aria-sort')).toBe('none')
+    expect(wrapper.get('[data-test="work-performance-sort-name"]').attributes('aria-sort')).toBe('ascending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '박하늘', '이서연'])
+
+    await wrapper.get('[data-test="work-performance-sort-name"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-name"]').attributes('aria-sort')).toBe('descending')
+    expect(getEmployeeRowNames(wrapper)).toEqual(['이서연', '박하늘', '김민지'])
+
+    await wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-sort-offRequestAccepted"]').attributes('aria-sort')).toBe('ascending')
+    expect(getEmployeeRowNames(wrapper).slice(0, 2)).not.toContain('김민지')
+  })
+
+  it('toggles inline detail expansion without moving focus from the detail button', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
+    const wrapper = createWrapper({ attachTo: document.body })
+
+    await runQuery(wrapper)
+
+    const detailButton = wrapper.get('[data-test="work-performance-detail-emp-1"]')
+    expect(detailButton.attributes('aria-expanded')).toBe('false')
+
+    detailButton.element.focus()
+    await detailButton.trigger('click')
+    await flush()
+
+    expect(detailButton.attributes('aria-expanded')).toBe('true')
+    expect(document.activeElement).toBe(detailButton.element)
+
+    const detail = wrapper.get('[data-test="work-performance-detail-row-emp-1"]')
+    expect(detail.text()).toContain('야간 근무')
+    expect(detail.text()).toContain('주말·휴일 근무')
+    expect(detail.text()).toContain('Off 요청 수락')
+    expect(detail.text()).toContain('1/1 목')
+    expect(detail.text()).toContain('공휴일')
+
+    await detailButton.trigger('click')
+    await flush()
+
+    expect(detailButton.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-test="work-performance-detail-row-emp-1"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(detailButton.element)
+
+    const emptyDetailButton = wrapper.get('[data-test="work-performance-detail-emp-2"]')
+    await emptyDetailButton.trigger('click')
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-detail-row-emp-2"]').text()).toContain('해당 날짜 없음')
+
+    wrapper.unmount()
   })
 
   it('captures query params before async organization loading can finish', async () => {
