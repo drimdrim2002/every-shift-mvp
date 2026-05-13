@@ -1,10 +1,11 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { expect, type Locator, type Page, type Route } from '@playwright/test'
+import { expect, type Page, type Route } from '@playwright/test'
 import { getDefaultSchedulableMonth } from '../../src/utils/date'
 import {
   APP_HOME_ROUTE_PATH,
   getApprovalQueueRoutePath,
+  getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
   getStep5ScheduleKeyFromPath,
   getUserHomeRoutePath,
@@ -139,13 +140,50 @@ const LOCAL_APP_ORIGIN = 'http://127.0.0.1:5173'
 const STEP4_REQUEST_DRAWER_TOGGLE_SELECTOR = '[data-test="request-drawer-toggle"]'
 const STEP4_REQUEST_SEARCH_INPUT_SELECTOR =
   '[data-test="step4-employee-search"] input, input[placeholder="이름 또는 사번으로 검색"]'
+const FALLBACK_MOCK_SUPABASE_PROJECT_REF = PUBLIC_LAUNCH_SUPABASE_PROJECT_REF
 
 function buildOrgId(index: number) {
   return `org-${index}`
 }
 
+function buildMockShiftRows(organizationId: string, colorSeed: 'blue' | 'green' = 'blue'): MockShiftRow[] {
+  const colors = colorSeed === 'blue'
+    ? ['#2563eb', '#7c3aed', '#dc2626']
+    : ['#059669', '#0891b2', '#ea580c']
+
+  return [
+    {
+      id: `${organizationId}-shift-d`,
+      organization_id: organizationId,
+      code: 'D',
+      name: 'Day',
+      color_code: colors[0],
+      start_time: '09:00:00',
+      end_time: '18:00:00',
+    },
+    {
+      id: `${organizationId}-shift-e`,
+      organization_id: organizationId,
+      code: 'E',
+      name: 'Evening',
+      color_code: colors[1],
+      start_time: '14:00:00',
+      end_time: '22:00:00',
+    },
+    {
+      id: `${organizationId}-shift-n`,
+      organization_id: organizationId,
+      code: 'N',
+      name: 'Night',
+      color_code: colors[2],
+      start_time: '22:00:00',
+      end_time: '07:00:00',
+    },
+  ]
+}
+
 function getSupabaseProjectRef() {
-  const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim()
+  const supabaseUrl = process.env.VITE_SUPABASE_URL?.trim() ?? readEnvFileValue('VITE_SUPABASE_URL')
   if (supabaseUrl) {
     const match = supabaseUrl.match(/^https?:\/\/([^.]+)\.supabase\.co\/?$/)
     if (match?.[1]) {
@@ -154,17 +192,55 @@ function getSupabaseProjectRef() {
   }
 
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  if (!existsSync(authStatePath)) {
+    return FALLBACK_MOCK_SUPABASE_PROJECT_REF
+  }
+
   const fallbackAuthState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
   const originState = fallbackAuthState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   const authEntry = originState?.localStorage?.find((entry) => entry.name.endsWith('-auth-token'))
   const storageKey = authEntry?.name
   if (!storageKey) {
-    throw new Error('Playwright auth storage state is missing the Supabase auth token.')
+    return FALLBACK_MOCK_SUPABASE_PROJECT_REF
   }
 
   const prefix = storageKey.startsWith('sb-') ? storageKey.slice(3) : storageKey
   const projectRef = prefix.endsWith('-auth-token') ? prefix.slice(0, -12) : prefix
   return projectRef
+}
+
+function readEnvFileValue(key: string): string | null {
+  for (const relativePath of ['.env.test', '.env.local', '.env']) {
+    const filePath = resolve(process.cwd(), relativePath)
+    if (!existsSync(filePath)) {
+      continue
+    }
+
+    const fileContents = readFileSync(filePath, 'utf8')
+    for (const rawLine of fileContents.split(/\r?\n/)) {
+      const line = rawLine.trim()
+      if (!line || line.startsWith('#')) {
+        continue
+      }
+
+      const separatorIndex = line.indexOf('=')
+      if (separatorIndex === -1) {
+        continue
+      }
+
+      const candidateKey = line.slice(0, separatorIndex).trim()
+      if (candidateKey !== key) {
+        continue
+      }
+
+      return line
+        .slice(separatorIndex + 1)
+        .trim()
+        .replace(/^['"]|['"]$/g, '') || null
+    }
+  }
+
+  return null
 }
 
 function getSupabaseAuthStorageKey() {
@@ -249,13 +325,13 @@ function buildSupabaseAuthState(
 
 function buildFreshSupabaseAuthState() {
   const storageEntries = loadPlaywrightAuthStorageEntries()
-  if (storageEntries.length === 0) {
-    throw new Error('Playwright auth storage state is missing.')
-  }
-
   const authEntry = storageEntries.find((entry) => entry.name.endsWith('-auth-token'))
   if (!authEntry) {
-    throw new Error('Playwright auth storage state is missing the Supabase auth token.')
+    const projectRef = getSupabaseProjectRef()
+    return buildSupabaseAuthState(
+      `sb-${projectRef}-auth-token`,
+      projectRef,
+    )
   }
 
   const parsedSession = JSON.parse(authEntry.value) as {
@@ -335,28 +411,8 @@ function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
         ],
       },
       shiftsByOrganizationId: {
-        [buildOrgId(1)]: [
-          {
-            id: 'shift-1',
-            organization_id: buildOrgId(1),
-            code: 'D',
-            name: 'Day',
-            color_code: '#2563eb',
-            start_time: '09:00:00',
-            end_time: '18:00:00',
-          },
-        ],
-        [buildOrgId(2)]: [
-          {
-            id: 'shift-2',
-            organization_id: buildOrgId(2),
-            code: 'D',
-            name: 'Day',
-            color_code: '#059669',
-            start_time: '08:00:00',
-            end_time: '17:00:00',
-          },
-        ],
+        [buildOrgId(1)]: buildMockShiftRows(buildOrgId(1), 'blue'),
+        [buildOrgId(2)]: buildMockShiftRows(buildOrgId(2), 'green'),
       },
     }
   }
@@ -402,17 +458,7 @@ function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
         ],
       },
       shiftsByOrganizationId: {
-        [buildOrgId(1)]: [
-          {
-            id: 'shift-1',
-            organization_id: buildOrgId(1),
-            code: 'D',
-            name: 'Day',
-            color_code: '#2563eb',
-            start_time: '09:00:00',
-            end_time: '18:00:00',
-          },
-        ],
+        [buildOrgId(1)]: buildMockShiftRows(buildOrgId(1), 'blue'),
       },
     }
   }
@@ -457,17 +503,7 @@ function buildRbacFixture(accessState: MockRbacAccessState): MockRbacFixture {
       ],
     },
     shiftsByOrganizationId: {
-      [buildOrgId(1)]: [
-        {
-          id: 'shift-1',
-          organization_id: buildOrgId(1),
-          code: 'D',
-          name: 'Day',
-          color_code: '#2563eb',
-          start_time: '09:00:00',
-          end_time: '18:00:00',
-        },
-      ],
+      [buildOrgId(1)]: buildMockShiftRows(buildOrgId(1), 'blue'),
     },
   }
 }
@@ -505,6 +541,10 @@ function buildCorsHeaders() {
 
 function loadPlaywrightAuthStorageEntries() {
   const authStatePath = resolve(process.cwd(), 'playwright/.auth/user.json')
+  if (!existsSync(authStatePath)) {
+    return []
+  }
+
   const authState = JSON.parse(readFileSync(authStatePath, 'utf8')) as PlaywrightStorageState
   const originState = authState.origins?.find((origin) => origin.origin === LOCAL_APP_ORIGIN)
   return originState?.localStorage ?? []
@@ -677,6 +717,7 @@ export async function seedScheduleWizardContext(
     employeeCount?: number
     scheduleId?: string | null
     schedulePublicId?: string | null
+    currentStep?: number
   }
 ) {
   await seedScheduleWizardContextForAuthState(page, params, buildFreshSupabaseAuthState())
@@ -692,6 +733,7 @@ export async function seedPublicLaunchScheduleWizardContext(
     employeeCount?: number
     scheduleId?: string | null
     schedulePublicId?: string | null
+    currentStep?: number
   }
 ) {
   await seedScheduleWizardContextForAuthState(page, params, buildPublicLaunchSupabaseAuthState())
@@ -707,12 +749,14 @@ async function seedScheduleWizardContextForAuthState(
     employeeCount?: number
     scheduleId?: string | null
     schedulePublicId?: string | null
+    currentStep?: number
   },
   authState: ReturnType<typeof buildSupabaseAuthState>,
 ) {
   const { session } = authState
+  const payload = { ...params, userId: session.user.id }
 
-  await page.evaluate((payload) => {
+  const seedWizardContext = (payload: typeof params & { userId: string }) => {
     const userId = payload.userId
     const wizardContextKey = `everyshift_wizard_context_v2:${userId}`
     const nextContext = {
@@ -732,12 +776,18 @@ async function seedScheduleWizardContextForAuthState(
         },
         selectedVersionId: null,
         previewVersionId: null,
-        currentStep: 1,
+        currentStep: payload.currentStep ?? 1,
       },
     }
 
     window.localStorage.setItem(wizardContextKey, JSON.stringify(nextContext))
-  }, { ...params, userId: session.user.id })
+  }
+
+  await page.addInitScript(seedWizardContext, payload)
+
+  if (page.url().startsWith('http')) {
+    await page.evaluate(seedWizardContext, payload)
+  }
 }
 
 export async function seedSelectedOrganization(page: Page, organizationId: string) {
@@ -964,64 +1014,28 @@ export async function startNewScheduleFromDashboard(page: Page) {
   await waitForDashboard(page)
   await waitForDashboardScheduleState(page)
 
-  const existingMonths = (await getDashboardScheduleMonthLabels(page).allTextContents())
-    .map(normalizeScheduleMonth)
-    .filter(Boolean)
-  const existingMonthSet = new Set(existingMonths)
-  const targetMonth = getDefaultSchedulableMonth(existingMonthSet)
-
-  await page
-    .locator(
-      '[data-test="dashboard-create-schedule"], button:has-text("새 근무표 생성"), button:has-text("첫 근무표 생성하기")'
-    )
+  const primaryAction = page
+    .getByTestId('dashboard-primary-action')
+    .filter({ hasText: '새 근무표 생성하기' })
     .first()
-    .click()
+  await expect(primaryAction).toBeVisible()
+  await primaryAction.click()
 
-  if (targetMonth) {
-    const monthPicker = page.locator('[data-test="dashboard-month-picker"]').last()
-    await expect(monthPicker).toBeVisible()
+  const monthPicker = page.getByTestId('dashboard-month-picker').last()
+  await expect(monthPicker).toBeVisible()
 
-    const monthInput = monthPicker.locator('input').first()
-    const currentValue = await monthInput.inputValue()
+  const monthInput = monthPicker.locator('input').first()
+  const selectedMonth = normalizeScheduleMonth(await monthInput.inputValue())
+    || getDefaultSchedulableMonth(new Set())
 
-    if (currentValue !== targetMonth) {
-      await monthPicker.click()
-
-      const [targetYear, targetMonthNumber] = targetMonth.split('-').map(Number)
-      const yearColumn = page.locator('.n-date-panel-month-calendar__picker-col').first()
-      const monthColumn = page.locator('.n-date-panel-month-calendar__picker-col').nth(1)
-
-      await expect(yearColumn).toBeVisible()
-      await yearColumn
-        .locator('.n-date-panel-month-calendar__picker-col-item')
-        .filter({ hasText: new RegExp(`^${targetYear}$`) })
-        .first()
-        .click()
-      await monthColumn
-        .locator('.n-date-panel-month-calendar__picker-col-item')
-        .nth(targetMonthNumber - 1)
-        .click()
-    }
-
-    await page.getByRole('button', { name: '확인' }).click()
-
-    await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
-    await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
-    return targetMonth
+  if (!selectedMonth) {
+    throw new Error('Dashboard month picker did not expose a selected month.')
   }
 
-  const reusableMonth = existingMonths.find((month) => month !== (process.env.TEST_REVIEW_HUB_MONTH?.trim() || '2026-03'))
-  if (!reusableMonth) {
-    throw new Error(
-      `No unused schedule month is available and no reusable editable month was found. Existing months: ${existingMonths.join(', ')}`
-    )
-  }
-
-  const reusableIndex = existingMonths.indexOf(reusableMonth)
-  await page.getByRole('button', { name: '수정' }).nth(reusableIndex).click()
+  await page.getByTestId('dashboard-month-modal').getByRole('button', { name: '확인' }).click()
   await page.waitForURL((url) => url.pathname === getScheduleStepRoutePath(1))
   await expect(page.getByText('근무표 생성 - 기본 정보 설정')).toBeVisible()
-  return reusableMonth
+  return selectedMonth
 }
 
 export async function openExistingScheduleFromDashboard(
@@ -1030,69 +1044,82 @@ export async function openExistingScheduleFromDashboard(
 ) {
   await page.goto(APP_HOME_ROUTE_PATH)
   await waitForDashboard(page)
-  await waitForDashboardScheduleState(page)
 
   const { month = null, preferCompleted = true } = options
-  const targetCard = await resolveExistingScheduleCard(page, month, preferCompleted)
+  void preferCompleted
 
-  await targetCard.click()
+  await waitForDashboardRecentScheduleSettled(page)
+  const recentSchedule = page.getByTestId('dashboard-recent-schedule').first()
+  const recentScheduleVisible = await recentSchedule.isVisible()
+  const recentScheduleAction = recentSchedule.getByRole('button', { name: '보기' }).first()
+
+  if (!month) {
+    await expect(recentScheduleAction).toBeVisible()
+    await recentScheduleAction.click()
+  } else if (recentScheduleVisible && (await recentSchedule.textContent())?.includes(month)) {
+    await expect(recentScheduleAction).toBeVisible()
+    await recentScheduleAction.click()
+  } else {
+    await openScheduleFromResults(page, month)
+  }
+
   await page.waitForURL((url) => getStep5ScheduleKeyFromPath(url.pathname) !== null)
 
   return page.url()
 }
 
-async function resolveExistingScheduleCard(
-  page: Page,
-  month: string | null,
-  preferCompleted: boolean
-) {
-  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
-  const availableTitles = (await scheduleMonthLabels.allTextContents()).map(normalizeScheduleMonth)
+async function openScheduleFromResults(page: Page, month: string) {
+  await page.goto(getScheduleResultsRoutePath())
+  await expect(page.getByRole('heading', { name: '생성된 근무표', exact: true })).toBeVisible()
 
-  if (month) {
-    const matched = scheduleMonthLabels.filter({ hasText: `${month} 근무표` }).first()
-    if ((await matched.count()) === 0) {
-      throw new Error(
-        `Could not find schedule month ${month}. Available months: ${availableTitles.join(', ')}`
-      )
-    }
-    return matched
+  const [targetYear] = month.split('-')
+  const yearSelect = page.getByTestId('schedule-results-year-select')
+  if ((await yearSelect.count()) > 0) {
+    await yearSelect.selectOption(targetYear)
   }
 
-  if (preferCompleted) {
-    const completed = page
-      .locator('[data-test="schedule-card"], .n-card')
-      .filter({ hasText: '완료' })
-      .locator('[data-test="schedule-card-month"], h3')
-      .first()
-    if ((await completed.count()) > 0) {
-      return completed
-    }
+  const targetTile = page
+    .locator('[data-test="schedule-results-month-tile"]')
+    .filter({ has: page.locator(`[data-month="${month}"]`) })
+    .first()
+  await expect(targetTile).toBeVisible()
+
+  const targetButton = targetTile.locator(`[data-month="${month}"]`).first()
+  if (await targetButton.isDisabled()) {
+    throw new Error(`Schedule month ${month} is not available in schedule results.`)
   }
 
-  const firstCard = scheduleMonthLabels.first()
-  if ((await firstCard.count()) === 0) {
-    throw new Error('No schedule card is available on the dashboard.')
-  }
-  return firstCard
-}
-
-function getDashboardScheduleMonthLabels(page: Page): Locator {
-  return page.locator('[data-test="schedule-card-month"], h3').filter({ hasText: '근무표' })
+  await targetButton.click()
 }
 
 async function waitForDashboardScheduleState(page: Page) {
-  const scheduleMonthLabels = getDashboardScheduleMonthLabels(page)
-  const emptyState = page.getByText('생성된 근무표가 없습니다')
+  await Promise.any([
+    page.getByTestId('dashboard-next-action').waitFor({ state: 'visible', timeout: 10_000 }),
+    page.getByTestId('dashboard-onboarding-only').waitFor({ state: 'visible', timeout: 10_000 }),
+    page.getByTestId('dashboard-readiness-unavailable').waitFor({ state: 'visible', timeout: 10_000 }),
+  ])
+}
+
+async function waitForDashboardRecentScheduleSettled(page: Page) {
+  const recentSchedule = page.getByTestId('dashboard-recent-schedule').first()
+  await expect(recentSchedule).toBeVisible()
 
   await Promise.any([
-    scheduleMonthLabels.first().waitFor({ state: 'visible', timeout: 10_000 }),
-    emptyState.waitFor({ state: 'visible', timeout: 10_000 }),
-  ]).catch(() => undefined)
+    recentSchedule
+      .locator('[data-test="dashboard-view-recent-schedule"]')
+      .waitFor({ state: 'visible', timeout: 10_000 }),
+    recentSchedule
+      .locator('[data-test="dashboard-schedule-list-retry"]')
+      .waitFor({ state: 'visible', timeout: 10_000 }),
+    recentSchedule
+      .getByText('아직 생성된 근무표가 없습니다')
+      .waitFor({ state: 'visible', timeout: 10_000 }),
+  ])
 }
 
 function normalizeScheduleMonth(text: string) {
-  return text.replace(' 근무표', '').trim()
+  const match = text.match(/\d{4}-\d{2}/)
+  return match?.[0] ?? ''
 }
 
 export async function completeStep1(page: Page) {
