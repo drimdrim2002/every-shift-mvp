@@ -135,6 +135,28 @@ const baseRoutes: RouteRecordRaw[] = [
         },
       },
       {
+        path: 'schedule-results',
+        name: 'ScheduleResults',
+        component: () => import('@/views/schedule/ScheduleResults.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '생성된 근무표',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
+      },
+      {
+        path: 'work-performance',
+        name: 'WorkPerformance',
+        component: () => import('@/views/schedule/WorkPerformance.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '근무 실적',
+          requiresOrgContext: true,
+          requiredOrgRole: 'admin',
+        },
+      },
+      {
         path: 'schedule/step1',
         name: 'Step1',
         component: () => import('@/views/schedule/Step1BasicInfo.vue'),

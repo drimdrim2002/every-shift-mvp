@@ -9,6 +9,8 @@ export const APP_OPS_ROUTE_PREFIX = `${APP_HOME_ROUTE_PATH}/ops/`
 export const APP_OPS_ORGANIZATION_SETUP_ROUTE_PATH = `${APP_OPS_ROUTE_PREFIX}organization-setup`
 export const APP_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH = `${APP_OPS_ROUTE_PREFIX}off-request-policy-setup`
 export const APP_SCHEDULE_ROUTE_PREFIX = `${APP_HOME_ROUTE_PATH}/schedule/`
+export const APP_SCHEDULE_RESULTS_ROUTE_PATH = `${APP_HOME_ROUTE_PATH}/schedule-results`
+export const APP_WORK_PERFORMANCE_ROUTE_PATH = `${APP_HOME_ROUTE_PATH}/work-performance`
 
 export const LOGIN_ROUTE_PATH = '/login'
 export const SIGNUP_ROUTE_PATH = '/signup'
@@ -97,6 +99,14 @@ export function getOpsOffRequestPolicySetupRoutePath(): string {
 
 export function getScheduleStepRoutePath(step: 1 | 2 | 3 | 4): string {
   return `${APP_SCHEDULE_ROUTE_PREFIX}step${step}`
+}
+
+export function getScheduleResultsRoutePath(): string {
+  return APP_SCHEDULE_RESULTS_ROUTE_PATH
+}
+
+export function getWorkPerformanceRoutePath(): string {
+  return APP_WORK_PERFORMANCE_ROUTE_PATH
 }
 
 export function buildStep4RouteLocation(options?: {
@@ -218,6 +228,10 @@ export function isAppRoutePath(path: string): boolean {
 
 export function isScheduleRoutePath(path: string): boolean {
   return path.startsWith(APP_SCHEDULE_ROUTE_PREFIX) || path.startsWith(LEGACY_SCHEDULE_ROUTE_PREFIX)
+}
+
+export function isScheduleLookupRoutePath(path: string): boolean {
+  return path === APP_SCHEDULE_RESULTS_ROUTE_PATH || path === APP_WORK_PERFORMANCE_ROUTE_PATH
 }
 
 export function isOpsRoutePath(path: string): boolean {
