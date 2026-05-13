@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test'
-import { openExistingScheduleFromDashboard, verifyStep5ReviewHub } from './helpers'
+import { mockDashboardReadiness, openExistingScheduleFromDashboard, verifyStep5ReviewHub } from './helpers'
 
 test.describe('Step5 review hub', () => {
   test.beforeEach(async ({ page }) => {
+    await mockDashboardReadiness(page, 'complete')
     await openExistingScheduleFromDashboard(page, {
       month: process.env.TEST_REVIEW_HUB_MONTH?.trim() || '2026-03',
       preferCompleted: true,

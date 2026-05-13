@@ -6,6 +6,7 @@ import {
   completeStep4InitialData,
   getCellShift,
   getTempScheduleFromStorage,
+  mockDashboardReadiness,
   startNewScheduleFromDashboard,
 } from './helpers'
 
@@ -169,6 +170,7 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
     test.setTimeout(120_000)
 
     await mockStep3Network(page)
+    await mockDashboardReadiness(page, 'complete')
 
     await test.step('Dashboard에서 새 스케줄 생성 플로우를 시작한다', async () => {
       const selectedMonth = await startNewScheduleFromDashboard(page)
@@ -229,6 +231,7 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
     test.setTimeout(120_000)
 
     const step3Network = await mockStep3Network(page, { finalized: true })
+    await mockDashboardReadiness(page, 'complete')
 
     await test.step('Dashboard에서 새 스케줄 생성 플로우를 시작한다', async () => {
       const selectedMonth = await startNewScheduleFromDashboard(page)

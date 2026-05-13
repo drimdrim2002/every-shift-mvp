@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { openExistingScheduleFromDashboard, verifyStep5ReviewHub } from './helpers'
+import { mockDashboardReadiness, openExistingScheduleFromDashboard, verifyStep5ReviewHub } from './helpers'
 
 const finalizedMonth = process.env.TEST_FINALIZED_MONTH?.trim()
 
@@ -7,6 +7,7 @@ test.describe('Step5 finalized read-only', () => {
   test.skip(!finalizedMonth, 'Set TEST_FINALIZED_MONTH to run finalized read-only E2E.')
 
   test('renders a finalized schedule in read-only mode', async ({ page }) => {
+    await mockDashboardReadiness(page, 'complete')
     await openExistingScheduleFromDashboard(page, {
       month: finalizedMonth,
       preferCompleted: false,

@@ -27,6 +27,15 @@ type ExistingScheduleOptions = {
   preferCompleted?: boolean
 }
 
+type DashboardReadinessState = 'complete' | 'incomplete' | 'failure'
+type DashboardReadinessItemKey =
+  | 'organization_profile'
+  | 'schedule_foundation'
+  | 'employee_roster'
+  | 'off_request_policy'
+  | 'schedule_review'
+type DashboardReadinessItemStatus = 'ready' | 'blocked'
+
 const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일']
 const supabaseCorsHeaders = {
   'access-control-allow-origin': 'http://127.0.0.1:5173',
@@ -556,6 +565,105 @@ async function fulfillJson(
       'content-type': 'application/json',
     },
     body: JSON.stringify(body),
+  })
+}
+
+function buildDashboardReadinessItem(
+  key: DashboardReadinessItemKey,
+  status: DashboardReadinessItemStatus,
+) {
+  const itemCopy: Record<DashboardReadinessItemKey, {
+    title: string
+    route: string
+    isOptional: boolean
+    blockedReason: string | null
+  }> = {
+    organization_profile: {
+      title: '병원 정보 확인',
+      route: '/ops/organization-setup',
+      isOptional: false,
+      blockedReason: null,
+    },
+    schedule_foundation: {
+      title: '기준 장소와 근무 기준 설정',
+      route: '/schedule/step2',
+      isOptional: false,
+      blockedReason: '병원 정보를 먼저 완료해야 설정할 수 있습니다.',
+    },
+    employee_roster: {
+      title: '직원 로스터 준비',
+      route: '/schedule/step3',
+      isOptional: false,
+      blockedReason: '병동/근무 기준을 먼저 완료해야 설정할 수 있습니다.',
+    },
+    off_request_policy: {
+      title: 'Off 사용 기준 설정',
+      route: '/ops/off-request-policy-setup',
+      isOptional: true,
+      blockedReason: '직원 정보를 먼저 완료해야 설정할 수 있습니다.',
+    },
+    schedule_review: {
+      title: '최종 검토 진입',
+      route: '/schedule/step5/schedule-123',
+      isOptional: true,
+      blockedReason: '근무표 생성 후 검토할 수 있습니다.',
+    },
+  }
+  const copy = itemCopy[key]
+
+  return {
+    key,
+    title: copy.title,
+    status,
+    route: copy.route,
+    blockedReason: status === 'ready' ? null : copy.blockedReason,
+    isOptional: copy.isOptional,
+  }
+}
+
+function buildDashboardReadinessFixture(state: Exclude<DashboardReadinessState, 'failure'>) {
+  const statuses: Record<DashboardReadinessItemKey, DashboardReadinessItemStatus> = state === 'complete'
+    ? {
+        organization_profile: 'ready',
+        schedule_foundation: 'ready',
+        employee_roster: 'ready',
+        off_request_policy: 'blocked',
+        schedule_review: 'blocked',
+      }
+    : {
+        organization_profile: 'ready',
+        schedule_foundation: 'blocked',
+        employee_roster: 'blocked',
+        off_request_policy: 'blocked',
+        schedule_review: 'blocked',
+      }
+
+  const items = Object.entries(statuses).map(([key, status]) =>
+    buildDashboardReadinessItem(key as DashboardReadinessItemKey, status)
+  )
+
+  return {
+    organizationId: 'org-1',
+    checklistCursor: state === 'complete' ? 'off_request_policy' : 'schedule_foundation',
+    ready: items.every((item) => item.isOptional || item.status === 'ready'),
+    items,
+    fairnessSummary: [],
+  }
+}
+
+export async function mockDashboardReadiness(page: Page, state: DashboardReadinessState) {
+  await page.route('**/functions/v1/phase2-ops/checklist*', async (route) => {
+    if (route.request().method() === 'OPTIONS') {
+      await route.fulfill({ status: 204, headers: buildCorsHeaders() })
+      return
+    }
+
+    if (state === 'failure') {
+      await fulfillJson(route, { error: 'checklist unavailable' }, 500)
+      return
+    }
+
+    await fulfillJson(route, buildDashboardReadinessFixture(state))
   })
 }
 
