@@ -299,6 +299,7 @@ async function selectJanuary2026(page: Page, endMonth = '1') {
 test.describe('work performance', () => {
   test('opens from top navigation without showing the old placeholder state', async ({ page }) => {
     await openAppShell(page)
+    await mockWorkPerformanceRest(page, createSuccessfulFixture())
 
     const topNav = page.getByRole('navigation', { name: '주요 메뉴' })
     await topNav.getByRole('button', { name: '근무표 분석', exact: true }).hover()

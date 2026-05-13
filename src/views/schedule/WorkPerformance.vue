@@ -23,7 +23,7 @@
               type="number"
               min="2000"
               max="2100"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="조회 연도"
               @input="markDraftPeriodTouched"
               @change="markDraftPeriodTouched"
@@ -34,7 +34,7 @@
             <select
               v-model.number="draftStartMonth"
               data-test="work-performance-start-month"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="시작 월"
               @change="markDraftPeriodTouched"
             >
@@ -52,7 +52,7 @@
             <select
               v-model.number="draftEndMonth"
               data-test="work-performance-end-month"
-              class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
               aria-label="종료 월"
               @change="markDraftPeriodTouched"
             >
@@ -258,7 +258,7 @@
               <button
                 type="button"
                 data-test="work-performance-sort-priority"
-                class="rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="min-h-11 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 :aria-pressed="sortKey === 'priority'"
                 @click="changeSort('priority')"
               >
@@ -272,7 +272,7 @@
                   type="number"
                   min="1"
                   max="10"
-                  class="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  class="min-h-11 w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                   aria-label="강조 기준 일수"
                   @input="updateThreshold"
                 >
@@ -648,7 +648,15 @@ async function initializeDefaultPeriod() {
     const organizationId = await getOrganizationIdForWorkPerformance()
     const latestFinalizedMonth = await loadLatestFinalizedWorkPerformanceMonth(organizationId)
 
-    if (!latestFinalizedMonth || draftPeriodTouched.value || hasQueried.value) {
+    if (!latestFinalizedMonth) {
+      if (!draftPeriodTouched.value && !hasQueried.value) {
+        loadResult.value = { status: 'noFinalizedSchedule' }
+        hasQueried.value = true
+      }
+      return
+    }
+
+    if (draftPeriodTouched.value || hasQueried.value) {
       return
     }
 

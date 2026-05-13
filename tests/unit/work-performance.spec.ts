@@ -191,11 +191,22 @@ describe('WorkPerformance', () => {
   })
 
   it('renders the initial guidance without loading performance data', () => {
+    loadLatestFinalizedWorkPerformanceMonthMock.mockReturnValueOnce(new Promise(() => undefined))
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('근무 실적')
     expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 편차를 확인합니다.')
     expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
+    expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
+  })
+
+  it('shows the no finalized schedule state on entry when there is no latest finalized month', async () => {
+    const wrapper = createWrapper()
+
+    await flush()
+
+    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('아직 확정된 근무표가 없습니다')
+    expect(loadLatestFinalizedWorkPerformanceMonthMock).toHaveBeenCalledWith('org-1')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
 
