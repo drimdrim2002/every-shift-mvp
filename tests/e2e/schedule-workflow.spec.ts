@@ -1,12 +1,22 @@
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import {
+  getScheduleResultsRoutePath,
+  getScheduleStep5RoutePath,
+  getScheduleStepRoutePath,
+  getWorkPerformanceRoutePath,
+} from '../../src/constants/routes'
+import {
   completeStep1,
   completeStep2,
   completeStep4InitialData,
   getCellShift,
   getTempScheduleFromStorage,
   mockDashboardReadiness,
+  mockRbacContext,
+  seedPlaywrightAuthState,
+  seedScheduleWizardContext,
+  seedSelectedOrganization,
   startNewScheduleFromDashboard,
 } from './helpers'
 
@@ -165,6 +175,18 @@ async function completeStep3WithEmployeeImport(page: Page) {
   await expect(page).toHaveURL(/\/schedule\/step4$/)
 }
 
+async function seedAuthenticatedApp(page: Page) {
+  await seedPlaywrightAuthState(page)
+  await mockRbacContext(page, 'admin_active')
+  await seedSelectedOrganization(page, 'org-1')
+}
+
+function getTopNavigationItem(page: Page, name: string) {
+  return page
+    .getByRole('navigation', { name: '주요 메뉴' })
+    .getByRole('button', { name })
+}
+
 test.describe('스케줄 생성 전체 워크플로우', () => {
   test('Dashboard에서 시작해 Step4까지 이동한다', async ({ page }) => {
     test.setTimeout(120_000)
@@ -253,6 +275,55 @@ test.describe('스케줄 생성 전체 워크플로우', () => {
       await expect(page.getByText('현재 월에 확정된 근무표가 있어 직원 정보를 저장할 수 없습니다.')).toBeVisible()
       await expect(page).toHaveURL(/\/schedule\/step3$/)
       expect(step3Network.getApplyCallCount()).toBe(0)
+    })
+  })
+
+  test.describe('상단 메뉴 라우트 스모크', () => {
+    test.use({ storageState: { cookies: [], origins: [] } })
+
+    test('Step3 직원 정보 그리드가 새 앱 레이아웃 안에서 렌더링된다', async ({ page }) => {
+      await seedAuthenticatedApp(page)
+      await seedScheduleWizardContext(page, {
+        organizationId: 'org-1',
+        organizationName: '서버 병원',
+        organizationType: 'hospital',
+        month: '2026-06',
+        employeeCount: 1,
+        currentStep: 3,
+      })
+
+      await page.goto(`${getScheduleStepRoutePath(3)}?context=setup`)
+
+      await expect(getTopNavigationItem(page, '근무표 생성')).toHaveAttribute('aria-current', 'page')
+      await expect(page.getByText('운영 준비 - 직원 기준 설정')).toBeVisible()
+      await expect(page.getByText('직접 입력')).toBeVisible()
+      await expect(page.locator('table').first()).toBeVisible()
+      await expect(page.getByRole('cell', { name: '직원 ID' })).toBeVisible()
+      await expect(page.getByRole('cell', { name: '가능 시프트' })).toBeVisible()
+    })
+
+    test('근무표 생성 Step5 동적 경로는 근무표 생성 상단 메뉴를 활성화한다', async ({ page }) => {
+      await seedAuthenticatedApp(page)
+
+      await page.goto(getScheduleStep5RoutePath('mock-schedule-public-id'))
+
+      await expect(page).toHaveURL((url) => url.pathname === getScheduleStep5RoutePath('mock-schedule-public-id'))
+      await expect(getTopNavigationItem(page, '근무표 생성')).toHaveAttribute('aria-current', 'page')
+      await expect(getTopNavigationItem(page, '근무표 분석')).not.toHaveAttribute('aria-current', 'page')
+    })
+
+    test('근무표 분석 라우트는 근무표 분석 상단 메뉴를 활성화한다', async ({ page }) => {
+      await seedAuthenticatedApp(page)
+
+      await page.goto(getScheduleResultsRoutePath())
+      await expect(page.getByRole('heading', { name: '생성된 근무표', exact: true })).toBeVisible()
+      await expect(getTopNavigationItem(page, '근무표 분석')).toHaveAttribute('aria-current', 'page')
+      await expect(getTopNavigationItem(page, '근무표 생성')).not.toHaveAttribute('aria-current', 'page')
+
+      await page.goto(getWorkPerformanceRoutePath())
+      await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
+      await expect(getTopNavigationItem(page, '근무표 분석')).toHaveAttribute('aria-current', 'page')
+      await expect(getTopNavigationItem(page, '근무표 생성')).not.toHaveAttribute('aria-current', 'page')
     })
   })
 })
