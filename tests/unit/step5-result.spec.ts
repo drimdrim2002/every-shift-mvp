@@ -470,16 +470,25 @@ function expectGuidelineSummary(wrapper: ReturnType<typeof createWrapper>, text:
   expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain(text)
 }
 
+function stubWindowHostname(hostname: string) {
+  vi.stubGlobal('location', {
+    ...window.location,
+    hostname,
+  })
+}
+
 describe('Step5Result', () => {
   afterEach(() => {
     while (mountedWrappers.length > 0) {
       mountedWrappers.pop()?.unmount()
     }
     document.body.innerHTML = ''
+    vi.unstubAllGlobals()
   })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    stubWindowHostname('app.everyshift.test')
     routeMock.params.scheduleKey = 'schedule-1'
     routeMock.query = {}
     replaceMock.mockImplementation(async (location: { path?: string; query?: Record<string, string> }) => {
@@ -1171,14 +1180,23 @@ describe('Step5Result', () => {
       expect(document.body.textContent).toContain('실제 배정 미배정')
     })
 
-    it('does not render summary value actions for satisfied guidelines or missing Off requests', async () => {
+    it('opens guideline details from the guideline summary value when guidelines are satisfied', async () => {
       const wrapper = createWrapper()
       await flushPromises()
 
       expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain('충족')
       expect(wrapper.get('[data-test="step5-summary-card-off-requests"]').text()).toContain('요청 없음')
-      expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(true)
       expect(wrapper.find('[data-test="step5-summary-card-off-requests-action"]').exists()).toBe(false)
+
+      await wrapper.get('[data-test="step5-summary-card-guideline-action"]').trigger('click')
+      await flushPromises()
+
+      expect(document.querySelector('[data-test="step5-guideline-modal"]')).toBeTruthy()
+      expect(document.body.textContent).toContain('보건복지부 가이드라인 상세')
+      expect(document.body.textContent).toContain('위반 없음')
+      expect(document.body.textContent).toContain('보건복지부 가이드라인 위반 항목이 없습니다.')
+      expect(document.body.textContent).not.toContain('Off 요청 반영')
     })
 
     it('renders running generation status without Hard Score or Soft Score', async () => {
@@ -2960,7 +2978,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expectGuidelineSummary(wrapper, '충족')
-    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(true)
 
     await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
     await flushPromises()
@@ -3052,7 +3070,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expectGuidelineSummary(wrapper, '충족')
-    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
   })
 
@@ -3101,7 +3119,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expectGuidelineSummary(wrapper, '충족')
-    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
   })
 
@@ -3149,7 +3167,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     expectGuidelineSummary(wrapper, '충족')
-    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('2026-03-27')
     expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
   })
@@ -3503,6 +3521,37 @@ describe('Step5Result', () => {
       ],
     )
   })
+
+  it.each(['localhost', '127.0.0.1', '::1'])(
+    'blocks AI start on local hostname %s',
+    async (hostname) => {
+      stubWindowHostname(hostname)
+      routeMock.query = { version: 'version-1' }
+      scheduleStoreMock.siteRequirements = [
+        {
+          dayOfWeek: 1,
+          shiftCode: 'D',
+          requiredCount: 1,
+        },
+      ]
+
+      const wrapper = createWrapper()
+      await flushPromises()
+      await flushPromises()
+      vi.clearAllMocks()
+
+      const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
+      expect(startSolverButton.attributes('disabled')).toBeUndefined()
+
+      await startSolverButton.trigger('click')
+      await flushPromises()
+
+      expect(showErrorMock).toHaveBeenCalledWith('근무표 생성은 Local에서 불가능합니다')
+      expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
+      expect(mapToSolverRequestMock).not.toHaveBeenCalled()
+      expect(solverMock.startSolver).not.toHaveBeenCalled()
+    }
+  )
 
   it('blocks AI start when the previous-month fallback lookup fails', async () => {
     routeMock.query = { version: 'version-1' }

@@ -262,14 +262,12 @@ function toggleViolationReveal() {
       </div>
     </div>
 
-    <div
-      v-if="result.violations.length > 0"
-      class="mt-4 rounded-lg border border-slate-200 bg-white p-3"
-    >
+    <div class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
       <h4 class="text-sm font-semibold text-slate-900">
-        위반 상세
+        {{ result.violations.length > 0 ? '위반 상세' : '위반 없음' }}
       </h4>
       <ul
+        v-if="result.violations.length > 0"
         :id="violationListId"
         data-test="compliance-violation-list"
         class="mt-2 space-y-2"
@@ -290,6 +288,13 @@ function toggleViolationReveal() {
           <span>{{ violation.message }}</span>
         </li>
       </ul>
+      <p
+        v-else
+        data-test="compliance-violation-empty"
+        class="mt-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-800"
+      >
+        보건복지부 가이드라인 위반 항목이 없습니다.
+      </p>
 
       <button
         v-if="hiddenViolationCount > 0 || showAllViolations"

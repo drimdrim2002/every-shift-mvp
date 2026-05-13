@@ -49,6 +49,19 @@ describe('phase2 ops migrations', () => {
     expect(addFinalizedAtColumnIndex).toBeLessThan(finalizedAtIndexIndex);
   });
 
+  it('patches finalize RPC finalized_version_id ambiguity at the ledger conflict boundary', () => {
+    const sql = readMigration(
+      '20260513_120000_finalize_schedule_version_atomic_ambiguity_fix.sql'
+    );
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.finalize_schedule_version_atomic');
+    expect(sql).toContain('ON CONSTRAINT fairness_ledger_monthly_finalized_version_id_key');
+    expect(sql).toContain('v_return_finalized_version_id');
+    expect(sql).toContain('RETURN QUERY SELECT');
+    expect(sql).not.toContain('ON CONFLICT (finalized_version_id)');
+    expect(sql).not.toMatch(/INTO\s+schedule_id,\s+finalized_version_id/i);
+  });
+
   it('backfills memberships and tightens org rls with membership-based access helpers', () => {
     const sql = readMigration(
       '20260418120000_phase2b_epic2_membership_auth_rbac_multi_org.sql'

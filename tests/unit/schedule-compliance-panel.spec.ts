@@ -84,6 +84,11 @@ describe('ScheduleCompliancePanel', () => {
     expect(wrapper.get('[role="list"]').attributes('aria-label')).toBe('보건복지부 가이드라인 확인 결과');
     expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족');
     expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+    expect(wrapper.get('[data-test="compliance-panel"]').text()).toContain('위반 없음');
+    expect(wrapper.get('[data-test="compliance-violation-empty"]').text()).toContain(
+      '보건복지부 가이드라인 위반 항목이 없습니다.',
+    );
+    expect(wrapper.find('[data-test="compliance-violation-list"]').exists()).toBe(false);
 
     for (const [code, label] of Object.entries(ruleLabels)) {
       const row = wrapper.get(`[data-test="compliance-rule-${code}"]`);

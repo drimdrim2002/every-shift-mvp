@@ -735,6 +735,12 @@ const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
 const WAITING_HINT_TICKS = 3;
 const PREVIOUS_MONTH_CONTEXT_CHECK_REQUIRED_MESSAGE = '전월 근무 이력을 불러오지 못해 확인이 필요합니다.';
+const LOCAL_SOLVER_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+
+function isLocalSolverHost() {
+  const hostname = window.location.hostname.toLowerCase();
+  return LOCAL_SOLVER_HOSTNAMES.has(hostname.replace(/^\[(.*)\]$/, '$1'));
+}
 
 const routeScheduleKey = computed(() => {
   const paramId = route.params.scheduleKey;
@@ -1465,10 +1471,6 @@ const resultSummaryCards = computed<Step5SummaryCard[]>(() => [
   offRequestSummaryCard.value,
   finalizationSummaryCard.value,
 ]);
-const canOpenGuidelineDetails = computed(() => {
-  return complianceResult.value.mandatoryViolationCount > 0
-    || complianceResult.value.checkRequiredCount > 0;
-});
 const canOpenOffRequestDetails = computed(() => {
   return complianceResult.value.offRequests.totalRequests > 0;
 });
@@ -1481,7 +1483,7 @@ function summaryCardDataTest(card: Step5SummaryCard): string {
 
 function isSummaryCardActionVisible(card: Step5SummaryCard): boolean {
   if (card.key === 'guideline') {
-    return canOpenGuidelineDetails.value;
+    return true;
   }
 
   if (card.key === 'offRequests') {
@@ -1516,7 +1518,7 @@ function summaryCardActionLabel(card: Step5SummaryCard): string | undefined {
 }
 
 function handleSummaryCardAction(card: Step5SummaryCard) {
-  if (card.key === 'guideline' && canOpenGuidelineDetails.value) {
+  if (card.key === 'guideline') {
     isComplianceModalOpen.value = true;
     return;
   }
@@ -2623,6 +2625,10 @@ async function syncPreviewWorkspace(options: {
 
 async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
+    return;
+  }
+  if (isLocalSolverHost()) {
+    showError('근무표 생성은 Local에서 불가능합니다');
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
