@@ -62,3 +62,29 @@ export async function listPublicHolidayDatesInRange(
     ),
   ).sort();
 }
+
+export async function hasPublicHolidayCoverageForYear(year: number): Promise<boolean> {
+  if (!Number.isInteger(year) || year < 1) {
+    throw createPublicHolidayLoadError();
+  }
+
+  const startDate = `${year}-01-01`;
+  const endDate = `${year}-12-31`;
+
+  const { data, error } = await supabase
+    .from('public_holidays')
+    .select('holiday_date')
+    .eq('country_code', 'KR')
+    .eq('is_holiday', true)
+    .gte('holiday_date', startDate)
+    .lte('holiday_date', endDate)
+    .limit(1);
+
+  if (error) {
+    throw createPublicHolidayLoadError();
+  }
+
+  return ((data ?? []) as PublicHolidayRow[]).some(
+    (row) => typeof row.holiday_date === 'string' && isValidIsoDate(row.holiday_date),
+  );
+}
