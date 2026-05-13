@@ -688,8 +688,10 @@ import {
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
+import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
+import { resolveSolverHolidayRange } from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
@@ -2605,7 +2607,7 @@ async function buildSolverRequest() {
 
   const dateBasedRequirements = buildDateBasedRequirements(siteRequirements);
 
-  return mapToSolverRequest(
+  const solverRequest = mapToSolverRequest(
     basicInfo,
     dateBasedRequirements,
     constraints,
@@ -2615,6 +2617,13 @@ async function buildSolverRequest() {
     lastMonthDays.value,
     previousMonthFallbackPlanningAssignments.value,
   );
+  const holidayRange = resolveSolverHolidayRange(solverRequest);
+  solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
+    holidayRange.startDate,
+    holidayRange.endDate,
+  );
+
+  return solverRequest;
 }
 
 async function syncPreviewWorkspace(options: {

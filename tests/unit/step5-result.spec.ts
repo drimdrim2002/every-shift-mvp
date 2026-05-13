@@ -41,6 +41,7 @@ const {
   deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
+  listPublicHolidayDatesInRangeMock,
   mapToSolverRequestMock,
   showSuccessMock,
   showErrorMock,
@@ -70,6 +71,7 @@ const {
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
+  listPublicHolidayDatesInRangeMock: vi.fn(),
   mapToSolverRequestMock: vi.fn(() => ({})),
   showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -106,6 +108,10 @@ vi.mock('@/api/schedule', () => ({
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
   getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
+}))
+
+vi.mock('@/api/publicHolidays', () => ({
+  listPublicHolidayDatesInRange: listPublicHolidayDatesInRangeMock,
 }))
 
 vi.mock('@/api/ops', () => ({
@@ -232,6 +238,16 @@ const gridMock = {
   offReasons: ref({}),
   loadEmployees: vi.fn().mockResolvedValue(undefined),
   generateDates: vi.fn(),
+}
+
+function createStep5SolverRequest(month = '2025-12') {
+  return {
+    organization: {
+      firstDraftDate: `${month}-01`,
+      draftLength: dayjs(`${month}-01`).daysInMonth(),
+    },
+    publicHolidays: [],
+  }
 }
 
 function setMockGridDates(month: string, lastMonthDays = 0) {
@@ -588,7 +604,10 @@ describe('Step5Result', () => {
         },
       ],
     })
-    mapToSolverRequestMock.mockImplementation(() => ({}))
+    mapToSolverRequestMock.mockImplementation((basicInfo: { month?: string }) => (
+      createStep5SolverRequest(basicInfo.month)
+    ))
+    listPublicHolidayDatesInRangeMock.mockResolvedValue(['2025-12-25'])
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
       warning: vi.fn(),
@@ -3557,6 +3576,13 @@ describe('Step5Result', () => {
         },
       ],
     )
+    expect(listPublicHolidayDatesInRangeMock).toHaveBeenCalledWith('2025-04-01', '2025-04-30')
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it.each(['localhost', '127.0.0.1', '::1'])(
@@ -4065,7 +4091,12 @@ describe('Step5Result', () => {
 
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-2', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-2',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-3')
     expect(replaceMock).not.toHaveBeenCalledWith(
@@ -4126,7 +4157,12 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
     expect(solverMock.startSolver).toHaveBeenCalledTimes(1)
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it('starts the solver for a mutable draft preview even when another version has executed history', async () => {
@@ -4185,7 +4221,12 @@ describe('Step5Result', () => {
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it('strips autoStart without starting the solver when another version is actively solving', async () => {
