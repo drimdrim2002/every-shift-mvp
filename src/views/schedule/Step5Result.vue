@@ -456,8 +456,8 @@
           :right-version="rightComparedVersion"
           :left-review="leftComparedReview"
           :right-review="rightComparedReview"
-          :left-compliance-result="leftComparisonVersionData?.complianceResult ?? null"
-          :right-compliance-result="rightComparisonVersionData?.complianceResult ?? null"
+          :left-compliance-result="getComparisonComplianceResult(leftComparedVersion?.id)"
+          :right-compliance-result="getComparisonComplianceResult(rightComparedVersion?.id)"
           :left-off-input="leftComparisonVersionData?.offInput ?? null"
           :right-off-input="rightComparisonVersionData?.offInput ?? null"
           :employees="grid.employees.value"
@@ -909,6 +909,12 @@ interface Step5SummaryCard {
   tone: 'default' | 'info' | 'success' | 'warning' | 'error';
 }
 
+interface StaffingRequirementForSave {
+  dayOfWeek: number;
+  shiftCode: string;
+  requiredCount: number;
+}
+
 const isRunning = computed(() => solver.status.value === 'running');
 const isFinished = computed(() => solver.status.value === 'complete' || solver.status.value === 'changed');
 const isPreRun = computed(() => solver.status.value === 'created' || solver.status.value === 'error');
@@ -1020,14 +1026,39 @@ const showIntermediateWaitingHint = computed(() => {
     && runningTicksWithoutIntermediate.value >= WAITING_HINT_TICKS
   );
 });
+const visibleCurrentMonthAssignments = computed<AssignmentMap>(() => {
+  return extractCurrentMonthAssignments(
+    grid.assignments.value,
+    scheduleStore.basicInfo?.month,
+  );
+});
+const complianceCurrentMonthAssignments = computed<AssignmentMap>(() => {
+  return buildCurrentMonthComplianceAssignments(
+    grid.assignments.value,
+    grid.dates.value,
+    grid.employees.value,
+    scheduleStore.basicInfo?.month,
+  );
+});
+const complianceVisiblePreviousMonthAssignments = computed<AssignmentMap>(() => {
+  return buildVisiblePreviousMonthComplianceAssignments(
+    grid.assignments.value,
+    grid.dates.value,
+    grid.employees.value,
+  );
+});
+const activeComplianceAssignments = computed<AssignmentMap>(() => {
+  return mergeComplianceAssignments(
+    mergeComplianceAssignments(
+      previousMonthAssignments.value,
+      complianceVisiblePreviousMonthAssignments.value,
+    ),
+    complianceCurrentMonthAssignments.value,
+  );
+});
 const hasCurrentMonthAssignments = computed(() => {
-  const currentMonth = scheduleStore.basicInfo?.month;
-  if (!currentMonth) return false;
-
-  return Object.values(currentScheduleAssignments.value).some((dateMap) => {
-    return Object.entries(dateMap || {}).some(([date, shiftCode]) => {
-      return date.startsWith(currentMonth) && Boolean(shiftCode);
-    });
+  return Object.values(visibleCurrentMonthAssignments.value).some((dateMap) => {
+    return Object.values(dateMap || {}).some((shiftCode) => Boolean(shiftCode));
   });
 });
 const hasSolverExecutionHistory = computed(() => {
@@ -1131,10 +1162,7 @@ const liveComplianceResult = computed(() => {
   return evaluateScheduleCompliance({
     month: scheduleStore.basicInfo?.month ?? '',
     employees: grid.employees.value,
-    assignments: mergeComplianceAssignments(
-      previousMonthAssignments.value,
-      currentScheduleAssignments.value,
-    ),
+    assignments: activeComplianceAssignments.value,
     offRequests: offRequestsCurrentMonth.value,
     shifts: organizationStore.shifts,
   });
@@ -1223,13 +1251,13 @@ const reviewAttentionSummary = computed(() => {
 
   const parts = [
     summary.weeklyHoursViolations > 0 ? `주간 시간 위반 ${summary.weeklyHoursViolations}건` : null,
-    summary.nnnViolations > 0 ? `야간 연속 위반 ${summary.nnnViolations}건` : null,
-    summary.nodViolations > 0 ? `NOD 패턴 ${summary.nodViolations}건` : null,
-    summary.minimumRestViolations > 0 ? `휴식 기준 위반 ${summary.minimumRestViolations}건` : null,
     summary.staffingShortfalls > 0 ? `인력 부족 ${summary.staffingShortfalls}건` : null,
   ].filter((part): part is string => Boolean(part));
 
   return parts.length > 0 ? parts.join(', ') : null;
+});
+const liveGuidelineReviewMessage = computed(() => {
+  return formatLiveGuidelineReviewMessage(complianceResult.value);
 });
 const reviewAttentionMessages = computed(() => {
   const evaluation = latestReviewEvaluation.value;
@@ -1237,10 +1265,36 @@ const reviewAttentionMessages = computed(() => {
     return [];
   }
 
-  const messages = [
-    ...(evaluation.finalizationGate?.blockingReasons ?? []).map(formatReviewBlockingReason),
-    ...(evaluation.violationDetails ?? []).map(formatReviewViolationDetail),
-  ].filter((message) => message.length > 0);
+  const messages: string[] = [];
+  const currentGuidelineMessage = liveGuidelineReviewMessage.value;
+
+  for (const reason of evaluation.finalizationGate?.blockingReasons ?? []) {
+    if (reason.code === 'hard_constraints_violated') {
+      if (currentGuidelineMessage) {
+        messages.push(currentGuidelineMessage);
+      }
+      continue;
+    }
+
+    const message = formatReviewBlockingReason(reason);
+    if (message.length > 0) {
+      messages.push(message);
+    }
+  }
+
+  for (const detail of evaluation.violationDetails ?? []) {
+    if (detail.code === 'hard_constraints_violated') {
+      if (currentGuidelineMessage) {
+        messages.push(currentGuidelineMessage);
+      }
+      continue;
+    }
+
+    const message = formatReviewViolationDetail(detail);
+    if (message.length > 0) {
+      messages.push(message);
+    }
+  }
 
   return Array.from(new Set(messages));
 });
@@ -1508,6 +1562,18 @@ function formatBackendActionMessage(message: string | null): string | null {
   return sanitizeReviewMessage(message) || '현재 상태에서는 이 작업을 진행할 수 없습니다.';
 }
 
+function formatLiveGuidelineReviewMessage(result: ScheduleComplianceResult): string | null {
+  if (result.checkRequiredCount > 0) {
+    return '보건복지부 가이드라인 확인이 필요한 항목이 있습니다. 확인 후 재검토해주세요.';
+  }
+
+  if (result.mandatoryViolationCount > 0) {
+    return `보건복지부 가이드라인 위반 ${result.mandatoryViolationCount}건이 있습니다. 배정을 수정한 뒤 재검토해주세요.`;
+  }
+
+  return null;
+}
+
 function formatReviewBlockingReason(reason: ScheduleBlockingReason): string {
   if (reason.code === 'hard_constraints_violated') {
     return '검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.';
@@ -1555,6 +1621,106 @@ function formatStaffingShortfallDetail(detail: ScheduleViolationDetail): string 
   }
 
   return '인력 부족이 있습니다.';
+}
+
+function normalizeShiftCodeForCount(value: string | null | undefined): string {
+  return value?.trim().toUpperCase() ?? '';
+}
+
+function getCurrentMonthStaffingDates(): string[] {
+  const month = scheduleStore.basicInfo?.month;
+  if (!month) {
+    return [];
+  }
+
+  return grid.dates.value
+    .filter((dateColumn) => !dateColumn.isLastMonth && dateColumn.date.startsWith(month))
+    .map((dateColumn) => dateColumn.date)
+    .sort();
+}
+
+function countCurrentGridStaffingShortfalls(): number {
+  const currentMonthDates = getCurrentMonthStaffingDates();
+  if (currentMonthDates.length === 0) {
+    return 0;
+  }
+
+  const requirements = (scheduleStore.siteRequirements || []) as StaffingRequirementForSave[];
+  if (requirements.length === 0) {
+    return 0;
+  }
+
+  const relevantShiftCodes = new Set(
+    requirements
+      .map((requirement) => normalizeShiftCodeForCount(requirement.shiftCode))
+      .filter(Boolean)
+  );
+
+  const assignedCountByDateShift = new Map<string, number>();
+
+  for (const employee of grid.employees.value) {
+    const dateMap = grid.assignments.value[employee.id] || {};
+
+    for (const date of currentMonthDates) {
+      const shiftCode = normalizeShiftCodeForCount(dateMap[date]);
+      if (!shiftCode || shiftCode === 'O' || shiftCode === 'OFF' || !relevantShiftCodes.has(shiftCode)) {
+        continue;
+      }
+
+      const key = `${date}_${shiftCode}`;
+      assignedCountByDateShift.set(key, (assignedCountByDateShift.get(key) ?? 0) + 1);
+    }
+  }
+
+  let shortfallCount = 0;
+  for (const requirement of requirements) {
+    const requiredCount = Number(requirement.requiredCount);
+    const dayOfWeek = Number(requirement.dayOfWeek);
+    const shiftCode = normalizeShiftCodeForCount(requirement.shiftCode);
+
+    if (
+      !Number.isFinite(requiredCount)
+      || requiredCount <= 0
+      || !Number.isInteger(dayOfWeek)
+      || dayOfWeek < 0
+      || dayOfWeek > 6
+      || !shiftCode
+    ) {
+      continue;
+    }
+
+    for (const date of currentMonthDates) {
+      if (dayjs(date).day() !== dayOfWeek) {
+        continue;
+      }
+
+      const assignedCount = assignedCountByDateShift.get(`${date}_${shiftCode}`) ?? 0;
+      if (assignedCount < requiredCount) {
+        shortfallCount += 1;
+      }
+    }
+  }
+
+  return shortfallCount;
+}
+
+function getPreSaveBlockMessage(): string | null {
+  const { checkRequiredCount, mandatoryViolationCount } = complianceResult.value;
+
+  if (checkRequiredCount > 0) {
+    return '보건복지부 가이드라인을 확인한 뒤 저장할 수 있습니다.';
+  }
+
+  if (mandatoryViolationCount > 0) {
+    return `보건복지부 가이드라인 위반 ${mandatoryViolationCount}건을 해결한 뒤 저장할 수 있습니다.`;
+  }
+
+  const staffingShortfallCount = countCurrentGridStaffingShortfalls();
+  if (staffingShortfallCount > 0) {
+    return `인력 부족 ${staffingShortfallCount}건이 있어 저장할 수 없습니다. 배정을 수정한 뒤 다시 저장해주세요.`;
+  }
+
+  return null;
 }
 
 function getActiveSolvingVersionId(): string | null {
@@ -1869,6 +2035,131 @@ function mergeComplianceAssignments(
   }
 
   return merged;
+}
+
+function extractCurrentMonthAssignments(
+  assignments: AssignmentMap,
+  month: string | null | undefined,
+): AssignmentMap {
+  if (!month) {
+    return {};
+  }
+
+  const currentAssignments: AssignmentMap = {};
+  for (const [employeeId, dateMap] of Object.entries(assignments || {})) {
+    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
+      if (!shiftCode || !date.startsWith(month)) {
+        continue;
+      }
+
+      if (!currentAssignments[employeeId]) {
+        currentAssignments[employeeId] = {};
+      }
+      currentAssignments[employeeId]![date] = shiftCode;
+    }
+  }
+
+  return currentAssignments;
+}
+
+function buildCurrentMonthComplianceAssignments(
+  assignments: AssignmentMap,
+  dates: Array<{ date: string; isLastMonth?: boolean }>,
+  employees: Array<{ id: string }>,
+  month: string | null | undefined,
+): AssignmentMap {
+  if (!month) {
+    return {};
+  }
+
+  const currentMonthDates = new Set<string>();
+  for (const dateColumn of dates || []) {
+    if (!dateColumn.isLastMonth && dateColumn.date.startsWith(month)) {
+      currentMonthDates.add(dateColumn.date);
+    }
+  }
+
+  for (const dateMap of Object.values(assignments || {})) {
+    for (const date of Object.keys(dateMap || {})) {
+      if (date.startsWith(month)) {
+        currentMonthDates.add(date);
+      }
+    }
+  }
+
+  const sortedCurrentMonthDates = Array.from(currentMonthDates).sort();
+  if (sortedCurrentMonthDates.length === 0) {
+    return {};
+  }
+
+  const employeeIds = new Set<string>();
+  for (const employee of employees || []) {
+    if (employee.id) {
+      employeeIds.add(employee.id);
+    }
+  }
+  for (const employeeId of Object.keys(assignments || {})) {
+    employeeIds.add(employeeId);
+  }
+
+  const complianceAssignments: AssignmentMap = {};
+  for (const employeeId of employeeIds) {
+    complianceAssignments[employeeId] = {};
+    for (const date of sortedCurrentMonthDates) {
+      const shiftCode = assignments[employeeId]?.[date];
+      complianceAssignments[employeeId]![date] = shiftCode?.trim() ? shiftCode : 'O';
+    }
+  }
+
+  return complianceAssignments;
+}
+
+function buildVisiblePreviousMonthComplianceAssignments(
+  assignments: AssignmentMap,
+  dates: Array<{ date: string; isLastMonth?: boolean }>,
+  employees: Array<{ id: string }>,
+): AssignmentMap {
+  const visiblePreviousMonthDates = dates
+    .filter((dateColumn) => dateColumn.isLastMonth)
+    .map((dateColumn) => dateColumn.date)
+    .sort();
+
+  if (visiblePreviousMonthDates.length === 0) {
+    return {};
+  }
+
+  const employeeIds = new Set<string>();
+  for (const employee of employees || []) {
+    if (employee.id) {
+      employeeIds.add(employee.id);
+    }
+  }
+  for (const employeeId of Object.keys(assignments || {})) {
+    employeeIds.add(employeeId);
+  }
+
+  const complianceAssignments: AssignmentMap = {};
+  for (const employeeId of employeeIds) {
+    complianceAssignments[employeeId] = {};
+    for (const date of visiblePreviousMonthDates) {
+      const shiftCode = assignments[employeeId]?.[date];
+      complianceAssignments[employeeId]![date] = shiftCode?.trim() ? shiftCode : 'O';
+    }
+  }
+
+  return complianceAssignments;
+}
+
+function getComparisonComplianceResult(versionId: string | null | undefined): ScheduleComplianceResult | null {
+  if (!versionId) {
+    return null;
+  }
+
+  if (versionId === previewVersionId.value) {
+    return complianceResult.value;
+  }
+
+  return comparisonVersionDataById.value[versionId]?.complianceResult ?? null;
 }
 
 function applyPreviousMonthFallbackWarning(result: ScheduleComplianceResult): ScheduleComplianceResult {
@@ -3159,6 +3450,12 @@ function handleSave() {
 
   if (changedCells.value.size === 0) {
     showInfo('변경사항이 없습니다');
+    return;
+  }
+
+  const preSaveBlockMessage = getPreSaveBlockMessage();
+  if (preSaveBlockMessage) {
+    showInfo(preSaveBlockMessage);
     return;
   }
 

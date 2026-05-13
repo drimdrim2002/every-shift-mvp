@@ -175,6 +175,21 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
   });
 
+  it('passes when first work starts exactly 48 hours after two consecutive nights', () => {
+    const result = evaluate({
+      e1: {
+        '2026-05-01': 'N',
+        '2026-05-02': 'N',
+        '2026-05-03': 'O',
+        '2026-05-04': 'O',
+        '2026-05-05': 'D',
+      },
+    });
+
+    expect(result.violations.some((violation) => violation.ruleCode === 'rest_after_two_nights')).toBe(false);
+    expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
+  });
+
   it('counts only target-month nights for monthly_night_limit', () => {
     const targetMonthNights = Array.from({ length: 16 }, (_, index) => [
       `2026-05-${String(index + 1).padStart(2, '0')}`,
@@ -210,6 +225,29 @@ describe('evaluateScheduleCompliance', () => {
         dates: ['2026-04-30', '2026-05-01', '2026-05-02'],
       }),
     ]);
+  });
+
+  it('ignores sequence violations that are entirely outside the target month', () => {
+    const result = evaluate({
+      e1: {
+        '2026-04-24': 'N',
+        '2026-04-25': 'N',
+        '2026-04-26': 'O',
+        '2026-04-27': 'D',
+      },
+      e2: {
+        '2026-04-27': 'N',
+        '2026-04-28': 'N',
+        '2026-04-29': 'N',
+        '2026-04-30': 'N',
+        '2026-05-01': 'O',
+      },
+    });
+
+    expect(result.violations).toEqual([]);
+    expect(result.summaries.find((summary) => summary.code === 'nod_pattern')?.status).toBe('passed');
+    expect(result.summaries.find((summary) => summary.code === 'triple_night')?.status).toBe('passed');
+    expect(result.summaries.find((summary) => summary.code === 'rest_after_two_nights')?.status).toBe('passed');
   });
 
   it('degrades unknown shift codes to check_required', () => {

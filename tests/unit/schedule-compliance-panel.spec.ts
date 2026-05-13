@@ -149,10 +149,42 @@ describe('ScheduleCompliancePanel', () => {
 
     const list = wrapper.get('[data-test="compliance-violation-list"]');
     expect(list.text()).toContain('김간호1');
-    expect(list.text()).toContain('2026-05-01');
+    expect(list.text()).toContain('2026년 5월 1일');
     expect(list.text()).toContain('1번째 야간 연속 위반');
     expect(list.text()).not.toContain('김간호4');
     expect(wrapper.text()).toContain('3건 더 보기');
+  });
+
+  it('formats violation date ranges with explicit year and month labels', () => {
+    const wrapper = mount(ScheduleCompliancePanel, {
+      props: {
+        result: createResult({
+          mandatoryPassed: false,
+          canFinalizeLocally: false,
+          mandatoryViolationCount: 1,
+          summaries: [
+            createSummary('nod_pattern'),
+            createSummary('triple_night'),
+            createSummary('rest_after_two_nights', 'failed', 1),
+            createSummary('monthly_night_limit'),
+          ],
+          violations: [
+            {
+              id: 'rest:e1:2026-03-27|2026-03-30',
+              ruleCode: 'rest_after_two_nights',
+              employeeId: 'e1',
+              employeeName: '남보미',
+              dates: ['2026-03-27', '2026-03-30'],
+              message: '남보미님은 연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다.',
+            },
+          ],
+        }),
+      },
+    });
+
+    const listText = wrapper.get('[data-test="compliance-violation-list"]').text();
+    expect(listText).toContain('2026년 3월 27일 ~ 2026년 3월 30일');
+    expect(listText).not.toContain('2026-03-27');
   });
 
   it('renders check-required as 확인 필요 instead of success', () => {

@@ -449,6 +449,27 @@ function mockSingleFinalizeReview(options: {
   })
 }
 
+function installAutoConfirmDialog() {
+  const dialogInfoMock = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
+    options.onPositiveClick?.()
+  })
+
+  ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+    info: dialogInfoMock,
+    warning: vi.fn(),
+  }
+
+  return dialogInfoMock
+}
+
+function setVisibleAssignments(assignments: Record<string, Record<string, string>>) {
+  gridMock.assignments.value = assignments
+}
+
+function expectGuidelineSummary(wrapper: ReturnType<typeof createWrapper>, text: string) {
+  expect(wrapper.get('[data-test="step5-summary-card-guideline"]').text()).toContain(text)
+}
+
 describe('Step5Result', () => {
   afterEach(() => {
     while (mountedWrappers.length > 0) {
@@ -885,7 +906,11 @@ describe('Step5Result', () => {
       solver_execution_id: 'exec-1',
     })
     getScheduleVersionAssignmentsMock.mockResolvedValue({
-      assignments: {},
+      assignments: {
+        'emp-1': {
+          '2025-12-02': 'D',
+        },
+      },
       offReasons: {},
       comments: {},
     })
@@ -1810,6 +1835,141 @@ describe('Step5Result', () => {
     expect(document.body.textContent).not.toContain('2026-01-01')
   })
 
+  it('uses live focused-version compliance in comparison while preserving loaded off-input data', async () => {
+    routeMock.query = {
+      version: 'version-3',
+      compare: 'version-3,version-2',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({ id: 'version-1', versionNo: 1, sourceType: 'initial_solve' }),
+        createVersionSummary({ id: 'version-2', versionNo: 2, isSelected: true }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          baseVersionId: 'version-2',
+          sourceType: 're_solve',
+          status: 'review_ready',
+          manualEditCount: 2,
+          inputDiffSummary: {
+            changedOffRequests: 2,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: 'candidate',
+          },
+        }),
+      ],
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          assignments: {
+            'emp-1': {
+              '2025-12-01': 'N',
+              '2025-12-02': 'O',
+              '2025-12-03': 'D',
+            },
+          },
+          offReasons: {},
+          comments: {},
+        })
+      }
+
+      return Promise.resolve({
+        assignments: {
+          'emp-1': {
+            '2025-12-11': 'N',
+            '2025-12-12': 'O',
+            '2025-12-13': 'D',
+          },
+        },
+        offReasons: {},
+        comments: {},
+      })
+    })
+    getScheduleVersionPreferencesMock.mockImplementation((versionId: string) => {
+      if (versionId === 'version-3') {
+        return Promise.resolve({
+          constraints: {
+            'emp-1': {
+              '2025-12-02': 'O',
+              '2026-01-01': 'O',
+            },
+          },
+          notes: {
+            'emp-1': {
+              '2025-12-02': '왼쪽 메모',
+              '2026-01-01': '다음 달 메모',
+            },
+          },
+          preferences: [],
+        })
+      }
+
+      return Promise.resolve({
+        constraints: {
+          'emp-1': {
+            '2025-12-03': 'O',
+          },
+        },
+        notes: {
+          'emp-1': {
+            '2025-12-03': '오른쪽 메모',
+          },
+        },
+        preferences: [],
+      })
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    setVisibleAssignments({
+      'emp-1': {
+        '2025-12-01': 'D',
+        '2025-12-02': 'D',
+        '2025-12-03': 'D',
+      },
+    })
+    await flushPromises()
+    expectGuidelineSummary(wrapper, '충족')
+
+    vi.clearAllMocks()
+    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
+    await flushPromises()
+
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionAssignmentsMock).toHaveBeenCalledWith('version-2')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-3')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
+
+    const requirements = document.querySelector('[data-test="comparison-requirements"]')
+    expect(requirements).toBeTruthy()
+
+    const nodRow = Array.from(requirements!.querySelectorAll('div')).find((element) => {
+      const text = element.textContent ?? ''
+      return text.includes('NOD 근무 불가') && text.includes('필수 기준')
+    })
+    expect(nodRow).toBeTruthy()
+
+    const normalizedNodRowText = (nodRow?.textContent ?? '').replace(/\s+/g, ' ').trim()
+    const leftSlotText = document.querySelector('[data-test="comparison-slot-left"]')?.textContent ?? ''
+    const isLeftFocused = leftSlotText.includes('현재 확인 중')
+    if (isLeftFocused) {
+      expect(normalizedNodRowText).toMatch(/NOD 근무 불가.*통과.*위반 1건/)
+    } else {
+      expect(normalizedNodRowText).toMatch(/NOD 근무 불가.*위반 1건.*통과/)
+    }
+
+    expect(document.body.textContent).toContain('V3만 Off')
+    expect(document.body.textContent).toContain('V2만 Off')
+    expect(document.body.textContent).not.toContain('2026-01-01')
+  })
+
   it('shows modal-local comparison data errors and retries assignments and preferences', async () => {
     routeMock.query = {
       version: 'version-3',
@@ -2176,9 +2336,9 @@ describe('Step5Result', () => {
           resultStatus: 'review_blocked',
           proofSummary: {
             weeklyHoursViolations: 1,
-            nnnViolations: 0,
-            nodViolations: 0,
-            minimumRestViolations: 0,
+            nnnViolations: 2,
+            nodViolations: 3,
+            minimumRestViolations: 4,
             staffingShortfalls: 1,
           },
           violationDetails: [
@@ -2251,7 +2411,10 @@ describe('Step5Result', () => {
     expect(reviewAttention.text()).toContain('검토 필요')
     expect(reviewAttention.text()).toContain('주간 시간 위반 1건')
     expect(reviewAttention.text()).toContain('인력 부족 1건')
-    expect(reviewAttention.text()).toContain('검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.')
+    expect(reviewAttention.text()).not.toContain('야간 연속 위반')
+    expect(reviewAttention.text()).not.toContain('NOD 패턴')
+    expect(reviewAttention.text()).not.toContain('휴식 기준 위반')
+    expect(reviewAttention.text()).not.toContain('검토 기준 위반이 감지되었습니다. 배정을 수정한 뒤 재검토해주세요.')
     expect(reviewAttention.text()).toContain('2025-12-02 인력 부족: 필요 2명, 배정 1명입니다.')
     expect(reviewAttention.text()).not.toContain('Hard-constraint')
     expect(reviewAttention.text()).not.toContain('하드 제약')
@@ -2267,6 +2430,109 @@ describe('Step5Result', () => {
 
     expect(recheckPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
     expect(showSuccessMock).toHaveBeenCalledWith('재검토를 완료했습니다.')
+  })
+
+  it('removes stale review attention hard-constraint guidance when visible assignments pass local compliance', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_blocked',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        selectedVersionId: 'version-2',
+        version: {
+          status: 'review_blocked',
+          isSelected: true,
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'review_blocked',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 1,
+            minimumRestViolations: 0,
+            staffingShortfalls: 0,
+          },
+          violationDetails: [
+            {
+              code: 'hard_constraints_violated',
+              message: 'Hard-constraint violations were detected. Recheck after fixing assignments.',
+              severity: 'error',
+              affectedEmployeeIds: ['emp-1'],
+              dates: ['2025-12-01', '2025-12-02', '2025-12-03'],
+              metadata: {},
+            },
+          ],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: null,
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: [
+              {
+                code: 'hard_constraints_violated',
+                message: '하드 제약 위반이 있습니다.',
+              },
+            ],
+          },
+          assignmentHash: 'hash-2',
+          solverExecutionId: null,
+          evaluatorVersion: 'test',
+          createdAt: '2026-04-02T00:00:00Z',
+        },
+        primaryAction: {
+          kind: 'recheck',
+          targetVersionId: 'version-2',
+          label: 'Run recheck',
+          disabledReason: null,
+        },
+      })
+    )
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '위반 1건')
+    const initialReviewAttention = wrapper.get('[data-test="step5-review-attention-panel"]')
+    expect(initialReviewAttention.text()).toContain('보건복지부 가이드라인 위반 1건')
+
+    setVisibleAssignments({
+      'emp-1': {
+        '2025-12-01': 'D',
+        '2025-12-02': 'D',
+        '2025-12-03': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-review-attention-panel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('검토 기준 위반이 감지되었습니다')
   })
 
   it('blocks primary recheck while manual edits are unsaved', async () => {
@@ -2631,7 +2897,7 @@ describe('Step5Result', () => {
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
   })
 
-  it('uses previousMonthAssignments instead of slider-visible assignments for validation', async () => {
+  it('uses hidden previousMonthAssignments for validation when previous-month dates are not visible', async () => {
     mockSingleFinalizeReview({
       assignments: {
         'emp-1': {
@@ -2645,6 +2911,9 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    gridMock.dates.value = [
+      { date: '2025-12-01', isLastMonth: false },
+    ]
     gridMock.assignments.value = {
       'emp-1': {
         '2025-12-01': 'D',
@@ -2656,6 +2925,312 @@ describe('Step5Result', () => {
     expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
       '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
     )
+  })
+
+  it('uses visible grid assignments for compliance summary, modal, employee view, and finalize blocker', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '위반 1건')
+    const guidelineAction = wrapper.get('[data-test="step5-summary-card-guideline-action"]')
+    await guidelineAction.trigger('click')
+    await flushPromises()
+    expect(document.body.textContent).toContain('NOD 금지')
+
+    setVisibleAssignments({
+      'emp-1': {
+        '2025-12-01': 'D',
+        '2025-12-02': 'D',
+        '2025-12-03': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="employee-guideline-status"]').text()).toContain('보건복지부 가이드라인 충족')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).not.toContain('보건복지부 가이드라인 위반')
+  })
+
+  it('materializes visible blank current-month cells as Off for compliance', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+          '2025-12-02': 'D',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.dates.value = [
+      { date: '2025-12-01', isLastMonth: false },
+      { date: '2025-12-02', isLastMonth: false },
+      { date: '2025-12-03', isLastMonth: false },
+    ]
+    setVisibleAssignments({
+      'emp-1': {
+        '2025-12-01': 'N',
+        '2025-12-02': '',
+        '2025-12-03': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '위반 1건')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe(
+      '보건복지부 가이드라인 위반 1건을 해결한 뒤 확정할 수 있습니다.'
+    )
+
+    const guidelineAction = wrapper.get('[data-test="step5-summary-card-guideline-action"]')
+    await guidelineAction.trigger('click')
+    await flushPromises()
+
+    expect(document.body.textContent).toContain('NOD 금지')
+  })
+
+  it('does not keep stale rest violations when visible middle cells are blank', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2026-03-27': 'N',
+          '2026-03-28': 'N',
+          '2026-03-30': 'D',
+        },
+      },
+    })
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2026-03',
+    }
+    gridMock.employees.value = [
+      {
+        id: 'emp-1',
+        employeeId: 'emp-1',
+        name: '남보미',
+      },
+    ]
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.dates.value = [
+      { date: '2026-03-27', isLastMonth: false },
+      { date: '2026-03-28', isLastMonth: false },
+      { date: '2026-03-29', isLastMonth: false },
+      { date: '2026-03-30', isLastMonth: false },
+    ]
+    setVisibleAssignments({
+      'emp-1': {
+        '2026-03-27': 'N',
+        '2026-03-28': '',
+        '2026-03-29': '',
+        '2026-03-30': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
+  })
+
+  it('materializes visible previous-month blank cells as Off for compliance', async () => {
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2026-04',
+    }
+    gridMock.employees.value = [
+      {
+        id: 'emp-1',
+        employeeId: 'emp-1',
+        name: '남보미',
+      },
+    ]
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2026-03-27': 'N',
+          '2026-03-28': 'N',
+          '2026-03-30': 'D',
+          '2026-04-01': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.dates.value = [
+      { date: '2026-03-27', isLastMonth: true },
+      { date: '2026-03-28', isLastMonth: true },
+      { date: '2026-03-29', isLastMonth: true },
+      { date: '2026-03-30', isLastMonth: true },
+      { date: '2026-04-01', isLastMonth: false },
+    ]
+    setVisibleAssignments({
+      'emp-1': {
+        '2026-03-27': 'N',
+        '2026-03-28': '',
+        '2026-03-29': '',
+        '2026-03-30': 'D',
+        '2026-04-01': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
+  })
+
+  it('does not show previous-month-only violations when current-month visible cells are compliant', async () => {
+    scheduleStoreMock.basicInfo = {
+      ...scheduleStoreMock.basicInfo,
+      month: '2026-04',
+    }
+    gridMock.employees.value = [
+      {
+        id: 'emp-1',
+        employeeId: 'emp-1',
+        name: '남보미',
+      },
+    ]
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2026-03-27': 'N',
+          '2026-03-28': 'N',
+          '2026-03-30': 'D',
+          '2026-04-27': 'N',
+          '2026-04-30': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.dates.value = [
+      { date: '2026-04-27', isLastMonth: false },
+      { date: '2026-04-28', isLastMonth: false },
+      { date: '2026-04-29', isLastMonth: false },
+      { date: '2026-04-30', isLastMonth: false },
+    ]
+    setVisibleAssignments({
+      'emp-1': {
+        '2026-04-27': 'N',
+        '2026-04-28': '',
+        '2026-04-29': '',
+        '2026-04-30': 'D',
+      },
+    })
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.find('[data-test="step5-summary-card-guideline-action"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('2026-03-27')
+    expect(wrapper.text()).not.toContain('연속 야간 종료 후 48시간 휴식 전에 다음 근무가 배정되었습니다')
+  })
+
+  it('refreshes compliance after solver completion sync without stale violations', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+      primaryAction: {
+        disabledReason: '백엔드 사유',
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '위반 1건')
+    solverMock.status.value = 'running'
+    await flushPromises()
+
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'D',
+          '2025-12-02': 'D',
+          '2025-12-03': 'D',
+        },
+      },
+      offReasons: {},
+      comments: {},
+    })
+
+    solverMock.status.value = 'complete'
+    await flushPromises()
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '충족')
+    expect(wrapper.get('[data-test="finalize-block-reason"]').text()).toBe('백엔드 사유')
+  })
+
+  it('updates compliance from intermediate solver assignments', async () => {
+    mockSingleFinalizeReview({
+      assignments: {
+        'emp-1': {
+          '2025-12-01': 'N',
+          '2025-12-02': 'O',
+          '2025-12-03': 'D',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expectGuidelineSummary(wrapper, '위반 1건')
+
+    solverMock.status.value = 'running'
+    await flushPromises()
+
+    solverMock.intermediateResults.value = {
+      'emp-1': {
+        '2025-12-01': 'D',
+        '2025-12-02': 'D',
+        '2025-12-03': 'D',
+      },
+    }
+    await flushPromises()
+
+    expect(gridMock.assignments.value).toEqual({
+      'emp-1': {
+        '2025-12-01': 'D',
+        '2025-12-02': 'D',
+        '2025-12-03': 'D',
+      },
+    })
+    expectGuidelineSummary(wrapper, '충족')
   })
 
   it('updates compliance text after a manual grid edit', async () => {
@@ -3575,6 +4150,284 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
+  it('blocks save when guideline violations remain in the current grid', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'review_ready',
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'review_ready',
+          isSelected: true,
+        }),
+      ],
+    })
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-1'
+        ? {
+            'emp-1': {
+              '2025-12-01': 'O',
+              '2025-12-02': 'N',
+              '2025-12-03': 'O',
+              '2025-12-04': 'D',
+            },
+          }
+        : {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+      offReasons: {},
+      comments: {},
+    }))
+    gridMock.dates.value = [
+      { date: '2025-12-01', isLastMonth: false },
+      { date: '2025-12-02', isLastMonth: false },
+      { date: '2025-12-03', isLastMonth: false },
+      { date: '2025-12-04', isLastMonth: false },
+    ]
+
+    const dialogInfoMock = installAutoConfirmDialog()
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith(
+      '보건복지부 가이드라인 위반 1건을 해결한 뒤 저장할 수 있습니다.'
+    )
+    expect(dialogInfoMock).not.toHaveBeenCalled()
+    expect(patchPhase2ScheduleVersionAssignmentsMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks save when current-month staffing is short even if previous-month rows are staffed', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'review_ready',
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'review_ready',
+          isSelected: true,
+        }),
+      ],
+    })
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    getScheduleVersionAssignmentsMock.mockImplementation(async (versionId: string) => ({
+      assignments: versionId === 'version-1'
+        ? {
+            'emp-1': {
+              '2025-11-30': 'D',
+              '2025-12-01': 'O',
+            },
+            'emp-2': {
+              '2025-11-30': 'D',
+            },
+          }
+        : {
+            'emp-1': {
+              '2025-12-01': 'D',
+            },
+          },
+      offReasons: {},
+      comments: {},
+    }))
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 2,
+      },
+    ]
+    gridMock.employees.value = [
+      { id: 'emp-1', employeeId: 'emp-1', name: 'Kim' },
+      { id: 'emp-2', employeeId: 'emp-2', name: 'Lee' },
+    ]
+    gridMock.dates.value = [
+      { date: '2025-11-30', isLastMonth: true },
+      { date: '2025-12-01', isLastMonth: false },
+    ]
+
+    const dialogInfoMock = installAutoConfirmDialog()
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).toHaveBeenCalledWith(
+      '인력 부족 1건이 있어 저장할 수 없습니다. 배정을 수정한 뒤 다시 저장해주세요.'
+    )
+    expect(dialogInfoMock).not.toHaveBeenCalled()
+    expect(patchPhase2ScheduleVersionAssignmentsMock).not.toHaveBeenCalled()
+  })
+
+  it('does not block save on stale server staffing shortfalls when the current grid passes staffing', async () => {
+    routeMock.query = {
+      version: 'version-1',
+    }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          status: 'review_ready',
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          status: 'review_ready',
+          isSelected: true,
+        }),
+      ],
+    })
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) => {
+      return Promise.resolve(createReviewResponse(versionId, {
+        version: {
+          status: 'review_ready',
+        },
+        latestEvaluation: {
+          id: `evaluation-${versionId}`,
+          scheduleId: 'schedule-1',
+          scheduleVersionId: versionId,
+          revisionNo: 1,
+          resultStatus: 'review_ready',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 1,
+          },
+          violationDetails: [
+            {
+              code: 'staffing_shortfall',
+              message: 'Staffing shortfall on 2025-12-01: required 2, assigned 1.',
+              severity: 'error',
+              affectedEmployeeIds: [],
+              dates: ['2025-12-01'],
+              metadata: {
+                requiredCount: 2,
+                assignedCount: 1,
+              },
+            },
+          ],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: {
+            offRequestReflectionRate: 100,
+            nightShiftMin: 0,
+            nightShiftMax: 0,
+            weekendShiftMin: 0,
+            weekendShiftMax: 0,
+            manualEditCount: 0,
+          },
+          finalizationGate: null,
+          assignmentHash: `hash-${versionId}`,
+          solverExecutionId: null,
+          evaluatorVersion: 'test',
+          createdAt: '2026-05-12T00:00:00Z',
+        },
+      }))
+    })
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
+
+    const dialogInfoMock = installAutoConfirmDialog()
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await wrapper.get('[data-test="grid-edit"]').trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button')
+      .find((button) => button.text().trim() === '저장')
+    expect(saveButton).toBeTruthy()
+
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(dialogInfoMock).toHaveBeenCalledTimes(1)
+    expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledTimes(1)
+    expect(showInfoMock).not.toHaveBeenCalledWith(
+      '인력 부족 1건이 있어 저장할 수 없습니다. 배정을 수정한 뒤 다시 저장해주세요.'
+    )
+  })
+
   it('saves manual changes through preview-version patch route', async () => {
     routeMock.query = {
       version: 'version-1',
@@ -3641,14 +4494,16 @@ describe('Step5Result', () => {
       soft_score: 22,
       solver_execution_id: null,
     })
+    scheduleStoreMock.siteRequirements = [
+      {
+        dayOfWeek: 1,
+        dayName: '월요일',
+        shiftCode: 'D',
+        requiredCount: 1,
+      },
+    ]
 
-    const dialogInfoMock = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
-      options.onPositiveClick?.()
-    })
-    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
-      info: dialogInfoMock,
-      warning: vi.fn(),
-    }
+    const dialogInfoMock = installAutoConfirmDialog()
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -3664,6 +4519,7 @@ describe('Step5Result', () => {
     await saveButton!.trigger('click')
     await flushPromises()
 
+    expect(dialogInfoMock).toHaveBeenCalledTimes(1)
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledTimes(1)
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledWith(
       'version-1',

@@ -156,11 +156,44 @@ function formatViolationDates(dates: string[]) {
     return '날짜 확인 필요';
   }
 
-  if (dates.length === 1) {
-    return dates[0];
+  const firstDate = dates[0];
+  if (!firstDate) {
+    return '날짜 확인 필요';
   }
 
-  return `${dates[0]} ~ ${dates[dates.length - 1]}`;
+  if (dates.length === 1) {
+    return formatKoreanDate(firstDate);
+  }
+
+  const lastDate = dates[dates.length - 1];
+  if (!lastDate) {
+    return formatKoreanDate(firstDate);
+  }
+
+  return `${formatKoreanDate(firstDate)} ~ ${formatKoreanDate(lastDate)}`;
+}
+
+function formatKoreanDate(date: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) {
+    return date;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsedDate = new Date(Date.UTC(year, month - 1, day));
+  const isValidDate = (
+    parsedDate.getUTCFullYear() === year
+    && parsedDate.getUTCMonth() === month - 1
+    && parsedDate.getUTCDate() === day
+  );
+
+  if (!isValidDate) {
+    return date;
+  }
+
+  return `${year}년 ${month}월 ${day}일`;
 }
 
 function toggleViolationReveal() {

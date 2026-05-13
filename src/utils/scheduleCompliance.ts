@@ -88,9 +88,9 @@ export function evaluateScheduleCompliance(
   const normalized = normalizeInput(input);
   const timelines = buildEmployeeTimelines(normalized);
   const violations = [
-    ...evaluateNodPattern(timelines),
-    ...evaluateConsecutiveNightLimit(timelines),
-    ...evaluateRestAfterTwoNights(timelines, normalized.shiftTimes),
+    ...evaluateNodPattern(timelines, normalized.month),
+    ...evaluateConsecutiveNightLimit(timelines, normalized.month),
+    ...evaluateRestAfterTwoNights(timelines, normalized.shiftTimes, normalized.month),
     ...evaluateMonthlyNightLimit(timelines, normalized.month),
   ].sort((left, right) => compareViolations(left, right, normalized.employeeOrder));
   const mandatoryViolationCount = violations.length;
@@ -217,7 +217,10 @@ function buildEmployeeTimelines(input: NormalizedInput): EmployeeTimeline[] {
   });
 }
 
-function evaluateNodPattern(timelines: EmployeeTimeline[]): ScheduleComplianceViolation[] {
+function evaluateNodPattern(
+  timelines: EmployeeTimeline[],
+  month: string
+): ScheduleComplianceViolation[] {
   const violations: ScheduleComplianceViolation[] = [];
 
   for (const timeline of timelines) {
@@ -230,6 +233,10 @@ function evaluateNodPattern(timelines: EmployeeTimeline[]): ScheduleComplianceVi
         && window[2]?.shiftCode === 'D'
       ) {
         const dates = window.map((entry) => entry.date);
+        if (!dates.some((date) => isTargetMonthDate(date, month))) {
+          continue;
+        }
+
         violations.push(createViolation(
           'nod_pattern',
           timeline.employeeId,
@@ -244,7 +251,10 @@ function evaluateNodPattern(timelines: EmployeeTimeline[]): ScheduleComplianceVi
   return violations;
 }
 
-function evaluateConsecutiveNightLimit(timelines: EmployeeTimeline[]): ScheduleComplianceViolation[] {
+function evaluateConsecutiveNightLimit(
+  timelines: EmployeeTimeline[],
+  month: string
+): ScheduleComplianceViolation[] {
   const violations: ScheduleComplianceViolation[] = [];
 
   for (const timeline of timelines) {
@@ -252,6 +262,10 @@ function evaluateConsecutiveNightLimit(timelines: EmployeeTimeline[]): ScheduleC
       const window = timeline.entries.slice(index, index + CONSECUTIVE_NIGHT_VIOLATION_THRESHOLD);
       if (hasConsecutiveDates(window) && window.every((entry) => entry.shiftCode === 'N')) {
         const dates = window.map((entry) => entry.date);
+        if (!dates.some((date) => isTargetMonthDate(date, month))) {
+          continue;
+        }
+
         violations.push(createViolation(
           'triple_night',
           timeline.employeeId,
@@ -268,7 +282,8 @@ function evaluateConsecutiveNightLimit(timelines: EmployeeTimeline[]): ScheduleC
 
 function evaluateRestAfterTwoNights(
   timelines: EmployeeTimeline[],
-  shiftTimes: Map<KnownShiftCode, ShiftTime>
+  shiftTimes: Map<KnownShiftCode, ShiftTime>,
+  month: string
 ): ScheduleComplianceViolation[] {
   const violations: ScheduleComplianceViolation[] = [];
 
@@ -294,6 +309,11 @@ function evaluateRestAfterTwoNights(
       );
 
       if (!nextWork) {
+        index = endIndex;
+        continue;
+      }
+
+      if (!isTargetMonthDate(nextWork.date, month)) {
         index = endIndex;
         continue;
       }
