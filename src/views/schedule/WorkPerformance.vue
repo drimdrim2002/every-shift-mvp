@@ -9,8 +9,60 @@
           근무 실적
         </h1>
         <p class="mt-2 text-sm text-slate-500">
-          확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 일수를 비교합니다.
+          확정된 근무표 기준으로 야간 근무 횟수, 주말·휴일 근무 횟수, Off 요청 수락 건수를 비교합니다.
         </p>
+        <details
+          data-test="work-performance-calculation-guide"
+          class="group mt-4 rounded-md border border-slate-200 border-l-teal-600 bg-slate-50 px-4 py-3 text-sm text-slate-600"
+        >
+          <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 [&::-webkit-details-marker]:hidden">
+            <span>계산 기준</span>
+            <span
+              class="text-base leading-none text-slate-500 transition-transform group-open:rotate-180"
+              aria-hidden="true"
+            >
+              ▾
+            </span>
+          </summary>
+          <dl class="mt-3 grid gap-2 md:grid-cols-3">
+            <div
+              data-test="work-performance-calculation-card-night"
+              class="rounded-md border border-slate-200 bg-white/75 p-3"
+            >
+              <dt class="text-xs font-medium text-slate-500">
+                야간 근무 횟수
+              </dt>
+              <dd class="mt-1 font-semibold text-slate-900">
+                N 배정 개수
+              </dd>
+            </div>
+            <div
+              data-test="work-performance-calculation-card-weekendHoliday"
+              class="rounded-md border border-slate-200 bg-white/75 p-3"
+            >
+              <dt class="text-xs font-medium text-slate-500">
+                주말·휴일 근무 횟수
+              </dt>
+              <dd class="mt-1 grid gap-2 font-semibold text-slate-900 lg:grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)]">
+                <span>토·일·공휴일 날짜 배정 개수</span>
+                <span class="border-t border-slate-200 pt-2 text-xs font-normal leading-relaxed text-slate-500 lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0">
+                  자정을 넘는 근무도 시간 분할 없이 배정 날짜에 귀속합니다.
+                </span>
+              </dd>
+            </div>
+            <div
+              data-test="work-performance-calculation-card-offRequestAccepted"
+              class="rounded-md border border-slate-200 bg-white/75 p-3"
+            >
+              <dt class="text-xs font-medium text-slate-500">
+                Off 요청 수락 건수
+              </dt>
+              <dd class="mt-1 font-semibold text-slate-900">
+                수락 처리된 Off 요청 개수
+              </dd>
+            </div>
+          </dl>
+        </details>
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white p-4">
@@ -158,7 +210,7 @@
           공휴일 데이터 없음
         </h2>
         <p class="mt-2 text-sm text-amber-800">
-          주말·휴일 근무 일수를 비교하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
+          주말·휴일 근무 횟수를 비교하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
         </p>
       </div>
 
@@ -190,16 +242,25 @@
             class="rounded-lg border border-slate-200 bg-white p-4"
           >
             <p class="text-sm font-semibold text-slate-700">
-              {{ definition.label }}
+              <span class="inline-flex items-center gap-1.5">
+                {{ definition.label }}
+                <span
+                  class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                  :title="getMetricTooltip(definition.key)"
+                  :aria-label="getMetricTooltip(definition.key)"
+                >
+                  ?
+                </span>
+              </span>
             </p>
             <p class="mt-2 text-2xl font-bold text-slate-900">
-              전체 평균 {{ formatNumber(fairnessResult.summary[definition.key].average) }}일
+              전체 평균 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].average) }}
             </p>
             <p class="mt-1 text-sm text-slate-500">
-              최소 {{ fairnessResult.summary[definition.key].min }}일 · 최대 {{ fairnessResult.summary[definition.key].max }}일
+              최소 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].min) }} · 최대 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].max) }}
             </p>
             <p class="mt-1 text-sm font-medium text-slate-600">
-              가장 큰 차이 {{ formatNumber(getMaxDeviation(definition.key)) }}일
+              가장 큰 차이 {{ formatMetricValue(definition.key, getMaxDeviation(definition.key)) }}
             </p>
           </div>
         </div>
@@ -252,7 +313,7 @@
               :key="row.employeeId"
               :data-test="`work-performance-risk-row-${row.employeeId}`"
               class="grid gap-2 md:grid-cols-[9rem_1fr_6rem] md:items-center"
-              :aria-label="`${row.employeeName}, 확인 필요 차이 ${formatNumber(row.priorityScore)}일`"
+              :aria-label="`${row.employeeName}, 확인 필요 지수 ${formatNumber(row.priorityScore)}`"
             >
               <span class="truncate text-sm font-semibold text-slate-900">
                 {{ row.employeeName }}
@@ -270,7 +331,7 @@
                 </div>
               </div>
               <span class="text-sm font-semibold text-slate-700 md:text-right">
-                확인 필요 {{ formatNumber(row.priorityScore) }}일
+                확인 필요 지수 {{ formatNumber(row.priorityScore) }}
               </span>
             </div>
           </div>
@@ -280,10 +341,10 @@
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
               <h2 class="text-lg font-semibold text-slate-900">
-                직원별 근무 일수 비교
+                직원별 근무 실적 비교
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                전체 평균 기준으로 직원별 근무 일수 차이를 비교합니다.
+                전체 평균 기준으로 직원별 실적 차이를 비교합니다.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -305,10 +366,10 @@
                   min="1"
                   max="10"
                   class="min-h-11 w-20 rounded-lg border border-slate-200 px-3 py-2 text-center text-sm tabular-nums"
-                  aria-label="강조 기준 일수"
+                  aria-label="강조 기준 개수"
                   @input="updateThreshold"
                 >
-                <span>일</span>
+                <span>회/건</span>
               </label>
             </div>
           </div>
@@ -327,7 +388,7 @@
             <div
               class="min-w-[920px] divide-y divide-slate-100 text-sm"
               role="table"
-              aria-label="직원별 근무 일수 비교"
+              aria-label="직원별 근무 실적 비교"
             >
               <p class="sr-only">
                 전체 평균과의 차이가 큰 직원부터 표시됩니다
@@ -363,7 +424,16 @@
                     class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('night')"
                   >
-                    야간 근무
+                    <span class="inline-flex items-center justify-center gap-1.5">
+                      야간 근무 횟수
+                      <span
+                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        :title="getMetricTooltip('night')"
+                        :aria-label="getMetricTooltip('night')"
+                      >
+                        ?
+                      </span>
+                    </span>
                   </button>
                 </div>
                 <div
@@ -378,7 +448,16 @@
                     class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('weekendHoliday')"
                   >
-                    주말·휴일 근무
+                    <span class="inline-flex items-center justify-center gap-1.5">
+                      주말·휴일 근무 횟수
+                      <span
+                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        :title="getMetricTooltip('weekendHoliday')"
+                        :aria-label="getMetricTooltip('weekendHoliday')"
+                      >
+                        ?
+                      </span>
+                    </span>
                   </button>
                 </div>
                 <div
@@ -393,7 +472,16 @@
                     class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('offRequestAccepted')"
                   >
-                    Off 요청 수락
+                    <span class="inline-flex items-center justify-center gap-1.5">
+                      Off 요청 수락 건수
+                      <span
+                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        :title="getMetricTooltip('offRequestAccepted')"
+                        :aria-label="getMetricTooltip('offRequestAccepted')"
+                      >
+                        ?
+                      </span>
+                    </span>
                   </button>
                 </div>
                 <div
@@ -448,14 +536,14 @@
                     <div class="flex flex-col items-center justify-center gap-1">
                       <div>
                         <p class="font-semibold tabular-nums text-slate-900">
-                          {{ row.metrics[metric].count }}일
+                          {{ formatMetricValue(metric, row.metrics[metric].count) }}
                         </p>
                         <p class="mt-1 text-xs tabular-nums text-slate-500">
-                          전체 평균 {{ formatNumber(row.metrics[metric].average) }}일
+                          전체 평균 {{ formatMetricValue(metric, row.metrics[metric].average) }}
                         </p>
                       </div>
                       <span class="text-xs font-semibold tabular-nums text-slate-700">
-                        평균과의 차이 {{ formatDelta(row.metrics[metric].delta) }}일
+                        평균과의 차이 {{ formatMetricDelta(metric, row.metrics[metric].delta) }}
                       </span>
                     </div>
                     <div class="mt-3">
@@ -606,9 +694,19 @@ const currentDate = new Date()
 const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekendHoliday', 'offRequestAccepted']
 const showRiskSummary = false
 const metricLabels: Record<WorkPerformanceMetricKey, string> = {
-  night: '야간 근무',
-  weekendHoliday: '주말·휴일 근무',
-  offRequestAccepted: 'Off 요청 수락',
+  night: '야간 근무 횟수',
+  weekendHoliday: '주말·휴일 근무 횟수',
+  offRequestAccepted: 'Off 요청 수락 건수',
+}
+const metricUnits: Record<WorkPerformanceMetricKey, string> = {
+  night: '회',
+  weekendHoliday: '회',
+  offRequestAccepted: '건',
+}
+const metricTooltips: Record<WorkPerformanceMetricKey, string> = {
+  night: '근무표의 N 배정 개수입니다.',
+  weekendHoliday: '토·일·공휴일 날짜에 배정된 근무 개수입니다.',
+  offRequestAccepted: 'Off 요청이 수락된 건수입니다.',
 }
 
 const draftMonthRange = ref<MonthRangeValue>([
@@ -940,6 +1038,18 @@ function formatDelta(value: number): string {
   return value > 0 ? `+${formatNumber(value)}` : formatNumber(value)
 }
 
+function formatMetricValue(metric: WorkPerformanceMetricKey, value: number): string {
+  return `${formatNumber(value)}${metricUnits[metric]}`
+}
+
+function formatMetricDelta(metric: WorkPerformanceMetricKey, value: number): string {
+  return `${formatDelta(value)}${metricUnits[metric]}`
+}
+
+function getMetricTooltip(metric: WorkPerformanceMetricKey): string {
+  return metricTooltips[metric]
+}
+
 function formatMonthLabel(month: string): string {
   const [year, monthValue] = month.split('-')
 
@@ -1002,7 +1112,7 @@ function getRiskSegmentLabel(
   row: WorkPerformanceEmployeeResult,
   metric: WorkPerformanceMetricKey,
 ): string {
-  return `${metricLabels[metric]} 확인 필요 차이 ${formatNumber(getUnfavorableDeviation(metric, row.metrics[metric]))}일`
+  return `${metricLabels[metric]} 확인 필요 차이 ${formatMetricValue(metric, getUnfavorableDeviation(metric, row.metrics[metric]))}`
 }
 
 function getMetricCellClass(
@@ -1087,14 +1197,14 @@ function getMetricDirectionTextClass(
 function getMetricCellLabel(metric: WorkPerformanceMetricResult): string {
   const emphasisLabel = metric.highlighted ? `, ${getHighlightDescription(metric)}` : ''
 
-  return `${metric.count}일, 전체 평균 ${formatNumber(metric.average)}일, 평균과의 차이 ${formatDelta(metric.delta)}일${emphasisLabel}`
+  return `${formatMetricValue(metric.key, metric.count)}, 전체 평균 ${formatMetricValue(metric.key, metric.average)}, 평균과의 차이 ${formatMetricDelta(metric.key, metric.delta)}${emphasisLabel}`
 }
 
 function getHighlightDescription(metric: WorkPerformanceMetricResult): string {
   const absoluteDelta = Math.abs(metric.delta)
   const directionLabel = metric.delta >= 0 ? '많음' : '적음'
 
-  return `강조, 전체 평균보다 ${formatNumber(absoluteDelta)}일 ${directionLabel}`
+  return `강조, 전체 평균보다 ${formatMetricValue(metric.key, absoluteDelta)} ${directionLabel}`
 }
 
 function isDetailExpanded(employeeId: string): boolean {

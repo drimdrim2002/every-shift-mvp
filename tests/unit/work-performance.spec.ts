@@ -142,6 +142,7 @@ function preference(employeeId: string, date: string): WorkPerformancePreference
     employeeId,
     date,
     requestCode: 'O',
+    resolutionStatus: 'fulfilled',
   }
 }
 
@@ -176,6 +177,7 @@ function successResult(options?: {
         employeeId: 'emp-1',
         date: '2026-01-08',
         requestCode: 'O',
+        resolutionStatus: 'fulfilled',
       },
     ],
     publicHolidayDates: options?.publicHolidayDates ?? ['2026-01-01'],
@@ -219,7 +221,17 @@ describe('WorkPerformance', () => {
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('근무 실적')
-    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 일수를 비교합니다.')
+    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간 근무 횟수, 주말·휴일 근무 횟수, Off 요청 수락 건수를 비교합니다.')
+    const calculationGuide = wrapper.get('[data-test="work-performance-calculation-guide"]').text()
+    expect(calculationGuide).toContain('계산 기준')
+    expect(calculationGuide).toContain('야간 근무 횟수')
+    expect(calculationGuide).toContain('N 배정 개수')
+    expect(calculationGuide).toContain('주말·휴일 근무 횟수')
+    expect(calculationGuide).toContain('토·일·공휴일 날짜 배정 개수')
+    expect(calculationGuide).toContain('Off 요청 수락 건수')
+    expect(calculationGuide).toContain('수락 처리된 Off 요청 개수')
+    expect(wrapper.get('[data-test="work-performance-calculation-card-weekendHoliday"]').text()).toContain('자정을 넘는 근무도 시간 분할 없이 배정 날짜에 귀속합니다.')
+    expect(calculationGuide).not.toContain('근로기준법')
     expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
@@ -306,7 +318,7 @@ describe('WorkPerformance', () => {
     await wrapper.get('[data-test="work-performance-month-range"]').trigger('click')
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무')
+    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무 횟수')
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('가장 큰 차이')
     expect(wrapper.find('[data-test="work-performance-risk-summary"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
@@ -385,10 +397,10 @@ describe('WorkPerformance', () => {
     await runQuery(wrapper)
 
     const nightCell = wrapper.get('[data-test="work-performance-cell-emp-1-night"]')
-    expect(nightCell.text()).toContain('7일')
-    expect(nightCell.text()).toContain('평균과의 차이 +3.5일')
+    expect(nightCell.text()).toContain('7회')
+    expect(nightCell.text()).toContain('평균과의 차이 +3.5회')
     expect(nightCell.text()).toContain('강조')
-    expect(nightCell.attributes('aria-label')).toContain('강조, 전체 평균보다 3.5일 많음')
+    expect(nightCell.attributes('aria-label')).toContain('강조, 전체 평균보다 3.5회 많음')
   })
 
   it('sorts rows with aria-sort updates when metric and name headers are clicked', async () => {
@@ -566,9 +578,9 @@ describe('WorkPerformance', () => {
     expect(document.activeElement).toBe(detailButton.element)
 
     const detail = wrapper.get('[data-test="work-performance-detail-row-emp-1"]')
-    expect(detail.text()).toContain('야간 근무')
-    expect(detail.text()).toContain('주말·휴일 근무')
-    expect(detail.text()).toContain('Off 요청 수락')
+    expect(detail.text()).toContain('야간 근무 횟수')
+    expect(detail.text()).toContain('주말·휴일 근무 횟수')
+    expect(detail.text()).toContain('Off 요청 수락 건수')
     expect(detail.text()).toContain('1/1 목')
     expect(detail.text()).toContain('공휴일')
 

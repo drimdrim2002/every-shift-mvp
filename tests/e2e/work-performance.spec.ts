@@ -41,6 +41,7 @@ type WorkPerformanceFixture = {
     employee_id: string
     date: string
     request_code: 'O'
+    resolution_status: 'fulfilled' | 'unfulfilled' | 'pending'
   }>
 }
 
@@ -179,12 +180,14 @@ function createSuccessfulFixture(): WorkPerformanceFixture {
         employee_id: 'employee-b',
         date: '2026-01-06',
         request_code: 'O',
+        resolution_status: 'fulfilled',
       },
       {
         schedule_version_id: 'version-2026-01',
         employee_id: 'employee-b',
         date: '2026-01-07',
         request_code: 'O',
+        resolution_status: 'fulfilled',
       },
     ],
   }
@@ -345,6 +348,13 @@ test.describe('work performance', () => {
 
     await expect(page).toHaveURL((url) => url.pathname === getWorkPerformanceRoutePath())
     await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
+    const calculationGuide = page.getByTestId('work-performance-calculation-guide')
+    await expect(calculationGuide).toContainText('계산 기준')
+    await calculationGuide.getByText('계산 기준', { exact: true }).click()
+    await expect(calculationGuide).toContainText('N 배정 개수')
+    await expect(calculationGuide).toContainText('토·일·공휴일 날짜 배정 개수')
+    await expect(page.getByTestId('work-performance-calculation-card-weekendHoliday')).toContainText('자정을 넘는 근무도 시간 분할 없이 배정 날짜에 귀속합니다.')
+    await expect(calculationGuide).not.toContainText('근로기준법')
     await expect(page.getByTestId('work-performance-initial')).toBeVisible()
   })
 
@@ -354,8 +364,8 @@ test.describe('work performance', () => {
 
     await page.getByTestId('work-performance-query').click()
 
-    await expect(page.getByTestId('work-performance-summary')).toContainText('야간 근무')
-    await expect(page.getByTestId('work-performance-summary')).toContainText('가장 큰 차이 2.5일')
+    await expect(page.getByTestId('work-performance-summary')).toContainText('야간 근무 횟수')
+    await expect(page.getByTestId('work-performance-summary')).toContainText('가장 큰 차이 2.5회')
     await expect(page.getByTestId('work-performance-risk-summary')).toHaveCount(0)
     await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
     await expect(page.getByTestId('work-performance-month-range-trigger')).toContainText('2026년 1월 ~ 1월')
@@ -374,7 +384,7 @@ test.describe('work performance', () => {
     })).toBe(true)
     await expect(page.getByTestId('work-performance-employee-row')).toHaveCount(2)
     await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
-    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균과의 차이 +2.5일')
+    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균과의 차이 +2.5회')
   })
 
   test('renders finalized data with a notice when selected months are not finalized', async ({ page }) => {
