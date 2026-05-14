@@ -18,9 +18,9 @@ const NIGHT_SHIFT_CODE = 'N'
 const METRIC_KEYS = ['night', 'weekendHoliday', 'offRequestAccepted'] as const
 
 export const metricDefinitions = [
-  { key: 'night', label: '야간 근무', unfavorableDirection: 'aboveAverage' },
-  { key: 'weekendHoliday', label: '주말·휴일 근무', unfavorableDirection: 'aboveAverage' },
-  { key: 'offRequestAccepted', label: 'Off 요청 수락', unfavorableDirection: 'belowAverage' },
+  { key: 'night', label: '야간 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+  { key: 'weekendHoliday', label: '주말·휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+  { key: 'offRequestAccepted', label: 'Off 요청 수락 건수', unit: '건', unfavorableDirection: 'belowAverage' },
 ] as const satisfies readonly WorkPerformanceMetricDefinition[]
 
 interface DateParts {
@@ -143,10 +143,6 @@ function normalizeShiftCode(shiftCode: string | null | undefined): string | null
   return normalizedShiftCode.length > 0 ? normalizedShiftCode : null
 }
 
-function isOffAssignment(assignment: WorkPerformanceAssignmentRow | undefined): boolean {
-  return normalizeShiftCode(assignment?.shiftCode) === OFF_SHIFT_CODE
-}
-
 function isWorkedAssignment(assignment: WorkPerformanceAssignmentRow | undefined): boolean {
   const shiftCode = normalizeShiftCode(assignment?.shiftCode)
 
@@ -155,17 +151,8 @@ function isWorkedAssignment(assignment: WorkPerformanceAssignmentRow | undefined
 
 function isOffRequestAccepted(
   request: WorkPerformancePreferenceRow,
-  assignment: WorkPerformanceAssignmentRow | undefined,
 ): boolean {
-  if (request.resolutionStatus === 'fulfilled') {
-    return true
-  }
-
-  if (request.resolutionStatus === 'unfulfilled') {
-    return false
-  }
-
-  return isOffAssignment(assignment)
+  return request.resolutionStatus === 'fulfilled'
 }
 
 function calculateAverage(values: readonly number[]): number {
@@ -269,9 +256,7 @@ export function computeWorkPerformanceFairness({
       return
     }
 
-    const assignment = assignmentsByEmployeeDate.get(mapKey(request.employeeId, request.date))
-
-    if (isOffRequestAccepted(request, assignment)) {
+    if (isOffRequestAccepted(request)) {
       const requestDates = offRequestDatesByEmployee.get(request.employeeId) ?? new Set<string>()
       requestDates.add(request.date)
       offRequestDatesByEmployee.set(request.employeeId, requestDates)

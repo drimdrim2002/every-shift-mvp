@@ -126,6 +126,7 @@ function offRequest(employeeId: string, date: string): WorkPerformancePreference
     employeeId,
     date,
     requestCode: 'O',
+    resolutionStatus: 'fulfilled',
   }
 }
 
@@ -227,14 +228,24 @@ describe('computeWorkPerformanceFairness', () => {
     expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.weekendHoliday.count).toBe(1)
   })
 
-  it('counts fulfilled Off requests even when accepted Off is stored as no work assignment', () => {
+  it('counts only fulfilled Off requests without inferring acceptance from Off assignments', () => {
     const sparseEmployees: WorkPerformanceEmployeeRow[] = [
       { id: 'employee-a', name: '김민지' },
       { id: 'employee-b', name: '박서준' },
+      { id: 'employee-c', name: '이휴무' },
     ]
     const assignments: WorkPerformanceAssignmentRow[] = [
       workedAssignment('employee-a', '2026-01-02', 'D'),
       workedAssignment('employee-b', '2026-01-03', 'D'),
+      workedAssignment('employee-c', '2026-01-04', 'D'),
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'employee-c',
+        date: '2026-01-10',
+        shiftId: 'shift-off',
+        shiftCode: 'O',
+        shiftName: 'Off',
+      },
     ]
     const offRequests = [
       {
@@ -250,6 +261,13 @@ describe('computeWorkPerformanceFairness', () => {
         date: '2026-01-10',
         requestCode: 'O',
         resolutionStatus: 'unfulfilled',
+      },
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'employee-c',
+        date: '2026-01-10',
+        requestCode: 'O',
+        resolutionStatus: 'pending',
       },
     ] as WorkPerformancePreferenceRow[]
 
@@ -270,6 +288,35 @@ describe('computeWorkPerformanceFairness', () => {
       count: 0,
       evidenceDates: [],
     })
+    expect(result.rows.find((row) => row.employeeId === 'employee-c')?.metrics.offRequestAccepted).toMatchObject({
+      count: 0,
+      evidenceDates: [],
+    })
+  })
+
+  it('uses schedule assignment date for weekend and holiday work without time splitting', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'employee-a', name: '김민지' }
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments: [
+        workedAssignment('employee-a', '2026-01-02', 'N'),
+        workedAssignment('employee-a', '2026-01-03', 'N'),
+        workedAssignment('employee-a', '2026-01-05', 'D'),
+      ],
+      offRequests: [],
+      publicHolidayDates: ['2026-01-05'],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows[0]?.metrics.night).toMatchObject({
+      count: 2,
+      evidenceDates: ['2026-01-02', '2026-01-03'],
+    })
+    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+      count: 2,
+      evidenceDates: ['2026-01-03', '2026-01-05'],
+    })
   })
 
   it('computes metric counts, evidence, summaries, exclusions, and default priority sorting', () => {
@@ -286,14 +333,14 @@ describe('computeWorkPerformanceFairness', () => {
 
     expect(result.excludedEmployeeCount).toBe(1)
     expect(result.metricDefinitions).toEqual([
-      { key: 'night', label: '야간 근무', unfavorableDirection: 'aboveAverage' },
-      { key: 'weekendHoliday', label: '주말·휴일 근무', unfavorableDirection: 'aboveAverage' },
-      { key: 'offRequestAccepted', label: 'Off 요청 수락', unfavorableDirection: 'belowAverage' },
+      { key: 'night', label: '야간 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+      { key: 'weekendHoliday', label: '주말·휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+      { key: 'offRequestAccepted', label: 'Off 요청 수락 건수', unit: '건', unfavorableDirection: 'belowAverage' },
     ])
     expect(result.summary).toEqual({
       night: { average: 4, min: 1, max: 7 },
       weekendHoliday: { average: 8 / 3, min: 1, max: 4 },
-      offRequestAccepted: { average: 4, min: 0, max: 6 },
+      offRequestAccepted: { average: 16 / 3, min: 4, max: 6 },
     })
 
     expect(result.rows.map((row) => row.employeeName)).toEqual(['김민지', '박서준', '이지은'])
@@ -321,11 +368,11 @@ describe('computeWorkPerformanceFairness', () => {
       evidenceDates: ['2026-01-01', '2026-01-03', '2026-01-04', '2026-01-10'],
     })
     expect(result.rows[0]?.metrics.offRequestAccepted).toMatchObject({
-      count: 0,
-      average: 4,
-      delta: -4,
-      highlighted: true,
-      evidenceDates: [],
+      count: 4,
+      average: 16 / 3,
+      delta: 4 - 16 / 3,
+      highlighted: false,
+      evidenceDates: ['2026-01-01', '2026-01-03', '2026-01-04', '2026-01-10'],
     })
 
     expect(result.rows[1]?.metrics.offRequestAccepted).toMatchObject({

@@ -55,6 +55,7 @@ export interface WorkPerformanceEmployeeResult {
 export interface WorkPerformanceMetricDefinition {
   key: WorkPerformanceMetricKey
   label: string
+  unit: '회' | '건'
   unfavorableDirection: WorkPerformanceMetricDirection
 }
 

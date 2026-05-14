@@ -6,7 +6,7 @@
           근무 기록
         </h1>
         <p class="mt-2 text-sm text-slate-500">
-          확정된 근무표 기준으로 야간 근무 횟수, 주말·휴일 근무 횟수, Off 요청 수락 건수를 비교합니다.
+          확정된 근무표 기준으로 야간 근무 일수, 주말·휴일 근무 일수, Off 요청 수락 일수를 비교합니다.
         </p>
         <details
           data-test="work-performance-calculation-guide"
@@ -27,7 +27,7 @@
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                야간 근무 횟수
+                야간 근무 일수
               </dt>
               <dd class="mt-1 font-semibold text-slate-900">
                 N 배정 개수
@@ -38,7 +38,7 @@
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                주말·휴일 근무 횟수
+                주말·휴일 근무 일수
               </dt>
               <dd class="mt-1 grid gap-2 font-semibold text-slate-900 lg:grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)]">
                 <span>토·일·공휴일 날짜 배정 개수</span>
@@ -52,7 +52,7 @@
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                Off 요청 수락 건수
+                Off 요청 수락 일수
               </dt>
               <dd class="mt-1 font-semibold text-slate-900">
                 수락 처리된 Off 요청 개수
@@ -207,7 +207,7 @@
           공휴일 데이터 없음
         </h2>
         <p class="mt-2 text-sm text-amber-800">
-          주말·휴일 근무 횟수를 비교하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
+          주말·휴일 근무 일수를 비교하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
         </p>
       </div>
 
@@ -422,7 +422,7 @@
                     @click.stop="changeSort('night')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
-                      야간 근무 횟수
+                      야간 근무 일수
                       <span
                         class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
                         :title="getMetricTooltip('night')"
@@ -446,7 +446,7 @@
                     @click.stop="changeSort('weekendHoliday')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
-                      주말·휴일 근무 횟수
+                      주말·휴일 근무 일수
                       <span
                         class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
                         :title="getMetricTooltip('weekendHoliday')"
@@ -470,7 +470,7 @@
                     @click.stop="changeSort('offRequestAccepted')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
-                      Off 요청 수락 건수
+                      Off 요청 수락 일수
                       <span
                         class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
                         :title="getMetricTooltip('offRequestAccepted')"
@@ -691,14 +691,14 @@ const currentDate = new Date()
 const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekendHoliday', 'offRequestAccepted']
 const showRiskSummary = false
 const metricLabels: Record<WorkPerformanceMetricKey, string> = {
-  night: '야간 근무 횟수',
-  weekendHoliday: '주말·휴일 근무 횟수',
-  offRequestAccepted: 'Off 요청 수락 건수',
+  night: '야간 근무 일수',
+  weekendHoliday: '주말·휴일 근무 일수',
+  offRequestAccepted: 'Off 요청 수락 일수',
 }
 const metricUnits: Record<WorkPerformanceMetricKey, string> = {
-  night: '회',
-  weekendHoliday: '회',
-  offRequestAccepted: '건',
+  night: '일',
+  weekendHoliday: '일',
+  offRequestAccepted: '일',
 }
 const metricTooltips: Record<WorkPerformanceMetricKey, string> = {
   night: '근무표의 N 배정 개수입니다.',
