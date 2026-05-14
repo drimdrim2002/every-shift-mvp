@@ -43,6 +43,14 @@ function createSolverRequest(publicHolidays: string[] = []): SolverRequest {
       },
     ],
     publicHolidays,
+    yearlyEmployeeStats: [
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 2,
+        weekend_holiday_work_count: 1,
+        approved_off_request_count: 3,
+      },
+    ],
   };
 }
 
@@ -83,5 +91,81 @@ describe('schedule input snapshot', () => {
     });
 
     expect(holidaySnapshot.solverInputHash).not.toBe(baseSnapshot.solverInputHash);
+  });
+
+  it('normalizes yearly employee stats by employee id with non-negative integer counts', () => {
+    const solverRequest = createSolverRequest();
+    solverRequest.yearlyEmployeeStats = [
+      {
+        employee_id: 'emp-2',
+        night_shift_count: 1.2,
+        weekend_holiday_work_count: -1,
+        approved_off_request_count: Number.NaN,
+      },
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 4,
+        weekend_holiday_work_count: 2,
+        approved_off_request_count: 1,
+      },
+    ];
+
+    const solverInput = normalizeScheduleSolverInput({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest,
+    });
+
+    expect(solverInput.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 4,
+        weekend_holiday_work_count: 2,
+        approved_off_request_count: 1,
+      },
+      {
+        employee_id: 'emp-2',
+        night_shift_count: 1,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ]);
+  });
+
+  it('changes the snapshot hash when yearly employee stats change', async () => {
+    const baseRequest = createSolverRequest();
+    const changedRequest = createSolverRequest();
+    changedRequest.yearlyEmployeeStats = [
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 3,
+        weekend_holiday_work_count: 1,
+        approved_off_request_count: 3,
+      },
+    ];
+
+    const baseSnapshot = await buildScheduleInputSnapshot({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest: baseRequest,
+      generatorVersion: 'test-generator',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const changedSnapshot = await buildScheduleInputSnapshot({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest: changedRequest,
+      generatorVersion: 'test-generator',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(changedSnapshot.solverInputHash).not.toBe(baseSnapshot.solverInputHash);
   });
 });

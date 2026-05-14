@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import { loadSiteRequirements } from '@/api/employee';
 import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
+import { loadSolverYearlyEmployeeStats } from '@/api/solverYearlyEmployeeStats';
 import {
   getPlanningAssignmentsForVersion,
   getPlanningEmployees,
@@ -9,6 +10,7 @@ import {
 } from '@/api/schedule';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { buildScheduleInputSnapshot } from '@/utils/scheduleInputSnapshot';
+import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
 import type { Shift } from '@/types/shift';
 import type {
   ConstraintMap,
@@ -19,6 +21,7 @@ import type {
   SiteRequirementList,
   SiteRequirements,
   SolverRequest,
+  SolverYearlyEmployeeStats,
 } from '@/types/schedule';
 
 export interface BuildScheduleSolverRequestInput {
@@ -50,6 +53,24 @@ export function resolveSolverHolidayRange(
       .add(solverRequest.organization.draftLength - 1, 'day')
       .format('YYYY-MM-DD'),
   };
+}
+
+export async function loadSolverYearlyEmployeeStatsWithFallback(input: {
+  organizationId: string;
+  year: number;
+  employeeIds: string[];
+}): Promise<SolverYearlyEmployeeStats[]> {
+  try {
+    return await loadSolverYearlyEmployeeStats(input);
+  } catch (error) {
+    console.warn('[solver] Failed to load yearly employee stats; falling back to zero stats.', {
+      organizationId: input.organizationId,
+      year: input.year,
+      error,
+    });
+
+    return buildZeroYearlyEmployeeStats(input.employeeIds);
+  }
 }
 
 function buildDateBasedRequirements(
@@ -142,6 +163,9 @@ function buildSolverRequestFromSnapshot(
       employeeCount: requirement.employeeCount,
     })),
     publicHolidays: [...(solverInput.publicHolidays ?? [])],
+    yearlyEmployeeStats: solverInput.yearlyEmployeeStats
+      ? [...solverInput.yearlyEmployeeStats]
+      : buildZeroYearlyEmployeeStats(solverInput.employees.map((employee) => employee.employeeId)),
   };
 }
 
@@ -221,6 +245,11 @@ export function useScheduleSolverRequest() {
       holidayRange.startDate,
       holidayRange.endDate
     );
+    solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
+      organizationId: input.basicInfo.organizationId,
+      year: dayjs(`${input.basicInfo.month}-01`).year(),
+      employeeIds: planningEmployees.map((employee) => employee.employee_id),
+    });
 
     const inputSnapshot = await buildScheduleInputSnapshot({
       scheduleId: input.scheduleId,

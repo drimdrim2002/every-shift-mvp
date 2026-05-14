@@ -3,6 +3,7 @@ import {
   buildRollingHistoryWindow,
   mergePlanningAssignmentsWithFallback,
 } from '@/utils/rollingHistory';
+import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
 import type {
   ConstraintMap,
   PlanningAssignment,
@@ -145,5 +146,8 @@ export function mapToSolverRequest(
     undesirable,
     requirements,
     publicHolidays: [],
+    yearlyEmployeeStats: buildZeroYearlyEmployeeStats(
+      solverEmployees.map((employee) => employee.employee_id)
+    ),
   };
 }

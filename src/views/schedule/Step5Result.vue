@@ -670,7 +670,10 @@ import {
 import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
-import { resolveSolverHolidayRange } from '@/composables/useScheduleSolverRequest';
+import {
+  loadSolverYearlyEmployeeStatsWithFallback,
+  resolveSolverHolidayRange,
+} from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
@@ -2600,6 +2603,11 @@ async function buildSolverRequest() {
     holidayRange.startDate,
     holidayRange.endDate,
   );
+  solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
+    organizationId: basicInfo.organizationId,
+    year: dayjs(`${basicInfo.month}-01`).year(),
+    employeeIds: planningEmployees.map((employee) => employee.employee_id),
+  });
 
   return solverRequest;
 }

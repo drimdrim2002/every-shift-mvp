@@ -144,6 +144,14 @@ describe('mapToSolverRequest', () => {
     expect(payload.organization.shifts.map((shift) => shift.code)).toEqual(['D', 'E', 'N']);
     expect(payload).toMatchObject({
       publicHolidays: [],
+      yearlyEmployeeStats: [
+        {
+          employee_id: 'emp-1',
+          night_shift_count: 0,
+          weekend_holiday_work_count: 0,
+          approved_off_request_count: 0,
+        },
+      ],
     });
     expect(payload.history).toEqual([
       {

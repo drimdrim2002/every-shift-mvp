@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const listPublicHolidayDatesInRangeMock = vi.hoisted(() => vi.fn());
+const loadSolverYearlyEmployeeStatsMock = vi.hoisted(() => vi.fn());
 const loadSiteRequirementsMock = vi.hoisted(() => vi.fn());
 const getPlanningAssignmentsForVersionMock = vi.hoisted(() => vi.fn());
 const getPlanningEmployeesMock = vi.hoisted(() => vi.fn());
@@ -9,6 +10,10 @@ const getScheduleVersionPreferencesMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/api/publicHolidays', () => ({
   listPublicHolidayDatesInRange: listPublicHolidayDatesInRangeMock,
+}));
+
+vi.mock('@/api/solverYearlyEmployeeStats', () => ({
+  loadSolverYearlyEmployeeStats: loadSolverYearlyEmployeeStatsMock,
 }));
 
 vi.mock('@/api/employee', () => ({
@@ -103,10 +108,21 @@ function createSolverRequest(): SolverRequest {
     undesirable: [],
     requirements: [],
     publicHolidays: [],
+    yearlyEmployeeStats: [
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ],
   };
 }
 
-function createInputSnapshot(publicHolidays?: string[]): ScheduleInputSnapshot {
+function createInputSnapshot(options: {
+  publicHolidays?: string[];
+  yearlyEmployeeStats?: SolverRequest['yearlyEmployeeStats'];
+} = {}): ScheduleInputSnapshot {
   const solverInput = {
     scheduleId: 'schedule-1',
     organizationId: 'org-1',
@@ -138,7 +154,10 @@ function createInputSnapshot(publicHolidays?: string[]): ScheduleInputSnapshot {
       draftLength: 31,
     },
     monthlyRequirements: [],
-    ...(publicHolidays === undefined ? {} : { publicHolidays }),
+    ...(options.publicHolidays === undefined ? {} : { publicHolidays: options.publicHolidays }),
+    ...(options.yearlyEmployeeStats === undefined
+      ? {}
+      : { yearlyEmployeeStats: options.yearlyEmployeeStats }),
   };
 
   return {
@@ -153,6 +172,14 @@ describe('useScheduleSolverRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listPublicHolidayDatesInRangeMock.mockResolvedValue(['2026-01-01', '2026-01-15']);
+    loadSolverYearlyEmployeeStatsMock.mockResolvedValue([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 7,
+        weekend_holiday_work_count: 4,
+        approved_off_request_count: 3,
+      },
+    ]);
     loadSiteRequirementsMock.mockResolvedValue([]);
     getPlanningEmployeesMock.mockResolvedValue([
       {
@@ -191,6 +218,91 @@ describe('useScheduleSolverRequest', () => {
     ]);
   });
 
+  it('fresh build loads annual employee stats for the selected schedule year', async () => {
+    const solver = useScheduleSolverRequest();
+
+    const bundle = await solver.buildScheduleSolverRequest({
+      basicInfo: createBasicInfo(),
+      scheduleId: 'schedule-1',
+      versionId: 'version-1',
+      shifts: createShifts(),
+      siteRequirements: [
+        { dayOfWeek: 4, shiftCode: 'D', requiredCount: 1 },
+      ],
+      constraints: {},
+      lastMonthDays: 5,
+      siteId: 'site-1',
+      fallbackHistoryAssignments: [],
+    });
+
+    expect(loadSolverYearlyEmployeeStatsMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      year: 2026,
+      employeeIds: ['emp-1'],
+    });
+    expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 7,
+        weekend_holiday_work_count: 4,
+        approved_off_request_count: 3,
+      },
+    ]);
+    expect(bundle.inputSnapshot.solverInput.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 7,
+        weekend_holiday_work_count: 4,
+        approved_off_request_count: 3,
+      },
+    ]);
+  });
+
+  it('fresh build falls back to zero annual stats when annual stats loading fails', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    loadSolverYearlyEmployeeStatsMock.mockRejectedValueOnce(new Error('stats query failed'));
+    const solver = useScheduleSolverRequest();
+
+    const bundle = await solver.buildScheduleSolverRequest({
+      basicInfo: createBasicInfo(),
+      scheduleId: 'schedule-1',
+      versionId: 'version-1',
+      shifts: createShifts(),
+      siteRequirements: [
+        { dayOfWeek: 4, shiftCode: 'D', requiredCount: 1 },
+      ],
+      constraints: {},
+      lastMonthDays: 5,
+      siteId: 'site-1',
+      fallbackHistoryAssignments: [],
+    });
+
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      '[solver] Failed to load yearly employee stats; falling back to zero stats.',
+      expect.objectContaining({
+        organizationId: 'org-1',
+        year: 2026,
+        error: expect.any(Error),
+      }),
+    );
+    expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ]);
+    expect(bundle.inputSnapshot.solverInput.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ]);
+  });
+
   it('snapshot rebuild uses stored public holidays without loading them again', async () => {
     const solver = useScheduleSolverRequest();
 
@@ -200,11 +312,30 @@ describe('useScheduleSolverRequest', () => {
       versionId: 'version-1',
       shifts: createShifts(),
       lastMonthDays: 5,
-      inputSnapshot: createInputSnapshot(['2026-01-01']),
+      inputSnapshot: createInputSnapshot({
+        publicHolidays: ['2026-01-01'],
+        yearlyEmployeeStats: [
+          {
+            employee_id: 'emp-1',
+            night_shift_count: 9,
+            weekend_holiday_work_count: 2,
+            approved_off_request_count: 1,
+          },
+        ],
+      }),
     });
 
     expect(listPublicHolidayDatesInRangeMock).not.toHaveBeenCalled();
+    expect(loadSolverYearlyEmployeeStatsMock).not.toHaveBeenCalled();
     expect(bundle.solverRequest.publicHolidays).toEqual(['2026-01-01']);
+    expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 9,
+        weekend_holiday_work_count: 2,
+        approved_off_request_count: 1,
+      },
+    ]);
   });
 
   it('legacy snapshot rebuild defaults missing public holidays to an empty list', async () => {
@@ -220,7 +351,16 @@ describe('useScheduleSolverRequest', () => {
     });
 
     expect(listPublicHolidayDatesInRangeMock).not.toHaveBeenCalled();
+    expect(loadSolverYearlyEmployeeStatsMock).not.toHaveBeenCalled();
     expect(bundle.solverRequest.publicHolidays).toEqual([]);
+    expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ]);
   });
 
   it('resolveSolverHolidayRange includes the first and last draft dates', () => {

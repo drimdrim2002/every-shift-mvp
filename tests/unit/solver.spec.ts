@@ -56,6 +56,14 @@ function createSolverRequest(): SolverRequest {
       },
     ],
     publicHolidays: [],
+    yearlyEmployeeStats: [
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ],
   };
 }
 
@@ -207,6 +215,36 @@ describe('solver api', () => {
 
       const [, init] = fetchMock.mock.calls[0]!;
       expect(JSON.parse(String(init?.body)).publicHolidays).toEqual(['2026-01-01']);
+    });
+
+    it('passes yearly employee stats through to the solver api payload', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ execution_id: 'exec-123' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const request = createSolverRequest();
+      request.yearlyEmployeeStats = [
+        {
+          employee_id: 'emp-1',
+          night_shift_count: 5,
+          weekend_holiday_work_count: 2,
+          approved_off_request_count: 1,
+        },
+      ];
+
+      await createSolverExecution(request, directApiEnv);
+
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(JSON.parse(String(init?.body)).yearlyEmployeeStats).toEqual([
+        {
+          employee_id: 'emp-1',
+          night_shift_count: 5,
+          weekend_holiday_work_count: 2,
+          approved_off_request_count: 1,
+        },
+      ]);
     });
 
     it('preserves code/message/status for non-2xx json responses', async () => {

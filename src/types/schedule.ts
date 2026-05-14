@@ -141,6 +141,13 @@ export interface ScheduleInputSnapshotMonthlyRequirement {
   employeeCount: number;
 }
 
+export interface SolverYearlyEmployeeStats {
+  employee_id: string;
+  night_shift_count: number;
+  weekend_holiday_work_count: number;
+  approved_off_request_count: number;
+}
+
 export interface ScheduleInputSnapshotSolverInput {
   scheduleId: string;
   organizationId: string;
@@ -148,6 +155,7 @@ export interface ScheduleInputSnapshotSolverInput {
   month: string;
   lastMonthDays: number;
   publicHolidays: string[];
+  yearlyEmployeeStats: SolverYearlyEmployeeStats[];
   employees: ScheduleInputSnapshotEmployee[];
   assignments: ScheduleInputSnapshotAssignment[];
   employeeConstraints: ScheduleInputSnapshotEmployeeConstraint[];
@@ -563,6 +571,7 @@ export interface SolverRequest {
   undesirable: SolverRequestUndesirableItem[];
   requirements: SolverRequestRequirementItem[];
   publicHolidays: string[];
+  yearlyEmployeeStats: SolverYearlyEmployeeStats[];
 }
 
 // API 응답 타입

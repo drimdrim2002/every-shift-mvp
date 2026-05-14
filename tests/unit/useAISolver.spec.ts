@@ -57,6 +57,8 @@ function createSolverRequest(): SolverRequest {
     history: [],
     undesirable: [],
     requirements: [],
+    publicHolidays: [],
+    yearlyEmployeeStats: [],
   };
 }
 

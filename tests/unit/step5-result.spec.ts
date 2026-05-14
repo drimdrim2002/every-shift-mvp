@@ -42,6 +42,7 @@ const {
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
   listPublicHolidayDatesInRangeMock,
+  loadSolverYearlyEmployeeStatsMock,
   mapToSolverRequestMock,
   showSuccessMock,
   showErrorMock,
@@ -72,6 +73,7 @@ const {
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
   listPublicHolidayDatesInRangeMock: vi.fn(),
+  loadSolverYearlyEmployeeStatsMock: vi.fn(),
   mapToSolverRequestMock: vi.fn(() => ({})),
   showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -112,6 +114,10 @@ vi.mock('@/api/schedule', () => ({
 
 vi.mock('@/api/publicHolidays', () => ({
   listPublicHolidayDatesInRange: listPublicHolidayDatesInRangeMock,
+}))
+
+vi.mock('@/api/solverYearlyEmployeeStats', () => ({
+  loadSolverYearlyEmployeeStats: loadSolverYearlyEmployeeStatsMock,
 }))
 
 vi.mock('@/api/ops', () => ({
@@ -247,6 +253,7 @@ function createStep5SolverRequest(month = '2025-12') {
       draftLength: dayjs(`${month}-01`).daysInMonth(),
     },
     publicHolidays: [],
+    yearlyEmployeeStats: [],
   }
 }
 
@@ -608,6 +615,7 @@ describe('Step5Result', () => {
       createStep5SolverRequest(basicInfo.month)
     ))
     listPublicHolidayDatesInRangeMock.mockResolvedValue(['2025-12-25'])
+    loadSolverYearlyEmployeeStatsMock.mockResolvedValue([])
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
       warning: vi.fn(),
@@ -3515,6 +3523,21 @@ describe('Step5Result', () => {
     await flushPromises()
     await flushPromises()
     mapToSolverRequestMock.mockClear()
+    getPlanningEmployeesMock.mockResolvedValue([
+      {
+        employee_id: 'emp-1',
+        name: 'Kim',
+        available_shifts: ['D', 'E', 'N', 'O'],
+      },
+    ])
+    loadSolverYearlyEmployeeStatsMock.mockResolvedValue([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 3,
+        weekend_holiday_work_count: 2,
+        approved_off_request_count: 1,
+      },
+    ])
 
     const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
     expect(startSolverButton.attributes('disabled')).toBeUndefined()
@@ -3543,10 +3566,23 @@ describe('Step5Result', () => {
       ],
     )
     expect(listPublicHolidayDatesInRangeMock).toHaveBeenCalledWith('2025-04-01', '2025-04-30')
+    expect(loadSolverYearlyEmployeeStatsMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      year: 2025,
+      employeeIds: ['emp-1'],
+    })
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
         publicHolidays: ['2025-12-25'],
+        yearlyEmployeeStats: [
+          {
+            employee_id: 'emp-1',
+            night_shift_count: 3,
+            weekend_holiday_work_count: 2,
+            approved_off_request_count: 1,
+          },
+        ],
       }),
     )
   })
