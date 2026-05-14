@@ -141,7 +141,7 @@ describe('PublicLandingView', () => {
     const sections = wrapper.findAll('[data-test="public-value-section"]')
 
     expect(sections).toHaveLength(5)
-    expect(sections[0].text()).toContain('AI Solver가 근무표를 자동으로 완성합니다')
+    expect(sections[0].text()).toContain('근무표 자동 완성 흐름을 검토 가능한 결과로 보여줍니다')
     expect(sections[1].text()).toContain('병동과 근무자의 조건을 함께 반영합니다')
     expect(sections[2].text()).toMatch(/가이드라인|점검/)
 

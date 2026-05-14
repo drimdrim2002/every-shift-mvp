@@ -23,20 +23,24 @@ export interface PublicLandingValueSection {
 }
 
 export const publicLandingHero: PublicLandingHeroContent = {
-  kicker: '',
-  sloganLines: ['모두의 근무표', '근무표의 모든 것'],
+  kicker: '간호사 근무표 생성/검토',
+  sloganLines: ['근무표 생성부터', '검토와 내보내기까지'],
   body:
-    'everyshift가 근무표 생성의 표준을 제시합니다.',
+    'EveryShift는 병동 조건, Off 요청, 가이드라인 점검을 함께 보며 간호사 근무표를 만들고 확정 전 검토할 수 있게 돕습니다.',
 }
 
 export const publicLandingSections: readonly PublicLandingValueSection[] = [
   {
     id: 'ai-schedule',
     navLabel: '자동 완성',
-    headline: 'AI Solver가 근무표를 자동으로 완성합니다',
+    headline: '근무표 자동 완성 흐름을 검토 가능한 결과로 보여줍니다',
     description:
-      'SCM/물류 최적화 전문가와 수간호사님들의 도움을 받아 근무표 생성을 위한 AI Solver를 개발하였습니다.',
-    details: ['버튼 클릭으로 수분 내 최적화된 근무표 생성', '실제 병원 요구 사항을 분석하고 반영', '기존 근무표와 비교해 개선된 결과 제공'],
+      '병동 조건과 Off 요청을 입력한 뒤 자동 완성 흐름을 실행하고, 반영 결과를 확정 전 검토할 수 있습니다.',
+    details: [
+      '병동 조건과 Off 요청 기반 자동 완성 흐름',
+      '반영/미반영 항목을 확인할 수 있는 결과 화면',
+      '확정 전 검토 가능한 근무표 결과 제공',
+    ],
     preview: 'ai',
   },
   {
@@ -51,10 +55,14 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
   {
     id: 'guide-check',
     navLabel: '가이드라인 점검',
-    headline: '보건복지부 근무 가이드라인을 준수합니다',
+    headline: '확정 전 가이드라인을 점검합니다',
     description:
-      '근로기준법 근무 시간, 야간 근무에 대한 규정 등을 준수하고 위반 여부를 화면에서 바로 확인하도록 설계했습니다.',
-    details: ['연속 야간 근무는 최대 3일', '연속 야간 종료 후 48시간 이상 휴식 보장', '위반 여부를 쉽게 확인'],
+      '연속 야간, 야간 후 휴식, NOD 금지, 필요 인력 충족 여부를 확정 전에 확인하고 검토 항목으로 남깁니다.',
+    details: [
+      '연속 야간과 야간 후 휴식 기준 점검',
+      'NOD 금지와 필요 인력 충족 여부 확인',
+      '확정 전 검토 항목 표시',
+    ],
     preview: 'guide',
   },
   {
@@ -62,11 +70,11 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     navLabel: '유연한 운영',
     headline: '근무표 결과를 유연하게 운영할 수 있습니다',
     description:
-      '생성된 근무표 결과를 직접 수정하고 여러 버전을 비교한 뒤 Excel로 내보낼 수 있습니다.',
+      '생성된 근무표 결과를 직접 수정하고 저장한 뒤 재검증을 거쳐 Excel로 내보낼 수 있습니다.',
     details: [
-      '결과 직접 수정',
-      '여러 버전의 근무표 비교',
-      'Excel 내보내기 전 최종 확인',
+      '결과 직접 수정 후 저장',
+      '저장된 여러 버전 확인',
+      '재검증 후 Excel 내보내기',
     ],
     preview: 'compare',
   },
@@ -75,8 +83,12 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     navLabel: '공정성 관리',
     headline: '근무표를 계속 공정하게 관리합니다',
     description:
-      '근무자별 야간, 주말, Off 현황과 월별 rolling 이력을 함께 확인해 누적 기준의 공정성을 관리합니다.',
-    details: ['근무자별 야간/주말/Off 현황 시각화', '월별 rolling 이력 확인', '누적 공정성 확인'],
+      '확정 이력과 근무자별 야간, 주말, Off 현황을 기간별 rolling 관점으로 확인해 누적 기준의 공정성을 관리합니다.',
+    details: [
+      '확정 이력 기반 기간별 rolling 확인',
+      '근무자별 야간/주말/Off 누적 현황',
+      '누적 공정성 확인',
+    ],
     preview: 'fairness',
   },
 ] as const
