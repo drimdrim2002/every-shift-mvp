@@ -388,7 +388,7 @@ describe('Step3EmployeeInfo', () => {
     expect(wrapper.vm.pageTitle).toBe('운영 준비 - 직원 기준 설정')
     expect(wrapper.text()).toContain('조직의 직원 기본 정보를 관리합니다.')
     expect(wrapper.text()).toContain('대시보드로 돌아가기')
-    expect(wrapper.text()).toContain('저장 후 근무표 생성 시작')
+    expect(wrapper.text()).toContain('저장 후 대시보드로 이동')
     expect(wrapper.text()).not.toContain('이전')
     expect(wrapper.text()).not.toContain('이 단계는 저장만 해도 되고')
     expect(wrapper.findComponent({ name: 'StepIndicator' }).exists()).toBe(false)
@@ -538,7 +538,7 @@ describe('Step3EmployeeInfo', () => {
     )
   })
 
-  it('routes setup-mode primary CTA back to Step1 when nothing changed', async () => {
+  it('routes setup-mode primary CTA back to the dashboard when nothing changed', async () => {
     routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
@@ -552,7 +552,7 @@ describe('Step3EmployeeInfo', () => {
     expect(wrapper.findAll('[data-test="dashboard-return-button"]')).toHaveLength(1)
 
     const nextButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('저장 후 근무표 생성 시작')
+      button.text().includes('저장 후 대시보드로 이동')
     )
     expect(nextButton).toBeTruthy()
 
@@ -560,8 +560,8 @@ describe('Step3EmployeeInfo', () => {
     await flushPromises()
 
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
-    expect(scheduleStoreMock.setEmployees).toHaveBeenCalledWith([])
-    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step1')
+    expect(scheduleStoreMock.setEmployees).not.toHaveBeenCalledWith([])
+    expect(pushMock).toHaveBeenCalledWith('/app')
     expect(pushMock).not.toHaveBeenCalledWith('/app/schedule/step4')
   })
 
@@ -690,7 +690,7 @@ describe('Step3EmployeeInfo', () => {
     expect(pushMock).not.toHaveBeenCalled()
   })
 
-  it('routes setup-mode primary CTA to Step1 after saving', async () => {
+  it('routes setup-mode primary CTA to the dashboard after saving', async () => {
     routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
 
@@ -705,7 +705,7 @@ describe('Step3EmployeeInfo', () => {
     })
 
     const nextButton = wrapper.findAll('button').find((button) =>
-      button.text().includes('저장 후 근무표 생성 시작')
+      button.text().includes('저장 후 대시보드로 이동')
     )
     expect(nextButton).toBeTruthy()
     await nextButton!.trigger('click')
@@ -736,7 +736,7 @@ describe('Step3EmployeeInfo', () => {
     expect(applyEmployeeImportMock).not.toHaveBeenCalled()
     expect(scheduleStoreMock.setEmployees).toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('직원 기본 정보가 저장되었습니다.')
-    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step1')
+    expect(pushMock).toHaveBeenCalledWith('/app')
   })
 
   it('saves dirty employee changes without navigating to Step4', async () => {

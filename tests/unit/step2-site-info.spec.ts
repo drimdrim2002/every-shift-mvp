@@ -10,6 +10,7 @@ const {
   showInfoMock,
   showSuccessMock,
   routeQueryMock,
+  updateSitesMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceSiteRequirementsMock: vi.fn(),
@@ -18,6 +19,7 @@ const {
   showInfoMock: vi.fn(),
   showSuccessMock: vi.fn(),
   routeQueryMock: {} as Record<string, string>,
+  updateSitesMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -34,6 +36,10 @@ vi.mock('@/api/employee', () => ({
   loadSiteRequirements: loadSiteRequirementsMock,
   replaceCanonicalSiteRequirements: replaceSiteRequirementsMock,
   loadCanonicalSiteRequirements: loadSiteRequirementsMock,
+}))
+
+vi.mock('@/api/ops', () => ({
+  updateSites: updateSitesMock,
 }))
 
 vi.mock('@/api/shift', () => ({
@@ -98,6 +104,9 @@ const organizationStoreMock = reactive({
     { code: 'N', name: 'Night', colorCode: '#333333' },
     { code: 'O', name: 'Off', colorCode: '#444444' },
   ],
+  updateFoundationSiteCache: vi.fn((site) => {
+    organizationStoreMock.foundationSite = site
+  }),
 })
 
 vi.mock('@/stores/schedule', () => ({
@@ -110,6 +119,15 @@ vi.mock('@/stores/organization', () => ({
 
 vi.mock('@/components/schedule/StepIndicator.vue', () => ({
   default: { name: 'StepIndicator', template: '<div data-test="step-indicator" />' },
+}))
+
+vi.mock('@/components/ops/SiteFoundationForm.vue', () => ({
+  default: {
+    name: 'SiteFoundationForm',
+    props: ['modelValue', 'saving', 'status', 'canSave'],
+    emits: ['dirty-change', 'save'],
+    template: '<div data-test="site-foundation-form-stub">근무표 기준 장소</div>',
+  },
 }))
 
 import Step2SiteInfo from '@/views/schedule/Step2SiteInfo.vue'
@@ -165,6 +183,7 @@ describe('Step2SiteInfo', () => {
     scheduleStoreMock.siteRequirements = []
     scheduleStoreMock.currentStep = 2
     organizationStoreMock.foundationSite = null
+    organizationStoreMock.updateFoundationSiteCache.mockClear()
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -172,6 +191,17 @@ describe('Step2SiteInfo', () => {
     }
     loadSiteRequirementsMock.mockResolvedValue([])
     replaceSiteRequirementsMock.mockResolvedValue(undefined)
+    updateSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: {
+        id: 'site-1',
+        organizationId: 'org-1',
+        code: 'MAIN',
+        name: '본관',
+        isActive: true,
+        isScheduleActive: true,
+      },
+    })
   })
 
   it('waits for the initial requirements preload before rendering the editable table', async () => {
@@ -255,6 +285,8 @@ describe('Step2SiteInfo', () => {
     expect(pushMock).not.toHaveBeenCalledWith('/schedule/step1')
     expect(wrapper.vm.pageTitle).toBe('운영 준비 - 기준 장소와 근무 기준 설정')
     expect(wrapper.text()).toContain('이 설정은 이번 달만이 아니라 조직의 기본값에 적용됩니다.')
+    expect(wrapper.text()).toContain('근무표가 어느 장소를 기준으로 만들어지는지 먼저 정합니다.')
+    expect(wrapper.find('[data-test="site-foundation-form-stub"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('대시보드로 돌아가기')
     expect(wrapper.text()).toContain('저장 후 직원 정보로 이동')
     expect(wrapper.find('[data-test="setup-action-bar"]').exists()).toBe(true)
@@ -265,6 +297,52 @@ describe('Step2SiteInfo', () => {
     expect(wrapper.text()).not.toContain('이전')
     expect(wrapper.text()).not.toContain('이 단계는 저장만 해도 되고')
     expect(wrapper.findComponent({ name: 'StepIndicator' }).exists()).toBe(false)
+  })
+
+  it('blocks setup-mode next step until the schedule site is saved', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('저장 후 직원 정보로 이동')
+    )
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('근무표 기준 장소를 먼저 저장해주세요.')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks setup-mode next step when saved site exists but every day total is still zero', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+    organizationStoreMock.foundationSite = {
+      id: 'site-1',
+      organizationId: 'org-1',
+      code: 'MAIN',
+      name: '본관',
+      isActive: true,
+      isScheduleActive: true,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('button').find((button) =>
+      button.text().includes('저장 후 직원 정보로 이동')
+    )
+    expect(nextButton).toBeTruthy()
+    await nextButton!.trigger('click')
+    await flushPromises()
+
+    expect(showErrorMock).toHaveBeenCalledWith('월요일 요일의 총 필요 인원은 1명 이상이어야 합니다.')
+    expect(replaceSiteRequirementsMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalled()
   })
 
   it('uses canonical defaults in setup mode when the database has no site requirements', async () => {

@@ -123,7 +123,7 @@
               :loading="isSaving"
               @click="handleNext"
             >
-              저장 후 근무표 생성 시작
+              저장 후 대시보드로 이동
             </n-button>
           </template>
         </PageActionBar>
@@ -585,14 +585,13 @@ async function handleSave() {
 async function handleNext() {
   if (isSetupEntry.value) {
     if (!hasUnsavedChanges.value) {
-      scheduleStore.setEmployees([]);
-      router.push(getScheduleStepRoutePath(1));
+      router.push(getAppHomeRoutePath());
       return;
     }
 
     await confirmAndSave({
       onSaved: () => {
-        router.push(getScheduleStepRoutePath(1));
+        router.push(getAppHomeRoutePath());
       },
     });
     return;

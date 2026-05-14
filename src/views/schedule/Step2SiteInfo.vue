@@ -5,6 +5,28 @@
       :current-step="2"
     />
 
+    <section
+      v-if="isSetupEntry"
+      class="mb-6 space-y-3"
+    >
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900">
+          근무표 기준 장소
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+          근무표가 어느 장소를 기준으로 만들어지는지 먼저 정합니다.
+        </p>
+      </div>
+      <SiteFoundationForm
+        :model-value="orgStore.foundationSite"
+        :saving="siteSaving"
+        :status="siteStatus"
+        :can-save="siteCanSave"
+        @dirty-change="handleSiteDirtyChange"
+        @save="handleSaveSites"
+      />
+    </section>
+
     <n-card :title="pageTitle">
       <p
         v-if="!isSetupEntry"
@@ -17,7 +39,7 @@
         class="mb-4"
       >
         <p class="text-base text-gray-600">
-          병원의 공통 기준 장소와 근무 기준을 정리합니다.
+          요일마다 필요한 근무 인원을 입력합니다. 이 숫자가 매달 근무표를 만들 때 기본 기준이 됩니다.
         </p>
         <n-alert
           type="warning"
@@ -213,14 +235,17 @@ import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NAlert, NInputNumber } from 'naive-ui';
 import PageActionBar from '@/components/ui/PageActionBar.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
+import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { updateSites } from '@/api/ops';
 import { loadCanonicalSiteRequirements, replaceCanonicalSiteRequirements } from '@/api/employee';
 import { getSchedulingShifts } from '@/api/shift';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 import { buildScheduleEntryQuery, isSetupEntryMode } from '@/utils/scheduleEntryMode';
 import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { SiteRequirementRow } from '@/types/excel';
+import type { FoundationSaveState, SiteRequest } from '@/types/ops';
 import { DAY_NAMES } from '@/types/excel';
 
 const router = useRouter();
@@ -232,6 +257,9 @@ const dayNames = DAY_NAMES;
 const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순서
 
 const isSaving = ref(false);
+const siteSaving = ref(false);
+const siteDirty = ref(false);
+const siteSaveFailed = ref(false);
 const loading = ref(true);
 const baselineRequirementsSnapshot = ref('');
 const isSetupEntry = computed(() => isSetupEntryMode(route.query));
@@ -274,6 +302,51 @@ const primarySiteLabel = computed(() => {
 
   return `${primarySite.name} (${primarySite.code})`;
 });
+
+const hasSavedSetupSite = computed(() => {
+  const site = orgStore.foundationSite;
+  return Boolean(
+    site?.isActive
+    && site?.isScheduleActive
+    && site.code.trim()
+    && site.name.trim()
+  );
+});
+
+function hasSiteFoundationValue(): boolean {
+  const site = orgStore.foundationSite;
+  return Boolean(site?.code.trim() && site?.name.trim());
+}
+
+function resolveSaveState(options: {
+  saving: boolean;
+  dirty: boolean;
+  failed: boolean;
+  hasValue: boolean;
+}): FoundationSaveState {
+  if (options.saving) {
+    return 'saving';
+  }
+
+  if (options.failed && options.dirty) {
+    return 'error';
+  }
+
+  if (options.dirty) {
+    return 'dirty';
+  }
+
+  return options.hasValue ? 'saved' : 'empty';
+}
+
+const siteStatus = computed(() => resolveSaveState({
+  saving: siteSaving.value,
+  dirty: siteDirty.value,
+  failed: siteSaveFailed.value,
+  hasValue: hasSiteFoundationValue(),
+}));
+
+const siteCanSave = computed(() => siteDirty.value && !siteSaving.value);
 
 const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
@@ -476,7 +549,7 @@ function validateBeforeSave(): string | null {
 }
 
 function handleReturnToDashboard() {
-  if (hasChanges.value) {
+  if (hasChanges.value || (isSetupEntry.value && siteDirty.value)) {
     showInfo(
       isSetupEntry.value
         ? '변경된 데이터가 있습니다. 저장 후 이동하세요.'
@@ -487,6 +560,41 @@ function handleReturnToDashboard() {
 
   scheduleStore.reset();
   router.push(getAppHomeRoutePath());
+}
+
+function handleSiteDirtyChange(isDirty: boolean) {
+  siteDirty.value = isDirty;
+  if (!isDirty) {
+    siteSaveFailed.value = false;
+  }
+}
+
+async function handleSaveSites(value: SiteRequest) {
+  const organizationId = resolvedOrganizationId.value;
+
+  if (!organizationId) {
+    showError('조직 정보를 찾을 수 없습니다. 다시 시도해주세요.');
+    return;
+  }
+
+  siteSaveFailed.value = false;
+  siteSaving.value = true;
+
+  try {
+    const saved = await updateSites({
+      organizationId,
+      site: value,
+    });
+    orgStore.updateFoundationSiteCache?.(saved.site);
+    siteDirty.value = false;
+    showSuccess('근무표 기준 장소가 저장되었습니다.');
+  } catch (error) {
+    siteSaveFailed.value = true;
+    const errorMessage = error instanceof Error ? error.message : '근무표 기준 장소 저장에 실패했습니다.';
+    showError(errorMessage);
+  } finally {
+    siteSaving.value = false;
+  }
 }
 
 function handlePrev() {
@@ -572,6 +680,22 @@ async function handleSave() {
 
 async function handleNext() {
   if (isSetupEntry.value) {
+    if (siteDirty.value) {
+      showInfo('변경된 기준 장소가 있습니다. 저장 후 이동하세요.');
+      return;
+    }
+
+    if (!hasSavedSetupSite.value) {
+      showError('근무표 기준 장소를 먼저 저장해주세요.');
+      return;
+    }
+
+    const validationError = validateBeforeSave();
+    if (validationError) {
+      showError(validationError);
+      return;
+    }
+
     if (!hasChanges.value) {
       navigateToStep3();
       return;

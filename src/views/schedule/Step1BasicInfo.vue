@@ -1,20 +1,74 @@
 <template>
   <div class="mx-auto max-w-7xl px-4">
-    <StepIndicator :current-step="1" />
+    <StepIndicator
+      v-if="!isSetupEntry"
+      :current-step="1"
+    />
 
-    <n-card title="근무표 생성 - 기본 정보 설정">
+    <n-card :title="pageTitle">
       <n-space
         vertical
         :size="24"
       >
-        <!-- Section 1: 조직 정보 (읽기 전용) -->
+        <n-alert
+          v-if="isSetupEntry"
+          type="info"
+        >
+          처음 근무표를 만들기 전에 병원명과 실제 사용하는 근무 유형을 먼저 정리합니다.
+          이 설정은 이후 새 근무표를 만들 때 기본값으로 사용됩니다.
+        </n-alert>
+
+        <!-- Section 1: 조직 정보 -->
         <div>
           <h3 class="mb-4 text-xl font-semibold">
             1. 병원 정보
           </h3>
-          
+
+          <div
+            v-if="isSetupEntry"
+            class="space-y-4"
+          >
+            <p class="text-sm text-gray-600">
+              근무표에 표시될 병원명을 확인합니다. 병원 종류는 현재 선택된 조직 기준으로 사용합니다.
+            </p>
+            <n-form
+              :model="setupOrganizationProfile"
+              label-placement="top"
+            >
+              <n-form-item label="병원명">
+                <n-input
+                  v-model:value="setupOrganizationProfile.name"
+                  placeholder="병원명을 입력하세요"
+                  :disabled="organizationSaving"
+                />
+              </n-form-item>
+            </n-form>
+            <div class="rounded-lg bg-gray-50 p-4">
+              <div class="space-y-2 text-sm">
+                <div>
+                  <span class="font-medium text-gray-700">기관 종류:</span>
+                  <span class="ml-2 text-gray-900">{{ getOrgTypeLabel(setupOrganizationProfile.type) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <n-button
+                type="primary"
+                secondary
+                :loading="organizationSaving"
+                :disabled="!canConfirmOrganizationProfile"
+                @click="handleSaveOrganizationProfile"
+              >
+                병원 정보 확인 완료
+              </n-button>
+            </div>
+          </div>
+
           <!-- 간략한 조직 정보 표시 -->
-          <div class="mb-4 rounded-lg bg-gray-50 p-4">
+          <div
+            v-else
+            class="mb-4 rounded-lg bg-gray-50 p-4"
+          >
             <div class="space-y-2 text-sm">
               <div>
                 <span class="font-medium text-gray-700">병원명:</span>
@@ -28,11 +82,20 @@
           </div>
           
           <!-- 계획월 표시 (읽기 전용) -->
-          <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div
+            v-if="!isSetupEntry"
+            class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4"
+          >
             <div class="text-sm">
               <span class="font-medium text-blue-900">계획월:</span>
               <span class="ml-2 text-lg font-semibold text-blue-900">{{ scheduleStore.basicInfo?.month || '-' }}</span>
             </div>
+          </div>
+          <div
+            v-else
+            class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"
+          >
+            계획월은 나중에 새 근무표를 만들 때 선택합니다. 지금은 매달 반복해서 사용할 기본 정보만 준비합니다.
           </div>
         </div>
 
@@ -40,7 +103,7 @@
         <div>
           <div class="mb-4 flex items-center justify-between">
             <h3 class="text-xl font-semibold">
-              2. 시프트 설정
+              2. 근무 유형 설정
             </h3>
             <n-button
               type="primary"
@@ -56,7 +119,14 @@
             type="warning"
             class="mb-4"
           >
-            시프트를 최소 1개 이상 추가해주세요. (시간 정보가 있는 시프트만 표시됩니다)
+            근무표에 배정할 근무 유형을 최소 1개 이상 추가해주세요. 시작/종료 시간이 있는 근무 유형만 사용할 수 있습니다.
+          </n-alert>
+          <n-alert
+            v-else-if="isSetupEntry"
+            type="success"
+            class="mb-4"
+          >
+            실제 배정에 사용할 근무 유형을 확인했습니다. 빠진 근무가 있으면 다음 단계로 가기 전에 추가해주세요.
           </n-alert>
           
           <!-- <n-alert
@@ -84,7 +154,7 @@
             size="medium"
             @click="handleCancel"
           >
-            취소
+            {{ isSetupEntry ? '대시보드로 돌아가기' : '취소' }}
           </n-button>
           <n-button
             type="primary"
@@ -92,7 +162,7 @@
             :disabled="!canProceed"
             @click="handleNext"
           >
-            다음 단계 →
+            {{ isSetupEntry ? '다음: 필요 인원 입력' : '다음 단계 →' }}
           </n-button>
         </div>
       </n-space>
@@ -110,7 +180,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import {
   NCard,
   NSpace,
@@ -118,23 +188,43 @@ import {
   NAlert,
   NDataTable,
   NPopconfirm,
+  NForm,
+  NFormItem,
+  NInput,
   type DataTableColumns,
 } from 'naive-ui';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { getOrganizationProfile, updateOrganizationProfile } from '@/api/ops';
 import { createShift, updateShift, deleteShift } from '@/api/shift';
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
+import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
 import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
+import type { OrganizationProfileRequest } from '@/types/ops';
 import type { Shift } from '@/types/shift';
 
 const router = useRouter();
+const route = useRoute();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
+const DEFAULT_ORGANIZATION_TYPE = 'hospital';
 
 // 시프트 목록 (로컬 상태)
 const shifts = ref<Shift[]>([]);
+const organizationSaving = ref(false);
+const setupOrganizationProfile = ref<OrganizationProfileRequest>({
+  organizationId: '',
+  name: '',
+  type: DEFAULT_ORGANIZATION_TYPE,
+});
+const setupOrganizationProfileBaseline = ref('');
+const organizationTypeBackfillRequired = ref(false);
+const isSetupEntry = computed(() => isSetupEntryMode(route.query));
+const pageTitle = computed(() =>
+  isSetupEntry.value ? '운영 준비 - 병원 정보와 근무 유형 확인' : '근무표 생성 - 기본 정보 설정'
+);
 
 // 시간 정보가 있는 시프트만 필터링 (computed)
 const shiftsWithTime = computed(() => {
@@ -156,6 +246,53 @@ function getOrgTypeLabel(type?: string): string {
   };
   return type ? map[type] || type : '-';
 }
+
+function normalizeOrganizationType(type: string): string {
+  const normalizedType = type.trim();
+  return normalizedType.length > 0 ? normalizedType : DEFAULT_ORGANIZATION_TYPE;
+}
+
+function normalizeOrganizationProfile(
+  profile: OrganizationProfileRequest
+): OrganizationProfileRequest {
+  return {
+    organizationId: profile.organizationId.trim(),
+    name: profile.name.trim(),
+    type: normalizeOrganizationType(profile.type),
+  };
+}
+
+function serializeOrganizationProfile(profile: OrganizationProfileRequest): string {
+  return JSON.stringify(normalizeOrganizationProfile(profile));
+}
+
+function setSetupOrganizationProfile(profile: OrganizationProfileRequest) {
+  const normalizedProfile = normalizeOrganizationProfile(profile);
+  setupOrganizationProfile.value = normalizedProfile;
+  setupOrganizationProfileBaseline.value = serializeOrganizationProfile(normalizedProfile);
+}
+
+function buildFallbackOrganizationProfile(): OrganizationProfileRequest | null {
+  if (!orgStore.current?.id) {
+    return null;
+  }
+
+  return {
+    organizationId: orgStore.current.id,
+    name: orgStore.current.name ?? '',
+    type: normalizeOrganizationType(orgStore.current.type ?? ''),
+  };
+}
+
+const hasOrganizationProfileChanges = computed(() =>
+  serializeOrganizationProfile(setupOrganizationProfile.value) !== setupOrganizationProfileBaseline.value
+);
+
+const canConfirmOrganizationProfile = computed(() =>
+  setupOrganizationProfile.value.organizationId.trim().length > 0
+  && setupOrganizationProfile.value.name.trim().length > 0
+  && !organizationSaving.value
+);
 
 // 폼 유효성 검증 규칙 - 제거됨
 
@@ -238,7 +375,11 @@ const shiftColumns = computed<DataTableColumns<Shift>>(() => [
 
 // 진행 가능 여부
 const canProceed = computed(() => {
-  return (
+  if (isSetupEntry.value) {
+    return shiftsWithTime.value.length > 0 && orgStore.current !== null && canConfirmOrganizationProfile.value;
+  }
+
+  return Boolean(
     scheduleStore.basicInfo?.month &&
     shiftsWithTime.value.length > 0 &&
     orgStore.current !== null
@@ -248,13 +389,15 @@ const canProceed = computed(() => {
 // 초기화
 onMounted(async () => {
   // Dashboard에서 계획월이 설정되지 않은 경우 Dashboard로 리다이렉트
-  if (!scheduleStore.basicInfo?.month) {
+  if (!isSetupEntry.value && !scheduleStore.basicInfo?.month) {
     window.$message?.warning('계획월을 먼저 선택해주세요');
     router.push(getAppHomeRoutePath());
     return;
   }
 
-  const result = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+  const result = isSetupEntry.value
+    ? await orgStore.loadOrganization()
+    : await orgStore.loadOrganization(scheduleStore.basicInfo?.organizationId);
 
   if (!result.success) {
     window.$message?.error(result.error || '조직 정보를 불러올 수 없습니다.');
@@ -266,7 +409,66 @@ onMounted(async () => {
   if (orgStore.shifts.length > 0) {
     shifts.value = [...orgStore.shifts];
   }
+
+  if (isSetupEntry.value) {
+    await loadSetupOrganizationProfile();
+  }
 });
+
+async function loadSetupOrganizationProfile() {
+  const fallbackProfile = buildFallbackOrganizationProfile();
+  if (!fallbackProfile) {
+    return;
+  }
+
+  try {
+    const profile = await getOrganizationProfile(fallbackProfile.organizationId);
+    organizationTypeBackfillRequired.value = profile.type.trim().length === 0;
+    setSetupOrganizationProfile({
+      organizationId: profile.organizationId,
+      name: profile.name || fallbackProfile.name,
+      type: normalizeOrganizationType(profile.type || fallbackProfile.type),
+    });
+  } catch (error) {
+    console.warn('[Step1BasicInfo] Failed to load organization profile:', error);
+    organizationTypeBackfillRequired.value = false;
+    setSetupOrganizationProfile(fallbackProfile);
+  }
+}
+
+async function confirmSetupOrganizationProfile(options: { silent?: boolean } = {}): Promise<boolean> {
+  if (!canConfirmOrganizationProfile.value) {
+    window.$message?.warning('병원명을 입력해주세요.');
+    return false;
+  }
+
+  organizationSaving.value = true;
+
+  try {
+    const saved = await updateOrganizationProfile(
+      normalizeOrganizationProfile(setupOrganizationProfile.value)
+    );
+    organizationTypeBackfillRequired.value = false;
+    setSetupOrganizationProfile(saved);
+    orgStore.updateFoundationProfileCache?.(saved);
+
+    if (!options.silent) {
+      window.$message?.success('병원 정보를 확인했습니다.');
+    }
+
+    return true;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : '병원 정보 확인 중 오류가 발생했습니다.';
+    window.$message?.error(errorMessage);
+    return false;
+  } finally {
+    organizationSaving.value = false;
+  }
+}
+
+async function handleSaveOrganizationProfile() {
+  await confirmSetupOrganizationProfile();
+}
 
 // 시프트 추가 핸들러
 function handleAddShift() {
@@ -357,6 +559,11 @@ function handleShiftCancel() {
 
 // 취소 핸들러
 function handleCancel() {
+  if (isSetupEntry.value && (hasOrganizationProfileChanges.value || organizationTypeBackfillRequired.value)) {
+    window.$message?.info('변경된 병원 정보가 있습니다. 확인 완료 후 이동하세요.');
+    return;
+  }
+
   router.push(getAppHomeRoutePath());
 }
 
@@ -369,6 +576,18 @@ async function handleNext() {
 
   if (shiftsWithTime.value.length === 0) {
     window.$message?.warning('시간 정보가 있는 시프트를 최소 1개 이상 추가해주세요.');
+    return;
+  }
+
+  if (isSetupEntry.value) {
+    const confirmed = await confirmSetupOrganizationProfile({ silent: true });
+    if (!confirmed) return;
+
+    window.$message?.success('기본 정보가 확인되었습니다.');
+    router.push({
+      path: getScheduleStepRoutePath(2),
+      query: buildScheduleEntryQuery('setup'),
+    });
     return;
   }
 

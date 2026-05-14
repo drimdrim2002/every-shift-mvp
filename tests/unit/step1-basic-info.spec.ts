@@ -10,6 +10,9 @@ const {
   supabaseFromMock,
   fetchMock,
   messageMock,
+  routeQueryMock,
+  getOrganizationProfileMock,
+  updateOrganizationProfileMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   createScheduleMock: vi.fn(),
@@ -17,6 +20,9 @@ const {
   loadOrganizationMock: vi.fn(),
   supabaseFromMock: vi.fn(),
   fetchMock: vi.fn(),
+  routeQueryMock: {} as Record<string, string>,
+  getOrganizationProfileMock: vi.fn(),
+  updateOrganizationProfileMock: vi.fn(),
   messageMock: {
     success: vi.fn(),
     warning: vi.fn(),
@@ -28,6 +34,9 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({
     push: pushMock,
   }),
+  useRoute: () => ({
+    query: routeQueryMock,
+  }),
 }))
 
 vi.mock('@/api/schedule', () => ({
@@ -38,6 +47,11 @@ vi.mock('@/api/supabase', () => ({
   supabase: {
     from: supabaseFromMock,
   },
+}))
+
+vi.mock('@/api/ops', () => ({
+  getOrganizationProfile: getOrganizationProfileMock,
+  updateOrganizationProfile: updateOrganizationProfileMock,
 }))
 
 vi.mock('@/stores/schedule', () => ({
@@ -100,7 +114,20 @@ describe('Step1BasicInfo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', fetchMock)
+    Object.keys(routeQueryMock).forEach((key) => {
+      delete routeQueryMock[key]
+    })
     loadOrganizationMock.mockResolvedValue({ success: true })
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    })
+    updateOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    })
     scheduleStoreMock.basicInfo = {
       month: '2025-12',
       organizationId: 'org-1',
@@ -237,5 +264,65 @@ describe('Step1BasicInfo', () => {
       })
     )
     expect(messageMock.success).toHaveBeenCalledWith('기존 스케줄 정보를 유지하고 다음 단계로 이동합니다.')
+  })
+
+  it('opens setup mode without a selected month and continues to Step 2 setup after confirming hospital info', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+
+    const wrapper = mount(Step1BasicInfo, {
+      global: {
+        stubs: {
+          NCard: {
+            template: '<div><slot /></div>',
+          },
+          NSpace: {
+            template: '<div><slot /></div>',
+          },
+          NButton: {
+            template: '<button @click="$emit(\'click\')"><slot /></button>',
+          },
+          NAlert: {
+            template: '<div><slot /></div>',
+          },
+          NDataTable: {
+            template: '<div />',
+          },
+          NPopconfirm: {
+            template: '<div><slot name="trigger" /></div>',
+          },
+          OrganizationProfileForm: {
+            template: '<div data-test="organization-profile-form-stub" />',
+          },
+          StepIndicator: {
+            template: '<div data-test="step-indicator" />',
+          },
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(loadOrganizationMock.mock.calls[0]).toEqual([])
+    expect(pushMock).not.toHaveBeenCalledWith('/app')
+    expect(wrapper.find('[data-test="step-indicator"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('처음 근무표를 만들기 전에')
+    expect(wrapper.text()).toContain('계획월은 나중에 새 근무표를 만들 때 선택합니다.')
+
+    await wrapper.findAll('button').find((button) => button.text().includes('다음'))?.trigger('click')
+    await flushPromises()
+
+    expect(updateOrganizationProfileMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    })
+    expect(setBasicInfoMock).not.toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step2',
+      query: {
+        context: 'setup',
+      },
+    })
   })
 })

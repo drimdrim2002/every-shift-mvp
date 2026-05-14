@@ -90,6 +90,9 @@
             <p class="mt-2 text-sm text-slate-600">
               아래 3가지를 순서대로 완료하면 근무표 생성과 근무표 조회를 사용할 수 있습니다.
             </p>
+            <div class="mt-4 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+              처음 설정은 한 번만 해두면 됩니다. 병원 정보와 근무 유형을 확인한 뒤, 장소별 필요 인원과 직원 명단을 차례대로 저장해주세요.
+            </div>
           </div>
 
           <div class="space-y-3">
@@ -375,7 +378,6 @@ import {
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
   buildCanonicalStep5RouteLocation,
-  getOpsOrganizationSetupRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
 } from '@/constants/routes';
@@ -487,8 +489,8 @@ const READINESS_ITEM_COPY: Record<DashboardReadinessKey, {
   organization_profile: {
     step: 1,
     label: '병원 정보',
-    description: '병원 이름과 운영 기준의 기본 단위를 확인합니다.',
-    actionLabel: '병원 정보 확인하기',
+    description: '병원 이름을 확인하고 실제 사용하는 근무 유형을 정리합니다.',
+    actionLabel: '기본 정보 확인하기',
     waitingReason: '',
   },
   schedule_foundation: {
@@ -862,7 +864,10 @@ function handleCreateNew() {
 
 function getReadinessRoute(key: DashboardReadinessKey) {
   if (key === 'organization_profile') {
-    return getOpsOrganizationSetupRoutePath();
+    return {
+      path: getScheduleStepRoutePath(1),
+      query: buildScheduleEntryQuery('setup'),
+    };
   }
 
   if (key === 'schedule_foundation') {

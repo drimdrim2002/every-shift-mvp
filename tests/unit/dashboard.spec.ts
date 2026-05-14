@@ -876,7 +876,7 @@ describe('Dashboard', () => {
     expect(wrapper.text()).not.toContain('아직 생성된 근무표가 없습니다')
   })
 
-  it('routes onboarding organization profile action to the organization setup screen', async () => {
+  it('routes onboarding organization profile action to Step1 setup mode', async () => {
     getChecklistMock.mockResolvedValue(buildChecklistFixture({
       organization_profile: {
         status: 'blocked',
@@ -902,7 +902,12 @@ describe('Dashboard', () => {
     expect(onboardingItem.exists()).toBe(true)
     await onboardingItem.trigger('click')
 
-    expect(pushMock).toHaveBeenCalledWith('/app/ops/organization-setup')
+    expect(pushMock).toHaveBeenCalledWith({
+      path: '/app/schedule/step1',
+      query: {
+        context: 'setup',
+      },
+    })
   })
 
   it('routes onboarding schedule foundation action to Step2 setup mode', async () => {
