@@ -54,7 +54,7 @@
             </div>
           </div>
 
-          <div class="mx-auto mt-8 max-h-44 w-full max-w-5xl overflow-hidden rounded-lg sm:max-h-56 lg:max-h-60">
+          <div class="mx-auto mt-8 w-full max-w-5xl overflow-hidden rounded-lg">
             <LandingProductPreview variant="overview" />
           </div>
         </div>
@@ -64,12 +64,16 @@
         v-for="(section, index) in publicLandingSections"
         :id="section.id"
         :key="section.id"
+        :ref="(element) => setSectionRef(section.id, element)"
         data-test="public-value-section"
         class="scroll-mt-20 border-b border-gray-200"
         :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
       >
-        <div class="mx-auto grid w-full max-w-6xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:px-8 lg:py-20">
-          <div class="min-w-0">
+        <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+          <div
+            class="min-w-0 max-w-3xl"
+            :class="getTextRevealClasses(section.id)"
+          >
             <p class="text-sm font-semibold text-emerald-700">
               {{ section.navLabel }}
             </p>
@@ -91,7 +95,12 @@
             </ul>
           </div>
 
-          <LandingProductPreview :variant="section.preview" />
+          <div
+            class="w-full"
+            :class="getPreviewRevealClasses(section.id)"
+          >
+            <LandingProductPreview :variant="section.preview" />
+          </div>
         </div>
       </section>
 
@@ -131,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, type ComponentPublicInstance } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import PublicHeader from '@/components/public/PublicHeader.vue'
 import LandingProductPreview from '@/components/public/LandingProductPreview.vue'
@@ -144,4 +154,98 @@ const signupRouteLocation: RouteLocationRaw = {
 }
 
 const inquiryFormUrl = getPublicInquiryFormUrl()
+const sectionRefs = new Map<string, Element>()
+const visibleSectionIds = ref<Set<string>>(createVisibleSectionIds())
+const isRevealEnabled = ref(false)
+let sectionObserver: IntersectionObserver | null = null
+
+function createVisibleSectionIds() {
+  return new Set(publicLandingSections.map((section) => section.id))
+}
+
+function shouldReduceMotion() {
+  return typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function setSectionRef(id: string, element: Element | ComponentPublicInstance | null) {
+  if (typeof Element !== 'undefined' && element instanceof Element) {
+    sectionRefs.set(id, element)
+    return
+  }
+
+  sectionRefs.delete(id)
+}
+
+function isSectionVisible(id: string) {
+  return visibleSectionIds.value.has(id)
+}
+
+function getTextRevealClasses(id: string) {
+  if (!isRevealEnabled.value) {
+    return ''
+  }
+
+  return [
+    'transition-all duration-300 ease-out will-change-transform',
+    isSectionVisible(id) ? 'translate-y-0 opacity-100 delay-0' : 'translate-y-3 opacity-0',
+  ]
+}
+
+function getPreviewRevealClasses(id: string) {
+  if (!isRevealEnabled.value) {
+    return ''
+  }
+
+  return [
+    'transition-all duration-300 ease-out will-change-transform',
+    isSectionVisible(id) ? 'translate-y-0 opacity-100 delay-100' : 'translate-y-4 opacity-0',
+  ]
+}
+
+onMounted(() => {
+  if (
+    typeof window === 'undefined'
+    || shouldReduceMotion()
+    || typeof window.IntersectionObserver === 'undefined'
+  ) {
+    return
+  }
+
+  let observer: IntersectionObserver | null = null
+
+  try {
+    observer = new window.IntersectionObserver((entries, activeObserver) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return
+        }
+
+        const id = entry.target.id
+        visibleSectionIds.value = new Set(visibleSectionIds.value).add(id)
+        activeObserver.unobserve(entry.target)
+      })
+    }, { threshold: 0.18 })
+
+    sectionRefs.forEach((element) => {
+      observer?.observe(element)
+    })
+
+    sectionObserver = observer
+    isRevealEnabled.value = true
+    visibleSectionIds.value = new Set()
+  }
+  catch {
+    observer?.disconnect()
+    sectionObserver = null
+    isRevealEnabled.value = false
+    visibleSectionIds.value = createVisibleSectionIds()
+  }
+})
+
+onBeforeUnmount(() => {
+  sectionObserver?.disconnect()
+  sectionObserver = null
+})
 </script>
