@@ -16,6 +16,7 @@ import {
   isUserHomeRoutePath,
 } from '@/constants/routes'
 import { useRbacStore } from '@/stores/rbac'
+import { isSetupEntryMode } from '@/utils/scheduleEntryMode'
 
 export interface AppNavigationItem {
   label: string
@@ -32,6 +33,10 @@ export function useAppNavigation(): {
   const router = useRouter()
   const rbacStore = useRbacStore()
 
+  function getSetupWorkflowRouteKey(step: 1 | 2 | 3): string {
+    return `${getScheduleStepRoutePath(step)}?context=setup`
+  }
+
   const navigationItems = computed<AppNavigationItem[]>(() => {
     const items: AppNavigationItem[] = []
 
@@ -45,9 +50,9 @@ export function useAppNavigation(): {
         label: '운영 기준',
         key: organizationSetupPath,
         children: [
-          { label: '병원 정보', key: `${organizationSetupPath}#hospital-info` },
-          { label: '병동/근무 기준', key: `${organizationSetupPath}#site-shift-rules` },
-          { label: '직원 정보', key: `${organizationSetupPath}#employee-info` },
+          { label: '병원 정보', key: getSetupWorkflowRouteKey(1) },
+          { label: '병동/근무 기준', key: getSetupWorkflowRouteKey(2) },
+          { label: '직원 정보', key: getSetupWorkflowRouteKey(3) },
         ],
       })
     }
@@ -88,6 +93,10 @@ export function useAppNavigation(): {
     }
 
     if (isScheduleRoutePath(route.path)) {
+      if (isSetupEntryMode(route.query)) {
+        return getOpsOrganizationSetupRoutePath()
+      }
+
       return getScheduleStepRoutePath(1)
     }
 

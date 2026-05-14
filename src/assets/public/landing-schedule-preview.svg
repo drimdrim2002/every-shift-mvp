@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="760" viewBox="0 0 1120 760" role="img" aria-labelledby="title desc">
+  <title id="title">EveryShift automatic schedule result preview</title>
+  <desc id="desc">Edited schedule result table showing multiple nurses, dates, D, E, N, and O assignments with daily staffing totals.</desc>
+  <defs>
+    <style>
+      .bg{fill:#ffffff}
+      .outer{fill:#ffffff;stroke:#cbd5e1;stroke-width:1.2}
+      .head{fill:#f8fafc}
+      .grid{stroke:#cbd5e1;stroke-width:1}
+      .grid-soft{stroke:#e2e8f0;stroke-width:1}
+      .text{font-family:Inter,Arial,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;fill:#111827}
+      .muted{fill:#64748b}
+      .small{font-size:13px}
+      .tiny{font-size:11px}
+      .name{font-size:12px;font-weight:700}
+      .header{font-size:12px;font-weight:700}
+      .total{font-size:12px;font-weight:700}
+      .cell-text{font-size:12px;font-weight:800}
+      .d{fill:#dcfce7;stroke:#86efac}
+      .e{fill:#ffedd5;stroke:#fdba74}
+      .n{fill:#dbeafe;stroke:#93c5fd}
+      .o{fill:#ffffff;stroke:#cbd5e1}
+      .warn{fill:#ffffff;stroke:#ef4444;stroke-width:2}
+      .dot{fill:#5b21b6}
+      .bar{fill:#6ee7b7}
+    </style>
+    <g id="shift-d"><rect class="d" width="38" height="24" rx="3"/><text x="19" y="16" class="text cell-text" text-anchor="middle">D</text></g>
+    <g id="shift-e"><rect class="e" width="38" height="24" rx="3"/><text x="19" y="16" class="text cell-text" text-anchor="middle">E</text></g>
+    <g id="shift-n"><rect class="n" width="38" height="24" rx="3"/><text x="19" y="16" class="text cell-text" text-anchor="middle">N</text></g>
+    <g id="shift-o"><rect class="o" width="38" height="24" rx="3"/><text x="19" y="16" class="muted cell-text" text-anchor="middle">O</text></g>
+  </defs>
+  <rect class="bg" width="1120" height="760"/>
+  <rect x="16" y="10" width="1088" height="736" rx="2" class="outer"/>
+
+  <rect x="16" y="10" width="140" height="78" class="head grid"/>
+  <rect x="156" y="10" width="948" height="36" class="head grid"/>
+  <text x="630" y="32" class="text header" text-anchor="middle">05월</text>
+  <rect x="156" y="46" width="948" height="42" class="head grid"/>
+
+  <text x="86" y="57" class="text header" text-anchor="middle">근무자</text>
+  <g class="text header" text-anchor="middle">
+    <text x="193" y="73">10일</text>
+    <text x="266" y="73">11일</text>
+    <text x="339" y="73">12일</text>
+    <text x="412" y="73">13일</text>
+    <text x="485" y="73">14일</text>
+    <text x="558" y="73">15일</text>
+    <text x="631" y="73">16일</text>
+    <text x="704" y="73">17일</text>
+    <text x="777" y="73">18일</text>
+    <text x="850" y="73">19일</text>
+    <text x="923" y="73">20일</text>
+    <text x="996" y="73">21일</text>
+    <text x="1069" y="73">22일</text>
+  </g>
+
+  <g class="grid-soft">
+    <line x1="156" y1="10" x2="156" y2="746"/>
+    <line x1="229" y1="46" x2="229" y2="746"/>
+    <line x1="302" y1="46" x2="302" y2="746"/>
+    <line x1="375" y1="46" x2="375" y2="746"/>
+    <line x1="448" y1="46" x2="448" y2="746"/>
+    <line x1="521" y1="46" x2="521" y2="746"/>
+    <line x1="594" y1="46" x2="594" y2="746"/>
+    <line x1="667" y1="46" x2="667" y2="746"/>
+    <line x1="740" y1="46" x2="740" y2="746"/>
+    <line x1="813" y1="46" x2="813" y2="746"/>
+    <line x1="886" y1="46" x2="886" y2="746"/>
+    <line x1="959" y1="46" x2="959" y2="746"/>
+    <line x1="1032" y1="46" x2="1032" y2="746"/>
+  </g>
+
+  <g class="grid-soft">
+    <line x1="16" y1="88" x2="1104" y2="88"/>
+    <line x1="16" y1="125" x2="1104" y2="125"/>
+    <line x1="16" y1="162" x2="1104" y2="162"/>
+    <line x1="16" y1="199" x2="1104" y2="199"/>
+    <line x1="16" y1="236" x2="1104" y2="236"/>
+    <line x1="16" y1="273" x2="1104" y2="273"/>
+    <line x1="16" y1="310" x2="1104" y2="310"/>
+    <line x1="16" y1="347" x2="1104" y2="347"/>
+    <line x1="16" y1="384" x2="1104" y2="384"/>
+    <line x1="16" y1="421" x2="1104" y2="421"/>
+    <line x1="16" y1="458" x2="1104" y2="458"/>
+    <line x1="16" y1="495" x2="1104" y2="495"/>
+    <line x1="16" y1="532" x2="1104" y2="532"/>
+    <line x1="16" y1="569" x2="1104" y2="569"/>
+    <line x1="16" y1="606" x2="1104" y2="606"/>
+    <line x1="16" y1="643" x2="1104" y2="643"/>
+    <line x1="16" y1="680" x2="1104" y2="680"/>
+  </g>
+  <line x1="16" y1="643" x2="1104" y2="643" stroke="#334155" stroke-width="2"/>
+
+  <g class="text name" text-anchor="middle">
+    <text x="86" y="112">근무자 01</text>
+    <text x="86" y="149">근무자 02</text>
+    <text x="86" y="186">근무자 03</text>
+    <text x="86" y="223">근무자 04</text>
+    <text x="86" y="260">근무자 05</text>
+    <text x="86" y="297">근무자 06</text>
+    <text x="86" y="334">근무자 07</text>
+    <text x="86" y="371">근무자 08</text>
+    <text x="86" y="408">근무자 09</text>
+    <text x="86" y="445">근무자 10</text>
+    <text x="86" y="482">근무자 11</text>
+    <text x="86" y="519">근무자 12</text>
+    <text x="86" y="556">근무자 13</text>
+    <text x="86" y="593">근무자 14</text>
+    <text x="86" y="630">근무자 15</text>
+  </g>
+
+  <g transform="translate(174 98)">
+    <use href="#shift-d" x="0" y="0"/><use href="#shift-o" x="73" y="0"/><use href="#shift-e" x="146" y="0"/><use href="#shift-e" x="219" y="0"/><use href="#shift-n" x="292" y="0"/><use href="#shift-d" x="365" y="0"/><use href="#shift-o" x="438" y="0"/><use href="#shift-e" x="511" y="0"/><use href="#shift-e" x="584" y="0"/><use href="#shift-e" x="657" y="0"/><use href="#shift-e" x="730" y="0"/><use href="#shift-o" x="803" y="0"/><use href="#shift-e" x="876" y="0"/>
+    <use href="#shift-e" x="0" y="37"/><use href="#shift-e" x="73" y="37"/><use href="#shift-n" x="146" y="37"/><use href="#shift-o" x="219" y="37"/><use href="#shift-o" x="292" y="37"/><use href="#shift-o" x="365" y="37"/><use href="#shift-n" x="438" y="37"/><use href="#shift-o" x="511" y="37"/><use href="#shift-o" x="584" y="37"/><use href="#shift-d" x="657" y="37"/><use href="#shift-d" x="730" y="37"/><use href="#shift-n" x="803" y="37"/><use href="#shift-o" x="876" y="37"/>
+    <use href="#shift-o" x="0" y="74"/><use href="#shift-o" x="73" y="74"/><use href="#shift-d" x="146" y="74"/><use href="#shift-e" x="219" y="74"/><use href="#shift-e" x="292" y="74"/><use href="#shift-e" x="365" y="74"/><use href="#shift-n" x="438" y="74"/><use href="#shift-n" x="511" y="74"/><use href="#shift-o" x="584" y="74"/><use href="#shift-o" x="657" y="74"/><use href="#shift-o" x="730" y="74"/><use href="#shift-d" x="803" y="74"/><use href="#shift-n" x="876" y="74"/>
+    <use href="#shift-o" x="0" y="111"/><use href="#shift-e" x="73" y="111"/><use href="#shift-o" x="146" y="111"/><use href="#shift-n" x="219" y="111"/><use href="#shift-o" x="292" y="111"/><use href="#shift-o" x="365" y="111"/><use href="#shift-d" x="438" y="111"/><use href="#shift-n" x="511" y="111"/><use href="#shift-o" x="584" y="111"/><use href="#shift-n" x="657" y="111"/><use href="#shift-o" x="730" y="111"/><use href="#shift-e" x="803" y="111"/><use href="#shift-o" x="876" y="111"/>
+    <use href="#shift-o" x="0" y="148"/><use href="#shift-e" x="73" y="148"/><use href="#shift-e" x="146" y="148"/><use href="#shift-o" x="219" y="148"/><use href="#shift-d" x="292" y="148"/><use href="#shift-e" x="365" y="148"/><use href="#shift-o" x="438" y="148"/><use href="#shift-o" x="511" y="148"/><use href="#shift-n" x="584" y="148"/><use href="#shift-o" x="657" y="148"/><use href="#shift-d" x="730" y="148"/><use href="#shift-e" x="803" y="148"/><use href="#shift-o" x="876" y="148"/>
+    <use href="#shift-o" x="0" y="185"/><use href="#shift-n" x="73" y="185"/><use href="#shift-o" x="146" y="185"/><use href="#shift-n" x="219" y="185"/><use href="#shift-n" x="292" y="185"/><use href="#shift-o" x="365" y="185"/><use href="#shift-e" x="438" y="185"/><use href="#shift-n" x="511" y="185"/><use href="#shift-o" x="584" y="185"/><use href="#shift-e" x="657" y="185"/><use href="#shift-o" x="730" y="185"/><use href="#shift-o" x="803" y="185"/><use href="#shift-d" x="876" y="185"/>
+    <use href="#shift-o" x="0" y="222"/><use href="#shift-e" x="73" y="222"/><use href="#shift-o" x="146" y="222"/><use href="#shift-o" x="219" y="222"/><use href="#shift-o" x="292" y="222"/><use href="#shift-d" x="365" y="222"/><use href="#shift-e" x="438" y="222"/><use href="#shift-e" x="511" y="222"/><use href="#shift-n" x="584" y="222"/><use href="#shift-o" x="657" y="222"/><use href="#shift-n" x="730" y="222"/><use href="#shift-o" x="803" y="222"/><use href="#shift-o" x="876" y="222"/>
+    <use href="#shift-d" x="0" y="259"/><use href="#shift-o" x="73" y="259"/><use href="#shift-o" x="146" y="259"/><use href="#shift-e" x="219" y="259"/><use href="#shift-e" x="292" y="259"/><use href="#shift-n" x="365" y="259"/><use href="#shift-o" x="438" y="259"/><use href="#shift-o" x="511" y="259"/><use href="#shift-d" x="584" y="259"/><use href="#shift-n" x="657" y="259"/><use href="#shift-o" x="730" y="259"/><use href="#shift-o" x="803" y="259"/><use href="#shift-n" x="876" y="259"/>
+    <use href="#shift-n" x="0" y="296"/><use href="#shift-o" x="73" y="296"/><use href="#shift-o" x="146" y="296"/><use href="#shift-d" x="219" y="296"/><use href="#shift-n" x="292" y="296"/><use href="#shift-n" x="365" y="296"/><use href="#shift-o" x="438" y="296"/><use href="#shift-o" x="511" y="296"/><use href="#shift-d" x="584" y="296"/><use href="#shift-d" x="657" y="296"/><use href="#shift-o" x="730" y="296"/><use href="#shift-o" x="803" y="296"/><use href="#shift-o" x="876" y="296"/>
+    <use href="#shift-o" x="0" y="333"/><use href="#shift-d" x="73" y="333"/><use href="#shift-e" x="146" y="333"/><use href="#shift-o" x="219" y="333"/><use href="#shift-d" x="292" y="333"/><use href="#shift-o" x="365" y="333"/><use href="#shift-d" x="438" y="333"/><use href="#shift-e" x="511" y="333"/><use href="#shift-o" x="584" y="333"/><use href="#shift-n" x="657" y="333"/><use href="#shift-o" x="730" y="333"/><use href="#shift-e" x="803" y="333"/><use href="#shift-o" x="876" y="333"/>
+    <use href="#shift-n" x="0" y="370"/><use href="#shift-o" x="73" y="370"/><use href="#shift-o" x="146" y="370"/><use href="#shift-o" x="219" y="370"/><use href="#shift-o" x="292" y="370"/><use href="#shift-o" x="365" y="370"/><use href="#shift-d" x="438" y="370"/><use href="#shift-d" x="511" y="370"/><use href="#shift-e" x="584" y="370"/><use href="#shift-o" x="657" y="370"/><use href="#shift-d" x="730" y="370"/><use href="#shift-d" x="803" y="370"/><use href="#shift-d" x="876" y="370"/>
+    <use href="#shift-e" x="0" y="407"/><use href="#shift-o" x="73" y="407"/><use href="#shift-n" x="146" y="407"/><use href="#shift-o" x="219" y="407"/><use href="#shift-e" x="292" y="407"/><use href="#shift-o" x="365" y="407"/><use href="#shift-o" x="438" y="407"/><use href="#shift-d" x="511" y="407"/><use href="#shift-d" x="584" y="407"/><use href="#shift-e" x="657" y="407"/><use href="#shift-n" x="730" y="407"/><use href="#shift-o" x="803" y="407"/><use href="#shift-o" x="876" y="407"/>
+    <use href="#shift-e" x="0" y="444"/><use href="#shift-o" x="73" y="444"/><use href="#shift-d" x="146" y="444"/><use href="#shift-o" x="219" y="444"/><use href="#shift-d" x="292" y="444"/><use href="#shift-d" x="365" y="444"/><use href="#shift-o" x="438" y="444"/><use href="#shift-o" x="511" y="444"/><use href="#shift-o" x="584" y="444"/><use href="#shift-o" x="657" y="444"/><use href="#shift-n" x="730" y="444"/><use href="#shift-o" x="803" y="444"/><use href="#shift-e" x="876" y="444"/>
+    <use href="#shift-o" x="0" y="481"/><use href="#shift-d" x="73" y="481"/><use href="#shift-o" x="146" y="481"/><use href="#shift-o" x="219" y="481"/><use href="#shift-d" x="292" y="481"/><use href="#shift-o" x="365" y="481"/><use href="#shift-n" x="438" y="481"/><use href="#shift-o" x="511" y="481"/><use href="#shift-o" x="584" y="481"/><use href="#shift-d" x="657" y="481"/><use href="#shift-o" x="730" y="481"/><use href="#shift-n" x="803" y="481"/><use href="#shift-o" x="876" y="481"/>
+    <use href="#shift-d" x="0" y="518"/><use href="#shift-d" x="73" y="518"/><use href="#shift-o" x="146" y="518"/><use href="#shift-d" x="219" y="518"/><use href="#shift-n" x="292" y="518"/><use href="#shift-o" x="365" y="518"/><use href="#shift-e" x="438" y="518"/><use href="#shift-e" x="511" y="518"/><use href="#shift-n" x="584" y="518"/><use href="#shift-o" x="657" y="518"/><use href="#shift-o" x="730" y="518"/><use href="#shift-n" x="803" y="518"/><use href="#shift-o" x="876" y="518"/>
+  </g>
+
+  <g class="text total" text-anchor="middle">
+    <text x="86" y="669">D</text>
+    <text x="193" y="669">3</text><text x="266" y="669">3</text><text x="339" y="669">3</text><text x="412" y="669">3</text><text x="485" y="669">3</text><text x="558" y="669">3</text><text x="631" y="669">3</text><text x="704" y="669">3</text><text x="777" y="669">3</text><text x="850" y="669">3</text><text x="923" y="669">3</text><text x="996" y="669">3</text><text x="1069" y="669">3</text>
+    <text x="86" y="706">E</text>
+    <text x="193" y="706">3</text><text x="266" y="706">4</text><text x="339" y="706">4</text><text x="412" y="706">4</text><text x="485" y="706">4</text><text x="558" y="706">4</text><text x="631" y="706">3</text><text x="704" y="706">3</text><text x="777" y="706">4</text><text x="850" y="706">4</text><text x="923" y="706">4</text><text x="996" y="706">4</text><text x="1069" y="706">4</text>
+    <text x="86" y="735">N</text>
+    <text x="193" y="735">3</text><text x="266" y="735">3</text><text x="339" y="735">3</text><text x="412" y="735">3</text><text x="485" y="735">3</text><text x="558" y="735">3</text><text x="631" y="735">3</text><text x="704" y="735">3</text><text x="777" y="735">3</text><text x="850" y="735">3</text><text x="923" y="735">3</text><text x="996" y="735">3</text><text x="1069" y="735">3</text>
+  </g>
+  <rect x="320" y="744" width="480" height="6" rx="3" class="bar"/>
+</svg>

@@ -1,5 +1,6 @@
 <template>
   <div
+    v-if="shouldShowProductPreview"
     data-test="landing-product-preview"
     class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm shadow-gray-200/70"
   >
@@ -14,208 +15,359 @@
     </div>
 
     <div
-      v-if="variant === 'overview'"
-      class="grid gap-4 p-4 lg:grid-cols-[1.3fr_0.9fr]"
+      v-if="variant === 'ai'"
+      data-test="landing-ai-schedule-mock"
+      class="p-4"
     >
-      <section class="min-w-0">
-        <div class="flex items-center justify-between gap-3">
-          <p class="text-sm font-semibold text-gray-950">
-            AI 생성 근무표
-          </p>
-          <span class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-            자동 완성
-          </span>
-        </div>
-        <div class="mt-3 overflow-hidden rounded-md border border-gray-200">
-          <div class="min-w-0">
-            <div class="grid grid-cols-[54px_repeat(6,minmax(26px,1fr))] border-b border-gray-200 bg-gray-50 text-[11px] font-semibold text-gray-500 sm:grid-cols-[88px_repeat(6,minmax(40px,1fr))] sm:text-xs">
-              <span class="p-2 sm:px-3">직원</span>
-              <span
-                v-for="day in previewDays"
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm font-semibold text-gray-950">
+          AI 생성 근무표
+        </p>
+        <span class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          자동 완성
+        </span>
+      </div>
+
+      <div
+        data-test="landing-ai-schedule-scroll"
+        class="mt-3 overflow-x-auto rounded-md border border-gray-200"
+      >
+        <table class="min-w-[1120px] border-separate border-spacing-0 text-[11px]">
+          <thead class="bg-gray-50 text-gray-600">
+            <tr>
+              <th
+                scope="col"
+                class="sticky left-0 z-10 w-[96px] border-b border-gray-200 bg-gray-50 px-3 py-2 text-left font-semibold"
+              >
+                근무자
+              </th>
+              <th
+                v-for="day in aiScheduleDays"
                 :key="day.id"
-                class="px-1 py-2 text-center sm:p-2"
+                scope="col"
+                data-test="landing-ai-day-header"
+                :data-day-id="day.id"
+                class="w-[48px] border-b border-gray-200 p-2 text-center font-semibold"
               >
                 {{ day.label }}
-              </span>
-            </div>
-            <div
-              v-for="row in overviewRows"
+              </th>
+              <th
+                v-for="code in aiSummaryCodes"
+                :key="`ai-summary-header-${code}`"
+                scope="col"
+                class="w-[52px] border-b border-l border-gray-200 p-2 text-center font-semibold text-gray-700"
+              >
+                {{ code }}
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr
+              v-for="row in aiScheduleRows"
               :key="row.id"
-              class="grid grid-cols-[54px_repeat(6,minmax(26px,1fr))] border-b border-gray-100 last:border-b-0 sm:grid-cols-[88px_repeat(6,minmax(40px,1fr))]"
+              data-test="landing-ai-employee-row"
+              class="odd:bg-white even:bg-gray-50/40"
             >
-              <span class="truncate p-2 text-[11px] font-medium text-gray-700 sm:px-3 sm:text-xs">
+              <th
+                scope="row"
+                data-test="landing-ai-employee-cell"
+                class="sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-2 text-left font-medium text-gray-800"
+              >
                 {{ row.name }}
-              </span>
-              <span
+              </th>
+              <td
                 v-for="shift in row.shifts"
                 :key="shift.id"
-                class="m-0.5 rounded p-1 text-center text-[11px] font-semibold sm:m-1 sm:px-2 sm:text-xs"
-                :class="shiftClassMap[shift.code]"
+                data-test="landing-ai-shift-cell"
+                :data-day-id="shift.dayId"
+                :data-shift-code="shift.code"
+                :data-off-requested="shift.offRequested ? 'true' : 'false'"
+                :aria-label="shift.offRequested ? `${row.name} ${shift.dayLabel} Off 요청 반영` : undefined"
+                class="border-b border-gray-100 p-1.5 text-center font-semibold"
+                :class="shift.offRequested ? 'ring-1 ring-inset ring-rose-300' : ''"
               >
-                {{ shift.code }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
+                <span
+                  class="mx-auto block rounded px-2 py-1"
+                  :class="aiShiftClassMap[shift.code]"
+                >
+                  {{ shift.code }}
+                </span>
+              </td>
+              <td
+                v-for="code in aiSummaryCodes"
+                :key="`${row.id}-${code}`"
+                data-test="landing-ai-employee-summary-cell"
+                :data-summary-code="code"
+                class="border-b border-l border-gray-100 px-2 py-1.5 text-center font-semibold text-gray-700"
+              >
+                {{ getAiEmployeeSummaryValue(row.employeeId, code) }}
+              </td>
+            </tr>
+          </tbody>
 
-      <section class="grid gap-3">
-        <div class="rounded-md border border-gray-200 p-3">
-          <p class="text-xs font-semibold text-gray-500">
-            Off 요청
-          </p>
-          <p class="mt-1 text-2xl font-bold text-gray-950">
-            18건
-          </p>
-          <p class="mt-1 text-xs text-gray-500">
-            반영 14건, 검토 4건
-          </p>
-        </div>
-        <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
-          <p class="text-xs font-semibold text-amber-700">
-            가이드라인 점검
-          </p>
-          <p class="mt-1 text-sm font-semibold text-gray-950">
-            점검 항목 3개 확인 필요
-          </p>
-        </div>
-        <div class="rounded-md border border-gray-200 p-3">
-          <p class="text-xs font-semibold text-gray-500">
-            Excel 내보내기
-          </p>
-          <div class="mt-2 h-2 rounded-full bg-gray-100">
-            <div class="h-2 w-3/4 rounded-full bg-emerald-600" />
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <div
-      v-else-if="variant === 'ai'"
-      class="grid gap-4 p-4 lg:grid-cols-[0.9fr_1.1fr]"
-    >
-      <section class="grid gap-3">
-        <div
-          v-for="item in generationCriteria"
-          :key="item.id"
-          class="rounded-md border border-gray-200 p-3"
-        >
-          <p class="text-xs font-semibold text-gray-500">
-            {{ item.label }}
-          </p>
-          <p class="mt-1 text-lg font-bold text-gray-950">
-            {{ item.value }}
-          </p>
-          <p class="mt-1 text-xs text-gray-500">
-            {{ item.caption }}
-          </p>
-        </div>
-      </section>
-      <section class="rounded-md border border-gray-200 p-3">
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-sm font-semibold text-gray-950">
-            생성 기준 요약
-          </p>
-          <span class="rounded-md bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">
-            36일 범위
-          </span>
-        </div>
-        <div class="mt-3 space-y-2">
-          <div
-            v-for="row in aiRows"
-            :key="row.id"
-            class="grid grid-cols-[68px_1fr_auto] items-center gap-2 text-xs"
-          >
-            <span class="font-medium text-gray-600">{{ row.label }}</span>
-            <div class="h-2 rounded-full bg-gray-100">
-              <div
-                class="h-2 rounded-full"
-                :class="row.barClass"
-                :style="{ width: row.width }"
-              />
-            </div>
-            <span class="font-semibold text-gray-800">{{ row.value }}</span>
-          </div>
-        </div>
-      </section>
+          <tfoot class="bg-gray-50 font-semibold text-gray-700">
+            <tr
+              v-for="summary in dailyStaffingSummary"
+              :key="summary.code"
+              data-test="landing-ai-summary-row"
+              :data-summary-code="summary.code"
+            >
+              <th
+                scope="row"
+                class="sticky left-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-2 text-left"
+              >
+                {{ summary.label }}
+              </th>
+              <td
+                v-for="daySummary in summary.days"
+                :key="`${summary.code}-${daySummary.dayId}`"
+                data-test="landing-ai-summary-day-cell"
+                :data-day-id="daySummary.dayId"
+                class="border-t border-gray-200 p-2 text-center"
+              >
+                {{ daySummary.count }}
+              </td>
+              <td
+                v-for="code in aiSummaryCodes"
+                :key="`${summary.code}-${code}`"
+                class="border-l border-t border-gray-200 p-2 text-center"
+              >
+                {{ summary.summaryValues[code] }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
 
     <div
       v-else-if="variant === 'conditions'"
-      class="grid gap-3 p-4"
+      class="grid gap-4 p-4 lg:grid-cols-[1.1fr_0.9fr]"
     >
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm font-semibold text-gray-950">
-          조건 반영 결과
-        </p>
-        <span class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-          78% 반영
-        </span>
-      </div>
-      <div
-        v-for="request in offRequests"
-        :key="request.id"
-        class="rounded-md border p-3"
-        :class="request.approved ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-2">
+      <section class="min-w-0 rounded-md border border-gray-200 p-3">
+        <div class="flex items-center justify-between gap-3">
           <p class="text-sm font-semibold text-gray-950">
-            {{ request.employee }} · {{ request.date }}
+            조건 입력
           </p>
-          <span
-            class="rounded-md px-2 py-1 text-xs font-semibold"
-            :class="request.approved ? 'bg-white text-emerald-700' : 'bg-white text-rose-700'"
-          >
-            {{ request.approved ? '반영' : '미반영' }}
+          <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
+            3개 기준
           </span>
         </div>
-        <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-          사유
-        </p>
-        <p class="mt-2 text-xs leading-5 text-gray-600">
-          {{ request.reason }}
-        </p>
-      </div>
+
+        <div class="mt-3 grid gap-3">
+          <div class="rounded-md bg-gray-50 p-3">
+            <p class="text-xs font-semibold text-gray-500">
+              1 요일별 필요 인력
+            </p>
+            <div class="mt-2 overflow-hidden rounded-md border border-gray-200 bg-white">
+              <div
+                v-for="requirement in staffingRequirementPreview"
+                :key="requirement.id"
+                class="grid grid-cols-[68px_1fr] items-center border-b border-gray-100 last:border-b-0"
+              >
+                <span class="px-3 py-2 text-xs font-semibold text-gray-600">
+                  {{ requirement.days }}
+                </span>
+                <span class="flex flex-wrap gap-1.5 p-2">
+                  <span
+                    v-for="shift in requirement.shifts"
+                    :key="shift.id"
+                    class="rounded px-2 py-1 text-xs font-semibold"
+                    :class="shiftClassMap[shift.code]"
+                  >
+                    {{ shift.code }} {{ shift.count }}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-md bg-gray-50 p-3">
+            <p class="text-xs font-semibold text-gray-500">
+              2 근무자별 가능 시프트
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+              <div
+                v-for="employee in employeeShiftPreview"
+                :key="employee.id"
+                class="rounded-md border border-gray-200 bg-white p-2"
+              >
+                <p class="text-xs font-semibold text-gray-700">
+                  {{ employee.name }}
+                </p>
+                <div class="mt-2 flex flex-wrap gap-1.5">
+                  <span
+                    v-for="shift in employee.shifts"
+                    :key="shift"
+                    class="rounded px-2 py-1 text-xs font-semibold"
+                    :class="shiftClassMap[shift]"
+                  >
+                    {{ shift }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-md bg-gray-50 p-3">
+            <p class="text-xs font-semibold text-gray-500">
+              3 사전 Off 요청
+            </p>
+            <div class="mt-2 grid gap-2 sm:grid-cols-3">
+              <div
+                v-for="request in conditionOffRequests"
+                :key="request.id"
+                class="rounded-md border border-gray-200 bg-white p-2"
+              >
+                <p class="text-xs font-semibold text-gray-700">
+                  {{ request.employee }}
+                </p>
+                <p class="mt-1 text-xs text-gray-500">
+                  {{ request.date }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid content-start gap-3">
+        <div class="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-semibold text-emerald-700">
+              조건 반영 완료
+            </p>
+            <span class="rounded-md bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
+              자동 검증
+            </span>
+          </div>
+          <p class="mt-2 text-2xl font-bold text-gray-950">
+            반영 5건 / 검토 1건
+          </p>
+        </div>
+
+        <div
+          v-for="item in conditionResultItems"
+          :key="item.id"
+          class="rounded-md border border-gray-200 p-3"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="text-sm font-semibold text-gray-950">
+                {{ item.title }}
+              </p>
+              <p class="mt-1 text-xs leading-5 text-gray-600">
+                {{ item.description }}
+              </p>
+            </div>
+            <span
+              class="shrink-0 rounded px-2 py-1 text-xs font-semibold"
+              :class="item.statusClass"
+            >
+              {{ item.status }}
+            </span>
+          </div>
+        </div>
+
+        <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <p class="text-xs font-semibold text-amber-700">
+            검토 사유
+          </p>
+          <p class="mt-1 text-sm font-bold text-gray-950">
+            4월 12일 N 가능 인원 부족
+          </p>
+        </div>
+      </section>
     </div>
 
     <div
       v-else-if="variant === 'guide'"
-      class="grid gap-4 p-4 lg:grid-cols-[1fr_0.9fr]"
+      data-test="landing-guide-compliance-mock"
+      class="grid gap-4 p-4 lg:grid-cols-[0.9fr_1.1fr]"
     >
-      <section class="space-y-2">
-        <div
-          v-for="check in guideChecks"
-          :key="check.id"
-          class="flex items-start gap-3 rounded-md border p-3"
-          :class="check.warning ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'"
-        >
-          <span
-            class="mt-0.5 size-2.5 rounded-full"
-            :class="check.warning ? 'bg-amber-500' : 'bg-emerald-500'"
-          />
-          <div class="min-w-0">
-            <p class="text-sm font-semibold text-gray-950">
-              {{ check.label }}
+      <section class="grid content-start gap-3">
+        <div class="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <p class="text-xs font-semibold text-emerald-700">
+            보건복지부 가이드라인
+          </p>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <p class="text-2xl font-bold text-gray-950">
+              충족
             </p>
+            <span class="rounded-md bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
+              확정 가능
+            </span>
+          </div>
+          <p class="mt-2 text-xs leading-5 text-emerald-800">
+            확정 전 필수 기준 5개를 모두 확인했습니다.
+          </p>
+        </div>
+
+        <div class="grid gap-2 sm:grid-cols-3">
+          <div
+            v-for="summary in guideResultSummaries"
+            :key="summary.id"
+            class="rounded-md border border-gray-200 bg-white p-3"
+          >
+            <p class="text-[11px] font-semibold text-gray-500">
+              {{ summary.label }}
+            </p>
+            <p class="mt-1 text-sm font-bold text-gray-950">
+              {{ summary.value }}
+            </p>
+          </div>
+        </div>
+
+        <div class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+          <p class="text-xs leading-5 text-amber-800">
+            현재 보는 근무표안은 편집할 수 없습니다. (생성 중 또는 최종 확정됨)
+          </p>
+        </div>
+      </section>
+
+      <section class="rounded-md border border-gray-200 bg-slate-50 p-3">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-gray-950">
+              보건복지부 가이드라인 상세
+            </p>
+            <p class="mt-1 text-xs text-gray-500">
+              항목별 충족 여부
+            </p>
+          </div>
+          <span class="text-base leading-none text-gray-400">
+            x
+          </span>
+        </div>
+
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <div
+            v-for="check in guideChecks"
+            :key="check.id"
+            class="rounded-md border border-emerald-100 bg-white p-3"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <p class="min-w-0 text-sm font-semibold leading-5 text-gray-950">
+                {{ check.label }}
+              </p>
+              <strong class="shrink-0 text-xs font-bold text-emerald-700">
+                {{ check.status }}
+              </strong>
+            </div>
             <p class="mt-1 text-xs leading-5 text-gray-600">
               {{ check.description }}
             </p>
           </div>
         </div>
-      </section>
-      <section class="rounded-md border border-gray-200 p-3">
-        <p class="text-sm font-semibold text-gray-950">
-          경고 하이라이트
-        </p>
-        <div class="mt-3 grid grid-cols-4 gap-2">
-          <span
-            v-for="cell in guideCells"
-            :key="cell.id"
-            class="rounded p-2 text-center text-xs font-semibold"
-            :class="cell.warning ? 'bg-amber-100 text-amber-800' : shiftClassMap[cell.shift]"
-          >
-            {{ cell.label }}
-          </span>
+
+        <div class="mt-3 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2">
+          <p class="text-xs font-semibold text-emerald-700">
+            위반 없음
+          </p>
+          <p class="mt-1 text-xs leading-5 text-emerald-800">
+            보건복지부 가이드라인 위반 항목이 없습니다.
+          </p>
         </div>
       </section>
     </div>
@@ -296,105 +448,203 @@
     </div>
 
     <div
-      v-else
-      class="grid gap-4 p-4 lg:grid-cols-[1.1fr_0.9fr]"
+      v-else-if="variant === 'fairness'"
+      class="space-y-4 p-4"
     >
       <section class="rounded-md border border-gray-200 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-sm font-semibold text-gray-950">
-            확정 이력 기반 근무자별 누적 기준
-          </p>
-          <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
-            기간 3개월
+          <div>
+            <p class="text-sm font-semibold text-gray-950">
+              근무자별 공정성 비교
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">
+              2026년 3월 ~ 5월 확정 근무표 기준
+            </p>
+          </div>
+          <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+            다음 생성 기준
           </span>
         </div>
+
         <div class="mt-3 grid gap-2 sm:grid-cols-3">
           <div
             v-for="metric in fairnessSummaryMetrics"
             :key="metric.id"
-            class="rounded-md bg-gray-50 p-2"
+            class="rounded-md border border-gray-200 bg-gray-50 p-3"
           >
-            <p class="text-xs text-gray-500">
+            <p class="text-xs font-semibold text-gray-500">
               {{ metric.label }}
             </p>
-            <p class="mt-1 text-sm font-bold text-gray-950">
+            <p class="mt-1 text-lg font-bold text-gray-950">
               {{ metric.value }}
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-600">
+              {{ metric.caption }}
             </p>
           </div>
         </div>
-        <div class="mt-3 space-y-3">
+      </section>
+
+      <section class="overflow-hidden rounded-md border border-gray-200">
+        <div class="border-b border-gray-200 bg-gray-50 px-3 py-2">
+          <p class="text-xs font-semibold text-gray-600">
+            직원별 평균 대비 차이
+          </p>
+        </div>
+
+        <div class="grid gap-3 p-3 lg:hidden">
           <div
             v-for="row in fairnessRows"
             :key="row.id"
-            class="rounded-md bg-gray-50 p-3"
+            class="rounded-md border border-gray-200 bg-white p-3"
           >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="text-xs font-semibold text-gray-700">
-                {{ row.name }}
-              </p>
-              <p class="text-xs font-semibold text-gray-500">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-gray-950">
+                  {{ row.name }}
+                </p>
+                <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
+                  직원 ID {{ row.employeeId }}
+                </p>
+              </div>
+              <span
+                class="shrink-0 rounded px-2 py-1 text-xs font-semibold"
+                :class="row.statusClass"
+              >
                 {{ row.status }}
-              </p>
+              </span>
             </div>
-            <div class="mt-2 grid grid-cols-3 gap-2 text-center">
+
+            <div class="mt-3 grid gap-2">
               <div
                 v-for="metric in row.metrics"
                 :key="metric.id"
-                class="rounded bg-white p-2"
+                class="rounded-md p-2"
+                :class="metric.cellClass"
               >
-                <p class="text-xs text-gray-500">
-                  {{ metric.label }}
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-xs font-semibold text-gray-600">
+                    {{ metric.label }}
+                  </p>
+                  <p class="text-sm font-bold tabular-nums text-gray-950">
+                    {{ metric.value }}
+                  </p>
+                </div>
+                <p class="mt-1 text-xs tabular-nums text-gray-500">
+                  전체 평균 {{ metric.average }} · 평균과의 차이 {{ metric.deltaLabel }}
                 </p>
-                <p class="mt-1 text-sm font-bold text-gray-950">
-                  {{ metric.value }}
+                <div class="mt-2">
+                  <div class="relative h-2 rounded-full bg-white">
+                    <span class="absolute -top-0.5 left-1/2 h-3 w-px bg-gray-400" />
+                    <span
+                      class="absolute top-0 h-2 rounded-full"
+                      :class="metric.barClass"
+                      :style="{ left: metric.barLeft, width: metric.barWidth }"
+                    />
+                  </div>
+                </div>
+                <p
+                  class="mt-1 text-xs font-semibold"
+                  :class="metric.textClass"
+                >
+                  {{ metric.directionLabel }}
                 </p>
               </div>
             </div>
-            <div class="mt-3 h-2 rounded-full bg-white">
+          </div>
+        </div>
+
+        <div class="hidden overflow-x-auto lg:block">
+          <div class="min-w-[920px] divide-y divide-gray-100 text-sm">
+            <div class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-gray-50 text-xs font-semibold text-gray-500">
+              <div class="px-4 py-3 text-center">
+                직원
+              </div>
               <div
-                class="h-2 rounded-full bg-emerald-600"
-                :style="{ width: row.width }"
-              />
+                v-for="metric in fairnessMetricHeaders"
+                :key="metric.id"
+                class="px-4 py-3 text-center"
+              >
+                {{ metric.label }}
+              </div>
+            </div>
+
+            <div
+              v-for="row in fairnessRows"
+              :key="`desktop-${row.id}`"
+              class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-white"
+            >
+              <div class="flex min-h-[5.5rem] items-center justify-center px-4 py-3 text-center">
+                <div class="min-w-0">
+                  <p class="truncate font-semibold text-gray-950">
+                    {{ row.name }}
+                  </p>
+                  <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
+                    직원 ID {{ row.employeeId }}
+                  </p>
+                  <span
+                    class="mt-2 inline-flex rounded px-2 py-0.5 text-xs font-semibold"
+                    :class="row.statusClass"
+                  >
+                    {{ row.status }}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                v-for="metric in row.metrics"
+                :key="`desktop-${metric.id}`"
+                class="min-h-[5.5rem] px-4 py-3 text-center"
+                :class="metric.cellClass"
+              >
+                <p class="font-semibold tabular-nums text-gray-950">
+                  {{ metric.value }}
+                </p>
+                <p class="mt-1 text-xs tabular-nums text-gray-500">
+                  전체 평균 {{ metric.average }}
+                </p>
+                <p class="mt-1 text-xs font-semibold tabular-nums text-gray-700">
+                  평균과의 차이 {{ metric.deltaLabel }}
+                </p>
+                <div class="mt-3">
+                  <div class="relative h-2.5 rounded-full bg-white">
+                    <span class="absolute left-1/2 top-[-0.1875rem] h-4 w-px bg-gray-400" />
+                    <span
+                      class="absolute top-0 h-2.5 rounded-full"
+                      :class="metric.barClass"
+                      :style="{ left: metric.barLeft, width: metric.barWidth }"
+                    />
+                  </div>
+                </div>
+                <p
+                  class="mt-2 text-xs font-semibold"
+                  :class="metric.textClass"
+                >
+                  {{ metric.directionLabel }}
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="grid gap-3">
-        <div class="rounded-md border border-gray-200 p-3">
-          <p class="text-sm font-semibold text-gray-950">
-            확정 이력
-          </p>
-          <div class="mt-3 space-y-2">
-            <div
-              v-for="month in rollingHistory"
-              :key="month.id"
-              class="grid grid-cols-[52px_1fr_auto] items-center gap-2 text-xs"
-            >
-              <span class="font-semibold text-gray-600">{{ month.period }}</span>
-              <div class="h-2 rounded-full bg-gray-100">
-                <div
-                  class="h-2 rounded-full bg-sky-500"
-                  :style="{ width: month.width }"
-                />
-              </div>
-              <span class="font-semibold text-gray-800">{{ month.average }}</span>
-            </div>
+      <section class="rounded-md border border-amber-200 bg-amber-50 p-3">
+        <p class="text-xs font-semibold text-amber-700">
+          다음 근무표 생성 시 조정 기준
+        </p>
+        <div class="mt-2 grid gap-2 sm:grid-cols-3">
+          <div
+            v-for="item in fairnessAdjustmentRules"
+            :key="item.id"
+            class="rounded-md bg-white px-3 py-2"
+          >
+            <p class="text-xs font-semibold text-gray-950">
+              {{ item.title }}
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-600">
+              {{ item.description }}
+            </p>
           </div>
-          <p class="mt-3 text-xs leading-5 text-gray-600">
-            최소/최대 차이와 평균을 함께 검토합니다.
-          </p>
-        </div>
-        <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
-          <p class="text-xs font-semibold text-amber-700">
-            확인 필요
-          </p>
-          <p class="mt-1 text-lg font-bold text-gray-950">
-            이서윤 누적 야간 +2회
-          </p>
-          <p class="mt-1 text-xs leading-5 text-gray-600">
-            확정 이력의 누적 기준으로 다음 배정에서 조정할 항목입니다.
-          </p>
         </div>
       </section>
     </div>
@@ -402,58 +652,71 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { LandingPreviewVariant } from '@/data/publicLandingContent'
 
 type ShiftCode = 'D' | 'E' | 'N' | 'OFF'
+type AiShiftCode = 'D' | 'E' | 'N' | 'O'
+type AiWorkShiftCode = Exclude<AiShiftCode, 'O'>
+type AiSummaryCode = AiWorkShiftCode | 'Total'
 
-interface PreviewDay {
+interface AiScheduleDay {
   id: string
   label: string
 }
 
-interface ShiftCellPreview {
-  id: string
-  code: ShiftCode
-}
-
-interface SchedulePreviewRow {
+interface AiEmployee {
   id: string
   name: string
-  shifts: readonly ShiftCellPreview[]
 }
 
-interface PreviewMetric {
+interface AiScheduleCell {
   id: string
+  dayId: string
+  dayLabel: string
+  code: AiShiftCode
+  offRequested: boolean
+}
+
+interface AiScheduleRow {
+  id: string
+  employeeId: string
+  name: string
+  shifts: readonly AiScheduleCell[]
+}
+
+interface AiScheduleRowDraft {
+  employee: AiEmployee
+  employeeIndex: number
+  shifts: AiScheduleCell[]
+}
+
+type AiStaffingRequirement = Record<AiWorkShiftCode, number>
+type AiEmployeeShiftSummary = Record<AiSummaryCode, number>
+
+interface AiDailyStaffingSummaryCell {
+  dayId: string
+  count: number
+}
+
+interface AiDailyStaffingSummaryRow {
+  code: AiSummaryCode
   label: string
-  value: string
-  caption?: string
-}
-
-interface PreviewProgressMetric extends PreviewMetric {
-  width: string
-  barClass: string
-}
-
-interface OffRequestPreview {
-  id: string
-  employee: string
-  date: string
-  approved: boolean
-  reason: string
+  days: readonly AiDailyStaffingSummaryCell[]
+  summaryValues: Record<AiSummaryCode, string>
 }
 
 interface GuideCheckPreview {
   id: string
   label: string
+  status: string
   description: string
-  warning: boolean
 }
 
-interface GuideCellPreview {
+interface GuideResultSummaryPreview {
   id: string
   label: string
-  shift: ShiftCode
-  warning: boolean
+  value: string
 }
 
 interface OperationEditPreview {
@@ -475,92 +738,80 @@ interface FairnessSummaryMetric {
   id: string
   label: string
   value: string
+  caption: string
 }
 
 interface FairnessMetric {
   id: string
   label: string
   value: string
+  average: string
+  deltaLabel: string
+  directionLabel: string
+  barLeft: string
+  barWidth: string
+  barClass: string
+  cellClass: string
+  textClass: string
 }
 
 interface FairnessRowPreview {
   id: string
+  employeeId: string
   name: string
   status: string
-  width: string
+  statusClass: string
   metrics: readonly FairnessMetric[]
 }
 
-interface RollingHistoryPreview {
+interface FairnessMetricHeader {
   id: string
-  period: string
-  average: string
-  width: string
+  label: string
 }
 
-defineProps<{
+interface FairnessAdjustmentRule {
+  id: string
+  title: string
+  description: string
+}
+
+interface StaffingRequirementShiftPreview {
+  id: string
+  code: Exclude<ShiftCode, 'OFF'>
+  count: number
+}
+
+interface StaffingRequirementPreview {
+  id: string
+  days: string
+  shifts: readonly StaffingRequirementShiftPreview[]
+}
+
+interface EmployeeShiftPreview {
+  id: string
+  name: string
+  shifts: readonly Exclude<ShiftCode, 'OFF'>[]
+}
+
+interface ConditionOffRequestPreview {
+  id: string
+  employee: string
+  date: string
+}
+
+interface ConditionResultItemPreview {
+  id: string
+  title: string
+  description: string
+  status: string
+  statusClass: string
+}
+
+const props = defineProps<{
   variant: LandingPreviewVariant
 }>()
 
-const previewDays: readonly PreviewDay[] = [
-  { id: 'day-mar-29', label: '3/29' },
-  { id: 'day-mar-30', label: '3/30' },
-  { id: 'day-mar-31', label: '3/31' },
-  { id: 'day-apr-01', label: '4/1' },
-  { id: 'day-apr-02', label: '4/2' },
-  { id: 'day-apr-03', label: '4/3' },
-]
-
-const overviewRows: readonly SchedulePreviewRow[] = [
-  {
-    id: 'overview-row-kim',
-    name: '김하늘',
-    shifts: [
-      { id: 'kim-mar-29', code: 'D' },
-      { id: 'kim-mar-30', code: 'E' },
-      { id: 'kim-mar-31', code: 'OFF' },
-      { id: 'kim-apr-01', code: 'N' },
-      { id: 'kim-apr-02', code: 'OFF' },
-      { id: 'kim-apr-03', code: 'D' },
-    ],
-  },
-  {
-    id: 'overview-row-lee',
-    name: '이서윤',
-    shifts: [
-      { id: 'lee-mar-29', code: 'N' },
-      { id: 'lee-mar-30', code: 'OFF' },
-      { id: 'lee-mar-31', code: 'D' },
-      { id: 'lee-apr-01', code: 'E' },
-      { id: 'lee-apr-02', code: 'D' },
-      { id: 'lee-apr-03', code: 'OFF' },
-    ],
-  },
-  {
-    id: 'overview-row-park',
-    name: '박민지',
-    shifts: [
-      { id: 'park-mar-29', code: 'E' },
-      { id: 'park-mar-30', code: 'D' },
-      { id: 'park-mar-31', code: 'N' },
-      { id: 'park-apr-01', code: 'OFF' },
-      { id: 'park-apr-02', code: 'E' },
-      { id: 'park-apr-03', code: 'D' },
-    ],
-  },
-  {
-    id: 'overview-row-choi',
-    name: '최유진',
-    shifts: [
-      { id: 'choi-mar-29', code: 'OFF' },
-      { id: 'choi-mar-30', code: 'D' },
-      { id: 'choi-mar-31', code: 'E' },
-      { id: 'choi-apr-01', code: 'D' },
-      { id: 'choi-apr-02', code: 'N' },
-      { id: 'choi-apr-03', code: 'OFF' },
-    ],
-  },
-]
+const shouldShowProductPreview = computed(() => props.variant !== 'compare')
 
 const shiftClassMap: Record<ShiftCode, string> = {
   D: 'bg-shift-day/15 text-emerald-800',
@@ -569,94 +820,324 @@ const shiftClassMap: Record<ShiftCode, string> = {
   OFF: 'bg-shift-off/40 text-slate-700',
 }
 
-const generationCriteria: readonly PreviewMetric[] = [
+const aiShiftClassMap: Record<AiShiftCode, string> = {
+  D: 'bg-shift-day/15 text-emerald-800',
+  E: 'bg-shift-evening/15 text-sky-800',
+  N: 'bg-shift-night/15 text-slate-800',
+  O: 'bg-shift-off/40 text-slate-700',
+}
+
+const aiSummaryCodes: readonly AiSummaryCode[] = ['D', 'E', 'N', 'Total']
+const aiDailySummaryCodes: readonly AiSummaryCode[] = ['Total', 'D', 'E', 'N']
+const aiWorkShiftCodes: readonly AiWorkShiftCode[] = ['D', 'E', 'N']
+
+const aiDailyStaffingRequirement: AiStaffingRequirement = {
+  D: 3,
+  E: 4,
+  N: 3,
+}
+
+const aiScheduleDays: readonly AiScheduleDay[] = [
+  { id: 'day-apr-01', label: '4/1' },
+  { id: 'day-apr-02', label: '4/2' },
+  { id: 'day-apr-03', label: '4/3' },
+  { id: 'day-apr-04', label: '4/4' },
+  { id: 'day-apr-05', label: '4/5' },
+  { id: 'day-apr-06', label: '4/6' },
+  { id: 'day-apr-07', label: '4/7' },
+  { id: 'day-apr-08', label: '4/8' },
+  { id: 'day-apr-09', label: '4/9' },
+  { id: 'day-apr-10', label: '4/10' },
+  { id: 'day-apr-11', label: '4/11' },
+  { id: 'day-apr-12', label: '4/12' },
+  { id: 'day-apr-13', label: '4/13' },
+  { id: 'day-apr-14', label: '4/14' },
+] as const
+
+const aiEmployees: readonly AiEmployee[] = [
+  { id: 'employee-kim-haneul', name: '김하늘' },
+  { id: 'employee-lee-seoyun', name: '이서윤' },
+  { id: 'employee-park-minji', name: '박민지' },
+  { id: 'employee-choi-yujin', name: '최유진' },
+  { id: 'employee-jeong-daeun', name: '정다은' },
+  { id: 'employee-han-jimin', name: '한지민' },
+  { id: 'employee-oh-seoa', name: '오서아' },
+  { id: 'employee-yun-chaewon', name: '윤채원' },
+  { id: 'employee-lim-subin', name: '임수빈' },
+  { id: 'employee-kang-minseo', name: '강민서' },
+  { id: 'employee-jo-ara', name: '조아라' },
+  { id: 'employee-shin-yuna', name: '신유나' },
+  { id: 'employee-moon-sohui', name: '문소희' },
+  { id: 'employee-bae-jihyeon', name: '배지현' },
+  { id: 'employee-nam-yuri', name: '남유리' },
+  { id: 'employee-seo-yeonu', name: '서연우' },
+  { id: 'employee-kwon-narae', name: '권나래' },
+  { id: 'employee-hong-jiu', name: '홍지우' },
+] as const
+
+const aiOffRequestCellKeys = new Set<string>([
+  'employee-kim-haneul:day-apr-03',
+  'employee-choi-yujin:day-apr-05',
+  'employee-han-jimin:day-apr-07',
+  'employee-lim-subin:day-apr-09',
+  'employee-moon-sohui:day-apr-11',
+  'employee-seo-yeonu:day-apr-13',
+])
+
+function buildEmptyAiEmployeeShiftSummary(): AiEmployeeShiftSummary {
+  return {
+    D: 0,
+    E: 0,
+    N: 0,
+    Total: 0,
+  }
+}
+
+function isAiWorkShiftCode(code: AiShiftCode): code is AiWorkShiftCode {
+  return code !== 'O'
+}
+
+function buildAiScheduleRows(): readonly AiScheduleRow[] {
+  const rowDrafts: AiScheduleRowDraft[] = aiEmployees.map((employee, employeeIndex) => ({
+    employee,
+    employeeIndex,
+    shifts: aiScheduleDays.map((day) => ({
+      id: `${employee.id}-${day.id}`,
+      dayId: day.id,
+      dayLabel: day.label,
+      code: 'O',
+      offRequested: aiOffRequestCellKeys.has(`${employee.id}:${day.id}`),
+    })),
+  }))
+  const employeeSummaryDraft = new Map<string, AiEmployeeShiftSummary>(
+    aiEmployees.map((employee) => [employee.id, buildEmptyAiEmployeeShiftSummary()]),
+  )
+
+  aiScheduleDays.forEach((_, dayIndex) => {
+    const assignedEmployeeIds = new Set<string>()
+
+    aiWorkShiftCodes.forEach((code, codeIndex) => {
+      for (let slotIndex = 0; slotIndex < aiDailyStaffingRequirement[code]; slotIndex += 1) {
+        const rotationOffset = (dayIndex * 5 + codeIndex * 3 + slotIndex) % aiEmployees.length
+        const candidate = rowDrafts
+          .filter((row) => {
+            const shift = row.shifts[dayIndex]
+
+            return shift !== undefined
+              && !assignedEmployeeIds.has(row.employee.id)
+              && !shift.offRequested
+          })
+          .sort((a, b) => {
+            const aSummary = employeeSummaryDraft.get(a.employee.id) ?? buildEmptyAiEmployeeShiftSummary()
+            const bSummary = employeeSummaryDraft.get(b.employee.id) ?? buildEmptyAiEmployeeShiftSummary()
+            const aRotationRank = (a.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
+            const bRotationRank = (b.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
+
+            return aSummary.Total - bSummary.Total
+              || aSummary[code] - bSummary[code]
+              || aRotationRank - bRotationRank
+              || a.employee.name.localeCompare(b.employee.name)
+          })[0]
+        const candidateShift = candidate?.shifts[dayIndex]
+        const candidateSummary = candidate === undefined
+          ? undefined
+          : employeeSummaryDraft.get(candidate.employee.id)
+
+        if (candidate === undefined || candidateShift === undefined || candidateSummary === undefined) {
+          continue
+        }
+
+        candidateShift.code = code
+        candidateSummary[code] += 1
+        candidateSummary.Total += 1
+        assignedEmployeeIds.add(candidate.employee.id)
+      }
+    })
+  })
+
+  return rowDrafts.map((row) => ({
+    id: `ai-row-${row.employee.id}`,
+    employeeId: row.employee.id,
+    name: row.employee.name,
+    shifts: row.shifts,
+  }))
+}
+
+function buildEmployeeShiftSummary(rows: readonly AiScheduleRow[]): Record<string, AiEmployeeShiftSummary> {
+  return rows.reduce<Record<string, AiEmployeeShiftSummary>>((summaryByEmployeeId, row) => {
+    const summary = buildEmptyAiEmployeeShiftSummary()
+
+    row.shifts.forEach((shift) => {
+      if (isAiWorkShiftCode(shift.code)) {
+        summary[shift.code] += 1
+        summary.Total += 1
+      }
+    })
+
+    summaryByEmployeeId[row.employeeId] = summary
+    return summaryByEmployeeId
+  }, {})
+}
+
+function buildDailySummaryValues(
+  code: AiSummaryCode,
+  countsByDayId: Record<string, AiEmployeeShiftSummary>,
+): Record<AiSummaryCode, string> {
+  const summaryValues: Record<AiSummaryCode, string> = {
+    D: '',
+    E: '',
+    N: '',
+    Total: '',
+  }
+
+  if (code === 'Total') {
+    aiSummaryCodes.forEach((summaryCode) => {
+      summaryValues[summaryCode] = String(
+        aiScheduleDays.reduce((total, day) => total + (countsByDayId[day.id]?.[summaryCode] ?? 0), 0),
+      )
+    })
+
+    return summaryValues
+  }
+
+  const codeTotal = aiScheduleDays.reduce((total, day) => total + (countsByDayId[day.id]?.[code] ?? 0), 0)
+
+  summaryValues[code] = String(codeTotal)
+  summaryValues.Total = String(codeTotal)
+  return summaryValues
+}
+
+function buildDailyStaffingSummary(rows: readonly AiScheduleRow[]): readonly AiDailyStaffingSummaryRow[] {
+  const countsByDayId = aiScheduleDays.reduce<Record<string, AiEmployeeShiftSummary>>((counts, day) => {
+    counts[day.id] = buildEmptyAiEmployeeShiftSummary()
+    return counts
+  }, {})
+
+  rows.forEach((row) => {
+    row.shifts.forEach((shift) => {
+      const daySummary = countsByDayId[shift.dayId]
+
+      if (daySummary !== undefined && isAiWorkShiftCode(shift.code)) {
+        daySummary[shift.code] += 1
+        daySummary.Total += 1
+      }
+    })
+  })
+
+  return aiDailySummaryCodes.map((code) => ({
+    code,
+    label: code,
+    days: aiScheduleDays.map((day) => ({
+      dayId: day.id,
+      count: countsByDayId[day.id]?.[code] ?? 0,
+    })),
+    summaryValues: buildDailySummaryValues(code, countsByDayId),
+  }))
+}
+
+const aiScheduleRows = buildAiScheduleRows()
+const employeeShiftSummary = buildEmployeeShiftSummary(aiScheduleRows)
+const dailyStaffingSummary = buildDailyStaffingSummary(aiScheduleRows)
+
+function getAiEmployeeSummaryValue(employeeId: string, code: AiSummaryCode): number {
+  return employeeShiftSummary[employeeId]?.[code] ?? 0
+}
+
+const staffingRequirementPreview: readonly StaffingRequirementPreview[] = [
   {
-    id: 'criteria-employees',
-    label: '근무자 조건',
-    value: '30명',
-    caption: '가능 근무와 제외 조건 포함',
+    id: 'staffing-weekday',
+    days: '월-금',
+    shifts: [
+      { id: 'staffing-weekday-day', code: 'D', count: 3 },
+      { id: 'staffing-weekday-evening', code: 'E', count: 2 },
+      { id: 'staffing-weekday-night', code: 'N', count: 1 },
+    ],
   },
   {
-    id: 'criteria-history',
-    label: '이전 이력',
-    value: '전월 5일',
-    caption: '연속 야간과 휴식 기준 확인',
-  },
-  {
-    id: 'criteria-ward',
-    label: '병동 기준',
-    value: '요일별',
-    caption: 'D/E/N 기준 인원 적용',
+    id: 'staffing-weekend',
+    days: '토-일',
+    shifts: [
+      { id: 'staffing-weekend-day', code: 'D', count: 2 },
+      { id: 'staffing-weekend-evening', code: 'E', count: 2 },
+      { id: 'staffing-weekend-night', code: 'N', count: 1 },
+    ],
   },
 ] as const
 
-const aiRows: readonly PreviewProgressMetric[] = [
-  { id: 'ai-row-day', label: '주간', value: '96%', width: '96%', barClass: 'bg-emerald-500' },
-  { id: 'ai-row-evening', label: '이브닝', value: '92%', width: '92%', barClass: 'bg-sky-500' },
-  { id: 'ai-row-night', label: '야간', value: '88%', width: '88%', barClass: 'bg-shift-night' },
+const employeeShiftPreview: readonly EmployeeShiftPreview[] = [
+  { id: 'condition-employee-kim', name: '김하늘', shifts: ['D', 'E'] },
+  { id: 'condition-employee-lee', name: '이서윤', shifts: ['E', 'N'] },
+  { id: 'condition-employee-choi', name: '최유진', shifts: ['D', 'N'] },
 ] as const
 
-const offRequests: readonly OffRequestPreview[] = [
+const conditionOffRequests: readonly ConditionOffRequestPreview[] = [
+  { id: 'condition-off-kim-apr-07', employee: '김하늘', date: '4월 7일' },
+  { id: 'condition-off-lee-apr-12', employee: '이서윤', date: '4월 12일' },
+  { id: 'condition-off-choi-apr-18', employee: '최유진', date: '4월 18일' },
+] as const
+
+const conditionResultItems: readonly ConditionResultItemPreview[] = [
   {
-    id: 'off-request-kim-apr-07',
-    employee: '김하늘',
-    date: '4월 7일',
-    approved: true,
-    reason: '필요 인력 기준을 유지하면서 Off 요청을 반영했습니다.',
+    id: 'condition-result-staffing',
+    title: '요일별 인력 기준 충족',
+    description: '평일과 주말의 D/E/N 필요 인원을 맞췄습니다.',
+    status: '충족',
+    statusClass: 'bg-emerald-50 text-emerald-700',
   },
   {
-    id: 'off-request-lee-apr-12',
-    employee: '이서윤',
-    date: '4월 12일',
-    approved: false,
-    reason: '해당 일자 N 근무 가능 인원이 부족해 검토 항목으로 남겼습니다.',
+    id: 'condition-result-shift',
+    title: '가능 시프트 기준 반영',
+    description: '근무자별 가능한 D/E/N 범위 안에서 배정했습니다.',
+    status: '반영',
+    statusClass: 'bg-emerald-50 text-emerald-700',
   },
   {
-    id: 'off-request-choi-apr-18',
-    employee: '최유진',
-    date: '4월 18일',
-    approved: true,
-    reason: '전후 휴식 기준을 충족해 요청을 반영했습니다.',
+    id: 'condition-result-off',
+    title: 'Off 요청 2건 반영 · 1건 검토',
+    description: '김하늘, 최유진 요청은 반영하고 이서윤 요청은 검토로 남겼습니다.',
+    status: '검토',
+    statusClass: 'bg-amber-50 text-amber-700',
   },
-]
+] as const
 
 const guideChecks: readonly GuideCheckPreview[] = [
   {
+    id: 'guide-nod',
+    label: 'NOD 금지',
+    status: '충족',
+    description: '야간 후 휴무 다음 바로 주간으로 이어지는 배치가 없습니다.',
+  },
+  {
     id: 'guide-consecutive-night',
-    label: '연속 야간 제한',
-    description: '연속 야간 4회 이상 배치가 없도록 점검합니다.',
-    warning: true,
+    label: '4일속 야간 금지 (3연속 허용)',
+    status: '충족',
+    description: '4일 연속 야간 근무가 없도록 확인했습니다.',
   },
   {
     id: 'guide-rest-after-night',
-    label: '야간 후 휴식',
-    description: '연속 야간이 끝난 뒤 48시간 이상 휴식이 확보되는지 확인합니다.',
-    warning: false,
+    label: '연속 야간 후 48시간 휴식',
+    status: '충족',
+    description: '연속 야간이 끝난 뒤 48시간 이상 휴식이 확보되었습니다.',
   },
   {
-    id: 'guide-nod',
-    label: 'NOD 금지',
-    description: '야간 후 휴무 다음 바로 주간으로 이어지는 N-O-D 배치를 확인합니다.',
-    warning: true,
+    id: 'guide-monthly-night-limit',
+    label: '월 야간 15회 이하',
+    status: '충족',
+    description: '근무자별 월 야간 배정 횟수가 기준 안에 있습니다.',
   },
   {
     id: 'guide-required-staffing',
     label: '필요 인력 충족',
-    description: '4월 12일 이브닝 기준 인원이 부족합니다.',
-    warning: true,
+    status: '충족',
+    description: 'D/E/N 필수 인력 기준을 모두 만족했습니다.',
   },
-]
+] as const
 
-const guideCells: readonly GuideCellPreview[] = [
-  { id: 'guide-cell-01', label: 'D', shift: 'D', warning: false },
-  { id: 'guide-cell-02', label: 'E', shift: 'E', warning: false },
-  { id: 'guide-cell-03', label: 'N', shift: 'N', warning: false },
-  { id: 'guide-cell-04', label: 'NOD', shift: 'N', warning: true },
-  { id: 'guide-cell-05', label: 'OFF', shift: 'OFF', warning: false },
-  { id: 'guide-cell-06', label: 'D', shift: 'D', warning: false },
-  { id: 'guide-cell-07', label: '부족', shift: 'E', warning: true },
-  { id: 'guide-cell-08', label: 'N', shift: 'N', warning: false },
-]
+const guideResultSummaries: readonly GuideResultSummaryPreview[] = [
+  { id: 'guide-summary-status', label: '생성 상태', value: '완성' },
+  { id: 'guide-summary-off', label: 'Off 요청', value: '63/63 반영' },
+  { id: 'guide-summary-finalize', label: '확정', value: '대기' },
+] as const
 
 const operationEdits: readonly OperationEditPreview[] = [
   {
@@ -704,50 +1185,194 @@ const operationStatuses: readonly OperationStatusPreview[] = [
 ]
 
 const fairnessSummaryMetrics: readonly FairnessSummaryMetric[] = [
-  { id: 'fairness-summary-cumulative', label: '누적', value: '3개월' },
-  { id: 'fairness-summary-average', label: '평균', value: '야간 6회' },
-  { id: 'fairness-summary-minmax', label: '최소/최대', value: '5회 / 7회' },
+  {
+    id: 'fairness-summary-night',
+    label: '야간 근무',
+    value: '전체 평균 14.5일',
+    caption: '최대 차이 3일',
+  },
+  {
+    id: 'fairness-summary-weekend',
+    label: '주말·공휴일 근무',
+    value: '전체 평균 14.9일',
+    caption: '최대 차이 4일',
+  },
+  {
+    id: 'fairness-summary-off',
+    label: 'Off 요청 수락',
+    value: '전체 평균 6.5일',
+    caption: '최대 차이 2일',
+  },
+]
+
+const fairnessMetricHeaders: readonly FairnessMetricHeader[] = [
+  { id: 'fairness-header-night', label: '야간 근무' },
+  { id: 'fairness-header-weekend', label: '주말·공휴일 근무' },
+  { id: 'fairness-header-off', label: 'Off 요청 수락' },
 ]
 
 const fairnessRows: readonly FairnessRowPreview[] = [
   {
     id: 'fairness-row-kim',
-    name: '김하늘',
-    status: '평균 범위',
-    width: '74%',
+    employeeId: '43577',
+    name: '고소영',
+    status: '조정 우선',
+    statusClass: 'bg-amber-100 text-amber-900',
     metrics: [
-      { id: 'kim-night-total', label: '야간', value: '6회' },
-      { id: 'kim-weekend-total', label: '주말', value: '3회' },
-      { id: 'kim-off-total', label: 'Off', value: '9일' },
+      {
+        id: 'kim-night-total',
+        label: '야간 근무',
+        value: '14일',
+        average: '14.5일',
+        deltaLabel: '-0.5일',
+        directionLabel: '적게 근무',
+        barLeft: '42%',
+        barWidth: '8%',
+        barClass: 'bg-emerald-600',
+        cellClass: 'bg-emerald-50/60',
+        textClass: 'text-emerald-700',
+      },
+      {
+        id: 'kim-weekend-total',
+        label: '주말·공휴일',
+        value: '23일',
+        average: '14.9일',
+        deltaLabel: '+8.1일',
+        directionLabel: '많이 근무 · 강조',
+        barLeft: '50%',
+        barWidth: '42%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50 ring-1 ring-inset ring-amber-200',
+        textClass: 'text-amber-800',
+      },
+      {
+        id: 'kim-off-total',
+        label: 'Off 요청',
+        value: '6일',
+        average: '6.5일',
+        deltaLabel: '-0.5일',
+        directionLabel: '적게 수락',
+        barLeft: '43%',
+        barWidth: '7%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
     ],
   },
   {
     id: 'fairness-row-lee',
-    name: '이서윤',
+    employeeId: '43178',
+    name: '이미지',
     status: '확인 필요',
-    width: '68%',
+    statusClass: 'bg-amber-100 text-amber-900',
     metrics: [
-      { id: 'lee-night-total', label: '야간', value: '7회' },
-      { id: 'lee-weekend-total', label: '주말', value: '4회' },
-      { id: 'lee-off-total', label: 'Off', value: '8일' },
+      {
+        id: 'lee-night-total',
+        label: '야간 근무',
+        value: '16일',
+        average: '14.5일',
+        deltaLabel: '+1.5일',
+        directionLabel: '많이 근무',
+        barLeft: '50%',
+        barWidth: '18%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
+      {
+        id: 'lee-weekend-total',
+        label: '주말·공휴일',
+        value: '17일',
+        average: '14.9일',
+        deltaLabel: '+2.1일',
+        directionLabel: '많이 근무',
+        barLeft: '50%',
+        barWidth: '22%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
+      {
+        id: 'lee-off-total',
+        label: 'Off 요청',
+        value: '6일',
+        average: '6.5일',
+        deltaLabel: '-0.5일',
+        directionLabel: '적게 수락',
+        barLeft: '43%',
+        barWidth: '7%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
     ],
   },
   {
     id: 'fairness-row-park',
-    name: '박민지',
+    employeeId: '43689',
+    name: '김수연',
     status: '평균 범위',
-    width: '72%',
+    statusClass: 'bg-emerald-100 text-emerald-800',
     metrics: [
-      { id: 'park-night-total', label: '야간', value: '5회' },
-      { id: 'park-weekend-total', label: '주말', value: '3회' },
-      { id: 'park-off-total', label: 'Off', value: '10일' },
+      {
+        id: 'park-night-total',
+        label: '야간 근무',
+        value: '13일',
+        average: '14.5일',
+        deltaLabel: '-1.5일',
+        directionLabel: '적게 근무',
+        barLeft: '31%',
+        barWidth: '19%',
+        barClass: 'bg-emerald-600',
+        cellClass: 'bg-emerald-50/60',
+        textClass: 'text-emerald-700',
+      },
+      {
+        id: 'park-weekend-total',
+        label: '주말·공휴일',
+        value: '17일',
+        average: '14.9일',
+        deltaLabel: '+2.1일',
+        directionLabel: '많이 근무',
+        barLeft: '50%',
+        barWidth: '22%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
+      {
+        id: 'park-off-total',
+        label: 'Off 요청',
+        value: '5일',
+        average: '6.5일',
+        deltaLabel: '-1.5일',
+        directionLabel: '적게 수락',
+        barLeft: '29%',
+        barWidth: '21%',
+        barClass: 'bg-amber-500',
+        cellClass: 'bg-amber-50/60',
+        textClass: 'text-amber-800',
+      },
     ],
   },
 ]
 
-const rollingHistory: readonly RollingHistoryPreview[] = [
-  { id: 'rolling-history-feb', period: '2월', average: '평균 6회', width: '60%' },
-  { id: 'rolling-history-mar', period: '3월', average: '평균 7회', width: '70%' },
-  { id: 'rolling-history-apr', period: '4월', average: '평균 6회', width: '60%' },
+const fairnessAdjustmentRules: readonly FairnessAdjustmentRule[] = [
+  {
+    id: 'fairness-adjust-weekend',
+    title: '주말·공휴일 과다 배정',
+    description: '고소영은 다음 생성에서 주말 배정을 후순위로 둡니다.',
+  },
+  {
+    id: 'fairness-adjust-night',
+    title: '야간 근무 균형',
+    description: '야간 +1일 이상 직원은 새 야간 배정을 줄입니다.',
+  },
+  {
+    id: 'fairness-adjust-off',
+    title: 'Off 요청 보정',
+    description: '수락 일수가 낮은 직원의 요청을 우선 검토합니다.',
+  },
 ]
 </script>

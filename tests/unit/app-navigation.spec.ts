@@ -7,6 +7,7 @@ const pushMock = vi.fn()
 
 const routeState = reactive({
   path: '/',
+  query: {},
 })
 
 const rbacStoreMock = reactive({
@@ -61,6 +62,7 @@ describe('useAppNavigation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     routeState.path = '/'
+    routeState.query = {}
     Object.assign(rbacStoreMock.abilities, {
       canViewApprovalQueue: false,
       canSwitchOrganization: false,
@@ -119,7 +121,7 @@ describe('useAppNavigation', () => {
     expect(appNavigation.activeNavigationKey.value).toBe(getScheduleResultsRoutePath())
   })
 
-  it('builds operations children as anchors under organization setup', () => {
+  it('builds operations children as setup workflow destinations', () => {
     Object.assign(rbacStoreMock.abilities, {
       canManageOrganizationSetup: true,
     })
@@ -130,11 +132,20 @@ describe('useAppNavigation', () => {
       label: '운영 기준',
       key: getOpsOrganizationSetupRoutePath(),
       children: [
-        { label: '병원 정보', key: `${getOpsOrganizationSetupRoutePath()}#hospital-info` },
-        { label: '병동/근무 기준', key: `${getOpsOrganizationSetupRoutePath()}#site-shift-rules` },
-        { label: '직원 정보', key: `${getOpsOrganizationSetupRoutePath()}#employee-info` },
+        { label: '병원 정보', key: `${getScheduleStepRoutePath(1)}?context=setup` },
+        { label: '병동/근무 기준', key: `${getScheduleStepRoutePath(2)}?context=setup` },
+        { label: '직원 정보', key: `${getScheduleStepRoutePath(3)}?context=setup` },
       ],
     })
+  })
+
+  it('keeps setup workflow routes active under operations navigation', () => {
+    routeState.path = getScheduleStepRoutePath(3)
+    routeState.query = { context: 'setup' }
+
+    mountNavigation()
+
+    expect(appNavigation.activeNavigationKey.value).toBe(getOpsOrganizationSetupRoutePath())
   })
 
   it('builds schedule analysis children for site and worker analysis', () => {

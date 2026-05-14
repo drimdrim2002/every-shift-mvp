@@ -17,7 +17,7 @@
             </p>
             <h1
               data-test="public-hero-slogan"
-              class="mt-5 flex flex-col items-center gap-y-[0.18em] text-4xl font-bold leading-none text-gray-950 sm:text-5xl lg:text-6xl"
+              class="mt-5 flex flex-col items-center gap-y-[0.28em] text-4xl font-bold leading-none text-gray-950 sm:text-5xl lg:text-6xl"
             >
               <span
                 v-for="line in publicLandingHero.sloganLines"
@@ -53,15 +53,11 @@
               </a>
             </div>
           </div>
-
-          <div class="mx-auto mt-8 w-full max-w-5xl overflow-hidden rounded-lg">
-            <LandingProductPreview variant="overview" />
-          </div>
         </div>
       </section>
 
       <section
-        v-for="(section, index) in publicLandingSections"
+        v-for="(section, index) in visiblePublicLandingSections"
         :id="section.id"
         :key="section.id"
         :ref="(element) => setSectionRef(section.id, element)"
@@ -75,7 +71,10 @@
             class="min-w-0 max-w-3xl"
             :class="getTextRevealClasses(section.id)"
           >
-            <p class="text-sm font-semibold text-emerald-700">
+            <p
+              data-test="public-value-section-nav-label"
+              class="text-2xl font-semibold text-emerald-900"
+            >
               {{ section.navLabel }}
             </p>
             <h2 class="mt-4 max-w-2xl text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
@@ -148,7 +147,10 @@ import PublicHeader from '@/components/public/PublicHeader.vue'
 import LandingProductPreview from '@/components/public/LandingProductPreview.vue'
 import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
 import { SIGNUP_ROUTE_PATH } from '@/constants/routes'
-import { publicLandingHero, publicLandingSections } from '@/data/publicLandingContent'
+import {
+  publicLandingHero,
+  publicLandingSections,
+} from '@/data/publicLandingContent'
 
 const signupRouteLocation: RouteLocationRaw = {
   path: SIGNUP_ROUTE_PATH,
@@ -156,13 +158,14 @@ const signupRouteLocation: RouteLocationRaw = {
 }
 
 const inquiryFormUrl = getPublicInquiryFormUrl()
+const visiblePublicLandingSections = publicLandingSections.filter((section) => section.preview !== 'compare')
 const sectionRefs = new Map<string, Element>()
 const visibleSectionIds = ref<Set<string>>(createVisibleSectionIds())
 const isRevealEnabled = ref(false)
 let sectionObserver: IntersectionObserver | null = null
 
 function createVisibleSectionIds() {
-  return new Set(publicLandingSections.map((section) => section.id))
+  return new Set(visiblePublicLandingSections.map((section) => section.id))
 }
 
 function shouldReduceMotion() {

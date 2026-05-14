@@ -2,7 +2,6 @@ import { mount, RouterLinkStub } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  getOpsOrganizationSetupRoutePath,
   getAppHomeRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
@@ -291,12 +290,12 @@ describe('Header', () => {
     expect(findHeaderButton(wrapper, '직원 정보').element.tagName).toBe('BUTTON')
   })
 
-  it('pushes expected anchor routes when operations child buttons are clicked', async () => {
+  it('pushes expected setup workflow routes when operations child buttons are clicked', async () => {
     const wrapper = mountHeader()
     const expectedItems = [
-      ['병원 정보', `${getOpsOrganizationSetupRoutePath()}#hospital-info`],
-      ['병동/근무 기준', `${getOpsOrganizationSetupRoutePath()}#site-shift-rules`],
-      ['직원 정보', `${getOpsOrganizationSetupRoutePath()}#employee-info`],
+      ['병원 정보', `${getScheduleStepRoutePath(1)}?context=setup`],
+      ['병동/근무 기준', `${getScheduleStepRoutePath(2)}?context=setup`],
+      ['직원 정보', `${getScheduleStepRoutePath(3)}?context=setup`],
     ] as const
 
     for (const [label, expectedRoute] of expectedItems) {

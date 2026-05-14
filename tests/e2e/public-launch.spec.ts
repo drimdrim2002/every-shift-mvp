@@ -55,23 +55,21 @@ test.describe('public launch route contract', () => {
 
     const signupCta = page.getByTestId('public-hero-signup')
     const inquiryCta = page.getByTestId('public-hero-inquiry')
-    const firstPreview = page.getByTestId('landing-product-preview').first()
+    const hero = page.getByTestId('public-hero')
 
     await expect(page.getByTestId('public-landing')).toBeVisible()
     await expect(signupCta).toBeVisible()
     await expect(inquiryCta).toBeVisible()
-    await expect(firstPreview).toBeVisible()
+    await expect(hero.getByTestId('landing-product-preview')).toHaveCount(0)
 
     const viewportHeight = page.viewportSize()?.height ?? 844
     const signupBox = await signupCta.boundingBox()
     const inquiryBox = await inquiryCta.boundingBox()
-    const previewBox = await firstPreview.boundingBox()
 
     const viewportWidth = page.viewportSize()?.width ?? 390
     expect(signupBox).not.toBeNull()
     expect(inquiryBox).not.toBeNull()
-    expect(previewBox).not.toBeNull()
-    for (const box of [signupBox, inquiryBox, previewBox]) {
+    for (const box of [signupBox, inquiryBox]) {
       expect(box?.x ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(0)
       expect((box?.x ?? Number.POSITIVE_INFINITY) + (box?.width ?? 0)).toBeLessThanOrEqual(
         viewportWidth + 1,
@@ -83,7 +81,6 @@ test.describe('public launch route contract', () => {
     expect(
       (inquiryBox?.y ?? Number.POSITIVE_INFINITY) + (inquiryBox?.height ?? 0),
     ).toBeLessThanOrEqual(viewportHeight)
-    expect(previewBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(viewportHeight)
 
     const hasHorizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
