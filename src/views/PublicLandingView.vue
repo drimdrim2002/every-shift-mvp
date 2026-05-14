@@ -71,6 +71,7 @@
       >
         <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
           <div
+            data-test="public-value-section-copy"
             class="min-w-0 max-w-3xl"
             :class="getTextRevealClasses(section.id)"
           >
@@ -96,6 +97,7 @@
           </div>
 
           <div
+            data-test="public-value-section-preview"
             class="w-full"
             :class="getPreviewRevealClasses(section.id)"
           >

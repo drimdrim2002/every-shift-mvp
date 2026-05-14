@@ -591,9 +591,9 @@ const generationCriteria: readonly PreviewMetric[] = [
 ] as const
 
 const aiRows: readonly PreviewProgressMetric[] = [
-  { id: 'ai-row-day', label: 'Day', value: '96%', width: '96%', barClass: 'bg-emerald-500' },
-  { id: 'ai-row-evening', label: 'Evening', value: '92%', width: '92%', barClass: 'bg-sky-500' },
-  { id: 'ai-row-night', label: 'Night', value: '88%', width: '88%', barClass: 'bg-shift-night' },
+  { id: 'ai-row-day', label: '주간', value: '96%', width: '96%', barClass: 'bg-emerald-500' },
+  { id: 'ai-row-evening', label: '이브닝', value: '92%', width: '92%', barClass: 'bg-sky-500' },
+  { id: 'ai-row-night', label: '야간', value: '88%', width: '88%', barClass: 'bg-shift-night' },
 ] as const
 
 const offRequests: readonly OffRequestPreview[] = [
@@ -636,13 +636,13 @@ const guideChecks: readonly GuideCheckPreview[] = [
   {
     id: 'guide-nod',
     label: 'NOD 금지',
-    description: '야간 이후 Off 없이 주간으로 이어지는 배치를 확인합니다.',
+    description: '야간 후 휴무 다음 바로 주간으로 이어지는 N-O-D 배치를 확인합니다.',
     warning: true,
   },
   {
     id: 'guide-required-staffing',
     label: '필요 인력 충족',
-    description: '4월 12일 Evening 기준 인원이 부족합니다.',
+    description: '4월 12일 이브닝 기준 인원이 부족합니다.',
     warning: true,
   },
 ]

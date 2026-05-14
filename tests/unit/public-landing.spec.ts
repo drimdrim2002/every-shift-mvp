@@ -179,6 +179,8 @@ describe('PublicLandingView', () => {
 
     wrapper.findAll('[data-test="public-value-section"]').forEach((section) => {
       expect(section.classes().join(' ')).not.toContain('opacity-0')
+      expect(section.get('[data-test="public-value-section-copy"]').classes()).not.toContain('opacity-0')
+      expect(section.get('[data-test="public-value-section-preview"]').classes()).not.toContain('opacity-0')
     })
   })
 
@@ -220,7 +222,11 @@ describe('PublicLandingView', () => {
 
     expect(matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)')
     wrapper.findAll('[data-test="public-value-section"]').forEach((section) => {
-      const classes = section.classes()
+      const classes = [
+        ...section.classes(),
+        ...section.get('[data-test="public-value-section-copy"]').classes(),
+        ...section.get('[data-test="public-value-section-preview"]').classes(),
+      ]
 
       expect(classes).not.toContain('translate-y-3')
       expect(classes).not.toContain('translate-y-4')
