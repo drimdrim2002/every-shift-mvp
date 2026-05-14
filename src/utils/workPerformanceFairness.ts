@@ -7,6 +7,7 @@ import type {
   WorkPerformanceMetricKey,
   WorkPerformanceMetricResult,
   WorkPerformanceMetricSummary,
+  WorkPerformancePreferenceRow,
 } from '@/types/workPerformance'
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
@@ -152,6 +153,21 @@ function isWorkedAssignment(assignment: WorkPerformanceAssignmentRow | undefined
   return shiftCode !== null && shiftCode !== OFF_SHIFT_CODE
 }
 
+function isOffRequestAccepted(
+  request: WorkPerformancePreferenceRow,
+  assignment: WorkPerformanceAssignmentRow | undefined,
+): boolean {
+  if (request.resolutionStatus === 'fulfilled') {
+    return true
+  }
+
+  if (request.resolutionStatus === 'unfulfilled') {
+    return false
+  }
+
+  return isOffAssignment(assignment)
+}
+
 function calculateAverage(values: readonly number[]): number {
   if (values.length === 0) {
     return 0
@@ -253,9 +269,13 @@ export function computeWorkPerformanceFairness({
       return
     }
 
-    const requestDates = offRequestDatesByEmployee.get(request.employeeId) ?? new Set<string>()
-    requestDates.add(request.date)
-    offRequestDatesByEmployee.set(request.employeeId, requestDates)
+    const assignment = assignmentsByEmployeeDate.get(mapKey(request.employeeId, request.date))
+
+    if (isOffRequestAccepted(request, assignment)) {
+      const requestDates = offRequestDatesByEmployee.get(request.employeeId) ?? new Set<string>()
+      requestDates.add(request.date)
+      offRequestDatesByEmployee.set(request.employeeId, requestDates)
+    }
   })
 
   const includedEmployees = employees.filter((employee) => (workedDatesByEmployee.get(employee.id)?.size ?? 0) > 0)
@@ -281,7 +301,7 @@ export function computeWorkPerformanceFairness({
         weekendHolidayEvidenceDates.push(date)
       }
 
-      if (offRequestDates.has(date) && isOffAssignment(assignment)) {
+      if (offRequestDates.has(date)) {
         offAcceptedEvidenceDates.push(date)
       }
     })

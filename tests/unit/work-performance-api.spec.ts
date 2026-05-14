@@ -183,6 +183,7 @@ describe('work performance api boundary', () => {
       employee_id: `emp-${index % 2 + 1}`,
       date: index < 500 ? '2026-01-05' : '2026-02-05',
       request_code: 'O',
+      resolution_status: index % 2 === 0 ? 'fulfilled' : 'unfulfilled',
     }));
     const preferencesPage2 = [
       {
@@ -190,6 +191,7 @@ describe('work performance api boundary', () => {
         employee_id: 'emp-2',
         date: '2026-02-10',
         request_code: 'O',
+        resolution_status: 'fulfilled',
       },
     ];
     const calls = createSupabaseMock({
@@ -253,6 +255,7 @@ describe('work performance api boundary', () => {
     });
     expect(result.finalizedMonths).toEqual(['2026-01', '2026-02']);
     expect(result.finalizedVersionIds).toEqual(['version-jan', 'version-feb']);
+    expect(result.missingMonths).toEqual([]);
     expect(result.assignments).toHaveLength(1001);
     expect(result.assignments[1]).toMatchObject({
       scheduleVersionId: 'version-jan',
@@ -267,6 +270,13 @@ describe('work performance api boundary', () => {
       shiftName: '주간',
     });
     expect(result.offRequests).toHaveLength(1001);
+    expect(result.offRequests[0]).toMatchObject({
+      scheduleVersionId: 'version-jan',
+      requestCode: 'O',
+      resolutionStatus: 'fulfilled',
+    });
+    expect(result.offRequests[1].resolutionStatus).toBe('unfulfilled');
+    expect(result.offRequests[1000].resolutionStatus).toBe('fulfilled');
     expect(result.employees).toHaveLength(1001);
     expect(result.employees[1000]).toEqual({ id: 'emp-1001', name: '간호사 1001' });
     expect(result.publicHolidayDates).toEqual(['2026-01-01', '2026-02-17']);
@@ -307,7 +317,7 @@ describe('work performance api boundary', () => {
 
     const preferenceQueries = calls.filter((call) => call.table === 'schedule_preferences');
     expect(preferenceQueries).toHaveLength(2);
-    expect(preferenceQueries[0].select).toBe('schedule_version_id, employee_id, date, request_code');
+    expect(preferenceQueries[0].select).toBe('schedule_version_id, employee_id, date, request_code, resolution_status');
     expect(preferenceQueries[0].in).toContainEqual(['schedule_version_id', ['version-jan', 'version-feb']]);
     expect(preferenceQueries[0].eq).toContainEqual(['request_code', 'O']);
     expect(preferenceQueries[0].gte).toContainEqual(['date', '2026-01-01']);
@@ -346,7 +356,6 @@ describe('work performance api boundary', () => {
     const calls = createSupabaseMock({
       schedules: [
         { data: [], error: null },
-        { data: [], error: null },
       ],
     });
 
@@ -359,14 +368,13 @@ describe('work performance api boundary', () => {
     });
 
     expect(result).toEqual({ status: 'noFinalizedSchedule' });
-    expect(calls[1].table).toBe('schedules');
-    expect(calls[1].select).toBe('id');
-    expect(calls[1].eq).toContainEqual(['organization_id', 'org-1']);
-    expect(calls[1].not).toContainEqual(['finalized_version_id', 'is', null]);
-    expect(calls[1].limit).toEqual([1]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].table).toBe('schedules');
+    expect(calls[0].select).toBe('id, month, finalized_version_id');
+    expect(calls[0].eq).toContainEqual(['organization_id', 'org-1']);
   });
 
-  it('returns missingFinalizedMonth and does not calculate partial periods', async () => {
+  it('loads finalized months and reports missing months for a partially finalized selected period', async () => {
     const calls = createSupabaseMock({
       schedules: [
         {
@@ -376,11 +384,27 @@ describe('work performance api boundary', () => {
           ],
           error: null,
         },
+      ],
+      public_holidays: [
+        { data: [{ holiday_date: '2026-01-01' }], error: null },
+        { data: [{ holiday_date: '2026-01-01' }], error: null },
+      ],
+      schedule_assignments: [
         {
-          data: [{ id: 'schedule-old' }],
+          data: [
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-01',
+              shift_id: 'shift-night',
+              shifts: { code: 'N', name: '야간' },
+            },
+          ],
           error: null,
         },
       ],
+      schedule_preferences: [{ data: [], error: null }],
+      employees: [{ data: [{ id: 'emp-1', name: '김민지' }], error: null }],
     });
 
     const { loadWorkPerformancePeriod } = await import('@/api/workPerformance');
@@ -391,12 +415,20 @@ describe('work performance api boundary', () => {
       endMonth: 3,
     });
 
-    expect(result).toEqual({
-      status: 'missingFinalizedMonth',
-      missingMonths: ['2026-02', '2026-03'],
-    });
-    expect(calls.some((call) => call.table === 'schedule_assignments')).toBe(false);
-    expect(calls.some((call) => call.table === 'schedule_preferences')).toBe(false);
+    expect(result.status).toBe('success');
+    if (result.status !== 'success') {
+      throw new Error(`Unexpected status: ${result.status}`);
+    }
+
+    expect(result.finalizedMonths).toEqual(['2026-01']);
+    expect(result.finalizedVersionIds).toEqual(['version-jan']);
+    expect(result.missingMonths).toEqual(['2026-02', '2026-03']);
+    expect(result.assignments).toHaveLength(1);
+
+    const assignmentQuery = calls.find((call) => call.table === 'schedule_assignments')!;
+    expect(assignmentQuery.in).toContainEqual(['schedule_version_id', ['version-jan']]);
+    expect(assignmentQuery.gte).toContainEqual(['date', '2026-01-01']);
+    expect(assignmentQuery.lte).toContainEqual(['date', '2026-03-31']);
   });
 
   it('returns missingHolidayCoverage before loading selected-period holiday dates', async () => {

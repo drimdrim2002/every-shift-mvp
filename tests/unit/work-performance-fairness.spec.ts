@@ -227,6 +227,51 @@ describe('computeWorkPerformanceFairness', () => {
     expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.weekendHoliday.count).toBe(1)
   })
 
+  it('counts fulfilled Off requests even when accepted Off is stored as no work assignment', () => {
+    const sparseEmployees: WorkPerformanceEmployeeRow[] = [
+      { id: 'employee-a', name: '김민지' },
+      { id: 'employee-b', name: '박서준' },
+    ]
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      workedAssignment('employee-a', '2026-01-02', 'D'),
+      workedAssignment('employee-b', '2026-01-03', 'D'),
+    ]
+    const offRequests = [
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'employee-a',
+        date: '2026-01-10',
+        requestCode: 'O',
+        resolutionStatus: 'fulfilled',
+      },
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'employee-b',
+        date: '2026-01-10',
+        requestCode: 'O',
+        resolutionStatus: 'unfulfilled',
+      },
+    ] as WorkPerformancePreferenceRow[]
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: sparseEmployees,
+      assignments,
+      offRequests,
+      publicHolidayDates: [],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.offRequestAccepted).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-10'],
+    })
+    expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.offRequestAccepted).toMatchObject({
+      count: 0,
+      evidenceDates: [],
+    })
+  })
+
   it('computes metric counts, evidence, summaries, exclusions, and default priority sorting', () => {
     const { assignments, offRequests } = buildFairnessFixture()
 

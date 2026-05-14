@@ -44,8 +44,6 @@ type WorkPerformanceFixture = {
 }
 
 const organizationId = 'org-1'
-const january2026StartDate = '2026-01-01'
-const january2026EndDate = '2026-01-31'
 
 async function fulfillJson(route: Route, body: unknown) {
   await route.fulfill({
@@ -115,9 +113,30 @@ function assertFinalizedVersionFilter(url: URL, fixture: WorkPerformanceFixture)
   assertQueryParam(url, 'schedule_version_id', `in.(${expectedVersionIds.join(',')})`)
 }
 
-function assertJanuary2026DateRange(url: URL, key: string) {
-  assertQueryParam(url, key, `gte.${january2026StartDate}`)
-  assertQueryParam(url, key, `lte.${january2026EndDate}`)
+function getFixtureDateRange(fixture: WorkPerformanceFixture) {
+  const months = fixture.schedules.map((schedule) => schedule.month).sort()
+  const startMonth = months[0]
+  const endMonth = months[months.length - 1]
+
+  expect(startMonth, 'work performance fixture should include a start month').toBeTruthy()
+  expect(endMonth, 'work performance fixture should include an end month').toBeTruthy()
+
+  const [endYear, endMonthValue] = endMonth.split('-').map(Number)
+  const endDay = new Date(Date.UTC(endYear, endMonthValue, 0)).getUTCDate()
+
+  return {
+    startMonth,
+    endMonth,
+    startDate: `${startMonth}-01`,
+    endDate: `${endMonth}-${String(endDay).padStart(2, '0')}`,
+  }
+}
+
+function assertFixtureDateRange(url: URL, key: string, fixture: WorkPerformanceFixture) {
+  const { startDate, endDate } = getFixtureDateRange(fixture)
+
+  assertQueryParam(url, key, `gte.${startDate}`)
+  assertQueryParam(url, key, `lte.${endDate}`)
 }
 
 function createSuccessfulFixture(): WorkPerformanceFixture {
@@ -208,12 +227,7 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
 
     assertQueryParam(url, 'organization_id', `eq.${organizationId}`)
 
-    const months = fixture.schedules.map((schedule) => schedule.month).sort()
-    const startMonth = months[0]
-    const endMonth = months[months.length - 1]
-
-    expect(startMonth, 'work performance fixture should include a start month').toBeTruthy()
-    expect(endMonth, 'work performance fixture should include an end month').toBeTruthy()
+    const { startMonth, endMonth } = getFixtureDateRange(fixture)
     assertQueryParam(url, 'month', `gte.${startMonth}`)
     assertQueryParam(url, 'month', `lte.${endMonth}`)
 
@@ -243,7 +257,7 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
       return
     }
 
-    assertJanuary2026DateRange(url, 'holiday_date')
+    assertFixtureDateRange(url, 'holiday_date', fixture)
     await fulfillJson(route, isCoverageCheck ? holidays.slice(0, 1) : holidays)
   })
 
@@ -255,7 +269,7 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
 
     const url = new URL(route.request().url())
     assertFinalizedVersionFilter(url, fixture)
-    assertJanuary2026DateRange(url, 'date')
+    assertFixtureDateRange(url, 'date', fixture)
     assertRangeIfVisible(route)
 
     await fulfillJson(route, fixture.assignments)
@@ -270,7 +284,7 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
     const url = new URL(route.request().url())
     assertFinalizedVersionFilter(url, fixture)
     assertQueryParam(url, 'request_code', 'eq.O')
-    assertJanuary2026DateRange(url, 'date')
+    assertFixtureDateRange(url, 'date', fixture)
     assertRangeIfVisible(route)
 
     await fulfillJson(route, fixture.preferences)
@@ -318,14 +332,21 @@ test.describe('work performance', () => {
 
     await expect(page.getByTestId('work-performance-applied-period')).toHaveText('조회 기간: 2026년 1월')
     await expect(page.getByTestId('work-performance-summary')).toContainText('야간 근무')
-    await expect(page.getByTestId('work-performance-summary')).toContainText('최대 편차 5.7일')
-    await expect(page.getByTestId('work-performance-table')).toBeVisible()
-    await expect(page.getByTestId('work-performance-employee-row')).toHaveCount(3)
+    await expect(page.getByTestId('work-performance-summary')).toContainText('최대 편차 2.5일')
+    await expect(page.getByTestId('work-performance-risk-summary')).toHaveCount(0)
+    await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
+    expect(await page.evaluate(() => {
+      const summary = document.querySelector('[data-test="work-performance-summary"]')
+      const matrix = document.querySelector('[data-test="work-performance-matrix"]')
+
+      return Boolean(summary && matrix && (summary.compareDocumentPosition(matrix) & Node.DOCUMENT_POSITION_FOLLOWING))
+    })).toBe(true)
+    await expect(page.getByTestId('work-performance-employee-row')).toHaveCount(2)
     await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
-    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균 대비 +3.3일')
+    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균 대비 +2.5일')
   })
 
-  test('blocks a selected period when any month is not finalized', async ({ page }) => {
+  test('renders finalized data with a notice when selected months are not finalized', async ({ page }) => {
     await openWorkPerformance(page, {
       ...createSuccessfulFixture(),
       schedules: [
@@ -345,9 +366,11 @@ test.describe('work performance', () => {
 
     await page.getByTestId('work-performance-query').click()
 
-    await expect(page.getByRole('heading', { name: '선택한 기간에 아직 확정되지 않은 월이 있습니다' })).toBeVisible()
-    await expect(page.getByTestId('work-performance-state').getByText('2026년 2월')).toBeVisible()
-    await expect(page.getByTestId('work-performance-table')).toHaveCount(0)
+    await expect(page.getByTestId('work-performance-missing-months-notice')).toContainText('확정된 근무표가 없어 실적 계산에서 제외되었습니다')
+    await expect(page.getByTestId('work-performance-missing-months-notice')).toContainText('2026년 2월')
+    await expect(page.getByTestId('work-performance-analysis-period')).toHaveText('분석 기준: 2026년 1월 확정 데이터')
+    await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
+    await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
   })
 
   test('updates highlighted cells when the threshold changes', async ({ page }) => {
@@ -355,13 +378,13 @@ test.describe('work performance', () => {
     await selectJanuary2026(page)
 
     await page.getByTestId('work-performance-query').click()
-    await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(2)
+    await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(1)
 
     await page.getByTestId('work-performance-threshold').fill('10')
     await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(0)
 
     await page.getByTestId('work-performance-threshold').fill('3')
-    await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(2)
+    await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(1)
   })
 
   test('expands employee details with evidence dates and empty metric states', async ({ page }) => {

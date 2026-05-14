@@ -1,4 +1,14 @@
-# 근무 실적 공정성 분석 요구사항
+# 근무 실적 공정성 분석 Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use @superpowers:subagent-driven-development (recommended) or @superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 확정된 근무표를 기준으로 야간 근무, 주말·휴일 근무, Off 요청 수락 편차를 직원별로 비교하는 `근무 실적` 공정성 분석 화면을 구현한다.
+
+**Architecture:** `/app/work-performance`의 기존 placeholder route를 유지하고 `WorkPerformance.vue`만 실제 화면으로 교체한다. Supabase read-only 조회는 `src/api/workPerformance.ts`, deterministic 계산은 `src/utils/workPerformanceFairness.ts`, 공유 계약은 `src/types/workPerformance.ts`로 분리해 UI 상태와 계산/조회 책임을 섞지 않는다.
+
+**Tech Stack:** Vue 3 `<script setup>`, TypeScript, Vite, Tailwind CSS, Naive UI, Supabase direct read, Vitest, Playwright.
+
+---
 
 **작성일:** 2026-05-13
 **최근 수정일:** 2026-05-14
@@ -7,6 +17,28 @@
 **대상 구현 파일:** `src/views/schedule/WorkPerformance.vue`
 **문서 성격:** 요구사항 + 엔지니어링 구현 계획
 **구현 상태:** 요구사항 확정 중. 현재 `src/views/schedule/WorkPerformance.vue`는 placeholder지만, 이 문서의 결과물은 해당 파일에 실제 근무 실적 공정성 분석 화면으로 적용되어야 함.
+
+---
+
+## writing-plans 검토 보강 결과
+
+**검토 관점:** `@superpowers:writing-plans`
+**검토일:** 2026-05-14
+**결론:** 기존 문서는 제품 요구사항, 디자인 기준, 엔지니어링 위험 분석은 충분하지만, agentic worker가 바로 실행하기에는 계획 문서 계약이 약했다. 이번 보강으로 필수 plan header, 파일 소유권, TDD 실행 단위, 명령어/기대 결과, commit checkpoint를 추가한다.
+
+### 보강한 점
+
+- 문서 첫머리에 `@superpowers:writing-plans`가 요구하는 Goal, Architecture, Tech Stack, agentic worker handoff 문구를 추가했다.
+- 구현 파일별 책임과 test ownership을 명시해 `WorkPerformance.vue`에 조회, 계산, 렌더링이 모두 섞이는 위험을 줄였다.
+- 기존 `Implementation Order`를 TDD 기반 checkbox task로 확장했다.
+- 각 task마다 failing test, expected failure, minimal implementation, verification command, commit 단위를 명시했다.
+- `lint:check`, `build`, unit, E2E, post-implementation `/design-review`를 완료 gate로 분리했다.
+
+### 적용 원칙
+
+- 이 문서는 사용자가 지정한 `docs/plans/` 경로를 유지한다. `writing-plans` 기본 저장 위치인 `docs/superpowers/plans/`로 이동하지 않는다.
+- route, navigation, scope는 기존 결정을 유지한다. 계획 보강 때문에 새 기능 범위를 넓히지 않는다.
+- subagent review loop는 구현자가 명시적으로 선택할 때 실행한다. 이 세션에서는 문서 보강만 수행하고 별도 worker dispatch는 하지 않는다.
 
 ---
 
@@ -115,7 +147,7 @@ schedules.finalized_version_id IS NOT NULL
 
 `schedules.status = 'complete'` 또는 `schedule_versions.status = 'finalized'`만 단독 기준으로 쓰지 않는다. `complete` 상태는 legacy 흐름에서도 설정될 수 있고, version 상태만으로는 어떤 월 container의 최종 확정본인지 판별하기 어렵기 때문이다.
 
-선택 기간 안에 확정되지 않은 월이 있으면 해당 기간의 공정성 계산을 표시하지 않는다. 부분 기간만 계산하면 선택 기간 전체의 부담 분포가 왜곡될 수 있기 때문이다.
+선택 기간 안에 확정되지 않은 월이 있어도 확정된 월이 하나 이상 있으면 확정 월 기준으로 공정성 계산을 표시한다. 확정되지 않은 월은 계산에서 제외하고 상단 안내로 표시해, 사용자가 조회 기간과 실제 분석 기준을 구분할 수 있게 한다.
 
 ---
 
@@ -277,7 +309,8 @@ WorkPerformance.vue
 
 상호작용 기준:
 
-- 기본값은 현재 연도와 현재 월로 둔다. 단, 현재 월의 확정 근무표가 없으면 가장 최근 확정 월을 기본값으로 선택할 수 있다.
+- 기본값은 가장 최근 확정 월을 찾아 해당 연도/월로 세팅한다. 단, 초기 진입 시 자동 조회는 하지 않고 사용자가 `조회`를 눌렀을 때 적용한다.
+- 확정된 근무표가 아직 하나도 없으면 현재 연도와 현재 월을 기본값으로 두고, `선택한 기간에 확정된 근무표가 없습니다` 상태 안내를 표시한다.
 - 시작 월이 종료 월보다 뒤가 되면 `조회` 버튼을 disabled 처리하고, controls 아래에 `시작 월은 종료 월보다 늦을 수 없습니다`를 표시한다.
 - 조회 중에는 `조회` 버튼 안에 loading 상태를 표시하고, 기존 결과가 있다면 기존 표를 지우지 않는다. 새 결과가 도착하기 전까지 "이전 조회 결과"임을 작은 보조 문구로 표시한다.
 - 연도 넘김 기간은 select 구조상 만들 수 없게 한다. 별도 error page로 보내지 않는다.
@@ -437,21 +470,21 @@ Off 요청 수락
 | 조회 중             | 기존 결과가 없으면 section-local loading, 기존 결과가 있으면 table 유지 + 조회 button loading                          | 없음                                       |
 | 조회 가능           | summary metrics, threshold controls, employee table                                                                    | 정렬/행 확장                               |
 | 확정 누락 월 있음   | 계산 대신 누락 월 목록과 "선택 기간 전체 확정 후 조회 가능" 안내                                                       | `생성된 근무표 보기` 보조 이동             |
-| 확정 근무표 없음    | "아직 확정된 근무표가 없습니다"와 생성/조회 흐름 안내                                                                  | `생성된 근무표 보기` 또는 `새 근무표 생성` |
+| 확정 근무표 없음    | "선택한 기간에 확정된 근무표가 없습니다"와 생성/조회 흐름 안내                                                         | `생성된 근무표 보기` 또는 `새 근무표 생성` |
 | 비교 대상 직원 없음 | "선택 기간 전체를 근무한 직원이 없습니다"와 제외 기준 설명                                                             | 기간 변경                                  |
 | 공휴일 데이터 없음  | 선택 연도에 `public.public_holidays.holiday_date` row가 없어 법정공휴일 판별 기준이 준비되지 않았음을 차단 상태로 표시 | 공휴일 데이터 확인 안내                    |
 | 요청 데이터 없음    | Off 요청 수락 지표는 0 기준으로 표시하되 "선택 기간에 Off 요청이 없습니다" 설명                                        | 없음                                       |
 | 조회 실패           | 어떤 정보를 불러오지 못했는지와 재시도 안내                                                                            | `다시 시도`                                |
 
-확정 누락 월이 있으면 부분 계산을 하지 않는다. 이때 단순히 빈 표를 보여주면 사용자는 "공정성 문제가 없다"고 오해할 수 있으므로, blocker state로 분리한다.
+확정 누락 월이 있어도 확정된 월이 하나 이상 있으면 결과를 표시한다. 이때 단순히 표만 보여주면 사용자는 전체 기간이 계산됐다고 오해할 수 있으므로, 상단 안내로 제외된 월과 분석 기준을 함께 표시한다.
 
 공휴일 데이터 없음 상태는 선택 기간 row 유무가 아니라 선택 연도 coverage로 판단한다. 예를 들어 2026년 3월 조회 기간에 공휴일 row가 없더라도 2026년 전체에 `holiday_date` row가 있으면 정상 계산한다. 반대로 2026년 전체에 row가 하나도 없으면 sync 누락 가능성이 높으므로 계산을 차단한다.
 
 ### 상태 copy 기준
 
 - Loading: `근무 실적을 계산하는 중입니다`
-- 확정 누락: `선택한 기간에 아직 확정되지 않은 월이 있습니다`
-- 전체 empty: `아직 확정된 근무표가 없습니다`
+- 확정 누락 안내: `아래 월은 확정된 근무표가 없어 실적 계산에서 제외되었습니다.`
+- 전체 empty: `선택한 기간에 확정된 근무표가 없습니다`
 - 비교 대상 empty: `이 기간 전체를 근무한 직원이 없습니다`
 - Error: `근무 실적을 불러오지 못했습니다`
 
@@ -576,6 +609,8 @@ MVP에서 모바일 최적화는 제외하지만, 화면이 좁아졌을 때 주
 - 최종 확정 근무표는 `schedules.finalized_version_id`로 판별하고, 배정은 해당 version의 `schedule_assignments.schedule_version_id`로 조회한다.
 - 공정성 편차 정렬은 야간 근무, 주말·휴일 근무, Off 요청 수락을 별도의 동일 가중치 지표로 본다.
 - 기간 변경은 자동 조회가 아니라 `조회` 버튼으로 적용한다.
+- 초기 진입 시 기간 기본값은 가장 최근 확정 월을 우선 사용한다. 단, 자동 조회는 하지 않고 사용자가 `조회`를 눌렀을 때 적용한다.
+- 확정된 근무표가 하나도 없으면 현재 연도/현재 월을 기본값으로 두고 전체 empty 상태를 표시한다.
 - 첫 번째 시각 anchor는 요약 카드가 아니라 근무자별 비교 테이블로 둔다.
 - 요약 카드는 compact metric panel로만 사용하고, dashboard-card mosaic으로 확장하지 않는다.
 - 강조 기준 입력은 1일 이상 10일 이하로 제한한다.
@@ -619,6 +654,88 @@ tests/e2e/work-performance.spec.ts              # 주요 사용자 흐름
 ```
 
 `src/composables/useWorkPerformance.ts`는 이번 MVP에서 만들지 않는다. API boundary와 순수 계산 함수만 분리해도 Vue 파일의 복잡도가 충분히 낮아지고, 추가 composable은 상태 소유권만 늘릴 가능성이 크다.
+
+### superpowers:writing-plans File Map
+
+아래 파일 구조는 구현자가 첫 작업 전에 확인해야 하는 ownership map이다. 새 abstraction은 이 표에 없는 한 추가하지 않는다.
+
+| 파일                                           | 작업             | 책임                                                                                | 주요 검증 파일                                                                                                                   |
+| ---------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `src/types/workPerformance.ts`                 | Create           | API raw row, 계산 input, metric summary, employee row, load state type              | `tests/unit/work-performance-fairness.spec.ts`, `tests/unit/work-performance-api.spec.ts`, `tests/unit/work-performance.spec.ts` |
+| `src/utils/workPerformanceFairness.ts`         | Create           | date-only helper, metric descriptor, 평균/편차/강조/정렬/근거 날짜 계산             | `tests/unit/work-performance-fairness.spec.ts`                                                                                   |
+| `src/api/workPerformance.ts`                   | Create           | Supabase read-only query, pagination, schedule finalized blocker payload            | `tests/unit/work-performance-api.spec.ts`                                                                                        |
+| `src/api/publicHolidays.ts`                    | Modify           | 선택 연도 공휴일 coverage helper 추가                                               | `tests/unit/public-holidays-api.spec.ts`, `tests/unit/work-performance-api.spec.ts`                                              |
+| `src/views/schedule/WorkPerformance.vue`       | Modify           | placeholder 교체, 기간 controls, state banner, summary, threshold, table, expansion | `tests/unit/work-performance.spec.ts`, `tests/e2e/work-performance.spec.ts`                                                      |
+| `tests/unit/work-performance.spec.ts`          | Modify           | placeholder assertion 제거, 실제 화면 상태/interaction test                         | `pnpm test:unit -- tests/unit/work-performance.spec.ts`                                                                          |
+| `tests/unit/work-performance-fairness.spec.ts` | Create           | 순수 계산 TDD contract                                                              | `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts`                                                                 |
+| `tests/unit/work-performance-api.spec.ts`      | Create           | Supabase query chain, pagination, error mapping contract                            | `pnpm test:unit -- tests/unit/work-performance-api.spec.ts`                                                                      |
+| `tests/e2e/work-performance.spec.ts`           | Create           | admin route, success/blocker/highlight/detail primary flow                          | `pnpm test:e2e -- tests/e2e/work-performance.spec.ts`                                                                            |
+| `tests/e2e/app-shell-top-navigation.spec.ts`   | Modify if needed | `/app/work-performance` navigation smoke 유지, placeholder copy assertion 제거      | `pnpm test:e2e -- tests/e2e/app-shell-top-navigation.spec.ts`                                                                    |
+
+#### Type Contract Skeleton
+
+구현자는 type 이름을 아래 contract에서 시작한다. 실제 column 이름이 다르면 API normalize layer에서 맞추고, 계산 utility의 public type은 흔들지 않는다.
+
+```ts
+export type WorkPerformanceMetricKey = 'night' | 'weekendHoliday' | 'offRequestAccepted';
+
+export interface WorkPerformancePeriod {
+  year: number;
+  startMonth: number;
+  endMonth: number;
+  startDate: string;
+  endDate: string;
+}
+
+export interface WorkPerformanceAssignmentRow {
+  scheduleVersionId: string;
+  employeeId: string;
+  date: string;
+  shiftId: string | null;
+  shiftCode: string | null;
+  shiftName: string | null;
+}
+
+export interface WorkPerformancePreferenceRow {
+  scheduleVersionId: string;
+  employeeId: string;
+  date: string;
+  requestCode: 'O';
+}
+
+export interface WorkPerformanceEmployeeRow {
+  id: string;
+  name: string;
+}
+
+export interface WorkPerformanceMetricResult {
+  key: WorkPerformanceMetricKey;
+  count: number;
+  average: number;
+  delta: number;
+  highlighted: boolean;
+  evidenceDates: string[];
+}
+
+export interface WorkPerformanceEmployeeResult {
+  employeeId: string;
+  employeeName: string;
+  priorityScore: number;
+  metrics: Record<WorkPerformanceMetricKey, WorkPerformanceMetricResult>;
+}
+```
+
+#### Metric Descriptor Skeleton
+
+세 지표는 개별 hard-coded branch로 흩뜨리지 말고 descriptor로 묶는다. 단, MVP 밖의 generic analytics framework로 확장하지 않는다.
+
+```ts
+const metricDefinitions = [
+  { key: 'night', label: '야간 근무', unfavorableDirection: 'aboveAverage' },
+  { key: 'weekendHoliday', label: '주말·휴일 근무', unfavorableDirection: 'aboveAverage' },
+  { key: 'offRequestAccepted', label: 'Off 요청 수락', unfavorableDirection: 'belowAverage' },
+] as const;
+```
 
 ### What Already Exists
 
@@ -666,9 +783,9 @@ WorkPerformance.vue
 
 이 구조가 중요한 이유는 공정성 계산이 UI와 섞이면 평균, delta, 제외 대상, 정렬 규칙을 unit test로 막기 어렵기 때문이다.
 
-#### 2. 조회 순서와 차단 상태
+#### 2. 조회 순서와 상태 처리
 
-구현은 아래 순서를 따른다. 확정 누락, 공휴일 coverage 누락, 비교 대상 없음은 서로 다른 blocker state다.
+구현은 아래 순서를 따른다. 확정 누락은 확정 월이 하나 이상 있으면 안내 상태로 처리하고, 공휴일 coverage 누락과 비교 대상 없음은 별도 blocker state로 처리한다.
 
 ```text
 조회 클릭
@@ -796,7 +913,7 @@ MetricDefinition
 #### Error handling rules
 
 - Invalid month range is a validation state, not a thrown error.
-- Missing finalized month is a blocker state, not an empty table.
+- Missing finalized month is a non-blocking notice when at least one selected month is finalized.
 - Missing public holiday year coverage is a blocker state, not a warning.
 - A Supabase error becomes `조회 실패` with retry.
 - Unexpected malformed rows are ignored only if they are non-critical display metadata. Missing `employee_id`, `date`, or `schedule_version_id` in assignments is a load failure because the calculation would be untrustworthy.
@@ -874,7 +991,7 @@ USER FLOW COVERAGE
 [+] 관리자 조회 flow
     │
     ├── [GAP] [->E2E] `/app/work-performance` 진입 후 기간 조회 성공
-    ├── [GAP] [->E2E] 확정 누락 월이 있으면 table 대신 blocker 표시
+    ├── [GAP] [->E2E] 확정 누락 월이 있으면 결과 table과 제외 월 안내 표시
     ├── [GAP] [->E2E] threshold 변경 후 강조 셀이 즉시 바뀜
     └── [GAP] [->E2E] 상세 보기 버튼으로 근거 날짜 확인
 
@@ -961,7 +1078,7 @@ MVP 예상 규모는 크지 않지만, 구현은 Supabase 기본 1000 row limit�
 
 | Codepath                  | Production failure                                   | Test coverage required | Error handling            | User-visible result                                 |
 | ------------------------- | ---------------------------------------------------- | ---------------------- | ------------------------- | --------------------------------------------------- |
-| finalized schedule lookup | one selected month has no `finalized_version_id`     | yes                    | blocker state             | `선택한 기간에 아직 확정되지 않은 월이 있습니다`    |
+| finalized schedule lookup | one selected month has no `finalized_version_id`     | yes                    | non-blocking notice       | finalized-month result plus missing-month notice    |
 | assignment read           | more than 1000 rows but only first page loaded       | yes                    | pagination                | no silent truncation                                |
 | assignment normalization  | required `date` or `employee_id` missing             | yes                    | fail load                 | `근무 실적을 불러오지 못했습니다`                   |
 | public holiday range      | selected month has no holiday rows but year has rows | yes                    | allow calculation         | normal result                                       |
@@ -974,26 +1091,283 @@ MVP 예상 규모는 크지 않지만, 구현은 Supabase 기본 1000 row limit�
 
 이 문서 업데이트 이후 남은 critical silent gap은 없다. 위험 경로는 모두 명시적 test 요구사항으로 전환했다.
 
-### Implementation Order
+### Agentic Implementation Tasks
 
-1. Add `src/types/workPerformance.ts` with raw rows, calculation input, metric summary, employee result row, and UI state types.
-2. Add `src/utils/workPerformanceFairness.ts` with date-only helpers and pure calculation.
-3. Add `tests/unit/work-performance-fairness.spec.ts` first and make the calculation pass.
-4. Add `src/api/workPerformance.ts` with explicit Supabase selects and pagination.
-5. Add `tests/unit/work-performance-api.spec.ts` with query-chain mocks.
-6. Replace `WorkPerformance.vue` placeholder with the actual screen.
-7. Rewrite `tests/unit/work-performance.spec.ts`.
-8. Add `tests/e2e/work-performance.spec.ts` for the primary admin flow.
+아래 task는 순서대로 실행한다. 각 commit에는 해당 task의 파일만 포함하고, unrelated local change는 staged 상태에 넣지 않는다.
 
-이 순서는 구조 변경과 동작 변경을 review 가능한 단위로 분리한다. 또한 계산 contract가 test로 잠기기 전에 UI부터 만드는 일을 막는다.
+#### Task 1: Date-Only Helpers and Shared Types
 
-### Implementation Completion Checklist
+**Files:**
 
-- `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts tests/unit/work-performance-api.spec.ts tests/unit/work-performance.spec.ts`
-- `pnpm lint:check`
-- `pnpm run build`
-- `pnpm test:e2e -- tests/e2e/work-performance.spec.ts`
-- After implementation, run screenshot-based `/design-review` on `/app/work-performance`.
+- Create: `src/types/workPerformance.ts`
+- Create: `src/utils/workPerformanceFairness.ts`
+- Create: `tests/unit/work-performance-fairness.spec.ts`
+
+- [ ] **Step 1: Write failing date/helper tests**
+
+  `tests/unit/work-performance-fairness.spec.ts`에 아래 behavior를 먼저 고정한다.
+
+  ```ts
+  expect(listPeriodDates(2026, 1, 1)).toContain('2026-01-01');
+  expect(listPeriodDates(2028, 2, 2)).toContain('2028-02-29');
+  expect(() => listPeriodDates(2026, 3, 1)).toThrow('시작 월은 종료 월보다 늦을 수 없습니다');
+  expect(getIsoDayOfWeek('2026-01-03')).toBe(6);
+  expect(formatKoreanMonthDay('2026-01-03')).toBe('1/3 토');
+  ```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts`
+
+  Expected: FAIL because `src/utils/workPerformanceFairness.ts` or helper exports do not exist yet.
+
+- [ ] **Step 3: Add minimal type contract and date-only helpers**
+
+  Add the type skeleton from `superpowers:writing-plans File Map`. Implement helpers without JavaScript local timezone conversion. UTC `Date.UTC()` or pure calendar math is allowed; `new Date('YYYY-MM-DD')` local interpretation is not.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts`
+
+  Expected: PASS for date/helper tests.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/types/workPerformance.ts src/utils/workPerformanceFairness.ts tests/unit/work-performance-fairness.spec.ts
+  git commit -m "feat: add work performance date helpers"
+  ```
+
+#### Task 2: Fairness Calculation Contract
+
+**Files:**
+
+- Modify: `src/types/workPerformance.ts`
+- Modify: `src/utils/workPerformanceFairness.ts`
+- Modify: `tests/unit/work-performance-fairness.spec.ts`
+
+- [ ] **Step 1: Write failing calculation tests**
+
+  Add tests for night count, weekend/holiday count, Off request accepted count, ordinary Off exclusion, partial coverage exclusion, summary stats, default priority sort, tie-breakers, and threshold direction.
+
+  ```ts
+  const result = computeWorkPerformanceFairness({
+    period,
+    employees,
+    assignments,
+    offRequests,
+    publicHolidayDates: ['2026-01-01'],
+    highlightThresholdDays: 3,
+  });
+
+  expect(result.rows[0]?.employeeName).toBe('김민지');
+  expect(result.rows[0]?.metrics.night.count).toBe(7);
+  expect(result.rows[0]?.metrics.night.delta).toBe(3);
+  expect(result.rows[0]?.metrics.night.highlighted).toBe(true);
+  expect(result.excludedEmployeeCount).toBe(1);
+  ```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts`
+
+  Expected: FAIL because metric aggregation is not implemented.
+
+- [ ] **Step 3: Implement pure calculation**
+
+  Build maps once: `employeeById`, `assignmentsByEmployeeDate`, `offRequestDatesByEmployee`, `holidayDateSet`. Include only employees whose assignment coverage equals `listPeriodDates(...).length`. Compute summary stats from included employees only.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts`
+
+  Expected: PASS for all fairness utility tests.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/types/workPerformance.ts src/utils/workPerformanceFairness.ts tests/unit/work-performance-fairness.spec.ts
+  git commit -m "feat: compute work performance fairness"
+  ```
+
+#### Task 3: Supabase Read Boundary
+
+**Files:**
+
+- Create: `src/api/workPerformance.ts`
+- Modify: `src/api/publicHolidays.ts`
+- Create: `tests/unit/work-performance-api.spec.ts`
+- Modify if needed: `tests/unit/public-holidays-api.spec.ts`
+
+- [ ] **Step 1: Write failing API contract tests**
+
+  Tests must verify schedules are filtered by `organization_id` and month range, assignments/preferences use finalized version ids and selected date range, preferences filter `request_code = 'O'`, pagination continues beyond 1000 rows, and selected-year holiday coverage is checked separately from selected-period holiday range.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-api.spec.ts tests/unit/public-holidays-api.spec.ts`
+
+  Expected: FAIL because `src/api/workPerformance.ts` and year coverage helper are missing.
+
+- [ ] **Step 3: Implement API helper**
+
+  `loadWorkPerformancePeriod({ organizationId, year, startMonth, endMonth })` returns one of these typed outcomes: `success`, `noFinalizedSchedule`, `missingHolidayCoverage`, or throws a Korean load error for query failure. When some selected months are not finalized but at least one selected month is finalized, return `success` with `missingMonths`. Use explicit `select(...)` column lists and `.range()` loops for assignments/preferences.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-api.spec.ts tests/unit/public-holidays-api.spec.ts`
+
+  Expected: PASS for API contract tests.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/api/workPerformance.ts src/api/publicHolidays.ts tests/unit/work-performance-api.spec.ts tests/unit/public-holidays-api.spec.ts
+  git commit -m "feat: load finalized work performance data"
+  ```
+
+#### Task 4: WorkPerformance View States
+
+**Files:**
+
+- Modify: `src/views/schedule/WorkPerformance.vue`
+- Modify: `tests/unit/work-performance.spec.ts`
+
+- [ ] **Step 1: Replace placeholder tests with failing real-state tests**
+
+  Cover initial state, invalid month range, loading without previous result, loading with previous result, success, missing finalized month, no finalized schedule, no comparison employees, missing holiday coverage, load failure, and retry success.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance.spec.ts`
+
+  Expected: FAIL because the component still renders the placeholder.
+
+- [ ] **Step 3: Implement screen shell and state rendering**
+
+  Keep `/app/work-performance` route unchanged. Render header, period controls, state banner, summary metrics, threshold control, and table area in `WorkPerformance.vue`. Use Korean user-facing copy from `상태 copy 기준`.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance.spec.ts`
+
+  Expected: PASS for state rendering and retry tests.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/views/schedule/WorkPerformance.vue tests/unit/work-performance.spec.ts
+  git commit -m "feat: render work performance states"
+  ```
+
+#### Task 5: Table Interaction, Highlighting, and Accessibility
+
+**Files:**
+
+- Modify: `src/views/schedule/WorkPerformance.vue`
+- Modify: `tests/unit/work-performance.spec.ts`
+
+- [ ] **Step 1: Write failing interaction tests**
+
+  Cover draft controls not applying until `조회`, threshold clamp 1-10, highlighted cells showing visible delta plus accessible description, sortable headers updating `aria-sort`, and detail button toggling `aria-expanded` without losing focus.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance.spec.ts`
+
+  Expected: FAIL for missing sort/highlight/expansion behavior.
+
+- [ ] **Step 3: Implement table behavior**
+
+  Use the calculation result as the single table data source. The first visual anchor must be the employee comparison table, not a decorative metric grid. Keep expansion inline, not modal/drawer.
+
+- [ ] **Step 4: Run test to verify it passes**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance.spec.ts`
+
+  Expected: PASS for interaction and accessibility tests.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add src/views/schedule/WorkPerformance.vue tests/unit/work-performance.spec.ts
+  git commit -m "feat: add work performance table interactions"
+  ```
+
+#### Task 6: E2E Flow and Existing Navigation Regression
+
+**Files:**
+
+- Create: `tests/e2e/work-performance.spec.ts`
+- Modify if needed: `tests/e2e/app-shell-top-navigation.spec.ts`
+
+- [ ] **Step 1: Write failing E2E tests**
+
+  Cover top navigation entry, successful 조회 showing summary + employee table, missing finalized month blocker, threshold change updating highlighted cells, and detail expansion showing evidence dates.
+
+- [ ] **Step 2: Run E2E to verify it fails or exposes missing mocks**
+
+  Run: `pnpm test:e2e -- tests/e2e/work-performance.spec.ts`
+
+  Expected: FAIL until the route test data/mocks and selectors match the implemented screen.
+
+- [ ] **Step 3: Implement E2E support and remove placeholder assertions**
+
+  Use existing E2E helper patterns. Do not assert `준비 중입니다` anywhere after this feature ships.
+
+- [ ] **Step 4: Run E2E to verify it passes**
+
+  Run: `pnpm test:e2e -- tests/e2e/work-performance.spec.ts tests/e2e/app-shell-top-navigation.spec.ts`
+
+  Expected: PASS for work performance flow and navigation smoke.
+
+- [ ] **Step 5: Commit**
+
+  ```bash
+  git add tests/e2e/work-performance.spec.ts tests/e2e/app-shell-top-navigation.spec.ts
+  git commit -m "test: cover work performance e2e flow"
+  ```
+
+#### Task 7: Final Verification Gate
+
+**Files:**
+
+- No new feature files. Only fix files directly responsible for failures found by the commands below.
+
+- [ ] **Step 1: Run focused unit suite**
+
+  Run: `pnpm test:unit -- tests/unit/work-performance-fairness.spec.ts tests/unit/work-performance-api.spec.ts tests/unit/work-performance.spec.ts tests/unit/public-holidays-api.spec.ts`
+
+  Expected: PASS.
+
+- [ ] **Step 2: Run lint**
+
+  Run: `pnpm lint:check`
+
+  Expected: PASS with no ESLint errors. Warnings are allowed only if they are existing project warnings and not introduced by this work.
+
+- [ ] **Step 3: Run production build**
+
+  Run: `pnpm run build`
+
+  Expected: PASS.
+
+- [ ] **Step 4: Run E2E**
+
+  Run: `pnpm test:e2e -- tests/e2e/work-performance.spec.ts`
+
+  Expected: PASS.
+
+- [ ] **Step 5: Run visual QA after implementation**
+
+  Run screenshot-based `/design-review` on `/app/work-performance`. Expected: table overflow, expanded row height, focus state, highlight contrast, and narrow-width layout have no blocking visual issue.
+
+- [ ] **Step 6: Commit verification fixes if any**
+
+  ```bash
+  git add <only files fixed during verification>
+  git commit -m "fix: stabilize work performance verification"
+  ```
 
 ### plan-eng-review Completion Summary
 

@@ -8,6 +8,7 @@ import type {
   WorkPerformanceEmployeeRow,
   WorkPerformancePeriod,
   WorkPerformancePreferenceRow,
+  WorkPerformancePreferenceResolutionStatus,
 } from '@/types/workPerformance';
 
 const WORK_PERFORMANCE_LOAD_ERROR = '근무 실적을 불러오지 못했습니다';
@@ -29,11 +30,11 @@ export interface WorkPerformanceLoadSuccess {
   publicHolidayDates: string[];
   finalizedMonths: string[];
   finalizedVersionIds: string[];
+  missingMonths: string[];
 }
 
 export type WorkPerformanceLoadResult =
   | WorkPerformanceLoadSuccess
-  | { status: 'missingFinalizedMonth'; missingMonths: string[] }
   | { status: 'noFinalizedSchedule' }
   | { status: 'missingHolidayCoverage' };
 
@@ -66,6 +67,7 @@ interface PreferenceRow {
   employee_id: string | null;
   date: string | null;
   request_code: string | null;
+  resolution_status: string | null;
 }
 
 interface EmployeeRow {
@@ -144,7 +146,14 @@ function normalizePreference(row: PreferenceRow): WorkPerformancePreferenceRow {
     employeeId: assertRequiredString(row.employee_id),
     date: assertRequiredString(row.date),
     requestCode: 'O',
+    resolutionStatus: normalizePreferenceResolutionStatus(row.resolution_status),
   };
+}
+
+function normalizePreferenceResolutionStatus(
+  value: string | null,
+): WorkPerformancePreferenceResolutionStatus | null {
+  return value === 'pending' || value === 'fulfilled' || value === 'unfulfilled' ? value : null;
 }
 
 function normalizeEmployee(row: EmployeeRow): WorkPerformanceEmployeeRow {
@@ -172,21 +181,6 @@ function parseScheduleMonth(month: string | null): WorkPerformanceLatestFinalize
   }
 
   return { year, month: parsedMonth };
-}
-
-async function hasAnyFinalizedSchedule(organizationId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('schedules')
-    .select('id')
-    .eq('organization_id', organizationId)
-    .not('finalized_version_id', 'is', null)
-    .limit(1);
-
-  if (error) {
-    throw createWorkPerformanceLoadError();
-  }
-
-  return (data ?? []).length > 0;
 }
 
 async function loadPagedRows<Row>(
@@ -243,7 +237,7 @@ async function loadOffRequests(
   const rows = await loadPagedRows<PreferenceRow>((from, to) =>
     supabase
       .from('schedule_preferences')
-      .select('schedule_version_id, employee_id, date, request_code')
+      .select('schedule_version_id, employee_id, date, request_code, resolution_status')
       .in('schedule_version_id', finalizedVersionIds)
       .eq('request_code', 'O')
       .gte('date', startDate)
@@ -329,19 +323,17 @@ export async function loadWorkPerformancePeriod(
       return !schedule?.finalized_version_id;
     });
 
-    if (missingMonths.length > 0) {
-      if (!(await hasAnyFinalizedSchedule(params.organizationId))) {
-        return { status: 'noFinalizedSchedule' };
-      }
+    const finalizedMonths = selectedMonths.filter((month) => {
+      const schedule = schedulesByMonth.get(month);
 
-      return {
-        status: 'missingFinalizedMonth',
-        missingMonths,
-      };
+      return Boolean(schedule?.finalized_version_id);
+    });
+
+    if (finalizedMonths.length === 0) {
+      return { status: 'noFinalizedSchedule' };
     }
 
-    const finalizedMonths = selectedMonths;
-    const finalizedVersionIds = selectedMonths.map((month) =>
+    const finalizedVersionIds = finalizedMonths.map((month) =>
       assertRequiredString(schedulesByMonth.get(month)?.finalized_version_id),
     );
 
@@ -365,6 +357,7 @@ export async function loadWorkPerformancePeriod(
       publicHolidayDates,
       finalizedMonths,
       finalizedVersionIds,
+      missingMonths,
     };
   } catch (error) {
     if (error instanceof Error && error.message === WORK_PERFORMANCE_LOAD_ERROR) {

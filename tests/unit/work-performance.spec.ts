@@ -1,7 +1,7 @@
 import { mount, type MountingOptions } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick } from 'vue'
-import { getScheduleResultsRoutePath, getScheduleStepRoutePath } from '@/constants/routes'
+import { getScheduleStepRoutePath } from '@/constants/routes'
 import type { WorkPerformanceLoadResult } from '@/api/workPerformance'
 import type {
   WorkPerformanceAssignmentRow,
@@ -138,6 +138,7 @@ function successResult(options?: {
   assignments?: WorkPerformanceAssignmentRow[]
   offRequests?: WorkPerformancePreferenceRow[]
   publicHolidayDates?: string[]
+  missingMonths?: string[]
 }): WorkPerformanceLoadResult {
   const period: WorkPerformancePeriod = {
     year: 2026,
@@ -168,6 +169,7 @@ function successResult(options?: {
     publicHolidayDates: options?.publicHolidayDates ?? ['2026-01-01'],
     finalizedMonths: ['2026-01'],
     finalizedVersionIds: ['version-1'],
+    missingMonths: options?.missingMonths ?? [],
   }
 }
 
@@ -205,7 +207,7 @@ describe('WorkPerformance', () => {
 
     await flush()
 
-    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('아직 확정된 근무표가 없습니다')
+    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('선택한 기간에 확정된 근무표가 없습니다')
     expect(loadLatestFinalizedWorkPerformanceMonthMock).toHaveBeenCalledWith('org-1')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
@@ -270,19 +272,19 @@ describe('WorkPerformance', () => {
     const wrapper = createWrapper()
 
     await runQuery(wrapper)
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
 
     await wrapper.get('[data-test="work-performance-query"]').trigger('click')
     await nextTick()
 
     expect(wrapper.get('[data-test="work-performance-refreshing"]').text()).toContain('이전 조회 결과를 표시하는 중입니다')
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
 
     deferred.resolve(successResult())
     await flush()
   })
 
-  it('renders summary metrics, threshold control, table, and no request data explanation on success', async () => {
+  it('renders summary metrics first, hides risk summary, and renders deviation matrix on success', async () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({ offRequests: [] }))
     const wrapper = createWrapper()
 
@@ -291,12 +293,18 @@ describe('WorkPerformance', () => {
     await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무')
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('최대 편차')
+    expect(wrapper.find('[data-test="work-performance-risk-summary"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
+    expect(
+      wrapper.get('[data-test="work-performance-summary"]').element.compareDocumentPosition(
+        wrapper.get('[data-test="work-performance-matrix"]').element,
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '3')
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('평균 대비')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('평균 대비')
     expect(wrapper.get('[data-test="work-performance-detail-header"]').text()).toBe('상세')
     expect(wrapper.find('[data-test="work-performance-emphasis-label"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('선택 기간에 Off 요청이 없습니다')
@@ -325,8 +333,8 @@ describe('WorkPerformance', () => {
 
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledTimes(1)
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('이서연')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('이서연')
   })
 
   it('clamps threshold input between 1 and 10 and updates highlight state immediately', async () => {
@@ -598,20 +606,19 @@ describe('WorkPerformance', () => {
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
   })
 
-  it('renders the missing finalized month state with navigation to generated schedules', async () => {
-    loadWorkPerformancePeriodMock.mockResolvedValueOnce({
-      status: 'missingFinalizedMonth',
+  it('renders finalized data with a top notice when selected months are missing', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
       missingMonths: ['2026-02', '2026-03'],
-    } satisfies WorkPerformanceLoadResult)
+    }))
     const wrapper = createWrapper()
 
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('선택한 기간에 아직 확정되지 않은 월이 있습니다')
-    expect(wrapper.text()).toContain('2026년 2월')
-
-    await wrapper.get('[data-test="work-performance-results"]').trigger('click')
-    expect(pushMock).toHaveBeenCalledWith(getScheduleResultsRoutePath())
+    expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('확정된 근무표가 없어 실적 계산에서 제외되었습니다')
+    expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('2026년 2월')
+    expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('2026년 3월')
+    expect(wrapper.get('[data-test="work-performance-analysis-period"]').text()).toContain('분석 기준: 2026년 1월 확정 데이터')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
   })
 
   it('renders the no finalized schedule state with actions', async () => {
@@ -622,7 +629,7 @@ describe('WorkPerformance', () => {
 
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('아직 확정된 근무표가 없습니다')
+    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('선택한 기간에 확정된 근무표가 없습니다')
 
     await wrapper.get('[data-test="work-performance-create"]').trigger('click')
     expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(1))
@@ -636,7 +643,7 @@ describe('WorkPerformance', () => {
 
     expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('이 기간에 근무한 직원이 없습니다')
     expect(wrapper.text()).toContain('선택 기간에 확정 근무 배정이 있는 직원만 비교 대상에 포함됩니다')
-    expect(wrapper.find('[data-test="work-performance-table"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="work-performance-matrix"]').exists()).toBe(false)
   })
 
   it('renders the missing public holiday data state', async () => {
@@ -665,6 +672,6 @@ describe('WorkPerformance', () => {
     await flush()
 
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledTimes(2)
-    expect(wrapper.get('[data-test="work-performance-table"]').text()).toContain('김민지')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
   })
 })

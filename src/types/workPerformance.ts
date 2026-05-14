@@ -2,6 +2,8 @@ export type WorkPerformanceMetricKey = 'night' | 'weekendHoliday' | 'offRequestA
 
 export type WorkPerformanceMetricDirection = 'aboveAverage' | 'belowAverage'
 
+export type WorkPerformancePreferenceResolutionStatus = 'pending' | 'fulfilled' | 'unfulfilled'
+
 export interface WorkPerformancePeriod {
   year: number
   startMonth: number
@@ -24,6 +26,7 @@ export interface WorkPerformancePreferenceRow {
   employeeId: string
   date: string
   requestCode: 'O'
+  resolutionStatus?: WorkPerformancePreferenceResolutionStatus | null
 }
 
 export interface WorkPerformanceEmployeeRow {
