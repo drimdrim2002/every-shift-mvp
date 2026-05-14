@@ -2,11 +2,8 @@
   <div class="mx-auto max-w-6xl px-4">
     <section class="space-y-6">
       <div>
-        <p class="text-sm font-medium tracking-wide text-slate-500">
-          근무표 조회
-        </p>
-        <h1 class="mt-1 text-2xl font-bold text-slate-900">
-          근무 실적
+        <h1 class="text-2xl font-bold text-slate-900">
+          근무 기록
         </h1>
         <p class="mt-2 text-sm text-slate-500">
           확정된 근무표 기준으로 야간 근무 횟수, 주말·휴일 근무 횟수, Off 요청 수락 건수를 비교합니다.
@@ -98,7 +95,7 @@
         aria-live="polite"
         class="rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800"
       >
-        이전 조회 결과를 표시하는 중입니다. 새 근무 실적을 계산하고 있습니다.
+        이전 조회 결과를 표시하는 중입니다. 새 근무 기록을 계산하고 있습니다.
       </div>
 
       <div
@@ -108,7 +105,7 @@
         class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
       >
         <p class="font-semibold">
-          아래 월은 확정된 근무표가 없어 실적 계산에서 제외되었습니다.
+          아래 월은 확정된 근무표가 없어 기록 계산에서 제외되었습니다.
         </p>
         <ul class="mt-3 flex flex-wrap gap-2 font-medium">
           <li
@@ -129,7 +126,7 @@
       >
         <n-spin size="medium" />
         <p class="mt-4 text-sm text-slate-500">
-          근무 실적을 계산하는 중입니다
+          근무 기록을 계산하는 중입니다
         </p>
       </div>
 
@@ -141,7 +138,7 @@
         class="rounded-lg border border-red-200 bg-red-50 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-red-900">
-          근무 실적을 불러오지 못했습니다
+          근무 기록을 불러오지 못했습니다
         </h2>
         <p class="mt-2 text-sm text-red-700">
           잠시 후 다시 시도해 주세요.
@@ -163,7 +160,7 @@
         class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-slate-900">
-          기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요
+          기간을 선택한 뒤 조회를 눌러 근무 기록을 확인하세요
         </h2>
         <p class="mt-2 text-sm text-slate-500">
           확정된 근무표가 있는 월만 분석할 수 있습니다.
@@ -180,7 +177,7 @@
           선택한 기간에 확정된 근무표가 없습니다
         </h2>
         <p class="mt-2 text-sm text-slate-500">
-          조회 기간에 근무표를 생성하고 확정하면 근무 실적을 확인할 수 있습니다.
+          조회 기간에 근무표를 생성하고 확정하면 근무 기록을 확인할 수 있습니다.
         </p>
         <div class="mt-6 flex flex-wrap justify-center gap-3">
           <n-button
@@ -341,10 +338,10 @@
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
               <h2 class="text-lg font-semibold text-slate-900">
-                직원별 근무 실적 비교
+                직원별 근무 기록 비교
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                전체 평균 기준으로 직원별 실적 차이를 비교합니다.
+                전체 평균 기준으로 직원별 기록 차이를 비교합니다.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -388,7 +385,7 @@
             <div
               class="min-w-[920px] divide-y divide-slate-100 text-sm"
               role="table"
-              aria-label="직원별 근무 실적 비교"
+              aria-label="직원별 근무 기록 비교"
             >
               <p class="sr-only">
                 전체 평균과의 차이가 큰 직원부터 표시됩니다
@@ -942,7 +939,7 @@ async function loadPerformance() {
       return
     }
 
-    console.warn('근무 실적 로드 실패:', error)
+    console.warn('근무 기록 로드 실패:', error)
     loadResult.value = null
     loadError.value = true
     hasQueried.value = true

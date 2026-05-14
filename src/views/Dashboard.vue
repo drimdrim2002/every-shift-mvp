@@ -62,7 +62,7 @@
                 운영 준비 상태를 확인하지 못했습니다
               </h2>
               <p class="text-sm text-slate-600">
-                필수 정보가 준비되었는지 확인할 수 없어 근무표 생성과 근무표 조회를 잠시 숨겼습니다.
+                필수 정보가 준비되었는지 확인할 수 없어 근무표 생성과 생성된 근무표를 잠시 숨겼습니다.
               </p>
             </div>
             <n-button
@@ -88,7 +88,7 @@
               근무표 생성을 시작하기 전에 필수 정보를 먼저 확인해주세요
             </h2>
             <p class="mt-2 text-sm text-slate-600">
-              아래 3가지를 순서대로 완료하면 근무표 생성과 근무표 조회를 사용할 수 있습니다.
+              아래 3가지를 순서대로 완료하면 근무표 생성과 생성된 근무표를 사용할 수 있습니다.
             </p>
             <div class="mt-4 rounded-lg border border-teal-100 bg-teal-50 px-4 py-3 text-sm text-teal-900">
               처음 설정은 한 번만 해두면 됩니다. 병원 정보와 근무 유형을 확인한 뒤, 장소별 필요 인원과 직원 명단을 차례대로 저장해주세요.
@@ -629,7 +629,7 @@ const primaryDashboardAction = computed<DashboardPrimaryAction>(() => {
 
   return {
     key: 'open_schedule_results',
-    label: '근무표 조회로 이동',
+    label: '생성된 근무표로 이동',
     title: '지금 바로 처리할 작업은 없습니다',
     description: '생성된 근무표 목록에서 이전 결과를 확인할 수 있습니다.',
   };

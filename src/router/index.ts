@@ -151,7 +151,7 @@ const baseRoutes: RouteRecordRaw[] = [
         component: () => import('@/views/schedule/WorkPerformance.vue'),
         meta: {
           requiresAuth: true,
-          title: '근무 실적',
+          title: '근무 기록',
           requiresOrgContext: true,
           requiredOrgRole: 'admin',
         },

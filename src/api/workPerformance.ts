@@ -11,7 +11,7 @@ import type {
   WorkPerformancePreferenceResolutionStatus,
 } from '@/types/workPerformance';
 
-const WORK_PERFORMANCE_LOAD_ERROR = '근무 실적을 불러오지 못했습니다';
+const WORK_PERFORMANCE_LOAD_ERROR = '근무 기록을 불러오지 못했습니다';
 const PAGE_SIZE = 1000;
 
 export interface WorkPerformanceLoadParams {

@@ -5,7 +5,7 @@ import type { SolverYearlyEmployeeStats } from '@/types/schedule';
 import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
 
 const SOLVER_YEARLY_STATS_LOAD_ERROR =
-  '연간 근무 실적을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+  '연간 근무 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
 
 const PAGE_SIZE = 1000;
 

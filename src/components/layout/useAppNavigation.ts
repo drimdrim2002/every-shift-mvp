@@ -65,8 +65,8 @@ export function useAppNavigation(): {
         label: '근무표 분석',
         key: getScheduleResultsRoutePath(),
         children: [
-          { label: '사이트별', key: getScheduleResultsRoutePath() },
-          { label: '근무자별', key: getWorkPerformanceRoutePath() },
+          { label: '생성된 근무표', key: getScheduleResultsRoutePath() },
+          { label: '근무 기록', key: getWorkPerformanceRoutePath() },
         ],
       })
     }

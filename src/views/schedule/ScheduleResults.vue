@@ -3,10 +3,7 @@
     <section class="space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p class="text-sm font-medium tracking-wide text-slate-500">
-            근무표 조회
-          </p>
-          <h1 class="mt-1 text-2xl font-bold text-slate-900">
+          <h1 class="text-2xl font-bold text-slate-900">
             생성된 근무표
           </h1>
         </div>
