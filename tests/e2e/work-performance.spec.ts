@@ -332,7 +332,7 @@ test.describe('work performance', () => {
 
     await expect(page.getByTestId('work-performance-applied-period')).toHaveText('조회 기간: 2026년 1월')
     await expect(page.getByTestId('work-performance-summary')).toContainText('야간 근무')
-    await expect(page.getByTestId('work-performance-summary')).toContainText('최대 편차 2.5일')
+    await expect(page.getByTestId('work-performance-summary')).toContainText('가장 큰 차이 2.5일')
     await expect(page.getByTestId('work-performance-risk-summary')).toHaveCount(0)
     await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
     expect(await page.evaluate(() => {
@@ -343,7 +343,7 @@ test.describe('work performance', () => {
     })).toBe(true)
     await expect(page.getByTestId('work-performance-employee-row')).toHaveCount(2)
     await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
-    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균 대비 +2.5일')
+    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toContainText('평균과의 차이 +2.5일')
   })
 
   test('renders finalized data with a notice when selected months are not finalized', async ({ page }) => {

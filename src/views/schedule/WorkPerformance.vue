@@ -9,7 +9,7 @@
           근무 실적
         </h1>
         <p class="mt-2 text-sm text-slate-500">
-          확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 편차를 확인합니다.
+          확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 일수를 비교합니다.
         </p>
       </div>
 
@@ -219,7 +219,7 @@
           공휴일 데이터 없음
         </h2>
         <p class="mt-2 text-sm text-amber-800">
-          주말·휴일 근무 편차를 계산하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
+          주말·휴일 근무 일수를 비교하려면 선택 연도의 공휴일 데이터가 필요합니다. 공휴일 데이터가 등록되어 있는지 확인해 주세요.
         </p>
       </div>
 
@@ -254,13 +254,13 @@
               {{ definition.label }}
             </p>
             <p class="mt-2 text-2xl font-bold text-slate-900">
-              평균 {{ formatNumber(fairnessResult.summary[definition.key].average) }}일
+              전체 평균 {{ formatNumber(fairnessResult.summary[definition.key].average) }}일
             </p>
             <p class="mt-1 text-sm text-slate-500">
               최소 {{ fairnessResult.summary[definition.key].min }}일 · 최대 {{ fairnessResult.summary[definition.key].max }}일
             </p>
             <p class="mt-1 text-sm font-medium text-slate-600">
-              최대 편차 {{ formatNumber(getMaxDeviation(definition.key)) }}일
+              가장 큰 차이 {{ formatNumber(getMaxDeviation(definition.key)) }}일
             </p>
           </div>
         </div>
@@ -278,10 +278,10 @@
                   id="work-performance-risk-summary-title"
                   class="text-lg font-semibold text-slate-900"
                 >
-                  공정성 위험도 요약
+                  확인 필요 직원 요약
                 </h2>
                 <p class="mt-1 text-sm text-slate-500">
-                  평균보다 불리한 편차가 큰 근무자부터 표시합니다.
+                  전체 평균과의 차이가 큰 직원부터 표시합니다.
                 </p>
               </div>
               <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
@@ -306,14 +306,14 @@
               v-if="riskSummaryRows.length === 0"
               class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600"
             >
-              불리한 편차가 없습니다.
+              확인할 차이가 없습니다.
             </div>
             <div
               v-for="row in riskSummaryRows"
               :key="row.employeeId"
               :data-test="`work-performance-risk-row-${row.employeeId}`"
               class="grid gap-2 md:grid-cols-[9rem_1fr_6rem] md:items-center"
-              :aria-label="`${row.employeeName}, 불리 편차 ${formatNumber(row.priorityScore)}일`"
+              :aria-label="`${row.employeeName}, 확인 필요 차이 ${formatNumber(row.priorityScore)}일`"
             >
               <span class="truncate text-sm font-semibold text-slate-900">
                 {{ row.employeeName }}
@@ -331,7 +331,7 @@
                 </div>
               </div>
               <span class="text-sm font-semibold text-slate-700 md:text-right">
-                불리 편차 {{ formatNumber(row.priorityScore) }}일
+                확인 필요 {{ formatNumber(row.priorityScore) }}일
               </span>
             </div>
           </div>
@@ -341,10 +341,10 @@
           <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
             <div>
               <h2 class="text-lg font-semibold text-slate-900">
-                공정성 편차 매트릭스
+                직원별 근무 일수 비교
               </h2>
               <p class="mt-1 text-sm text-slate-500">
-                중앙선을 평균으로 보고, 오른쪽 주황색 막대는 불리한 편차를 의미합니다.
+                전체 평균 기준으로 직원별 근무 일수 차이를 비교합니다.
               </p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -388,10 +388,10 @@
             <div
               class="min-w-[920px] divide-y divide-slate-100 text-sm"
               role="table"
-              aria-label="직원별 공정성 편차 매트릭스"
+              aria-label="직원별 근무 일수 비교"
             >
               <p class="sr-only">
-                평균보다 불리한 방향으로 많이 벗어난 근무자가 먼저 표시됩니다
+                전체 평균과의 차이가 큰 직원부터 표시됩니다
               </p>
               <div
                 class="grid grid-cols-[10rem_repeat(3,minmax(13rem,1fr))_6rem] bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -503,11 +503,11 @@
                           {{ row.metrics[metric].count }}일
                         </p>
                         <p class="mt-1 text-xs text-slate-500">
-                          평균 {{ formatNumber(row.metrics[metric].average) }}일
+                          전체 평균 {{ formatNumber(row.metrics[metric].average) }}일
                         </p>
                       </div>
                       <span class="text-xs font-semibold text-slate-700">
-                        평균 대비 {{ formatDelta(row.metrics[metric].delta) }}일
+                        평균과의 차이 {{ formatDelta(row.metrics[metric].delta) }}일
                       </span>
                     </div>
                     <div class="mt-3">
@@ -1000,7 +1000,7 @@ function getRiskSegmentLabel(
   row: WorkPerformanceEmployeeResult,
   metric: WorkPerformanceMetricKey,
 ): string {
-  return `${metricLabels[metric]} 불리 편차 ${formatNumber(getUnfavorableDeviation(metric, row.metrics[metric]))}일`
+  return `${metricLabels[metric]} 확인 필요 차이 ${formatNumber(getUnfavorableDeviation(metric, row.metrics[metric]))}일`
 }
 
 function getMetricCellClass(
@@ -1057,14 +1057,14 @@ function getMetricDirectionLabel(
   metric: WorkPerformanceMetricResult,
 ): string {
   if (metric.delta === 0) {
-    return '평균과 동일'
+    return '전체 평균과 동일'
   }
 
-  if (isUnfavorableMetricDeviation(metricKey, metric)) {
-    return metric.highlighted ? '불리 편차 강조' : '불리 편차'
+  if (metricKey === 'offRequestAccepted') {
+    return metric.delta > 0 ? '많이 수락' : '적게 수락'
   }
 
-  return '유리 편차'
+  return metric.delta > 0 ? '많이 근무' : '적게 근무'
 }
 
 function getMetricDirectionTextClass(
@@ -1085,14 +1085,14 @@ function getMetricDirectionTextClass(
 function getMetricCellLabel(metric: WorkPerformanceMetricResult): string {
   const emphasisLabel = metric.highlighted ? `, ${getHighlightDescription(metric)}` : ''
 
-  return `${metric.count}일, 평균 ${formatNumber(metric.average)}일, 평균 대비 ${formatDelta(metric.delta)}일${emphasisLabel}`
+  return `${metric.count}일, 전체 평균 ${formatNumber(metric.average)}일, 평균과의 차이 ${formatDelta(metric.delta)}일${emphasisLabel}`
 }
 
 function getHighlightDescription(metric: WorkPerformanceMetricResult): string {
   const absoluteDelta = Math.abs(metric.delta)
   const directionLabel = metric.delta >= 0 ? '많음' : '적음'
 
-  return `강조, 평균보다 ${formatNumber(absoluteDelta)}일 ${directionLabel}`
+  return `강조, 전체 평균보다 ${formatNumber(absoluteDelta)}일 ${directionLabel}`
 }
 
 function isDetailExpanded(employeeId: string): boolean {

@@ -197,7 +197,7 @@ describe('WorkPerformance', () => {
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('근무 실적')
-    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 편차를 확인합니다.')
+    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간, 주말·휴일, Off 요청 수락 일수를 비교합니다.')
     expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
@@ -284,7 +284,7 @@ describe('WorkPerformance', () => {
     await flush()
   })
 
-  it('renders summary metrics first, hides risk summary, and renders deviation matrix on success', async () => {
+  it('renders summary metrics first, hides risk summary, and renders work-day comparison on success', async () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({ offRequests: [] }))
     const wrapper = createWrapper()
 
@@ -294,7 +294,7 @@ describe('WorkPerformance', () => {
     await runQuery(wrapper)
 
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무')
-    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('최대 편차')
+    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('가장 큰 차이')
     expect(wrapper.find('[data-test="work-performance-risk-summary"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
     expect(
@@ -304,7 +304,7 @@ describe('WorkPerformance', () => {
     ).toBeTruthy()
     expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '3')
     expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
-    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('평균 대비')
+    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('평균과의 차이')
     expect(wrapper.get('[data-test="work-performance-detail-header"]').text()).toBe('상세')
     expect(wrapper.find('[data-test="work-performance-emphasis-label"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('선택 기간에 Off 요청이 없습니다')
@@ -372,9 +372,9 @@ describe('WorkPerformance', () => {
 
     const nightCell = wrapper.get('[data-test="work-performance-cell-emp-1-night"]')
     expect(nightCell.text()).toContain('7일')
-    expect(nightCell.text()).toContain('평균 대비 +3.5일')
+    expect(nightCell.text()).toContain('평균과의 차이 +3.5일')
     expect(nightCell.text()).toContain('강조')
-    expect(nightCell.attributes('aria-label')).toContain('강조, 평균보다 3.5일 많음')
+    expect(nightCell.attributes('aria-label')).toContain('강조, 전체 평균보다 3.5일 많음')
   })
 
   it('sorts rows with aria-sort updates when metric and name headers are clicked', async () => {
