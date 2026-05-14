@@ -42,6 +42,55 @@ test.describe('public launch route contract', () => {
     await expect(page.getByRole('button', { name: '로그아웃' })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: '근무표 관리', exact: true })).toHaveCount(0)
   })
+
+  test('logged-out mobile landing does not overflow horizontally', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.context().clearCookies()
+    await page.addInitScript(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    })
+
+    await page.goto('/')
+
+    const signupCta = page.getByTestId('public-hero-signup')
+    const inquiryCta = page.getByTestId('public-hero-inquiry')
+    const firstPreview = page.getByTestId('landing-product-preview').first()
+
+    await expect(page.getByTestId('public-landing')).toBeVisible()
+    await expect(signupCta).toBeVisible()
+    await expect(inquiryCta).toBeVisible()
+    await expect(firstPreview).toBeVisible()
+
+    const viewportHeight = page.viewportSize()?.height ?? 844
+    const signupBox = await signupCta.boundingBox()
+    const inquiryBox = await inquiryCta.boundingBox()
+    const previewBox = await firstPreview.boundingBox()
+
+    const viewportWidth = page.viewportSize()?.width ?? 390
+    expect(signupBox).not.toBeNull()
+    expect(inquiryBox).not.toBeNull()
+    expect(previewBox).not.toBeNull()
+    for (const box of [signupBox, inquiryBox, previewBox]) {
+      expect(box?.x ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(0)
+      expect((box?.x ?? Number.POSITIVE_INFINITY) + (box?.width ?? 0)).toBeLessThanOrEqual(
+        viewportWidth + 1,
+      )
+    }
+    expect((signupBox?.y ?? Number.POSITIVE_INFINITY) + (signupBox?.height ?? 0)).toBeLessThanOrEqual(
+      viewportHeight,
+    )
+    expect(
+      (inquiryBox?.y ?? Number.POSITIVE_INFINITY) + (inquiryBox?.height ?? 0),
+    ).toBeLessThanOrEqual(viewportHeight)
+    expect(previewBox?.y ?? Number.POSITIVE_INFINITY).toBeLessThan(viewportHeight)
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    )
+
+    expect(hasHorizontalOverflow).toBe(false)
+  })
 })
 
 test.describe('authenticated public launch route contract', () => {
