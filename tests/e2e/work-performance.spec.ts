@@ -12,6 +12,7 @@ test.use({ storageState: { cookies: [], origins: [] } })
 
 type EmployeeFixture = {
   id: string
+  employee_id: string
   name: string
 }
 
@@ -141,9 +142,9 @@ function assertFixtureDateRange(url: URL, key: string, fixture: WorkPerformanceF
 
 function createSuccessfulFixture(): WorkPerformanceFixture {
   const employees = [
-    { id: 'employee-a', name: '김민지' },
-    { id: 'employee-b', name: '박서연' },
-    { id: 'employee-c', name: '이도윤' },
+    { id: 'employee-a', employee_id: 'N001', name: '김민지' },
+    { id: 'employee-b', employee_id: 'N002', name: '박서연' },
+    { id: 'employee-c', employee_id: 'N003', name: '이도윤' },
   ]
 
   const assignments = employees.flatMap((employee) =>
@@ -335,6 +336,16 @@ test.describe('work performance', () => {
     await expect(page.getByTestId('work-performance-summary')).toContainText('가장 큰 차이 2.5일')
     await expect(page.getByTestId('work-performance-risk-summary')).toHaveCount(0)
     await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
+    await expect(page.getByTestId('work-performance-year')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-start-month')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-end-month')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-threshold')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-sort-name')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-sort-night')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-employee-id').filter({ hasText: '직원 ID N001' })).toBeVisible()
+    await expect(page.getByTestId('work-performance-cell-employee-a-night')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-detail-header')).toHaveCSS('text-align', 'center')
     expect(await page.evaluate(() => {
       const summary = document.querySelector('[data-test="work-performance-summary"]')
       const matrix = document.querySelector('[data-test="work-performance-matrix"]')

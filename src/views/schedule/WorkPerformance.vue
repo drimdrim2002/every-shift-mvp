@@ -23,7 +23,7 @@
               type="number"
               min="2000"
               max="2100"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
               aria-label="조회 연도"
               @input="markDraftPeriodTouched"
               @change="markDraftPeriodTouched"
@@ -34,7 +34,7 @@
             <select
               v-model.number="draftStartMonth"
               data-test="work-performance-start-month"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
               aria-label="시작 월"
               @change="markDraftPeriodTouched"
             >
@@ -52,7 +52,7 @@
             <select
               v-model.number="draftEndMonth"
               data-test="work-performance-end-month"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
               aria-label="종료 월"
               @change="markDraftPeriodTouched"
             >
@@ -365,7 +365,7 @@
                   type="number"
                   min="1"
                   max="10"
-                  class="min-h-11 w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  class="min-h-11 w-20 rounded-lg border border-slate-200 px-3 py-2 text-center text-sm tabular-nums"
                   aria-label="강조 기준 일수"
                   @input="updateThreshold"
                 >
@@ -394,11 +394,11 @@
                 전체 평균과의 차이가 큰 직원부터 표시됩니다
               </p>
               <div
-                class="grid grid-cols-[10rem_repeat(3,minmax(13rem,1fr))_6rem] bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
+                class="grid grid-cols-[10rem_repeat(3,minmax(13rem,1fr))_6rem] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"
                 role="row"
               >
                 <div
-                  class="px-4 py-3"
+                  class="px-4 py-3 text-center"
                   role="columnheader"
                   :aria-sort="getAriaSort('employeeName')"
                   data-test="work-performance-sort-name"
@@ -406,14 +406,14 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('employeeName')"
                   >
                     직원
                   </button>
                 </div>
                 <div
-                  class="px-4 py-3"
+                  class="px-4 py-3 text-center"
                   role="columnheader"
                   :aria-sort="getAriaSort('night')"
                   data-test="work-performance-sort-night"
@@ -421,14 +421,14 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('night')"
                   >
                     야간 근무
                   </button>
                 </div>
                 <div
-                  class="px-4 py-3"
+                  class="px-4 py-3 text-center"
                   role="columnheader"
                   :aria-sort="getAriaSort('weekendHoliday')"
                   data-test="work-performance-sort-weekendHoliday"
@@ -436,14 +436,14 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('weekendHoliday')"
                   >
                     주말·휴일 근무
                   </button>
                 </div>
                 <div
-                  class="px-4 py-3"
+                  class="px-4 py-3 text-center"
                   role="columnheader"
                   :aria-sort="getAriaSort('offRequestAccepted')"
                   data-test="work-performance-sort-offRequestAccepted"
@@ -451,14 +451,14 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-left font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('offRequestAccepted')"
                   >
                     Off 요청 수락
                   </button>
                 </div>
                 <div
-                  class="px-4 py-3"
+                  class="px-4 py-3 text-center"
                   role="columnheader"
                   data-test="work-performance-detail-header"
                 >
@@ -476,37 +476,46 @@
                   role="row"
                 >
                   <div
-                    class="flex min-h-[5.5rem] items-center px-4 py-3 font-semibold text-slate-900"
+                    class="flex min-h-[5.5rem] items-center justify-center px-4 py-3 text-center font-semibold text-slate-900"
                     role="rowheader"
+                    :aria-label="`${row.employeeName}, 직원 ID ${row.employeeDisplayId}`"
                   >
-                    <span
-                      data-test="work-performance-employee-name"
-                      class="block truncate"
-                      :title="row.employeeName"
-                      :aria-label="row.employeeName"
-                    >
-                      {{ row.employeeName }}
-                    </span>
+                    <div class="min-w-0">
+                      <span
+                        data-test="work-performance-employee-name"
+                        class="block truncate"
+                        :title="row.employeeName"
+                      >
+                        {{ row.employeeName }}
+                      </span>
+                      <span
+                        data-test="work-performance-employee-id"
+                        class="mt-1 block truncate text-xs font-medium tabular-nums text-slate-500"
+                        :title="row.employeeDisplayId"
+                      >
+                        직원 ID {{ row.employeeDisplayId }}
+                      </span>
+                    </div>
                   </div>
                   <div
                     v-for="metric in metricKeys"
                     :key="metric"
-                    class="min-h-[5.5rem] px-4 py-3 text-slate-700"
+                    class="min-h-[5.5rem] px-4 py-3 text-center text-slate-700"
                     :class="getMetricCellClass(metric, row.metrics[metric])"
                     :aria-label="getMetricCellLabel(row.metrics[metric])"
                     :data-test="`work-performance-cell-${row.employeeId}-${metric}`"
                     role="cell"
                   >
-                    <div class="flex items-start justify-between gap-3">
+                    <div class="flex flex-col items-center justify-center gap-1">
                       <div>
-                        <p class="font-semibold text-slate-900">
+                        <p class="font-semibold tabular-nums text-slate-900">
                           {{ row.metrics[metric].count }}일
                         </p>
-                        <p class="mt-1 text-xs text-slate-500">
+                        <p class="mt-1 text-xs tabular-nums text-slate-500">
                           전체 평균 {{ formatNumber(row.metrics[metric].average) }}일
                         </p>
                       </div>
-                      <span class="text-xs font-semibold text-slate-700">
+                      <span class="text-xs font-semibold tabular-nums text-slate-700">
                         평균과의 차이 {{ formatDelta(row.metrics[metric].delta) }}일
                       </span>
                     </div>
@@ -523,7 +532,7 @@
                         />
                       </div>
                     </div>
-                    <div class="mt-2 flex min-h-6 items-center justify-between gap-2">
+                    <div class="mt-2 flex min-h-6 items-center justify-center gap-2">
                       <span
                         class="text-xs font-medium"
                         :class="getMetricDirectionTextClass(metric, row.metrics[metric])"
@@ -546,7 +555,7 @@
                     </div>
                   </div>
                   <div
-                    class="flex min-h-[5.5rem] items-center justify-end px-4 py-3"
+                    class="flex min-h-[5.5rem] items-center justify-center px-4 py-3 text-center"
                     role="cell"
                   >
                     <button
@@ -882,6 +891,7 @@ function compareWorkPerformanceRows(
 
   if (sortKey.value === 'employeeName') {
     result = left.employeeName.localeCompare(right.employeeName, 'ko') ||
+      left.employeeDisplayId.localeCompare(right.employeeDisplayId, 'ko') ||
       left.employeeId.localeCompare(right.employeeId)
   } else if (sortKey.value === 'priority') {
     result = left.priorityScore - right.priorityScore
@@ -898,6 +908,7 @@ function compareWorkPerformanceRows(
   }
 
   return left.employeeName.localeCompare(right.employeeName, 'ko') ||
+    left.employeeDisplayId.localeCompare(right.employeeDisplayId, 'ko') ||
     left.employeeId.localeCompare(right.employeeId)
 }
 

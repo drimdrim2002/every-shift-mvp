@@ -220,13 +220,14 @@ describe('work performance api boundary', () => {
         {
           data: buildRows(1000, (index) => ({
             id: `emp-${String(index + 1).padStart(4, '0')}`,
+            employee_id: `N${String(index + 1).padStart(4, '0')}`,
             name: `간호사 ${String(index + 1).padStart(4, '0')}`,
           })),
           error: null,
         },
         {
           data: [
-            { id: 'emp-1001', name: '간호사 1001' },
+            { id: 'emp-1001', employee_id: 'N1001', name: '간호사 1001' },
           ],
           error: null,
         },
@@ -278,7 +279,7 @@ describe('work performance api boundary', () => {
     expect(result.offRequests[1].resolutionStatus).toBe('unfulfilled');
     expect(result.offRequests[1000].resolutionStatus).toBe('fulfilled');
     expect(result.employees).toHaveLength(1001);
-    expect(result.employees[1000]).toEqual({ id: 'emp-1001', name: '간호사 1001' });
+    expect(result.employees[1000]).toEqual({ id: 'emp-1001', employeeId: 'N1001', name: '간호사 1001' });
     expect(result.publicHolidayDates).toEqual(['2026-01-01', '2026-02-17']);
 
     const scheduleQuery = calls.find((call) => call.table === 'schedules')!;
@@ -337,12 +338,16 @@ describe('work performance api boundary', () => {
 
     const employeeQueries = calls.filter((call) => call.table === 'employees');
     expect(employeeQueries).toHaveLength(2);
-    expect(employeeQueries[0].select).toBe('id, name');
+    expect(employeeQueries[0].select).toBe('id, employee_id, name');
     expect(employeeQueries[0].eq).toContainEqual(['organization_id', 'org-1']);
     expect(employeeQueries[0].order).toEqual([
       ['name', { ascending: true }],
+      ['employee_id', { ascending: true }],
       ['id', { ascending: true }],
     ]);
+    expect(employeeQueries[0].operations.indexOf('order:employee_id')).toBeLessThan(
+      employeeQueries[0].operations.indexOf('order:id'),
+    );
     expect(employeeQueries[0].operations.indexOf('order:id')).toBeLessThan(
       employeeQueries[0].operations.indexOf('range'),
     );
@@ -404,7 +409,7 @@ describe('work performance api boundary', () => {
         },
       ],
       schedule_preferences: [{ data: [], error: null }],
-      employees: [{ data: [{ id: 'emp-1', name: '김민지' }], error: null }],
+      employees: [{ data: [{ id: 'emp-1', employee_id: 'N001', name: '김민지' }], error: null }],
     });
 
     const { loadWorkPerformancePeriod } = await import('@/api/workPerformance');

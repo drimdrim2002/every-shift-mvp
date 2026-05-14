@@ -72,6 +72,7 @@ interface PreferenceRow {
 
 interface EmployeeRow {
   id: string | null;
+  employee_id: string | null;
   name: string | null;
 }
 
@@ -157,8 +158,12 @@ function normalizePreferenceResolutionStatus(
 }
 
 function normalizeEmployee(row: EmployeeRow): WorkPerformanceEmployeeRow {
+  const id = assertRequiredString(row.id);
+  const trimmedEmployeeId = typeof row.employee_id === 'string' ? row.employee_id.trim() : '';
+
   return {
-    id: assertRequiredString(row.id),
+    id,
+    employeeId: trimmedEmployeeId || id,
     name: assertRequiredString(row.name),
   };
 }
@@ -255,9 +260,10 @@ async function loadEmployees(organizationId: string): Promise<WorkPerformanceEmp
   const rows = await loadPagedRows<EmployeeRow>((from, to) =>
     supabase
       .from('employees')
-      .select('id, name')
+      .select('id, employee_id, name')
       .eq('organization_id', organizationId)
       .order('name', { ascending: true })
+      .order('employee_id', { ascending: true })
       .order('id', { ascending: true })
       .range(from, to),
   );

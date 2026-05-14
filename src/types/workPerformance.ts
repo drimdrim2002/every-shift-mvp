@@ -31,6 +31,7 @@ export interface WorkPerformancePreferenceRow {
 
 export interface WorkPerformanceEmployeeRow {
   id: string
+  employeeId?: string | null
   name: string
 }
 
@@ -45,6 +46,7 @@ export interface WorkPerformanceMetricResult {
 
 export interface WorkPerformanceEmployeeResult {
   employeeId: string
+  employeeDisplayId: string
   employeeName: string
   priorityScore: number
   metrics: Record<WorkPerformanceMetricKey, WorkPerformanceMetricResult>

@@ -344,6 +344,7 @@ export function computeWorkPerformanceFairness({
 
     return {
       employeeId: employee.id,
+      employeeDisplayId: employee.employeeId?.trim() || employee.id,
       employeeName: employee.name,
       priorityScore,
       metrics,
@@ -381,7 +382,9 @@ export function computeWorkPerformanceFairness({
       return offRequestAcceptedDelta
     }
 
-    return left.employeeName.localeCompare(right.employeeName, 'ko') || left.employeeId.localeCompare(right.employeeId)
+    return left.employeeName.localeCompare(right.employeeName, 'ko') ||
+      left.employeeDisplayId.localeCompare(right.employeeDisplayId, 'ko') ||
+      left.employeeId.localeCompare(right.employeeId)
   })
 
   return {
