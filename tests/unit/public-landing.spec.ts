@@ -102,6 +102,8 @@ describe('LandingProductPreview', () => {
     expect(wrapper.find('[data-test="landing-schedule-preview-image"]').exists()).toBe(false)
     expect(scheduleMock.exists()).toBe(true)
     expect(scrollWrapper.classes()).toContain('overflow-x-auto')
+    expect(table.classes()).toContain('w-full')
+    expect(table.classes()).toContain('table-fixed')
     expect(table.classes().some((className) => className.startsWith('min-w-'))).toBe(true)
     expect(text).toContain('근무표 초안 미리보기')
     expect(text).toContain('대형병원 Excel 구조')

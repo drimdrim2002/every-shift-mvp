@@ -38,7 +38,7 @@
           data-test="landing-ai-schedule-scroll"
           class="min-w-0 overflow-x-auto rounded-md border border-gray-200"
         >
-          <table class="min-w-[680px] border-separate border-spacing-0 text-[11px]">
+          <table class="w-full min-w-[680px] table-fixed border-separate border-spacing-0 text-[11px]">
             <thead class="bg-gray-50 text-gray-600">
               <tr>
                 <th
