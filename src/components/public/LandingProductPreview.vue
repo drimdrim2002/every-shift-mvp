@@ -19,125 +19,107 @@
       data-test="landing-ai-schedule-mock"
       class="p-4"
     >
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm font-semibold text-gray-950">
-          AI 생성 근무표
-        </p>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="text-sm font-semibold text-gray-950">
+            근무표 초안 미리보기
+          </p>
+          <p class="mt-1 text-xs leading-5 text-gray-500">
+            표본 12명 x 10일 표시 · 실제 입력 흐름은 30명 x 36일 기준
+          </p>
+        </div>
         <span class="rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-          자동 완성
+          대형병원 Excel 구조
         </span>
       </div>
 
-      <div
-        data-test="landing-ai-schedule-scroll"
-        class="mt-3 overflow-x-auto rounded-md border border-gray-200"
-      >
-        <table class="min-w-[1120px] border-separate border-spacing-0 text-[11px]">
-          <thead class="bg-gray-50 text-gray-600">
-            <tr>
-              <th
-                scope="col"
-                class="sticky left-0 z-10 w-[96px] border-b border-gray-200 bg-gray-50 px-3 py-2 text-left font-semibold"
-              >
-                근무자
-              </th>
-              <th
-                v-for="day in aiScheduleDays"
-                :key="day.id"
-                scope="col"
-                data-test="landing-ai-day-header"
-                :data-day-id="day.id"
-                class="w-[48px] border-b border-gray-200 p-2 text-center font-semibold"
-              >
-                {{ day.label }}
-              </th>
-              <th
-                v-for="code in aiSummaryCodes"
-                :key="`ai-summary-header-${code}`"
-                scope="col"
-                class="w-[52px] border-b border-l border-gray-200 p-2 text-center font-semibold text-gray-700"
-              >
-                {{ code }}
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr
-              v-for="row in aiScheduleRows"
-              :key="row.id"
-              data-test="landing-ai-employee-row"
-              class="odd:bg-white even:bg-gray-50/40"
-            >
-              <th
-                scope="row"
-                data-test="landing-ai-employee-cell"
-                class="sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-2 text-left font-medium text-gray-800"
-              >
-                {{ row.name }}
-              </th>
-              <td
-                v-for="shift in row.shifts"
-                :key="shift.id"
-                data-test="landing-ai-shift-cell"
-                :data-day-id="shift.dayId"
-                :data-shift-code="shift.code"
-                :data-off-requested="shift.offRequested ? 'true' : 'false'"
-                :aria-label="shift.offRequested ? `${row.name} ${shift.dayLabel} Off 요청 반영` : undefined"
-                class="border-b border-gray-100 p-1.5 text-center font-semibold"
-                :class="shift.offRequested ? 'ring-1 ring-inset ring-rose-300' : ''"
-              >
-                <span
-                  class="mx-auto block rounded px-2 py-1"
-                  :class="aiShiftClassMap[shift.code]"
+      <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div
+          data-test="landing-ai-schedule-scroll"
+          class="min-w-0 overflow-x-auto rounded-md border border-gray-200"
+        >
+          <table class="min-w-[680px] border-separate border-spacing-0 text-[11px]">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th
+                  scope="col"
+                  class="sticky left-0 z-10 w-[96px] border-b border-gray-200 bg-gray-50 px-3 py-2 text-left font-semibold"
                 >
-                  {{ shift.code }}
-                </span>
-              </td>
-              <td
-                v-for="code in aiSummaryCodes"
-                :key="`${row.id}-${code}`"
-                data-test="landing-ai-employee-summary-cell"
-                :data-summary-code="code"
-                class="border-b border-l border-gray-100 px-2 py-1.5 text-center font-semibold text-gray-700"
-              >
-                {{ getAiEmployeeSummaryValue(row.employeeId, code) }}
-              </td>
-            </tr>
-          </tbody>
+                  근무자
+                </th>
+                <th
+                  v-for="day in aiScheduleDays"
+                  :key="day.id"
+                  scope="col"
+                  data-test="landing-ai-day-header"
+                  :data-day-id="day.id"
+                  class="w-[48px] border-b border-gray-200 p-2 text-center font-semibold"
+                >
+                  {{ day.label }}
+                </th>
+              </tr>
+            </thead>
 
-          <tfoot class="bg-gray-50 font-semibold text-gray-700">
-            <tr
-              v-for="summary in dailyStaffingSummary"
-              :key="summary.code"
-              data-test="landing-ai-summary-row"
-              :data-summary-code="summary.code"
+            <tbody>
+              <tr
+                v-for="row in aiScheduleRows"
+                :key="row.id"
+                data-test="landing-ai-employee-row"
+                class="odd:bg-white even:bg-gray-50/40"
+              >
+                <th
+                  scope="row"
+                  data-test="landing-ai-employee-cell"
+                  class="sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-2 text-left font-medium text-gray-800"
+                >
+                  {{ row.name }}
+                </th>
+                <td
+                  v-for="shift in row.shifts"
+                  :key="shift.id"
+                  data-test="landing-ai-shift-cell"
+                  :data-day-id="shift.dayId"
+                  :data-shift-code="shift.code"
+                  :data-off-requested="shift.offRequested ? 'true' : 'false'"
+                  :aria-label="shift.offRequested ? `${row.name} ${shift.dayLabel} Off 요청 반영` : undefined"
+                  class="border-b border-gray-100 p-1.5 text-center font-semibold"
+                  :class="shift.offRequested ? 'ring-1 ring-inset ring-rose-300' : ''"
+                >
+                  <span
+                    class="mx-auto block rounded px-2 py-1"
+                    :class="aiShiftClassMap[shift.code]"
+                  >
+                    {{ shift.code }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <aside
+          data-test="landing-ai-proof-panel"
+          class="rounded-md border border-gray-200 bg-gray-50 p-3"
+        >
+          <p class="text-xs font-semibold text-gray-500">
+            검토 기준
+          </p>
+          <div class="mt-3 grid gap-2">
+            <div
+              v-for="item in aiProofItems"
+              :key="item.id"
+              data-test="landing-ai-proof-item"
+              class="rounded-md bg-white px-3 py-2"
             >
-              <th
-                scope="row"
-                class="sticky left-0 z-10 border-t border-gray-200 bg-gray-50 px-3 py-2 text-left"
-              >
-                {{ summary.label }}
-              </th>
-              <td
-                v-for="daySummary in summary.days"
-                :key="`${summary.code}-${daySummary.dayId}`"
-                data-test="landing-ai-summary-day-cell"
-                :data-day-id="daySummary.dayId"
-                class="border-t border-gray-200 p-2 text-center"
-              >
-                {{ daySummary.count }}
-              </td>
-              <td
-                v-for="code in aiSummaryCodes"
-                :key="`${summary.code}-${code}`"
-                class="border-l border-t border-gray-200 p-2 text-center"
-              >
-                {{ summary.summaryValues[code] }}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+              <p class="text-xs font-semibold text-gray-950">
+                {{ item.title }}
+              </p>
+              <p class="mt-1 text-xs leading-5 text-gray-600">
+                {{ item.description }}
+              </p>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
 
@@ -658,7 +640,6 @@ import type { LandingPreviewVariant } from '@/data/publicLandingContent'
 type ShiftCode = 'D' | 'E' | 'N' | 'OFF'
 type AiShiftCode = 'D' | 'E' | 'N' | 'O'
 type AiWorkShiftCode = Exclude<AiShiftCode, 'O'>
-type AiSummaryCode = AiWorkShiftCode | 'Total'
 
 interface AiScheduleDay {
   id: string
@@ -692,18 +673,11 @@ interface AiScheduleRowDraft {
 }
 
 type AiStaffingRequirement = Record<AiWorkShiftCode, number>
-type AiEmployeeShiftSummary = Record<AiSummaryCode, number>
 
-interface AiDailyStaffingSummaryCell {
-  dayId: string
-  count: number
-}
-
-interface AiDailyStaffingSummaryRow {
-  code: AiSummaryCode
-  label: string
-  days: readonly AiDailyStaffingSummaryCell[]
-  summaryValues: Record<AiSummaryCode, string>
+interface AiProofItem {
+  id: string
+  title: string
+  description: string
 }
 
 interface GuideCheckPreview {
@@ -827,8 +801,6 @@ const aiShiftClassMap: Record<AiShiftCode, string> = {
   O: 'bg-shift-off/40 text-slate-700',
 }
 
-const aiSummaryCodes: readonly AiSummaryCode[] = ['D', 'E', 'N', 'Total']
-const aiDailySummaryCodes: readonly AiSummaryCode[] = ['Total', 'D', 'E', 'N']
 const aiWorkShiftCodes: readonly AiWorkShiftCode[] = ['D', 'E', 'N']
 
 const aiDailyStaffingRequirement: AiStaffingRequirement = {
@@ -836,6 +808,33 @@ const aiDailyStaffingRequirement: AiStaffingRequirement = {
   E: 4,
   N: 3,
 }
+
+const aiWorkShiftSlots: readonly AiWorkShiftCode[] = aiWorkShiftCodes.flatMap((code) =>
+  Array.from({ length: aiDailyStaffingRequirement[code] }, () => code),
+)
+
+const aiProofItems: readonly AiProofItem[] = [
+  {
+    id: 'staffing',
+    title: 'D/E/N 필요 인력 충족',
+    description: '일자별 필요 인력을 준수합니다.',
+  },
+  {
+    id: 'off-requests',
+    title: 'Off 요청 반영',
+    description: '사전 Off 요청일을 최대한 반영합니다.',
+  },
+  {
+    id: 'fairness',
+    title: '야간·공휴일 균형 점검',
+    description: '한 달 결과만이 아니라 누적 편차를 함께 봅니다.',
+  },
+  {
+    id: 'expert-review',
+    title: '현직 수간호사 자문 기준',
+    description: '실제 검토자가 확인하는 순서에 맞춰 흐름을 설계했습니다.',
+  },
+]
 
 const aiScheduleDays: readonly AiScheduleDay[] = [
   { id: 'day-apr-01', label: '4/1' },
@@ -848,10 +847,6 @@ const aiScheduleDays: readonly AiScheduleDay[] = [
   { id: 'day-apr-08', label: '4/8' },
   { id: 'day-apr-09', label: '4/9' },
   { id: 'day-apr-10', label: '4/10' },
-  { id: 'day-apr-11', label: '4/11' },
-  { id: 'day-apr-12', label: '4/12' },
-  { id: 'day-apr-13', label: '4/13' },
-  { id: 'day-apr-14', label: '4/14' },
 ] as const
 
 const aiEmployees: readonly AiEmployee[] = [
@@ -867,12 +862,6 @@ const aiEmployees: readonly AiEmployee[] = [
   { id: 'employee-kang-minseo', name: '강민서' },
   { id: 'employee-jo-ara', name: '조아라' },
   { id: 'employee-shin-yuna', name: '신유나' },
-  { id: 'employee-moon-sohui', name: '문소희' },
-  { id: 'employee-bae-jihyeon', name: '배지현' },
-  { id: 'employee-nam-yuri', name: '남유리' },
-  { id: 'employee-seo-yeonu', name: '서연우' },
-  { id: 'employee-kwon-narae', name: '권나래' },
-  { id: 'employee-hong-jiu', name: '홍지우' },
 ] as const
 
 const aiOffRequestCellKeys = new Set<string>([
@@ -880,22 +869,7 @@ const aiOffRequestCellKeys = new Set<string>([
   'employee-choi-yujin:day-apr-05',
   'employee-han-jimin:day-apr-07',
   'employee-lim-subin:day-apr-09',
-  'employee-moon-sohui:day-apr-11',
-  'employee-seo-yeonu:day-apr-13',
 ])
-
-function buildEmptyAiEmployeeShiftSummary(): AiEmployeeShiftSummary {
-  return {
-    D: 0,
-    E: 0,
-    N: 0,
-    Total: 0,
-  }
-}
-
-function isAiWorkShiftCode(code: AiShiftCode): code is AiWorkShiftCode {
-  return code !== 'O'
-}
 
 function buildAiScheduleRows(): readonly AiScheduleRow[] {
   const rowDrafts: AiScheduleRowDraft[] = aiEmployees.map((employee, employeeIndex) => ({
@@ -909,48 +883,23 @@ function buildAiScheduleRows(): readonly AiScheduleRow[] {
       offRequested: aiOffRequestCellKeys.has(`${employee.id}:${day.id}`),
     })),
   }))
-  const employeeSummaryDraft = new Map<string, AiEmployeeShiftSummary>(
-    aiEmployees.map((employee) => [employee.id, buildEmptyAiEmployeeShiftSummary()]),
-  )
 
   aiScheduleDays.forEach((_, dayIndex) => {
-    const assignedEmployeeIds = new Set<string>()
+    const rotationOffset = (dayIndex * 3) % aiEmployees.length
+    const availableRows = [...rowDrafts]
+      .filter((row) => !row.shifts[dayIndex]?.offRequested)
+      .sort((a, b) => {
+        const aRotationRank = (a.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
+        const bRotationRank = (b.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
 
-    aiWorkShiftCodes.forEach((code, codeIndex) => {
-      for (let slotIndex = 0; slotIndex < aiDailyStaffingRequirement[code]; slotIndex += 1) {
-        const rotationOffset = (dayIndex * 5 + codeIndex * 3 + slotIndex) % aiEmployees.length
-        const candidate = rowDrafts
-          .filter((row) => {
-            const shift = row.shifts[dayIndex]
+        return aRotationRank - bRotationRank
+      })
 
-            return shift !== undefined
-              && !assignedEmployeeIds.has(row.employee.id)
-              && !shift.offRequested
-          })
-          .sort((a, b) => {
-            const aSummary = employeeSummaryDraft.get(a.employee.id) ?? buildEmptyAiEmployeeShiftSummary()
-            const bSummary = employeeSummaryDraft.get(b.employee.id) ?? buildEmptyAiEmployeeShiftSummary()
-            const aRotationRank = (a.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
-            const bRotationRank = (b.employeeIndex - rotationOffset + aiEmployees.length) % aiEmployees.length
+    aiWorkShiftSlots.forEach((code, slotIndex) => {
+      const candidateShift = availableRows[slotIndex]?.shifts[dayIndex]
 
-            return aSummary.Total - bSummary.Total
-              || aSummary[code] - bSummary[code]
-              || aRotationRank - bRotationRank
-              || a.employee.name.localeCompare(b.employee.name)
-          })[0]
-        const candidateShift = candidate?.shifts[dayIndex]
-        const candidateSummary = candidate === undefined
-          ? undefined
-          : employeeSummaryDraft.get(candidate.employee.id)
-
-        if (candidate === undefined || candidateShift === undefined || candidateSummary === undefined) {
-          continue
-        }
-
+      if (candidateShift !== undefined) {
         candidateShift.code = code
-        candidateSummary[code] += 1
-        candidateSummary.Total += 1
-        assignedEmployeeIds.add(candidate.employee.id)
       }
     })
   })
@@ -963,85 +912,7 @@ function buildAiScheduleRows(): readonly AiScheduleRow[] {
   }))
 }
 
-function buildEmployeeShiftSummary(rows: readonly AiScheduleRow[]): Record<string, AiEmployeeShiftSummary> {
-  return rows.reduce<Record<string, AiEmployeeShiftSummary>>((summaryByEmployeeId, row) => {
-    const summary = buildEmptyAiEmployeeShiftSummary()
-
-    row.shifts.forEach((shift) => {
-      if (isAiWorkShiftCode(shift.code)) {
-        summary[shift.code] += 1
-        summary.Total += 1
-      }
-    })
-
-    summaryByEmployeeId[row.employeeId] = summary
-    return summaryByEmployeeId
-  }, {})
-}
-
-function buildDailySummaryValues(
-  code: AiSummaryCode,
-  countsByDayId: Record<string, AiEmployeeShiftSummary>,
-): Record<AiSummaryCode, string> {
-  const summaryValues: Record<AiSummaryCode, string> = {
-    D: '',
-    E: '',
-    N: '',
-    Total: '',
-  }
-
-  if (code === 'Total') {
-    aiSummaryCodes.forEach((summaryCode) => {
-      summaryValues[summaryCode] = String(
-        aiScheduleDays.reduce((total, day) => total + (countsByDayId[day.id]?.[summaryCode] ?? 0), 0),
-      )
-    })
-
-    return summaryValues
-  }
-
-  const codeTotal = aiScheduleDays.reduce((total, day) => total + (countsByDayId[day.id]?.[code] ?? 0), 0)
-
-  summaryValues[code] = String(codeTotal)
-  summaryValues.Total = String(codeTotal)
-  return summaryValues
-}
-
-function buildDailyStaffingSummary(rows: readonly AiScheduleRow[]): readonly AiDailyStaffingSummaryRow[] {
-  const countsByDayId = aiScheduleDays.reduce<Record<string, AiEmployeeShiftSummary>>((counts, day) => {
-    counts[day.id] = buildEmptyAiEmployeeShiftSummary()
-    return counts
-  }, {})
-
-  rows.forEach((row) => {
-    row.shifts.forEach((shift) => {
-      const daySummary = countsByDayId[shift.dayId]
-
-      if (daySummary !== undefined && isAiWorkShiftCode(shift.code)) {
-        daySummary[shift.code] += 1
-        daySummary.Total += 1
-      }
-    })
-  })
-
-  return aiDailySummaryCodes.map((code) => ({
-    code,
-    label: code,
-    days: aiScheduleDays.map((day) => ({
-      dayId: day.id,
-      count: countsByDayId[day.id]?.[code] ?? 0,
-    })),
-    summaryValues: buildDailySummaryValues(code, countsByDayId),
-  }))
-}
-
 const aiScheduleRows = buildAiScheduleRows()
-const employeeShiftSummary = buildEmployeeShiftSummary(aiScheduleRows)
-const dailyStaffingSummary = buildDailyStaffingSummary(aiScheduleRows)
-
-function getAiEmployeeSummaryValue(employeeId: string, code: AiSummaryCode): number {
-  return employeeShiftSummary[employeeId]?.[code] ?? 0
-}
 
 const staffingRequirementPreview: readonly StaffingRequirementPreview[] = [
   {

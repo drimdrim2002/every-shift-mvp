@@ -88,6 +88,27 @@ test.describe('public launch route contract', () => {
 
     expect(hasHorizontalOverflow).toBe(false)
   })
+
+  test('logged-out mobile landing keeps the AI preview contained', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.context().clearCookies()
+    await page.addInitScript(() => {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    })
+
+    await page.goto('/#ai-schedule')
+
+    const section = page.locator('#ai-schedule')
+    await expect(section.getByTestId('landing-ai-schedule-mock')).toBeVisible()
+    await expect(section.getByTestId('landing-ai-proof-panel')).toBeVisible()
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    )
+
+    expect(hasHorizontalOverflow).toBe(false)
+  })
 })
 
 test.describe('authenticated public launch route contract', () => {

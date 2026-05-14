@@ -8,7 +8,7 @@ import PublicLandingView from '@/views/PublicLandingView.vue'
 const INQUIRY_FORM_URL = 'https://forms.gle/everyshift-public-inquiry'
 const expectedHeroSloganLines = ['모두의 근무표', '근무표의 모든 것'] as const
 const previewTrustSignals: Record<Exclude<LandingPreviewVariant, 'overview' | 'compare'>, readonly string[]> = {
-  ai: ['AI 생성 근무표', '자동 완성', '근무자'],
+  ai: ['근무표 초안 미리보기', '대형병원 Excel 구조', '30명 x 36일', '수간호사 자문'],
   fairness: ['근무자별 공정성 비교', '야간 근무', '주말·공휴일', '다음 생성 기준'],
   conditions: ['반영', '검토', '사유'],
   guide: ['보건복지부 가이드라인', '충족', 'NOD', '월 야간'],
@@ -92,9 +92,10 @@ describe('LandingProductPreview', () => {
     const scheduleMock = wrapper.get('[data-test="landing-ai-schedule-mock"]')
     const scrollWrapper = wrapper.get('[data-test="landing-ai-schedule-scroll"]')
     const table = scheduleMock.get('table')
+    const proofPanel = wrapper.get('[data-test="landing-ai-proof-panel"]')
+    const proofItems = proofPanel.findAll('[data-test="landing-ai-proof-item"]')
     const dateHeaders = scheduleMock.findAll('[data-test="landing-ai-day-header"]')
     const employeeCells = scheduleMock.findAll('[data-test="landing-ai-employee-cell"]')
-    const employeeRows = scheduleMock.findAll('[data-test="landing-ai-employee-row"]')
     const shiftCells = scheduleMock.findAll('[data-test="landing-ai-shift-cell"]')
     const offRequestCells = shiftCells.filter((cell) => cell.attributes('data-off-requested') === 'true')
 
@@ -102,21 +103,26 @@ describe('LandingProductPreview', () => {
     expect(scheduleMock.exists()).toBe(true)
     expect(scrollWrapper.classes()).toContain('overflow-x-auto')
     expect(table.classes().some((className) => className.startsWith('min-w-'))).toBe(true)
-    expect(text).toContain('AI 생성 근무표')
-    expect(text).toContain('자동 완성')
-    expect(text).toContain('근무자')
+    expect(text).toContain('근무표 초안 미리보기')
+    expect(text).toContain('대형병원 Excel 구조')
+    expect(text).toContain('30명 x 36일')
+    expect(text).toContain('현직 수간호사 자문 기준')
     expect(text).not.toContain('Excel 내보내기')
     expect(text).not.toContain('생성 기준 요약')
 
-    expect(dateHeaders).toHaveLength(14)
+    expect(dateHeaders).toHaveLength(10)
     dateHeaders.forEach((header) => {
       expect(header.text()).toMatch(/^\d{1,2}\/\d{1,2}$/)
     })
 
-    expect(employeeCells.length).toBeGreaterThanOrEqual(18)
+    expect(employeeCells).toHaveLength(12)
     employeeCells.forEach((cell) => {
       expect(cell.text()).not.toMatch(/\d/)
     })
+
+    expect(scheduleMock.findAll('[data-test="landing-ai-employee-summary-cell"]')).toHaveLength(0)
+    expect(scheduleMock.findAll('[data-test="landing-ai-summary-row"]')).toHaveLength(0)
+    expect(proofItems.length).toBeGreaterThanOrEqual(4)
 
     shiftCells.forEach((cell) => {
       expect(['D', 'E', 'N', 'O']).toContain(cell.text())
@@ -137,44 +143,18 @@ describe('LandingProductPreview', () => {
       counts![code] += 1
     })
 
-    ;(['D', 'E', 'N'] as const).forEach((code) => {
-      const summaryRow = scheduleMock.get(`[data-test="landing-ai-summary-row"][data-summary-code="${code}"]`)
-      const expectedDailyCount = code === 'D' ? 3 : code === 'E' ? 4 : 3
+    const expectedDailyCounts = {
+      D: 3,
+      E: 4,
+      N: 3,
+    } as const
 
+    ;(['D', 'E', 'N'] as const).forEach((code) => {
       dateHeaders.forEach((header) => {
         const dayId = header.attributes('data-day-id')
         const actualCount = shiftCellCountByDay.get(dayId)?.[code] ?? 0
-        const summaryCell = summaryRow.get(`[data-test="landing-ai-summary-day-cell"][data-day-id="${dayId}"]`)
 
-        expect(actualCount).toBe(expectedDailyCount)
-        expect(Number(summaryCell.text())).toBe(actualCount)
-      })
-    })
-
-    employeeRows.forEach((row) => {
-      const counts = { D: 0, E: 0, N: 0 }
-      const rowShiftCells = row.findAll('[data-test="landing-ai-shift-cell"]')
-
-      rowShiftCells.forEach((cell) => {
-        const code = cell.text()
-
-        if (code === 'D' || code === 'E' || code === 'N') {
-          counts[code] += 1
-        }
-      })
-
-      const total = counts.D + counts.E + counts.N
-
-      expect(total).toBeGreaterThanOrEqual(7)
-      expect(total).toBeLessThanOrEqual(8)
-
-      ;(['D', 'E', 'N', 'Total'] as const).forEach((code) => {
-        const summaryCell = row.get(
-          `[data-test="landing-ai-employee-summary-cell"][data-summary-code="${code}"]`,
-        )
-        const expectedValue = code === 'Total' ? total : counts[code]
-
-        expect(Number(summaryCell.text())).toBe(expectedValue)
+        expect(actualCount).toBe(expectedDailyCounts[code])
       })
     })
 
@@ -305,9 +285,13 @@ describe('PublicLandingView', () => {
     const sections = wrapper.findAll('[data-test="public-value-section"]')
 
     expect(sections).toHaveLength(4)
-    expect(sections[0].text()).toContain('AI가 근무표를 작성합니다')
+    expect(sections[0].text()).toContain('AI 전문가가 수간호사 자문을 받아 설계했습니다')
     expect(sections[0].find('[data-test="landing-ai-schedule-mock"]').exists()).toBe(true)
     expect(sections[0].get('[data-test="public-value-section-nav-label"]').classes()).toContain('text-2xl')
+    expect(sections[0].get('[data-test="public-value-section-copy"]').classes()).toContain('max-w-4xl')
+    expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('max-w-4xl')
+    expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('break-keep')
+    expect(sections[0].get('[data-test="public-value-section-description"]').classes()).not.toContain('max-w-2xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('self-center')
     expect(sections[1].text()).toContain('공정하게 관리합니다')
@@ -392,12 +376,15 @@ describe('PublicLandingView', () => {
     })
   })
 
-  it('removes draft wording and uses result/version preview language', () => {
+  it('uses compact schedule preview and proof language', () => {
     const wrapper = mountLanding()
 
-    expect(wrapper.text()).not.toContain('초안')
+    expect(wrapper.text()).toContain('근무표 초안 미리보기')
+    expect(wrapper.text()).toContain('표본 12명 x 10일 표시')
+    expect(wrapper.text()).toContain('실제 입력 흐름은 30명 x 36일 기준')
+    expect(wrapper.text()).toContain('현직 수간호사 자문 기준')
     expect(wrapper.text()).not.toContain('후보안')
-    expect(wrapper.text()).toContain('AI 생성 근무표')
+    expect(wrapper.text()).not.toContain('AI 생성 근무표')
     expect(wrapper.text()).not.toContain('생성 기준 요약')
     expect(wrapper.find('[data-test="landing-schedule-preview-image"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="landing-ai-schedule-mock"]').exists()).toBe(true)

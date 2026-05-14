@@ -68,7 +68,7 @@
         <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
           <div
             data-test="public-value-section-copy"
-            class="min-w-0 max-w-3xl"
+            class="min-w-0 max-w-4xl"
             :class="getTextRevealClasses(section.id)"
           >
             <p
@@ -80,19 +80,12 @@
             <h2 class="mt-4 max-w-2xl text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
               {{ section.headline }}
             </h2>
-            <p class="mt-5 max-w-2xl text-base leading-7 text-gray-600">
+            <p
+              data-test="public-value-section-description"
+              class="mt-5 max-w-4xl whitespace-pre-line break-keep text-base leading-7 text-gray-600"
+            >
               {{ section.description }}
             </p>
-            <ul class="mt-6 grid gap-3">
-              <li
-                v-for="detail in section.details"
-                :key="detail"
-                class="flex items-start gap-3 text-sm leading-6 text-gray-700"
-              >
-                <span class="mt-2 size-1.5 shrink-0 rounded-full bg-emerald-600" />
-                <span>{{ detail }}</span>
-              </li>
-            </ul>
           </div>
 
           <div
