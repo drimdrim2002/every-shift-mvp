@@ -26,7 +26,12 @@ const {
   showSuccessMock: vi.fn(),
 }));
 
+const routeState = reactive({
+  hash: '',
+});
+
 vi.mock('vue-router', () => ({
+  useRoute: () => routeState,
   useRouter: () => ({
     push: pushMock,
   }),
@@ -148,8 +153,9 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-function createWrapper() {
+function createWrapper(options: { attachTo?: Element } = {}) {
   return mount(OrganizationProfileSetup, {
+    attachTo: options.attachTo,
     global: {
       stubs: {
         NButton: {
@@ -172,6 +178,7 @@ function createWrapper() {
 describe('OrganizationProfileSetup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeState.hash = '';
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -251,6 +258,62 @@ describe('OrganizationProfileSetup', () => {
     await flushPromises();
 
     expect(pushMock).toHaveBeenCalledWith('/');
+  });
+
+  it('renders target sections for operations submenu anchors after foundation data loads', async () => {
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    const wrapper = createWrapper();
+    await flushPromises();
+
+    expect(wrapper.get('#hospital-info').text()).toContain('병원 정보');
+    expect(wrapper.get('#site-shift-rules').text()).toContain('병동/근무 기준');
+    expect(wrapper.get('#employee-info').text()).toContain('직원 정보');
+  });
+
+  it('scrolls to a matching hash target after foundation data loads', async () => {
+    const scrollIntoViewMock = vi.fn();
+    const originalElementScrollIntoView = Element.prototype.scrollIntoView;
+    const originalHtmlElementScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoViewMock;
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+    routeState.hash = '#site-shift-rules';
+    getOrganizationProfileMock.mockResolvedValue({
+      organizationId: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+    });
+    getSitesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      site: null,
+    });
+
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const wrapper = createWrapper({ attachTo: host });
+
+    try {
+      await flushPromises();
+      await flushPromises();
+
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    } finally {
+      Element.prototype.scrollIntoView = originalElementScrollIntoView;
+      HTMLElement.prototype.scrollIntoView = originalHtmlElementScrollIntoView;
+      wrapper.unmount();
+      host.remove();
+    }
   });
 
   it('treats a blank organization type as a pending backfill that can be saved immediately', async () => {

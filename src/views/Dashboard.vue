@@ -1,25 +1,12 @@
 <template>
-  <div class="mx-auto max-w-6xl px-4">
-    <n-card>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h1 class="text-2xl font-bold">
-            근무표 관리
-          </h1>
-          <n-button
-            v-if="canManageSchedules && !opsReadinessLoading"
-            data-test="dashboard-create-schedule"
-            type="primary"
-            @click="handleCreateNew"
-          >
-            <template #icon>
-              <span class="text-lg">+</span>
-            </template>
-            새 근무표 생성
-          </n-button>
-        </div>
-      </template>
+  <div class="mx-auto max-w-6xl space-y-6 px-4">
+    <div>
+      <h1 class="text-2xl font-bold">
+        근무표 관리
+      </h1>
+    </div>
 
+    <div>
       <div
         v-if="!hasAdminDashboardAccess"
         class="space-y-8"
@@ -43,26 +30,11 @@
         v-else
         class="space-y-8"
       >
-        <section class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
-          <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p class="text-sm font-medium tracking-wide text-slate-500">
-                운영 준비
-              </p>
-              <h2 class="mt-1 text-xl font-semibold text-slate-900">
-                근무표 생성 전에 기준을 먼저 맞춥니다
-              </h2>
-              <p class="mt-2 text-sm text-slate-600">
-                운영 기본 설정과 체크리스트 항목은 월별 생성 흐름의 공통 입력값입니다.
-              </p>
-            </div>
-            <div class="rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-              Setup
-            </div>
-          </div>
-
+        <section
+          v-if="opsReadinessLoading"
+          class="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm"
+        >
           <div
-            v-if="opsReadinessLoading"
             data-test="dashboard-ops-readiness-loading"
             class="rounded-xl border border-slate-200 bg-white px-5 py-8 text-center"
           >
@@ -74,151 +46,265 @@
               병원 정보, 기준 설정, 체크리스트를 불러오고 있습니다.
             </p>
           </div>
-
-          <template v-else>
-            <n-card
-              v-if="showFoundationCard"
-              data-test="dashboard-foundation-card"
-              :bordered="true"
-              class="mb-4 cursor-pointer"
-              @click="handleOpenFoundationEntry"
-            >
-              <div class="flex items-center justify-between gap-4">
-                <div>
-                  <p class="text-base font-semibold text-gray-900">
-                    {{ foundationCardTarget?.title }}
-                  </p>
-                  <p class="mt-1 text-sm text-gray-500">
-                    {{ foundationCardTarget?.description }}
-                  </p>
-                </div>
-                <n-button
-                  data-test="dashboard-foundation-setup"
-                  secondary
-                  type="primary"
-                  @click.stop="handleOpenFoundationEntry"
-                >
-                  {{ foundationCardTarget?.actionLabel }}
-                </n-button>
-              </div>
-            </n-card>
-
-            <PilotChecklistCard
-              v-if="checklist"
-              :checklist="checklist"
-              @navigate="handleChecklistNavigate"
-            />
-          </template>
         </section>
 
         <section
-          v-if="!opsReadinessLoading"
-          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          v-else-if="isDashboardReadinessUnavailable"
+          data-test="dashboard-readiness-unavailable"
+          class="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm"
         >
-          <div class="mb-4">
-            <p class="text-sm font-medium tracking-wide text-slate-500">
-              월별 근무표 작업
-            </p>
-            <h2 class="mt-1 text-xl font-semibold text-slate-900">
-              이번 달 근무표를 생성하거나 확인합니다
-            </h2>
-            <p class="mt-2 text-sm text-slate-600">
-              새 근무표 생성, 기존 결과 확인, 수정은 이 영역에서 시작합니다.
-            </p>
-          </div>
-
-          <!-- 로딩 상태 -->
-          <div
-            v-if="scheduleLoading"
-            class="py-12 text-center"
-          >
-            <n-spin size="large" />
-            <p class="mt-4 text-gray-500">
-              근무표 목록을 불러오는 중...
-            </p>
-          </div>
-
-          <!-- 목록이 비어있을 때 -->
-          <div
-            v-else-if="schedules.length === 0"
-            class="py-16 text-center"
-          >
-            <div class="mb-4 text-6xl">
-              📅
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="space-y-2">
+              <p class="text-sm font-medium tracking-wide text-amber-700">
+                운영 준비
+              </p>
+              <h2 class="text-xl font-semibold text-slate-900">
+                운영 준비 상태를 확인하지 못했습니다
+              </h2>
+              <p class="text-sm text-slate-600">
+                필수 정보가 준비되었는지 확인할 수 없어 근무표 생성과 근무표 조회를 잠시 숨겼습니다.
+              </p>
             </div>
-            <h2 class="mb-2 text-xl font-semibold text-gray-700">
-              생성된 근무표가 없습니다
-            </h2>
-            <p class="mb-6 text-gray-500">
-              새 근무표를 생성하여 시작하세요
-            </p>
             <n-button
-              v-if="canManageSchedules"
-              data-test="dashboard-create-schedule"
+              data-test="dashboard-readiness-retry"
               type="primary"
-              size="large"
-              @click="handleCreateNew"
+              @click="reloadDashboardData"
             >
-              첫 근무표 생성하기
+              다시 확인
             </n-button>
           </div>
+        </section>
 
-          <!-- 근무표 목록 -->
-          <div
-            v-else
-            class="space-y-4"
-          >
-            <n-card
-              v-for="schedule in schedules"
-              :key="schedule.id"
-              data-test="schedule-card"
-              :bordered="true"
-              class="cursor-pointer transition-shadow hover:shadow-md"
-              @click="handleViewSchedule(schedule)"
+        <section
+          v-else-if="!isDashboardReady"
+          data-test="dashboard-onboarding-only"
+          class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div class="mb-5">
+            <p class="text-sm font-medium tracking-wide text-slate-500">
+              운영 준비
+            </p>
+            <h2 class="mt-1 text-xl font-semibold text-slate-900">
+              근무표 생성을 시작하기 전에 필수 정보를 먼저 확인해주세요
+            </h2>
+            <p class="mt-2 text-sm text-slate-600">
+              아래 3가지를 순서대로 완료하면 근무표 생성과 근무표 조회를 사용할 수 있습니다.
+            </p>
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="item in onboardingReadinessItems"
+              :key="item.key"
+              class="rounded-lg border border-slate-200 bg-slate-50/60 p-4"
             >
-              <div class="flex items-center justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center gap-3">
-                    <h3
-                      data-test="schedule-card-month"
-                      class="text-lg font-semibold"
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <p class="text-base font-semibold text-slate-900">
+                      {{ item.step }} {{ item.label }}
+                    </p>
+                    <span
+                      class="rounded-full px-2.5 py-1 text-xs font-medium ring-1"
+                      :class="item.statusClass"
                     >
-                      {{ schedule.month }} 근무표
+                      {{ item.statusLabel }}
+                    </span>
+                  </div>
+                  <p class="mt-1 text-sm text-slate-600">
+                    {{ item.description }}
+                  </p>
+                  <p
+                    v-if="item.disabledReason"
+                    class="mt-2 text-sm text-slate-500"
+                  >
+                    {{ item.disabledReason }}
+                  </p>
+                </div>
+                <n-button
+                  :data-test="`dashboard-onboarding-item-${item.key}`"
+                  :type="item.isCurrent ? 'primary' : 'default'"
+                  :secondary="!item.isCurrent"
+                  :disabled="item.isWaiting"
+                  @click="handleOpenReadinessItem(item.key)"
+                >
+                  {{ item.actionLabel }}
+                </n-button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <template v-else>
+          <section
+            data-test="dashboard-next-action"
+            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-5">
+              <div class="min-w-0 flex-1 space-y-2">
+                <p class="text-sm font-medium tracking-wide text-slate-500">
+                  오늘의 다음 작업
+                </p>
+                <h2 class="mt-1 text-xl font-semibold text-slate-900">
+                  {{ primaryDashboardAction.title }}
+                </h2>
+                <p class="text-sm text-slate-600">
+                  {{ primaryDashboardAction.description }}
+                </p>
+                <p
+                  v-if="!canManageSchedules"
+                  class="text-sm font-medium text-slate-500"
+                >
+                  근무표 생성 권한이 없는 계정입니다. 기존 정보 확인만 사용할 수 있습니다.
+                </p>
+              </div>
+              <n-button
+                data-test="dashboard-primary-action"
+                type="primary"
+                size="large"
+                class="min-h-11"
+                @click="handlePrimaryDashboardAction(primaryDashboardAction)"
+              >
+                {{ primaryDashboardAction.label }}
+              </n-button>
+            </div>
+          </section>
+
+          <section
+            data-test="dashboard-operational-status"
+            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div class="mb-4">
+              <p class="text-sm font-medium tracking-wide text-slate-500">
+                운영 상태
+              </p>
+              <h2 class="mt-1 text-xl font-semibold text-slate-900">
+                지금 확인해야 할 상태를 요약합니다
+              </h2>
+            </div>
+
+            <div class="divide-y divide-slate-200 rounded-lg border border-slate-200">
+              <div
+                v-for="row in operationalStatusRows"
+                :key="row.key"
+                class="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+              >
+                <p class="text-sm font-medium text-slate-600">
+                  {{ row.label }}
+                </p>
+                <span
+                  class="w-fit rounded-full px-2.5 py-1 text-xs font-medium ring-1"
+                  :class="row.statusClass"
+                >
+                  {{ row.value }}
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section
+            data-test="dashboard-recent-schedule"
+            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p class="text-sm font-medium tracking-wide text-slate-500">
+                  최근 근무표
+                </p>
+                <h2 class="mt-1 text-xl font-semibold text-slate-900">
+                  마지막 작업 결과를 확인합니다
+                </h2>
+              </div>
+              <n-button
+                data-test="dashboard-view-all-schedules"
+                secondary
+                @click="handleViewAllSchedules"
+              >
+                전체 목록 보기
+              </n-button>
+            </div>
+
+            <div
+              v-if="scheduleListLoadFailed"
+              class="rounded-lg border border-amber-200 bg-amber-50/70 p-5"
+            >
+              <h3 class="text-base font-semibold text-slate-900">
+                근무표 목록을 확인하지 못했습니다
+              </h3>
+              <p class="mt-1 text-sm text-slate-600">
+                생성 중인 근무표나 최근 결과를 확인하려면 목록을 다시 불러와야 합니다.
+              </p>
+              <n-button
+                data-test="dashboard-schedule-list-retry"
+                class="mt-4"
+                secondary
+                type="primary"
+                @click="handleRetryScheduleList"
+              >
+                다시 불러오기
+              </n-button>
+            </div>
+
+            <div
+              v-else-if="scheduleLoading"
+              class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-8 text-center"
+            >
+              <n-spin size="medium" />
+              <p class="mt-4 text-sm text-slate-500">
+                근무표 목록을 불러오는 중입니다.
+              </p>
+            </div>
+
+            <div
+              v-else-if="!latestDisplaySchedule"
+              class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-8"
+            >
+              <h3 class="text-base font-semibold text-slate-900">
+                아직 생성된 근무표가 없습니다
+              </h3>
+              <p class="mt-1 text-sm text-slate-600">
+                새 계획월을 선택하면 생성 흐름을 시작할 수 있습니다.
+              </p>
+            </div>
+
+            <div
+              v-else
+              class="rounded-lg border border-slate-200 bg-slate-50/60 p-4"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <h3 class="text-lg font-semibold text-slate-900">
+                      {{ latestDisplaySchedule.month }} 근무표
                     </h3>
                     <n-badge
-                      data-test="schedule-card-status"
-                      :value="getStatusText(schedule.status)"
-                      :type="getStatusType(schedule.status)"
+                      :value="getStatusText(latestDisplaySchedule.status)"
+                      :type="getStatusType(latestDisplaySchedule.status)"
                     />
                   </div>
-                  <div class="mt-2 flex gap-6 text-sm text-gray-600">
-                    <span>생성일: {{ formatDate(schedule.created_at) }}</span>
-                    <span v-if="schedule.hard_score !== null && schedule.soft_score !== null">
-                      Hard Score: {{ schedule.hard_score }} / Soft Score: {{ schedule.soft_score }}
+                  <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+                    <span>생성일: {{ formatDate(latestDisplaySchedule.created_at) }}</span>
+                    <span
+                      v-if="latestDisplaySchedule.hard_score !== null && latestDisplaySchedule.soft_score !== null"
+                    >
+                      Hard Score: {{ latestDisplaySchedule.hard_score }} / Soft Score: {{ latestDisplaySchedule.soft_score }}
                     </span>
                   </div>
                 </div>
-                <div class="flex gap-2">
-                  <n-button
-                    secondary
-                    @click.stop="handleEdit(schedule)"
-                  >
-                    수정
-                  </n-button>
-                  <n-button
-                    secondary
-                    type="error"
-                    @click.stop="handleDelete(schedule)"
-                  >
-                    삭제
-                  </n-button>
-                </div>
+                <n-button
+                  data-test="dashboard-view-recent-schedule"
+                  secondary
+                  type="primary"
+                  @click="handleViewSchedule(latestDisplaySchedule)"
+                >
+                  보기
+                </n-button>
               </div>
-            </n-card>
-          </div>
-        </section>
+            </div>
+          </section>
+        </template>
       </div>
-    </n-card>
+    </div>
 
     <!-- 월 선택 모달 -->
     <n-modal
@@ -266,19 +352,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { NCard, NButton, NSpin, NBadge, NModal, NForm, NFormItem, NDatePicker } from 'naive-ui';
-import PilotChecklistCard from '@/components/ops/PilotChecklistCard.vue';
+import { NButton, NSpin, NBadge, NModal, NForm, NFormItem, NDatePicker } from 'naive-ui';
 import { useOrganizationStore } from '@/stores/organization';
 import { useRbacStore } from '@/stores/rbac';
 import { useScheduleStore } from '@/stores/schedule';
-import { deletePhase2ScheduleMonth, getPhase2ScheduleCompare, getScheduleList } from '@/api/schedule';
+import {
+  getPhase2ScheduleCompare,
+  getScheduleList,
+  type ScheduleSummary,
+} from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
 import { supabase } from '@/api/supabase';
-import { showSuccess, showError, showWarning } from '@/utils/message';
+import { showError, showWarning } from '@/utils/message';
 import {
   buildSchedulableMonthWindow,
   getDefaultSchedulableMonth,
-  getNextMonth,
   isSchedulableMonthAvailable,
 } from '@/utils/date';
 import {
@@ -288,31 +376,11 @@ import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
   buildCanonicalStep5RouteLocation,
   getOpsOrganizationSetupRoutePath,
+  getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
-  getStep5ScheduleKeyFromPath,
-  normalizeAppContractPath,
 } from '@/constants/routes';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
-
-interface Schedule {
-  id: string;
-  public_id: string | null;
-  organization_id: string;
-  month: string;
-  status: 'created' | 'running' | 'complete' | 'changed' | 'error';
-  hard_score: number | null;
-  soft_score: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface FoundationCardTarget {
-  route: string | { path: string; query?: Record<string, string> };
-  title: string;
-  description: string;
-  actionLabel: string;
-}
 
 const router = useRouter();
 const orgStore = useOrganizationStore();
@@ -320,9 +388,12 @@ const rbacStore = useRbacStore();
 const scheduleStore = useScheduleStore();
 
 const opsReadinessLoading = ref(true);
+const opsReadinessLoadFailed = ref(false);
 const scheduleLoading = ref(false);
-const schedules = ref<Schedule[]>([]);
+const scheduleListLoadFailed = ref(false);
+const schedules = ref<ScheduleSummary[]>([]);
 const checklist = ref<ChecklistResponse | null>(null);
+const dashboardLoadRunId = ref(0);
 
 // 월 선택 모달 관련
 const showMonthModal = ref(false);
@@ -341,63 +412,151 @@ type DatePickerDisableDetail =
 
 const schedulableMonthWindow = computed(() => buildSchedulableMonthWindow());
 const existingScheduleMonthSet = computed(() => new Set(schedules.value.map((schedule) => schedule.month)));
+const nextSchedulableMonth = computed(() =>
+  getDefaultSchedulableMonth(existingScheduleMonthSet.value)
+);
 
-const foundationChecklistItems = computed(() => {
-  const checklistItems = checklist.value?.items ?? [];
-  const organizationProfileItem =
-    checklistItems.find((item) => item.key === 'organization_profile') ?? null;
-  const scheduleFoundationItem =
-    checklistItems.find((item) => item.key === 'schedule_foundation') ?? null;
-
-  if (!organizationProfileItem || !scheduleFoundationItem) {
-    return null;
+function getScheduleSortTime(schedule: ScheduleSummary) {
+  const updatedTime = dayjs(schedule.updated_at);
+  if (updatedTime.isValid()) {
+    return updatedTime.valueOf();
   }
 
-  return {
-    organizationProfileItem,
-    scheduleFoundationItem,
-  };
+  const createdTime = dayjs(schedule.created_at);
+  return createdTime.isValid() ? createdTime.valueOf() : 0;
+}
+
+const sortedSchedulesByRecency = computed(() => {
+  return [...schedules.value].sort((left, right) => {
+    const timeDiff = getScheduleSortTime(right) - getScheduleSortTime(left);
+    if (timeDiff !== 0) {
+      return timeDiff;
+    }
+
+    const monthDiff = right.month.localeCompare(left.month);
+    if (monthDiff !== 0) {
+      return monthDiff;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
 });
 
-const showFoundationCard = computed(() => foundationChecklistItems.value !== null);
+const latestDisplaySchedule = computed(() => sortedSchedulesByRecency.value[0] ?? null);
+const runningSchedule = computed(() =>
+  sortedSchedulesByRecency.value.find((schedule) => schedule.status === 'running') ?? null
+);
+const recentActionableSchedule = computed(() =>
+  sortedSchedulesByRecency.value.find((schedule) =>
+    schedule.status === 'complete' || schedule.status === 'changed'
+  ) ?? null
+);
 
-const foundationCardTarget = computed<FoundationCardTarget | null>(() => {
-  if (!foundationChecklistItems.value) {
-    return null;
-  }
+const REQUIRED_DASHBOARD_READINESS_KEYS = [
+  'organization_profile',
+  'schedule_foundation',
+  'employee_roster',
+] as const satisfies readonly ChecklistItem['key'][];
 
-  const { organizationProfileItem, scheduleFoundationItem } = foundationChecklistItems.value;
+type DashboardReadinessKey = (typeof REQUIRED_DASHBOARD_READINESS_KEYS)[number];
+type DashboardPrimaryActionKey =
+  | 'retry_readiness'
+  | 'open_readiness_item'
+  | 'retry_schedule_list'
+  | 'open_running_schedule'
+  | 'create_schedule'
+  | 'open_recent_schedule'
+  | 'open_schedule_results';
 
-  if (organizationProfileItem.status !== 'ready') {
+interface DashboardPrimaryAction {
+  key: DashboardPrimaryActionKey;
+  label: string;
+  title: string;
+  description: string;
+  readinessKey?: DashboardReadinessKey;
+  schedule?: ScheduleSummary;
+}
+
+const READINESS_ITEM_COPY: Record<DashboardReadinessKey, {
+  step: number;
+  label: string;
+  description: string;
+  actionLabel: string;
+  waitingReason: string;
+}> = {
+  organization_profile: {
+    step: 1,
+    label: '병원 정보',
+    description: '병원 이름과 운영 기준의 기본 단위를 확인합니다.',
+    actionLabel: '병원 정보 확인하기',
+    waitingReason: '',
+  },
+  schedule_foundation: {
+    step: 2,
+    label: '병동/근무 기준',
+    description: '기준 장소, 휴식시간, 시프트, 인력 기준을 확인합니다.',
+    actionLabel: '근무 기준 설정하기',
+    waitingReason: '병원 정보를 먼저 완료해야 설정할 수 있습니다.',
+  },
+  employee_roster: {
+    step: 3,
+    label: '직원 정보',
+    description: '근무표에 배정할 직원 로스터와 근무 가능 기준을 확인합니다.',
+    actionLabel: '직원 정보 확인하기',
+    waitingReason: '병동/근무 기준을 먼저 완료해야 설정할 수 있습니다.',
+  },
+};
+
+const checklistItemByKey = computed(() => {
+  return new Map((checklist.value?.items ?? []).map((item) => [item.key, item]));
+});
+
+const requiredReadinessItems = computed(() => {
+  return REQUIRED_DASHBOARD_READINESS_KEYS.map((key) => checklistItemByKey.value.get(key) ?? null);
+});
+
+const hasRequiredReadinessItems = computed(() => {
+  return requiredReadinessItems.value.every((item) => item !== null);
+});
+
+const isDashboardReady = computed(() => {
+  return requiredReadinessItems.value.every((item) => item?.status === 'ready');
+});
+
+const isDashboardReadinessUnavailable = computed(() => {
+  return !opsReadinessLoading.value && (opsReadinessLoadFailed.value || !hasRequiredReadinessItems.value);
+});
+
+const firstIncompleteReadinessKey = computed<DashboardReadinessKey | null>(() => {
+  const firstIncompleteIndex = requiredReadinessItems.value.findIndex((item) => item?.status !== 'ready');
+  return firstIncompleteIndex === -1 ? null : REQUIRED_DASHBOARD_READINESS_KEYS[firstIncompleteIndex] ?? null;
+});
+
+const onboardingReadinessItems = computed(() => {
+  const currentKey = firstIncompleteReadinessKey.value;
+
+  return REQUIRED_DASHBOARD_READINESS_KEYS.map((key) => {
+    const item = checklistItemByKey.value.get(key);
+    const copy = READINESS_ITEM_COPY[key];
+    const isComplete = item?.status === 'ready';
+    const isCurrent = !isComplete && key === currentKey;
+    const isWaiting = !isComplete && !isCurrent;
+
     return {
-      route: getOpsOrganizationSetupRoutePath(),
-      title: '병원 정보 확인이 필요합니다',
-      description: '병원명을 먼저 저장해야 다음 운영 기준을 이어서 설정할 수 있습니다.',
-      actionLabel: '병원 정보 열기',
+      key,
+      ...copy,
+      statusLabel: isComplete ? '완료' : isCurrent ? '진행' : '대기',
+      statusClass: isComplete
+        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+        : isCurrent
+          ? 'bg-teal-50 text-teal-700 ring-teal-200'
+          : 'bg-slate-100 text-slate-600 ring-slate-200',
+      isCurrent,
+      isWaiting,
+      actionLabel: isComplete ? '확인하기' : copy.actionLabel,
+      disabledReason: isWaiting ? copy.waitingReason : item?.blockedReason,
     };
-  }
-
-  if (scheduleFoundationItem.status !== 'ready') {
-    return {
-      route: {
-        path: getScheduleStepRoutePath(2),
-        query: buildScheduleEntryQuery('setup'),
-      },
-      title: '운영 기본 설정이 아직 완료되지 않았습니다',
-      description: '기준 장소, 휴식시간, 시프트, 인력 기준을 먼저 확인해주세요.',
-      actionLabel: '기준 설정 열기',
-    };
-  }
-
-  return {
-    route: {
-      path: getScheduleStepRoutePath(2),
-      query: buildScheduleEntryQuery('setup'),
-    },
-    title: '운영 기본 설정이 완료되었습니다',
-    description: '대시보드와 근무표 생성 흐름에서 같은 기준을 사용합니다.',
-    actionLabel: '기준 설정 확인',
-  };
+  });
 });
 
 const hasAdminDashboardAccess = computed(() =>
@@ -408,14 +567,147 @@ const hasAdminDashboardAccess = computed(() =>
 
 const canManageSchedules = computed(() => rbacStore.abilities.canManageSchedules);
 
+const primaryDashboardAction = computed<DashboardPrimaryAction>(() => {
+  if (isDashboardReadinessUnavailable.value) {
+    return {
+      key: 'retry_readiness',
+      label: '다시 확인',
+      title: '운영 준비 상태를 확인하지 못했습니다',
+      description: '필수 정보가 준비되었는지 확인할 수 없어 다음 작업을 잠시 멈췄습니다.',
+    };
+  }
+
+  if (!isDashboardReady.value && firstIncompleteReadinessKey.value) {
+    return {
+      key: 'open_readiness_item',
+      label: '현재 항목 확인하기',
+      title: '운영 기준 확인이 필요합니다',
+      description: '근무표 생성을 시작하려면 먼저 막힌 기준 항목을 완료해야 합니다.',
+      readinessKey: firstIncompleteReadinessKey.value,
+    };
+  }
+
+  if (scheduleListLoadFailed.value) {
+    return {
+      key: 'retry_schedule_list',
+      label: '다시 불러오기',
+      title: '근무표 목록을 확인하지 못했습니다',
+      description: '생성 중인 근무표나 이미 만든 계획월을 확인할 수 없어 목록을 다시 불러와야 합니다.',
+    };
+  }
+
+  if (runningSchedule.value) {
+    return {
+      key: 'open_running_schedule',
+      label: '생성 상태 확인하기',
+      title: '생성 중인 근무표가 있습니다',
+      description: '생성 상태를 확인하고 이어서 검토할 수 있습니다.',
+      schedule: runningSchedule.value,
+    };
+  }
+
+  if (canManageSchedules.value && nextSchedulableMonth.value !== null) {
+    return {
+      key: 'create_schedule',
+      label: '새 근무표 생성하기',
+      title: '새 근무표를 만들 수 있습니다',
+      description: '아직 생성하지 않은 다음 계획월을 선택해 생성 흐름을 시작합니다.',
+    };
+  }
+
+  if (recentActionableSchedule.value) {
+    return {
+      key: 'open_recent_schedule',
+      label: '최근 근무표 보기',
+      title: '최근 완료된 근무표가 있습니다',
+      description: '마지막으로 작업한 근무표를 바로 확인할 수 있습니다.',
+      schedule: recentActionableSchedule.value,
+    };
+  }
+
+  return {
+    key: 'open_schedule_results',
+    label: '근무표 조회로 이동',
+    title: '지금 바로 처리할 작업은 없습니다',
+    description: '생성된 근무표 목록에서 이전 결과를 확인할 수 있습니다.',
+  };
+});
+
+function getOperationalStatusClass(key: string, value: string) {
+  if (key === 'data_attention' && value === '있음') {
+    return 'bg-amber-50 text-amber-700 ring-amber-200';
+  }
+
+  if (value === '준비 완료' || value === '있음') {
+    return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  }
+
+  if (value === '확인 실패' || value === '확인 필요') {
+    return 'bg-amber-50 text-amber-700 ring-amber-200';
+  }
+
+  return 'bg-slate-100 text-slate-600 ring-slate-200';
+}
+
+const operationalStatusRows = computed(() => {
+  const rows = [
+    {
+      key: 'readiness',
+      label: '운영 기준',
+      value: isDashboardReadinessUnavailable.value
+        ? '확인 실패'
+        : isDashboardReady.value
+          ? '준비 완료'
+          : '확인 필요',
+    },
+  ];
+
+  if (runningSchedule.value) {
+    rows.push({
+      key: 'running_schedule',
+      label: '생성 중 근무표',
+      value: '있음',
+    });
+  }
+
+  rows.push({
+    key: 'recent_schedule',
+    label: '최근 완료 근무표',
+    value: recentActionableSchedule.value ? '있음' : '없음',
+  });
+
+  if (isDashboardReadinessUnavailable.value || scheduleListLoadFailed.value) {
+    rows.push({
+      key: 'data_attention',
+      label: '확인 필요',
+      value: '있음',
+    });
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    statusClass: getOperationalStatusClass(row.key, row.value),
+  }));
+});
+
+function startDashboardLoadRun() {
+  const runId = dashboardLoadRunId.value + 1;
+  dashboardLoadRunId.value = runId;
+  return runId;
+}
+
 function resetDashboardData() {
   schedules.value = [];
   checklist.value = null;
+  opsReadinessLoadFailed.value = false;
+  scheduleListLoadFailed.value = false;
   opsReadinessLoading.value = false;
   scheduleLoading.value = false;
 }
 
 async function reloadDashboardData() {
+  const runId = startDashboardLoadRun();
+
   if (!hasAdminDashboardAccess.value) {
     resetDashboardData();
     return;
@@ -423,10 +715,15 @@ async function reloadDashboardData() {
 
   schedules.value = [];
   checklist.value = null;
+  opsReadinessLoadFailed.value = false;
+  scheduleListLoadFailed.value = false;
   opsReadinessLoading.value = true;
   scheduleLoading.value = false;
 
   const result = await orgStore.loadOrganization();
+  if (runId !== dashboardLoadRunId.value) {
+    return;
+  }
 
   if (!result.success) {
     showError(result.error || '조직 정보를 불러오지 못했습니다.');
@@ -437,14 +734,30 @@ async function reloadDashboardData() {
 
   try {
     if (orgStore.current?.id && typeof orgStore.loadFoundationData === 'function') {
-      await orgStore.loadFoundationData(orgStore.current.id);
+      const foundationOrganizationId = orgStore.current.id;
+      await orgStore.loadFoundationData(foundationOrganizationId);
+      if (runId !== dashboardLoadRunId.value || foundationOrganizationId !== orgStore.current?.id) {
+        return;
+      }
     }
 
-    // 근무표 목록 로드
-    await loadSchedules();
-    await loadChecklist();
-  } finally {
+    const organizationId = orgStore.current?.id ?? null;
+    const loadedChecklist = await loadChecklist(runId, organizationId);
+    if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
+      return;
+    }
+
+    if (!loadedChecklist || !hasRequiredReadinessItems.value || !isDashboardReady.value) {
+      schedules.value = [];
+      return;
+    }
+
     opsReadinessLoading.value = false;
+    await loadSchedules(runId, organizationId);
+  } finally {
+    if (runId === dashboardLoadRunId.value) {
+      opsReadinessLoading.value = false;
+    }
   }
 }
 
@@ -463,25 +776,69 @@ watch(
   },
 );
 
-async function loadSchedules() {
+async function loadSchedules(
+  runId = dashboardLoadRunId.value,
+  organizationId = orgStore.current?.id ?? null
+) {
+  if (!organizationId) {
+    schedules.value = [];
+    scheduleListLoadFailed.value = true;
+    scheduleLoading.value = false;
+    return;
+  }
+
   try {
     scheduleLoading.value = true;
-    const data = await getScheduleList(orgStore.current!.id);
-    schedules.value = data as Schedule[];
+    scheduleListLoadFailed.value = false;
+    const data = await getScheduleList(organizationId);
+    if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
+      return;
+    }
+
+    schedules.value = data;
   } catch (error) {
+    if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
+      return;
+    }
+
     console.warn('근무표 목록 로드 실패:', error);
-    window.$message?.error('근무표 목록을 불러오는데 실패했습니다');
+    schedules.value = [];
+    scheduleListLoadFailed.value = true;
   } finally {
-    scheduleLoading.value = false;
+    if (runId === dashboardLoadRunId.value && organizationId === orgStore.current?.id) {
+      scheduleLoading.value = false;
+    }
   }
 }
 
-async function loadChecklist() {
+async function loadChecklist(
+  runId = dashboardLoadRunId.value,
+  organizationId = orgStore.current?.id ?? null
+): Promise<ChecklistResponse | null> {
+  if (!organizationId) {
+    checklist.value = null;
+    opsReadinessLoadFailed.value = true;
+    return null;
+  }
+
   try {
-    checklist.value = await getChecklist(orgStore.current!.id);
+    const response = await getChecklist(organizationId);
+    if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
+      return null;
+    }
+
+    checklist.value = response;
+    opsReadinessLoadFailed.value = false;
+    return response;
   } catch (error) {
+    if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
+      return null;
+    }
+
     console.warn('체크리스트 로드 실패:', error);
     checklist.value = null;
+    opsReadinessLoadFailed.value = true;
+    return null;
   }
 }
 
@@ -503,12 +860,82 @@ function handleCreateNew() {
   showMonthModal.value = true;
 }
 
-async function handleOpenFoundationEntry() {
-  if (!hasAdminDashboardAccess.value || !foundationCardTarget.value) {
+function getReadinessRoute(key: DashboardReadinessKey) {
+  if (key === 'organization_profile') {
+    return getOpsOrganizationSetupRoutePath();
+  }
+
+  if (key === 'schedule_foundation') {
+    return {
+      path: getScheduleStepRoutePath(2),
+      query: buildScheduleEntryQuery('setup'),
+    };
+  }
+
+  return {
+    path: getScheduleStepRoutePath(3),
+    query: buildScheduleEntryQuery('setup'),
+  };
+}
+
+async function handleOpenReadinessItem(key: DashboardReadinessKey) {
+  if (!hasAdminDashboardAccess.value) {
     return;
   }
 
-  await router.push(foundationCardTarget.value.route);
+  try {
+    await router.push(getReadinessRoute(key));
+  } catch (error) {
+    console.warn('Readiness navigation failed:', error);
+    showError('화면을 열지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+async function handleViewAllSchedules() {
+  try {
+    await router.push(getScheduleResultsRoutePath());
+  } catch (error) {
+    console.warn('Schedule results navigation failed:', error);
+    showError('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.');
+  }
+}
+
+async function handleRetryScheduleList() {
+  const runId = startDashboardLoadRun();
+  await loadSchedules(runId, orgStore.current?.id ?? null);
+}
+
+async function handlePrimaryDashboardAction(action: DashboardPrimaryAction) {
+  try {
+    switch (action.key) {
+      case 'retry_readiness':
+        await reloadDashboardData();
+        return;
+      case 'open_readiness_item':
+        if (action.readinessKey) {
+          await handleOpenReadinessItem(action.readinessKey);
+        }
+        return;
+      case 'retry_schedule_list':
+        await handleRetryScheduleList();
+        return;
+      case 'open_running_schedule':
+      case 'open_recent_schedule':
+        if (action.schedule) {
+          await handleViewSchedule(action.schedule);
+        }
+        return;
+      case 'create_schedule':
+        handleCreateNew();
+        return;
+      case 'open_schedule_results':
+        await router.push(getScheduleResultsRoutePath());
+        return;
+    }
+  } catch (error) {
+    console.warn('Dashboard primary action failed:', error);
+    showError('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.');
+  }
 }
 
 function buildChecklistBasicInfo(
@@ -528,39 +955,6 @@ function buildChecklistBasicInfo(
   };
 }
 
-async function seedChecklistScheduleContext(item: ChecklistItem) {
-  const nextMonth = getNextMonth();
-  const step5ScheduleKey = extractStep5ScheduleKey(item.route);
-
-  if (step5ScheduleKey) {
-    const scheduleKey = step5ScheduleKey || undefined;
-    const schedule = scheduleKey
-      ? schedules.value.find((entry) => entry.public_id === scheduleKey || entry.id === scheduleKey)
-      : null;
-
-    scheduleStore.reset();
-    scheduleStore.setBasicInfo(
-      buildChecklistBasicInfo(
-        schedule?.month || nextMonth,
-        schedule?.id,
-        schedule?.public_id ?? scheduleKey
-      )
-    );
-  }
-}
-
-function extractStep5ScheduleKey(routePath: string | null | undefined): string | null {
-  if (!routePath) {
-    return null;
-  }
-
-  return getStep5ScheduleKeyFromPath(routePath);
-}
-
-function normalizeChecklistRoute(routePath: string) {
-  return normalizeAppContractPath(routePath);
-}
-
 async function navigateToCanonicalStep5(scheduleKey: string) {
   const compareResponse = await getPhase2ScheduleCompare(scheduleKey);
   const resolvedState = resolveStep5VersionState(compareResponse, null);
@@ -577,52 +971,6 @@ async function navigateToCanonicalStep5(scheduleKey: string) {
   scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
 
   await router.push(buildCanonicalStep5RouteLocation(schedulePublicId));
-}
-
-async function handleChecklistNavigate(item: ChecklistItem) {
-  if (!hasAdminDashboardAccess.value) {
-    return;
-  }
-
-  if (item.key === 'schedule_foundation') {
-    await router.push({
-      path: getScheduleStepRoutePath(2),
-      query: buildScheduleEntryQuery('setup'),
-    });
-    return;
-  }
-
-  if (item.key === 'employee_roster') {
-    await router.push({
-      path: getScheduleStepRoutePath(3),
-      query: buildScheduleEntryQuery('setup'),
-    });
-    return;
-  }
-
-  if (!item.route) {
-    return;
-  }
-
-  await seedChecklistScheduleContext(item);
-
-  const step5ScheduleKey = extractStep5ScheduleKey(item.route);
-  if (step5ScheduleKey) {
-    const scheduleKey = step5ScheduleKey;
-    if (!scheduleKey) {
-      return;
-    }
-
-    try {
-      await navigateToCanonicalStep5(scheduleKey);
-    } catch (error) {
-      console.warn('Checklist Step5 preview version resolve 실패:', error);
-      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-    }
-    return;
-  }
-
-  await router.push(normalizeChecklistRoute(item.route));
 }
 
 function isSelectableDashboardMonth(month: string) {
@@ -694,7 +1042,14 @@ async function handleMonthConfirm() {
       employeeCount: orgStore.employees.length,
     });
 
-    router.push(getScheduleStepRoutePath(1));
+    try {
+      await router.push(getScheduleStepRoutePath(1));
+    } catch (error) {
+      console.warn('Schedule creation navigation failed:', error);
+      showError('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.');
+      return false;
+    }
+
     return true; // 모달 닫기 허용
   } catch (error) {
     console.warn('중복 체크 실패:', error);
@@ -705,110 +1060,31 @@ async function handleMonthConfirm() {
   }
 }
 
-async function handleViewSchedule(schedule: Schedule) {
-  // scheduleStore에 기본 정보 로드
-  scheduleStore.reset();
-    scheduleStore.setBasicInfo({
-      scheduleId: schedule.id,
-      schedulePublicId: schedule.public_id ?? undefined,
-    month: schedule.month,
-    organizationId: orgStore.current!.id,
-    organizationName: orgStore.current!.name,
-    organizationType: orgStore.current!.type,
-    shifts: orgStore.shifts,
-    employeeCount: orgStore.employees.length,
-  });
-  
-  if (schedule.status === 'complete' || schedule.status === 'changed') {
-    try {
-      await navigateToCanonicalStep5(schedule.public_id ?? schedule.id);
-      return;
-    } catch (error) {
-      console.warn('Step5 preview version resolve 실패:', error);
-      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
-  } else if (schedule.status === 'created' || schedule.status === 'running') {
-    try {
-      await navigateToCanonicalStep5(schedule.public_id ?? schedule.id);
-      return;
-    } catch (error) {
-      console.warn('Step5 preview version resolve 실패:', error);
-      showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
-      return;
-    }
-  } else {
-    window.$message?.info('해당 근무표를 조회할 수 없습니다');
-  }
-}
-
-async function handleEdit(schedule: Schedule) {
-  // running 상태여도 수정 가능하도록 변경 (중간 결과 확인 및 수정 기능 지원)
-  // 이전: if (schedule.status === 'running') { ... return; }
-
-  // created, complete, changed, error 상태는 모두 수정 가능
+async function handleViewSchedule(schedule: ScheduleSummary) {
   scheduleStore.reset();
   scheduleStore.setBasicInfo({
-    scheduleId: schedule.id,
-    schedulePublicId: schedule.public_id ?? undefined,
-    month: schedule.month,
-    organizationId: orgStore.current!.id,
-    organizationName: orgStore.current!.name,
-    organizationType: orgStore.current!.type,
-    shifts: orgStore.shifts,
-    employeeCount: orgStore.employees.length,
+    ...buildChecklistBasicInfo(
+      schedule.month,
+      schedule.id,
+      schedule.public_id ?? undefined
+    ),
   });
-  
-  // Step1부터 다시 시작 (시프트, 사이트 정보 등 재설정)
-  router.push(getScheduleStepRoutePath(1));
-}
 
-function handleDelete(schedule: Schedule) {
-  window.$dialog?.warning({
-    title: '근무표 삭제',
-    content: `${schedule.month} 근무표를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
-    positiveText: '삭제',
-    negativeText: '취소',
-    onPositiveClick: async () => {
-      try {
-        await deletePhase2ScheduleMonth({
-          organizationId: schedule.organization_id,
-          month: schedule.month,
-        });
-        showSuccess('근무표가 삭제되었습니다');
-        await loadSchedules();
-      } catch (error) {
-        console.warn('삭제 실패:', error);
-        showError(getDeleteScheduleErrorMessage(error));
-      }
-    },
-  });
-}
-
-function readDeleteScheduleErrorCode(error: unknown): string | null {
-  if (typeof error !== 'object' || error === null) {
-    return null;
+  if (schedule.status === 'error') {
+    try {
+      await router.push(getScheduleStepRoutePath(4));
+    } catch (error) {
+      console.warn('Step4 navigation failed:', error);
+      showError('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.');
+    }
+    return;
   }
 
-  const candidate = error as { code?: unknown; message?: unknown };
-  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
-    return candidate.code;
-  }
-  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
-    return candidate.message;
-  }
-
-  return null;
-}
-
-function getDeleteScheduleErrorMessage(error: unknown): string {
-  switch (readDeleteScheduleErrorCode(error)) {
-    case 'already_finalized':
-      return '확정된 근무표는 삭제할 수 없습니다.';
-    case 'version_locked_for_solving':
-      return '근무표 생성이 진행 중입니다. 완료 후 다시 삭제해주세요.';
-    default:
-      return '삭제 중 오류가 발생했습니다';
+  try {
+    await navigateToCanonicalStep5(schedule.public_id ?? schedule.id);
+  } catch (error) {
+    console.warn('Step5 preview version resolve 실패:', error);
+    showError('선택한 근무표 버전을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
 

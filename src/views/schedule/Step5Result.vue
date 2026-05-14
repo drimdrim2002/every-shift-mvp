@@ -567,31 +567,10 @@
                 >
                 <span>
                   <span class="block text-sm font-semibold text-slate-900">
-                    선택한 안의 생성 결과 삭제
+                    현재 근무표 생성 결과 삭제
                   </span>
                   <span class="mt-1 block text-xs leading-5 text-slate-500">
-                    현재 보는 근무표안의 배정 결과만 지우고 Off 요청과 다른 근무표안은 유지합니다.
-                  </span>
-                </span>
-              </label>
-
-              <label
-                class="flex cursor-pointer gap-3 rounded-lg border border-slate-200 bg-white p-4 transition hover:bg-slate-50"
-                :class="selectedDeleteScope === 'all_active_versions' ? 'border-slate-900 ring-1 ring-slate-900' : ''"
-                data-test="delete-scope-option-all-active-versions"
-              >
-                <input
-                  v-model="selectedDeleteScope"
-                  class="mt-1"
-                  type="radio"
-                  value="all_active_versions"
-                >
-                <span>
-                  <span class="block text-sm font-semibold text-slate-900">
-                    모든 안의 생성 결과 삭제
-                  </span>
-                  <span class="mt-1 block text-xs leading-5 text-slate-500">
-                    이 달의 모든 근무표안 배정 결과를 지우고 Off 요청은 유지합니다.
+                    현재 근무표의 배정 결과만 지우고 Off 요청은 유지합니다.
                   </span>
                 </span>
               </label>
@@ -688,8 +667,10 @@ import {
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
+import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
 import { loadSiteRequirements } from '@/api/employee';
 import { mapToSolverRequest } from '@/utils/solverMapper';
+import { resolveSolverHolidayRange } from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
@@ -786,7 +767,7 @@ const initialLoadErrorMessage = ref<string | null>(null);
 const isStartingSolver = ref(false);
 const isRecoveringSolver = ref(false);
 const isDeletingMonthSchedule = ref(false);
-type DeleteScope = 'selected_version' | 'all_active_versions' | 'whole_month';
+type DeleteScope = 'selected_version' | 'whole_month';
 const isDeleteScopeModalOpen = ref(false);
 const selectedDeleteScope = ref<DeleteScope | null>(null);
 const deleteScopeErrorMessage = ref<string | null>(null);
@@ -948,6 +929,7 @@ const canMutatePreviewVersion = computed(() => {
 });
 const isInputEditDisabled = computed(() => {
   return isRunning.value
+    || isVersionReadOnly.value
     || previewVersionStatus.value === 'solving'
     || getActiveSolvingVersionId() !== null;
 });
@@ -1219,9 +1201,7 @@ const canRecoverSolverState = computed(() => {
 });
 const isFinalizedMonth = computed(() => Boolean(lockedVersionId.value));
 const shouldShowCompareAction = computed(() => {
-  return shouldShowResultDetails.value
-    && !isFinalizedMonth.value
-    && comparisonCandidateVersions.value.length > 1;
+  return false;
 });
 const shouldShowLastMonthDayControl = computed(() => {
   return shouldShowResultDetails.value && maxVisibleLastMonthDays.value > 0;
@@ -1310,7 +1290,7 @@ const shouldShowReviewAttentionPanel = computed(() => {
 const shouldShowPrimaryActionButton = computed(() => {
   return (
     shouldShowResultDetails.value
-    && (primaryAction.value.kind === 'select' || primaryAction.value.kind === 'recheck')
+    && primaryAction.value.kind === 'recheck'
   );
 });
 const isPrimaryActionButtonDisabled = computed(() => {
@@ -2605,7 +2585,7 @@ async function buildSolverRequest() {
 
   const dateBasedRequirements = buildDateBasedRequirements(siteRequirements);
 
-  return mapToSolverRequest(
+  const solverRequest = mapToSolverRequest(
     basicInfo,
     dateBasedRequirements,
     constraints,
@@ -2615,6 +2595,13 @@ async function buildSolverRequest() {
     lastMonthDays.value,
     previousMonthFallbackPlanningAssignments.value,
   );
+  const holidayRange = resolveSolverHolidayRange(solverRequest);
+  solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
+    holidayRange.startDate,
+    holidayRange.endDate,
+  );
+
+  return solverRequest;
 }
 
 async function syncPreviewWorkspace(options: {
@@ -3060,7 +3047,11 @@ function navigateToStep4() {
 
 function handleBack() {
   if (isInputEditDisabled.value) {
-    showInfo('근무표 생성 중에는 입력을 수정할 수 없습니다. 완료 후 다시 시도해주세요.');
+    showInfo(
+      isVersionReadOnly.value
+        ? '현재 보는 근무표안 상태에서는 입력을 수정할 수 없습니다.'
+        : '근무표 생성 중에는 입력을 수정할 수 없습니다. 완료 후 다시 시도해주세요.'
+    );
     return;
   }
 
@@ -3593,21 +3584,17 @@ function clearResultOnlyLocalState() {
   rebuildDisplayAssignments({});
 }
 
-async function handleDeleteGeneratedResults(scope: 'selected_version' | 'all_active_versions') {
-  if (scope === 'selected_version' && !previewVersionId.value) {
+async function handleDeleteGeneratedResults(scope: 'selected_version') {
+  if (!previewVersionId.value) {
     throw new Error('현재 보는 근무표안을 확인할 수 없습니다.');
   }
 
   const resetResponse = await deletePhase2ScheduleGeneratedResults(
     ensureScheduleId(),
-    scope === 'selected_version'
-      ? {
-          scope,
-          sourceVersionId: previewVersionId.value!,
-        }
-      : {
-          scope,
-        }
+    {
+      scope,
+      sourceVersionId: previewVersionId.value,
+    }
   );
 
   solver.stopPolling();
@@ -3621,11 +3608,7 @@ async function handleDeleteGeneratedResults(scope: 'selected_version' | 'all_act
   await loadPreferencesForDisplay();
   clearTempPreferenceStorage();
 
-  showSuccess(
-    scope === 'selected_version'
-      ? '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
-      : '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
-  );
+  showSuccess('현재 근무표 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.');
   await router.push(buildStep4RouteLocation({
     versionId: resetResponse.selectedVersionId,
   }));

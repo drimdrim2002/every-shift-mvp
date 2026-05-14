@@ -41,6 +41,7 @@ const {
   deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployeesMock,
   getPlanningAssignmentsForVersionMock,
+  listPublicHolidayDatesInRangeMock,
   mapToSolverRequestMock,
   showSuccessMock,
   showErrorMock,
@@ -70,6 +71,7 @@ const {
   deleteThisMonthVersionAssignmentsMock: vi.fn(),
   getPlanningEmployeesMock: vi.fn(),
   getPlanningAssignmentsForVersionMock: vi.fn(),
+  listPublicHolidayDatesInRangeMock: vi.fn(),
   mapToSolverRequestMock: vi.fn(() => ({})),
   showSuccessMock: vi.fn(),
   showErrorMock: vi.fn(),
@@ -106,6 +108,10 @@ vi.mock('@/api/schedule', () => ({
   deleteThisMonthVersionAssignments: deleteThisMonthVersionAssignmentsMock,
   getPlanningEmployees: getPlanningEmployeesMock,
   getPlanningAssignmentsForVersion: getPlanningAssignmentsForVersionMock,
+}))
+
+vi.mock('@/api/publicHolidays', () => ({
+  listPublicHolidayDatesInRange: listPublicHolidayDatesInRangeMock,
 }))
 
 vi.mock('@/api/ops', () => ({
@@ -232,6 +238,16 @@ const gridMock = {
   offReasons: ref({}),
   loadEmployees: vi.fn().mockResolvedValue(undefined),
   generateDates: vi.fn(),
+}
+
+function createStep5SolverRequest(month = '2025-12') {
+  return {
+    organization: {
+      firstDraftDate: `${month}-01`,
+      draftLength: dayjs(`${month}-01`).daysInMonth(),
+    },
+    publicHolidays: [],
+  }
 }
 
 function setMockGridDates(month: string, lastMonthDays = 0) {
@@ -588,7 +604,10 @@ describe('Step5Result', () => {
         },
       ],
     })
-    mapToSolverRequestMock.mockImplementation(() => ({}))
+    mapToSolverRequestMock.mockImplementation((basicInfo: { month?: string }) => (
+      createStep5SolverRequest(basicInfo.month)
+    ))
+    listPublicHolidayDatesInRangeMock.mockResolvedValue(['2025-12-25'])
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       info: vi.fn(),
       warning: vi.fn(),
@@ -770,7 +789,7 @@ describe('Step5Result', () => {
     getPlanningAssignmentsForVersionMock.mockResolvedValue([])
   })
 
-  it('hydrates selected and preview from compare while preserving a valid deep-linked preview', async () => {
+  it('normalizes a deep-linked candidate preview to the selected single-version preview', async () => {
     routeMock.query = {
       version: 'version-1',
     }
@@ -780,7 +799,7 @@ describe('Step5Result', () => {
 
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('schedule-1')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
-    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
   })
 
@@ -1415,8 +1434,9 @@ describe('Step5Result', () => {
 
     expect(warningMock).not.toHaveBeenCalled()
     expect(document.querySelector('[data-test="delete-scope-modal"]')).toBeTruthy()
-    expect(document.body.textContent).toContain('선택한 안의 생성 결과 삭제')
-    expect(document.body.textContent).toContain('모든 안의 생성 결과 삭제')
+    expect(document.body.textContent).toContain('현재 근무표 생성 결과 삭제')
+    expect(document.body.textContent).not.toContain('모든 안의 생성 결과 삭제')
+    expect(document.querySelector('[data-test="delete-scope-option-all-active-versions"]')).toBeNull()
     expect(document.body.textContent).toContain('이번 달 근무표 전체 삭제')
   })
 
@@ -1447,27 +1467,7 @@ describe('Step5Result', () => {
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-1')
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
     expect(showSuccessMock).toHaveBeenCalledWith(
-      '선택한 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
-    )
-    expect(pushMock).toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-1' }))
-  })
-
-  it('deletes all active generated results and routes back to Step4', async () => {
-    const wrapper = createWrapper()
-    await flushPromises()
-    vi.clearAllMocks()
-
-    await wrapper.get('[data-test="delete-month-schedule-button"]').trigger('click')
-    await flushPromises()
-    await selectDeleteScope('delete-scope-option-all-active-versions')
-    await clickDocumentTestId('delete-scope-confirm-button')
-
-    expect(deletePhase2ScheduleGeneratedResultsMock).toHaveBeenCalledWith('schedule-1', {
-      scope: 'all_active_versions',
-    })
-    expect(solverMock.stopPolling).toHaveBeenCalled()
-    expect(showSuccessMock).toHaveBeenCalledWith(
-      '모든 안의 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
+      '현재 근무표 생성 결과를 삭제했습니다. Step4에서 요청을 다시 확인해주세요.'
     )
     expect(pushMock).toHaveBeenCalledWith(buildStep4RouteLocation({ versionId: 'version-1' }))
   })
@@ -1539,6 +1539,7 @@ describe('Step5Result', () => {
     expect(document.body.textContent).not.toContain('이번 달 근무표 전체 삭제')
   })
 
+  describe.skip('legacy comparison modal workflows', () => {
   it('deletes a selected non-focused compare card with preview replacement and rehydrates the route', async () => {
     routeMock.query = {
       version: 'version-1',
@@ -1642,6 +1643,7 @@ describe('Step5Result', () => {
       '저장되지 않은 변경사항이 있어 비교안을 삭제할 수 없습니다. 먼저 저장하거나 변경 사항을 취소해주세요.'
     )
   })
+  })
 
   it('keeps comparison UI off the base page when there is only a single working version state', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
@@ -1692,7 +1694,7 @@ describe('Step5Result', () => {
     expect(wrapper.text()).not.toContain('근무표안 비교')
   })
 
-  it('opens comparison UI only after clicking the compare button', async () => {
+  it('hides comparison modal entry points for the MVP single-version flow', async () => {
     routeMock.query = {
       version: 'version-3',
       compare: 'version-3,version-2',
@@ -1731,22 +1733,16 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="comparison-tools-section"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="comparison-workspace"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('비교 후보')
-    expect(scheduleStoreMock.previewVersionId).toBe('version-3')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2')
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
-
-    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
-    await flushPromises()
-
-    expect(document.querySelector('[data-test="comparison-workspace"]')).toBeTruthy()
-    expect(document.body.textContent).toContain('비교 대상 변경')
-    expect(document.body.textContent).toContain('근무표안 비교')
-    expect(document.body.textContent).toContain(
-      'Off 요청 차이와 필수 기준 충족 여부를 비교한 뒤 필요한 근무표안을 자세히 확인하세요.',
-    )
-    expect(document.body.textContent).toContain('V3')
-    expect(document.body.textContent).not.toContain('V1')
+    expect(wrapper.find('[data-test="step5-compare-button"]').exists()).toBe(false)
+    expect(document.querySelector('[data-test="comparison-workspace"]')).toBeNull()
+    expect(document.querySelector('[data-test^="focus-version-"]')).toBeNull()
+    expect(document.querySelector('[data-test^="select-version-"]')).toBeNull()
+    expect(document.querySelector('[data-test^="delete-version-"]')).toBeNull()
   })
 
+  describe.skip('legacy comparison modal data workflows', () => {
   it('loads compared version assignments and preferences for compliance comparison', async () => {
     routeMock.query = {
       version: 'version-3',
@@ -2141,6 +2137,7 @@ describe('Step5Result', () => {
     expect(document.body.textContent).toContain('V1')
     expect(document.body.textContent).not.toContain('실패본')
   })
+  })
 
   it('canonicalizes finalized months to the locked preview version and hides comparison tools', async () => {
     routeMock.query = { version: 'version-1' }
@@ -2194,6 +2191,7 @@ describe('Step5Result', () => {
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
+  describe.skip('legacy comparison modal focus workflows', () => {
   it('changes the focused version only when the explicit detail button is clicked', async () => {
     routeMock.query = {
       version: 'version-3',
@@ -2285,82 +2283,36 @@ describe('Step5Result', () => {
     expect(warningMock).toHaveBeenCalledTimes(1)
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-2')
   })
+  })
 
-  it('changes authoritative selection only when the explicit select button is clicked', async () => {
+  it('hides authoritative candidate selection in the MVP single-version flow', async () => {
     routeMock.query = { version: 'version-1' }
-    getPhase2ScheduleCompareMock
-      .mockResolvedValueOnce({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-2',
-        finalizedVersionId: null,
-        activeSolvingVersionId: null,
-        versions: [
-          createVersionSummary({
-            id: 'version-1',
-            versionNo: 1,
-            isSelected: false,
-          }),
-          createVersionSummary({
-            id: 'version-2',
-            versionNo: 2,
-            isSelected: true,
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-1',
-        finalizedVersionId: null,
-        activeSolvingVersionId: null,
-        versions: [
-          createVersionSummary({
-            id: 'version-1',
-            versionNo: 1,
-            isSelected: true,
-          }),
-          createVersionSummary({
-            id: 'version-2',
-            versionNo: 2,
-            isSelected: false,
-          }),
-        ],
-      })
-      .mockResolvedValue({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-2',
-        finalizedVersionId: null,
-        activeSolvingVersionId: 'version-3',
-        versions: [
-          createVersionSummary({
-            id: 'version-1',
-            versionNo: 1,
-            isSelected: false,
-          }),
-          createVersionSummary({
-            id: 'version-2',
-            versionNo: 2,
-            isSelected: true,
-          }),
-          createVersionSummary({
-            id: 'version-3',
-            versionNo: 3,
-            status: 'solving',
-            activeSolverExecutionId: 'exec-1',
-            isSelected: false,
-          }),
-        ],
-      })
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: false,
+          status: 'review_ready',
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+        }),
+      ],
+    })
 
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="step5-compare-button"]').trigger('click')
-    await flushPromises()
-
-    await clickDocumentTestId('select-version-1')
-    await flushPromises()
-
-    expect(selectPhase2ScheduleVersionMock).toHaveBeenCalledWith('version-1')
+    expect(wrapper.find('[data-test="primary-action-button"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('이 근무표안 선택')
+    expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
   it('keeps review-blocked previews in the local site result shell', async () => {
@@ -3411,6 +3363,25 @@ describe('Step5Result', () => {
     routeMock.query = {
       version: 'version-1',
     }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+      ],
+    })
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -3501,6 +3472,20 @@ describe('Step5Result', () => {
 
   it('passes finalized previous-month planning rows into mapToSolverRequest on AI start', async () => {
     routeMock.query = { version: 'version-1' }
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-1',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: true,
+          status: 'draft',
+        }),
+      ],
+    })
     scheduleStoreMock.basicInfo = {
       ...scheduleStoreMock.basicInfo,
       month: '2025-04',
@@ -3557,6 +3542,13 @@ describe('Step5Result', () => {
         },
       ],
     )
+    expect(listPublicHolidayDatesInRangeMock).toHaveBeenCalledWith('2025-04-01', '2025-04-30')
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it.each(['localhost', '127.0.0.1', '::1'])(
@@ -3564,6 +3556,20 @@ describe('Step5Result', () => {
     async (hostname) => {
       stubWindowHostname(hostname)
       routeMock.query = { version: 'version-1' }
+      getPhase2ScheduleCompareMock.mockResolvedValue({
+        scheduleId: 'schedule-1',
+        selectedVersionId: 'version-1',
+        finalizedVersionId: null,
+        activeSolvingVersionId: null,
+        versions: [
+          createVersionSummary({
+            id: 'version-1',
+            versionNo: 1,
+            isSelected: true,
+            status: 'draft',
+          }),
+        ],
+      })
       scheduleStoreMock.siteRequirements = [
         {
           dayOfWeek: 1,
@@ -3704,10 +3710,9 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    const startSolverButton = wrapper.get('[data-test="start-solver-button"]')
-
-    expect(startSolverButton.exists()).toBe(true)
-    expect(startSolverButton.attributes('disabled')).toBeDefined()
+    const editInputButton = wrapper.get('[data-test="edit-input-button"]')
+    expect(editInputButton.attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="start-solver-button"]').exists()).toBe(false)
   })
 
   it('does not resume polling when compare has no activeSolvingVersionId even if legacy schedule.status is running', async () => {
@@ -4065,7 +4070,12 @@ describe('Step5Result', () => {
 
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-2', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-2',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-3')
     expect(replaceMock).not.toHaveBeenCalledWith(
@@ -4126,7 +4136,12 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
     expect(solverMock.startSolver).toHaveBeenCalledTimes(1)
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it('starts the solver for a mutable draft preview even when another version has executed history', async () => {
@@ -4185,7 +4200,12 @@ describe('Step5Result', () => {
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
-    expect(solverMock.startSolver).toHaveBeenCalledWith('version-1', {})
+    expect(solverMock.startSolver).toHaveBeenCalledWith(
+      'version-1',
+      expect.objectContaining({
+        publicHolidays: ['2025-12-25'],
+      }),
+    )
   })
 
   it('strips autoStart without starting the solver when another version is actively solving', async () => {
@@ -4298,7 +4318,7 @@ describe('Step5Result', () => {
     }
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-1',
-      selectedVersionId: 'version-2',
+      selectedVersionId: 'version-1',
       finalizedVersionId: null,
       activeSolvingVersionId: null,
       versions: [
@@ -4306,13 +4326,13 @@ describe('Step5Result', () => {
           id: 'version-1',
           versionNo: 1,
           status: 'review_ready',
-          isSelected: false,
+          isSelected: true,
         }),
         createVersionSummary({
           id: 'version-2',
           versionNo: 2,
           status: 'review_ready',
-          isSelected: true,
+          isSelected: false,
         }),
       ],
     })
@@ -4668,7 +4688,7 @@ describe('Step5Result', () => {
     expect(dialogInfoMock).toHaveBeenCalledTimes(1)
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledTimes(1)
     expect(patchPhase2ScheduleVersionAssignmentsMock).toHaveBeenCalledWith(
-      'version-1',
+      'version-2',
       {
         changes: [
           {
@@ -4679,7 +4699,7 @@ describe('Step5Result', () => {
         ],
       }
     )
-    expect(scheduleStoreMock.previewVersionId).toBe('version-1')
+    expect(scheduleStoreMock.previewVersionId).toBe('version-2')
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
     expect(pushMock).not.toHaveBeenCalled()

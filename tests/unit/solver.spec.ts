@@ -55,6 +55,7 @@ function createSolverRequest(): SolverRequest {
         employeeCount: 3,
       },
     ],
+    publicHolidays: [],
   };
 }
 
@@ -190,6 +191,22 @@ describe('solver api', () => {
         '[createSolverExecution] Request Body:',
         expect.any(String),
       );
+    });
+
+    it('passes public holidays through to the solver api payload', async () => {
+      const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ execution_id: 'exec-123' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const request = createSolverRequest();
+      request.publicHolidays = ['2026-01-01'];
+
+      await createSolverExecution(request, directApiEnv);
+
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(JSON.parse(String(init?.body)).publicHolidays).toEqual(['2026-01-01']);
     });
 
     it('preserves code/message/status for non-2xx json responses', async () => {

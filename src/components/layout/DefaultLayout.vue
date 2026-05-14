@@ -1,36 +1,20 @@
 <template>
-  <n-layout
-    has-sider
-    class="h-screen"
-  >
-    <n-layout-sider
+  <n-layout class="h-screen">
+    <n-layout-header
       bordered
-      collapse-mode="width"
-      :collapsed-width="64"
-      :width="240"
-      show-trigger
+      class="sticky top-0 z-20 flex h-16 items-center border-b border-gray-200 bg-white px-6 shadow-none"
     >
-      <Sidebar />
-    </n-layout-sider>
-    <n-layout>
-      <n-layout-header
-        bordered
-        class="flex h-16 items-center px-6"
-      >
-        <Header />
-      </n-layout-header>
-      <n-layout-content
-        class="p-6"
-        style="max-width: none !important"
-      >
-        <router-view />
-      </n-layout-content>
-    </n-layout>
+      <Header />
+    </n-layout-header>
+    <n-layout-content
+      class="h-[calc(100vh-4rem)] overflow-auto p-6"
+    >
+      <router-view />
+    </n-layout-content>
   </n-layout>
 </template>
 
 <script setup lang="ts">
-import { NLayout, NLayoutHeader, NLayoutSider, NLayoutContent } from 'naive-ui';
-import Header from './Header.vue';
-import Sidebar from './Sidebar.vue';
+import { NLayout, NLayoutHeader, NLayoutContent } from 'naive-ui'
+import Header from './Header.vue'
 </script>

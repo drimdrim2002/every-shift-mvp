@@ -16,7 +16,6 @@ export default [
       '**/.agents/**',
       '**/.worktrees/**',
       '**/*.config.js',
-      '**/scripts/**',
     ],
   },
   ...pluginVue.configs['flat/recommended'],

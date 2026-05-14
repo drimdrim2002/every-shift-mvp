@@ -19,6 +19,7 @@ import {
 } from '@/constants/routes'
 import {
   buildStep5Route,
+  getCanonicalScheduleVersionId,
   getDefaultScheduleVersionId,
   getCanonicalCompareVersionIds,
   getDefaultCompareVersionIds,
@@ -257,10 +258,10 @@ describe('scheduleVersionResolver', () => {
     expect(getDefaultCompareVersionIds(signaledCompare, 'version-3')).toEqual(['version-3', 'version-2'])
   })
 
-  it('keeps Step4 bound to the preferred preview when it is still valid', () => {
+  it('canonicalizes Step4 to the single selected version even when a preview query is valid', () => {
     expect(resolveStep4VersionState(compareResponse, 'version-1')).toEqual({
       selectedVersionId: 'version-2',
-      previewVersionId: 'version-1',
+      previewVersionId: 'version-2',
       versions: compareResponse.versions,
     })
   })
@@ -273,7 +274,37 @@ describe('scheduleVersionResolver', () => {
     })
   })
 
-  it('falls back to V1 when both preferred and selected versions are unavailable', () => {
+  it('chooses the canonical single version by finalized, selected, latest executed, then draft fallback', () => {
+    const finalizedCompare = {
+      ...compareResponse,
+      selectedVersionId: 'version-3',
+      finalizedVersionId: 'version-2',
+      versions: compareResponse.versions.map((version) =>
+        version.id === 'version-2'
+          ? { ...version, status: 'finalized' as const, isFinalized: true }
+          : version
+      ),
+    }
+    expect(getCanonicalScheduleVersionId(finalizedCompare)).toBe('version-2')
+    expect(getCanonicalScheduleVersionId(compareResponse)).toBe('version-2')
+    expect(getCanonicalScheduleVersionId({ ...compareResponse, selectedVersionId: null })).toBe('version-3')
+    expect(
+      getCanonicalScheduleVersionId({
+        ...compareResponse,
+        selectedVersionId: null,
+        versions: compareResponse.versions.map((version) => ({
+          ...version,
+          status: 'draft' as const,
+          latestEvaluationId: null,
+          activeSolverExecutionId: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+        })),
+      })
+    ).toBe('version-1')
+  })
+
+  it('falls back to the latest executed active version when both preferred and selected versions are unavailable', () => {
     expect(
       resolveStep4VersionState(
         {
@@ -284,24 +315,24 @@ describe('scheduleVersionResolver', () => {
       )
     ).toEqual({
       selectedVersionId: null,
-      previewVersionId: 'version-1',
+      previewVersionId: 'version-3',
       versions: compareResponse.versions,
     })
   })
 
-  it('preserves a valid preview deep link even when preview differs from selected', () => {
+  it('canonicalizes a valid Step5 preview deep link to the single selected version', () => {
     expect(resolveStep5VersionState(initialEntryCompareResponse, 'version-1')).toEqual({
       defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
-      previewVersionId: 'version-1',
+      previewVersionId: 'version-2',
       compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: initialEntryCompareResponse.versions,
-      shouldCanonicalize: false,
+      shouldCanonicalize: true,
     })
   })
 
-  it('canonicalizes a compare query to valid distinct Step5 ids', () => {
+  it('strips compare query targets from single-version Step5 state', () => {
     expect(
       resolveStep5VersionState(compareResponse, {
         requestedFocusVersionId: 'version-3',
@@ -310,15 +341,15 @@ describe('scheduleVersionResolver', () => {
     ).toEqual({
       defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
-      previewVersionId: 'version-3',
-      compareVersionIds: ['version-3', 'version-2'],
+      previewVersionId: 'version-2',
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
     })
   })
 
-  it('canonicalizes compare routes so the focused version stays first', () => {
+  it('drops compare routes even when the focused version is canonical', () => {
     expect(
       resolveStep5VersionState(compareResponse, {
         requestedFocusVersionId: 'version-2',
@@ -328,7 +359,7 @@ describe('scheduleVersionResolver', () => {
       defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2', 'version-3'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
       shouldCanonicalize: true,
@@ -410,19 +441,19 @@ describe('scheduleVersionResolver', () => {
     })
   })
 
-  it('auto-seeds compare ids from executed history without an explicit compare route', () => {
+  it('does not auto-seed compare ids from executed history in single-version Step5 state', () => {
     expect(resolveStep5VersionState(compareResponse, null)).toEqual({
       defaultPreviewVersionId: 'version-2',
       selectedVersionId: 'version-2',
       previewVersionId: 'version-2',
-      compareVersionIds: ['version-2', 'version-3'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareResponse.versions,
-      shouldCanonicalize: true,
+      shouldCanonicalize: false,
     })
   })
 
-  it('falls back to default executed compare ids when explicit compare query has no valid target', () => {
+  it('removes explicit compare query targets without falling back to comparison defaults', () => {
     const defaultState = resolveStep5VersionState(compareResponse, null)
     const invalidCompareState = resolveStep5VersionState(compareResponse, {
       requestedFocusVersionId: 'version-2',
@@ -439,9 +470,6 @@ describe('scheduleVersionResolver', () => {
       })
     ).toEqual({
       path: '/app/schedule/step5/schedule-1',
-      query: {
-        compare: 'version-3',
-      },
     })
   })
 
@@ -483,7 +511,7 @@ describe('scheduleVersionResolver', () => {
       defaultPreviewVersionId: 'version-3',
       selectedVersionId: 'version-3',
       previewVersionId: 'version-3',
-      compareVersionIds: ['version-3', 'version-1'],
+      compareVersionIds: [],
       activeSolvingVersionId: null,
       versions: compareWithFailedMiddleVersion.versions,
       shouldCanonicalize: true,

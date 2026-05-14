@@ -1,179 +1,104 @@
 import { expect, test } from '@playwright/test'
 import {
-  LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
-  LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP2_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP3_ROUTE_PATH,
-  LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
-  getOpsOffRequestPolicySetupRoutePath,
-  getOpsOrganizationSetupRoutePath,
-  getScheduleStep5RoutePath,
   getScheduleStepRoutePath,
 } from '../../src/constants/routes'
 import {
+  mockDashboardReadiness,
   mockRbacContext,
   seedPlaywrightAuthState,
   seedSelectedOrganization,
   waitForDashboard,
 } from './helpers'
 
-const corsHeaders = {
-  'access-control-allow-origin': 'http://127.0.0.1:5173',
-  'access-control-allow-headers': 'apikey, authorization, content-type',
-  'access-control-allow-methods': 'GET,POST,OPTIONS',
-  'access-control-max-age': '86400',
+test.use({ storageState: { cookies: [], origins: [] } })
+
+async function openDashboard(page: Parameters<typeof waitForDashboard>[0]) {
+  await seedPlaywrightAuthState(page)
+  await mockRbacContext(page, 'admin_active')
+  await seedSelectedOrganization(page, 'org-1')
+  await page.goto('/')
+  await waitForDashboard(page)
 }
 
-test.describe('pilot checklist entry surface', () => {
-  test('shows a checklist card with deep links from the dashboard shell', async ({ page }) => {
-    await seedPlaywrightAuthState(page)
-    await mockRbacContext(page, 'admin_active')
-    await seedSelectedOrganization(page, 'org-1')
+async function expectScheduleSurfacesHidden(page: Parameters<typeof waitForDashboard>[0]) {
+  await expect(page.locator('[data-test="dashboard-create-schedule"]')).toHaveCount(0)
+  await expect(page.locator('[data-test="dashboard-history-section"]')).toHaveCount(0)
+  await expect(page.locator('[data-test="schedule-card"]')).toHaveCount(0)
+  await expect(page.locator('[data-test="dashboard-next-action"]')).toHaveCount(0)
+  await expect(page.getByText('월별 근무표 작업')).toHaveCount(0)
+}
 
-    await page.route('**/functions/v1/phase2-schedule/schedules/**/compare', async (route) => {
-      if (route.request().method() === 'OPTIONS') {
-        await route.fulfill({ status: 204, headers: corsHeaders })
-        return
-      }
+test.describe('dashboard readiness gate', () => {
+  test('shows only onboarding when required readiness is incomplete', async ({ page }) => {
+    await mockDashboardReadiness(page, 'incomplete')
+    await openDashboard(page)
 
-      await route.fulfill({
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          scheduleId: 'schedule-123',
-          schedulePublicId: 'schedule-123',
-          organizationId: 'org-1',
-          month: '2026-05',
-          selectedVersionId: 'version-1',
-          finalizedVersionId: null,
-          activeSolvingVersionId: null,
-          versions: [
-            {
-              id: 'version-1',
-              scheduleId: 'schedule-123',
-              versionNo: 1,
-              name: 'V1',
-              sourceType: 'initial_solve',
-              baseVersionId: null,
-              status: 'review_ready',
-              currentRevision: 1,
-              manualEditCount: 0,
-              inputDiffSummary: {
-                changedOffRequests: 0,
-                changedLockedAssignments: 0,
-                changedSiteRequirements: 0,
-                note: null,
-              },
-              latestEvaluationId: null,
-              latestEvaluationResultStatus: null,
-              comparisonMetrics: null,
-              finalizationGate: null,
-              activeSolverExecutionId: null,
-              isSelected: true,
-              isFinalized: false,
-            },
-          ],
-        }),
-      })
-    })
+    await expect(page.getByTestId('dashboard-onboarding-only')).toBeVisible()
+    await expect(page.getByText('근무표 생성을 시작하기 전에 필수 정보를 먼저 확인해주세요')).toBeVisible()
+    await expect(page.getByText('아래 3가지를 순서대로 완료하면 근무표 생성과 근무표 조회를 사용할 수 있습니다.')).toBeVisible()
+    const onboarding = page.getByTestId('dashboard-onboarding-only')
+    await expect(onboarding.getByText('1 병원 정보', { exact: true })).toBeVisible()
+    await expect(onboarding.getByText('2 병동/근무 기준', { exact: true })).toBeVisible()
+    await expect(onboarding.getByText('3 직원 정보', { exact: true })).toBeVisible()
 
-    await page.route('**/functions/v1/phase2-ops/checklist*', async (route) => {
-      if (route.request().method() === 'OPTIONS') {
-        await route.fulfill({ status: 204, headers: corsHeaders })
-        return
-      }
-
-      await route.fulfill({
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          organizationId: 'org-1',
-          checklistCursor: 'schedule_review',
-          ready: true,
-          items: [
-            {
-              key: 'organization_profile',
-              title: '병원 정보 확인',
-              status: 'ready',
-              route: LEGACY_OPS_ORGANIZATION_SETUP_ROUTE_PATH,
-              blockedReason: null,
-            },
-            {
-              key: 'schedule_foundation',
-              title: '기준 장소와 근무 기준 설정',
-              status: 'ready',
-              route: LEGACY_SCHEDULE_STEP2_ROUTE_PATH,
-              blockedReason: null,
-            },
-            {
-              key: 'employee_roster',
-              title: '직원 로스터 준비',
-              status: 'ready',
-              route: LEGACY_SCHEDULE_STEP3_ROUTE_PATH,
-              blockedReason: null,
-            },
-            {
-              key: 'off_request_policy',
-              title: 'Off 사용 기준 설정',
-              status: 'ready',
-              route: LEGACY_OPS_OFF_REQUEST_POLICY_SETUP_ROUTE_PATH,
-              blockedReason: null,
-            },
-            {
-              key: 'schedule_review',
-              title: '최종 검토 진입',
-              status: 'ready',
-              route: `${LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX}schedule-123`,
-              blockedReason: null,
-            },
-          ],
-          fairnessSummary: [],
-        }),
-      })
-    })
+    await page.getByTestId('dashboard-onboarding-item-schedule_foundation').click()
+    await expect(page).toHaveURL((url) =>
+      url.pathname === getScheduleStepRoutePath(2) && url.searchParams.get('context') === 'setup'
+    )
 
     await page.goto('/')
     await waitForDashboard(page)
+    await expectScheduleSurfacesHidden(page)
+    await expect(page.locator('[data-test="dashboard-basic-info-section"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="dashboard-create-section"]')).toHaveCount(0)
+  })
 
-    await expect(page.getByText('운영 준비 체크리스트')).toBeVisible()
-    await expect(page.getByRole('heading', { name: '병원 정보 확인' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '기준 장소와 근무 기준 설정' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '직원 로스터 준비' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Off 사용 기준 설정' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '최종 검토 진입' })).toBeVisible()
+  test('hides schedule surfaces when readiness cannot be loaded', async ({ page }) => {
+    await mockDashboardReadiness(page, 'failure')
+    await openDashboard(page)
 
-    await page.getByTestId('pilot-checklist-link-organization_profile').click()
-    await expect(page).toHaveURL((url) => url.pathname === getOpsOrganizationSetupRoutePath())
-    await expect(page.getByRole('heading', { name: '운영 기본 설정' })).toBeVisible()
+    await expect(page.getByTestId('dashboard-readiness-unavailable')).toBeVisible()
+    await expect(page.getByText('운영 준비 상태를 확인하지 못했습니다')).toBeVisible()
+    await expect(
+      page.getByText('필수 정보가 준비되었는지 확인할 수 없어 근무표 생성과 근무표 조회를 잠시 숨겼습니다.')
+    ).toBeVisible()
 
-    await page.goto('/')
-    await waitForDashboard(page)
-    await page.getByTestId('pilot-checklist-link-schedule_foundation').click()
-    await expect(page).toHaveURL((url) => url.pathname === getScheduleStepRoutePath(2))
-    await expect(page.getByText('운영 준비 - 기준 장소와 근무 기준 설정')).toBeVisible()
+    await expectScheduleSurfacesHidden(page)
+    await expect(page.locator('[data-test="dashboard-onboarding-only"]')).toHaveCount(0)
+    await expect(page.locator('[data-test="dashboard-basic-info-section"]')).toHaveCount(0)
+  })
 
-    await page.goto('/')
-    await waitForDashboard(page)
-    await page.getByTestId('pilot-checklist-link-employee_roster').click()
-    await expect(page).toHaveURL((url) => url.pathname === getScheduleStepRoutePath(3))
-    await expect(page.getByText('운영 준비 - 직원 기준 설정')).toBeVisible()
+  test('shows operational briefing sections when readiness is complete', async ({ page }) => {
+    await mockDashboardReadiness(page, 'complete')
+    await openDashboard(page)
 
-    await page.goto('/')
-    await waitForDashboard(page)
-    await page.getByTestId('pilot-checklist-link-off_request_policy').click()
-    await expect(page).toHaveURL((url) => url.pathname === getOpsOffRequestPolicySetupRoutePath())
-    await expect(page.getByRole('heading', { name: 'Off 사용 기준 설정' })).toBeVisible()
+    await expect(page.getByTestId('dashboard-next-action')).toBeVisible()
+    await expect(page.getByTestId('dashboard-primary-action')).toBeVisible()
+    await expect(page.getByTestId('dashboard-operational-status')).toBeVisible()
+    await expect(page.getByTestId('dashboard-recent-schedule')).toBeVisible()
+    await expect(page.getByTestId('dashboard-view-all-schedules')).toBeVisible()
+    await expect(page.getByTestId('dashboard-basic-info-section')).toHaveCount(0)
+    await expect(page.getByTestId('dashboard-create-section')).toHaveCount(0)
+    await expect(page.locator('[data-test="schedule-card"]')).toHaveCount(0)
+    await expect(page.getByTestId('dashboard-primary-action')).toContainText('새 근무표 생성하기')
+    await expect(page.getByTestId('dashboard-operational-status')).toContainText('운영 기준')
+    await expect(page.getByTestId('dashboard-operational-status')).toContainText('준비 완료')
+    await expect(page.getByTestId('dashboard-recent-schedule')).toContainText('최근 근무표')
+    await expect(page.getByText('Off 사용 기준 설정')).toHaveCount(0)
+    await expect(page.getByText('최종 검토 진입')).toHaveCount(0)
+  })
 
-    await page.goto('/')
-    await waitForDashboard(page)
-    await page.getByTestId('pilot-checklist-link-schedule_review').click()
-    await expect(page).toHaveURL((url) => url.pathname === getScheduleStep5RoutePath('schedule-123'))
-    await expect(page.getByText('근무표 생성 - 결과 확인')).toBeVisible()
+  test('keeps briefing actions reachable on narrow desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 760 })
+    await mockDashboardReadiness(page, 'complete')
+    await openDashboard(page)
+
+    await expect(page.getByTestId('dashboard-primary-action')).toBeVisible()
+    await expect(page.getByTestId('dashboard-view-all-schedules')).toBeVisible()
+
+    const hasHorizontalOverflow = await page.evaluate(() =>
+      document.documentElement.scrollWidth > document.documentElement.clientWidth + 1
+    )
+    expect(hasHorizontalOverflow).toBe(false)
   })
 })

@@ -1,5 +1,6 @@
 import dayjs from 'dayjs';
 import { loadSiteRequirements } from '@/api/employee';
+import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
 import {
   getPlanningAssignmentsForVersion,
   getPlanningEmployees,
@@ -37,6 +38,18 @@ export interface BuildScheduleSolverRequestInput {
 export interface ScheduleSolverRequestBundle {
   solverRequest: SolverRequest;
   inputSnapshot: ScheduleInputSnapshot;
+}
+
+export function resolveSolverHolidayRange(
+  solverRequest: SolverRequest
+): { startDate: string; endDate: string } {
+  const startDate = solverRequest.organization.firstDraftDate;
+  return {
+    startDate,
+    endDate: dayjs(startDate)
+      .add(solverRequest.organization.draftLength - 1, 'day')
+      .format('YYYY-MM-DD'),
+  };
 }
 
 function buildDateBasedRequirements(
@@ -128,6 +141,7 @@ function buildSolverRequestFromSnapshot(
       dayIndex: requirement.dayIndex,
       employeeCount: requirement.employeeCount,
     })),
+    publicHolidays: [...(solverInput.publicHolidays ?? [])],
   };
 }
 
@@ -200,6 +214,12 @@ export function useScheduleSolverRequest() {
       planningAssignments,
       input.lastMonthDays,
       fallbackHistory
+    );
+
+    const holidayRange = resolveSolverHolidayRange(solverRequest);
+    solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
+      holidayRange.startDate,
+      holidayRange.endDate
     );
 
     const inputSnapshot = await buildScheduleInputSnapshot({

@@ -147,6 +147,7 @@ export interface ScheduleInputSnapshotSolverInput {
   siteId: string | null;
   month: string;
   lastMonthDays: number;
+  publicHolidays: string[];
   employees: ScheduleInputSnapshotEmployee[];
   assignments: ScheduleInputSnapshotAssignment[];
   employeeConstraints: ScheduleInputSnapshotEmployeeConstraint[];
@@ -561,6 +562,7 @@ export interface SolverRequest {
   history: SolverRequestHistoryItem[];
   undesirable: SolverRequestUndesirableItem[];
   requirements: SolverRequestRequirementItem[];
+  publicHolidays: string[];
 }
 
 // API 응답 타입

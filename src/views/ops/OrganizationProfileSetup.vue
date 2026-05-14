@@ -31,23 +31,68 @@
     </n-alert>
 
     <template v-if="hasLoaded">
-      <organization-profile-form
-        :model-value="organizationProfile"
-        :saving="organizationSaving"
-        :status="organizationStatus"
-        :can-save="organizationCanSave"
-        @dirty-change="handleOrganizationDirtyChange"
-        @save="handleSaveOrganizationProfile"
-      />
+      <section
+        id="hospital-info"
+        class="scroll-mt-24 space-y-3"
+      >
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">
+            병원 정보
+          </h2>
+          <p class="mt-1 text-sm text-gray-500">
+            근무표 생성 기준이 되는 병원 이름과 유형을 확인합니다.
+          </p>
+        </div>
+        <organization-profile-form
+          :model-value="organizationProfile"
+          :saving="organizationSaving"
+          :status="organizationStatus"
+          :can-save="organizationCanSave"
+          @dirty-change="handleOrganizationDirtyChange"
+          @save="handleSaveOrganizationProfile"
+        />
+      </section>
 
-      <site-foundation-form
-        :model-value="siteSetup.site"
-        :saving="siteSaving"
-        :status="siteStatus"
-        :can-save="siteCanSave"
-        @dirty-change="handleSiteDirtyChange"
-        @save="handleSaveSites"
-      />
+      <section
+        id="site-shift-rules"
+        class="scroll-mt-24 space-y-3"
+      >
+        <div>
+          <h2 class="text-lg font-semibold text-slate-900">
+            병동/근무 기준
+          </h2>
+          <p class="mt-1 text-sm text-gray-500">
+            이번 MVP에서 사용할 기준 병동과 근무표 생성 장소를 확인합니다.
+          </p>
+        </div>
+        <site-foundation-form
+          :model-value="siteSetup.site"
+          :saving="siteSaving"
+          :status="siteStatus"
+          :can-save="siteCanSave"
+          @dirty-change="handleSiteDirtyChange"
+          @save="handleSaveSites"
+        />
+      </section>
+
+      <section
+        id="employee-info"
+        class="scroll-mt-24 rounded-md border border-dashed border-slate-300 bg-slate-50 p-4"
+      >
+        <h2 class="text-lg font-semibold text-slate-900">
+          직원 정보
+        </h2>
+        <p class="mt-1 text-sm text-gray-500">
+          직원 명단과 근무 가능 조건은 MVP 일정 생성 흐름의 직원 정보 단계에서 확인합니다.
+        </p>
+        <n-button
+          secondary
+          class="mt-3"
+          @click="handleGoToEmployeeInfo"
+        >
+          직원 정보 단계로 이동
+        </n-button>
+      </section>
     </template>
 
     <n-spin
@@ -73,13 +118,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import PageActionBar from '@/components/ui/PageActionBar.vue';
 import { getOrganizationProfile, getSites, updateOrganizationProfile, updateSites } from '@/api/ops';
+import { getScheduleStepRoutePath } from '@/constants/routes';
 import { useOrganizationStore } from '@/stores/organization';
 import type {
   FoundationSaveState,
@@ -88,10 +134,12 @@ import type {
   SiteFoundationResponse,
   SiteRequest,
 } from '@/types/ops';
+import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import { showError, showInfo, showSuccess } from '@/utils/message';
 
 const DEFAULT_ORGANIZATION_TYPE = 'hospital';
 
+const route = useRoute();
 const router = useRouter();
 const organizationStore = useOrganizationStore();
 
@@ -248,12 +296,26 @@ async function loadFoundationSetup() {
     organizationStore.updateFoundationProfileCache(profile);
     organizationStore.updateFoundationSiteCache(sites.site);
     hasLoaded.value = true;
+    await scrollToRouteHashTarget();
   } catch (error) {
     loadErrorMessage.value = error instanceof Error ? error.message : '운영 기본 설정을 불러오지 못했습니다.';
     showError(loadErrorMessage.value);
   } finally {
     loading.value = false;
   }
+}
+
+async function scrollToRouteHashTarget(): Promise<void> {
+  if (!route.hash) {
+    return;
+  }
+
+  await nextTick();
+  const target = document.getElementById(route.hash.slice(1));
+  target?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  });
 }
 
 async function handleSaveOrganizationProfile(value: OrganizationProfileRequest) {
@@ -321,6 +383,22 @@ function handleReturnToDashboard() {
 
   void router.push('/');
 }
+
+function handleGoToEmployeeInfo() {
+  void router.push({
+    path: getScheduleStepRoutePath(3),
+    query: buildScheduleEntryQuery('setup'),
+  });
+}
+
+watch(
+  () => route.hash,
+  () => {
+    if (hasLoaded.value) {
+      void scrollToRouteHashTarget();
+    }
+  },
+);
 
 onMounted(() => {
   void loadFoundationSetup();

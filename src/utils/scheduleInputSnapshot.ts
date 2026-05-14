@@ -66,6 +66,7 @@ export function normalizeScheduleSolverInput(
     siteId: input.siteId,
     month: input.month,
     lastMonthDays: input.lastMonthDays,
+    publicHolidays: [...new Set(solverRequest.publicHolidays ?? [])].sort(compareByText),
     employees: solverRequest.employees
       .map((employee) => ({
         employeeId: employee.employee_id,

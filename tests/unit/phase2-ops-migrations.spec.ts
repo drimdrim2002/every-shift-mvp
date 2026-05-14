@@ -62,6 +62,27 @@ describe('phase2 ops migrations', () => {
     expect(sql).not.toMatch(/INTO\s+schedule_id,\s+finalized_version_id/i);
   });
 
+  it('adds global public holidays without enabling rls', () => {
+    const originalSql = readMigration('20260513_130000_public_holidays.sql');
+    const sql = originalSql.toLowerCase();
+
+    expect(sql).toContain('create table if not exists public.public_holidays');
+    expect(sql).toContain('holiday_date date primary key');
+    expect(sql).toContain('name text not null');
+    expect(sql).toContain('is_holiday boolean not null default true');
+    expect(originalSql).toContain("country_code text NOT NULL DEFAULT 'KR'");
+    expect(sql).toContain("source text not null default 'data.go.kr:kasi-special-day'");
+    expect(sql).toContain("source_payload jsonb not null default '{}'::jsonb");
+    expect(sql).toContain('synced_at timestamptz not null default now()');
+    expect(sql).toContain('created_at timestamptz not null default now()');
+    expect(sql).toContain('updated_at timestamptz not null default now()');
+    expect(sql).toMatch(
+      /create index if not exists public_holidays_country_date_idx\s+on public\.public_holidays \(country_code, holiday_date\)/
+    );
+    expect(originalSql).toContain("CHECK (country_code = 'KR')");
+    expect(sql).not.toContain('enable row level security');
+  });
+
   it('backfills memberships and tightens org rls with membership-based access helpers', () => {
     const sql = readMigration(
       '20260418120000_phase2b_epic2_membership_auth_rbac_multi_org.sql'

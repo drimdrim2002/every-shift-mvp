@@ -5,6 +5,7 @@ import {
   ACCESS_PENDING_ROUTE_PATH,
   ACCESS_REJECTED_ROUTE_PATH,
   APP_HOME_ROUTE_PATH,
+  getScheduleResultsRoutePath,
   LEGACY_APP_ROUTE_REDIRECTS,
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LOGIN_ROUTE_PATH,
@@ -13,6 +14,7 @@ import {
   SIGNUP_ROUTE_PATH,
   SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
   getScheduleStep5RoutePath,
+  getWorkPerformanceRoutePath,
   getStep5ScheduleKeyFromPath,
   normalizeAppContractPath,
 } from '@/constants/routes'
@@ -53,6 +55,10 @@ function findRouteByName(routes: RouteRecordRaw[], routeName: string): RouteReco
 
 function findTopLevelRouteByPath(routes: RouteRecordRaw[], path: string): RouteRecordRaw | undefined {
   return routes.find((route) => route.path === path)
+}
+
+function findAppChildByPath(routes: RouteRecordRaw[], path: string): RouteRecordRaw | undefined {
+  return findTopLevelRouteByPath(routes, APP_HOME_ROUTE_PATH)?.children?.find((route) => route.path === path)
 }
 
 function resolveRedirect(route: RouteRecordRaw, path: string) {
@@ -178,12 +184,51 @@ describe('router dev-only routes', () => {
       'home/user',
       'ops/organization-setup',
       'ops/off-request-policy-setup',
+      'schedule-results',
+      'work-performance',
       'schedule/step1',
       'schedule/step2',
       'schedule/step3',
       'schedule/step4',
       'schedule/step5/:scheduleKey',
     ])
+  })
+
+  it('registers schedule lookup routes under DefaultLayout with admin org workspace meta', () => {
+    const routes = createAppRoutes(false)
+
+    expect(getScheduleResultsRoutePath()).toBe('/app/schedule-results')
+    expect(getWorkPerformanceRoutePath()).toBe('/app/work-performance')
+
+    expect(findAppChildByPath(routes, 'schedule-results')).toMatchObject({
+      path: 'schedule-results',
+      name: 'ScheduleResults',
+      meta: {
+        requiresAuth: true,
+        requiresOrgContext: true,
+        requiredOrgRole: 'admin',
+      },
+    })
+    expect(findAppChildByPath(routes, 'work-performance')).toMatchObject({
+      path: 'work-performance',
+      name: 'WorkPerformance',
+      meta: {
+        requiresAuth: true,
+        requiresOrgContext: true,
+        requiredOrgRole: 'admin',
+      },
+    })
+
+    expect(findAppChildByPath(routes, 'schedule/step1')?.meta).toMatchObject({
+      requiresAuth: true,
+      requiresOrgContext: true,
+      requiredOrgRole: 'admin',
+    })
+    expect(findAppChildByPath(routes, 'schedule/step5/:scheduleKey')?.meta).toMatchObject({
+      requiresAuth: true,
+      requiresOrgContext: true,
+      requiredOrgRole: 'admin',
+    })
   })
 
   it('keeps every legacy static route as a redirect that preserves query and hash', () => {

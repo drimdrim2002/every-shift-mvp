@@ -144,5 +144,6 @@ export function mapToSolverRequest(
     history,
     undesirable,
     requirements,
+    publicHolidays: [],
   };
 }

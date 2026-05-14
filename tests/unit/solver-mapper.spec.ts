@@ -142,6 +142,9 @@ describe('mapToSolverRequest', () => {
     expect(payload.organization.publishLength).toBe(4);
     expect(payload.organization.draftLength).toBe(31);
     expect(payload.organization.shifts.map((shift) => shift.code)).toEqual(['D', 'E', 'N']);
+    expect(payload).toMatchObject({
+      publicHolidays: [],
+    });
     expect(payload.history).toEqual([
       {
         employee_id: 'emp-1',

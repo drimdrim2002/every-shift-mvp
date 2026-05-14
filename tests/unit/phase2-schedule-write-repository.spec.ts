@@ -378,7 +378,7 @@ describe('phase2 schedule write repository', () => {
     })
   })
 
-  it('creates a new version through the atomic rpc without changing selected_version_id', async () => {
+  it('rejects creationMode new before calling the create-version atomic rpc', async () => {
     const { client, rpcSpies } = createClient({
       schedules: [
         {
@@ -397,98 +397,28 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
-      schedule_versions: [
-        {
-          data: [
-            {
-              id: 'version-1',
-              schedule_id: 'schedule-1',
-              version_no: 1,
-              name: 'V1',
-              source_type: 'initial_solve',
-              base_version_id: null,
-              status: 'review_pending',
-              current_revision: 2,
-              manual_edit_count: 1,
-              input_diff_summary: {},
-              latest_evaluation_id: null,
-            },
-            {
-              id: 'version-2',
-              schedule_id: 'schedule-1',
-              version_no: 2,
-              name: 'V2',
-              source_type: 're_solve',
-              base_version_id: 'version-1',
-              status: 'solve_failed',
-              current_revision: 0,
-              manual_edit_count: 0,
-              input_diff_summary: { changed_off_requests: 1, note: 'retry' },
-              latest_evaluation_id: null,
-            },
-          ],
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: {
-            schedule_id: 'schedule-1',
-            created_version_id: 'version-2',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 2,
-          },
-          error: null,
-        },
-      ],
     });
 
-    const result = await createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-      baseVersionId: 'version-1',
-      name: 'V2',
-      creationMode: 'new',
-      inputDiffSummary: {
-        changedOffRequests: 1,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: 'retry',
-      },
+    await expect(
+      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
+        baseVersionId: 'version-1',
+        name: 'V2',
+        creationMode: 'new',
+        inputDiffSummary: {
+          changedOffRequests: 1,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: 'retry',
+        },
+      })
+    ).rejects.toMatchObject({
+      code: 'single_version_policy_violation',
+      status: 409,
     });
-
-    expect(result).toEqual({
-      scheduleId: 'schedule-1',
-      schedulePublicId: undefined,
-      organizationId: AUTH_CONTEXT.organizationId,
-      month: '2026-04',
-      createdVersionId: 'version-2',
-      wasCreated: true,
-      selectedVersionId: 'version-1',
-      finalizedVersionId: null,
-      activeSolvingVersionId: null,
-      versions: [
-        expect.objectContaining({ id: 'version-1', versionNo: 1 }),
-        expect.objectContaining({ id: 'version-2', versionNo: 2 }),
-      ],
-    });
-    expect(rpcSpies.create_schedule_version_atomic).toHaveBeenCalledWith({
-      p_schedule_id: 'schedule-1',
-      p_base_version_id: 'version-1',
-      p_name: 'V2',
-      p_source_type: 're_solve',
-      p_input_diff_summary: {
-        changedOffRequests: 1,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: 'retry',
-      },
-      p_input_snapshot: {},
-      p_created_by: AUTH_CONTEXT.userId,
-    });
+    expect(rpcSpies.create_schedule_version_atomic).toBeUndefined();
   });
 
-  it('passes inputSnapshot into the create-version atomic rpc', async () => {
+  it('rejects creationMode new before using the inputSnapshot payload', async () => {
     const inputSnapshot = {
       generatedAt: '2026-04-01T00:00:00.000Z',
       solverInput: {
@@ -518,45 +448,26 @@ describe('phase2 schedule write repository', () => {
           error: null,
         },
       ],
-      schedule_versions: [
-        {
-          data: [],
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: {
-            schedule_id: 'schedule-1',
-            created_version_id: 'version-2',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 2,
-          },
-          error: null,
-        },
-      ],
     });
 
-    await createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-      baseVersionId: 'version-1',
-      name: 'V2',
-      creationMode: 'new',
-      inputDiffSummary: {
-        changedOffRequests: 1,
-        changedLockedAssignments: 0,
-        changedSiteRequirements: 0,
-        note: 'retry',
-      },
-      inputSnapshot,
-    });
-
-    expect(rpcSpies.create_schedule_version_atomic).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_input_snapshot: inputSnapshot,
+    await expect(
+      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
+        baseVersionId: 'version-1',
+        name: 'V2',
+        creationMode: 'new',
+        inputDiffSummary: {
+          changedOffRequests: 1,
+          changedLockedAssignments: 0,
+          changedSiteRequirements: 0,
+          note: 'retry',
+        },
+        inputSnapshot,
       })
-    );
+    ).rejects.toMatchObject({
+      code: 'single_version_policy_violation',
+      status: 409,
+    });
+    expect(rpcSpies.create_schedule_version_atomic).toBeUndefined();
   });
 
   it('overwrites a failed version through the atomic overwrite rpc', async () => {
@@ -836,260 +747,6 @@ describe('phase2 schedule write repository', () => {
       })
     ).rejects.toMatchObject({
       code: 'version_name_exists',
-      status: 409,
-    });
-  });
-
-  it('maps duplicate version names from the normalized SQL index to version_name_exists', async () => {
-    const { client } = createClient({
-      schedules: [
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 1,
-          },
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: null,
-          error: {
-            message: 'duplicate key value violates unique constraint "idx_schedule_versions_active_name_normalized_unique"',
-            code: '23505',
-            constraint: 'idx_schedule_versions_active_name_normalized_unique',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-        baseVersionId: 'version-1',
-        name: 'V1',
-        creationMode: 'new',
-        inputDiffSummary: {
-          changedOffRequests: 0,
-          changedLockedAssignments: 0,
-          changedSiteRequirements: 0,
-          note: null,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: 'version_name_exists',
-      status: 409,
-    });
-  });
-
-  it('maps archived duplicate version names from the normalized SQL index to version_name_exists', async () => {
-    const { client } = createClient({
-      schedules: [
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 1,
-          },
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: null,
-          error: {
-            message: 'duplicate key value violates unique constraint "idx_schedule_versions_name_normalized_unique"',
-            code: '23505',
-            constraint: 'idx_schedule_versions_name_normalized_unique',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-        baseVersionId: 'version-1',
-        name: 'Archived V1',
-        creationMode: 'new',
-        inputDiffSummary: {
-          changedOffRequests: 0,
-          changedLockedAssignments: 0,
-          changedSiteRequirements: 0,
-          note: null,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: 'version_name_exists',
-      status: 409,
-    });
-  });
-
-  it('maps trim/case-insensitive duplicate version names to version_name_exists', async () => {
-    const { client } = createClient({
-      schedules: [
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 1,
-          },
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: null,
-          error: {
-            message: 'duplicate key value violates unique constraint',
-            code: '23505',
-            details: 'Key (schedule_id, lower(btrim(name)))=(schedule-1, v1) already exists.',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-        baseVersionId: 'version-1',
-        name: '  v1  ',
-        creationMode: 'new',
-        inputDiffSummary: {
-          changedOffRequests: 0,
-          changedLockedAssignments: 0,
-          changedSiteRequirements: 0,
-          note: null,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: 'version_name_exists',
-      status: 409,
-    });
-  });
-
-  it.each([
-    ['already_finalized', 'already_finalized'],
-    ['version_finalized', 'version_finalized'],
-    ['version_solving', 'version_solving'],
-    ['version_archived', 'version_archived'],
-    ['another_version_solving', 'another_version_solving'],
-  ])('maps SQL overwrite guard error %s to a 409 %s contract error', async (sqlMessage, expectedCode) => {
-    const { client } = createClient({
-      schedules: [
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 1,
-          },
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: null,
-          error: {
-            message: sqlMessage,
-            code: 'P0001',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-        baseVersionId: 'version-1',
-        name: 'V2',
-        creationMode: 'new',
-        inputDiffSummary: {
-          changedOffRequests: 0,
-          changedLockedAssignments: 0,
-          changedSiteRequirements: 0,
-          note: null,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: expectedCode,
-      status: 409,
-    });
-  });
-
-  it('maps create-version finalized conflicts to 409 already_finalized contract errors', async () => {
-    const { client } = createClient({
-      schedules: [
-        {
-          data: {
-            id: 'schedule-1',
-            organization_id: AUTH_CONTEXT.organizationId,
-            month: '2026-04',
-            status: 'complete',
-            solver_execution_id: null,
-            created_at: '2026-04-01T00:00:00Z',
-            updated_at: '2026-04-01T00:00:00Z',
-            selected_version_id: 'version-1',
-            finalized_version_id: null,
-            latest_version_no: 1,
-          },
-          error: null,
-        },
-      ],
-    }, {
-      create_schedule_version_atomic: [
-        {
-          data: null,
-          error: {
-            message: 'already_finalized',
-            code: 'P0001',
-          },
-        },
-      ],
-    });
-
-    await expect(
-      createVersion(client, AUTH_CONTEXT, 'schedule-1', {
-        baseVersionId: 'version-1',
-        name: 'V2',
-        creationMode: 'new',
-        inputDiffSummary: {
-          changedOffRequests: 0,
-          changedLockedAssignments: 0,
-          changedSiteRequirements: 0,
-          note: null,
-        },
-      })
-    ).rejects.toMatchObject({
-      code: 'already_finalized',
       status: 409,
     });
   });
