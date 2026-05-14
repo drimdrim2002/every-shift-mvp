@@ -7,14 +7,14 @@ import PublicLandingView from '@/views/PublicLandingView.vue'
 
 const INQUIRY_FORM_URL = 'https://forms.gle/everyshift-public-inquiry'
 const expectedHeroSloganLines = ['모두의 근무표', '근무표의 모든 것'] as const
-const previewTrustSignals: Record<Exclude<LandingPreviewVariant, 'overview'>, readonly string[]> = {
+const previewTrustSignals: Record<Exclude<LandingPreviewVariant, 'overview' | 'compare'>, readonly string[]> = {
   ai: ['AI 생성 근무표', '자동 완성', '근무자'],
+  fairness: ['근무자별 공정성 비교', '야간 근무', '주말·공휴일', '다음 생성 기준'],
   conditions: ['반영', '검토', '사유'],
   guide: ['보건복지부 가이드라인', '충족', 'NOD', '월 야간'],
-  fairness: ['근무자별 공정성 비교', '야간 근무', '주말·공휴일', '다음 생성 기준'],
 }
 const previewTrustSignalEntries = Object.entries(previewTrustSignals) as Array<
-  [Exclude<LandingPreviewVariant, 'overview'>, readonly string[]]
+  [Exclude<LandingPreviewVariant, 'overview' | 'compare'>, readonly string[]]
 >
 
 function mountLanding() {
@@ -310,8 +310,9 @@ describe('PublicLandingView', () => {
     expect(sections[0].get('[data-test="public-value-section-nav-label"]').classes()).toContain('text-2xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('self-center')
-    expect(sections[1].text()).toContain('다양한 요구 사항을 유연하게 반영합니다')
-    expect(sections[2].text()).toMatch(/가이드라인|점검/)
+    expect(sections[1].text()).toContain('공정하게 관리합니다')
+    expect(sections[2].text()).toContain('다양한 요구 사항을 유연하게 반영합니다')
+    expect(sections[3].text()).toMatch(/가이드라인|점검/)
     expect(wrapper.find('#flexible-operations').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('유연한 운영')
     expect(wrapper.text()).not.toContain('근무표 결과를 유연하게 운영할 수 있습니다')
@@ -319,7 +320,7 @@ describe('PublicLandingView', () => {
     const guideSection = wrapper.get('#guide-check').text()
     expect(guideSection).toMatch(/확인|점검|검토/)
 
-    const fairnessManagementSection = sections[3].text()
+    const fairnessManagementSection = sections[1].text()
     expect(fairnessManagementSection).toContain('공정하게 관리합니다')
     expect(fairnessManagementSection).toContain('다음 생성 기준')
     expect(fairnessManagementSection).toContain('야간 근무')

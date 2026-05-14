@@ -142,6 +142,208 @@
     </div>
 
     <div
+      v-else-if="variant === 'fairness'"
+      class="space-y-4 p-4"
+    >
+      <section class="rounded-md border border-gray-200 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-sm font-semibold text-gray-950">
+              근무자별 공정성 비교
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-500">
+              2026년 3월 ~ 5월 확정 근무표 기준
+            </p>
+          </div>
+          <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+            다음 생성 기준
+          </span>
+        </div>
+
+        <div class="mt-3 grid gap-2 sm:grid-cols-3">
+          <div
+            v-for="metric in fairnessSummaryMetrics"
+            :key="metric.id"
+            class="rounded-md border border-gray-200 bg-gray-50 p-3"
+          >
+            <p class="text-xs font-semibold text-gray-500">
+              {{ metric.label }}
+            </p>
+            <p class="mt-1 text-lg font-bold text-gray-950">
+              {{ metric.value }}
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-600">
+              {{ metric.caption }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="overflow-hidden rounded-md border border-gray-200">
+        <div class="border-b border-gray-200 bg-gray-50 px-3 py-2">
+          <p class="text-xs font-semibold text-gray-600">
+            직원별 평균 대비 차이
+          </p>
+        </div>
+
+        <div class="grid gap-3 p-3 lg:hidden">
+          <div
+            v-for="row in fairnessRows"
+            :key="row.id"
+            class="rounded-md border border-gray-200 bg-white p-3"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate text-sm font-semibold text-gray-950">
+                  {{ row.name }}
+                </p>
+                <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
+                  직원 ID {{ row.employeeId }}
+                </p>
+              </div>
+              <span
+                class="shrink-0 rounded px-2 py-1 text-xs font-semibold"
+                :class="row.statusClass"
+              >
+                {{ row.status }}
+              </span>
+            </div>
+
+            <div class="mt-3 grid gap-2">
+              <div
+                v-for="metric in row.metrics"
+                :key="metric.id"
+                class="rounded-md p-2"
+                :class="metric.cellClass"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <p class="text-xs font-semibold text-gray-600">
+                    {{ metric.label }}
+                  </p>
+                  <p class="text-sm font-bold tabular-nums text-gray-950">
+                    {{ metric.value }}
+                  </p>
+                </div>
+                <p class="mt-1 text-xs tabular-nums text-gray-500">
+                  전체 평균 {{ metric.average }} · 평균과의 차이 {{ metric.deltaLabel }}
+                </p>
+                <div class="mt-2">
+                  <div class="relative h-2 rounded-full bg-white">
+                    <span class="absolute -top-0.5 left-1/2 h-3 w-px bg-gray-400" />
+                    <span
+                      class="absolute top-0 h-2 rounded-full"
+                      :class="metric.barClass"
+                      :style="{ left: metric.barLeft, width: metric.barWidth }"
+                    />
+                  </div>
+                </div>
+                <p
+                  class="mt-1 text-xs font-semibold"
+                  :class="metric.textClass"
+                >
+                  {{ metric.directionLabel }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hidden overflow-x-auto lg:block">
+          <div class="min-w-[920px] divide-y divide-gray-100 text-sm">
+            <div class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-gray-50 text-xs font-semibold text-gray-500">
+              <div class="px-4 py-3 text-center">
+                직원
+              </div>
+              <div
+                v-for="metric in fairnessMetricHeaders"
+                :key="metric.id"
+                class="px-4 py-3 text-center"
+              >
+                {{ metric.label }}
+              </div>
+            </div>
+
+            <div
+              v-for="row in fairnessRows"
+              :key="`desktop-${row.id}`"
+              class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-white"
+            >
+              <div class="flex min-h-[5.5rem] items-center justify-center px-4 py-3 text-center">
+                <div class="min-w-0">
+                  <p class="truncate font-semibold text-gray-950">
+                    {{ row.name }}
+                  </p>
+                  <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
+                    직원 ID {{ row.employeeId }}
+                  </p>
+                  <span
+                    class="mt-2 inline-flex rounded px-2 py-0.5 text-xs font-semibold"
+                    :class="row.statusClass"
+                  >
+                    {{ row.status }}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                v-for="metric in row.metrics"
+                :key="`desktop-${metric.id}`"
+                class="min-h-[5.5rem] px-4 py-3 text-center"
+                :class="metric.cellClass"
+              >
+                <p class="font-semibold tabular-nums text-gray-950">
+                  {{ metric.value }}
+                </p>
+                <p class="mt-1 text-xs tabular-nums text-gray-500">
+                  전체 평균 {{ metric.average }}
+                </p>
+                <p class="mt-1 text-xs font-semibold tabular-nums text-gray-700">
+                  평균과의 차이 {{ metric.deltaLabel }}
+                </p>
+                <div class="mt-3">
+                  <div class="relative h-2.5 rounded-full bg-white">
+                    <span class="absolute left-1/2 top-[-0.1875rem] h-4 w-px bg-gray-400" />
+                    <span
+                      class="absolute top-0 h-2.5 rounded-full"
+                      :class="metric.barClass"
+                      :style="{ left: metric.barLeft, width: metric.barWidth }"
+                    />
+                  </div>
+                </div>
+                <p
+                  class="mt-2 text-xs font-semibold"
+                  :class="metric.textClass"
+                >
+                  {{ metric.directionLabel }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-md border border-amber-200 bg-amber-50 p-3">
+        <p class="text-xs font-semibold text-amber-700">
+          다음 근무표 생성 시 조정 기준
+        </p>
+        <div class="mt-2 grid gap-2 sm:grid-cols-3">
+          <div
+            v-for="item in fairnessAdjustmentRules"
+            :key="item.id"
+            class="rounded-md bg-white px-3 py-2"
+          >
+            <p class="text-xs font-semibold text-gray-950">
+              {{ item.title }}
+            </p>
+            <p class="mt-1 text-xs leading-5 text-gray-600">
+              {{ item.description }}
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div
       v-else-if="variant === 'conditions'"
       class="grid gap-4 p-4 lg:grid-cols-[1.1fr_0.9fr]"
     >
@@ -443,208 +645,6 @@
           <p class="mt-1 text-sm font-bold text-gray-950">
             버전 A 저장됨 · 버전 B 보관
           </p>
-        </div>
-      </section>
-    </div>
-
-    <div
-      v-else-if="variant === 'fairness'"
-      class="space-y-4 p-4"
-    >
-      <section class="rounded-md border border-gray-200 p-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p class="text-sm font-semibold text-gray-950">
-              근무자별 공정성 비교
-            </p>
-            <p class="mt-1 text-xs leading-5 text-gray-500">
-              2026년 3월 ~ 5월 확정 근무표 기준
-            </p>
-          </div>
-          <span class="rounded-md bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
-            다음 생성 기준
-          </span>
-        </div>
-
-        <div class="mt-3 grid gap-2 sm:grid-cols-3">
-          <div
-            v-for="metric in fairnessSummaryMetrics"
-            :key="metric.id"
-            class="rounded-md border border-gray-200 bg-gray-50 p-3"
-          >
-            <p class="text-xs font-semibold text-gray-500">
-              {{ metric.label }}
-            </p>
-            <p class="mt-1 text-lg font-bold text-gray-950">
-              {{ metric.value }}
-            </p>
-            <p class="mt-1 text-xs leading-5 text-gray-600">
-              {{ metric.caption }}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="overflow-hidden rounded-md border border-gray-200">
-        <div class="border-b border-gray-200 bg-gray-50 px-3 py-2">
-          <p class="text-xs font-semibold text-gray-600">
-            직원별 평균 대비 차이
-          </p>
-        </div>
-
-        <div class="grid gap-3 p-3 lg:hidden">
-          <div
-            v-for="row in fairnessRows"
-            :key="row.id"
-            class="rounded-md border border-gray-200 bg-white p-3"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="truncate text-sm font-semibold text-gray-950">
-                  {{ row.name }}
-                </p>
-                <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
-                  직원 ID {{ row.employeeId }}
-                </p>
-              </div>
-              <span
-                class="shrink-0 rounded px-2 py-1 text-xs font-semibold"
-                :class="row.statusClass"
-              >
-                {{ row.status }}
-              </span>
-            </div>
-
-            <div class="mt-3 grid gap-2">
-              <div
-                v-for="metric in row.metrics"
-                :key="metric.id"
-                class="rounded-md p-2"
-                :class="metric.cellClass"
-              >
-                <div class="flex items-center justify-between gap-2">
-                  <p class="text-xs font-semibold text-gray-600">
-                    {{ metric.label }}
-                  </p>
-                  <p class="text-sm font-bold tabular-nums text-gray-950">
-                    {{ metric.value }}
-                  </p>
-                </div>
-                <p class="mt-1 text-xs tabular-nums text-gray-500">
-                  전체 평균 {{ metric.average }} · 평균과의 차이 {{ metric.deltaLabel }}
-                </p>
-                <div class="mt-2">
-                  <div class="relative h-2 rounded-full bg-white">
-                    <span class="absolute -top-0.5 left-1/2 h-3 w-px bg-gray-400" />
-                    <span
-                      class="absolute top-0 h-2 rounded-full"
-                      :class="metric.barClass"
-                      :style="{ left: metric.barLeft, width: metric.barWidth }"
-                    />
-                  </div>
-                </div>
-                <p
-                  class="mt-1 text-xs font-semibold"
-                  :class="metric.textClass"
-                >
-                  {{ metric.directionLabel }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="hidden overflow-x-auto lg:block">
-          <div class="min-w-[920px] divide-y divide-gray-100 text-sm">
-            <div class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-gray-50 text-xs font-semibold text-gray-500">
-              <div class="px-4 py-3 text-center">
-                직원
-              </div>
-              <div
-                v-for="metric in fairnessMetricHeaders"
-                :key="metric.id"
-                class="px-4 py-3 text-center"
-              >
-                {{ metric.label }}
-              </div>
-            </div>
-
-            <div
-              v-for="row in fairnessRows"
-              :key="`desktop-${row.id}`"
-              class="grid grid-cols-[9.5rem_repeat(3,minmax(13rem,1fr))] bg-white"
-            >
-              <div class="flex min-h-[5.5rem] items-center justify-center px-4 py-3 text-center">
-                <div class="min-w-0">
-                  <p class="truncate font-semibold text-gray-950">
-                    {{ row.name }}
-                  </p>
-                  <p class="mt-1 text-xs font-medium tabular-nums text-gray-500">
-                    직원 ID {{ row.employeeId }}
-                  </p>
-                  <span
-                    class="mt-2 inline-flex rounded px-2 py-0.5 text-xs font-semibold"
-                    :class="row.statusClass"
-                  >
-                    {{ row.status }}
-                  </span>
-                </div>
-              </div>
-
-              <div
-                v-for="metric in row.metrics"
-                :key="`desktop-${metric.id}`"
-                class="min-h-[5.5rem] px-4 py-3 text-center"
-                :class="metric.cellClass"
-              >
-                <p class="font-semibold tabular-nums text-gray-950">
-                  {{ metric.value }}
-                </p>
-                <p class="mt-1 text-xs tabular-nums text-gray-500">
-                  전체 평균 {{ metric.average }}
-                </p>
-                <p class="mt-1 text-xs font-semibold tabular-nums text-gray-700">
-                  평균과의 차이 {{ metric.deltaLabel }}
-                </p>
-                <div class="mt-3">
-                  <div class="relative h-2.5 rounded-full bg-white">
-                    <span class="absolute left-1/2 top-[-0.1875rem] h-4 w-px bg-gray-400" />
-                    <span
-                      class="absolute top-0 h-2.5 rounded-full"
-                      :class="metric.barClass"
-                      :style="{ left: metric.barLeft, width: metric.barWidth }"
-                    />
-                  </div>
-                </div>
-                <p
-                  class="mt-2 text-xs font-semibold"
-                  :class="metric.textClass"
-                >
-                  {{ metric.directionLabel }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rounded-md border border-amber-200 bg-amber-50 p-3">
-        <p class="text-xs font-semibold text-amber-700">
-          다음 근무표 생성 시 조정 기준
-        </p>
-        <div class="mt-2 grid gap-2 sm:grid-cols-3">
-          <div
-            v-for="item in fairnessAdjustmentRules"
-            :key="item.id"
-            class="rounded-md bg-white px-3 py-2"
-          >
-            <p class="text-xs font-semibold text-gray-950">
-              {{ item.title }}
-            </p>
-            <p class="mt-1 text-xs leading-5 text-gray-600">
-              {{ item.description }}
-            </p>
-          </div>
         </div>
       </section>
     </div>

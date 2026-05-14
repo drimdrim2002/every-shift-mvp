@@ -1,11 +1,11 @@
 export type LandingSectionId =
   | 'ai-schedule'
+  | 'fairness-management'
   | 'condition-reflection'
   | 'guide-check'
   | 'flexible-operations'
-  | 'fairness-management'
 
-export type LandingPreviewVariant = 'overview' | 'ai' | 'conditions' | 'guide' | 'compare' | 'fairness'
+export type LandingPreviewVariant = 'overview' | 'ai' | 'fairness' | 'conditions' | 'guide' | 'compare'
 
 export interface PublicLandingHeroContent {
   kicker: string
@@ -42,6 +42,16 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     preview: 'ai',
   },
   {
+    id: 'fairness-management',
+    navLabel: '공정성 관리',
+    headline: '근무표를 지속적으로 공정하게 관리합니다',
+    description:
+      '근무자 별 야간, 공휴일, Off 요청 일수를 장기적으로 공정하게 관리합니다.',
+    details: [
+     ],
+    preview: 'fairness',
+  },
+  {
     id: 'condition-reflection',
     navLabel: 'Agile',
     headline: '다양한 요구 사항을 유연하게 반영합니다',
@@ -72,15 +82,5 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
       '재검증 후 Excel 내보내기',
     ],
     preview: 'compare',
-  },
-  {
-    id: 'fairness-management',
-    navLabel: '공정성 관리',
-    headline: '근무표를 지속적으로 공정하게 관리합니다',
-    description:
-      '근무자 별 야간, 공휴일, Off 요청 일수를 장기적으로 공정하게 관리합니다.',
-    details: [
-     ],
-    preview: 'fairness',
   },
 ] as const
