@@ -305,10 +305,33 @@ async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixtu
   })
 }
 
-async function selectJanuary2026(page: Page, endMonth = '1') {
-  await page.getByTestId('work-performance-year').fill('2026')
-  await page.getByTestId('work-performance-start-month').selectOption('1')
-  await page.getByTestId('work-performance-end-month').selectOption(endMonth)
+async function expectSelectedWorkPerformanceRange(page: Page, label: string) {
+  await expect(page.getByTestId('work-performance-month-range-trigger')).toContainText(label)
+}
+
+async function selectMonthOption(page: Page, selectTestId: string, label: string) {
+  const select = page.getByTestId(selectTestId)
+
+  await select.click()
+  await select.getByRole('textbox').fill(label)
+
+  const option = page.getByText(label, { exact: true }).last()
+  await expect(option).toBeVisible()
+  await option.click()
+  await expect(select).toContainText(label)
+}
+
+async function selectJanuaryToFebruary2026(page: Page) {
+  await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
+  await page.getByTestId('work-performance-month-range-trigger').click()
+
+  const panel = page.getByTestId('work-performance-month-range-panel')
+  await expect(panel).toBeVisible()
+  await selectMonthOption(page, 'work-performance-start-month-select', '2026년 1월')
+  await selectMonthOption(page, 'work-performance-end-month-select', '2026년 2월')
+  await panel.getByTestId('work-performance-month-range-apply').click()
+
+  await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 2월')
 }
 
 test.describe('work performance', () => {
@@ -327,18 +350,15 @@ test.describe('work performance', () => {
 
   test('queries finalized schedules and renders summary, employee rows, and deltas', async ({ page }) => {
     await openWorkPerformance(page, createSuccessfulFixture())
-    await selectJanuary2026(page)
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
 
     await page.getByTestId('work-performance-query').click()
 
-    await expect(page.getByTestId('work-performance-applied-period')).toHaveText('조회 기간: 2026년 1월')
     await expect(page.getByTestId('work-performance-summary')).toContainText('야간 근무')
     await expect(page.getByTestId('work-performance-summary')).toContainText('가장 큰 차이 2.5일')
     await expect(page.getByTestId('work-performance-risk-summary')).toHaveCount(0)
     await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
-    await expect(page.getByTestId('work-performance-year')).toHaveCSS('text-align', 'center')
-    await expect(page.getByTestId('work-performance-start-month')).toHaveCSS('text-align', 'center')
-    await expect(page.getByTestId('work-performance-end-month')).toHaveCSS('text-align', 'center')
+    await expect(page.getByTestId('work-performance-month-range-trigger')).toContainText('2026년 1월 ~ 1월')
     await expect(page.getByTestId('work-performance-threshold')).toHaveCSS('text-align', 'center')
     await expect(page.getByTestId('work-performance-sort-name')).toHaveCSS('text-align', 'center')
     await expect(page.getByTestId('work-performance-sort-night')).toHaveCSS('text-align', 'center')
@@ -373,20 +393,39 @@ test.describe('work performance', () => {
         },
       ],
     })
-    await selectJanuary2026(page, '2')
+    await selectJanuaryToFebruary2026(page)
 
     await page.getByTestId('work-performance-query').click()
 
     await expect(page.getByTestId('work-performance-missing-months-notice')).toContainText('확정된 근무표가 없어 실적 계산에서 제외되었습니다')
     await expect(page.getByTestId('work-performance-missing-months-notice')).toContainText('2026년 2월')
-    await expect(page.getByTestId('work-performance-analysis-period')).toHaveText('분석 기준: 2026년 1월 확정 데이터')
     await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
     await expect(page.getByTestId('work-performance-employee-name').filter({ hasText: '김민지' })).toBeVisible()
   })
 
+  test('keeps current results while month range edits are pending and clears them only on apply', async ({ page }) => {
+    await openWorkPerformance(page, createSuccessfulFixture())
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
+    await page.getByTestId('work-performance-query').click()
+    await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
+
+    await page.getByTestId('work-performance-month-range-trigger').click()
+    const panel = page.getByTestId('work-performance-month-range-panel')
+    await expect(panel).toBeVisible()
+    await selectMonthOption(page, 'work-performance-end-month-select', '2026년 2월')
+
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
+    await expect(page.getByTestId('work-performance-matrix')).toBeVisible()
+
+    await panel.getByTestId('work-performance-month-range-apply').click()
+
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 2월')
+    await expect(page.getByTestId('work-performance-initial')).toBeVisible()
+  })
+
   test('updates highlighted cells when the threshold changes', async ({ page }) => {
     await openWorkPerformance(page, createSuccessfulFixture())
-    await selectJanuary2026(page)
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
 
     await page.getByTestId('work-performance-query').click()
     await expect(page.getByTestId('work-performance-emphasis-label')).toHaveCount(1)
@@ -400,7 +439,7 @@ test.describe('work performance', () => {
 
   test('expands employee details with evidence dates and empty metric states', async ({ page }) => {
     await openWorkPerformance(page, createSuccessfulFixture())
-    await selectJanuary2026(page)
+    await expectSelectedWorkPerformanceRange(page, '2026년 1월 ~ 1월')
     await page.getByTestId('work-performance-query').click()
 
     const detailButton = page.getByTestId('work-performance-detail-employee-a')

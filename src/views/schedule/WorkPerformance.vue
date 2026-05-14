@@ -14,57 +14,12 @@
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white p-4">
-        <div class="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-          <label class="space-y-1 text-sm font-medium text-slate-700">
-            <span>연도</span>
-            <input
-              v-model.number="draftYear"
-              data-test="work-performance-year"
-              type="number"
-              min="2000"
-              max="2100"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
-              aria-label="조회 연도"
-              @input="markDraftPeriodTouched"
-              @change="markDraftPeriodTouched"
-            >
-          </label>
-          <label class="space-y-1 text-sm font-medium text-slate-700">
-            <span>시작 월</span>
-            <select
-              v-model.number="draftStartMonth"
-              data-test="work-performance-start-month"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
-              aria-label="시작 월"
-              @change="markDraftPeriodTouched"
-            >
-              <option
-                v-for="month in monthOptions"
-                :key="month"
-                :value="month"
-              >
-                {{ month }}월
-              </option>
-            </select>
-          </label>
-          <label class="space-y-1 text-sm font-medium text-slate-700">
-            <span>종료 월</span>
-            <select
-              v-model.number="draftEndMonth"
-              data-test="work-performance-end-month"
-              class="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-sm tabular-nums text-slate-900"
-              aria-label="종료 월"
-              @change="markDraftPeriodTouched"
-            >
-              <option
-                v-for="month in monthOptions"
-                :key="month"
-                :value="month"
-              >
-                {{ month }}월
-              </option>
-            </select>
-          </label>
+        <div class="grid gap-3 sm:grid-cols-[minmax(20rem,34rem)_auto] sm:items-end">
+          <WorkPerformanceMonthRangePicker
+            :model-value="draftMonthRange"
+            data-test="work-performance-month-range-picker"
+            @update:model-value="updateDraftMonthRange"
+          />
           <n-button
             data-test="work-performance-query"
             type="primary"
@@ -81,7 +36,7 @@
           data-test="work-performance-range-error"
           class="mt-3 text-sm font-medium text-red-600"
         >
-          시작 월은 종료 월보다 늦을 수 없습니다
+          조회 기간을 확인해 주세요
         </p>
       </div>
 
@@ -93,22 +48,6 @@
       >
         이전 조회 결과를 표시하는 중입니다. 새 근무 실적을 계산하고 있습니다.
       </div>
-
-      <p
-        v-if="appliedPeriodLabel"
-        data-test="work-performance-applied-period"
-        class="text-sm font-semibold text-slate-700"
-      >
-        조회 기간: {{ appliedPeriodLabel }}
-      </p>
-
-      <p
-        v-if="analysisPeriodLabel"
-        data-test="work-performance-analysis-period"
-        class="text-sm font-semibold text-slate-700"
-      >
-        분석 기준: {{ analysisPeriodLabel }}
-      </p>
 
       <div
         v-if="missingFinalizedMonths.length > 0"
@@ -640,6 +579,7 @@ import {
   computeWorkPerformanceFairness,
   formatKoreanMonthDay,
 } from '@/utils/workPerformanceFairness'
+import WorkPerformanceMonthRangePicker from '@/components/schedule/WorkPerformanceMonthRangePicker.vue'
 import { useOrganizationStore } from '@/stores/organization'
 import { getScheduleResultsRoutePath, getScheduleStepRoutePath } from '@/constants/routes'
 import type {
@@ -657,12 +597,12 @@ interface WorkPerformanceQuery {
 
 type WorkPerformanceSortKey = 'priority' | 'employeeName' | WorkPerformanceMetricKey
 type SortDirection = 'ascending' | 'descending'
+type MonthRangeValue = [string, string]
 
 const router = useRouter()
 const orgStore = useOrganizationStore()
 
 const currentDate = new Date()
-const monthOptions = Array.from({ length: 12 }, (_value, index) => index + 1)
 const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekendHoliday', 'offRequestAccepted']
 const showRiskSummary = false
 const metricLabels: Record<WorkPerformanceMetricKey, string> = {
@@ -671,22 +611,25 @@ const metricLabels: Record<WorkPerformanceMetricKey, string> = {
   offRequestAccepted: 'Off 요청 수락',
 }
 
-const draftYear = ref(currentDate.getFullYear())
-const draftStartMonth = ref(currentDate.getMonth() + 1)
-const draftEndMonth = ref(currentDate.getMonth() + 1)
+const draftMonthRange = ref<MonthRangeValue>([
+  formatYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1),
+  formatYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1),
+])
 const thresholdDays = ref(3)
 const loading = ref(false)
 const hasQueried = ref(false)
 const loadError = ref(false)
 const loadResult = ref<WorkPerformanceLoadResult | null>(null)
-const appliedQuery = ref<WorkPerformanceQuery | null>(null)
 const sortKey = ref<WorkPerformanceSortKey>('priority')
 const sortDirection = ref<SortDirection>('descending')
 const expandedEmployeeId = ref<string | null>(null)
 const draftPeriodTouched = ref(false)
 let organizationLoadPromise: Promise<void> | null = null
 
-const isInvalidRange = computed(() => draftStartMonth.value > draftEndMonth.value)
+const draftQuery = computed<WorkPerformanceQuery | null>(() =>
+  parseWorkPerformanceMonthRange(draftMonthRange.value),
+)
+const isInvalidRange = computed(() => draftQuery.value === null)
 const hasPreviousResult = computed(() => Boolean(loadResult.value))
 const loadStatus = computed(() => loadResult.value?.status ?? null)
 const successResult = computed<WorkPerformanceLoadSuccess | null>(() =>
@@ -710,16 +653,6 @@ const fairnessResult = computed<WorkPerformanceFairnessResult | null>(() => {
   })
 })
 const hasNoOffRequests = computed(() => successResult.value?.offRequests.length === 0)
-const appliedPeriodLabel = computed(() => (
-  appliedQuery.value ? formatQueryPeriodLabel(appliedQuery.value) : null
-))
-const analysisPeriodLabel = computed(() => {
-  if (!successResult.value) {
-    return null
-  }
-
-  return `${formatMonthList(successResult.value.finalizedMonths)} 확정 데이터`
-})
 const publicHolidayDateSet = computed(() => new Set(successResult.value?.publicHolidayDates ?? []))
 const calculatedRowOrder = computed(() => {
   const order = new Map<string, number>()
@@ -768,6 +701,68 @@ function markDraftPeriodTouched() {
   draftPeriodTouched.value = true
 }
 
+function updateDraftMonthRange(value: MonthRangeValue) {
+  const monthRangeChanged =
+    value[0] !== draftMonthRange.value[0] || value[1] !== draftMonthRange.value[1]
+
+  draftMonthRange.value = value
+  markDraftPeriodTouched()
+
+  if (monthRangeChanged) {
+    clearDisplayedPerformanceState()
+  }
+}
+
+function clearDisplayedPerformanceState() {
+  loadResult.value = null
+  loadError.value = false
+  hasQueried.value = false
+  expandedEmployeeId.value = null
+}
+
+function formatYearMonth(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+function parseWorkPerformanceMonthRange(value: MonthRangeValue): WorkPerformanceQuery | null {
+  const start = parseYearMonth(value[0])
+  const end = parseYearMonth(value[1])
+
+  if (
+    !start ||
+    !end ||
+    start.year !== end.year ||
+    start.year < 2000 ||
+    end.year > 2100 ||
+    start.month > end.month
+  ) {
+    return null
+  }
+
+  return {
+    year: start.year,
+    startMonth: start.month,
+    endMonth: end.month,
+  }
+}
+
+function parseYearMonth(value: string): { year: number; month: number } | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(value)
+
+  if (!match) {
+    return null
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return null
+  }
+
+  return { year, month }
+}
+
 async function getOrganizationIdForWorkPerformance(): Promise<string> {
   if (!orgStore.current?.id) {
     if (typeof orgStore.loadOrganization !== 'function') {
@@ -811,23 +806,20 @@ async function initializeDefaultPeriod() {
       return
     }
 
-    draftYear.value = latestFinalizedMonth.year
-    draftStartMonth.value = latestFinalizedMonth.month
-    draftEndMonth.value = latestFinalizedMonth.month
+    draftMonthRange.value = [
+      formatYearMonth(latestFinalizedMonth.year, latestFinalizedMonth.month),
+      formatYearMonth(latestFinalizedMonth.year, latestFinalizedMonth.month),
+    ]
   } catch (error) {
     console.warn('최근 확정 근무표 조회 실패:', error)
   }
 }
 
 async function loadPerformance() {
-  if (isInvalidRange.value || loading.value) {
-    return
-  }
+  const query = draftQuery.value
 
-  const query: WorkPerformanceQuery = {
-    year: draftYear.value,
-    startMonth: draftStartMonth.value,
-    endMonth: draftEndMonth.value,
+  if (!query || loading.value) {
+    return
   }
 
   loading.value = true
@@ -836,20 +828,40 @@ async function loadPerformance() {
 
   try {
     const organizationId = await getOrganizationIdForWorkPerformance()
-
-    loadResult.value = await loadWorkPerformancePeriod({
+    const nextLoadResult = await loadWorkPerformancePeriod({
       organizationId,
       ...query,
     })
-    appliedQuery.value = query
+
+    if (!isCurrentDraftQuery(query)) {
+      return
+    }
+
+    loadResult.value = nextLoadResult
+    hasQueried.value = true
   } catch (error) {
+    if (!isCurrentDraftQuery(query)) {
+      return
+    }
+
     console.warn('근무 실적 로드 실패:', error)
     loadResult.value = null
     loadError.value = true
-    appliedQuery.value = query
+    hasQueried.value = true
   } finally {
     loading.value = false
   }
+}
+
+function isCurrentDraftQuery(query: WorkPerformanceQuery): boolean {
+  const currentQuery = draftQuery.value
+
+  return Boolean(
+    currentQuery &&
+      currentQuery.year === query.year &&
+      currentQuery.startMonth === query.startMonth &&
+      currentQuery.endMonth === query.endMonth,
+  )
 }
 
 function updateThreshold(event: Event) {
@@ -932,27 +944,6 @@ function formatMonthLabel(month: string): string {
   const [year, monthValue] = month.split('-')
 
   return `${year}년 ${Number(monthValue)}월`
-}
-
-function formatMonthList(months: string[]): string {
-  const [firstMonth] = months
-
-  if (!firstMonth) {
-    return ''
-  }
-
-  if (months.length === 1) {
-    return formatMonthLabel(firstMonth)
-  }
-
-  return months.map(formatMonthLabel).join(', ')
-}
-
-function formatQueryPeriodLabel(query: WorkPerformanceQuery): string {
-  const startLabel = `${query.year}년 ${query.startMonth}월`
-  const endLabel = `${query.year}년 ${query.endMonth}월`
-
-  return query.startMonth === query.endMonth ? startLabel : `${startLabel} ~ ${endLabel}`
 }
 
 function getMaxDeviation(metric: WorkPerformanceMetricKey): number {

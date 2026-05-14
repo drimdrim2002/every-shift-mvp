@@ -10,6 +10,8 @@ import type {
   WorkPerformancePreferenceRow,
 } from '@/types/workPerformance'
 
+type MonthRangeValue = [string, string]
+
 const {
   pushMock,
   loadLatestFinalizedWorkPerformanceMonthMock,
@@ -44,6 +46,15 @@ vi.mock('@/stores/organization', () => ({
 
 import WorkPerformance from '@/views/schedule/WorkPerformance.vue'
 
+const workPerformanceMonthRangePickerStub = {
+  name: 'WorkPerformanceMonthRangePicker',
+  inheritAttrs: false,
+  props: ['modelValue'],
+  emits: ['update:modelValue'],
+  template:
+    '<button data-test="work-performance-month-range" @click="$emit(\'update:modelValue\', [\'2026-01\', \'2026-03\'])">{{ modelValue.join(\' ~ \') }}</button>',
+}
+
 function createWrapper(options: MountingOptions<unknown> = {}) {
   return mount(WorkPerformance, {
     ...options,
@@ -51,6 +62,7 @@ function createWrapper(options: MountingOptions<unknown> = {}) {
       ...options.global,
       stubs: {
         ...options.global?.stubs,
+        WorkPerformanceMonthRangePicker: workPerformanceMonthRangePickerStub,
         NButton: {
           props: ['loading', 'disabled', 'type', 'secondary', 'size'],
           template: '<button v-bind="$attrs" :disabled="disabled" @click="$emit(\'click\', $event)"><slot /></button>',
@@ -184,6 +196,16 @@ async function runQuery(wrapper: ReturnType<typeof createWrapper>) {
   await flush()
 }
 
+async function updateMonthRange(
+  wrapper: ReturnType<typeof createWrapper>,
+  value: MonthRangeValue,
+) {
+  wrapper
+    .getComponent({ name: 'WorkPerformanceMonthRangePicker' })
+    .vm.$emit('update:modelValue', value)
+  await flush()
+}
+
 describe('WorkPerformance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -218,9 +240,7 @@ describe('WorkPerformance', () => {
 
     await flush()
 
-    expect(wrapper.get('[data-test="work-performance-year"]').element).toHaveProperty('value', '2026')
-    expect(wrapper.get('[data-test="work-performance-start-month"]').element).toHaveProperty('value', '4')
-    expect(wrapper.get('[data-test="work-performance-end-month"]').element).toHaveProperty('value', '4')
+    expect(wrapper.get('[data-test="work-performance-month-range"]').text()).toContain('2026-04 ~ 2026-04')
     expect(loadLatestFinalizedWorkPerformanceMonthMock).toHaveBeenCalledWith('org-1')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
@@ -230,25 +250,20 @@ describe('WorkPerformance', () => {
     loadLatestFinalizedWorkPerformanceMonthMock.mockReturnValueOnce(deferredLatest.promise)
     const wrapper = createWrapper()
 
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('5')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('6')
+    await wrapper.get('[data-test="work-performance-month-range"]').trigger('click')
 
     deferredLatest.resolve({ year: 2026, month: 4 })
     await flush()
 
-    expect(wrapper.get('[data-test="work-performance-year"]').element).toHaveProperty('value', '2027')
-    expect(wrapper.get('[data-test="work-performance-start-month"]').element).toHaveProperty('value', '5')
-    expect(wrapper.get('[data-test="work-performance-end-month"]').element).toHaveProperty('value', '6')
+    expect(wrapper.get('[data-test="work-performance-month-range"]').text()).toContain('2026-01 ~ 2026-03')
   })
 
-  it('disables query and shows validation when the start month is after the end month', async () => {
+  it('disables query and shows validation when the month range is invalid', async () => {
     const wrapper = createWrapper()
 
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('5')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('3')
+    await updateMonthRange(wrapper, ['2026-05', '2026-03'])
 
-    expect(wrapper.get('[data-test="work-performance-range-error"]').text()).toContain('시작 월은 종료 월보다 늦을 수 없습니다')
+    expect(wrapper.get('[data-test="work-performance-range-error"]').text()).toContain('조회 기간을 확인해 주세요')
     expect(wrapper.get('[data-test="work-performance-query"]').attributes('disabled')).toBeDefined()
   })
 
@@ -288,9 +303,7 @@ describe('WorkPerformance', () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({ offRequests: [] }))
     const wrapper = createWrapper()
 
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-month-range"]').trigger('click')
     await runQuery(wrapper)
 
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무')
@@ -303,9 +316,6 @@ describe('WorkPerformance', () => {
       ) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
     expect(wrapper.get('[data-test="work-performance-threshold"]').element).toHaveProperty('value', '3')
-    expect(wrapper.get('[data-test="work-performance-year"]').classes()).toContain('text-center')
-    expect(wrapper.get('[data-test="work-performance-start-month"]').classes()).toContain('text-center')
-    expect(wrapper.get('[data-test="work-performance-end-month"]').classes()).toContain('text-center')
     expect(wrapper.get('[data-test="work-performance-threshold"]').classes()).toContain('text-center')
     expect(wrapper.get('[data-test="work-performance-sort-name"]').classes()).toContain('text-center')
     expect(wrapper.get('[data-test="work-performance-sort-name"] button').classes()).toContain('text-center')
@@ -315,7 +325,6 @@ describe('WorkPerformance', () => {
     expect(wrapper.get('[data-test="work-performance-employee-id"]').text()).toBe('직원 ID emp-1')
     expect(wrapper.get('[data-test="work-performance-cell-emp-1-night"]').classes()).toContain('text-center')
     expect(wrapper.get('[data-test="work-performance-detail-header"]').classes()).toContain('text-center')
-    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
     expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('평균과의 차이')
     expect(wrapper.get('[data-test="work-performance-detail-header"]').text()).toBe('상세')
     expect(wrapper.find('[data-test="work-performance-emphasis-label"]').exists()).toBe(true)
@@ -324,29 +333,22 @@ describe('WorkPerformance', () => {
       organizationId: 'org-1',
       year: 2026,
       startMonth: 1,
-      endMonth: 1,
+      endMonth: 3,
     })
   })
 
-  it('keeps the applied result label unchanged when draft controls change before query', async () => {
+  it('clears previous results when the draft month range changes before query', async () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
     const wrapper = createWrapper()
 
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-month-range"]').trigger('click')
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
-
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('2')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('3')
+    await updateMonthRange(wrapper, ['2026-02', '2026-03'])
 
     expect(loadWorkPerformancePeriodMock).toHaveBeenCalledTimes(1)
-    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
-    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
-    expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('이서연')
+    expect(wrapper.find('[data-test="work-performance-matrix"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
   })
 
   it('clamps threshold input between 1 and 10 and updates highlight state immediately', async () => {
@@ -596,15 +598,11 @@ describe('WorkPerformance', () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult())
     const wrapper = createWrapper()
 
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2026')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('1')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('1')
+    await wrapper.get('[data-test="work-performance-month-range"]').trigger('click')
     await wrapper.get('[data-test="work-performance-query"]').trigger('click')
     await nextTick()
 
-    await wrapper.get('[data-test="work-performance-year"]').setValue('2027')
-    await wrapper.get('[data-test="work-performance-start-month"]').setValue('5')
-    await wrapper.get('[data-test="work-performance-end-month"]').setValue('6')
+    await updateMonthRange(wrapper, ['2026-05', '2026-06'])
 
     deferredOrg.resolve()
     await flush()
@@ -613,9 +611,22 @@ describe('WorkPerformance', () => {
       organizationId: 'org-loaded',
       year: 2026,
       startMonth: 1,
-      endMonth: 1,
+      endMonth: 3,
     })
-    expect(wrapper.get('[data-test="work-performance-applied-period"]').text()).toContain('조회 기간: 2026년 1월')
+    expect(wrapper.find('[data-test="work-performance-matrix"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 실적을 확인하세요')
+
+    const currentRangeDeferred = createDeferred<WorkPerformanceLoadResult>()
+    loadWorkPerformancePeriodMock.mockReturnValueOnce(currentRangeDeferred.promise)
+
+    await wrapper.get('[data-test="work-performance-query"]').trigger('click')
+    await nextTick()
+
+    expect(wrapper.get('[data-test="work-performance-loading"]').text()).toContain('근무 실적을 계산하는 중입니다')
+    expect(wrapper.find('[data-test="work-performance-matrix"]').exists()).toBe(false)
+
+    currentRangeDeferred.resolve(successResult())
+    await flush()
   })
 
   it('renders finalized data with a top notice when selected months are missing', async () => {
@@ -629,7 +640,6 @@ describe('WorkPerformance', () => {
     expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('확정된 근무표가 없어 실적 계산에서 제외되었습니다')
     expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('2026년 2월')
     expect(wrapper.get('[data-test="work-performance-missing-months-notice"]').text()).toContain('2026년 3월')
-    expect(wrapper.get('[data-test="work-performance-analysis-period"]').text()).toContain('분석 기준: 2026년 1월 확정 데이터')
     expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
   })
 
