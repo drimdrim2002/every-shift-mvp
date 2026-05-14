@@ -26,33 +26,33 @@
             자동 완성
           </span>
         </div>
-        <div class="mt-3 overflow-x-auto">
-          <div class="min-w-[460px] rounded-md border border-gray-200">
-            <div class="grid grid-cols-[88px_repeat(6,minmax(40px,1fr))] border-b border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500">
-              <span class="px-3 py-2">직원</span>
+        <div class="mt-3 overflow-hidden rounded-md border border-gray-200">
+          <div class="min-w-0">
+            <div class="grid grid-cols-[54px_repeat(6,minmax(26px,1fr))] border-b border-gray-200 bg-gray-50 text-[11px] font-semibold text-gray-500 sm:grid-cols-[88px_repeat(6,minmax(40px,1fr))] sm:text-xs">
+              <span class="p-2 sm:px-3">직원</span>
               <span
                 v-for="day in previewDays"
-                :key="day"
-                class="p-2 text-center"
+                :key="day.id"
+                class="px-1 py-2 text-center sm:p-2"
               >
-                {{ day }}
+                {{ day.label }}
               </span>
             </div>
             <div
               v-for="row in overviewRows"
               :key="row.id"
-              class="grid grid-cols-[88px_repeat(6,minmax(40px,1fr))] border-b border-gray-100 last:border-b-0"
+              class="grid grid-cols-[54px_repeat(6,minmax(26px,1fr))] border-b border-gray-100 last:border-b-0 sm:grid-cols-[88px_repeat(6,minmax(40px,1fr))]"
             >
-              <span class="truncate px-3 py-2 text-xs font-medium text-gray-700">
+              <span class="truncate p-2 text-[11px] font-medium text-gray-700 sm:px-3 sm:text-xs">
                 {{ row.name }}
               </span>
               <span
-                v-for="(shift, index) in row.shifts"
-                :key="`${row.id}-${index}`"
-                class="m-1 rounded px-2 py-1 text-center text-xs font-semibold"
-                :class="shiftClassMap[shift]"
+                v-for="shift in row.shifts"
+                :key="shift.id"
+                class="m-0.5 rounded p-1 text-center text-[11px] font-semibold sm:m-1 sm:px-2 sm:text-xs"
+                :class="shiftClassMap[shift.code]"
               >
-                {{ shift }}
+                {{ shift.code }}
               </span>
             </div>
           </div>
@@ -97,7 +97,7 @@
       <section class="grid gap-3">
         <div
           v-for="item in generationCriteria"
-          :key="item.label"
+          :key="item.id"
           class="rounded-md border border-gray-200 p-3"
         >
           <p class="text-xs font-semibold text-gray-500">
@@ -123,7 +123,7 @@
         <div class="mt-3 space-y-2">
           <div
             v-for="row in aiRows"
-            :key="row.label"
+            :key="row.id"
             class="grid grid-cols-[68px_1fr_auto] items-center gap-2 text-xs"
           >
             <span class="font-medium text-gray-600">{{ row.label }}</span>
@@ -154,7 +154,7 @@
       </div>
       <div
         v-for="request in offRequests"
-        :key="`${request.employee}-${request.date}`"
+        :key="request.id"
         class="rounded-md border p-3"
         :class="request.approved ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'"
       >
@@ -169,6 +169,9 @@
             {{ request.approved ? '반영' : '미반영' }}
           </span>
         </div>
+        <p class="mt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+          사유
+        </p>
         <p class="mt-2 text-xs leading-5 text-gray-600">
           {{ request.reason }}
         </p>
@@ -182,7 +185,7 @@
       <section class="space-y-2">
         <div
           v-for="check in guideChecks"
-          :key="check.label"
+          :key="check.id"
           class="flex items-start gap-3 rounded-md border p-3"
           :class="check.warning ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'"
         >
@@ -207,7 +210,7 @@
         <div class="mt-3 grid grid-cols-4 gap-2">
           <span
             v-for="cell in guideCells"
-            :key="cell.label"
+            :key="cell.id"
             class="rounded p-2 text-center text-xs font-semibold"
             :class="cell.warning ? 'bg-amber-100 text-amber-800' : shiftClassMap[cell.shift]"
           >
@@ -219,39 +222,77 @@
 
     <div
       v-else-if="variant === 'compare'"
-      class="grid gap-3 p-4"
+      class="grid gap-4 p-4 lg:grid-cols-[1.15fr_0.85fr]"
     >
-      <div
-        v-for="plan in candidatePlans"
-        :key="plan.name"
-        class="rounded-md border border-gray-200 p-3"
-      >
+      <section class="min-w-0 rounded-md border border-gray-200 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-sm font-semibold text-gray-950">
-            {{ plan.name }}
+            결과 직접 수정
           </p>
-          <span
-            class="rounded-md px-2 py-1 text-xs font-semibold"
-            :class="plan.badgeClass"
-          >
-            {{ plan.badge }}
+          <span class="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+            재검증 필요
           </span>
         </div>
-        <div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-3 grid gap-2">
           <div
-            v-for="metric in plan.metrics"
-            :key="metric.label"
-            class="rounded-md bg-gray-50 p-2"
+            v-for="edit in operationEdits"
+            :key="edit.id"
+            class="grid gap-2 rounded-md bg-gray-50 p-2 text-xs sm:grid-cols-[72px_1fr_auto] sm:items-center"
           >
-            <p class="text-xs text-gray-500">
-              {{ metric.label }}
-            </p>
-            <p class="mt-1 text-sm font-bold text-gray-950">
-              {{ metric.value }}
-            </p>
+            <div class="flex min-w-0 items-center justify-between gap-2 sm:block">
+              <span class="truncate font-semibold text-gray-700">{{ edit.employee }}</span>
+              <span class="rounded bg-white px-2 py-1 font-semibold text-gray-600 sm:hidden">
+                수정됨
+              </span>
+            </div>
+            <span class="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span
+                class="rounded px-2 py-1 font-semibold"
+                :class="shiftClassMap[edit.before]"
+              >
+                {{ edit.before }}
+              </span>
+              <span class="text-gray-400">-&gt;</span>
+              <span
+                class="rounded px-2 py-1 font-semibold"
+                :class="shiftClassMap[edit.after]"
+              >
+                {{ edit.after }}
+              </span>
+              <span class="text-gray-500">{{ edit.date }}</span>
+            </span>
+            <span class="hidden rounded bg-white px-2 py-1 font-semibold text-gray-600 sm:inline">
+              수정됨
+            </span>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section class="grid gap-3">
+        <div
+          v-for="status in operationStatuses"
+          :key="status.id"
+          class="rounded-md border border-gray-200 p-3"
+        >
+          <p class="text-xs font-semibold text-gray-500">
+            {{ status.label }}
+          </p>
+          <p
+            class="mt-1 text-sm font-bold"
+            :class="status.valueClass"
+          >
+            {{ status.value }}
+          </p>
+        </div>
+        <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <p class="text-xs font-semibold text-gray-500">
+            저장 이력
+          </p>
+          <p class="mt-1 text-sm font-bold text-gray-950">
+            버전 A 저장됨 · 버전 B 보관
+          </p>
+        </div>
+      </section>
     </div>
 
     <div
@@ -261,11 +302,25 @@
       <section class="rounded-md border border-gray-200 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="text-sm font-semibold text-gray-950">
-            근무자별 야간/주말/Off 현황
+            확정 이력 기반 근무자별 누적 기준
           </p>
           <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">
-            누적 기준
+            기간 3개월
           </span>
+        </div>
+        <div class="mt-3 grid gap-2 sm:grid-cols-3">
+          <div
+            v-for="metric in fairnessSummaryMetrics"
+            :key="metric.id"
+            class="rounded-md bg-gray-50 p-2"
+          >
+            <p class="text-xs text-gray-500">
+              {{ metric.label }}
+            </p>
+            <p class="mt-1 text-sm font-bold text-gray-950">
+              {{ metric.value }}
+            </p>
+          </div>
         </div>
         <div class="mt-3 space-y-3">
           <div
@@ -278,13 +333,13 @@
                 {{ row.name }}
               </p>
               <p class="text-xs font-semibold text-gray-500">
-                누적 공정성 {{ row.balance }}
+                {{ row.status }}
               </p>
             </div>
             <div class="mt-2 grid grid-cols-3 gap-2 text-center">
               <div
                 v-for="metric in row.metrics"
-                :key="metric.label"
+                :key="metric.id"
                 class="rounded bg-white p-2"
               >
                 <p class="text-xs text-gray-500">
@@ -308,34 +363,37 @@
       <section class="grid gap-3">
         <div class="rounded-md border border-gray-200 p-3">
           <p class="text-sm font-semibold text-gray-950">
-            월별 rolling 이력
+            확정 이력
           </p>
           <div class="mt-3 space-y-2">
             <div
               v-for="month in rollingHistory"
-              :key="month.month"
-              class="grid grid-cols-[56px_1fr_auto] items-center gap-2 text-xs"
+              :key="month.id"
+              class="grid grid-cols-[52px_1fr_auto] items-center gap-2 text-xs"
             >
-              <span class="font-semibold text-gray-600">{{ month.month }}</span>
+              <span class="font-semibold text-gray-600">{{ month.period }}</span>
               <div class="h-2 rounded-full bg-gray-100">
                 <div
                   class="h-2 rounded-full bg-sky-500"
                   :style="{ width: month.width }"
                 />
               </div>
-              <span class="font-semibold text-gray-800">{{ month.value }}</span>
+              <span class="font-semibold text-gray-800">{{ month.average }}</span>
             </div>
           </div>
+          <p class="mt-3 text-xs leading-5 text-gray-600">
+            최소/최대 차이와 평균을 함께 검토합니다.
+          </p>
         </div>
-        <div class="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-          <p class="text-xs font-semibold text-emerald-700">
-            누적 공정성 확인
+        <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
+          <p class="text-xs font-semibold text-amber-700">
+            확인 필요
           </p>
           <p class="mt-1 text-lg font-bold text-gray-950">
-            편차 2회 이내
+            이서윤 누적 야간 +2회
           </p>
           <p class="mt-1 text-xs leading-5 text-gray-600">
-            야간과 주말 근무 편차를 누적 기준으로 확인합니다.
+            확정 이력의 누적 기준으로 다음 배정에서 조정할 항목입니다.
           </p>
         </div>
       </section>
@@ -348,13 +406,36 @@ import type { LandingPreviewVariant } from '@/data/publicLandingContent'
 
 type ShiftCode = 'D' | 'E' | 'N' | 'OFF'
 
+interface PreviewDay {
+  id: string
+  label: string
+}
+
+interface ShiftCellPreview {
+  id: string
+  code: ShiftCode
+}
+
 interface SchedulePreviewRow {
   id: string
   name: string
-  shifts: readonly ShiftCode[]
+  shifts: readonly ShiftCellPreview[]
+}
+
+interface PreviewMetric {
+  id: string
+  label: string
+  value: string
+  caption?: string
+}
+
+interface PreviewProgressMetric extends PreviewMetric {
+  width: string
+  barClass: string
 }
 
 interface OffRequestPreview {
+  id: string
   employee: string
   date: string
   approved: boolean
@@ -362,30 +443,42 @@ interface OffRequestPreview {
 }
 
 interface GuideCheckPreview {
+  id: string
   label: string
   description: string
   warning: boolean
 }
 
 interface GuideCellPreview {
+  id: string
   label: string
   shift: ShiftCode
   warning: boolean
 }
 
-interface CandidateMetric {
+interface OperationEditPreview {
+  id: string
+  employee: string
+  date: string
+  before: ShiftCode
+  after: ShiftCode
+}
+
+interface OperationStatusPreview {
+  id: string
+  label: string
+  value: string
+  valueClass: string
+}
+
+interface FairnessSummaryMetric {
+  id: string
   label: string
   value: string
 }
 
-interface CandidatePlanPreview {
-  name: string
-  badge: string
-  badgeClass: string
-  metrics: readonly CandidateMetric[]
-}
-
 interface FairnessMetric {
+  id: string
   label: string
   value: string
 }
@@ -393,14 +486,15 @@ interface FairnessMetric {
 interface FairnessRowPreview {
   id: string
   name: string
-  balance: string
+  status: string
   width: string
   metrics: readonly FairnessMetric[]
 }
 
 interface RollingHistoryPreview {
-  month: string
-  value: string
+  id: string
+  period: string
+  average: string
   width: string
 }
 
@@ -408,60 +502,117 @@ defineProps<{
   variant: LandingPreviewVariant
 }>()
 
-const previewDays = ['3/29', '3/30', '3/31', '4/1', '4/2', '4/3'] as const
+const previewDays: readonly PreviewDay[] = [
+  { id: 'day-mar-29', label: '3/29' },
+  { id: 'day-mar-30', label: '3/30' },
+  { id: 'day-mar-31', label: '3/31' },
+  { id: 'day-apr-01', label: '4/1' },
+  { id: 'day-apr-02', label: '4/2' },
+  { id: 'day-apr-03', label: '4/3' },
+]
 
 const overviewRows: readonly SchedulePreviewRow[] = [
-  { id: 'nurse-kim', name: '김하늘', shifts: ['D', 'E', 'OFF', 'N', 'OFF', 'D'] },
-  { id: 'nurse-lee', name: '이서윤', shifts: ['N', 'OFF', 'D', 'E', 'D', 'OFF'] },
-  { id: 'nurse-park', name: '박민지', shifts: ['E', 'D', 'N', 'OFF', 'E', 'D'] },
-  { id: 'nurse-choi', name: '최유진', shifts: ['OFF', 'D', 'E', 'D', 'N', 'OFF'] },
+  {
+    id: 'overview-row-kim',
+    name: '김하늘',
+    shifts: [
+      { id: 'kim-mar-29', code: 'D' },
+      { id: 'kim-mar-30', code: 'E' },
+      { id: 'kim-mar-31', code: 'OFF' },
+      { id: 'kim-apr-01', code: 'N' },
+      { id: 'kim-apr-02', code: 'OFF' },
+      { id: 'kim-apr-03', code: 'D' },
+    ],
+  },
+  {
+    id: 'overview-row-lee',
+    name: '이서윤',
+    shifts: [
+      { id: 'lee-mar-29', code: 'N' },
+      { id: 'lee-mar-30', code: 'OFF' },
+      { id: 'lee-mar-31', code: 'D' },
+      { id: 'lee-apr-01', code: 'E' },
+      { id: 'lee-apr-02', code: 'D' },
+      { id: 'lee-apr-03', code: 'OFF' },
+    ],
+  },
+  {
+    id: 'overview-row-park',
+    name: '박민지',
+    shifts: [
+      { id: 'park-mar-29', code: 'E' },
+      { id: 'park-mar-30', code: 'D' },
+      { id: 'park-mar-31', code: 'N' },
+      { id: 'park-apr-01', code: 'OFF' },
+      { id: 'park-apr-02', code: 'E' },
+      { id: 'park-apr-03', code: 'D' },
+    ],
+  },
+  {
+    id: 'overview-row-choi',
+    name: '최유진',
+    shifts: [
+      { id: 'choi-mar-29', code: 'OFF' },
+      { id: 'choi-mar-30', code: 'D' },
+      { id: 'choi-mar-31', code: 'E' },
+      { id: 'choi-apr-01', code: 'D' },
+      { id: 'choi-apr-02', code: 'N' },
+      { id: 'choi-apr-03', code: 'OFF' },
+    ],
+  },
 ]
 
 const shiftClassMap: Record<ShiftCode, string> = {
-  D: 'bg-emerald-100 text-emerald-800',
-  E: 'bg-sky-100 text-sky-800',
-  N: 'bg-violet-100 text-violet-800',
-  OFF: 'bg-gray-200 text-gray-700',
+  D: 'bg-shift-day/15 text-emerald-800',
+  E: 'bg-shift-evening/15 text-sky-800',
+  N: 'bg-shift-night/15 text-slate-800',
+  OFF: 'bg-shift-off/40 text-slate-700',
 }
 
-const generationCriteria = [
+const generationCriteria: readonly PreviewMetric[] = [
   {
+    id: 'criteria-employees',
     label: '근무자 조건',
     value: '30명',
     caption: '가능 근무와 제외 조건 포함',
   },
   {
+    id: 'criteria-history',
     label: '이전 이력',
     value: '전월 5일',
     caption: '연속 야간과 휴식 기준 확인',
   },
   {
+    id: 'criteria-ward',
     label: '병동 기준',
     value: '요일별',
     caption: 'D/E/N 기준 인원 적용',
   },
 ] as const
 
-const aiRows = [
-  { label: 'Day', value: '96%', width: '96%', barClass: 'bg-emerald-500' },
-  { label: 'Evening', value: '92%', width: '92%', barClass: 'bg-sky-500' },
-  { label: 'Night', value: '88%', width: '88%', barClass: 'bg-violet-500' },
+const aiRows: readonly PreviewProgressMetric[] = [
+  { id: 'ai-row-day', label: 'Day', value: '96%', width: '96%', barClass: 'bg-emerald-500' },
+  { id: 'ai-row-evening', label: 'Evening', value: '92%', width: '92%', barClass: 'bg-sky-500' },
+  { id: 'ai-row-night', label: 'Night', value: '88%', width: '88%', barClass: 'bg-shift-night' },
 ] as const
 
 const offRequests: readonly OffRequestPreview[] = [
   {
+    id: 'off-request-kim-apr-07',
     employee: '김하늘',
     date: '4월 7일',
     approved: true,
     reason: '필요 인력 기준을 유지하면서 Off 요청을 반영했습니다.',
   },
   {
+    id: 'off-request-lee-apr-12',
     employee: '이서윤',
     date: '4월 12일',
     approved: false,
     reason: '해당 일자 N 근무 가능 인원이 부족해 검토 항목으로 남겼습니다.',
   },
   {
+    id: 'off-request-choi-apr-18',
     employee: '최유진',
     date: '4월 18일',
     approved: true,
@@ -471,21 +622,25 @@ const offRequests: readonly OffRequestPreview[] = [
 
 const guideChecks: readonly GuideCheckPreview[] = [
   {
+    id: 'guide-consecutive-night',
     label: '연속 야간 제한',
     description: '연속 야간 4회 이상 배치가 없도록 점검합니다.',
     warning: true,
   },
   {
+    id: 'guide-rest-after-night',
     label: '야간 후 휴식',
     description: '연속 야간이 끝난 뒤 48시간 이상 휴식이 확보되는지 확인합니다.',
     warning: false,
   },
   {
+    id: 'guide-nod',
     label: 'NOD 금지',
     description: '야간 이후 Off 없이 주간으로 이어지는 배치를 확인합니다.',
     warning: true,
   },
   {
+    id: 'guide-required-staffing',
     label: '필요 인력 충족',
     description: '4월 12일 Evening 기준 인원이 부족합니다.',
     warning: true,
@@ -493,80 +648,106 @@ const guideChecks: readonly GuideCheckPreview[] = [
 ]
 
 const guideCells: readonly GuideCellPreview[] = [
-  { label: 'D', shift: 'D', warning: false },
-  { label: 'E', shift: 'E', warning: false },
-  { label: 'N', shift: 'N', warning: false },
-  { label: 'NOD', shift: 'N', warning: true },
-  { label: 'OFF', shift: 'OFF', warning: false },
-  { label: 'D', shift: 'D', warning: false },
-  { label: '부족', shift: 'E', warning: true },
-  { label: 'N', shift: 'N', warning: false },
+  { id: 'guide-cell-01', label: 'D', shift: 'D', warning: false },
+  { id: 'guide-cell-02', label: 'E', shift: 'E', warning: false },
+  { id: 'guide-cell-03', label: 'N', shift: 'N', warning: false },
+  { id: 'guide-cell-04', label: 'NOD', shift: 'N', warning: true },
+  { id: 'guide-cell-05', label: 'OFF', shift: 'OFF', warning: false },
+  { id: 'guide-cell-06', label: 'D', shift: 'D', warning: false },
+  { id: 'guide-cell-07', label: '부족', shift: 'E', warning: true },
+  { id: 'guide-cell-08', label: 'N', shift: 'N', warning: false },
 ]
 
-const candidatePlans: readonly CandidatePlanPreview[] = [
+const operationEdits: readonly OperationEditPreview[] = [
   {
-    name: '버전 A',
-    badge: '추천',
-    badgeClass: 'bg-emerald-50 text-emerald-700',
-    metrics: [
-      { label: 'Off 반영률', value: '82%' },
-      { label: '야간/주말 편차', value: '낮음' },
-      { label: '수정 건수', value: '3건' },
-      { label: 'Excel 내보내기', value: '준비' },
-    ],
+    id: 'operation-edit-kim-apr-08',
+    employee: '김하늘',
+    date: '4월 8일',
+    before: 'N',
+    after: 'OFF',
   },
   {
-    name: '버전 B',
-    badge: '비교',
-    badgeClass: 'bg-sky-50 text-sky-700',
-    metrics: [
-      { label: 'Off 반영률', value: '76%' },
-      { label: '야간/주말 편차', value: '보통' },
-      { label: '수정 건수', value: '6건' },
-      { label: 'Excel 내보내기', value: '검토' },
-    ],
+    id: 'operation-edit-lee-apr-09',
+    employee: '이서윤',
+    date: '4월 9일',
+    before: 'OFF',
+    after: 'E',
   },
+  {
+    id: 'operation-edit-park-apr-10',
+    employee: '박민지',
+    date: '4월 10일',
+    before: 'E',
+    after: 'D',
+  },
+]
+
+const operationStatuses: readonly OperationStatusPreview[] = [
+  {
+    id: 'operation-status-save',
+    label: '저장',
+    value: '저장됨',
+    valueClass: 'text-emerald-700',
+  },
+  {
+    id: 'operation-status-revalidate',
+    label: '재검증',
+    value: '재검증 필요',
+    valueClass: 'text-amber-700',
+  },
+  {
+    id: 'operation-status-export',
+    label: 'Excel',
+    value: 'Excel 내보내기',
+    valueClass: 'text-gray-950',
+  },
+]
+
+const fairnessSummaryMetrics: readonly FairnessSummaryMetric[] = [
+  { id: 'fairness-summary-cumulative', label: '누적', value: '3개월' },
+  { id: 'fairness-summary-average', label: '평균', value: '야간 6회' },
+  { id: 'fairness-summary-minmax', label: '최소/최대', value: '5회 / 7회' },
 ]
 
 const fairnessRows: readonly FairnessRowPreview[] = [
   {
-    id: 'nurse-kim',
+    id: 'fairness-row-kim',
     name: '김하늘',
-    balance: '확인',
+    status: '평균 범위',
     width: '74%',
     metrics: [
-      { label: '야간', value: '6회' },
-      { label: '주말', value: '3회' },
-      { label: 'Off', value: '9일' },
+      { id: 'kim-night-total', label: '야간', value: '6회' },
+      { id: 'kim-weekend-total', label: '주말', value: '3회' },
+      { id: 'kim-off-total', label: 'Off', value: '9일' },
     ],
   },
   {
-    id: 'nurse-lee',
+    id: 'fairness-row-lee',
     name: '이서윤',
-    balance: '관찰',
+    status: '확인 필요',
     width: '68%',
     metrics: [
-      { label: '야간', value: '7회' },
-      { label: '주말', value: '4회' },
-      { label: 'Off', value: '8일' },
+      { id: 'lee-night-total', label: '야간', value: '7회' },
+      { id: 'lee-weekend-total', label: '주말', value: '4회' },
+      { id: 'lee-off-total', label: 'Off', value: '8일' },
     ],
   },
   {
-    id: 'nurse-park',
+    id: 'fairness-row-park',
     name: '박민지',
-    balance: '확인',
+    status: '평균 범위',
     width: '72%',
     metrics: [
-      { label: '야간', value: '5회' },
-      { label: '주말', value: '3회' },
-      { label: 'Off', value: '10일' },
+      { id: 'park-night-total', label: '야간', value: '5회' },
+      { id: 'park-weekend-total', label: '주말', value: '3회' },
+      { id: 'park-off-total', label: 'Off', value: '10일' },
     ],
   },
 ]
 
 const rollingHistory: readonly RollingHistoryPreview[] = [
-  { month: '2월', value: '6회', width: '60%' },
-  { month: '3월', value: '7회', width: '70%' },
-  { month: '4월', value: '6회', width: '60%' },
+  { id: 'rolling-history-feb', period: '2월', average: '평균 6회', width: '60%' },
+  { id: 'rolling-history-mar', period: '3월', average: '평균 7회', width: '70%' },
+  { id: 'rolling-history-apr', period: '4월', average: '평균 6회', width: '60%' },
 ]
 </script>
