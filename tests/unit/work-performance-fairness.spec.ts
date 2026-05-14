@@ -175,7 +175,58 @@ function buildFairnessFixture(): {
   }
 }
 
+function workedAssignment(
+  employeeId: string,
+  date: string,
+  shiftCode: 'D' | 'N' = 'D',
+): WorkPerformanceAssignmentRow {
+  return {
+    scheduleVersionId: 'version-1',
+    employeeId,
+    date,
+    shiftId: `shift-${shiftCode.toLowerCase()}`,
+    shiftCode,
+    shiftName: shiftCode === 'N' ? '야간' : '주간',
+  }
+}
+
 describe('computeWorkPerformanceFairness', () => {
+  it('includes employees with worked assignments when finalized schedules store only worked days', () => {
+    const sparseEmployees: WorkPerformanceEmployeeRow[] = [
+      { id: 'employee-a', name: '김민지' },
+      { id: 'employee-b', name: '박서준' },
+      { id: 'employee-c', name: '이휴무' },
+    ]
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      workedAssignment('employee-a', '2026-01-01', 'D'),
+      workedAssignment('employee-a', '2026-01-02', 'N'),
+      workedAssignment('employee-b', '2026-01-03', 'D'),
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'employee-c',
+        date: '2026-01-04',
+        shiftId: 'shift-off',
+        shiftCode: 'O',
+        shiftName: 'Off',
+      },
+    ]
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: sparseEmployees,
+      assignments,
+      offRequests: [],
+      publicHolidayDates: ['2026-01-01'],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows.map((row) => row.employeeId)).toEqual(['employee-a', 'employee-b'])
+    expect(result.excludedEmployeeCount).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.night.count).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.weekendHoliday.count).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.weekendHoliday.count).toBe(1)
+  })
+
   it('computes metric counts, evidence, summaries, exclusions, and default priority sorting', () => {
     const { assignments, offRequests } = buildFairnessFixture()
 
@@ -268,6 +319,8 @@ describe('computeWorkPerformanceFairness', () => {
 
     setWorkedDates(assignments, 'night-heavy', ['2026-01-05', '2026-01-06'], 'N')
     setWorkedDates(assignments, 'weekend-heavy', ['2026-01-03', '2026-01-04'], 'D')
+    setWorkedDates(assignments, '2', ['2026-01-13'], 'D')
+    setWorkedDates(assignments, '1', ['2026-01-13'], 'D')
 
     const offRequests = [
       offRequest('2', '2026-01-10'),
@@ -326,6 +379,7 @@ describe('computeWorkPerformanceFairness', () => {
     assignments.find((assignment) => assignment.date === '2026-01-01')!.shiftCode = null
     assignments.find((assignment) => assignment.date === '2026-01-03')!.shiftCode = ''
     assignments.find((assignment) => assignment.date === '2026-01-04')!.shiftCode = '   '
+    assignments.find((assignment) => assignment.date === '2026-01-05')!.shiftCode = 'D'
 
     const result = computeWorkPerformanceFairness({
       period,

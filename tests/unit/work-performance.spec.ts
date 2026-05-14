@@ -497,10 +497,15 @@ describe('WorkPerformance', () => {
       employees,
       assignments: buildAssignmentsFromShiftCodes(employees, {
         'two-off': {
+          '2026-01-05': 'D',
           '2026-01-06': 'O',
           '2026-01-07': 'O',
         },
+        'zero-off': {
+          '2026-01-05': 'D',
+        },
         'one-off': {
+          '2026-01-05': 'D',
           '2026-01-08': 'O',
         },
       }),
@@ -629,8 +634,8 @@ describe('WorkPerformance', () => {
 
     await runQuery(wrapper)
 
-    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('이 기간 전체를 근무한 직원이 없습니다')
-    expect(wrapper.text()).toContain('선택 기간 전체에 배정 기록이 있는 직원만 비교 대상에 포함됩니다')
+    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('이 기간에 근무한 직원이 없습니다')
+    expect(wrapper.text()).toContain('선택 기간에 확정 근무 배정이 있는 직원만 비교 대상에 포함됩니다')
     expect(wrapper.find('[data-test="work-performance-table"]').exists()).toBe(false)
   })
 

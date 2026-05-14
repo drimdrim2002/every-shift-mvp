@@ -230,7 +230,7 @@ export function computeWorkPerformanceFairness({
   const threshold = clampWorkPerformanceThresholdDays(highlightThresholdDays)
   const employeeById = new Map(employees.map((employee) => [employee.id, employee]))
   const assignmentsByEmployeeDate = new Map<string, WorkPerformanceAssignmentRow>()
-  const coverageDatesByEmployee = new Map<string, Set<string>>()
+  const workedDatesByEmployee = new Map<string, Set<string>>()
 
   assignments.forEach((assignment) => {
     if (!employeeById.has(assignment.employeeId) || !requiredDateSet.has(assignment.date)) {
@@ -239,9 +239,11 @@ export function computeWorkPerformanceFairness({
 
     assignmentsByEmployeeDate.set(mapKey(assignment.employeeId, assignment.date), assignment)
 
-    const coverageDates = coverageDatesByEmployee.get(assignment.employeeId) ?? new Set<string>()
-    coverageDates.add(assignment.date)
-    coverageDatesByEmployee.set(assignment.employeeId, coverageDates)
+    if (isWorkedAssignment(assignment)) {
+      const workedDates = workedDatesByEmployee.get(assignment.employeeId) ?? new Set<string>()
+      workedDates.add(assignment.date)
+      workedDatesByEmployee.set(assignment.employeeId, workedDates)
+    }
   })
 
   const offRequestDatesByEmployee = new Map<string, Set<string>>()
@@ -256,9 +258,7 @@ export function computeWorkPerformanceFairness({
     offRequestDatesByEmployee.set(request.employeeId, requestDates)
   })
 
-  const includedEmployees = employees.filter(
-    (employee) => (coverageDatesByEmployee.get(employee.id)?.size ?? 0) === requiredDates.length,
-  )
+  const includedEmployees = employees.filter((employee) => (workedDatesByEmployee.get(employee.id)?.size ?? 0) > 0)
   const excludedEmployeeCount = employees.length - includedEmployees.length
 
   const countRows = includedEmployees.map((employee) => {

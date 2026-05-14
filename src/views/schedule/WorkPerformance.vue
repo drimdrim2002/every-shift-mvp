@@ -233,10 +233,10 @@
         class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-10 text-center"
       >
         <h2 class="text-xl font-semibold text-slate-900">
-          이 기간 전체를 근무한 직원이 없습니다
+          이 기간에 근무한 직원이 없습니다
         </h2>
         <p class="mt-2 text-sm text-slate-500">
-          선택 기간 전체에 배정 기록이 있는 직원만 비교 대상에 포함됩니다. 입퇴사나 누락 배정이 있는 직원은 제외됩니다.
+          선택 기간에 확정 근무 배정이 있는 직원만 비교 대상에 포함됩니다. 근무 배정이 없는 직원은 제외됩니다.
         </p>
       </div>
 
