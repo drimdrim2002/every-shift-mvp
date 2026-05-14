@@ -245,7 +245,7 @@
                   :dates="grid.dates.value"
                   :constraints="constraints"
                   :comments="displayConstraintNotes"
-                  :readonly="false"
+                  :readonly="Boolean(step4MutationBlockedReason)"
                   :show-last-month="false"
                   :selected-employee-id="selectedEmployeeId"
                   :selected-dates="draftSelectedDates"
@@ -363,6 +363,7 @@
             size="large"
             secondary
             type="error"
+            :disabled="Boolean(step4MutationBlockedReason)"
             @click="handleClearAllOffRequests"
           >
             모든 Off 요청 초기화
@@ -417,136 +418,6 @@
       @update:show="isOffRequestExcelUploadModalOpen = $event"
       @apply="handleApplyOffRequestExcelUpload"
     />
-
-    <n-modal
-      :show="showExistingHistoryChoiceModal"
-      preset="card"
-      class="max-w-md"
-      :mask-closable="false"
-      :closable="false"
-    >
-      <template #header>
-        이미 만든 근무표안이 있습니다
-      </template>
-      <p class="mb-5 text-sm leading-6 text-gray-600">
-        기존 결과를 먼저 확인하거나, Off 요청을 수정해 새 근무표안을 만들 수 있습니다.
-      </p>
-      <div class="flex justify-end gap-2">
-        <n-button
-          type="primary"
-          @click="handleChooseReviewExistingHistory"
-        >
-          기존 결과 보기
-        </n-button>
-        <n-button @click="handleChooseEditExistingHistory">
-          요청 수정해서 새 근무표안 만들기
-        </n-button>
-      </div>
-    </n-modal>
-
-    <n-modal
-      :show="isEditOffStartModalOpen"
-      preset="card"
-      class="max-w-md"
-      :mask-closable="!isCreatingEditOffDraftVersion"
-      :closable="false"
-    >
-      <template #header>
-        새 근무표안으로 Off 요청 수정
-      </template>
-      <div class="space-y-4">
-        <div class="space-y-2">
-          <p class="text-sm font-medium leading-6 text-gray-700">
-            근무표안 이름
-          </p>
-          <n-input
-            :value="pendingEditOffDraftVersionName"
-            data-test="edit-off-start-version-name-input"
-            maxlength="100"
-            placeholder="예: 3안"
-            :disabled="isCreatingEditOffDraftVersion"
-            @update:value="pendingEditOffDraftVersionName = $event"
-            @keyup.enter="handleConfirmEditOffDraftStart"
-          />
-        </div>
-        <n-checkbox
-          :checked="shouldCopyExistingOffRequests"
-          data-test="edit-off-copy-off-checkbox"
-          :disabled="isCreatingEditOffDraftVersion"
-          @update:checked="shouldCopyExistingOffRequests = $event"
-        >
-          기존 Off 요청을 새 근무표안으로 복사
-        </n-checkbox>
-        <div class="flex justify-end gap-2">
-          <n-button
-            :disabled="isCreatingEditOffDraftVersion"
-            @click="handleCancelEditOffDraftStart"
-          >
-            취소
-          </n-button>
-          <n-button
-            type="primary"
-            :loading="isCreatingEditOffDraftVersion"
-            @click="handleConfirmEditOffDraftStart"
-          >
-            새 근무표안 만들기
-          </n-button>
-        </div>
-      </div>
-    </n-modal>
-
-    <n-modal
-      :show="isVersionNameModalOpen"
-      preset="card"
-      class="max-w-md"
-      :mask-closable="false"
-      :closable="false"
-    >
-      <template #header>
-        새 근무표안 이름
-      </template>
-      <div class="space-y-4">
-        <p class="text-sm leading-6 text-gray-600">
-          근무표안 이름
-        </p>
-        <n-input
-          :value="pendingVersionName"
-          data-test="version-name-input"
-          maxlength="100"
-          placeholder="예: 2안"
-          @update:value="handlePendingVersionNameUpdate"
-          @keyup.enter="handleConfirmVersionName"
-        />
-        <p class="text-xs leading-5 text-gray-500">
-          나중에 비교할 때 알아보기 쉬운 이름을 입력하세요.
-        </p>
-        <div
-          v-if="duplicateVersionCandidate"
-          class="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-        >
-          같은 이름의 생성 실패 안이 있습니다. 이 입력으로 실패 안을 교체해 다시 생성합니다.
-        </div>
-        <div class="flex justify-end gap-2">
-          <n-button @click="handleCancelVersionNameModal">
-            취소
-          </n-button>
-          <n-button
-            v-if="duplicateVersionCandidate"
-            type="warning"
-            @click="handleConfirmOverwriteVersion"
-          >
-            실패 안 교체하고 생성
-          </n-button>
-          <n-button
-            v-else
-            type="primary"
-            @click="handleConfirmVersionName"
-          >
-            이 이름으로 생성
-          </n-button>
-        </div>
-      </div>
-    </n-modal>
   </div>
 </template>
 
@@ -557,9 +428,7 @@ import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleGrid } from '@/composables/useScheduleGrid';
-import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import {
-  createPhase2ScheduleVersion,
   ensurePhase2Schedule,
   deleteThisMonthVersionAssignments,
   getScheduleVersionAssignments,
@@ -568,7 +437,7 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
-import { NAlert, NButton, NCheckbox, NDrawer, NInput, NModal, NPopconfirm, NSpin } from 'naive-ui';
+import { NAlert, NButton, NDrawer, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -583,7 +452,6 @@ import {
   getDefaultExecutedFocusVersionId,
   getDefaultStep5FocusVersionId,
   hasExecutedVersionHistory,
-  isSolverFailedVersion,
   resolveStep4VersionState,
 } from '@/utils/scheduleVersionResolver';
 import { watchDebounced } from '@vueuse/core';
@@ -611,7 +479,6 @@ const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
-const solverRequestBuilder = useScheduleSolverRequest();
 
 const isSubmitting = ref(false);
 const isInitialDataLoading = ref(true);
@@ -632,15 +499,6 @@ const selectedCell = ref<{ employeeId: string; employeeName: string; date: strin
 const showDaySummaryModal = ref(false);
 const selectedDaySummaryDate = ref<string>('');
 const isOffRequestExcelUploadModalOpen = ref(false);
-const showExistingHistoryChoiceModal = ref(false);
-const hasShownExistingHistoryChoiceModal = ref(false);
-const isEditOffStartModalOpen = ref(false);
-const pendingEditOffDraftVersionName = ref('');
-const shouldCopyExistingOffRequests = ref(true);
-const isCreatingEditOffDraftVersion = ref(false);
-const pendingVersionName = ref('');
-const isVersionNameModalOpen = ref(false);
-const duplicateVersionCandidate = ref<ScheduleVersionSummary | null>(null);
 const requestComposerRef = ref<{
   focusSearchInput?: () => void;
   prefillSearchQuery?: (value: string) => void;
@@ -661,7 +519,6 @@ const requestApplyStatusMessage = ref<string | null>(null);
 const requestApplyStatusTone = ref<RequestApplyStatusTone>('neutral');
 
 const VALID_CONSTRAINTS = new Set<ConstraintCode>(['O']);
-type PendingHandoffAction = 'first_run' | 'new_re_solve' | 'overwrite_re_solve';
 type RequestApplyStatusTone = 'neutral' | 'info' | 'success' | 'error';
 type PreferenceSnapshot = {
   constraints: ConstraintMap;
@@ -685,12 +542,9 @@ function createBaselineState(input: BaselineState): BaselineState {
   return input;
 }
 
-type PendingHandoffContext = {
+type Step4HandoffContext = {
   baseline: BaselineState;
   currentSnapshot: PreferenceSnapshot;
-  baselineSnapshot: PreferenceSnapshot;
-  hasNoteChanges: boolean;
-  shouldAutoStartSolver: boolean;
 };
 
 type Step4RequestTypeId = 'off';
@@ -735,8 +589,6 @@ const baselinePreferenceSnapshot = ref<{
   previewVersionId: string;
   snapshot: PreferenceSnapshot;
 } | null>(null);
-const pendingHandoffAction = ref<PendingHandoffAction | null>(null);
-const pendingHandoffContext = ref<PendingHandoffContext | null>(null);
 const pendingLocalDraftSnapshot = ref<PreferenceSnapshot | null>(null);
 
 const requestCatalog = STEP4_REQUEST_CATALOG;
@@ -833,7 +685,7 @@ const canPersistStep4 = computed(() => {
     !isInitialDataLoading.value &&
     !isBaselineLoading.value &&
     !baselineErrorMessage.value &&
-    (!hasUnappliedDraft.value || isEditOffDraftVersionMode.value) &&
+    !hasUnappliedDraft.value &&
     !!baselineState.value &&
     grid.employees.value.length > 0
   );
@@ -848,6 +700,7 @@ const saveAppliedChangesDisabledReason = computed(() => {
   if (baselineErrorMessage.value) return baselineErrorMessage.value;
   if (!baselineState.value) return '기준 버전을 먼저 확인해 주세요.';
   if (grid.employees.value.length === 0) return '직원 정보가 없습니다.';
+  if (step4MutationBlockedReason.value) return step4MutationBlockedReason.value;
   if (!hasUnpersistedAppliedChanges.value) return '저장할 변경사항이 없습니다.';
   return null;
 });
@@ -873,38 +726,30 @@ const hasPendingStep4Changes = computed(() => {
 
 const hasPendingLocalDraft = computed(() => pendingLocalDraftSnapshot.value !== null);
 const routePreviewVersionId = computed(() => normalizeRouteQueryString(route.query.version));
-const routeSourceVersionId = computed(() => normalizeRouteQueryString(route.query.sourceVersion));
-const isEditOffDraftVersionMode = computed(() => {
-  return (
-    hasExplicitEditIntent()
-    && routePreviewVersionId.value !== null
-    && baselineState.value?.previewVersionId === routePreviewVersionId.value
-  );
+const previewVersionSummary = computed(() => {
+  const baseline = baselineState.value;
+  if (!baseline) return null;
+  return baseline.versions.find((version) => version.id === baseline.previewVersionId) ?? null;
 });
-const isExistingResultEditMode = computed(() => {
-  return hasExplicitEditIntent() && baselineState.value?.hasExecutedHistory === true;
-});
-const isLegacyExistingResultEditMode = computed(() => {
-  return isExistingResultEditMode.value && !isEditOffDraftVersionMode.value;
+const step4MutationBlockedReason = computed(() => {
+  const previewVersion = previewVersionSummary.value;
+  if (!previewVersion) return null;
+  if (previewVersion.status === 'solving' || previewVersion.activeSolverExecutionId) {
+    return '현재 근무표안을 생성 중이라 Off 요청을 수정할 수 없습니다.';
+  }
+  if (previewVersion.isFinalized || previewVersion.status === 'finalized') {
+    return '확정된 근무표안은 Off 요청을 수정하거나 다시 생성할 수 없습니다.';
+  }
+  return null;
 });
 
 const nextStepLabel = computed(() => {
-  if (isEditOffDraftVersionMode.value) {
-    return '근무표 생성(AI)';
-  }
-
-  if (isExistingResultEditMode.value) {
-    return baselineState.value?.hasCurrentMonthAssignments
-      ? '생성 시작으로 이동'
-      : '근무표 생성(AI)';
-  }
-
   if (!baselineState.value?.hasCurrentMonthAssignments) {
     return '근무표 생성(AI)';
   }
 
   if (hasPendingStep4Changes.value) {
-    return '생성 시작으로 이동';
+    return '근무표 생성(AI)';
   }
 
   return baselineState.value?.hasCurrentMonthAssignments
@@ -962,25 +807,6 @@ const tempPreferenceScope = computed(() => {
 
 function normalizeRouteQueryString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-function hasExplicitEditIntent(): boolean {
-  return route.query.intent === 'edit-off';
-}
-
-function maybeOpenExistingHistoryChoiceModal(): void {
-  const baseline = baselineState.value;
-  if (
-    !baseline
-    || !baseline.hasExecutedHistory
-    || hasExplicitEditIntent()
-    || hasShownExistingHistoryChoiceModal.value
-  ) {
-    return;
-  }
-
-  hasShownExistingHistoryChoiceModal.value = true;
-  showExistingHistoryChoiceModal.value = true;
 }
 
 function ensureEmployeeMaps(): void {
@@ -1442,6 +1268,11 @@ function handleDraftNoteUpdate(note: string): void {
 }
 
 function handleGridCellSelect(payload: { employeeId: string; date: string }): void {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   const existingRow =
     buildCurrentEmployeeRequests(payload.employeeId).find((row) => row.dates.includes(payload.date)) ?? null;
   const nextDates = existingRow?.dates ?? [payload.date];
@@ -1494,65 +1325,37 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 async function applyDraftRequest(): Promise<void> {
   const employeeIds = [...selectedEmployeeIds.value];
 
+  if (step4MutationBlockedReason.value) {
+    setRequestApplyStatus(step4MutationBlockedReason.value, 'error');
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   if (employeeIds.length === 0 || !canApplyDraft.value || isApplyRequestSaving.value) {
     return;
   }
 
   isApplyRequestSaving.value = true;
-  setRequestApplyStatus(
-    hasExplicitEditIntent() ? '요청을 반영하는 중입니다.' : '요청을 저장하는 중입니다.',
-    'info'
-  );
+  setRequestApplyStatus('요청을 저장하는 중입니다.', 'info');
 
   try {
     const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
-    const result = isEditOffDraftVersionMode.value
-      ? await saveEditOffDraftPreferenceMaps(
-          nextPreferenceMaps.constraints,
-          nextPreferenceMaps.notes,
-          {
-            successMessage: '요청이 새 근무표안에 저장되었습니다.',
-            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
-            logMessage: 'Saving edit-off draft request-entry preferences',
-          }
-        )
-      : isLegacyExistingResultEditMode.value
-      ? stageStep4PreferenceMaps(
-          nextPreferenceMaps.constraints,
-          nextPreferenceMaps.notes,
-          {
-            successMessage: '요청이 새 근무표안 입력에 반영되었습니다.',
-            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 반영합니다.',
-            logMessage: 'Staging edit-off request-entry preferences',
-          }
-        )
-      : await persistStep4PreferenceMaps(
-          nextPreferenceMaps.constraints,
-          nextPreferenceMaps.notes,
-          {
-            successMessage: '요청이 저장되었습니다.',
-            staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
-            logMessage: 'Saving request-entry preferences',
-          }
-        );
+    const result = await persistStep4PreferenceMaps(
+      nextPreferenceMaps.constraints,
+      nextPreferenceMaps.notes,
+      {
+        successMessage: '요청이 저장되었습니다.',
+        staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 요청을 저장합니다.',
+        logMessage: 'Saving request-entry preferences',
+      }
+    );
 
     if (!result) return;
 
-    if (isLegacyExistingResultEditMode.value) {
-      resetDraftState();
-    } else {
-      editingRequestKey.value = null;
-      dirtySinceLastApply.value = false;
-      blockedTransitionReason.value = null;
-    }
-    setRequestApplyStatus(
-      isEditOffDraftVersionMode.value
-        ? '요청이 새 근무표안에 저장되었습니다.'
-        : isLegacyExistingResultEditMode.value
-        ? '요청이 새 근무표안 입력에 반영되었습니다.'
-        : '요청이 DB에 저장되었습니다.',
-      'success'
-    );
+    editingRequestKey.value = null;
+    dirtySinceLastApply.value = false;
+    blockedTransitionReason.value = null;
+    setRequestApplyStatus('요청이 DB에 저장되었습니다.', 'success');
 
     if (isRequestDrawerOpen.value) {
       void focusRequestComposerSearch();
@@ -1591,6 +1394,11 @@ function handleDeleteRequest(requestKey: string): void {
 
 // Callbacks
 function handleAssignmentUpdate(payload: { employeeId: string; date: string; shiftCode: string }) {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   if (!constraints.value[payload.employeeId]) {
     constraints.value[payload.employeeId] = {};
   }
@@ -1606,6 +1414,11 @@ function handleAssignmentUpdate(payload: { employeeId: string; date: string; shi
 }
 
 function handleContextMenu(payload: { event: MouseEvent; employeeId: string; date: string }) {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   const currentConstraint = constraints.value[payload.employeeId]?.[payload.date];
   if (currentConstraint !== 'O') {
     showInfo('근무 불가(O) 셀에서만 사유를 입력할 수 있습니다.');
@@ -1677,21 +1490,6 @@ function toErrorMessage(error: unknown): string {
   }
 
   return String(error);
-}
-
-function readErrorCode(error: unknown): string | null {
-  if (typeof error !== 'object' || error === null) {
-    return null;
-  }
-
-  const candidate = error as { code?: unknown; message?: unknown };
-  if (typeof candidate.code === 'string' && candidate.code.length > 0) {
-    return candidate.code;
-  }
-  if (typeof candidate.message === 'string' && /^[a-z0-9_]+$/.test(candidate.message)) {
-    return candidate.message;
-  }
-  return null;
 }
 
 function logRestoreTrace(message: string, payload?: Record<string, unknown>): void {
@@ -1804,128 +1602,6 @@ function arePreferenceSnapshotsEqual(left: PreferenceSnapshot, right: Preference
 
 function areConstraintSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
   return serializeConstraintMap(left.constraints) === serializeConstraintMap(right.constraints);
-}
-
-function areNoteSnapshotsEqual(left: PreferenceSnapshot, right: PreferenceSnapshot): boolean {
-  return serializeCommentMap(left.notes) === serializeCommentMap(right.notes);
-}
-
-function countChangedEntries<T extends string>(left: Record<string, Record<string, T>>, right: Record<string, Record<string, T>>): number {
-  const employeeIds = new Set([...Object.keys(left), ...Object.keys(right)]);
-  let changedCount = 0;
-
-  employeeIds.forEach((employeeId) => {
-    const dates = new Set([
-      ...Object.keys(left[employeeId] ?? {}),
-      ...Object.keys(right[employeeId] ?? {}),
-    ]);
-
-    dates.forEach((date) => {
-      if ((left[employeeId]?.[date] ?? '') !== (right[employeeId]?.[date] ?? '')) {
-        changedCount += 1;
-      }
-    });
-  });
-
-  return changedCount;
-}
-
-function buildStep4InputDiffSummary(
-  baselineSnapshot: PreferenceSnapshot,
-  currentSnapshot: PreferenceSnapshot
-) {
-  const changedOffRequests = countChangedEntries(
-    baselineSnapshot.constraints,
-    currentSnapshot.constraints
-  );
-  const changedNotes = countChangedEntries(baselineSnapshot.notes, currentSnapshot.notes);
-
-  return {
-    changedOffRequests,
-    changedLockedAssignments: 0,
-    changedSiteRequirements: 0,
-    note: changedNotes > 0 ? `step4_notes_changed:${changedNotes}` : null,
-  };
-}
-
-function getNextVersionNameDefault(): string {
-  const versions = baselineState.value?.versions ?? [];
-  const usedNumericNames = new Set<number>();
-
-  versions.forEach((version) => {
-    if (isSolverFailedVersion(version) || version.archivedAt) {
-      return;
-    }
-
-    const match = normalizeVersionName(version.name).match(/^(\d+)안$/);
-    const numericName = match?.[1] ? Number(match[1]) : NaN;
-
-    if (Number.isInteger(numericName) && numericName > 0) {
-      usedNumericNames.add(numericName);
-    }
-  });
-
-  let nextNameNumber = 1;
-  while (usedNumericNames.has(nextNameNumber)) {
-    nextNameNumber += 1;
-  }
-
-  return `${nextNameNumber}안`;
-}
-
-function normalizeVersionName(name: string | null): string {
-  return (name ?? '').trim().toLowerCase();
-}
-
-function findDuplicateVersionByName(name: string): ScheduleVersionSummary | null {
-  const normalizedName = normalizeVersionName(name);
-  if (!normalizedName) return null;
-
-  return (
-    baselineState.value?.versions.find((version) => {
-      return normalizeVersionName(version.name) === normalizedName;
-    }) ?? null
-  );
-}
-
-function isVersionBlockedForOverwrite(version: ScheduleVersionSummary): boolean {
-  return Boolean(
-    version.isFinalized
-    || version.status === 'finalized'
-    || version.status === 'solving'
-    || version.activeSolverExecutionId
-    || version.archivedAt
-  );
-}
-
-function clearPendingVersionHandoff(): void {
-  pendingVersionName.value = '';
-  isVersionNameModalOpen.value = false;
-  duplicateVersionCandidate.value = null;
-  pendingHandoffAction.value = null;
-  pendingHandoffContext.value = null;
-}
-
-function openVersionNameModal(
-  action: PendingHandoffAction,
-  context: PendingHandoffContext
-): void {
-  pendingHandoffAction.value = action;
-  pendingHandoffContext.value = context;
-  duplicateVersionCandidate.value = null;
-  pendingVersionName.value = action === 'first_run' ? '1안' : getNextVersionNameDefault();
-  isVersionNameModalOpen.value = true;
-}
-
-function handlePendingVersionNameUpdate(value: string): void {
-  pendingVersionName.value = value;
-
-  if (
-    duplicateVersionCandidate.value
-    && normalizeVersionName(value) !== normalizeVersionName(duplicateVersionCandidate.value.name)
-  ) {
-    duplicateVersionCandidate.value = null;
-  }
 }
 
 function setBaselinePreferenceSnapshot(
@@ -2051,6 +1727,10 @@ async function handleOpenRequestDrawer(options: { preserveBlockedReason?: boolea
 }
 
 function handleOpenRequestDrawerClick(): void {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
   void handleOpenRequestDrawer();
 }
 
@@ -2068,6 +1748,10 @@ function handleRequestDrawerVisibility(show: boolean): void {
 }
 
 function handleOpenOffRequestExcelUploadModal(): void {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
   if (pageLevelBlockedReason.value) {
     showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
     return;
@@ -2094,6 +1778,11 @@ function handleDownloadOffRequestExcel(): void {
 }
 
 function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   pendingLocalDraftSnapshot.value = null;
   policyRejectionReasons.value = {};
   policyCheckStatuses.value = {};
@@ -2334,7 +2023,6 @@ async function restoreData(forceRefresh = false) {
         if (hasCurrentPreferences()) {
           storePendingLocalDraftSnapshot(scopedLocalSnapshot);
           showInfo('저장된 요청 데이터를 불러왔습니다.');
-          maybeOpenExistingHistoryChoiceModal();
           return;
         }
       }
@@ -2357,7 +2045,6 @@ async function restoreData(forceRefresh = false) {
       if (hasCurrentPreferences()) {
         storePendingLocalDraftSnapshot(scopedLocalSnapshot);
         showInfo('기존 저장 데이터(schedule 기준)를 불러왔습니다.');
-        maybeOpenExistingHistoryChoiceModal();
         return;
       }
     }
@@ -2376,7 +2063,6 @@ async function restoreData(forceRefresh = false) {
     }
     syncPolicyRejectionDisplay([]);
     storePendingLocalDraftSnapshot(scopedLocalSnapshot);
-    maybeOpenExistingHistoryChoiceModal();
   } catch {
     showError(baselineErrorMessage.value ?? 'Step4 초기화에 실패했습니다.');
   }
@@ -2390,237 +2076,6 @@ async function handleRetryBaseline() {
 }
 
 // Actions
-function handleChooseEditExistingHistory() {
-  showExistingHistoryChoiceModal.value = false;
-  hasShownExistingHistoryChoiceModal.value = true;
-  pendingEditOffDraftVersionName.value = getNextVersionNameDefault();
-  shouldCopyExistingOffRequests.value = true;
-  isEditOffStartModalOpen.value = true;
-}
-
-function handleCancelEditOffDraftStart(): void {
-  if (isCreatingEditOffDraftVersion.value) return;
-  isEditOffStartModalOpen.value = false;
-}
-
-function buildRouteQueryWithEditOffDraftVersion(
-  draftVersionId: string,
-  sourceVersionId: string
-): Record<string, string> {
-  const query: Record<string, string> = {};
-
-  Object.entries(route.query).forEach(([key, value]) => {
-    if (
-      typeof value === 'string'
-      && value.length > 0
-      && key !== 'intent'
-      && key !== 'version'
-      && key !== 'sourceVersion'
-    ) {
-      query[key] = value;
-    }
-  });
-
-  query.intent = 'edit-off';
-  query.version = draftVersionId;
-  query.sourceVersion = sourceVersionId;
-  return query;
-}
-
-function createEmptyPreferenceMapsForCurrentEmployees(): PreferenceSnapshot {
-  const emptyConstraints: ConstraintMap = {};
-  const emptyNotes: CommentMap = {};
-
-  grid.employees.value.forEach((employee) => {
-    emptyConstraints[employee.id] = {};
-    emptyNotes[employee.id] = {};
-  });
-
-  return {
-    constraints: emptyConstraints,
-    notes: emptyNotes,
-  };
-}
-
-function buildCreatedDraftVersionSummary(
-  baseline: BaselineState,
-  input: {
-    versionId: string;
-    sourceVersionId: string;
-    name: string;
-    inputDiffSummary: ReturnType<typeof buildStep4InputDiffSummary>;
-  }
-): ScheduleVersionSummary {
-  const maxVersionNo = baseline.versions.reduce(
-    (max, version) => Math.max(max, version.versionNo),
-    0
-  );
-
-  return {
-    id: input.versionId,
-    scheduleId: baseline.scheduleId,
-    versionNo: maxVersionNo + 1,
-    name: input.name,
-    sourceType: 're_solve',
-    baseVersionId: input.sourceVersionId,
-    status: 'draft',
-    currentRevision: 1,
-    manualEditCount: 0,
-    inputDiffSummary: input.inputDiffSummary,
-    latestEvaluationId: null,
-    latestEvaluationResultStatus: null,
-    comparisonMetrics: null,
-    finalizationGate: null,
-    activeSolverExecutionId: null,
-    isSelected: false,
-    isFinalized: false,
-  };
-}
-
-function resolveCreatedVersionList(
-  baseline: BaselineState,
-  responseVersions: ScheduleVersionSummary[],
-  createdVersion: ScheduleVersionSummary
-): ScheduleVersionSummary[] {
-  if (responseVersions.length > 0) {
-    return responseVersions;
-  }
-
-  return [
-    ...baseline.versions.filter((version) => version.id !== createdVersion.id),
-    createdVersion,
-  ];
-}
-
-async function handleConfirmEditOffDraftStart(): Promise<void> {
-  if (isCreatingEditOffDraftVersion.value) return;
-
-  const name = pendingEditOffDraftVersionName.value.trim();
-  if (!name) {
-    showError('근무표안 이름을 입력해 주세요.');
-    return;
-  }
-
-  const duplicate = findDuplicateVersionByName(name);
-  if (duplicate) {
-    showError('이미 같은 이름의 근무표안이 있습니다.');
-    return;
-  }
-
-  isCreatingEditOffDraftVersion.value = true;
-
-  try {
-    const baseline = await ensureBaselineVersion();
-    const sourceVersionId = baseline.previewVersionId;
-    if (!sourceVersionId) {
-      throw new Error('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
-    }
-
-    const baselineSnapshot = await getBaselinePreferenceSnapshot(sourceVersionId);
-    const draftPreferenceMaps = shouldCopyExistingOffRequests.value
-      ? sanitizeSnapshotToCurrentEmployees(baselineSnapshot)
-      : createEmptyPreferenceMapsForCurrentEmployees();
-    const draftSnapshot = createPreferenceSnapshot(
-      draftPreferenceMaps.constraints,
-      draftPreferenceMaps.notes
-    );
-    const inputDiffSummary = buildStep4InputDiffSummary(baselineSnapshot, draftSnapshot);
-    const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
-      baseVersionId: sourceVersionId,
-      name,
-      creationMode: 'new',
-      sourceType: 're_solve',
-      inputDiffSummary,
-    });
-    const draftVersionId = createResponse.createdVersionId;
-
-    await saveScheduleVersionPreferences(
-      baseline.scheduleId,
-      draftVersionId,
-      draftPreferenceMaps.constraints,
-      draftPreferenceMaps.notes
-    );
-    await deleteThisMonthVersionAssignments(
-      baseline.scheduleId,
-      draftVersionId,
-      scheduleStore.basicInfo!.month
-    );
-
-    const nextSchedulePublicId =
-      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
-    const createdVersion = buildCreatedDraftVersionSummary(baseline, {
-      versionId: draftVersionId,
-      sourceVersionId,
-      name,
-      inputDiffSummary,
-    });
-
-    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-    scheduleStore.setPreviewVersionId(draftVersionId);
-    baselineState.value = createBaselineState({
-      scheduleId: baseline.scheduleId,
-      schedulePublicId: nextSchedulePublicId,
-      previewVersionId: draftVersionId,
-      selectedVersionId: createResponse.selectedVersionId,
-      defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-      hasExecutedHistory: baseline.hasExecutedHistory,
-      versions: resolveCreatedVersionList(baseline, createResponse.versions, createdVersion),
-      defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
-      defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
-      hasCurrentMonthAssignments: false,
-    });
-    commitPreferenceMaps(draftPreferenceMaps.constraints, draftPreferenceMaps.notes);
-    setBaselinePreferenceSnapshot(draftVersionId, draftSnapshot);
-    syncPolicyRejectionDisplay([]);
-    pendingLocalDraftSnapshot.value = null;
-    clearCurrentScopedTempPreferencesStorage();
-
-    isEditOffStartModalOpen.value = false;
-    await router.replace({
-      query: buildRouteQueryWithEditOffDraftVersion(draftVersionId, sourceVersionId),
-    });
-  } catch (error) {
-    if (readErrorCode(error) === 'version_name_exists') {
-      try {
-        await ensureBaselineVersion(true);
-      } catch (refreshError) {
-        console.warn('새 근무표안 이름 충돌 후 기준 버전 새로고침 실패:', refreshError);
-      }
-      showError('이미 같은 이름의 근무표안이 있습니다.');
-      return;
-    }
-
-    console.error(error);
-    showError(error instanceof Error ? error.message : '새 근무표안 생성 중 오류가 발생했습니다.');
-    try {
-      await ensureBaselineVersion(true);
-    } catch (refreshError) {
-      console.warn('새 근무표안 생성 실패 후 기준 버전 새로고침 실패:', refreshError);
-    }
-  } finally {
-    isCreatingEditOffDraftVersion.value = false;
-  }
-}
-
-function handleChooseReviewExistingHistory() {
-  const baseline = baselineState.value;
-  if (!baseline) {
-    showError('기준 버전 정보가 없습니다. Step4를 다시 열어 주세요.');
-    return;
-  }
-
-  showExistingHistoryChoiceModal.value = false;
-  scheduleStore.currentStep = 5;
-  router.push(buildStep5Route(
-    baseline.schedulePublicId ?? baseline.scheduleId,
-    baseline.defaultStep5FocusVersionId,
-    [],
-    {
-      defaultVersionId: baseline.defaultStep5FocusVersionId,
-    }
-  ));
-}
-
 function handlePrev() {
   scheduleStore.setAssignments(constraints.value);
   scheduleStore.setComments(constraintNotes.value);
@@ -2659,6 +2114,11 @@ function clearAllOffRequestsInMemory(): void {
 }
 
 function handleClearAllOffRequests(): void {
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
+
   if (!window.$dialog?.warning) {
     showError('확인 대화상자를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     return;
@@ -2738,97 +2198,12 @@ async function persistStep4PreferenceMaps(
   return { scheduleId, previewVersionId };
 }
 
-function stageStep4PreferenceMaps(
-  nextConstraints: ConstraintMap,
-  nextNotes: CommentMap,
-  options: {
-    successMessage: string;
-    staleEmployeeMessage: string;
-    logMessage: string;
-  }
-): boolean {
-  if (!scheduleStore.basicInfo) return false;
-  if (grid.employees.value.length === 0) {
-    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
-    return false;
-  }
-
-  const sanitized = sanitizeSnapshotToCurrentEmployees({
-    constraints: nextConstraints,
-    notes: nextNotes,
-  });
-  if (sanitized.removedEmployeeIds.length > 0) {
-    logRestoreTrace('Removed stale employee keys before staged preference update', sanitized);
-    showInfo(options.staleEmployeeMessage);
-  }
-
-  logRestoreTrace(options.logMessage, {
-    scheduleId: baselineState.value?.scheduleId ?? scheduleStore.basicInfo.scheduleId ?? null,
-    scheduleVersionId: baselineState.value?.previewVersionId ?? null,
-    offRequestCount: countStoredOffRequests(sanitized.constraints),
-    hasNotes: hasAnyConstraintNotes(sanitized.notes),
-  });
-
-  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
-  showSuccess(options.successMessage);
-  return true;
-}
-
-async function saveEditOffDraftPreferenceMaps(
-  nextConstraints: ConstraintMap,
-  nextNotes: CommentMap,
-  options: {
-    successMessage: string;
-    staleEmployeeMessage: string;
-    logMessage: string;
-  }
-): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
-  if (!scheduleStore.basicInfo) return;
-  if (grid.employees.value.length === 0) {
-    showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
-    return;
-  }
-
-  const sanitized = sanitizeSnapshotToCurrentEmployees({
-    constraints: nextConstraints,
-    notes: nextNotes,
-  });
-  if (sanitized.removedEmployeeIds.length > 0) {
-    logRestoreTrace('Removed stale employee keys before edit-off draft preference persistence', sanitized);
-    showInfo(options.staleEmployeeMessage);
-  }
-
-  const { scheduleId, previewVersionId } = await ensureBaselineVersion();
-  const offRequestCount = countStoredOffRequests(sanitized.constraints);
-
-  logRestoreTrace(options.logMessage, {
-    scheduleId,
-    scheduleVersionId: previewVersionId,
-    offRequestCount,
-    hasNotes: hasAnyConstraintNotes(sanitized.notes),
-  });
-
-  await saveScheduleVersionPreferences(
-    scheduleId,
-    previewVersionId,
-    sanitized.constraints,
-    sanitized.notes
-  );
-  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
-  setBaselinePreferenceSnapshot(
-    previewVersionId,
-    createPreferenceSnapshot(sanitized.constraints, sanitized.notes)
-  );
-  syncPolicyRejectionDisplay([]);
-  pendingLocalDraftSnapshot.value = null;
-  clearCurrentScopedTempPreferencesStorage();
-
-  showSuccess(options.successMessage);
-  return { scheduleId, previewVersionId };
-}
-
 async function handleSave(): Promise<{ scheduleId: string; previewVersionId: string } | undefined> {
   if (!scheduleStore.basicInfo) return;
+  if (step4MutationBlockedReason.value) {
+    showInfo(step4MutationBlockedReason.value);
+    return;
+  }
   if (hasUnappliedDraft.value) {
     blockedTransitionReason.value = pageLevelBlockedReason.value;
     showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
@@ -2836,31 +2211,6 @@ async function handleSave(): Promise<{ scheduleId: string; previewVersionId: str
   }
 
   try {
-    if (isEditOffDraftVersionMode.value) {
-      return await saveEditOffDraftPreferenceMaps(
-        constraints.value,
-        constraintNotes.value,
-        {
-          successMessage: '요청이 새 근무표안에 저장되었습니다.',
-          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
-          logMessage: 'Saving edit-off draft preferences',
-        }
-      );
-    }
-
-    if (isLegacyExistingResultEditMode.value) {
-      stageStep4PreferenceMaps(
-        constraints.value,
-        constraintNotes.value,
-        {
-          successMessage: '새 근무표안 입력으로 임시 반영되었습니다.',
-          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 임시 반영합니다.',
-          logMessage: 'Staging edit-off preferences',
-        }
-      );
-      return;
-    }
-
     return await persistStep4PreferenceMaps(
       constraints.value,
       constraintNotes.value,
@@ -2914,7 +2264,7 @@ function routeToStep5(
 }
 
 async function buildPendingHandoffContext(): Promise<{
-  context: PendingHandoffContext;
+  context: Step4HandoffContext;
   hasStep4Changes: boolean;
   hasConstraintChanges: boolean;
 }> {
@@ -2936,413 +2286,19 @@ async function buildPendingHandoffContext(): Promise<{
   const baselineSnapshot = await getBaselinePreferenceSnapshot(baseline.previewVersionId);
   const hasStep4Changes = !arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot);
   const hasConstraintChanges = !areConstraintSnapshotsEqual(baselineSnapshot, currentSnapshot);
-  const hasNoteChanges = !areNoteSnapshotsEqual(baselineSnapshot, currentSnapshot);
 
   return {
     context: {
       baseline,
       currentSnapshot,
-      baselineSnapshot,
-      hasNoteChanges,
-      shouldAutoStartSolver: !baseline.hasCurrentMonthAssignments,
     },
     hasStep4Changes,
     hasConstraintChanges,
   };
 }
 
-async function routeFirstRunAfterName(context: PendingHandoffContext, name: string): Promise<void> {
-  const { baseline, baselineSnapshot, currentSnapshot } = context;
-  const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
-    basicInfo: {
-      ...scheduleStore.basicInfo!,
-      scheduleId: baseline.scheduleId,
-    },
-    scheduleId: baseline.scheduleId,
-    versionId: baseline.previewVersionId,
-    constraints: constraints.value,
-    siteRequirements: scheduleStore.siteRequirements,
-    shifts: orgStore.shifts,
-    lastMonthDays: 5,
-    siteId: orgStore.foundationSite?.id ?? null,
-    onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
-  });
-
-  const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
-    baseVersionId: baseline.previewVersionId,
-    name,
-    creationMode: 'overwrite',
-    overwriteVersionId: baseline.previewVersionId,
-    sourceType: 'initial_solve',
-    inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
-    inputSnapshot,
-  });
-  const nextSchedulePublicId =
-    createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
-  const nextVersionId = createResponse.createdVersionId;
-
-  if (!arePreferenceSnapshotsEqual(baselineSnapshot, currentSnapshot)) {
-    await saveScheduleVersionPreferences(
-      baseline.scheduleId,
-      nextVersionId,
-      constraints.value,
-      constraintNotes.value
-    );
-  }
-
-  scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-  scheduleStore.setPreviewVersionId(nextVersionId);
-  baselineState.value = createBaselineState({
-    scheduleId: baseline.scheduleId,
-    schedulePublicId: nextSchedulePublicId,
-    previewVersionId: nextVersionId,
-    selectedVersionId: createResponse.selectedVersionId,
-    defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-    hasExecutedHistory: baseline.hasExecutedHistory,
-    versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
-    defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
-    defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
-    hasCurrentMonthAssignments: false,
-  });
-  setBaselinePreferenceSnapshot(nextVersionId, currentSnapshot);
-  routeToStep5(nextSchedulePublicId, nextVersionId, {
-    compareVersionIds: [nextVersionId, createResponse.selectedVersionId].filter(
-      (versionId): versionId is string => !!versionId
-    ),
-    autoStart: context.shouldAutoStartSolver,
-    defaultVersionId: baseline.defaultRouteFocusVersionId,
-  });
-}
-
-async function createAndRouteReSolveVersion(
-  context: PendingHandoffContext,
-  name: string,
-  creationMode: 'new' | 'overwrite',
-  overwriteVersionId?: string
-): Promise<void> {
-  const { baseline, baselineSnapshot, currentSnapshot, hasNoteChanges } = context;
-  const { inputSnapshot } = await solverRequestBuilder.buildScheduleSolverRequest({
-    basicInfo: {
-      ...scheduleStore.basicInfo!,
-      scheduleId: baseline.scheduleId,
-    },
-    scheduleId: baseline.scheduleId,
-    versionId: baseline.previewVersionId,
-    constraints: constraints.value,
-    siteRequirements: scheduleStore.siteRequirements,
-    shifts: orgStore.shifts,
-    lastMonthDays: 5,
-    siteId: orgStore.foundationSite?.id ?? null,
-    onSiteRequirementsLoaded: scheduleStore.setSiteRequirements,
-  });
-
-  const createResponse = await createPhase2ScheduleVersion(baseline.scheduleId, {
-    baseVersionId: baseline.previewVersionId,
-    name,
-    creationMode,
-    ...(overwriteVersionId ? { overwriteVersionId } : {}),
-    sourceType: 're_solve',
-    inputDiffSummary: buildStep4InputDiffSummary(baselineSnapshot, currentSnapshot),
-    inputSnapshot,
-  });
-
-  if (!createResponse.wasCreated) {
-    const nextSchedulePublicId =
-      createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
-
-    if (creationMode === 'overwrite') {
-      await saveScheduleVersionPreferences(
-        baseline.scheduleId,
-        createResponse.createdVersionId,
-        constraints.value,
-        constraintNotes.value
-      );
-      await deleteThisMonthVersionAssignments(
-        baseline.scheduleId,
-        createResponse.createdVersionId,
-        scheduleStore.basicInfo!.month
-      );
-
-      scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-      scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-      baselineState.value = createBaselineState({
-        scheduleId: baseline.scheduleId,
-        schedulePublicId: nextSchedulePublicId,
-        previewVersionId: createResponse.createdVersionId,
-        selectedVersionId: createResponse.selectedVersionId,
-        defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-        hasExecutedHistory: baseline.hasExecutedHistory,
-        versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
-        defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
-        defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
-        hasCurrentMonthAssignments: false,
-      });
-      setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
-      routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
-        compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
-          (versionId): versionId is string => !!versionId
-        ),
-        autoStart: true,
-        defaultVersionId: baseline.defaultRouteFocusVersionId,
-      });
-      return;
-    }
-
-    const reusedAssignmentData = await getScheduleVersionAssignments(createResponse.createdVersionId);
-    const reusedHasCurrentMonthAssignments = hasCurrentMonthAssignments(
-      reusedAssignmentData.assignments,
-      scheduleStore.basicInfo!.month
-    );
-
-    if (hasNoteChanges) {
-      await saveScheduleVersionPreferences(
-        baseline.scheduleId,
-        createResponse.createdVersionId,
-        constraints.value,
-        constraintNotes.value
-      );
-    }
-
-    scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-    scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-    baselineState.value = createBaselineState({
-      scheduleId: baseline.scheduleId,
-      schedulePublicId: nextSchedulePublicId,
-      previewVersionId: createResponse.createdVersionId,
-      selectedVersionId: createResponse.selectedVersionId,
-      defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-      hasExecutedHistory: baseline.hasExecutedHistory,
-      versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
-      defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
-      defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
-      hasCurrentMonthAssignments: reusedHasCurrentMonthAssignments,
-    });
-    setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
-    routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
-      compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
-        (versionId): versionId is string => !!versionId
-      ),
-      autoStart: !reusedHasCurrentMonthAssignments,
-      defaultVersionId: baseline.defaultRouteFocusVersionId,
-    });
-    return;
-  }
-
-  await saveScheduleVersionPreferences(
-    baseline.scheduleId,
-    createResponse.createdVersionId,
-    constraints.value,
-    constraintNotes.value
-  );
-  await deleteThisMonthVersionAssignments(
-    baseline.scheduleId,
-    createResponse.createdVersionId,
-    scheduleStore.basicInfo!.month
-  );
-
-  scheduleStore.setSelectedVersionId(createResponse.selectedVersionId);
-  scheduleStore.setPreviewVersionId(createResponse.createdVersionId);
-  const nextSchedulePublicId =
-    createResponse.schedulePublicId ?? baseline.schedulePublicId ?? baseline.scheduleId;
-  baselineState.value = createBaselineState({
-    scheduleId: baseline.scheduleId,
-    schedulePublicId: nextSchedulePublicId,
-    previewVersionId: createResponse.createdVersionId,
-    selectedVersionId: createResponse.selectedVersionId,
-    defaultRouteFocusVersionId: baseline.defaultRouteFocusVersionId,
-    hasExecutedHistory: baseline.hasExecutedHistory,
-    versions: createResponse.versions.length > 0 ? createResponse.versions : baseline.versions,
-    defaultStep5FocusVersionId: baseline.defaultStep5FocusVersionId,
-    defaultStep5CompareVersionIds: baseline.defaultStep5CompareVersionIds,
-    hasCurrentMonthAssignments: false,
-  });
-  setBaselinePreferenceSnapshot(createResponse.createdVersionId, currentSnapshot);
-  routeToStep5(nextSchedulePublicId, createResponse.createdVersionId, {
-    compareVersionIds: [createResponse.createdVersionId, createResponse.selectedVersionId].filter(
-      (versionId): versionId is string => !!versionId
-    ),
-    autoStart: context.shouldAutoStartSolver,
-    defaultVersionId: baseline.defaultRouteFocusVersionId,
-  });
-}
-
-async function executePendingHandoff(
-  name: string,
-  mode: 'new' | 'overwrite',
-  overwriteVersionId?: string
-): Promise<void> {
-  const action = pendingHandoffAction.value;
-  const context = pendingHandoffContext.value;
-  if (!action || !context) {
-    showError('진행할 근무표안 정보가 없습니다. 다시 시도해 주세요.');
-    return;
-  }
-
-  if (isSubmitting.value) return;
-  isSubmitting.value = true;
-
-  try {
-    if (action === 'first_run') {
-      await routeFirstRunAfterName(context, name);
-    } else {
-      pendingHandoffAction.value = mode === 'overwrite' ? 'overwrite_re_solve' : 'new_re_solve';
-      await createAndRouteReSolveVersion(context, name, mode, overwriteVersionId);
-    }
-    clearPendingVersionHandoff();
-  } catch (error) {
-    console.error(error);
-    if (readErrorCode(error) === 'version_name_exists') {
-      try {
-        await ensureBaselineVersion(true);
-      } catch (refreshError) {
-        console.warn('버전 이름 충돌 후 기준 버전 새로고침 실패:', refreshError);
-      }
-
-      const duplicate = findDuplicateVersionByName(name);
-      duplicateVersionCandidate.value = duplicate;
-
-      if (duplicate && isSolverFailedVersion(duplicate) && !isVersionBlockedForOverwrite(duplicate)) {
-        return;
-      }
-
-      duplicateVersionCandidate.value = null;
-      showError('이미 같은 이름의 근무표안이 있습니다.');
-      return;
-    }
-
-    showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
-async function handleConfirmVersionName() {
-  const name = pendingVersionName.value.trim();
-  if (!name) {
-    showError('근무표안 이름을 입력해 주세요.');
-    return;
-  }
-
-  const duplicate = findDuplicateVersionByName(name);
-  if (duplicate) {
-    if (isSolverFailedVersion(duplicate)) {
-      if (isVersionBlockedForOverwrite(duplicate)) {
-        duplicateVersionCandidate.value = null;
-        showError('이미 같은 이름의 근무표안이 있습니다.');
-        return;
-      }
-
-      duplicateVersionCandidate.value = duplicate;
-      return;
-    }
-
-    if (
-      pendingHandoffAction.value === 'first_run'
-      && pendingHandoffContext.value?.baseline.previewVersionId === duplicate.id
-    ) {
-      duplicateVersionCandidate.value = null;
-      await executePendingHandoff(name, 'new');
-      return;
-    }
-
-    duplicateVersionCandidate.value = null;
-    showError('이미 같은 이름의 근무표안이 있습니다.');
-    return;
-  }
-
-  duplicateVersionCandidate.value = null;
-  await executePendingHandoff(name, 'new');
-}
-
-async function handleConfirmOverwriteVersion() {
-  const duplicate = duplicateVersionCandidate.value;
-  const name = pendingVersionName.value.trim();
-  if (!duplicate || !name) {
-    showError('교체할 실패 안 정보가 없습니다. 다시 시도해 주세요.');
-    return;
-  }
-
-  const currentDuplicate = findDuplicateVersionByName(name);
-  if (!currentDuplicate || currentDuplicate.id !== duplicate.id) {
-    duplicateVersionCandidate.value = null;
-    showError('근무표안 이름이 변경되었습니다. 다시 확인해 주세요.');
-    return;
-  }
-
-  if (!isSolverFailedVersion(duplicate) || isVersionBlockedForOverwrite(duplicate)) {
-    duplicateVersionCandidate.value = null;
-    showError('이미 같은 이름의 근무표안이 있습니다.');
-    return;
-  }
-
-  await executePendingHandoff(name, 'overwrite', duplicate.id);
-}
-
-function handleCancelVersionNameModal() {
-  clearPendingVersionHandoff();
-}
-
-async function handleEditOffDraftNext(): Promise<void> {
-  if (isSubmitting.value) return;
-
-  isSubmitting.value = true;
-  try {
-    const baseline = await ensureBaselineVersion();
-    const draftVersionId = baseline.previewVersionId;
-    if (!draftVersionId) {
-      throw new Error('현재 수정 중인 근무표안 정보를 찾을 수 없습니다.');
-    }
-
-    if (hasUnappliedDraft.value) {
-      const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
-      const saved = await saveEditOffDraftPreferenceMaps(
-        nextPreferenceMaps.constraints,
-        nextPreferenceMaps.notes,
-        {
-          successMessage: '요청이 새 근무표안에 저장되었습니다.',
-          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
-          logMessage: 'Saving edit-off draft preferences before Step5 handoff',
-        }
-      );
-      if (!saved) return;
-      resetDraftState();
-    } else if (hasPendingStep4Changes.value) {
-      const saved = await saveEditOffDraftPreferenceMaps(
-        constraints.value,
-        constraintNotes.value,
-        {
-          successMessage: '요청이 새 근무표안에 저장되었습니다.',
-          staleEmployeeMessage: '현재 직원 목록에 없는 임시 데이터는 제외하고 저장합니다.',
-          logMessage: 'Saving edit-off draft pending preferences before Step5 handoff',
-        }
-      );
-      if (!saved) return;
-    }
-
-    scheduleStore.setAssignments(constraints.value);
-    scheduleStore.setComments(constraintNotes.value);
-
-    routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, draftVersionId, {
-      compareVersionIds: [routeSourceVersionId.value ?? baseline.selectedVersionId].filter(
-        (versionId): versionId is string => !!versionId
-      ),
-      autoStart: true,
-      defaultVersionId: null,
-    });
-  } catch (error) {
-    console.error(error);
-    showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
-  } finally {
-    isSubmitting.value = false;
-  }
-}
-
 async function handleNext() {
   if (isSubmitting.value) return;
-  if (isEditOffDraftVersionMode.value) {
-    await handleEditOffDraftNext();
-    return;
-  }
 
   if (hasUnappliedDraft.value) {
     blockedTransitionReason.value = pageLevelBlockedReason.value;
@@ -3350,68 +2306,52 @@ async function handleNext() {
     return;
   }
 
+  isSubmitting.value = true;
   try {
     const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
     const { baseline } = context;
+    const shouldRegenerate = !baseline.hasCurrentMonthAssignments || hasConstraintChanges;
+    const blockedReason = step4MutationBlockedReason.value;
 
-    if (isLegacyExistingResultEditMode.value) {
-      if (!hasStep4Changes) {
-        showInfo('Off 요청을 수정한 뒤 새 근무표안을 생성할 수 있습니다.');
-        return;
-      }
-
-      openVersionNameModal('new_re_solve', {
-        ...context,
-        shouldAutoStartSolver: true,
-      });
+    if (blockedReason && (hasStep4Changes || shouldRegenerate)) {
+      showInfo(blockedReason);
       return;
     }
 
-    if (!baseline.hasExecutedHistory && context.shouldAutoStartSolver) {
-      openVersionNameModal('first_run', context);
-      return;
-    }
-
-    if (!hasStep4Changes) {
-      if (context.shouldAutoStartSolver) {
-        openVersionNameModal('first_run', context);
-        return;
-      }
-
+    if (!hasStep4Changes && !shouldRegenerate) {
       routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
-        autoStart: context.shouldAutoStartSolver,
         defaultVersionId: baseline.defaultRouteFocusVersionId,
       });
       return;
     }
 
-    if (!hasConstraintChanges) {
-      if (context.shouldAutoStartSolver) {
-        openVersionNameModal('first_run', context);
-        return;
-      }
-
-      if (context.hasNoteChanges) {
-        await saveScheduleVersionPreferences(
-          baseline.scheduleId,
-          baseline.previewVersionId,
-          constraints.value,
-          constraintNotes.value
-        );
-      }
-
+    if (hasStep4Changes) {
+      await saveScheduleVersionPreferences(
+        baseline.scheduleId,
+        baseline.previewVersionId,
+        constraints.value,
+        constraintNotes.value
+      );
       setBaselinePreferenceSnapshot(baseline.previewVersionId, context.currentSnapshot);
-      routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
-        autoStart: context.shouldAutoStartSolver,
-        defaultVersionId: baseline.defaultRouteFocusVersionId,
-      });
-      return;
     }
 
-    openVersionNameModal('new_re_solve', context);
+    if (hasConstraintChanges) {
+      await deleteThisMonthVersionAssignments(
+        baseline.scheduleId,
+        baseline.previewVersionId,
+        scheduleStore.basicInfo!.month
+      );
+    }
+
+    routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
+      autoStart: shouldRegenerate,
+      defaultVersionId: baseline.defaultRouteFocusVersionId,
+    });
   } catch (error) {
     console.error(error);
     showError(error instanceof Error ? error.message : '근무표 생성 요청 중 오류가 발생했습니다.');
+  } finally {
+    isSubmitting.value = false;
   }
 }
 </script>

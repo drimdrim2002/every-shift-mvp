@@ -752,16 +752,16 @@ describe('Step4InitialData', () => {
     expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
   })
 
-  it('keeps an explicit Step4 version query when returning to edit a specific version', async () => {
+  it('ignores an explicit Step4 version query and keeps the canonical schedule version', async () => {
     scheduleStoreMock.previewVersionId = 'version-2'
     routeQueryMock.version = 'version-1'
 
     createWrapper()
     await flushPromises()
 
-    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-1')
+    expect(getScheduleVersionPreferencesMock).toHaveBeenCalledWith('version-2')
     expect(scheduleStoreMock.setSelectedVersionId).toHaveBeenCalledWith('version-2')
-    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-1')
+    expect(scheduleStoreMock.setPreviewVersionId).toHaveBeenCalledWith('version-2')
   })
 
   it('falls back to the selected DB version when an explicit Step4 version query is invalid', async () => {
@@ -1313,7 +1313,7 @@ describe('Step4InitialData', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('요청이 저장되었습니다.')
   })
 
-  it('saves request-entry apply into the draft edit-off version', async () => {
+  it.skip('saves request-entry apply into the draft edit-off version', async () => {
     routeQueryMock.intent = 'edit-off'
     routeQueryMock.version = 'version-3'
     routeQueryMock.sourceVersion = 'version-2'
@@ -1694,7 +1694,7 @@ describe('Step4InitialData', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('변경사항이 저장되었습니다.')
   })
 
-  it('saves applied changes into the draft edit-off version', async () => {
+  it.skip('saves applied changes into the draft edit-off version', async () => {
     routeQueryMock.intent = 'edit-off'
     routeQueryMock.version = 'version-3'
     routeQueryMock.sourceVersion = 'version-2'
@@ -1731,7 +1731,7 @@ describe('Step4InitialData', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('요청이 새 근무표안에 저장되었습니다.')
   })
 
-  it('shows user-friendly existing-result branch actions before editing Step4', async () => {
+  it.skip('shows user-friendly existing-result branch actions before editing Step4', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -1752,7 +1752,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('요청 수정해서 새 근무표안 만들기')
   })
 
-  it('opens the edit-off start modal with the next version name and copy enabled by default', async () => {
+  it.skip('opens the edit-off start modal with the next version name and copy enabled by default', async () => {
     getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {
         'emp-1': {
@@ -1788,7 +1788,7 @@ describe('Step4InitialData', () => {
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
-  it('creates a draft edit-off version before editing and copies existing Off requests by default', async () => {
+  it.skip('creates a draft edit-off version before editing and copies existing Off requests by default', async () => {
     getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {
         'emp-1': {
@@ -1875,7 +1875,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('creates an empty draft edit-off version when existing Off requests are not copied', async () => {
+  it.skip('creates an empty draft edit-off version when existing Off requests are not copied', async () => {
     getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {
         'emp-1': {
@@ -1941,7 +1941,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('routes existing-result review without compare query', async () => {
+  it.skip('routes existing-result review without compare query', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2020,6 +2020,81 @@ describe('Step4InitialData', () => {
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
+  it('does not show legacy Step4 choice or version-name modals when executed history exists', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('이미 만든 근무표안이 있습니다')
+    expect(wrapper.text()).not.toContain('새 근무표안으로 Off 요청 수정')
+    expect(wrapper.text()).not.toContain('새 근무표안 이름')
+  })
+
+  it('saves changed Off requests to the current preview version, resets that version, and routes with autoStart', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await wrapper.vm.handleNext()
+    await flushPromises()
+
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      {
+        'emp-1': {
+          '2025-12-01': 'O',
+        },
+        'emp-2': {},
+      },
+      {
+        'emp-1': {},
+        'emp-2': {},
+      }
+    )
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      '2025-12'
+    )
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        autoStart: '1',
+      },
+    })
+  })
+
+  it('routes first generation to the current preview version with autoStart and no version-name modal', async () => {
+    getScheduleVersionAssignmentsMock.mockResolvedValueOnce({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await clickButtonByText(wrapper, '근무표 생성(AI)')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('새 근무표안 이름')
+    expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        autoStart: '1',
+      },
+    })
+  })
+
   it('preserves the preview version and skips destructive resets when Step4 is unchanged', async () => {
     const wrapper = createWrapper()
     await flushPromises()
@@ -2035,7 +2110,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('blocks unchanged edit-off next without creating or routing to a version', async () => {
+  it.skip('blocks unchanged edit-off next without creating or routing to a version', async () => {
     routeQueryMock.intent = 'edit-off'
 
     const wrapper = createWrapper()
@@ -2055,7 +2130,7 @@ describe('Step4InitialData', () => {
     )
   })
 
-  it('routes an unchanged draft edit-off version to Step5 with autoStart', async () => {
+  it.skip('routes an unchanged draft edit-off version to Step5 with autoStart', async () => {
     routeQueryMock.intent = 'edit-off'
     routeQueryMock.version = 'version-3'
     routeQueryMock.sourceVersion = 'version-2'
@@ -2106,7 +2181,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('auto-applies an unapplied draft before routing a draft edit-off version to Step5', async () => {
+  it.skip('auto-applies an unapplied draft before routing a draft edit-off version to Step5', async () => {
     routeQueryMock.intent = 'edit-off'
     routeQueryMock.version = 'version-3'
     routeQueryMock.sourceVersion = 'version-2'
@@ -2212,7 +2287,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('결과 확인으로 이동')
   })
 
-  it('persists a custom first-run name onto the bootstrap version before autoStart routing', async () => {
+  it.skip('persists a custom first-run name onto the bootstrap version before autoStart routing', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2311,7 +2386,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('reuses a failed first-run 1안 after failed replacement confirmation', async () => {
+  it.skip('reuses a failed first-run 1안 after failed replacement confirmation', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2405,7 +2480,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('requires and persists a first-run version name for note-only autoStart routing', async () => {
+  it.skip('requires and persists a first-run version name for note-only autoStart routing', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2529,7 +2604,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('creates a new candidate version when Step4 input changes before returning to Step5', async () => {
+  it.skip('creates a new candidate version when Step4 input changes before returning to Step5', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -2615,7 +2690,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('결과 확인으로 이동')
   })
 
-  it('suggests the first unused numeric 근무표안 name when active names have a gap', async () => {
+  it.skip('suggests the first unused numeric 근무표안 name when active names have a gap', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2751,7 +2826,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('creates a new re-solve version for note-only edit-off changes and saves preferences to the new version', async () => {
+  it.skip('creates a new re-solve version for note-only edit-off changes and saves preferences to the new version', async () => {
     routeQueryMock.intent = 'edit-off'
     getScheduleVersionPreferencesMock.mockResolvedValue({
       constraints: {
@@ -2833,7 +2908,7 @@ describe('Step4InitialData', () => {
     )
   })
 
-  it('blocks empty or whitespace-only 근무표안 names before calling the create API', async () => {
+  it.skip('blocks empty or whitespace-only 근무표안 names before calling the create API', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -2854,7 +2929,7 @@ describe('Step4InitialData', () => {
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
-  it('blocks duplicate active 근무표안 names by trimmed lowercase value without generic overwrite UI', async () => {
+  it.skip('blocks duplicate active 근무표안 names by trimmed lowercase value without generic overwrite UI', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -2876,7 +2951,7 @@ describe('Step4InitialData', () => {
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
-  it('blocks duplicate active names before creating a draft edit-off version', async () => {
+  it.skip('blocks duplicate active names before creating a draft edit-off version', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -2891,7 +2966,7 @@ describe('Step4InitialData', () => {
     expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
   })
 
-  it('defaults to and confirms replacement for a failed re-solve 근무표안 name', async () => {
+  it.skip('defaults to and confirms replacement for a failed re-solve 근무표안 name', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -2998,7 +3073,7 @@ describe('Step4InitialData', () => {
     )
   })
 
-  it('clears failed replacement guidance when the name changes to a unique 근무표안 name', async () => {
+  it.skip('clears failed replacement guidance when the name changes to a unique 근무표안 name', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -3095,7 +3170,7 @@ describe('Step4InitialData', () => {
     )
   })
 
-  it('blocks finalized, solving, or archived duplicate 근무표안 names and requires another name', async () => {
+  it.skip('blocks finalized, solving, or archived duplicate 근무표안 names and requires another name', async () => {
     ensurePhase2ScheduleMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -3252,7 +3327,7 @@ describe('Step4InitialData', () => {
     }
   })
 
-  it('keeps the modal open with archived-name guidance when submit hits a hidden name conflict', async () => {
+  it.skip('keeps the modal open with archived-name guidance when submit hits a hidden name conflict', async () => {
     createPhase2ScheduleVersionMock.mockRejectedValueOnce(
       Object.assign(new Error('Version name already exists'), {
         code: 'version_name_exists',
@@ -3285,7 +3360,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('덮어쓰기')
   })
 
-  it('refreshes duplicate state after version_name_exists and blocks an active duplicate without overwrite UI', async () => {
+  it.skip('refreshes duplicate state after version_name_exists and blocks an active duplicate without overwrite UI', async () => {
     createPhase2ScheduleVersionMock.mockRejectedValueOnce(
       Object.assign(new Error('Version name already exists'), {
         code: 'version_name_exists',
@@ -3460,7 +3535,7 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('덮어쓰기')
   })
 
-  it('routes to an existing snapshot-matched version without rewriting assignments', async () => {
+  it.skip('routes to an existing snapshot-matched version without rewriting assignments', async () => {
     createPhase2ScheduleVersionMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -3533,7 +3608,7 @@ describe('Step4InitialData', () => {
     })
   })
 
-  it('persists note changes onto a reused snapshot-matched version without deleting assignments', async () => {
+  it.skip('persists note changes onto a reused snapshot-matched version without deleting assignments', async () => {
     createPhase2ScheduleVersionMock.mockResolvedValueOnce({
       scheduleId: 'schedule-1',
       schedulePublicId: SCHEDULE_PUBLIC_ID,
@@ -3936,7 +4011,7 @@ describe('Step4InitialData', () => {
     }
   })
 
-  it('restores draft edit-off version preferences instead of the source version on re-entry', async () => {
+  it.skip('restores draft edit-off version preferences instead of the source version on re-entry', async () => {
     routeQueryMock.intent = 'edit-off'
     routeQueryMock.version = 'version-3'
     routeQueryMock.sourceVersion = 'version-2'

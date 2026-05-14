@@ -21,8 +21,25 @@ export function errorEnvelopeFromUnknown(error: unknown): ErrorEnvelope {
     return { code: error.code, message: error.message };
   }
 
+  if (error === 'single_version_policy_violation') {
+    return {
+      code: 'single_version_policy_violation',
+      message: 'single_version_policy_violation',
+    };
+  }
+
   if (typeof error === 'object' && error !== null) {
     const candidate = error as { code?: unknown; message?: unknown };
+
+    if (candidate.code === 'single_version_policy_violation') {
+      return {
+        code: 'single_version_policy_violation',
+        message:
+          typeof candidate.message === 'string'
+            ? candidate.message
+            : 'single_version_policy_violation',
+      };
+    }
 
     if (typeof candidate.code === 'string' && typeof candidate.message === 'string') {
       return {
@@ -33,6 +50,13 @@ export function errorEnvelopeFromUnknown(error: unknown): ErrorEnvelope {
   }
 
   if (error instanceof Error) {
+    if (error.message === 'single_version_policy_violation') {
+      return {
+        code: 'single_version_policy_violation',
+        message: error.message,
+      };
+    }
+
     return {
       code: 'internal_error',
       message: error.message,
@@ -68,6 +92,7 @@ export function mapErrorToStatus(code: string): number {
     case 'version_solving':
     case 'version_archived':
     case 'last_version':
+    case 'single_version_policy_violation':
     case 'conflict':
       return 409;
     case 'not_found':

@@ -1945,6 +1945,14 @@ export async function createVersion(
 ): Promise<CreateVersionResponse> {
   const schedule = await loadAuthorizedSchedule(client, auth, scheduleId);
 
+  if (request.creationMode === 'new') {
+    throw new ContractError(
+      'single_version_policy_violation',
+      'Only one active schedule version is allowed per month',
+      409
+    );
+  }
+
   if (request.creationMode === 'overwrite') {
     const overwriteVersionId = request.overwriteVersionId;
 
