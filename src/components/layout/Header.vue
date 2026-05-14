@@ -1,9 +1,19 @@
 <template>
   <div class="grid size-full max-w-[1480px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-8">
     <div class="flex min-w-0 items-center">
-      <h1 class="shrink-0 text-2xl font-bold text-slate-900">
-        everyshift
-      </h1>
+      <RouterLink
+        data-test="main-logo-home-link"
+        :to="dashboardRoutePath"
+        class="flex shrink-0 items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+        aria-label="대시보드로 이동"
+        @click="closeOpenNavigationItem"
+      >
+        <img
+          :src="mainLogo"
+          alt="everyshift"
+          class="h-9 w-auto max-w-[160px] object-contain"
+        >
+      </RouterLink>
     </div>
 
     <nav
@@ -82,9 +92,10 @@
 import { computed, ref } from 'vue'
 import { NButton } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import mainLogo from '@/assets/brand/main_logo.png'
 import OrganizationSwitcher from '@/components/layout/OrganizationSwitcher.vue'
 import { useAppNavigation, type AppNavigationItem } from '@/components/layout/useAppNavigation'
-import { LOGIN_ROUTE_PATH } from '@/constants/routes'
+import { getAppHomeRoutePath, LOGIN_ROUTE_PATH } from '@/constants/routes'
 import { useAuthStore } from '@/stores/auth'
 import { useRbacStore } from '@/stores/rbac'
 import { showError, showSuccess } from '@/utils/message'
@@ -92,6 +103,7 @@ import { showError, showSuccess } from '@/utils/message'
 const router = useRouter()
 const authStore = useAuthStore()
 const rbacStore = useRbacStore()
+const dashboardRoutePath = getAppHomeRoutePath()
 const {
   navigationItems,
   activeNavigationKey,

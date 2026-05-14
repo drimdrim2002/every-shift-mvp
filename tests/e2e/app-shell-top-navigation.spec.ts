@@ -62,7 +62,7 @@ test.describe('app shell top navigation', () => {
     await openAppShell(page)
 
     const topNav = page.getByRole('navigation', { name: '주요 메뉴' })
-    await expect(page.getByRole('heading', { name: 'everyshift' })).toBeVisible()
+    await expect(page.getByRole('link', { name: '대시보드로 이동' })).toBeVisible()
     await expect(topNav.getByRole('button', { name: '운영 기준' })).toBeVisible()
     await expect(topNav.getByRole('button', { name: '근무표 생성' })).toBeVisible()
     await expect(topNav.getByRole('button', { name: '근무표 분석' })).toBeVisible()
@@ -90,7 +90,7 @@ test.describe('app shell top navigation', () => {
     await page.setViewportSize({ width: 1024, height: 768 })
     await openAppShell(page)
 
-    const brand = page.getByRole('heading', { name: 'everyshift' })
+    const brand = page.getByRole('link', { name: '대시보드로 이동' })
     const topNav = page.getByRole('navigation', { name: '주요 메뉴' })
     const organizationSwitcher = page.getByTestId('organization-switcher')
 

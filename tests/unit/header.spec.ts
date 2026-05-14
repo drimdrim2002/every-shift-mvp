@@ -1,8 +1,9 @@
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getOpsOrganizationSetupRoutePath,
+  getAppHomeRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
   getWorkPerformanceRoutePath,
@@ -102,6 +103,7 @@ function mountHeader() {
         NButton: {
           template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
         },
+        RouterLink: RouterLinkStub,
       },
     },
   })
@@ -144,7 +146,9 @@ describe('Header', () => {
     expect(wrapper.classes()).toContain('grid')
     expect(wrapper.classes()).toContain('grid-cols-[auto_minmax(0,1fr)_auto]')
     expect(wrapper.classes()).toContain('max-w-[1480px]')
-    expect(wrapper.text()).toContain('everyshift')
+    expect(wrapper.get('[data-test="main-logo-home-link"]').attributes('aria-label')).toBe('대시보드로 이동')
+    expect(wrapper.get('[data-test="main-logo-home-link"] img').attributes('alt')).toBe('everyshift')
+    expect(wrapper.getComponent(RouterLinkStub).props('to')).toBe(getAppHomeRoutePath())
     expect(wrapper.get('nav[aria-label="주요 메뉴"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('운영 기준')
     expect(wrapper.text()).toContain('근무표 생성')
