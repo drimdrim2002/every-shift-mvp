@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   APP_HOME_ROUTE_PATH,
   LEGACY_APPROVAL_QUEUE_ROUTE_PATH,
@@ -21,17 +21,28 @@ import {
   seedPublicLaunchSelectedOrganization,
 } from './helpers'
 
+async function openLoggedOutLanding(page: Page, path = '/') {
+  await page.context().clearCookies()
+  await page.addInitScript(() => {
+    window.localStorage.clear()
+    window.sessionStorage.clear()
+  })
+  await page.goto(path)
+}
+
+async function expectNoPageHorizontalOverflow(page: Page) {
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  )
+
+  expect(hasHorizontalOverflow).toBe(false)
+}
+
 test.describe('public launch route contract', () => {
   test.use({ storageState: { cookies: [], origins: [] } })
 
   test('logged-out visitor sees public landing at root without app chrome', async ({ page }) => {
-    await page.context().clearCookies()
-    await page.addInitScript(() => {
-      window.localStorage.clear()
-      window.sessionStorage.clear()
-    })
-
-    await page.goto('/')
+    await openLoggedOutLanding(page)
 
     const landing = page.getByTestId('public-landing')
     await expect(page).toHaveURL(/\/$/)
@@ -44,70 +55,93 @@ test.describe('public launch route contract', () => {
   })
 
   test('logged-out mobile landing does not overflow horizontally', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 })
-    await page.context().clearCookies()
-    await page.addInitScript(() => {
-      window.localStorage.clear()
-      window.sessionStorage.clear()
-    })
+    for (const viewport of [
+      { width: 360, height: 740 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport)
+      await openLoggedOutLanding(page)
 
-    await page.goto('/')
+      const signupCta = page.getByTestId('public-hero-signup')
+      const inquiryCta = page.getByTestId('public-hero-inquiry')
+      const hero = page.getByTestId('public-hero')
 
-    const signupCta = page.getByTestId('public-hero-signup')
-    const inquiryCta = page.getByTestId('public-hero-inquiry')
-    const hero = page.getByTestId('public-hero')
+      await expect(page.getByTestId('public-landing')).toBeVisible()
+      await expect(signupCta).toBeVisible()
+      await expect(inquiryCta).toBeVisible()
+      await expect(hero.getByTestId('landing-product-preview')).toHaveCount(0)
 
-    await expect(page.getByTestId('public-landing')).toBeVisible()
-    await expect(signupCta).toBeVisible()
-    await expect(inquiryCta).toBeVisible()
-    await expect(hero.getByTestId('landing-product-preview')).toHaveCount(0)
+      const signupBox = await signupCta.boundingBox()
+      const inquiryBox = await inquiryCta.boundingBox()
 
-    const viewportHeight = page.viewportSize()?.height ?? 844
-    const signupBox = await signupCta.boundingBox()
-    const inquiryBox = await inquiryCta.boundingBox()
+      expect(signupBox).not.toBeNull()
+      expect(inquiryBox).not.toBeNull()
+      for (const box of [signupBox, inquiryBox]) {
+        expect(box?.x ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(0)
+        expect((box?.x ?? Number.POSITIVE_INFINITY) + (box?.width ?? 0)).toBeLessThanOrEqual(
+          viewport.width + 1,
+        )
+      }
+      expect(
+        (signupBox?.y ?? Number.POSITIVE_INFINITY) + (signupBox?.height ?? 0),
+      ).toBeLessThanOrEqual(viewport.height)
+      expect(
+        (inquiryBox?.y ?? Number.POSITIVE_INFINITY) + (inquiryBox?.height ?? 0),
+      ).toBeLessThanOrEqual(viewport.height)
 
-    const viewportWidth = page.viewportSize()?.width ?? 390
-    expect(signupBox).not.toBeNull()
-    expect(inquiryBox).not.toBeNull()
-    for (const box of [signupBox, inquiryBox]) {
-      expect(box?.x ?? Number.NEGATIVE_INFINITY).toBeGreaterThanOrEqual(0)
-      expect((box?.x ?? Number.POSITIVE_INFINITY) + (box?.width ?? 0)).toBeLessThanOrEqual(
-        viewportWidth + 1,
-      )
+      await expectNoPageHorizontalOverflow(page)
     }
-    expect((signupBox?.y ?? Number.POSITIVE_INFINITY) + (signupBox?.height ?? 0)).toBeLessThanOrEqual(
-      viewportHeight,
-    )
-    expect(
-      (inquiryBox?.y ?? Number.POSITIVE_INFINITY) + (inquiryBox?.height ?? 0),
-    ).toBeLessThanOrEqual(viewportHeight)
-
-    const hasHorizontalOverflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
-    )
-
-    expect(hasHorizontalOverflow).toBe(false)
   })
 
   test('logged-out mobile landing keeps the AI preview contained', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.context().clearCookies()
-    await page.addInitScript(() => {
-      window.localStorage.clear()
-      window.sessionStorage.clear()
-    })
-
-    await page.goto('/#ai-schedule')
+    await openLoggedOutLanding(page, '/#ai-schedule')
 
     const section = page.locator('#ai-schedule')
     await expect(section.getByTestId('landing-ai-schedule-mock')).toBeVisible()
     await expect(section.getByTestId('landing-ai-proof-panel')).toBeVisible()
 
-    const hasHorizontalOverflow = await page.evaluate(
-      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    await expectNoPageHorizontalOverflow(page)
+  })
+
+  test('logged-out mobile landing shows only the AI product preview', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await openLoggedOutLanding(page, '/#ai-schedule')
+
+    await expect(page.locator('#ai-schedule').getByTestId('landing-product-preview')).toBeVisible()
+
+    for (const id of ['#fairness-management', '#condition-reflection', '#guide-check']) {
+      await expect(page.locator(id).getByTestId('landing-product-preview')).toBeHidden()
+    }
+
+    await expectNoPageHorizontalOverflow(page)
+  })
+
+  test('logged-out mobile landing keeps the bottom inquiry CTA full width without clipping', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 430, height: 932 })
+    await openLoggedOutLanding(page, '/#inquiry')
+
+    const inquirySection = page.getByTestId('public-inquiry-section')
+    const bottomInquiry = page.getByTestId('public-bottom-inquiry')
+
+    await expect(inquirySection).toBeVisible()
+    await expect(bottomInquiry).toBeVisible()
+
+    const sectionBox = await inquirySection.boundingBox()
+    const buttonBox = await bottomInquiry.boundingBox()
+
+    expect(sectionBox).not.toBeNull()
+    expect(buttonBox).not.toBeNull()
+    expect(buttonBox!.height).toBeGreaterThanOrEqual(44)
+    expect(buttonBox!.width).toBeGreaterThanOrEqual(sectionBox!.width - 33)
+    expect(buttonBox!.x).toBeGreaterThanOrEqual(sectionBox!.x)
+    expect(buttonBox!.x + buttonBox!.width).toBeLessThanOrEqual(
+      sectionBox!.x + sectionBox!.width + 1,
     )
 
-    expect(hasHorizontalOverflow).toBe(false)
+    await expectNoPageHorizontalOverflow(page)
   })
 })
 
