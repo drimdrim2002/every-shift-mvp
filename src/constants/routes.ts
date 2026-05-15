@@ -81,6 +81,10 @@ export function getAppHomeRoutePath(): string {
   return APP_HOME_ROUTE_PATH
 }
 
+export function getDashboardCreateScheduleRouteKey(): string {
+  return `${getAppHomeRoutePath()}?createSchedule=1`
+}
+
 export function getApprovalQueueRoutePath(): string {
   return APP_APPROVAL_QUEUE_ROUTE_PATH
 }

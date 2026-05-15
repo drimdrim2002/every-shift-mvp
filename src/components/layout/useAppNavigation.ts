@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   getAppHomeRoutePath,
   getApprovalQueueRoutePath,
+  getDashboardCreateScheduleRouteKey,
   getOpsOrganizationSetupRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
@@ -63,7 +64,7 @@ export function useAppNavigation(): {
         label: '근무표 생성',
         key: scheduleGenerationPath,
         children: [
-          { label: '새 근무표 생성', key: scheduleGenerationPath },
+          { label: '새 근무표 생성', key: getDashboardCreateScheduleRouteKey() },
         ],
       })
       items.push({

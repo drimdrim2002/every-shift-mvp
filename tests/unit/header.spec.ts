@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getAppHomeRoutePath,
+  getDashboardCreateScheduleRouteKey,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
   getWorkPerformanceRoutePath,
@@ -259,7 +260,7 @@ describe('Header', () => {
     }
   })
 
-  it('opens schedule generation on parent click and pushes step1 from the child item', async () => {
+  it('opens schedule generation on parent click and pushes the dashboard create intent from the child item', async () => {
     const wrapper = mountHeader()
     const scheduleButton = findHeaderButton(wrapper, '근무표 생성')
 
@@ -270,7 +271,8 @@ describe('Header', () => {
 
     await findHeaderButton(wrapper, '새 근무표 생성').trigger('click')
 
-    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(pushMock).toHaveBeenCalledWith(getDashboardCreateScheduleRouteKey())
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
   })
 
   it('opens operations submenu on parent click and reveals all child buttons', async () => {
@@ -315,12 +317,12 @@ describe('Header', () => {
     await lookupButton.trigger('click')
 
     expect(lookupButton.attributes('aria-expanded')).toBe('true')
-    expect(findHeaderButton(wrapper, '사이트별').element.tagName).toBe('BUTTON')
-    expect(findHeaderButton(wrapper, '근무자별').element.tagName).toBe('BUTTON')
+    expect(findHeaderButton(wrapper, '생성된 근무표').element.tagName).toBe('BUTTON')
+    expect(findHeaderButton(wrapper, '근무 기록').element.tagName).toBe('BUTTON')
 
-    await findHeaderButton(wrapper, '사이트별').trigger('click')
+    await findHeaderButton(wrapper, '생성된 근무표').trigger('click')
     await lookupButton.trigger('click')
-    await findHeaderButton(wrapper, '근무자별').trigger('click')
+    await findHeaderButton(wrapper, '근무 기록').trigger('click')
 
     expect(pushMock).toHaveBeenCalledWith(getScheduleResultsRoutePath())
     expect(pushMock).toHaveBeenCalledWith(getWorkPerformanceRoutePath())

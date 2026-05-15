@@ -354,7 +354,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { NButton, NSpin, NBadge, NModal, NForm, NFormItem, NDatePicker } from 'naive-ui';
 import { useOrganizationStore } from '@/stores/organization';
 import { useRbacStore } from '@/stores/rbac';
@@ -378,16 +378,21 @@ import {
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
   buildCanonicalStep5RouteLocation,
+  getAppHomeRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
 } from '@/constants/routes';
 import dayjs from 'dayjs';
 import type { ChecklistItem, ChecklistResponse } from '@/types/ops';
 
+const route = useRoute();
 const router = useRouter();
 const orgStore = useOrganizationStore();
 const rbacStore = useRbacStore();
 const scheduleStore = useScheduleStore();
+
+const DASHBOARD_CREATE_SCHEDULE_QUERY_KEY = 'createSchedule';
+const DASHBOARD_CREATE_SCHEDULE_QUERY_VALUE = '1';
 
 const opsReadinessLoading = ref(true);
 const opsReadinessLoadFailed = ref(false);
@@ -763,8 +768,56 @@ async function reloadDashboardData() {
   }
 }
 
-onMounted(async () => {
+function hasDashboardCreateScheduleIntent() {
+  return route.query[DASHBOARD_CREATE_SCHEDULE_QUERY_KEY] === DASHBOARD_CREATE_SCHEDULE_QUERY_VALUE;
+}
+
+function getQueryWithoutDashboardCreateScheduleIntent() {
+  const nextQuery = { ...route.query };
+  delete nextQuery[DASHBOARD_CREATE_SCHEDULE_QUERY_KEY];
+  return nextQuery;
+}
+
+function canOpenDashboardCreateScheduleModal() {
+  return (
+    hasAdminDashboardAccess.value
+    && canManageSchedules.value
+    && !opsReadinessLoading.value
+    && !isDashboardReadinessUnavailable.value
+    && isDashboardReady.value
+    && !scheduleLoading.value
+    && !scheduleListLoadFailed.value
+  );
+}
+
+async function consumeDashboardCreateScheduleIntent() {
+  if (!hasDashboardCreateScheduleIntent()) {
+    return;
+  }
+
+  try {
+    await router.replace({
+      path: getAppHomeRoutePath(),
+      query: getQueryWithoutDashboardCreateScheduleIntent(),
+    });
+  } catch (error) {
+    console.warn('Dashboard create schedule query cleanup failed:', error);
+  }
+
+  if (!canOpenDashboardCreateScheduleModal()) {
+    return;
+  }
+
+  await handleCreateNew();
+}
+
+async function reloadDashboardDataAndConsumeRouteIntent() {
   await reloadDashboardData();
+  await consumeDashboardCreateScheduleIntent();
+}
+
+onMounted(async () => {
+  await reloadDashboardDataAndConsumeRouteIntent();
 });
 
 watch(
@@ -774,7 +827,7 @@ watch(
       return;
     }
 
-    await reloadDashboardData();
+    await reloadDashboardDataAndConsumeRouteIntent();
   },
 );
 
@@ -931,7 +984,7 @@ async function handlePrimaryDashboardAction(action: DashboardPrimaryAction) {
         }
         return;
       case 'create_schedule':
-        handleCreateNew();
+        await handleCreateNew();
         return;
       case 'open_schedule_results':
         await router.push(getScheduleResultsRoutePath());

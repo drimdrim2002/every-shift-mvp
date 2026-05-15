@@ -1,11 +1,16 @@
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
+import {
+  buildCanonicalStep5RouteLocation,
+  getAppHomeRoutePath,
+  getScheduleStepRoutePath,
+} from '@/constants/routes'
 import type { ScheduleSummary } from '@/api/schedule'
 
 const {
   pushMock,
+  replaceMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
   getChecklistMock,
@@ -20,6 +25,7 @@ const {
   supabaseFromMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  replaceMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
   getChecklistMock: vi.fn(),
@@ -34,9 +40,16 @@ const {
   supabaseFromMock: vi.fn(),
 }))
 
+const routeState = reactive({
+  path: '/',
+  query: {} as Record<string, unknown>,
+})
+
 vi.mock('vue-router', () => ({
+  useRoute: () => routeState,
   useRouter: () => ({
     push: pushMock,
+    replace: replaceMock,
   }),
 }))
 
@@ -313,6 +326,12 @@ describe('Dashboard', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-15T09:00:00+09:00'))
+    routeState.path = getAppHomeRoutePath()
+    routeState.query = {}
+    replaceMock.mockImplementation(async (location: { path?: string; query?: Record<string, unknown> }) => {
+      routeState.path = location.path ?? routeState.path
+      routeState.query = location.query ?? {}
+    })
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -575,7 +594,7 @@ describe('Dashboard', () => {
     await flushPromises()
 
     const primaryAction = wrapper.get('[data-test="dashboard-primary-action"]')
-    expect(primaryAction.text()).toContain('근무표 조회로 이동')
+    expect(primaryAction.text()).toContain('생성된 근무표로 이동')
     expect(primaryAction.text()).not.toContain('새 근무표 생성')
   })
 
@@ -1042,6 +1061,78 @@ describe('Dashboard', () => {
     expect(document.body.textContent).toContain(
       '현재 기준 과거 12개월부터 미래 12개월 사이에서, 아직 생성하지 않은 월만 선택할 수 있습니다.'
     )
+  })
+
+  it('opens the month picker from the Dashboard createSchedule query after data is ready', async () => {
+    routeState.query = {
+      createSchedule: '1',
+      keep: 'yes',
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(true)
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {
+        keep: 'yes',
+      },
+    })
+  })
+
+  it('consumes the Dashboard createSchedule query without opening the modal when readiness is incomplete', async () => {
+    routeState.query = {
+      createSchedule: '1',
+    }
+    getChecklistMock.mockResolvedValue(buildChecklistFixture({
+      schedule_foundation: {
+        status: 'blocked',
+        blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+      },
+      employee_roster: {
+        status: 'blocked',
+        blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+      },
+    }, {
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
+    expect(getScheduleListMock).not.toHaveBeenCalled()
+    expect(supabaseFromMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
+  })
+
+  it('consumes the Dashboard createSchedule query without opening the modal when schedule loading fails', async () => {
+    routeState.query = {
+      createSchedule: '1',
+    }
+    getChecklistMock.mockResolvedValue(createReadyChecklist())
+    getScheduleListMock.mockRejectedValue(new Error('schedule list failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
+    expect(supabaseFromMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
   })
 
   it('disables months outside the +/-12 month window and existing schedule months', async () => {
