@@ -443,6 +443,18 @@
               >
                 확정
               </n-button>
+
+              <n-button
+                v-if="shouldShowUnfinalizeAction"
+                size="medium"
+                type="warning"
+                data-test="unfinalize-schedule-button"
+                :loading="isPrimaryActionRunning"
+                :disabled="isUnfinalizeActionDisabled"
+                @click="handleUnfinalizeAction"
+              >
+                확정 취소
+              </n-button>
             </div>
           </div>
         </div>
@@ -663,6 +675,7 @@ import {
   selectPhase2ScheduleVersion,
   recheckPhase2ScheduleVersion,
   finalizePhase2ScheduleVersion,
+  unfinalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
   getPlanningEmployees,
   getPlanningAssignmentsForVersion,
@@ -704,6 +717,7 @@ import type {
   ScheduleBlockingReason,
   SchedulePrimaryAction,
   ScheduleReviewResponse,
+  SolverRequest,
   ScheduleViolationDetail,
   ScheduleVersionSummary,
   ScheduleVersionStatus,
@@ -726,6 +740,10 @@ const LOCAL_SOLVER_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 function isLocalSolverHost() {
   const hostname = window.location.hostname.toLowerCase();
   return LOCAL_SOLVER_HOSTNAMES.has(hostname.replace(/^\[(.*)\]$/, '$1'));
+}
+
+function logLocalSolverPayload(solverRequest: SolverRequest) {
+  console.info('[Step5] Local solver payload:', solverRequest);
 }
 
 const routeScheduleKey = computed(() => {
@@ -1321,6 +1339,9 @@ const primaryActionButtonLabel = computed(() => {
 const shouldShowFinalizeAction = computed(() => {
   return isFinished.value && shouldShowResultDetails.value && !isFinalizedMonth.value;
 });
+const shouldShowUnfinalizeAction = computed(() => {
+  return isFinished.value && shouldShowResultDetails.value && isFinalizedMonth.value;
+});
 const isFinalizeActionDisabled = computed(() => {
   return (
     isPrimaryActionRunning.value
@@ -1330,6 +1351,9 @@ const isFinalizeActionDisabled = computed(() => {
     || !primaryAction.value.targetVersionId
     || Boolean(primaryAction.value.disabledReason)
   );
+});
+const isUnfinalizeActionDisabled = computed(() => {
+  return isPrimaryActionRunning.value || !lockedVersionId.value;
 });
 const generationSummaryCard = computed<Step5SummaryCard>(() => {
   const progress = Math.round(solver.progress.value);
@@ -1403,6 +1427,16 @@ const offRequestSummaryCard = computed<Step5SummaryCard>(() => {
   };
 });
 const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
+  if (isFinalizedMonth.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확정됨',
+      description: '확정 취소 후 다시 편집할 수 있습니다.',
+      tone: 'success',
+    };
+  }
+
   if (!shouldShowFinalizeAction.value) {
     return {
       key: 'finalization',
@@ -2656,10 +2690,6 @@ async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
-  if (isLocalSolverHost()) {
-    showError('현재 환경에서는 근무표를 생성할 수 없습니다.');
-    return;
-  }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
     showInfo('현재 보는 근무표안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
@@ -2673,6 +2703,13 @@ async function handleStartSolver() {
     }
 
     await loadPreferencesForDisplay();
+    if (isLocalSolverHost()) {
+      const solverRequest = await buildSolverRequest();
+      logLocalSolverPayload(solverRequest);
+      showError('현재 환경에서는 근무표를 생성할 수 없습니다.');
+      return;
+    }
+
     await resetPreferenceResolutionByVersion(previewVersionId.value);
 
     const solverRequest = await buildSolverRequest();
@@ -3385,6 +3422,44 @@ async function handleFinalizeAction() {
   }
 
   await handlePrimaryAction();
+}
+
+function handleUnfinalizeAction() {
+  if (isUnfinalizeActionDisabled.value) {
+    return;
+  }
+
+  const versionId = lockedVersionId.value;
+  if (!versionId) {
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '확정 취소',
+    content: '확정을 취소하면 이 월은 실적 계산에서 제외되고 다시 편집할 수 있습니다. 계속할까요?',
+    positiveText: '확정 취소',
+    negativeText: '닫기',
+    onPositiveClick: async () => {
+      isPrimaryActionRunning.value = true;
+
+      try {
+        await unfinalizePhase2ScheduleVersion(versionId);
+        showSuccess('근무표 확정을 취소했습니다.');
+
+        await hub.hydrate();
+        await syncPreviewWorkspace({
+          syncOriginal: true,
+          clearChanges: true,
+          forceAssignmentSync: true,
+        });
+      } catch (error) {
+        console.warn('확정 취소 중 오류:', error);
+        showError(toUserFacingErrorMessage(error, '확정을 취소하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+      } finally {
+        isPrimaryActionRunning.value = false;
+      }
+    },
+  });
 }
 
 function isCurrentMonthDate(date: string) {

@@ -145,7 +145,7 @@ describe('Header', () => {
     expect(wrapper.classes()).toContain('size-full')
     expect(wrapper.classes()).toContain('grid')
     expect(wrapper.classes()).toContain('grid-cols-[auto_minmax(0,1fr)_auto]')
-    expect(wrapper.classes()).toContain('max-w-[1480px]')
+    expect(wrapper.classes()).not.toContain('max-w-[1480px]')
     expect(wrapper.get('[data-test="main-logo-home-link"]').attributes('aria-label')).toBe('대시보드로 이동')
     expect(wrapper.get('[data-test="main-logo-home-link"] img').attributes('alt')).toBe('everyshift')
     expect(wrapper.getComponent(RouterLinkStub).props('to')).toBe(getAppHomeRoutePath())
@@ -191,8 +191,10 @@ describe('Header', () => {
     const navigation = wrapper.get('nav[aria-label="주요 메뉴"]')
 
     expect(navigation.classes()).toContain('justify-start')
-    expect(navigation.classes()).toContain('gap-12')
+    expect(navigation.classes()).toContain('gap-6')
+    expect(navigation.classes()).toContain('pl-6')
     expect(navigation.classes()).not.toContain('justify-center')
+    expect(navigation.classes()).not.toContain('gap-12')
     expect(navigation.classes()).not.toContain('gap-9')
     expect(navigation.classes()).not.toContain('gap-7')
     for (const label of ['운영 기준', '근무표 생성', '근무표 분석']) {
@@ -200,10 +202,11 @@ describe('Header', () => {
 
       expect(button.classes()).toContain('h-16')
       expect(button.classes()).toContain('cursor-pointer')
-      expect(button.classes()).toContain('text-[20px]')
+      expect(button.classes()).toContain('text-base')
       expect(button.classes()).toContain('font-semibold')
       expect(button.classes()).toContain('text-slate-800')
       expect(button.classes()).toContain('hover:text-teal-700')
+      expect(button.classes()).not.toContain('text-[20px]')
       expect(button.classes()).not.toContain('rounded-md')
     }
   })

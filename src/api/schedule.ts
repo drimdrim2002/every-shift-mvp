@@ -26,6 +26,7 @@ import type {
   ScheduleVersionSolveResponse,
   ScheduleVersionRecheckResponse,
   ScheduleVersionFinalizeResponse,
+  ScheduleVersionUnfinalizeResponse,
   ScheduleVersionSolverResultRequest,
   ScheduleVersionSolverResultResponse,
   PlanningOrganization,
@@ -468,6 +469,17 @@ export async function finalizePhase2ScheduleVersion(
 ): Promise<ScheduleVersionFinalizeResponse> {
   return callPhase2Schedule<ScheduleVersionFinalizeResponse>(
     `/schedule-versions/${versionId}/finalize`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function unfinalizePhase2ScheduleVersion(
+  versionId: string
+): Promise<ScheduleVersionUnfinalizeResponse> {
+  return callPhase2Schedule<ScheduleVersionUnfinalizeResponse>(
+    `/schedule-versions/${versionId}/unfinalize`,
     {
       method: 'POST',
     }

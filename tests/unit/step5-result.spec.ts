@@ -29,6 +29,7 @@ const {
   selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersionMock,
+  unfinalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonthMock,
   deletePhase2ScheduleGeneratedResultsMock,
@@ -60,6 +61,7 @@ const {
   selectPhase2ScheduleVersionMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
   finalizePhase2ScheduleVersionMock: vi.fn(),
+  unfinalizePhase2ScheduleVersionMock: vi.fn(),
   resetPhase2ScheduleActiveFlowMock: vi.fn(),
   deletePhase2ScheduleMonthMock: vi.fn(),
   deletePhase2ScheduleGeneratedResultsMock: vi.fn(),
@@ -100,6 +102,7 @@ vi.mock('@/api/schedule', () => ({
   selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
+  unfinalizePhase2ScheduleVersion: unfinalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlow: resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonth: deletePhase2ScheduleMonthMock,
   deletePhase2ScheduleGeneratedResults: deletePhase2ScheduleGeneratedResultsMock,
@@ -745,6 +748,14 @@ describe('Step5Result', () => {
       finalizedVersionId: 'version-2',
       finalizedAt: '2026-04-02T00:00:00Z',
       finalizedBy: 'user-1',
+    })
+    unfinalizePhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      scheduleVersionId: 'version-2',
+      status: 'review_ready',
+      finalizedVersionId: null,
+      finalizedAt: null,
+      finalizedBy: null,
     })
     resetPhase2ScheduleActiveFlowMock.mockResolvedValue({
       scheduleId: 'schedule-1',
@@ -2841,6 +2852,62 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="manual-edit-save-button"]').exists()).toBe(false)
   })
 
+  it('confirms and unfinalizes a finalized month from the bottom action bar', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          isFinalized: true,
+          status: 'finalized',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) =>
+      Promise.resolve(createReviewResponse(versionId, {
+        selectedVersionId: 'version-2',
+        finalizedVersionId: 'version-2',
+        version: {
+          status: 'finalized',
+          isSelected: true,
+          isFinalized: true,
+        },
+        primaryAction: {
+          kind: 'none',
+          targetVersionId: null,
+          label: 'No primary action',
+          disabledReason: null,
+        },
+      }))
+    )
+    const warningDialog = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
+      return options.onPositiveClick?.()
+    })
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      warning: warningDialog,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await emitButtonComponentClick(wrapper, 'unfinalize-schedule-button')
+
+    expect(warningDialog).toHaveBeenCalledWith(expect.objectContaining({
+      title: '확정 취소',
+      positiveText: '확정 취소',
+      negativeText: '닫기',
+    }))
+    expect(unfinalizePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표 확정을 취소했습니다.')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalled()
+  })
+
   it('disables finalization when local compliance has mandatory violations', async () => {
     mockSingleFinalizeReview({
       assignments: {
@@ -3588,9 +3655,10 @@ describe('Step5Result', () => {
   })
 
   it.each(['localhost', '127.0.0.1', '::1'])(
-    'blocks AI start on local hostname %s',
+    'logs the solver payload and blocks AI start on local hostname %s',
     async (hostname) => {
       stubWindowHostname(hostname)
+      const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
       routeMock.query = { version: 'version-1' }
       getPhase2ScheduleCompareMock.mockResolvedValue({
         scheduleId: 'schedule-1',
@@ -3625,9 +3693,16 @@ describe('Step5Result', () => {
       await startSolverButton.trigger('click')
       await flushPromises()
 
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        '[Step5] Local solver payload:',
+        expect.objectContaining({
+          publicHolidays: ['2025-12-25'],
+          yearlyEmployeeStats: [],
+        }),
+      )
       expect(showErrorMock).toHaveBeenCalledWith('현재 환경에서는 근무표를 생성할 수 없습니다.')
       expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
-      expect(mapToSolverRequestMock).not.toHaveBeenCalled()
+      expect(mapToSolverRequestMock).toHaveBeenCalled()
       expect(solverMock.startSolver).not.toHaveBeenCalled()
     }
   )

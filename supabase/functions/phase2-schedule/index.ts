@@ -37,6 +37,7 @@ import {
   review as reviewVersion,
   select as selectVersion,
   syncVersionSolverResult,
+  unfinalizeVersion,
 } from './repository.ts';
 import type {
   CompareResponse,
@@ -50,6 +51,7 @@ import type {
   ResetActiveFlowResponse,
   ReviewResponse,
   ScheduleVersionFinalizeResponse,
+  ScheduleVersionUnfinalizeResponse,
   ScheduleVersionRecheckResponse,
   SelectResponse,
   SolveResponse,
@@ -68,6 +70,7 @@ type ApiResponseBody =
   | ResetActiveFlowResponse
   | ReviewResponse
   | ScheduleVersionFinalizeResponse
+  | ScheduleVersionUnfinalizeResponse
   | ScheduleVersionRecheckResponse
   | SelectResponse
   | SolveResponse
@@ -295,6 +298,16 @@ Deno.serve(async (request) => {
     if (route.route === 'finalize') {
       const versionId = parseUuidParam('versionId', route.params.versionId);
       const result: ScheduleVersionFinalizeResponse = await finalizeVersion(
+        repositoryClient,
+        auth,
+        versionId
+      );
+      return createResponse(request, result, 200);
+    }
+
+    if (route.route === 'unfinalize') {
+      const versionId = parseUuidParam('versionId', route.params.versionId);
+      const result: ScheduleVersionUnfinalizeResponse = await unfinalizeVersion(
         repositoryClient,
         auth,
         versionId

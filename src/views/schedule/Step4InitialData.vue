@@ -1,5 +1,8 @@
 <template>
-  <div class="mx-auto flex h-full max-w-full flex-col px-4">
+  <div
+    data-test="step4-app-container"
+    class="mx-auto flex h-full max-w-full flex-col px-4"
+  >
     <StepIndicator
       :current-step="4"
       class="mb-4"

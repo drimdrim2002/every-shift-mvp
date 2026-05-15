@@ -1,4 +1,4 @@
-import { mount, flushPromises } from '@vue/test-utils'
+import { enableAutoUnmount, mount, flushPromises } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -141,6 +141,8 @@ vi.mock('@/stores/schedule', () => ({
 }))
 
 import Dashboard from '@/views/Dashboard.vue'
+
+enableAutoUnmount(afterEach)
 
 function createWrapper() {
   return mount(Dashboard, {
@@ -316,6 +318,25 @@ function createScheduleSummary(overrides: Partial<ScheduleSummary> = {}): Schedu
   }
 }
 
+function mockExistingScheduleMonthLookup(months: string[]) {
+  const eqMock = vi.fn().mockResolvedValue({
+    data: months.map((month) => ({ month })),
+    error: null,
+  })
+  const selectMock = vi.fn(() => ({
+    eq: eqMock,
+  }))
+
+  supabaseFromMock.mockReturnValue({
+    select: selectMock,
+  })
+
+  return {
+    selectMock,
+    eqMock,
+  }
+}
+
 async function clickPrimaryAction(wrapper: ReturnType<typeof createWrapper>) {
   await wrapper.get('[data-test="dashboard-primary-action"]').trigger('click')
   await flushPromises()
@@ -431,6 +452,7 @@ describe('Dashboard', () => {
       ],
     })
     supabaseFromMock.mockReset()
+    mockExistingScheduleMonthLookup([])
   })
 
   afterEach(() => {
@@ -1083,6 +1105,25 @@ describe('Dashboard', () => {
     })
   })
 
+  it('opens the month picker when createSchedule query is added after Dashboard is already mounted', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    routeState.query = {
+      createSchedule: '1',
+    }
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(true)
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
+  })
+
   it('consumes the Dashboard createSchedule query without opening the modal when readiness is incomplete', async () => {
     routeState.query = {
       createSchedule: '1',
@@ -1252,6 +1293,26 @@ describe('Dashboard', () => {
 
     const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
     expect(monthPicker.props('formattedValue')).toBe('2026-05')
+  })
+
+  it('refreshes created months before opening the creation modal and skips months missing from the loaded list', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      createScheduleSummary({
+        id: 'schedule-next',
+        public_id: 'sch-next',
+        month: '2026-06',
+      }),
+    ])
+    mockExistingScheduleMonthLookup(['2026-05', '2026-06'])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => Promise<void> }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+    expect(monthPicker.props('formattedValue')).toBe('2026-07')
   })
 
   it('shows a warning and does not open the modal when every month in range is already taken', async () => {

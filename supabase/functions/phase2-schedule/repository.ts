@@ -16,6 +16,7 @@ import {
   type ReviewResponse,
   type ScheduleEvaluationResultStatus,
   type ScheduleVersionFinalizeResponse,
+  type ScheduleVersionUnfinalizeResponse,
   type ScheduleVersionRecheckResponse,
   type ScheduleCompareMetrics,
   type ScheduleEvaluation,
@@ -144,6 +145,15 @@ interface FinalizeScheduleVersionAtomicRow {
   finalized_version_id: string;
   finalized_at: string;
   finalized_by: string | null;
+}
+
+interface UnfinalizeScheduleVersionAtomicRow {
+  schedule_id: string;
+  schedule_version_id: string;
+  status: string;
+  finalized_version_id: null;
+  finalized_at: null;
+  finalized_by: null;
 }
 
 interface ReplaceRosterAndResetScheduleAtomicRow {
@@ -1332,6 +1342,16 @@ function remapTrustGateRpcConflict(error: unknown): never {
     if (message === 'already_finalized') {
       throw new ContractError('already_finalized', 'Schedule is already finalized', 409);
     }
+    if (message === 'not_finalized') {
+      throw new ContractError('not_finalized', 'Schedule is not finalized', 409);
+    }
+    if (message === 'finalized_version_mismatch') {
+      throw new ContractError(
+        'finalized_version_mismatch',
+        'Unfinalize target must match finalized_version_id',
+        409
+      );
+    }
     if (message === 'version_locked_for_solving') {
       throw new ContractError(
         'version_locked_for_solving',
@@ -2510,6 +2530,35 @@ export async function finalizeVersion(
       evaluationId: evaluation.id,
       resultStatus: evaluation.resultStatus,
     });
+
+    return {
+      scheduleId: row.schedule_id,
+      scheduleVersionId: row.schedule_version_id,
+      status: row.status as ScheduleVersionStatus,
+      finalizedVersionId: row.finalized_version_id,
+      finalizedAt: row.finalized_at,
+      finalizedBy: row.finalized_by,
+    };
+  } catch (error: unknown) {
+    remapTrustGateRpcConflict(error);
+  }
+}
+
+export async function unfinalizeVersion(
+  client: Phase2ScheduleRepositoryClient,
+  auth: Phase2ScheduleAuthContext,
+  versionId: string
+): Promise<ScheduleVersionUnfinalizeResponse> {
+  await loadAuthorizedVersionContext(client, auth, versionId);
+
+  try {
+    const row = await rpcSingle<UnfinalizeScheduleVersionAtomicRow>(
+      client,
+      'unfinalize_schedule_version_atomic',
+      {
+        p_version_id: versionId,
+      }
+    );
 
     return {
       scheduleId: row.schedule_id,

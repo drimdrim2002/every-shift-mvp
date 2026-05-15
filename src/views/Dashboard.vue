@@ -1,5 +1,8 @@
 <template>
-  <div class="mx-auto max-w-6xl space-y-6 px-4">
+  <AppContainer
+    data-test="dashboard-app-container"
+    class="space-y-6"
+  >
     <div>
       <h1 class="text-2xl font-bold">
         근무표 관리
@@ -349,7 +352,7 @@
         </n-form>
       </div>
     </n-modal>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
@@ -359,6 +362,7 @@ import { NButton, NSpin, NBadge, NModal, NForm, NFormItem, NDatePicker } from 'n
 import { useOrganizationStore } from '@/stores/organization';
 import { useRbacStore } from '@/stores/rbac';
 import { useScheduleStore } from '@/stores/schedule';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import {
   getPhase2ScheduleCompare,
   getScheduleList,
@@ -399,6 +403,7 @@ const opsReadinessLoadFailed = ref(false);
 const scheduleLoading = ref(false);
 const scheduleListLoadFailed = ref(false);
 const schedules = ref<ScheduleSummary[]>([]);
+const verifiedExistingScheduleMonths = ref<Set<string>>(new Set());
 const checklist = ref<ChecklistResponse | null>(null);
 const dashboardLoadRunId = ref(0);
 
@@ -418,7 +423,12 @@ type DatePickerDisableDetail =
   | { type: 'input' };
 
 const schedulableMonthWindow = computed(() => buildSchedulableMonthWindow());
-const existingScheduleMonthSet = computed(() => new Set(schedules.value.map((schedule) => schedule.month)));
+const existingScheduleMonthSet = computed(() =>
+  new Set([
+    ...schedules.value.map((schedule) => schedule.month),
+    ...verifiedExistingScheduleMonths.value,
+  ])
+);
 const nextSchedulableMonth = computed(() =>
   getDefaultSchedulableMonth(existingScheduleMonthSet.value)
 );
@@ -705,6 +715,7 @@ function startDashboardLoadRun() {
 
 function resetDashboardData() {
   schedules.value = [];
+  verifiedExistingScheduleMonths.value = new Set();
   checklist.value = null;
   opsReadinessLoadFailed.value = false;
   scheduleListLoadFailed.value = false;
@@ -821,6 +832,17 @@ onMounted(async () => {
 });
 
 watch(
+  () => route.query[DASHBOARD_CREATE_SCHEDULE_QUERY_KEY],
+  async (nextCreateScheduleIntent) => {
+    if (nextCreateScheduleIntent !== DASHBOARD_CREATE_SCHEDULE_QUERY_VALUE) {
+      return;
+    }
+
+    await consumeDashboardCreateScheduleIntent();
+  },
+);
+
+watch(
   () => rbacStore.selectedOrganizationId,
   async (nextOrganizationId, previousOrganizationId) => {
     if (nextOrganizationId === previousOrganizationId) {
@@ -851,6 +873,7 @@ async function loadSchedules(
     }
 
     schedules.value = data;
+    verifiedExistingScheduleMonths.value = new Set(data.map((schedule) => schedule.month));
   } catch (error) {
     if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
       return;
@@ -858,6 +881,7 @@ async function loadSchedules(
 
     console.warn('근무표 목록 로드 실패:', error);
     schedules.value = [];
+    verifiedExistingScheduleMonths.value = new Set();
     scheduleListLoadFailed.value = true;
   } finally {
     if (runId === dashboardLoadRunId.value && organizationId === orgStore.current?.id) {
@@ -897,8 +921,41 @@ async function loadChecklist(
   }
 }
 
-function handleCreateNew() {
+function extractScheduleMonths(rows: Array<{ month?: string | null }> | null) {
+  return rows
+    ?.map((row) => row.month)
+    .filter((month): month is string => typeof month === 'string' && month.length > 0)
+    ?? [];
+}
+
+async function refreshExistingScheduleMonths() {
+  const organizationId = orgStore.current?.id;
+  if (!organizationId) {
+    throw new Error('Organization is required to verify existing schedule months.');
+  }
+
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('month')
+    .eq('organization_id', organizationId);
+
+  if (error) {
+    throw error;
+  }
+
+  verifiedExistingScheduleMonths.value = new Set(extractScheduleMonths(data));
+}
+
+async function handleCreateNew() {
   if (!canManageSchedules.value) {
+    return;
+  }
+
+  try {
+    await refreshExistingScheduleMonths();
+  } catch (error) {
+    console.warn('기존 근무표 월 조회 실패:', error);
+    showError('이미 생성된 계획월을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
     return;
   }
 

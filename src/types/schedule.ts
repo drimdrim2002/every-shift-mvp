@@ -392,6 +392,15 @@ export interface ScheduleVersionFinalizeResponse {
   finalizedBy: string | null;
 }
 
+export interface ScheduleVersionUnfinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: null;
+  finalizedAt: null;
+  finalizedBy: null;
+}
+
 export interface ResetScheduleRosterRequest {
   organizationId: string;
   month: string;
