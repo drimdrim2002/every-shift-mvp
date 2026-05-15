@@ -24,7 +24,6 @@
       <n-card
         data-test="login-card"
         class="mx-auto w-full max-w-lg"
-        title="로그인"
       >
         <n-form
           ref="formRef"
@@ -66,21 +65,36 @@
           </n-button>
         </n-form>
 
+        <div class="my-5 flex items-center gap-3 text-xs text-slate-500">
+          <span
+            class="h-px flex-1 bg-slate-200"
+            aria-hidden="true"
+          />
+          <span class="shrink-0">또는 소셜 계정으로 로그인</span>
+          <span
+            class="h-px flex-1 bg-slate-200"
+            aria-hidden="true"
+          />
+        </div>
+
         <SocialAuthOptions
-          class="mt-4"
+          intent="login"
           :loading-provider="loadingProvider"
           @start-social="handleSocialStart"
         />
 
-        <n-button
-          data-test="login-to-signup"
-          tertiary
-          block
-          class="mt-4"
-          @click="moveToSignup"
-        >
-          회원가입
-        </n-button>
+        <div class="mt-5 text-center text-sm text-slate-500">
+          <span>계정이 없으신가요?</span>
+          <n-button
+            data-test="login-to-signup"
+            text
+            type="primary"
+            class="ml-1 align-baseline font-medium"
+            @click="moveToSignup"
+          >
+            회원가입
+          </n-button>
+        </div>
       </n-card>
     </div>
   </AuthPageShell>
