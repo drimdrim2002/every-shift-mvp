@@ -679,16 +679,8 @@ import {
   finalizePhase2ScheduleVersion,
   unfinalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
-  getPlanningEmployees,
-  getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
-import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
-import { loadSiteRequirements } from '@/api/employee';
-import { mapToSolverRequest } from '@/utils/solverMapper';
-import {
-  loadSolverYearlyEmployeeStatsWithFallback,
-  resolveSolverHolidayRange,
-} from '@/composables/useScheduleSolverRequest';
+import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
@@ -733,6 +725,7 @@ const grid = useScheduleGrid();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
+const scheduleSolverRequest = useScheduleSolverRequest();
 
 const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
@@ -2551,45 +2544,6 @@ function stopAssignmentsRefresh() {
   isDbRefreshing.value = false;
 }
 
-function buildDateBasedRequirements(siteRequirements: Array<{ dayOfWeek: number; shiftCode: string; requiredCount: number }>) {
-  const weeklyRequirements: Record<
-    number,
-    { D: number; E: number; N: number; O: number; total: number }
-  > = {};
-
-  siteRequirements.forEach((req) => {
-    if (!weeklyRequirements[req.dayOfWeek]) {
-      weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-    }
-
-    const shiftCode = req.shiftCode.toUpperCase();
-    const dayRequirements = weeklyRequirements[req.dayOfWeek];
-    if (!dayRequirements) return;
-
-    if (['D', 'E', 'N', 'O'].includes(shiftCode)) {
-      dayRequirements[shiftCode as 'D' | 'E' | 'N' | 'O'] = req.requiredCount;
-      dayRequirements.total += req.requiredCount;
-    }
-  });
-
-  const dateBasedRequirements: Record<
-    string,
-    { D: number; E: number; N: number; O: number; total: number }
-  > = {};
-
-  grid.dates.value.forEach((date) => {
-    if (date.isLastMonth) return;
-
-    const dayOfWeek = new Date(date.date).getDay();
-    const weeklyRequirement = weeklyRequirements[dayOfWeek];
-    dateBasedRequirements[date.date] = weeklyRequirement
-      ? { ...weeklyRequirement }
-      : { D: 0, E: 0, N: 0, O: 0, total: 0 };
-  });
-
-  return dateBasedRequirements;
-}
-
 async function buildSolverRequest() {
   const basicInfo = scheduleStore.basicInfo;
   const versionId = previewVersionId.value;
@@ -2604,45 +2558,22 @@ async function buildSolverRequest() {
     throw new Error('시프트 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  const { constraints } = await getScheduleVersionPreferences(versionId);
-  const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
-  const planningAssignments = await getPlanningAssignmentsForVersion(versionId);
-
   if (previousMonthFallbackError.value) {
     throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
   }
 
-  let siteRequirements = scheduleStore.siteRequirements;
-  if (!siteRequirements || siteRequirements.length === 0) {
-    siteRequirements = await loadSiteRequirements(basicInfo.organizationId);
-    scheduleStore.setSiteRequirements(siteRequirements);
-  }
-
-  if (!siteRequirements || siteRequirements.length === 0) {
-    throw new Error('사이트 요구사항이 비어 있습니다. Step2에서 먼저 설정해주세요.');
-  }
-
-  const dateBasedRequirements = buildDateBasedRequirements(siteRequirements);
-
-  const solverRequest = mapToSolverRequest(
+  const { solverRequest } = await scheduleSolverRequest.buildScheduleSolverRequest({
     basicInfo,
-    dateBasedRequirements,
-    constraints,
-    planningEmployees,
-    organizationStore.shifts,
-    planningAssignments,
-    lastMonthDays.value,
-    previousMonthFallbackPlanningAssignments.value,
-  );
-  const holidayRange = resolveSolverHolidayRange(solverRequest);
-  solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
-    holidayRange.startDate,
-    holidayRange.endDate,
-  );
-  solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
-    organizationId: basicInfo.organizationId,
-    year: dayjs(`${basicInfo.month}-01`).year(),
-    employeeIds: planningEmployees.map((employee) => employee.employee_id),
+    scheduleId: ensureScheduleId(),
+    versionId,
+    shifts: organizationStore.shifts,
+    siteRequirements: scheduleStore.siteRequirements,
+    lastMonthDays: lastMonthDays.value,
+    siteId: null,
+    fallbackHistoryAssignments: previousMonthFallbackPlanningAssignments.value,
+    onSiteRequirementsLoaded: (requirements) => {
+      scheduleStore.setSiteRequirements(requirements);
+    },
   });
 
   return solverRequest;

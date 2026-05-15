@@ -252,13 +252,70 @@ const gridMock = {
 function createStep5SolverRequest(month = '2025-12') {
   return {
     organization: {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      shifts: [
+        {
+          id: 'shift-1',
+          code: 'D',
+          name: 'Day',
+          start_time: '08:00:00',
+          end_time: '16:00:00',
+        },
+      ],
+      lastHistoricalDate: dayjs(`${month}-01`).subtract(5, 'day').format('YYYY-MM-DD'),
       firstDraftDate: `${month}-01`,
+      publishLength: 5,
       draftLength: dayjs(`${month}-01`).daysInMonth(),
     },
+    employees: [
+      {
+        employee_id: 'emp-1',
+        name: 'Kim',
+        available_shifts: ['D', 'E', 'N', 'O'],
+        skill_set: ['ALL'],
+      },
+    ],
+    history: [],
+    undesirable: [],
+    requirements: [],
     publicHolidays: [],
     yearlyEmployeeStats: [],
   }
 }
+
+const april2025WeekendAndHolidayDates = [
+  { date: '2025-04-04', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-05', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-06', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-11', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-12', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-13', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-15', dayOfWeek: 2, dayName: '화', kind: 'publicHoliday' },
+  { date: '2025-04-18', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-19', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-20', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-25', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-26', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-27', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+]
+
+const december2025WeekendAndHolidayDates = [
+  { date: '2025-12-05', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-06', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-07', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-12', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-13', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-14', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-19', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-20', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-21', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-25', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+  { date: '2025-12-26', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-27', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-28', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+]
 
 function setMockGridDates(month: string, lastMonthDays = 0) {
   const currentMonthDate = dayjs(`${month}-01`).format('YYYY-MM-DD')
@@ -3597,6 +3654,7 @@ describe('Step5Result', () => {
         available_shifts: ['D', 'E', 'N', 'O'],
       },
     ])
+    listPublicHolidayDatesInRangeMock.mockResolvedValueOnce(['2025-04-15'])
     loadSolverYearlyEmployeeStatsMock.mockResolvedValue([
       {
         employee_id: 'emp-1',
@@ -3610,6 +3668,10 @@ describe('Step5Result', () => {
     expect(startSolverButton.attributes('disabled')).toBeUndefined()
 
     await startSolverButton.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    await flushPromises()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     await flushPromises()
 
     expect(mapToSolverRequestMock).toHaveBeenCalledWith(
@@ -3641,7 +3703,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: april2025WeekendAndHolidayDates,
         yearlyEmployeeStats: [
           {
             employee_id: 'emp-1',
@@ -3692,11 +3754,12 @@ describe('Step5Result', () => {
 
       await startSolverButton.trigger('click')
       await flushPromises()
+      await flushPromises()
 
       expect(consoleInfoSpy).toHaveBeenCalledWith(
         '[Step5] Local solver payload:',
         expect.objectContaining({
-          publicHolidays: ['2025-12-25'],
+          publicHolidays: december2025WeekendAndHolidayDates,
           yearlyEmployeeStats: [],
         }),
       )
@@ -3918,6 +3981,8 @@ describe('Step5Result', () => {
     expect(startSolverButton.exists()).toBe(true)
 
     await startSolverButton.trigger('click')
+    await flushPromises()
+    await flushPromises()
     await flushPromises()
 
     expect(showErrorMock).toHaveBeenCalledWith('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.')
@@ -4178,13 +4243,14 @@ describe('Step5Result', () => {
 
     await regenerateButton!.trigger('click')
     await flushPromises()
+    await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-2',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
@@ -4243,6 +4309,7 @@ describe('Step5Result', () => {
     createWrapper()
     await flushPromises()
     await flushPromises()
+    await flushPromises()
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
@@ -4250,7 +4317,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
   })
@@ -4314,7 +4381,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
   })

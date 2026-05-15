@@ -148,13 +148,22 @@ export interface SolverYearlyEmployeeStats {
   approved_off_request_count: number;
 }
 
+export type SolverPublicHolidayKind = 'friday' | 'saturday' | 'sunday' | 'publicHoliday';
+
+export interface SolverPublicHoliday {
+  date: string;
+  dayOfWeek: number;
+  dayName: string;
+  kind: SolverPublicHolidayKind;
+}
+
 export interface ScheduleInputSnapshotSolverInput {
   scheduleId: string;
   organizationId: string;
   siteId: string | null;
   month: string;
   lastMonthDays: number;
-  publicHolidays: string[];
+  publicHolidays: SolverPublicHoliday[];
   yearlyEmployeeStats: SolverYearlyEmployeeStats[];
   employees: ScheduleInputSnapshotEmployee[];
   assignments: ScheduleInputSnapshotAssignment[];
@@ -579,7 +588,7 @@ export interface SolverRequest {
   history: SolverRequestHistoryItem[];
   undesirable: SolverRequestUndesirableItem[];
   requirements: SolverRequestRequirementItem[];
-  publicHolidays: string[];
+  publicHolidays: SolverPublicHoliday[];
   yearlyEmployeeStats: SolverYearlyEmployeeStats[];
 }
 
