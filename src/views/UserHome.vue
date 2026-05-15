@@ -1,6 +1,6 @@
 <template>
-  <div class="mx-auto max-w-3xl px-4">
-    <n-card>
+  <AppContainer>
+    <n-card class="mx-auto max-w-3xl">
       <div class="space-y-4 py-2">
         <div class="space-y-2">
           <p class="text-sm font-medium tracking-wide text-slate-500">
@@ -19,9 +19,10 @@
         </p>
       </div>
     </n-card>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
+import AppContainer from '@/components/layout/AppContainer.vue'
 import { NCard } from 'naive-ui'
 </script>

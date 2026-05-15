@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
+  <AppContainer>
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
@@ -642,7 +642,7 @@
         </n-modal>
       </template>
     </n-card>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
@@ -650,6 +650,7 @@ import dayjs from 'dayjs';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NBadge, NProgress, NAlert, NInputNumber, NSpin, NModal } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';

@@ -142,7 +142,8 @@ describe('Header', () => {
   it('renders brand, primary admin navigation, account context, and logout', () => {
     const wrapper = mountHeader()
 
-    expect(wrapper.classes()).toContain('size-full')
+    expect(wrapper.classes()).toContain('h-full')
+    expect(wrapper.classes()).toContain('w-full')
     expect(wrapper.classes()).toContain('grid')
     expect(wrapper.classes()).toContain('grid-cols-[auto_minmax(0,1fr)_auto]')
     expect(wrapper.classes()).not.toContain('max-w-[1480px]')

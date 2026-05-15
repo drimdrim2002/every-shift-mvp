@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-6xl px-4">
+  <AppContainer>
     <section class="space-y-6">
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -117,13 +117,14 @@
         </div>
       </div>
     </section>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NButton, NSpin } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import { getScheduleList } from '@/api/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { buildCanonicalStep5RouteLocation, getScheduleStepRoutePath } from '@/constants/routes';

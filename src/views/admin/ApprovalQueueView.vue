@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
+  <AppContainer>
     <n-card>
       <template #header>
         <div class="flex items-center justify-between gap-4">
@@ -212,13 +212,14 @@
         </section>
       </div>
     </n-card>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NCard, NEmpty, NInput, NSpin } from 'naive-ui'
+import AppContainer from '@/components/layout/AppContainer.vue'
 import { showError, showSuccess } from '@/utils/message'
 import { useApprovalStore } from '@/stores/approval'
 import { useRbacStore } from '@/stores/rbac'

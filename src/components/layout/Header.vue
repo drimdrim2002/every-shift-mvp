@@ -1,5 +1,6 @@
+<!-- eslint-disable tailwindcss/enforces-shorthand -->
 <template>
-  <div class="grid size-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-6">
+  <div class="grid h-full w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-6">
     <div class="flex min-w-0 items-center">
       <RouterLink
         data-test="main-logo-home-link"
