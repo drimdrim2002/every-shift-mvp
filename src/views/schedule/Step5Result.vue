@@ -406,7 +406,8 @@
               <n-button
                 v-if="isFinished && shouldShowResultDetails"
                 size="medium"
-                :disabled="isVersionReadOnly"
+                :loading="isStartingSolver"
+                :disabled="isStartingSolver || isVersionReadOnly"
                 @click="handleRegenerate"
               >
                 더 개선하기
@@ -2696,6 +2697,8 @@ async function handleStartSolver() {
   }
 
   isStartingSolver.value = true;
+  let shouldFinishLoadingBar = true;
+  window.$loadingBar?.start();
 
   try {
     if (previousMonthFallbackError.value) {
@@ -2719,6 +2722,8 @@ async function handleStartSolver() {
     startAssignmentsRefresh();
     showSuccess('근무표 생성을 시작했습니다.');
   } catch (error) {
+    shouldFinishLoadingBar = false;
+    window.$loadingBar?.error();
     console.warn('근무표 생성 시작 중 오류:', error);
     if (readErrorCode(error) === 'another_version_solving') {
       showError('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
@@ -2740,6 +2745,9 @@ async function handleStartSolver() {
 
     showError(toUserFacingErrorMessage(error, '근무표 생성을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
+    if (shouldFinishLoadingBar) {
+      window.$loadingBar?.finish();
+    }
     isStartingSolver.value = false;
   }
 }
