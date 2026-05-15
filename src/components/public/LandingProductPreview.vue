@@ -36,7 +36,9 @@
       <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div
           data-test="landing-ai-schedule-scroll"
-          class="min-w-0 overflow-x-auto rounded-md border border-gray-200"
+          tabindex="0"
+          aria-label="AI 근무표 미리보기 표 가로 스크롤"
+          class="min-w-0 overflow-x-auto rounded-md border border-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
         >
           <table class="w-full min-w-[680px] table-fixed border-separate border-spacing-0 text-[11px]">
             <thead class="bg-gray-50 text-gray-600">

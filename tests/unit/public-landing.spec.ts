@@ -102,6 +102,15 @@ describe('LandingProductPreview', () => {
     expect(wrapper.find('[data-test="landing-schedule-preview-image"]').exists()).toBe(false)
     expect(scheduleMock.exists()).toBe(true)
     expect(scrollWrapper.classes()).toContain('overflow-x-auto')
+    expect(scrollWrapper.attributes('tabindex')).toBe('0')
+    expect(scrollWrapper.attributes('aria-label')).toBe('AI 근무표 미리보기 표 가로 스크롤')
+    expect(scrollWrapper.classes()).toEqual(
+      expect.arrayContaining([
+        'focus:outline-none',
+        'focus-visible:ring-2',
+        'focus-visible:ring-emerald-600',
+      ]),
+    )
     expect(table.classes()).toContain('w-full')
     expect(table.classes()).toContain('table-fixed')
     expect(table.classes().some((className) => className.startsWith('min-w-'))).toBe(true)
@@ -254,6 +263,7 @@ describe('PublicLandingView', () => {
     const heroText = hero.text()
     const signupLink = wrapper.getComponent('[data-test="public-hero-signup"]')
     const inquiryLink = wrapper.get('[data-test="public-hero-inquiry"]')
+    const heroActionsContainer = signupLink.element.parentElement
     const heroActions = hero
       .findAll('[data-test="public-hero-signup"], [data-test="public-hero-inquiry"]')
       .map((link) => link.text())
@@ -274,6 +284,15 @@ describe('PublicLandingView', () => {
     expect(hero.get('[data-test="public-hero-body"]').classes()).toContain('break-keep')
     expect(hero.find('[data-test="landing-product-preview"]').exists()).toBe(false)
     expect(heroActions).toEqual(['회원 가입', '도입 문의'])
+    expect(Array.from(heroActionsContainer?.classList ?? [])).toContain('grid')
+    expect(heroActionsContainer?.className).toContain('grid-cols-2')
+    expect(heroActionsContainer?.className).toContain('sm:flex')
+    expect(signupLink.classes()).toEqual(
+      expect.arrayContaining(['inline-flex', 'items-center', 'justify-center']),
+    )
+    expect(inquiryLink.classes()).toEqual(
+      expect.arrayContaining(['inline-flex', 'items-center', 'justify-center']),
+    )
     expect(signupLink.props('to')).toEqual({
       path: SIGNUP_ROUTE_PATH,
       query: { role: 'admin' },
@@ -286,20 +305,36 @@ describe('PublicLandingView', () => {
   it('renders narrative value sections with fixed anchors', () => {
     const wrapper = mountLanding()
     const sections = wrapper.findAll('[data-test="public-value-section"]')
+    const previewWrappers = wrapper.findAll('[data-test="public-value-section-preview"]')
 
     expect(sections).toHaveLength(4)
     expect(sections[0].text()).toContain('AI 전문가가 수간호사 자문을 받아 설계했습니다')
     expect(sections[0].find('[data-test="landing-ai-schedule-mock"]').exists()).toBe(true)
-    expect(sections[0].get('[data-test="public-value-section-nav-label"]').classes()).toContain('text-2xl')
+    expect(sections[0].classes()).toEqual(expect.arrayContaining(['scroll-mt-16', 'sm:scroll-mt-20']))
+    expect(sections[0].get('[data-test="public-value-section-nav-label"]').classes()).toEqual(
+      expect.arrayContaining(['text-sm', 'sm:text-2xl']),
+    )
     expect(sections[0].get('[data-test="public-value-section-copy"]').classes()).toContain('max-w-4xl')
     expect(sections[0].get('h2').classes()).toContain('max-w-4xl')
     expect(sections[0].get('h2').classes()).toContain('break-keep')
+    expect(sections[0].get('h2').classes()).toEqual(
+      expect.arrayContaining(['text-xl', 'sm:text-4xl']),
+    )
     expect(sections[0].get('h2').classes()).not.toContain('max-w-2xl')
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('break-keep')
+    expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toEqual(
+      expect.arrayContaining(['text-sm', 'leading-6', 'sm:text-base', 'sm:leading-7']),
+    )
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).not.toContain('max-w-2xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('self-center')
+    expect(previewWrappers).toHaveLength(4)
+    expect(previewWrappers[0].classes()).toContain('block')
+    expect(previewWrappers[0].classes()).not.toContain('hidden')
+    previewWrappers.slice(1).forEach((previewWrapper) => {
+      expect(previewWrapper.classes()).toEqual(expect.arrayContaining(['hidden', 'sm:block']))
+    })
     expect(sections[1].text()).toContain('공정하게 관리합니다')
     expect(sections[2].text()).toContain('다양한 요구 사항을 유연하게 반영합니다')
     expect(sections[3].text()).toMatch(/가이드라인|점검/)
@@ -408,6 +443,7 @@ describe('PublicLandingView', () => {
   it('renders public sections without authenticated app chrome text', () => {
     const wrapper = mountLanding()
     const inquiry = wrapper.get('[data-test="public-inquiry-section"]')
+    const bottomInquiry = wrapper.get('[data-test="public-bottom-inquiry"]')
     const bottomActions = inquiry
       .findAll('[data-test="public-bottom-inquiry"], [data-test="public-bottom-signup"]')
       .map((link) => link.text())
@@ -421,6 +457,9 @@ describe('PublicLandingView', () => {
     expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('target')).toBe('_blank')
     expect(wrapper.get('[data-test="public-bottom-inquiry"]').attributes('rel')).toBe(
       'noopener noreferrer',
+    )
+    expect(bottomInquiry.classes()).toEqual(
+      expect.arrayContaining(['inline-flex', 'w-full', 'justify-center', 'sm:w-auto']),
     )
     expect(wrapper.find('[data-test="public-footer"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="organization-switcher"]').exists()).toBe(false)

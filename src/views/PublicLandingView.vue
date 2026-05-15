@@ -10,14 +10,14 @@
         data-test="public-hero"
         class="border-b border-gray-200 bg-white"
       >
-        <div class="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+        <div class="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
           <div class="mx-auto max-w-4xl text-center">
             <p class="text-sm font-semibold text-emerald-700">
               {{ publicLandingHero.kicker }}
             </p>
             <h1
               data-test="public-hero-slogan"
-              class="mt-5 flex flex-col items-center gap-y-[0.28em] text-4xl font-bold leading-none text-gray-950 sm:text-5xl lg:text-6xl"
+              class="mt-5 flex flex-col items-center gap-y-[0.28em] text-3xl font-bold leading-none text-gray-950 sm:text-5xl lg:text-6xl"
             >
               <span
                 v-for="line in publicLandingHero.sloganLines"
@@ -30,15 +30,15 @@
             </h1>
             <p
               data-test="public-hero-body"
-              class="mx-auto mt-6 max-w-3xl whitespace-pre-line break-keep text-base leading-7 text-gray-600 sm:text-lg"
+              class="mx-auto mt-5 max-w-3xl whitespace-pre-line break-keep text-sm leading-6 text-gray-600 sm:mt-6 sm:text-lg sm:leading-7"
             >
               {{ publicLandingHero.body }}
             </p>
-            <div class="mt-7 flex flex-wrap items-center justify-center gap-3">
+            <div class="mt-6 grid grid-cols-2 items-center justify-center gap-3 sm:mt-7 sm:flex sm:flex-wrap">
               <RouterLink
                 data-test="public-hero-signup"
                 :to="signupRouteLocation"
-                class="rounded-md bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
+                class="inline-flex min-h-11 items-center justify-center rounded-md bg-gray-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-gray-800"
               >
                 회원 가입
               </RouterLink>
@@ -47,7 +47,7 @@
                 :href="inquiryFormUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:bg-gray-50"
+                class="inline-flex min-h-11 items-center justify-center rounded-md border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-800 transition hover:border-gray-400 hover:bg-gray-50"
               >
                 도입 문의
               </a>
@@ -62,10 +62,10 @@
         :key="section.id"
         :ref="(element) => setSectionRef(section.id, element)"
         data-test="public-value-section"
-        class="scroll-mt-20 border-b border-gray-200"
+        class="scroll-mt-16 border-b border-gray-200 sm:scroll-mt-20"
         :class="index % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
       >
-        <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div class="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-9 sm:gap-8 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
           <div
             data-test="public-value-section-copy"
             class="min-w-0 max-w-4xl"
@@ -73,16 +73,16 @@
           >
             <p
               data-test="public-value-section-nav-label"
-              class="text-2xl font-semibold text-emerald-900"
+              class="text-sm font-semibold text-emerald-900 sm:text-2xl"
             >
               {{ section.navLabel }}
             </p>
-            <h2 class="mt-4 max-w-4xl break-keep text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
+            <h2 class="mt-3 max-w-4xl break-keep text-xl font-bold leading-tight text-gray-950 sm:mt-4 sm:text-4xl">
               {{ section.headline }}
             </h2>
             <p
               data-test="public-value-section-description"
-              class="mt-5 max-w-4xl whitespace-pre-line break-keep text-base leading-7 text-gray-600"
+              class="mt-3 max-w-4xl whitespace-pre-line break-keep text-sm leading-6 text-gray-600 sm:mt-5 sm:text-base sm:leading-7"
             >
               {{ section.description }}
             </p>
@@ -91,7 +91,7 @@
           <div
             data-test="public-value-section-preview"
             class="w-full"
-            :class="getPreviewRevealClasses(section.id)"
+            :class="[getMobilePreviewClasses(section.preview), getPreviewRevealClasses(section.id)]"
           >
             <LandingProductPreview :variant="section.preview" />
           </div>
@@ -101,14 +101,14 @@
       <section
         id="inquiry"
         data-test="public-inquiry-section"
-        class="scroll-mt-20 bg-gray-950 text-white"
+        class="scroll-mt-16 bg-gray-950 text-white sm:scroll-mt-20"
       >
-        <div class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-14 sm:px-6 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
+        <div class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[1fr_auto] lg:items-center lg:px-8">
           <div>
             <p class="text-sm font-semibold text-emerald-300">
               EveryShift 공개 베타
             </p>
-            <h2 class="mt-3 text-3xl font-bold">
+            <h2 class="mt-3 text-2xl font-bold sm:text-3xl">
               도입 문의
             </h2>
             <p class="mt-4 max-w-3xl break-keep text-sm leading-6 text-gray-300 sm:text-base">
@@ -122,7 +122,7 @@
               :href="inquiryFormUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="rounded-md bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-100"
+              class="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-100 sm:w-auto"
             >
               도입 문의
             </a>
@@ -143,6 +143,7 @@ import { SIGNUP_ROUTE_PATH } from '@/constants/routes'
 import {
   publicLandingHero,
   publicLandingSections,
+  type LandingPreviewVariant,
 } from '@/data/publicLandingContent'
 
 const signupRouteLocation: RouteLocationRaw = {
@@ -178,6 +179,10 @@ function setSectionRef(id: string, element: Element | ComponentPublicInstance | 
 
 function isSectionVisible(id: string) {
   return visibleSectionIds.value.has(id)
+}
+
+function getMobilePreviewClasses(preview: LandingPreviewVariant) {
+  return preview === 'ai' ? 'block' : 'hidden sm:block'
 }
 
 function getTextRevealClasses(id: string) {
