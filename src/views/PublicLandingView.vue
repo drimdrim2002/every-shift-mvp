@@ -30,7 +30,7 @@
             </h1>
             <p
               data-test="public-hero-body"
-              class="mx-auto mt-6 max-w-3xl whitespace-pre-line text-base leading-7 text-gray-600 sm:text-lg"
+              class="mx-auto mt-6 max-w-3xl whitespace-pre-line break-keep text-base leading-7 text-gray-600 sm:text-lg"
             >
               {{ publicLandingHero.body }}
             </p>
@@ -77,7 +77,7 @@
             >
               {{ section.navLabel }}
             </p>
-            <h2 class="mt-4 max-w-2xl text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
+            <h2 class="mt-4 max-w-4xl break-keep text-3xl font-bold leading-tight text-gray-950 sm:text-4xl">
               {{ section.headline }}
             </h2>
             <p
@@ -111,7 +111,7 @@
             <h2 class="mt-3 text-3xl font-bold">
               도입 문의
             </h2>
-            <p class="mt-4 max-w-3xl text-sm leading-6 text-gray-300 sm:text-base">
+            <p class="mt-4 max-w-3xl break-keep text-sm leading-6 text-gray-300 sm:text-base">
               EveryShift에 관심이 있으시다면 언제든지 연락주세요.
               2026년까지 베타 버전으로 무료로 서비스를 제공합니다.
             </p>
