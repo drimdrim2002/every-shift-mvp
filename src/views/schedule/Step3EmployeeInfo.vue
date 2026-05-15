@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
+  <AppContainer>
     <StepIndicator
       v-if="!isSetupEntry"
       :current-step="3"
@@ -169,13 +169,14 @@
         </div>
       </template>
     </n-card>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NAlert, NTabs, NTabPane } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import PageActionBar from '@/components/ui/PageActionBar.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import EmployeeTable from '@/components/schedule/EmployeeTable.vue';

@@ -1,5 +1,4 @@
 import dayjs from 'dayjs';
-import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
 import { supabase } from './supabase';
 import type { SolverYearlyEmployeeStats } from '@/types/schedule';
 import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
@@ -52,9 +51,22 @@ function normalizeShift(shifts: ShiftReference | ShiftReference[] | null): Shift
   return shifts;
 }
 
-function isWeekend(date: string): boolean {
+function shouldCountWeekendHolidayWork(date: string, shiftCode: string): boolean {
   const day = dayjs(date).day();
-  return day === 0 || day === 6;
+
+  if (day === 5) {
+    return shiftCode === 'N';
+  }
+
+  if (day === 6) {
+    return shiftCode === 'D' || shiftCode === 'E' || shiftCode === 'N';
+  }
+
+  if (day === 0) {
+    return shiftCode === 'D' || shiftCode === 'E';
+  }
+
+  return false;
 }
 
 async function loadPagedRows<Row>(queryFactory: QueryFactory): Promise<Row[]> {
@@ -136,8 +148,6 @@ export async function loadSolverYearlyEmployeeStats(
     return [...statsByEmployeeId.values()];
   }
 
-  const publicHolidayDates = new Set(await listPublicHolidayDatesInRange(startDate, endDate));
-
   const assignmentRows = await loadPagedRows<AssignmentRow>((from, to) =>
     supabase
       .from('schedule_assignments')
@@ -166,7 +176,7 @@ export async function loadSolverYearlyEmployeeStats(
       stats.night_shift_count += 1;
     }
 
-    if (isWeekend(date) || publicHolidayDates.has(date)) {
+    if (shouldCountWeekendHolidayWork(date, shiftCode)) {
       stats.weekend_holiday_work_count += 1;
     }
   });

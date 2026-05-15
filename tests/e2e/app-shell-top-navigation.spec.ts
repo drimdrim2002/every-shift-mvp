@@ -1,7 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import {
   getAppHomeRoutePath,
-  getOpsOrganizationSetupRoutePath,
   getScheduleStepRoutePath,
   getWorkPerformanceRoutePath,
 } from '../../src/constants/routes'
@@ -57,6 +56,43 @@ async function expectNoVisibleOverlap(first: Locator, second: Locator) {
   expect(horizontallySeparated || verticallySeparated).toBe(true)
 }
 
+async function expectAlignedShellContainers(headerContainer: Locator, contentContainer: Locator) {
+  const [headerBox, contentBox] = await Promise.all([
+    headerContainer.boundingBox(),
+    contentContainer.boundingBox(),
+  ])
+
+  expect(headerBox).not.toBeNull()
+  expect(contentBox).not.toBeNull()
+  expect(Math.abs(headerBox!.x - contentBox!.x)).toBeLessThanOrEqual(1)
+  expect(Math.abs(headerBox!.width - contentBox!.width)).toBeLessThanOrEqual(1)
+}
+
+async function mockEmployeeCountForStep4(page: Page, count: number) {
+  await page.route('**/rest/v1/employees?**', async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const isCountRequest =
+      request.method() === 'HEAD'
+      && url.searchParams.get('select') === 'id'
+      && url.searchParams.has('organization_id')
+
+    if (!isCountRequest) {
+      await route.fallback()
+      return
+    }
+
+    await route.fulfill({
+      status: 200,
+      headers: {
+        'access-control-allow-origin': 'http://127.0.0.1:5173',
+        'access-control-expose-headers': 'content-range',
+        'content-range': count > 0 ? `0-${count - 1}/${count}` : '*/0',
+      },
+    })
+  })
+}
+
 test.describe('app shell top navigation', () => {
   test('renders header navigation and account controls without the old sidebar', async ({ page }) => {
     await openAppShell(page)
@@ -103,6 +139,36 @@ test.describe('app shell top navigation', () => {
     await expectNoVisibleOverlap(topNav, organizationSwitcher)
   })
 
+  test('aligns the header and dashboard app containers', async ({ page }) => {
+    await openAppShell(page)
+
+    await expectAlignedShellContainers(
+      page.getByTestId('app-shell-header-container'),
+      page.getByTestId('dashboard-app-container'),
+    )
+  })
+
+  test('keeps Step4 on the full-width grid surface exception', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await openAppShell(page, 'super_active', { seedWizardContext: true })
+    await mockEmployeeCountForStep4(page, 1)
+
+    await page.goto(getScheduleStepRoutePath(4))
+
+    const headerContainer = page.getByTestId('app-shell-header-container')
+    const step4Container = page.getByTestId('step4-app-container')
+    await expect(step4Container).toBeVisible()
+
+    const [headerBox, step4Box] = await Promise.all([
+      headerContainer.boundingBox(),
+      step4Container.boundingBox(),
+    ])
+
+    expect(headerBox).not.toBeNull()
+    expect(step4Box).not.toBeNull()
+    expect(step4Box!.width).toBeGreaterThan(headerBox!.width + 40)
+  })
+
   test('navigates direct and submenu top navigation items', async ({ page }) => {
     await openAppShell(page, 'super_active', { seedWizardContext: true })
 
@@ -112,21 +178,24 @@ test.describe('app shell top navigation', () => {
     await topNav.getByRole('button', { name: '근무표 생성', exact: true }).hover()
     await expect(createScheduleMenuItem).toBeVisible()
     await createScheduleMenuItem.click()
-    await expect(page).toHaveURL((url) => url.pathname === getScheduleStepRoutePath(1))
+    await expect(page).toHaveURL((url) => url.pathname === getAppHomeRoutePath())
+    await expect(page.getByTestId('dashboard-month-modal')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('dashboard-month-modal')).toBeHidden()
 
     await topNav.getByRole('button', { name: '근무표 분석', exact: true }).hover()
-    await expect(topNav.getByRole('button', { name: '근무자별', exact: true })).toBeVisible()
-    await topNav.getByRole('button', { name: '근무자별', exact: true }).click()
+    await expect(topNav.getByRole('button', { name: '근무 기록', exact: true })).toBeVisible()
+    await topNav.getByRole('button', { name: '근무 기록', exact: true }).click()
     await expect(page).toHaveURL((url) => url.pathname === getWorkPerformanceRoutePath())
-    await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '근무 기록', exact: true })).toBeVisible()
 
     await topNav.getByRole('button', { name: '운영 기준', exact: true }).hover()
     await expect(topNav.getByRole('button', { name: '병원 정보', exact: true })).toBeVisible()
     await topNav.getByRole('button', { name: '병원 정보', exact: true }).click()
     await expect(page).toHaveURL((url) =>
-      url.pathname === getOpsOrganizationSetupRoutePath() && url.hash === '#hospital-info'
+      url.pathname === getScheduleStepRoutePath(1) && url.searchParams.get('context') === 'setup'
     )
-    await expect(page.getByRole('heading', { name: '운영 기본 설정' })).toBeVisible()
+    await expect(page.getByText('운영 준비 - 병원 정보와 근무 유형 확인')).toBeVisible()
     await expect(page.getByText('병원 정보').first()).toBeVisible()
   })
 })

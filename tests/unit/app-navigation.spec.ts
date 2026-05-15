@@ -36,6 +36,7 @@ import { useAppNavigation } from '@/components/layout/useAppNavigation'
 import {
   getAppHomeRoutePath,
   getApprovalQueueRoutePath,
+  getDashboardCreateScheduleRouteKey,
   getOpsOrganizationSetupRoutePath,
   getScheduleResultsRoutePath,
   getScheduleStepRoutePath,
@@ -99,9 +100,10 @@ describe('useAppNavigation', () => {
       label: '근무표 생성',
       key: getScheduleStepRoutePath(1),
       children: [
-        { label: '새 근무표 생성', key: getScheduleStepRoutePath(1) },
+        { label: '새 근무표 생성', key: getDashboardCreateScheduleRouteKey() },
       ],
     })
+    expect(getDashboardCreateScheduleRouteKey()).not.toBe(getScheduleStepRoutePath(1))
   })
 
   it('normalizes step5 schedule routes to step1', () => {
@@ -159,8 +161,8 @@ describe('useAppNavigation', () => {
       label: '근무표 분석',
       key: getScheduleResultsRoutePath(),
       children: [
-        { label: '사이트별', key: getScheduleResultsRoutePath() },
-        { label: '근무자별', key: getWorkPerformanceRoutePath() },
+        { label: '생성된 근무표', key: getScheduleResultsRoutePath() },
+        { label: '근무 기록', key: getWorkPerformanceRoutePath() },
       ],
     })
   })

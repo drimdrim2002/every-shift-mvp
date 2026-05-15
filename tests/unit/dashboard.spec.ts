@@ -1,11 +1,16 @@
-import { mount, flushPromises } from '@vue/test-utils'
+import { enableAutoUnmount, mount, flushPromises } from '@vue/test-utils'
 import { nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildCanonicalStep5RouteLocation } from '@/constants/routes'
+import {
+  buildCanonicalStep5RouteLocation,
+  getAppHomeRoutePath,
+  getScheduleStepRoutePath,
+} from '@/constants/routes'
 import type { ScheduleSummary } from '@/api/schedule'
 
 const {
   pushMock,
+  replaceMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
   getChecklistMock,
@@ -20,6 +25,7 @@ const {
   supabaseFromMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
+  replaceMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
   getChecklistMock: vi.fn(),
@@ -34,9 +40,16 @@ const {
   supabaseFromMock: vi.fn(),
 }))
 
+const routeState = reactive({
+  path: '/',
+  query: {} as Record<string, unknown>,
+})
+
 vi.mock('vue-router', () => ({
+  useRoute: () => routeState,
   useRouter: () => ({
     push: pushMock,
+    replace: replaceMock,
   }),
 }))
 
@@ -128,6 +141,8 @@ vi.mock('@/stores/schedule', () => ({
 }))
 
 import Dashboard from '@/views/Dashboard.vue'
+
+enableAutoUnmount(afterEach)
 
 function createWrapper() {
   return mount(Dashboard, {
@@ -303,6 +318,25 @@ function createScheduleSummary(overrides: Partial<ScheduleSummary> = {}): Schedu
   }
 }
 
+function mockExistingScheduleMonthLookup(months: string[]) {
+  const eqMock = vi.fn().mockResolvedValue({
+    data: months.map((month) => ({ month })),
+    error: null,
+  })
+  const selectMock = vi.fn(() => ({
+    eq: eqMock,
+  }))
+
+  supabaseFromMock.mockReturnValue({
+    select: selectMock,
+  })
+
+  return {
+    selectMock,
+    eqMock,
+  }
+}
+
 async function clickPrimaryAction(wrapper: ReturnType<typeof createWrapper>) {
   await wrapper.get('[data-test="dashboard-primary-action"]').trigger('click')
   await flushPromises()
@@ -313,6 +347,12 @@ describe('Dashboard', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-05-15T09:00:00+09:00'))
+    routeState.path = getAppHomeRoutePath()
+    routeState.query = {}
+    replaceMock.mockImplementation(async (location: { path?: string; query?: Record<string, unknown> }) => {
+      routeState.path = location.path ?? routeState.path
+      routeState.query = location.query ?? {}
+    })
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
@@ -412,6 +452,7 @@ describe('Dashboard', () => {
       ],
     })
     supabaseFromMock.mockReset()
+    mockExistingScheduleMonthLookup([])
   })
 
   afterEach(() => {
@@ -575,7 +616,7 @@ describe('Dashboard', () => {
     await flushPromises()
 
     const primaryAction = wrapper.get('[data-test="dashboard-primary-action"]')
-    expect(primaryAction.text()).toContain('근무표 조회로 이동')
+    expect(primaryAction.text()).toContain('생성된 근무표로 이동')
     expect(primaryAction.text()).not.toContain('새 근무표 생성')
   })
 
@@ -1044,6 +1085,97 @@ describe('Dashboard', () => {
     )
   })
 
+  it('opens the month picker from the Dashboard createSchedule query after data is ready', async () => {
+    routeState.query = {
+      createSchedule: '1',
+      keep: 'yes',
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(true)
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {
+        keep: 'yes',
+      },
+    })
+  })
+
+  it('opens the month picker when createSchedule query is added after Dashboard is already mounted', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    routeState.query = {
+      createSchedule: '1',
+    }
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(true)
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
+  })
+
+  it('consumes the Dashboard createSchedule query without opening the modal when readiness is incomplete', async () => {
+    routeState.query = {
+      createSchedule: '1',
+    }
+    getChecklistMock.mockResolvedValue(buildChecklistFixture({
+      schedule_foundation: {
+        status: 'blocked',
+        blockedReason: '기준 장소, 휴식시간, 시프트, 인력 기준 설정을 먼저 완료해주세요.',
+      },
+      employee_roster: {
+        status: 'blocked',
+        blockedReason: '직원 로스터가 아직 등록되지 않았습니다.',
+      },
+    }, {
+      checklistCursor: 'schedule_foundation',
+      ready: false,
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
+    expect(getScheduleListMock).not.toHaveBeenCalled()
+    expect(supabaseFromMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
+  })
+
+  it('consumes the Dashboard createSchedule query without opening the modal when schedule loading fails', async () => {
+    routeState.query = {
+      createSchedule: '1',
+    }
+    getChecklistMock.mockResolvedValue(createReadyChecklist())
+    getScheduleListMock.mockRejectedValue(new Error('schedule list failed'))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
+    expect(supabaseFromMock).not.toHaveBeenCalled()
+    expect(pushMock).not.toHaveBeenCalledWith(getScheduleStepRoutePath(1))
+    expect(replaceMock).toHaveBeenCalledWith({
+      path: getAppHomeRoutePath(),
+      query: {},
+    })
+  })
+
   it('disables months outside the +/-12 month window and existing schedule months', async () => {
     getScheduleListMock.mockResolvedValueOnce([
       createScheduleSummary({
@@ -1161,6 +1293,26 @@ describe('Dashboard', () => {
 
     const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
     expect(monthPicker.props('formattedValue')).toBe('2026-05')
+  })
+
+  it('refreshes created months before opening the creation modal and skips months missing from the loaded list', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      createScheduleSummary({
+        id: 'schedule-next',
+        public_id: 'sch-next',
+        month: '2026-06',
+      }),
+    ])
+    mockExistingScheduleMonthLookup(['2026-05', '2026-06'])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await (wrapper.vm as unknown as { handleCreateNew: () => Promise<void> }).handleCreateNew()
+    await nextTick()
+
+    const monthPicker = wrapper.findComponent('[data-test="dashboard-month-picker"]')
+    expect(monthPicker.props('formattedValue')).toBe('2026-07')
   })
 
   it('shows a warning and does not open the modal when every month in range is already taken', async () => {

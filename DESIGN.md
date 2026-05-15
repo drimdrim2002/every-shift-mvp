@@ -257,22 +257,21 @@ Use these for shift chips, cells, legends, and Excel-aligned affordances. Do not
 - Public content max width: `1200px`
 - Auth shell max width: `440px` for login, `640px` for signup
 - Dashboard/app content max width: `1280px` unless the surface is grid-driven
-- Full-bleed exception: Step 3 grid and Step 5 compare workspace may exceed standard content width as needed
+- Full-bleed exception: Step 4 grid and Step 5 compare workspace may exceed standard content width as needed
 
 ### Grid Guidance
 
 - Mobile: `4 columns`
 - Tablet: `8 columns`
 - Desktop: `12 columns`
-- App chrome: use a stable left navigation width and let content breathe to the right; do not center the entire workspace like a marketing page
+- App chrome: top navigation and app content share the same horizontal frame; do not center individual pages with one-off widths
 
 ### App Shell Width Contract
 
-- Sidebar width target: `240px`
-- Sidebar collapsed width target: `64px`
 - Header height target: `64px`
-- Dashboard content container: centered within app workspace, but the shell itself is not centered
-- Step 3 and Step 5 may opt out of dashboard max width when the work surface is wider than the standard content frame
+- Authenticated app pages use `src/components/layout/AppContainer.vue` as the official horizontal container
+- Default app container: `max-w-7xl` with responsive horizontal padding
+- Wide work surfaces may opt out with `width="full"`; Step 4 uses this for the grid workspace
 
 ### Border Radius
 

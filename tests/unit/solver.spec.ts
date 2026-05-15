@@ -209,12 +209,18 @@ describe('solver api', () => {
         }),
       );
       const request = createSolverRequest();
-      request.publicHolidays = ['2026-01-01'];
+      request.publicHolidays = [
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+        { date: '2026-01-02', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      ];
 
       await createSolverExecution(request, directApiEnv);
 
       const [, init] = fetchMock.mock.calls[0]!;
-      expect(JSON.parse(String(init?.body)).publicHolidays).toEqual(['2026-01-01']);
+      expect(JSON.parse(String(init?.body)).publicHolidays).toEqual([
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+        { date: '2026-01-02', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      ]);
     });
 
     it('passes yearly employee stats through to the solver api payload', async () => {

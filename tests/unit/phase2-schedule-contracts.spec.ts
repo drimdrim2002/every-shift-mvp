@@ -132,6 +132,17 @@ describe('phase2 schedule contracts', () => {
 
     expect(
       matchRoute(
+        normalizePathSegments('/functions/v1/phase2-schedule/schedule-versions/version-1/unfinalize')
+      )
+    ).toEqual({
+      route: 'unfinalize',
+      params: {
+        versionId: 'version-1',
+      },
+    });
+
+    expect(
+      matchRoute(
         normalizePathSegments('/functions/v1/phase2-schedule/schedule-versions/version-1/delete')
       )
     ).toEqual({

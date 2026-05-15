@@ -28,6 +28,7 @@ vi.mock('@/api/schedule', () => ({
 }));
 
 import {
+  buildSolverPublicHolidays,
   resolveSolverHolidayRange,
   useScheduleSolverRequest,
 } from '@/composables/useScheduleSolverRequest';
@@ -120,7 +121,7 @@ function createSolverRequest(): SolverRequest {
 }
 
 function createInputSnapshot(options: {
-  publicHolidays?: string[];
+  publicHolidays?: SolverRequest['publicHolidays'];
   yearlyEmployeeStats?: SolverRequest['yearlyEmployeeStats'];
 } = {}): ScheduleInputSnapshot {
   const solverInput = {
@@ -193,7 +194,12 @@ describe('useScheduleSolverRequest', () => {
     getScheduleVersionPreferencesMock.mockResolvedValue({ constraints: {} });
   });
 
-  it('fresh build loads public holidays for the inclusive solver draft range', async () => {
+  it('fresh build loads Friday, weekend, and public holiday objects for the inclusive solver draft range', async () => {
+    listPublicHolidayDatesInRangeMock.mockResolvedValueOnce([
+      '2026-01-01',
+      '2026-01-03',
+      '2026-01-15',
+    ]);
     const solver = useScheduleSolverRequest();
 
     const bundle = await solver.buildScheduleSolverRequest({
@@ -211,10 +217,38 @@ describe('useScheduleSolverRequest', () => {
     });
 
     expect(listPublicHolidayDatesInRangeMock).toHaveBeenCalledWith('2026-01-01', '2026-01-31');
-    expect(bundle.solverRequest.publicHolidays).toEqual(['2026-01-01', '2026-01-15']);
-    expect(bundle.inputSnapshot.solverInput.publicHolidays).toEqual([
-      '2026-01-01',
-      '2026-01-15',
+    expect(bundle.solverRequest.publicHolidays).toEqual([
+      { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+      { date: '2026-01-02', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'publicHoliday' },
+      { date: '2026-01-04', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+      { date: '2026-01-09', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      { date: '2026-01-10', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+      { date: '2026-01-11', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+      { date: '2026-01-15', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+      { date: '2026-01-16', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      { date: '2026-01-17', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+      { date: '2026-01-18', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+      { date: '2026-01-23', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      { date: '2026-01-24', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+      { date: '2026-01-25', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+      { date: '2026-01-30', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+      { date: '2026-01-31', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+    ]);
+    expect(bundle.inputSnapshot.solverInput.publicHolidays).toEqual(
+      bundle.solverRequest.publicHolidays
+    );
+  });
+
+  it('buildSolverPublicHolidays excludes the historical range and keeps one row per date by priority', () => {
+    expect(buildSolverPublicHolidays('2026-01-01', '2026-01-04', [
+      '2025-12-27',
+      '2026-01-02',
+      '2026-01-03',
+    ])).toEqual([
+      { date: '2026-01-02', dayOfWeek: 5, dayName: '금', kind: 'publicHoliday' },
+      { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'publicHoliday' },
+      { date: '2026-01-04', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
     ]);
   });
 
@@ -313,7 +347,9 @@ describe('useScheduleSolverRequest', () => {
       shifts: createShifts(),
       lastMonthDays: 5,
       inputSnapshot: createInputSnapshot({
-        publicHolidays: ['2026-01-01'],
+        publicHolidays: [
+          { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+        ],
         yearlyEmployeeStats: [
           {
             employee_id: 'emp-1',
@@ -327,7 +363,9 @@ describe('useScheduleSolverRequest', () => {
 
     expect(listPublicHolidayDatesInRangeMock).not.toHaveBeenCalled();
     expect(loadSolverYearlyEmployeeStatsMock).not.toHaveBeenCalled();
-    expect(bundle.solverRequest.publicHolidays).toEqual(['2026-01-01']);
+    expect(bundle.solverRequest.publicHolidays).toEqual([
+      { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+    ]);
     expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
       {
         employee_id: 'emp-1',

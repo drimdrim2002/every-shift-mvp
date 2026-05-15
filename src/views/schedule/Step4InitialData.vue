@@ -1,5 +1,9 @@
 <template>
-  <div class="mx-auto flex h-full max-w-full flex-col px-4">
+  <AppContainer
+    width="full"
+    data-test="step4-app-container"
+    class="flex h-full flex-col"
+  >
     <StepIndicator
       :current-step="4"
       class="mb-4"
@@ -418,12 +422,13 @@
       @update:show="isOffRequestExcelUploadModalOpen = $event"
       @apply="handleApplyOffRequestExcelUpload"
     />
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
 import { useAuthStore } from '@/stores/auth';

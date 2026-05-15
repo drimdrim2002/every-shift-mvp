@@ -575,28 +575,55 @@ describe('phase2 schedule api helpers', () => {
     });
     rbacStoreMock.selectedOrganizationId = 'org-selected';
     rbacStoreMock.effectiveMembership = { organizationId: 'org-selected' };
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          scheduleId: 'schedule-9',
-          scheduleVersionId: 'version-9',
-          status: 'finalized',
-          finalizedVersionId: 'version-9',
-          finalizedAt: '2026-04-01T00:00:00.000Z',
-          finalizedBy: 'user-1',
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-9',
+            scheduleVersionId: 'version-9',
+            status: 'finalized',
+            finalizedVersionId: 'version-9',
+            finalizedAt: '2026-04-01T00:00:00.000Z',
+            finalizedBy: 'user-1',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
       )
-    );
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            scheduleId: 'schedule-9',
+            scheduleVersionId: 'version-9',
+            status: 'review_ready',
+            finalizedVersionId: null,
+            finalizedAt: null,
+            finalizedBy: null,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      );
 
-    const { finalizePhase2ScheduleVersion } = await import('@/api/schedule');
+    const { finalizePhase2ScheduleVersion, unfinalizePhase2ScheduleVersion } = await import('@/api/schedule');
     await finalizePhase2ScheduleVersion('version-9');
+    await unfinalizePhase2ScheduleVersion('version-9');
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-9/finalize',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'X-Organization-Id': 'org-selected',
+        }),
+      })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://example.supabase.co/functions/v1/phase2-schedule/schedule-versions/version-9/unfinalize',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({

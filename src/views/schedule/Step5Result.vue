@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
+  <AppContainer>
     <StepIndicator :current-step="5" />
 
     <n-card title="근무표 생성 - 결과 확인">
@@ -406,7 +406,8 @@
               <n-button
                 v-if="isFinished && shouldShowResultDetails"
                 size="medium"
-                :disabled="isVersionReadOnly"
+                :loading="isStartingSolver"
+                :disabled="isStartingSolver || isVersionReadOnly"
                 @click="handleRegenerate"
               >
                 더 개선하기
@@ -442,6 +443,18 @@
                 @click="handleFinalizeAction"
               >
                 확정
+              </n-button>
+
+              <n-button
+                v-if="shouldShowUnfinalizeAction"
+                size="medium"
+                type="warning"
+                data-test="unfinalize-schedule-button"
+                :loading="isPrimaryActionRunning"
+                :disabled="isUnfinalizeActionDisabled"
+                @click="handleUnfinalizeAction"
+              >
+                확정 취소
               </n-button>
             </div>
           </div>
@@ -629,7 +642,7 @@
         </n-modal>
       </template>
     </n-card>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
@@ -637,6 +650,7 @@ import dayjs from 'dayjs';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NCard, NButton, NBadge, NProgress, NAlert, NInputNumber, NSpin, NModal } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import { useAISolver } from '@/composables/useAISolver';
@@ -663,17 +677,10 @@ import {
   selectPhase2ScheduleVersion,
   recheckPhase2ScheduleVersion,
   finalizePhase2ScheduleVersion,
+  unfinalizePhase2ScheduleVersion,
   submitPhase2ScheduleVersionSolverResult,
-  getPlanningEmployees,
-  getPlanningAssignmentsForVersion,
 } from '@/api/schedule';
-import { listPublicHolidayDatesInRange } from '@/api/publicHolidays';
-import { loadSiteRequirements } from '@/api/employee';
-import { mapToSolverRequest } from '@/utils/solverMapper';
-import {
-  loadSolverYearlyEmployeeStatsWithFallback,
-  resolveSolverHolidayRange,
-} from '@/composables/useScheduleSolverRequest';
+import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
@@ -704,6 +711,7 @@ import type {
   ScheduleBlockingReason,
   SchedulePrimaryAction,
   ScheduleReviewResponse,
+  SolverRequest,
   ScheduleViolationDetail,
   ScheduleVersionSummary,
   ScheduleVersionStatus,
@@ -717,6 +725,7 @@ const grid = useScheduleGrid();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
+const scheduleSolverRequest = useScheduleSolverRequest();
 
 const DB_REFRESH_INTERVAL_MS = 10000;
 const MEMORY_TO_DB_GRACE_MS = 2000;
@@ -726,6 +735,10 @@ const LOCAL_SOLVER_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
 function isLocalSolverHost() {
   const hostname = window.location.hostname.toLowerCase();
   return LOCAL_SOLVER_HOSTNAMES.has(hostname.replace(/^\[(.*)\]$/, '$1'));
+}
+
+function logLocalSolverPayload(solverRequest: SolverRequest) {
+  console.info('[Step5] Local solver payload:', solverRequest);
 }
 
 const routeScheduleKey = computed(() => {
@@ -1321,6 +1334,9 @@ const primaryActionButtonLabel = computed(() => {
 const shouldShowFinalizeAction = computed(() => {
   return isFinished.value && shouldShowResultDetails.value && !isFinalizedMonth.value;
 });
+const shouldShowUnfinalizeAction = computed(() => {
+  return isFinished.value && shouldShowResultDetails.value && isFinalizedMonth.value;
+});
 const isFinalizeActionDisabled = computed(() => {
   return (
     isPrimaryActionRunning.value
@@ -1330,6 +1346,9 @@ const isFinalizeActionDisabled = computed(() => {
     || !primaryAction.value.targetVersionId
     || Boolean(primaryAction.value.disabledReason)
   );
+});
+const isUnfinalizeActionDisabled = computed(() => {
+  return isPrimaryActionRunning.value || !lockedVersionId.value;
 });
 const generationSummaryCard = computed<Step5SummaryCard>(() => {
   const progress = Math.round(solver.progress.value);
@@ -1403,6 +1422,16 @@ const offRequestSummaryCard = computed<Step5SummaryCard>(() => {
   };
 });
 const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
+  if (isFinalizedMonth.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확정됨',
+      description: '확정 취소 후 다시 편집할 수 있습니다.',
+      tone: 'success',
+    };
+  }
+
   if (!shouldShowFinalizeAction.value) {
     return {
       key: 'finalization',
@@ -2515,45 +2544,6 @@ function stopAssignmentsRefresh() {
   isDbRefreshing.value = false;
 }
 
-function buildDateBasedRequirements(siteRequirements: Array<{ dayOfWeek: number; shiftCode: string; requiredCount: number }>) {
-  const weeklyRequirements: Record<
-    number,
-    { D: number; E: number; N: number; O: number; total: number }
-  > = {};
-
-  siteRequirements.forEach((req) => {
-    if (!weeklyRequirements[req.dayOfWeek]) {
-      weeklyRequirements[req.dayOfWeek] = { D: 0, E: 0, N: 0, O: 0, total: 0 };
-    }
-
-    const shiftCode = req.shiftCode.toUpperCase();
-    const dayRequirements = weeklyRequirements[req.dayOfWeek];
-    if (!dayRequirements) return;
-
-    if (['D', 'E', 'N', 'O'].includes(shiftCode)) {
-      dayRequirements[shiftCode as 'D' | 'E' | 'N' | 'O'] = req.requiredCount;
-      dayRequirements.total += req.requiredCount;
-    }
-  });
-
-  const dateBasedRequirements: Record<
-    string,
-    { D: number; E: number; N: number; O: number; total: number }
-  > = {};
-
-  grid.dates.value.forEach((date) => {
-    if (date.isLastMonth) return;
-
-    const dayOfWeek = new Date(date.date).getDay();
-    const weeklyRequirement = weeklyRequirements[dayOfWeek];
-    dateBasedRequirements[date.date] = weeklyRequirement
-      ? { ...weeklyRequirement }
-      : { D: 0, E: 0, N: 0, O: 0, total: 0 };
-  });
-
-  return dateBasedRequirements;
-}
-
 async function buildSolverRequest() {
   const basicInfo = scheduleStore.basicInfo;
   const versionId = previewVersionId.value;
@@ -2568,45 +2558,22 @@ async function buildSolverRequest() {
     throw new Error('시프트 정보를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 
-  const { constraints } = await getScheduleVersionPreferences(versionId);
-  const planningEmployees = await getPlanningEmployees(basicInfo.organizationId);
-  const planningAssignments = await getPlanningAssignmentsForVersion(versionId);
-
   if (previousMonthFallbackError.value) {
     throw new Error('전월 확정 근무 이력을 불러오지 못했습니다. 다시 시도해주세요.');
   }
 
-  let siteRequirements = scheduleStore.siteRequirements;
-  if (!siteRequirements || siteRequirements.length === 0) {
-    siteRequirements = await loadSiteRequirements(basicInfo.organizationId);
-    scheduleStore.setSiteRequirements(siteRequirements);
-  }
-
-  if (!siteRequirements || siteRequirements.length === 0) {
-    throw new Error('사이트 요구사항이 비어 있습니다. Step2에서 먼저 설정해주세요.');
-  }
-
-  const dateBasedRequirements = buildDateBasedRequirements(siteRequirements);
-
-  const solverRequest = mapToSolverRequest(
+  const { solverRequest } = await scheduleSolverRequest.buildScheduleSolverRequest({
     basicInfo,
-    dateBasedRequirements,
-    constraints,
-    planningEmployees,
-    organizationStore.shifts,
-    planningAssignments,
-    lastMonthDays.value,
-    previousMonthFallbackPlanningAssignments.value,
-  );
-  const holidayRange = resolveSolverHolidayRange(solverRequest);
-  solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
-    holidayRange.startDate,
-    holidayRange.endDate,
-  );
-  solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
-    organizationId: basicInfo.organizationId,
-    year: dayjs(`${basicInfo.month}-01`).year(),
-    employeeIds: planningEmployees.map((employee) => employee.employee_id),
+    scheduleId: ensureScheduleId(),
+    versionId,
+    shifts: organizationStore.shifts,
+    siteRequirements: scheduleStore.siteRequirements,
+    lastMonthDays: lastMonthDays.value,
+    siteId: null,
+    fallbackHistoryAssignments: previousMonthFallbackPlanningAssignments.value,
+    onSiteRequirementsLoaded: (requirements) => {
+      scheduleStore.setSiteRequirements(requirements);
+    },
   });
 
   return solverRequest;
@@ -2656,16 +2623,14 @@ async function handleStartSolver() {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
-  if (isLocalSolverHost()) {
-    showError('현재 환경에서는 근무표를 생성할 수 없습니다.');
-    return;
-  }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
     showInfo('현재 보는 근무표안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
   }
 
   isStartingSolver.value = true;
+  let shouldFinishLoadingBar = true;
+  window.$loadingBar?.start();
 
   try {
     if (previousMonthFallbackError.value) {
@@ -2673,6 +2638,13 @@ async function handleStartSolver() {
     }
 
     await loadPreferencesForDisplay();
+    if (isLocalSolverHost()) {
+      const solverRequest = await buildSolverRequest();
+      logLocalSolverPayload(solverRequest);
+      showError('현재 환경에서는 근무표를 생성할 수 없습니다.');
+      return;
+    }
+
     await resetPreferenceResolutionByVersion(previewVersionId.value);
 
     const solverRequest = await buildSolverRequest();
@@ -2682,6 +2654,8 @@ async function handleStartSolver() {
     startAssignmentsRefresh();
     showSuccess('근무표 생성을 시작했습니다.');
   } catch (error) {
+    shouldFinishLoadingBar = false;
+    window.$loadingBar?.error();
     console.warn('근무표 생성 시작 중 오류:', error);
     if (readErrorCode(error) === 'another_version_solving') {
       showError('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
@@ -2703,6 +2677,9 @@ async function handleStartSolver() {
 
     showError(toUserFacingErrorMessage(error, '근무표 생성을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.'));
   } finally {
+    if (shouldFinishLoadingBar) {
+      window.$loadingBar?.finish();
+    }
     isStartingSolver.value = false;
   }
 }
@@ -3385,6 +3362,44 @@ async function handleFinalizeAction() {
   }
 
   await handlePrimaryAction();
+}
+
+function handleUnfinalizeAction() {
+  if (isUnfinalizeActionDisabled.value) {
+    return;
+  }
+
+  const versionId = lockedVersionId.value;
+  if (!versionId) {
+    return;
+  }
+
+  window.$dialog?.warning({
+    title: '확정 취소',
+    content: '확정을 취소하면 이 월은 실적 계산에서 제외되고 다시 편집할 수 있습니다. 계속할까요?',
+    positiveText: '확정 취소',
+    negativeText: '닫기',
+    onPositiveClick: async () => {
+      isPrimaryActionRunning.value = true;
+
+      try {
+        await unfinalizePhase2ScheduleVersion(versionId);
+        showSuccess('근무표 확정을 취소했습니다.');
+
+        await hub.hydrate();
+        await syncPreviewWorkspace({
+          syncOriginal: true,
+          clearChanges: true,
+          forceAssignmentSync: true,
+        });
+      } catch (error) {
+        console.warn('확정 취소 중 오류:', error);
+        showError(toUserFacingErrorMessage(error, '확정을 취소하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+      } finally {
+        isPrimaryActionRunning.value = false;
+      }
+    },
+  });
 }
 
 function isCurrentMonthDate(date: string) {

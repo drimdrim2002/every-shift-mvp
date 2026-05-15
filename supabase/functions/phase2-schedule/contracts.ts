@@ -14,7 +14,8 @@ export type RouteName =
   | 'solverResult'
   | 'patchAssignments'
   | 'recheck'
-  | 'finalize';
+  | 'finalize'
+  | 'unfinalize';
 export type ScheduleVersionStatus =
   | 'draft'
   | 'solving'
@@ -347,6 +348,15 @@ export interface ScheduleVersionFinalizeResponse {
   finalizedBy: string | null;
 }
 
+export interface ScheduleVersionUnfinalizeResponse {
+  scheduleId: string;
+  scheduleVersionId: string;
+  status: ScheduleVersionStatus;
+  finalizedVersionId: null;
+  finalizedAt: null;
+  finalizedBy: null;
+}
+
 export class ContractError extends Error {
   constructor(
     public readonly code: string,
@@ -444,6 +454,11 @@ const ROUTE_DEFINITIONS: RouteDefinition[] = [
     name: 'finalize',
     methods: ['POST'],
     segments: ['schedule-versions', ':versionId', 'finalize'],
+  },
+  {
+    name: 'unfinalize',
+    methods: ['POST'],
+    segments: ['schedule-versions', ':versionId', 'unfinalize'],
   },
 ];
 

@@ -5,7 +5,7 @@ import {
 } from '@/utils/scheduleInputSnapshot';
 import type { SolverRequest } from '@/types/schedule';
 
-function createSolverRequest(publicHolidays: string[] = []): SolverRequest {
+function createSolverRequest(publicHolidays: SolverRequest['publicHolidays'] = []): SolverRequest {
   return {
     organization: {
       id: 'org-1',
@@ -55,18 +55,44 @@ function createSolverRequest(publicHolidays: string[] = []): SolverRequest {
 }
 
 describe('schedule input snapshot', () => {
-  it('normalizes public holidays as sorted unique dates', () => {
+  it('normalizes public holiday objects as sorted unique dates with priority dedupe', () => {
     const solverInput = normalizeScheduleSolverInput({
       scheduleId: 'schedule-1',
       siteId: 'site-1',
       month: '2026-01',
       lastMonthDays: 5,
-      solverRequest: createSolverRequest(['2026-01-03', '2026-01-01', '2026-01-03']),
+      solverRequest: createSolverRequest([
+        { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+        { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'publicHoliday' },
+      ]),
     });
 
     expect(solverInput).toMatchObject({
-      publicHolidays: ['2026-01-01', '2026-01-03'],
+      publicHolidays: [
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+        { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'publicHoliday' },
+      ],
     });
+  });
+
+  it('normalizes legacy public holiday date arrays into stable objects', () => {
+    const solverInput = normalizeScheduleSolverInput({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest: createSolverRequest([
+        '2026-01-03',
+        '2026-01-01',
+        '2026-01-03',
+      ] as unknown as SolverRequest['publicHolidays']),
+    });
+
+    expect(solverInput.publicHolidays).toEqual([
+      { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+      { date: '2026-01-03', dayOfWeek: 6, dayName: '토', kind: 'publicHoliday' },
+    ]);
   });
 
   it('changes the snapshot hash when public holidays change', async () => {
@@ -85,7 +111,9 @@ describe('schedule input snapshot', () => {
       siteId: 'site-1',
       month: '2026-01',
       lastMonthDays: 5,
-      solverRequest: createSolverRequest(['2026-01-01']),
+      solverRequest: createSolverRequest([
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+      ]),
       generatorVersion: 'test-generator',
       createdAt: '2026-01-01T00:00:00.000Z',
     });

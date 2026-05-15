@@ -271,6 +271,7 @@ describe('PublicLandingView', () => {
       'everyshift가 근무표 생성의 표준을 제시합니다.',
     )
     expect(hero.get('[data-test="public-hero-body"]').classes()).toContain('whitespace-pre-line')
+    expect(hero.get('[data-test="public-hero-body"]').classes()).toContain('break-keep')
     expect(hero.find('[data-test="landing-product-preview"]').exists()).toBe(false)
     expect(heroActions).toEqual(['회원 가입', '도입 문의'])
     expect(signupLink.props('to')).toEqual({
@@ -291,6 +292,9 @@ describe('PublicLandingView', () => {
     expect(sections[0].find('[data-test="landing-ai-schedule-mock"]').exists()).toBe(true)
     expect(sections[0].get('[data-test="public-value-section-nav-label"]').classes()).toContain('text-2xl')
     expect(sections[0].get('[data-test="public-value-section-copy"]').classes()).toContain('max-w-4xl')
+    expect(sections[0].get('h2').classes()).toContain('max-w-4xl')
+    expect(sections[0].get('h2').classes()).toContain('break-keep')
+    expect(sections[0].get('h2').classes()).not.toContain('max-w-2xl')
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).toContain('break-keep')
     expect(sections[0].get('[data-test="public-value-section-description"]').classes()).not.toContain('max-w-2xl')
@@ -424,6 +428,9 @@ describe('PublicLandingView', () => {
     expect(wrapper.find('[data-test="app-header"]').exists()).toBe(false)
     expect(wrapper.find('.n-layout-sider').exists()).toBe(false)
     expect(wrapper.find('.n-layout-header').exists()).toBe(false)
+    expect(
+      inquiry.findAll('p').find((paragraph) => paragraph.text().includes('EveryShift에 관심'))?.classes(),
+    ).toContain('break-keep')
     expect(wrapper.text()).not.toContain('로그아웃')
     expect(wrapper.text()).not.toContain('조직 선택')
     expect(wrapper.text()).not.toContain('근무표 관리')

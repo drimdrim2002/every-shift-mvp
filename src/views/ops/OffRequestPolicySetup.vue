@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-6xl space-y-6 px-4 py-6">
+  <AppContainer class="space-y-6">
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">
@@ -56,13 +56,14 @@
         Off 사용 기준을 불러오는 중입니다.
       </n-card>
     </n-spin>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import OffRequestPolicyTable from '@/components/ops/OffRequestPolicyTable.vue';
 import { getOffRequestPolicies, updateOffRequestPolicies } from '@/api/ops';
 import { useOrganizationStore } from '@/stores/organization';

@@ -1,5 +1,6 @@
+<!-- eslint-disable tailwindcss/enforces-shorthand -->
 <template>
-  <div class="grid size-full max-w-[1480px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-8">
+  <div class="grid h-full w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-6">
     <div class="flex min-w-0 items-center">
       <RouterLink
         data-test="main-logo-home-link"
@@ -18,7 +19,7 @@
 
     <nav
       aria-label="주요 메뉴"
-      class="flex h-full min-w-0 items-center justify-start gap-12 pl-8"
+      class="flex h-full min-w-0 items-center justify-start gap-6 pl-6"
       @keydown.escape="closeOpenNavigationItem"
     >
       <div
@@ -33,7 +34,7 @@
       >
         <button
           type="button"
-          class="relative inline-flex h-16 cursor-pointer items-center rounded-none border-0 bg-transparent p-0 text-[20px] font-semibold text-slate-800 transition-colors hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
+          class="relative inline-flex h-16 cursor-pointer items-center rounded-none border-0 bg-transparent p-0 text-base font-semibold text-slate-800 transition-colors hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2"
           :class="{
             'text-teal-800 after:absolute after:inset-x-0 after:bottom-1 after:h-0.5 after:rounded-full after:bg-teal-600 after:content-[\'\']': activeNavigationKey === item.key,
           }"

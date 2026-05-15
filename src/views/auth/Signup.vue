@@ -32,6 +32,7 @@
 
       <SocialAuthOptions
         class="mt-4"
+        intent="signup"
         :loading-provider="loadingProvider"
         @start-social="handleSocialStart"
       />

@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-4xl space-y-6 px-4">
+  <AppContainer class="space-y-6">
     <div>
       <h1 class="text-2xl font-bold">
         운영 기본 설정
@@ -114,13 +114,14 @@
         </n-button>
       </template>
     </PageActionBar>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { NAlert, NButton, NCard, NSpin } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import OrganizationProfileForm from '@/components/ops/OrganizationProfileForm.vue';
 import SiteFoundationForm from '@/components/ops/SiteFoundationForm.vue';
 import PageActionBar from '@/components/ui/PageActionBar.vue';

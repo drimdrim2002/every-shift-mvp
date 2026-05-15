@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-7xl px-4">
+  <AppContainer>
     <StepIndicator
       v-if="!isSetupEntry"
       :current-step="1"
@@ -175,7 +175,7 @@
       @confirm="handleShiftConfirm"
       @cancel="handleShiftCancel"
     />
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
@@ -193,6 +193,7 @@ import {
   NInput,
   type DataTableColumns,
 } from 'naive-ui';
+import AppContainer from '@/components/layout/AppContainer.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ShiftManager from '@/components/schedule/ShiftManager.vue';
 import { useScheduleStore } from '@/stores/schedule';

@@ -3,6 +3,7 @@ import type {
   ScheduleInputSnapshotSolverInput,
   SolverRequest,
 } from '@/types/schedule';
+import { normalizeSolverPublicHolidays } from '@/utils/solverPublicHolidays';
 import { normalizeYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
 
 export const SCHEDULE_INPUT_SNAPSHOT_GENERATOR_VERSION = 'schedule-input-snapshot:v1';
@@ -67,7 +68,7 @@ export function normalizeScheduleSolverInput(
     siteId: input.siteId,
     month: input.month,
     lastMonthDays: input.lastMonthDays,
-    publicHolidays: [...new Set(solverRequest.publicHolidays ?? [])].sort(compareByText),
+    publicHolidays: normalizeSolverPublicHolidays(solverRequest.publicHolidays),
     yearlyEmployeeStats: normalizeYearlyEmployeeStats(solverRequest.yearlyEmployeeStats ?? []),
     employees: solverRequest.employees
       .map((employee) => ({

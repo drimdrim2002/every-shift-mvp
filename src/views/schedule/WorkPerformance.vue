@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto max-w-6xl px-4">
+  <AppContainer>
     <section class="space-y-6">
       <div>
         <h1 class="text-2xl font-bold text-slate-900">
@@ -646,13 +646,14 @@
         </p>
       </div>
     </section>
-  </div>
+  </AppContainer>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { NButton, NSpin } from 'naive-ui'
+import AppContainer from '@/components/layout/AppContainer.vue'
 import {
   loadLatestFinalizedWorkPerformanceMonth,
   loadWorkPerformancePeriod,

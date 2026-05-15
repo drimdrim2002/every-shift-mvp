@@ -10,6 +10,10 @@ import {
 } from '@/api/schedule';
 import { mapToSolverRequest } from '@/utils/solverMapper';
 import { buildScheduleInputSnapshot } from '@/utils/scheduleInputSnapshot';
+import {
+  buildSolverPublicHolidays,
+  normalizeSolverPublicHolidays,
+} from '@/utils/solverPublicHolidays';
 import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
 import type { Shift } from '@/types/shift';
 import type {
@@ -23,6 +27,8 @@ import type {
   SolverRequest,
   SolverYearlyEmployeeStats,
 } from '@/types/schedule';
+
+export { buildSolverPublicHolidays } from '@/utils/solverPublicHolidays';
 
 export interface BuildScheduleSolverRequestInput {
   basicInfo: ScheduleBasicInfo;
@@ -162,7 +168,7 @@ function buildSolverRequestFromSnapshot(
       dayIndex: requirement.dayIndex,
       employeeCount: requirement.employeeCount,
     })),
-    publicHolidays: [...(solverInput.publicHolidays ?? [])],
+    publicHolidays: normalizeSolverPublicHolidays(solverInput.publicHolidays),
     yearlyEmployeeStats: solverInput.yearlyEmployeeStats
       ? [...solverInput.yearlyEmployeeStats]
       : buildZeroYearlyEmployeeStats(solverInput.employees.map((employee) => employee.employeeId)),
@@ -241,9 +247,14 @@ export function useScheduleSolverRequest() {
     );
 
     const holidayRange = resolveSolverHolidayRange(solverRequest);
-    solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
+    const publicHolidayDates = await listPublicHolidayDatesInRange(
       holidayRange.startDate,
       holidayRange.endDate
+    );
+    solverRequest.publicHolidays = buildSolverPublicHolidays(
+      holidayRange.startDate,
+      holidayRange.endDate,
+      publicHolidayDates
     );
     solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
       organizationId: input.basicInfo.organizationId,

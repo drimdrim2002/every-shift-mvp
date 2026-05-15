@@ -5,10 +5,10 @@
 > **For the next agent session:** implement this plan directly. Keep the scope limited to database schema, local holiday sync, and solver request enrichment. Do not build a holiday management UI in this pass.
 
 **Date:** 2026-05-13  
-**Goal:** Create a reliable Korean public holiday data path so EveryShift can include generated-period public holiday dates in solver requests.  
-**Architecture:** A local operator script syncs official Korean public holidays into one global Supabase table. Schedule request construction reads that table once per solve, enriches `SolverRequest.publicHolidays`, and snapshots the enriched request while keeping `src/api/solver.ts` transport-only.  
+**Goal:** Create a reliable Korean public holiday data path so EveryShift can include generated-period Friday/Saturday/Sunday and public holiday metadata in solver requests.
+**Architecture:** A local operator script syncs official Korean public holidays into one global Supabase table. Schedule request construction reads that table once per solve, merges those dates with generated Friday/Saturday/Sunday rows, enriches `SolverRequest.publicHolidays` as object rows, and snapshots the enriched request while keeping `src/api/solver.ts` transport-only.
 **Tech Stack:** Vue 3, TypeScript, Vite, Vitest, Supabase JS, PostgreSQL migrations, Node 20, optional `tsx` and `fast-xml-parser`.  
-**Target:** Korean public holiday data for solver requests  
+**Target:** Weekend and Korean public holiday data for solver requests
 **Primary files likely touched:** `migrations/*`, `scripts/ops/*`, `src/types/schedule.ts`, `src/api/*`, `src/composables/useScheduleSolverRequest.ts`, `src/utils/scheduleInputSnapshot.ts`, related unit tests  
 **Source of truth for holiday data:** Korea Astronomy and Space Science Institute public holiday API via data.go.kr  
 **Eng review status:** reviewed with `/plan-eng-review` on 2026-05-13; plan hardened before implementation  
@@ -53,14 +53,14 @@ Execution rules:
 
 ## Goal
 
-Create a reliable Korean public holiday data path so EveryShift can include public holiday dates in solver requests.
+Create a reliable Korean public holiday data path so EveryShift can include Friday/Saturday/Sunday and public holiday metadata in solver requests.
 
 The implementation must:
 
 1. Fetch Korean public holiday data from the official public API.
 2. Store holiday data in a global database table.
 3. Seed/sync the years 2026 through 2030.
-4. Add only the relevant public holiday date list to solver request payloads.
+4. Add only the relevant Friday/Saturday/Sunday and public holiday rows to solver request payloads.
 5. Keep `src/api/solver.ts` as the transport layer that sends the already-built payload.
 
 ---
@@ -116,27 +116,39 @@ Do not build a holiday management UI in this pass. A future superuser-only holid
 
 ### Solver Payload Contract
 
-Add a date-only holiday list to `SolverRequest`.
+Add a generated-period Friday/Saturday/Sunday and public holiday object list to `SolverRequest`.
 
 Recommended shape:
 
 ```ts
-publicHolidays: string[]
+publicHolidays: Array<{
+  date: string; // YYYY-MM-DD
+  dayOfWeek: number; // 0=일, 1=월, ..., 5=금, 6=토
+  dayName: string; // '일', '월', '화', '수', '목', '금', '토'
+  kind: 'friday' | 'saturday' | 'sunday' | 'publicHoliday';
+}>;
 ```
 
 Example:
 
 ```json
 {
-  "publicHolidays": ["2026-01-01", "2026-02-16", "2026-02-17"]
+  "publicHolidays": [
+    { "date": "2026-01-01", "dayOfWeek": 4, "dayName": "목", "kind": "publicHoliday" },
+    { "date": "2026-01-02", "dayOfWeek": 5, "dayName": "금", "kind": "friday" },
+    { "date": "2026-01-03", "dayOfWeek": 6, "dayName": "토", "kind": "saturday" },
+    { "date": "2026-01-04", "dayOfWeek": 0, "dayName": "일", "kind": "sunday" }
+  ]
 }
 ```
 
-Do not include holiday names, source metadata, Saturday/Sunday dates, or organization-specific holiday overrides in the solver request.
+Do not include holiday names, source metadata, or organization-specific holiday overrides in the solver request. Include Friday/Saturday/Sunday rows generated from the solver draft range, deduped with legal public holiday dates.
+
+If a legal public holiday overlaps Friday/Saturday/Sunday, keep one row for that date. The `kind` priority is `publicHoliday > sunday > saturday > friday`.
 
 ### Solver Date Range
 
-Include only holidays inside the generated draft period:
+Include only weekend and public holiday dates inside the generated draft period:
 
 ```text
 firstDraftDate through firstDraftDate + draftLength - 1 day
@@ -144,7 +156,7 @@ firstDraftDate through firstDraftDate + draftLength - 1 day
 
 Do not include the previous-month historical range.
 
-Reason: the previous-month range is locked historical context. Public holiday constraints should apply to the generation target period.
+Reason: the previous-month range is locked historical context. Weekend/public holiday constraints should apply to the generation target period.
 
 ### Implementation Responsibility
 
@@ -380,6 +392,15 @@ Because RLS is not enabled for this table, the normal browser Supabase client ca
 Extend `SolverRequest` in `src/types/schedule.ts`:
 
 ```ts
+export type SolverPublicHolidayKind = 'friday' | 'saturday' | 'sunday' | 'publicHoliday';
+
+export interface SolverPublicHoliday {
+  date: string;
+  dayOfWeek: number;
+  dayName: string;
+  kind: SolverPublicHolidayKind;
+}
+
 export interface SolverRequest {
   organization: {
     id: string;
@@ -395,13 +416,14 @@ export interface SolverRequest {
   history: SolverRequestHistoryItem[];
   undesirable: SolverRequestUndesirableItem[];
   requirements: SolverRequestRequirementItem[];
-  publicHolidays: string[];
+  publicHolidays: SolverPublicHoliday[];
+  yearlyEmployeeStats: SolverYearlyEmployeeStats[];
 }
 ```
 
 ### Solver Request Builder Update
 
-Update `useScheduleSolverRequest.ts` so `buildScheduleSolverRequest()` loads public holidays for the generated draft period.
+Update `useScheduleSolverRequest.ts` so `buildScheduleSolverRequest()` loads public holidays for the generated draft period and merges generated Friday/Saturday/Sunday rows.
 
 Date range:
 
@@ -415,13 +437,15 @@ const holidayEndDate = dayjs(holidayStartDate)
 Then attach:
 
 ```ts
-solverRequest.publicHolidays = await listPublicHolidayDatesInRange(
+const publicHolidayDates = await listPublicHolidayDatesInRange(holidayStartDate, holidayEndDate);
+solverRequest.publicHolidays = buildSolverPublicHolidays(
   holidayStartDate,
-  holidayEndDate
+  holidayEndDate,
+  publicHolidayDates
 );
 ```
 
-Keep this logic testable. A small pure helper such as `resolveSolverHolidayRange()` is acceptable if it reduces duplication.
+Keep this logic testable. Small pure helpers such as `resolveSolverHolidayRange()` and `buildSolverPublicHolidays()` are acceptable if they reduce duplication.
 
 ### Snapshot Compatibility
 
@@ -433,9 +457,11 @@ Likely files:
 - `src/utils/scheduleInputSnapshot.ts`
 - `src/composables/useScheduleSolverRequest.ts`
 
-When rebuilding from an existing `inputSnapshot`, the resulting `SolverRequest` must include the same `publicHolidays` from the snapshot if present.
+When rebuilding from an existing `inputSnapshot`, the resulting `SolverRequest` must include the same normalized `publicHolidays` from the snapshot if present.
 
 Decision: old snapshots that do not have the field should rebuild with `publicHolidays: []`, not reload holidays from the database.
+
+Compatibility decision: legacy snapshot/request inputs that still contain `publicHolidays: string[]` should normalize into stable object rows. Because a string-only row has no source metadata, treat it as `kind: 'publicHoliday'`.
 
 Reason: `ScheduleInputSnapshot` is an immutable record of the input used for a solve. Reloading holidays for legacy snapshots would make old retry/rebuild flows depend on current DB state and could change the solver input without a visible user edit. New snapshots will include holidays because enrichment happens before `buildScheduleInputSnapshot()`.
 
@@ -444,7 +470,7 @@ Required type update:
 ```ts
 export interface ScheduleInputSnapshotSolverInput {
   // existing fields...
-  publicHolidays: string[];
+  publicHolidays: SolverPublicHoliday[];
 }
 ```
 
@@ -804,9 +830,18 @@ expect(mapToSolverRequest(/* existing fixture args */).publicHolidays).toEqual([
 expect(
   normalizeScheduleSolverInput({
     ...input,
-    solverRequest: { ...solverRequest, publicHolidays: ['2026-01-27', '2026-01-01'] },
+    solverRequest: {
+      ...solverRequest,
+      publicHolidays: [
+        { date: '2026-01-27', dayOfWeek: 2, dayName: '화', kind: 'publicHoliday' },
+        { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+      ],
+    },
   }).publicHolidays
-).toEqual(['2026-01-01', '2026-01-27']);
+).toEqual([
+  { date: '2026-01-01', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+  { date: '2026-01-27', dayOfWeek: 2, dayName: '화', kind: 'publicHoliday' },
+]);
 ```
 
 Also assert the snapshot hash changes when `publicHolidays` changes.
@@ -827,15 +862,15 @@ Expected: FAIL because types and normalization do not include `publicHolidays`.
 Add:
 
 ```ts
-publicHolidays: string[];
+publicHolidays: SolverPublicHoliday[];
 ```
 
 to `SolverRequest` and `ScheduleInputSnapshotSolverInput`.
 
-In `normalizeScheduleSolverInput()`, add sorted unique holidays:
+In `normalizeScheduleSolverInput()`, normalize sorted unique holiday rows:
 
 ```ts
-publicHolidays: [...new Set(solverRequest.publicHolidays)].sort(compareByText),
+publicHolidays: normalizeSolverPublicHolidays(solverRequest.publicHolidays),
 ```
 
 In `mapToSolverRequest()`, add:
@@ -1046,7 +1081,7 @@ Expected: PASS.
 Confirm one of:
 
 ```text
-external solver accepts publicHolidays: string[]
+external solver accepts publicHolidays object rows
 external solver ignores unknown publicHolidays
 external solver is updated in the same release train
 ```
@@ -1170,7 +1205,7 @@ Also validate the caller-provided range before querying:
 
 ### Step 7: Extend Solver Request Types
 
-Add `publicHolidays: string[]` to:
+Add `publicHolidays: SolverPublicHoliday[]` to:
 
 - `SolverRequest`
 - snapshot input types, if required
@@ -1184,13 +1219,14 @@ In `useScheduleSolverRequest.ts`:
 1. Build the normal solver request.
 2. Compute the generated draft date range.
 3. Load public holiday dates from `public_holidays`.
-4. Attach them to `solverRequest.publicHolidays`.
+4. Build Friday/Saturday/Sunday plus legal-holiday object rows and attach them to `solverRequest.publicHolidays`.
 5. Ensure the `inputSnapshot` stores the enriched request.
 
 For snapshot rebuild:
 
-- Preserve holiday dates from the snapshot when available.
+- Preserve normalized holiday rows from the snapshot when available.
 - Use `[]` for legacy snapshots without the field.
+- Normalize legacy `string[]` values into object rows for backward compatibility.
 - Avoid changing historical snapshots unless the existing code already regenerates request data.
 
 Important sequencing:
@@ -1199,6 +1235,7 @@ Important sequencing:
 fresh build:
   mapToSolverRequest()
     -> listPublicHolidayDatesInRange()
+    -> buildSolverPublicHolidays()
     -> assign solverRequest.publicHolidays
     -> buildScheduleInputSnapshot()
 
@@ -1222,7 +1259,7 @@ Implementation detail: parse `JSON.parse(String(init.body))` from the mocked `fe
 Before this ships to an environment that calls a real solver, verify one of these is true:
 
 - the external solver already accepts unknown fields and ignores `publicHolidays`, or
-- the external solver schema is updated to accept `publicHolidays: string[]`.
+- the external solver schema is updated to accept the Friday/Saturday/Sunday/public-holiday object array contract.
 
 This is a release blocker, not a coding blocker. The frontend can be implemented first, but production rollout should not send the new field to a strict backend that rejects unknown keys.
 
@@ -1529,8 +1566,8 @@ Mitigation: verify or update the external solver contract before production roll
 - The sync script is rerunnable without duplicate rows.
 - Official API keys and Supabase service role keys are read only from private runtime environment variables.
 - Browser code never calls data.go.kr directly.
-- `SolverRequest` includes `publicHolidays: string[]`.
-- Solver requests include only generated draft-period public holiday dates.
+- `SolverRequest` includes `publicHolidays: SolverPublicHoliday[]`.
+- Solver requests include only generated draft-period Friday/Saturday/Sunday plus legal public-holiday rows.
 - Previous-month historical dates are not included in `publicHolidays`.
 - `src/api/solver.ts` sends the enriched payload unchanged.
 - The external solver contract accepts `publicHolidays` or is proven to ignore unknown fields before production rollout.

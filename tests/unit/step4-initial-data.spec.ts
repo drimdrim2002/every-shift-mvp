@@ -2086,6 +2086,7 @@ describe('Step4InitialData', () => {
 
     expect(wrapper.text()).not.toContain('새 근무표안 이름')
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(buildScheduleSolverRequestMock).not.toHaveBeenCalled()
     expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,

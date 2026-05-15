@@ -100,7 +100,7 @@ describe('solver yearly employee stats api', () => {
     vi.clearAllMocks();
   });
 
-  it('aggregates finalized annual night, weekend/holiday, and fulfilled off-request counts', async () => {
+  it('aggregates finalized annual night, weekend-rule, and fulfilled off-request counts', async () => {
     const calls = createSupabaseMock({
       schedules: [
         {
@@ -112,12 +112,6 @@ describe('solver yearly employee stats api', () => {
           error: null,
         },
       ],
-      public_holidays: [
-        {
-          data: [{ holiday_date: '2026-01-01' }],
-          error: null,
-        },
-      ],
       schedule_assignments: [
         {
           data: [
@@ -125,13 +119,55 @@ describe('solver yearly employee stats api', () => {
               schedule_version_id: 'version-jan',
               employee_id: 'emp-1',
               date: '2026-01-01',
+              shifts: { code: 'D' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-02',
               shifts: { code: 'N' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-09',
+              shifts: { code: 'D' },
             },
             {
               schedule_version_id: 'version-jan',
               employee_id: 'emp-1',
               date: '2026-01-03',
               shifts: { code: 'D' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-10',
+              shifts: { code: 'E' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-17',
+              shifts: { code: 'N' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-04',
+              shifts: { code: 'D' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-11',
+              shifts: { code: 'E' },
+            },
+            {
+              schedule_version_id: 'version-jan',
+              employee_id: 'emp-1',
+              date: '2026-01-18',
+              shifts: { code: 'N' },
             },
             {
               schedule_version_id: 'version-feb',
@@ -177,8 +213,8 @@ describe('solver yearly employee stats api', () => {
     ).resolves.toEqual([
       {
         employee_id: 'emp-1',
-        night_shift_count: 1,
-        weekend_holiday_work_count: 2,
+        night_shift_count: 3,
+        weekend_holiday_work_count: 6,
         approved_off_request_count: 1,
       },
       {

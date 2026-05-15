@@ -29,6 +29,7 @@ const {
   selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersionMock,
+  unfinalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonthMock,
   deletePhase2ScheduleGeneratedResultsMock,
@@ -60,6 +61,7 @@ const {
   selectPhase2ScheduleVersionMock: vi.fn(),
   recheckPhase2ScheduleVersionMock: vi.fn(),
   finalizePhase2ScheduleVersionMock: vi.fn(),
+  unfinalizePhase2ScheduleVersionMock: vi.fn(),
   resetPhase2ScheduleActiveFlowMock: vi.fn(),
   deletePhase2ScheduleMonthMock: vi.fn(),
   deletePhase2ScheduleGeneratedResultsMock: vi.fn(),
@@ -100,6 +102,7 @@ vi.mock('@/api/schedule', () => ({
   selectPhase2ScheduleVersion: selectPhase2ScheduleVersionMock,
   recheckPhase2ScheduleVersion: recheckPhase2ScheduleVersionMock,
   finalizePhase2ScheduleVersion: finalizePhase2ScheduleVersionMock,
+  unfinalizePhase2ScheduleVersion: unfinalizePhase2ScheduleVersionMock,
   resetPhase2ScheduleActiveFlow: resetPhase2ScheduleActiveFlowMock,
   deletePhase2ScheduleMonth: deletePhase2ScheduleMonthMock,
   deletePhase2ScheduleGeneratedResults: deletePhase2ScheduleGeneratedResultsMock,
@@ -249,13 +252,70 @@ const gridMock = {
 function createStep5SolverRequest(month = '2025-12') {
   return {
     organization: {
+      id: 'org-1',
+      name: '서울병원',
+      type: 'hospital',
+      shifts: [
+        {
+          id: 'shift-1',
+          code: 'D',
+          name: 'Day',
+          start_time: '08:00:00',
+          end_time: '16:00:00',
+        },
+      ],
+      lastHistoricalDate: dayjs(`${month}-01`).subtract(5, 'day').format('YYYY-MM-DD'),
       firstDraftDate: `${month}-01`,
+      publishLength: 5,
       draftLength: dayjs(`${month}-01`).daysInMonth(),
     },
+    employees: [
+      {
+        employee_id: 'emp-1',
+        name: 'Kim',
+        available_shifts: ['D', 'E', 'N', 'O'],
+        skill_set: ['ALL'],
+      },
+    ],
+    history: [],
+    undesirable: [],
+    requirements: [],
     publicHolidays: [],
     yearlyEmployeeStats: [],
   }
 }
+
+const april2025WeekendAndHolidayDates = [
+  { date: '2025-04-04', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-05', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-06', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-11', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-12', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-13', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-15', dayOfWeek: 2, dayName: '화', kind: 'publicHoliday' },
+  { date: '2025-04-18', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-19', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-20', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-04-25', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-04-26', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-04-27', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+]
+
+const december2025WeekendAndHolidayDates = [
+  { date: '2025-12-05', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-06', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-07', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-12', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-13', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-14', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-19', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-20', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-21', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+  { date: '2025-12-25', dayOfWeek: 4, dayName: '목', kind: 'publicHoliday' },
+  { date: '2025-12-26', dayOfWeek: 5, dayName: '금', kind: 'friday' },
+  { date: '2025-12-27', dayOfWeek: 6, dayName: '토', kind: 'saturday' },
+  { date: '2025-12-28', dayOfWeek: 0, dayName: '일', kind: 'sunday' },
+]
 
 function setMockGridDates(month: string, lastMonthDays = 0) {
   const currentMonthDate = dayjs(`${month}-01`).format('YYYY-MM-DD')
@@ -745,6 +805,14 @@ describe('Step5Result', () => {
       finalizedVersionId: 'version-2',
       finalizedAt: '2026-04-02T00:00:00Z',
       finalizedBy: 'user-1',
+    })
+    unfinalizePhase2ScheduleVersionMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      scheduleVersionId: 'version-2',
+      status: 'review_ready',
+      finalizedVersionId: null,
+      finalizedAt: null,
+      finalizedBy: null,
     })
     resetPhase2ScheduleActiveFlowMock.mockResolvedValue({
       scheduleId: 'schedule-1',
@@ -2841,6 +2909,62 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="manual-edit-save-button"]').exists()).toBe(false)
   })
 
+  it('confirms and unfinalizes a finalized month from the bottom action bar', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: 'version-2',
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          isFinalized: true,
+          status: 'finalized',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockImplementation((versionId: string) =>
+      Promise.resolve(createReviewResponse(versionId, {
+        selectedVersionId: 'version-2',
+        finalizedVersionId: 'version-2',
+        version: {
+          status: 'finalized',
+          isSelected: true,
+          isFinalized: true,
+        },
+        primaryAction: {
+          kind: 'none',
+          targetVersionId: null,
+          label: 'No primary action',
+          disabledReason: null,
+        },
+      }))
+    )
+    const warningDialog = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
+      return options.onPositiveClick?.()
+    })
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      warning: warningDialog,
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    vi.clearAllMocks()
+
+    await emitButtonComponentClick(wrapper, 'unfinalize-schedule-button')
+
+    expect(warningDialog).toHaveBeenCalledWith(expect.objectContaining({
+      title: '확정 취소',
+      positiveText: '확정 취소',
+      negativeText: '닫기',
+    }))
+    expect(unfinalizePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표 확정을 취소했습니다.')
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalled()
+  })
+
   it('disables finalization when local compliance has mandatory violations', async () => {
     mockSingleFinalizeReview({
       assignments: {
@@ -3530,6 +3654,7 @@ describe('Step5Result', () => {
         available_shifts: ['D', 'E', 'N', 'O'],
       },
     ])
+    listPublicHolidayDatesInRangeMock.mockResolvedValueOnce(['2025-04-15'])
     loadSolverYearlyEmployeeStatsMock.mockResolvedValue([
       {
         employee_id: 'emp-1',
@@ -3543,6 +3668,10 @@ describe('Step5Result', () => {
     expect(startSolverButton.attributes('disabled')).toBeUndefined()
 
     await startSolverButton.trigger('click')
+    await flushPromises()
+    await flushPromises()
+    await flushPromises()
+    await new Promise((resolve) => setTimeout(resolve, 0))
     await flushPromises()
 
     expect(mapToSolverRequestMock).toHaveBeenCalledWith(
@@ -3574,7 +3703,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: april2025WeekendAndHolidayDates,
         yearlyEmployeeStats: [
           {
             employee_id: 'emp-1',
@@ -3588,9 +3717,10 @@ describe('Step5Result', () => {
   })
 
   it.each(['localhost', '127.0.0.1', '::1'])(
-    'blocks AI start on local hostname %s',
+    'logs the solver payload and blocks AI start on local hostname %s',
     async (hostname) => {
       stubWindowHostname(hostname)
+      const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined)
       routeMock.query = { version: 'version-1' }
       getPhase2ScheduleCompareMock.mockResolvedValue({
         scheduleId: 'schedule-1',
@@ -3624,10 +3754,18 @@ describe('Step5Result', () => {
 
       await startSolverButton.trigger('click')
       await flushPromises()
+      await flushPromises()
 
+      expect(consoleInfoSpy).toHaveBeenCalledWith(
+        '[Step5] Local solver payload:',
+        expect.objectContaining({
+          publicHolidays: december2025WeekendAndHolidayDates,
+          yearlyEmployeeStats: [],
+        }),
+      )
       expect(showErrorMock).toHaveBeenCalledWith('현재 환경에서는 근무표를 생성할 수 없습니다.')
       expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
-      expect(mapToSolverRequestMock).not.toHaveBeenCalled()
+      expect(mapToSolverRequestMock).toHaveBeenCalled()
       expect(solverMock.startSolver).not.toHaveBeenCalled()
     }
   )
@@ -3843,6 +3981,8 @@ describe('Step5Result', () => {
     expect(startSolverButton.exists()).toBe(true)
 
     await startSolverButton.trigger('click')
+    await flushPromises()
+    await flushPromises()
     await flushPromises()
 
     expect(showErrorMock).toHaveBeenCalledWith('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.')
@@ -4103,13 +4243,14 @@ describe('Step5Result', () => {
 
     await regenerateButton!.trigger('click')
     await flushPromises()
+    await flushPromises()
 
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-2',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
@@ -4168,6 +4309,7 @@ describe('Step5Result', () => {
     createWrapper()
     await flushPromises()
     await flushPromises()
+    await flushPromises()
 
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-1')
@@ -4175,7 +4317,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
   })
@@ -4239,7 +4381,7 @@ describe('Step5Result', () => {
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-1',
       expect.objectContaining({
-        publicHolidays: ['2025-12-25'],
+        publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
   })

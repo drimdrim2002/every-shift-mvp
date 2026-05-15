@@ -6,6 +6,7 @@ import {
   recheckVersion,
   review,
   select,
+  unfinalizeVersion,
 } from '@/../supabase/functions/phase2-schedule/repository.ts';
 import type { Phase2ScheduleAuthContext } from '@/../supabase/functions/phase2-schedule/contracts.ts';
 import type { Phase2ScheduleRepositoryClient } from '@/../supabase/functions/phase2-schedule/repository.ts';
@@ -1706,6 +1707,76 @@ describe('phase2 schedule repository', () => {
     expect(rpc).toHaveBeenCalledWith('finalize_schedule_version_atomic', {
       p_version_id: 'version-finalize',
       p_finalized_by: AUTH_CONTEXT.userId,
+    });
+  });
+
+  it('unfinalizes only through the atomic unfinalize rpc boundary', async () => {
+    const { client, rpc } = createClient({
+      schedule_versions: [
+        {
+          data: {
+            id: 'version-unfinalize',
+            schedule_id: 'schedule-unfinalize',
+            version_no: 2,
+            name: 'V2',
+            source_type: 're_solve',
+            base_version_id: 'version-1',
+            current_revision: 4,
+            status: 'finalized',
+            input_diff_summary: {},
+            manual_edit_count: 1,
+            latest_evaluation_id: 'evaluation-unfinalize',
+            active_solver_execution_id: null,
+          },
+          error: null,
+        },
+      ],
+      schedules: [
+        {
+          data: {
+            id: 'schedule-unfinalize',
+            organization_id: AUTH_CONTEXT.organizationId,
+            month: '2026-04',
+            status: 'complete',
+            solver_execution_id: null,
+            created_at: '2026-04-01T00:00:00Z',
+            updated_at: '2026-04-01T00:00:00Z',
+            selected_version_id: 'version-unfinalize',
+            finalized_version_id: 'version-unfinalize',
+            finalized_at: '2026-04-01T09:00:00Z',
+            finalized_by: AUTH_CONTEXT.userId,
+            latest_version_no: 2,
+          },
+          error: null,
+        },
+      ],
+      'rpc:unfinalize_schedule_version_atomic': [
+        {
+          data: {
+            schedule_id: 'schedule-unfinalize',
+            schedule_version_id: 'version-unfinalize',
+            status: 'review_ready',
+            finalized_version_id: null,
+            finalized_at: null,
+            finalized_by: null,
+          },
+          error: null,
+        },
+      ],
+    });
+
+    const result = await unfinalizeVersion(client, AUTH_CONTEXT, 'version-unfinalize');
+
+    expect(result).toEqual({
+      scheduleId: 'schedule-unfinalize',
+      scheduleVersionId: 'version-unfinalize',
+      status: 'review_ready',
+      finalizedVersionId: null,
+      finalizedAt: null,
+      finalizedBy: null,
+    });
+    expect(rpc).toHaveBeenCalledWith('unfinalize_schedule_version_atomic', {
+      p_version_id: 'version-unfinalize',
     });
   });
 
