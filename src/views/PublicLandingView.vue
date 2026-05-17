@@ -181,8 +181,8 @@ function isSectionVisible(id: string) {
   return visibleSectionIds.value.has(id)
 }
 
-function getMobilePreviewClasses(preview: LandingPreviewVariant) {
-  return preview === 'ai' ? 'block' : 'hidden sm:block'
+function getMobilePreviewClasses(_preview: LandingPreviewVariant) {
+  return 'block'
 }
 
 function getTextRevealClasses(id: string) {

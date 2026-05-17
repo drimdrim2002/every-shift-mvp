@@ -104,14 +104,16 @@ test.describe('public launch route contract', () => {
     await expectNoPageHorizontalOverflow(page)
   })
 
-  test('logged-out mobile landing shows only the AI product preview', async ({ page }) => {
+  test('logged-out mobile landing shows product previews for all variants', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await openLoggedOutLanding(page, '/#ai-schedule')
 
+    // AI preview visible
     await expect(page.locator('#ai-schedule').getByTestId('landing-product-preview')).toBeVisible()
 
+    // All other variants also visible on mobile (with condensed UI)
     for (const id of ['#fairness-management', '#condition-reflection', '#guide-check']) {
-      await expect(page.locator(id).getByTestId('landing-product-preview')).toBeHidden()
+      await expect(page.locator(id).getByTestId('landing-product-preview')).toBeVisible()
     }
 
     await expectNoPageHorizontalOverflow(page)

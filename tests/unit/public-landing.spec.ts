@@ -330,10 +330,10 @@ describe('PublicLandingView', () => {
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('max-w-4xl')
     expect(sections[0].get('[data-test="public-value-section-preview"]').classes()).not.toContain('self-center')
     expect(previewWrappers).toHaveLength(4)
-    expect(previewWrappers[0].classes()).toContain('block')
-    expect(previewWrappers[0].classes()).not.toContain('hidden')
-    previewWrappers.slice(1).forEach((previewWrapper) => {
-      expect(previewWrapper.classes()).toEqual(expect.arrayContaining(['hidden', 'sm:block']))
+    // All variants now visible on mobile (getMobilePreviewClasses returns 'block' for all)
+    previewWrappers.forEach((previewWrapper) => {
+      expect(previewWrapper.classes()).toContain('block')
+      expect(previewWrapper.classes()).not.toContain('hidden')
     })
     expect(sections[1].text()).toContain('공정하게 관리합니다')
     expect(sections[2].text()).toContain('다양한 요구 사항을 유연하게 반영합니다')
