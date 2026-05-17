@@ -64,7 +64,7 @@
 
             <tbody>
               <tr
-                v-for="row in aiScheduleRows"
+                v-for="(row, rowIndex) in aiScheduleRows"
                 :key="row.id"
                 data-test="landing-ai-employee-row"
                 class="odd:bg-white even:bg-gray-50/40"
@@ -72,7 +72,8 @@
                 <th
                   scope="row"
                   data-test="landing-ai-employee-cell"
-                  class="sticky left-0 z-10 border-b border-gray-100 bg-inherit px-3 py-2 text-left font-medium text-gray-800"
+                  class="sticky left-0 z-10 border-b border-gray-100 px-3 py-2 text-left font-medium text-gray-800"
+                  :class="rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
                 >
                   {{ row.name }}
                 </th>
