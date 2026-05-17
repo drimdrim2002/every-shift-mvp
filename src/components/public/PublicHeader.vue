@@ -20,19 +20,19 @@
 
       <nav
         aria-label="공개 페이지 메뉴"
-        class="flex min-w-0 items-center justify-end gap-2"
+        class="flex min-w-0 items-center justify-end gap-1 sm:gap-2"
       >
         <RouterLink
           data-test="public-header-login"
           :to="LOGIN_ROUTE_PATH"
-          class="rounded-md px-2.5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-950 sm:px-3"
+          class="whitespace-nowrap rounded-md px-1.5 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-950 sm:px-3 sm:text-sm"
         >
           로그인
         </RouterLink>
         <RouterLink
           data-test="public-header-signup"
           :to="signupRouteLocation"
-          class="rounded-md px-2.5 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-950 sm:px-3"
+          class="whitespace-nowrap rounded-md px-1.5 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-950 sm:px-3 sm:text-sm"
         >
           회원 가입
         </RouterLink>
@@ -41,7 +41,7 @@
           :href="inquiryFormUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="inline-flex rounded-md bg-gray-950 px-2.5 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 sm:px-3"
+          class="inline-flex whitespace-nowrap rounded-md bg-gray-950 px-1.5 py-2 text-xs font-semibold text-white transition hover:bg-gray-800 sm:px-3 sm:text-sm"
         >
           도입 문의
         </a>
