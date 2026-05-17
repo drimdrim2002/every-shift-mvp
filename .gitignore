@@ -24,3 +24,7 @@ test-results/
 
 .superpowers/
 .playwright-mcp/
+
+.opencode
+opencode.jsonc
+.sisyphus
