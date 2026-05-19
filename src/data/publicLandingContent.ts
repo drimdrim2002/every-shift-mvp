@@ -32,14 +32,14 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
   {
     id: 'ai-schedule',
     navLabel: 'AI',
-    headline: 'AI 전문가가 수간호사 자문을 받아 설계했습니다',
+    headline: 'AI 전문가가 수간호사 자문을 받아 완성했습니다',
     description:
-      '필요 인력, Off 요청, 공정성, 법적 가이드 등을 고려하여 근무표를 작성합니다.',
+      '필요 인력, 오프 요청, 공정성, 법적 가이드 등을 고려하여 근무표를 작성합니다.',
     preview: 'ai',
   },
   {
     id: 'fairness-management',
-    navLabel: '공정성 관리',
+    navLabel: '공정',
     headline: '근무표를 지속적으로 공정하게 관리합니다',
     description:
       '근무자 별 야간, 공휴일, Off 요청 일수를 장기적으로 공정하게 관리합니다.',
@@ -50,7 +50,7 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     navLabel: 'Agile',
     headline: '다양한 요구 사항을 유연하게 반영합니다',
     description:
-      '물류/SCM 분야 컨설턴트 경험으로 다양한 요구 사항을 분석하고 Agile하게 반영합니다.',
+      '오래된 컨설팅 경험으로 다양한 요구 사항을 분석하고 Agile하게 반영합니다.',
     preview: 'conditions',
   },
   {

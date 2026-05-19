@@ -129,22 +129,14 @@
     <div v-else-if="variant === 'fairness'">
       <!-- Mobile: visible only below 640px -->
       <div class="space-y-3 p-4 sm:hidden">
-        <div class="rounded-md border border-gray-200 bg-white p-3">
-          <p class="text-xs font-semibold text-gray-500">
-            공정성 요약
-          </p>
-          <p class="mt-1 text-sm font-bold text-gray-950">
-            전체 평균과 최대 3일 차이
-          </p>
-        </div>
         <div class="rounded-md border border-amber-200 bg-amber-50 p-3">
           <div class="flex items-start justify-between gap-2">
             <div>
               <p class="text-sm font-semibold text-gray-950">
-                고소영
+                아이유
               </p>
               <p class="mt-1 text-xs leading-5 text-gray-600">
-                주말 과다 배정 · 다음 생성 시 후순위
+                주말 과다 배정
               </p>
             </div>
             <span class="shrink-0 rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">조정 우선</span>
@@ -152,7 +144,15 @@
         </div>
         <div class="rounded-md border border-gray-200 bg-white p-3">
           <p class="text-xs font-semibold text-gray-500">
-            다음 생성 기준
+            근무 요약
+          </p>
+          <p class="mt-1 text-sm font-bold text-gray-950">
+            다음 근무표 생성시 주말 근무 배정을 조정합니다.
+          </p>
+        </div>
+        <div class="rounded-md border border-gray-200 bg-white p-3">
+          <p class="text-xs font-semibold text-gray-500">
+            공정성 기준
           </p>
           <ul class="mt-2 space-y-1">
             <li class="flex items-start gap-2 text-xs text-gray-700">
@@ -392,7 +392,7 @@
                 <p class="text-xs font-semibold text-gray-950">
                   요일별 필요 인력
                 </p><p class="text-xs text-gray-600">
-                  평일 D3/E2/N1 · 주말 D2/E2/N1
+                  평일 D3/E4/N2 · 주말 D3/E3/N2
                 </p>
               </div>
             </div>
@@ -401,7 +401,7 @@
                 <p class="text-xs font-semibold text-gray-950">
                   근무자별 가능 시프트
                 </p><p class="text-xs text-gray-600">
-                  김하늘 D/E · 이서윤 E/N · 최유진 D/N
+                  김고은 D/E · 김채연 E/N · 김태리 D/N
                 </p>
               </div>
             </div>
@@ -410,7 +410,7 @@
                 <p class="text-xs font-semibold text-gray-950">
                   사전 Off 요청
                 </p><p class="text-xs text-gray-600">
-                  김하늘 4/7 · 이서윤 4/12 · 최유진 4/18
+                  김고은 4/7 · 김채연 4/12 · 김태리 4/18
                 </p>
               </div>
             </div>
@@ -521,11 +521,11 @@
                 조건 반영 완료
               </p>
               <span class="rounded-md bg-white px-2 py-1 text-xs font-semibold text-emerald-700">
-                자동 검증
+                검증 예시
               </span>
             </div>
             <p class="mt-2 text-2xl font-bold text-gray-950">
-              반영 5건 / 검토 1건
+              반영 5건 / 알림 1건
             </p>
           </div>
 
@@ -557,7 +557,7 @@
               검토 사유
             </p>
             <p class="mt-1 text-sm font-bold text-gray-950">
-              4월 12일 N 가능 인원 부족
+              김고은의 사전 Off 요청은 4월 7일 N 시프트 가능 인원 부족으로 인해 검토가 필요합니다.
             </p>
           </div>
         </section>
