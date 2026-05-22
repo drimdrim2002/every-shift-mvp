@@ -102,6 +102,14 @@ describe('solver yearly employee stats api', () => {
 
   it('aggregates finalized annual night, weekend-rule, and fulfilled off-request counts', async () => {
     const calls = createSupabaseMock({
+      public_holidays: [
+        {
+          data: [
+            { holiday_date: '2026-01-01' },
+          ],
+          error: null,
+        },
+      ],
       schedules: [
         {
           data: [
@@ -214,7 +222,7 @@ describe('solver yearly employee stats api', () => {
       {
         employee_id: 'emp-1',
         night_shift_count: 3,
-        weekend_holiday_work_count: 6,
+        weekend_holiday_work_count: 7,
         approved_off_request_count: 1,
       },
       {
@@ -230,6 +238,12 @@ describe('solver yearly employee stats api', () => {
         approved_off_request_count: 0,
       },
     ]);
+
+    const publicHolidayQuery = calls.find((call) => call.table === 'public_holidays')!;
+    expect(publicHolidayQuery.eq).toContainEqual(['country_code', 'KR']);
+    expect(publicHolidayQuery.eq).toContainEqual(['is_holiday', true]);
+    expect(publicHolidayQuery.gte).toContainEqual(['holiday_date', '2026-01-01']);
+    expect(publicHolidayQuery.lte).toContainEqual(['holiday_date', '2026-12-31']);
 
     const scheduleQuery = calls.find((call) => call.table === 'schedules')!;
     expect(scheduleQuery.eq).toContainEqual(['organization_id', 'org-1']);
@@ -252,6 +266,7 @@ describe('solver yearly employee stats api', () => {
 
   it('returns zero stats without loading detail tables when no finalized schedules exist', async () => {
     const calls = createSupabaseMock({
+      public_holidays: [{ data: [], error: null }],
       schedules: [{ data: [], error: null }],
     });
 

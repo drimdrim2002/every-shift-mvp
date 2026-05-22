@@ -2,8 +2,9 @@ import dayjs from 'dayjs';
 import { supabase } from './supabase';
 import type { SolverYearlyEmployeeStats } from '@/types/schedule';
 import { buildZeroYearlyEmployeeStats } from '@/utils/solverYearlyEmployeeStats';
+import { listPublicHolidayDatesInRange } from './publicHolidays';
 
-const SOLVER_YEARLY_STATS_LOAD_ERROR =
+const SOLVER_YEAR_STATS_LOAD_ERROR =
   '연간 근무 기록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
 
 const PAGE_SIZE = 1000;
@@ -40,7 +41,7 @@ type QueryFactory = (from: number, to: number) => PromiseLike<{
 }>;
 
 function createLoadError(): Error {
-  return new Error(SOLVER_YEARLY_STATS_LOAD_ERROR);
+  return new Error(SOLVER_YEAR_STATS_LOAD_ERROR);
 }
 
 function normalizeShift(shifts: ShiftReference | ShiftReference[] | null): ShiftReference | null {
@@ -51,18 +52,27 @@ function normalizeShift(shifts: ShiftReference | ShiftReference[] | null): Shift
   return shifts;
 }
 
-function shouldCountWeekendHolidayWork(date: string, shiftCode: string): boolean {
+function shouldCountWeekendHolidayWork(
+  date: string,
+  shiftCode: string,
+  holidayDatesSet: Set<string>
+): boolean {
   const day = dayjs(date).day();
+  const dateObj = dayjs(date);
+  const nextDateStr = dateObj.add(1, 'day').format('YYYY-MM-DD');
 
-  if (day === 5) {
-    return shiftCode === 'N';
+  const isCurrentHoliday = holidayDatesSet.has(date);
+  const isNextHoliday = holidayDatesSet.has(nextDateStr);
+
+  if (day === 5 || isNextHoliday) {
+    if (shiftCode === 'N') return true;
   }
 
   if (day === 6) {
     return shiftCode === 'D' || shiftCode === 'E' || shiftCode === 'N';
   }
 
-  if (day === 0) {
+  if (day === 0 || isCurrentHoliday) {
     return shiftCode === 'D' || shiftCode === 'E';
   }
 
@@ -138,6 +148,18 @@ export async function loadSolverYearlyEmployeeStats(
 
   const startDate = `${input.year}-01-01`;
   const endDate = `${input.year}-12-31`;
+
+  let holidayDatesSet = new Set<string>();
+  try {
+    const holidayDates = await listPublicHolidayDatesInRange(startDate, endDate);
+    holidayDatesSet = new Set(holidayDates);
+  } catch (error) {
+    console.warn(
+      '[solverYearlyEmployeeStats] Failed to load public holidays, falling back to empty holiday set.',
+      error
+    );
+  }
+
   const finalizedVersionIds = await loadFinalizedVersionIds(
     input.organizationId,
     `${input.year}-01`,
@@ -176,7 +198,7 @@ export async function loadSolverYearlyEmployeeStats(
       stats.night_shift_count += 1;
     }
 
-    if (shouldCountWeekendHolidayWork(date, shiftCode)) {
+    if (shouldCountWeekendHolidayWork(date, shiftCode, holidayDatesSet)) {
       stats.weekend_holiday_work_count += 1;
     }
   });
