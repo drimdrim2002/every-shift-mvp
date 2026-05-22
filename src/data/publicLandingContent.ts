@@ -22,51 +22,51 @@ export interface PublicLandingValueSection {
 }
 
 export const publicLandingHero: PublicLandingHeroContent = {
-  kicker: '',
+  kicker: '교대 근무표 자동 생성 AI 솔루션',
   sloganLines: ['모두의 근무표', '근무표의 모든 것'],
   body:
-    'everyshift가 근무표 생성의 표준을 제시합니다.',
+    '수간호사와 현장 관리자의 실무 노하우를 바탕으로 AI가 교대 근무표 작성 시간을 90% 이상 단축합니다. 병원부터 일반 기업까지, 이제 복잡한 스케줄링 스트레스에서 벗어나 본연의 업무에만 집중하세요.',
 }
 
 export const publicLandingSections: readonly PublicLandingValueSection[] = [
   {
     id: 'ai-schedule',
-    navLabel: 'AI',
-    headline: 'AI 전문가가 수간호사 자문을 받아 완성했습니다',
+    navLabel: 'AI 스케줄링',
+    headline: '현장의 노하우를 학습한 AI가 최적의 근무표를 제안합니다',
     description:
-      '필요 인력, 오프 요청, 공정성, 법적 가이드 등을 고려하여 근무표를 작성합니다.',
+      '필요 인력, 개인별 오프 요청 등 복잡한 제약 조건을 AI가 분석하여 각 부서에 최적화된 교대 근무표를 자동 생성합니다.',
     preview: 'ai',
   },
   {
     id: 'fairness-management',
-    navLabel: '공정',
-    headline: '근무표를 지속적으로 공정하게 관리합니다',
+    navLabel: '공정성 관리',
+    headline: '누적 데이터로 모두가 만족하는 공정한 일정을 배분합니다',
     description:
-      '근무자 별 야간, 공휴일, Off 요청 일수를 장기적으로 공정하게 관리합니다.',
+      '야간(Night) 근무 횟수, 주말 및 휴일 근무 빈도 등을 장기적으로 추적하여 근로자 간의 업무 불균형을 방지하고 만족도를 높입니다.',
     preview: 'fairness',
   },
   {
     id: 'condition-reflection',
-    navLabel: 'Agile',
-    headline: '다양한 요구 사항을 유연하게 반영합니다',
+    navLabel: '맞춤형 규칙 설정',
+    headline: '조직마다 다른 고유한 근무 규칙을 유연하게 반영합니다',
     description:
       '오래된 컨설팅 경험으로 다양한 요구 사항을 분석하고 Agile하게 반영합니다.',
     preview: 'conditions',
   },
   {
     id: 'guide-check',
-    navLabel: '가이드라인 점검',
-    headline: '보건 복지부 가이드라인을 점검합니다',
+    navLabel: '컴플라이언스',
+    headline: '보건복지부 가이드라인을 준수합니다',
     description:
-      '근로기준법의 근무 시간, 야간 근무에 대한 규정을 준수하고 위반 여부를 점검합니다.',
+      '법정 최대 근로 시간, 야간 근무 연속 제한 등을 반영하여 규정 위반으로 인한 법적 리스크를 사전에 예방합니다.',
     preview: 'guide',
   },
   {
     id: 'flexible-operations',
-    navLabel: '유연한 운영',
-    headline: '근무표 결과를 유연하게 운영할 수 있습니다',
+    navLabel: '유연한 편집과 엑셀',
+    headline: '근무표를 자유롭게 편집하고 익숙한 엑셀로 공유하세요',
     description:
-      '생성된 근무표 결과를 직접 수정하고 저장한 뒤 재검증을 거쳐 Excel로 내보낼 수 있습니다.',
+      '생성된 근무표는 직관적인 화면에서 언제든 수동으로 미세 조정할 수 있습니다. 확정된 최종 스케줄은 클릭 한 번으로 엑셀 양식으로 변환되어 즉시 배포 가능합니다.',
     preview: 'compare',
   },
 ] as const
