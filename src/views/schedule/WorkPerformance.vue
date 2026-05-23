@@ -238,12 +238,17 @@
             <p class="text-sm font-semibold text-slate-700">
               <span class="inline-flex items-center gap-1.5">
                 {{ metricLabels[key] }}
-                <n-tooltip :content="getMetricTooltip(key)">
-                  <span
-                    class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                  >
-                    ?
-                  </span>
+                <n-tooltip trigger="hover">
+                  <template #trigger>
+                    <span
+                      class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                    >
+                      ?
+                    </span>
+                  </template>
+                  <div class="max-w-56 whitespace-pre-wrap break-words">
+                    {{ getMetricTooltip(key) }}
+                  </div>
                 </n-tooltip>
               </span>
             </p>
@@ -420,12 +425,17 @@
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
                       야간 근무 일수
-                      <n-tooltip :content="getMetricTooltip('night')">
-                        <span
-                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        >
-                          ?
-                        </span>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <span
+                            class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                          >
+                            ?
+                          </span>
+                        </template>
+                        <div class="max-w-56 whitespace-pre-wrap break-words">
+                          {{ getMetricTooltip('night') }}
+                        </div>
                       </n-tooltip>
                     </span>
                   </button>
@@ -444,12 +454,17 @@
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
                       휴일 근무 일수
-                      <n-tooltip :content="getMetricTooltip('holidayWork')">
-                        <span
-                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        >
-                          ?
-                        </span>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <span
+                            class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                          >
+                            ?
+                          </span>
+                        </template>
+                        <div class="max-w-56 whitespace-pre-wrap break-words">
+                          {{ getMetricTooltip('holidayWork') }}
+                        </div>
                       </n-tooltip>
                     </span>
                   </button>
@@ -468,12 +483,17 @@
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
                       Off 요청 수락 일수
-                      <n-tooltip :content="getMetricTooltip('offRequestAccepted')">
-                        <span
-                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        >
-                          ?
-                        </span>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <span
+                            class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                          >
+                            ?
+                          </span>
+                        </template>
+                        <div class="max-w-56 whitespace-pre-wrap break-words">
+                          {{ getMetricTooltip('offRequestAccepted') }}
+                        </div>
                       </n-tooltip>
                     </span>
                   </button>
