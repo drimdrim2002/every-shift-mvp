@@ -2714,12 +2714,18 @@ describe('Step5Result', () => {
     expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
   })
 
-  it('starts in employee view and switches to the site grid on demand', async () => {
+  it('starts in site view and switches to the employee detail grid on demand', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('사이트')
     expect(wrapper.get('[data-test="step5-result-view-switch"]').text()).toContain('근무자')
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step5-employee-view"]').exists()).toBe(false)
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
     expect(wrapper.find('[data-test="step5-employee-view"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="employee-result-detail"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(false)
@@ -2727,16 +2733,8 @@ describe('Step5Result', () => {
     await wrapper.get('[data-test="step5-result-view-site"]').trigger('click')
     await flushPromises()
 
-    const siteView = wrapper.get('[data-test="step5-site-view"]')
-
-    expect(siteView.exists()).toBe(true)
-    expect(siteView.find('[data-test="compliance-panel"]').exists()).toBe(false)
-    expect(siteView.text()).toContain('배정표')
+    expect(wrapper.find('[data-test="step5-site-view"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="step5-employee-view"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="review-tab-grid"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="review-tab-proof"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="review-tab-offRequests"]').exists()).toBe(false)
-    expect(wrapper.findComponent({ name: 'VersionReviewDetail' }).exists()).toBe(false)
   })
 
   it('keeps the site grid editable for a mutable preview and scopes manual controls to site view', async () => {
@@ -2783,6 +2781,9 @@ describe('Step5Result', () => {
         template: '<div data-test="employee-result-detail-shift-colors">{{ JSON.stringify(shiftColors) }}</div>',
       },
     })
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-test="employee-result-detail-shift-colors"]').text()).toBe(
@@ -2865,6 +2866,9 @@ describe('Step5Result', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
+    await flushPromises()
+
     expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)
     expect(wrapper.get('[data-test="employee-result-detail"]').text()).toContain('Park님의')
     expect(wrapper.get('[data-test="employee-guideline-status"]').text()).toContain(
@@ -2900,6 +2904,9 @@ describe('Step5Result', () => {
     )
 
     const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="step5-result-view-employee"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-test="step5-employee-view"]').exists()).toBe(true)

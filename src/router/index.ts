@@ -319,11 +319,12 @@ router.afterEach((to) => {
   document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
 });
 
-router.onError((error) => {
-  const errorMessage = error instanceof Error ? error.message : String(error);
+const handleChunkError = (error: unknown) => {
+  const errorMessage = error instanceof Error ? error.message : String(error || '');
   const isChunkLoadFailed =
     errorMessage.includes('Failed to fetch dynamically imported module') ||
-    errorMessage.includes('Failed to load module script');
+    errorMessage.includes('Failed to load module script') ||
+    errorMessage.includes('Expected a JavaScript-or-Wasm module script');
 
   if (isChunkLoadFailed) {
     const now = Date.now();
@@ -338,6 +339,32 @@ router.onError((error) => {
     sessionStorage.setItem('last-chunk-error-reload', String(now));
     window.location.reload();
   }
+};
+
+router.onError((error) => {
+  handleChunkError(error);
 });
+
+if (typeof window !== 'undefined') {
+  // Global error listener for resource loading failures (capture phase)
+  window.addEventListener(
+    'error',
+    (event) => {
+      const target = event.target || event.srcElement;
+      if (target instanceof HTMLScriptElement) {
+        // Hashed chunk script tag failed to load (e.g. 404 falling back to HTML)
+        handleChunkError(new Error('Failed to load module script'));
+      } else if (event.message) {
+        handleChunkError(event.message);
+      }
+    },
+    true
+  );
+
+  // Global unhandled promise rejection listener (for dynamic imports that fail to resolve)
+  window.addEventListener('unhandledrejection', (event) => {
+    handleChunkError(event.reason);
+  });
+}
 
 export default router;

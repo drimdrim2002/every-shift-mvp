@@ -2995,6 +2995,9 @@ watch(() => solver.status.value, async (newStatus) => {
         clearChanges: true,
         forceAssignmentSync: true,
       });
+      if (newStatus === 'complete' || newStatus === 'changed') {
+        resultViewMode.value = 'site';
+      }
     } catch (error) {
       console.warn('Assignments 로드 중 오류:', error);
     }
