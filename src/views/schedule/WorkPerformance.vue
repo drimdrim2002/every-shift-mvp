@@ -749,7 +749,7 @@ const metricTooltips: Record<WorkPerformanceMetricKey, string> = {
 }
 
 const draftMonthRange = ref<MonthRangeValue>([
-  formatYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1),
+  formatYearMonth(currentDate.getFullYear(), 1),
   formatYearMonth(currentDate.getFullYear(), currentDate.getMonth() + 1),
 ])
 const thresholdDays = ref(3)
@@ -964,7 +964,7 @@ async function initializeDefaultPeriod() {
     }
 
     draftMonthRange.value = [
-      formatYearMonth(latestFinalizedMonth.year, latestFinalizedMonth.month),
+      formatYearMonth(latestFinalizedMonth.year, 1),
       formatYearMonth(latestFinalizedMonth.year, latestFinalizedMonth.month),
     ]
   } catch (error) {
