@@ -93,6 +93,74 @@
         </div>
       </n-alert>
 
+      <!-- Off 요청 규칙 안내 배너 -->
+      <div class="mb-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-3.5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <div class="mt-0.5 shrink-0 rounded-full bg-sky-100 p-1.5">
+              <svg
+                class="size-4 text-sky-600"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
+              </svg>
+            </div>
+            <div class="space-y-2">
+              <p class="text-sm font-medium text-slate-700">
+                Off 요청은 전일 야간 근무 및 당일 근무 배정을 지양하며, 인력 상황에 따라 수락되지 않을 수 있습니다.
+              </p>
+              <div
+                v-if="isOffRequestGuideExpanded"
+                class="space-y-2 text-sm text-slate-600"
+              >
+                <div class="rounded-xl bg-white/70 px-4 py-3">
+                  <p class="mb-2 font-medium text-slate-700">
+                    🛡️ 근무자 휴식 보장 원칙
+                  </p>
+                  <p class="leading-relaxed">
+                    근무자가 특정 날짜에 Off를 요청한 경우, <strong>해당 날짜의 모든 근무 배정</strong>을 지양합니다. 또한 <strong>전날 야간 근무 배정</strong>도 함께 지양하여 충분한 휴식을 보장합니다. 예를 들어 5월 5일 Off를 요청했다면, 5월 4일 야간 근무와 5월 5일 모든 근무를 배정하지 않도록 합니다.
+                  </p>
+                </div>
+                <div class="rounded-xl bg-white/70 px-4 py-3">
+                  <p class="mb-2 font-medium text-slate-700">
+                    ⚖️ Off 요청 수락 우선순위 기준
+                  </p>
+                  <ul class="list-inside list-disc space-y-1 leading-relaxed">
+                    <li>
+                      해당 일자에 가용한 근무자가 부족한 경우 Off 요청이 수락되지 않을 수 있습니다.
+                    </li>
+                    <li>
+                      같은 날짜에 Off를 요청한 근무자가 많은 경우, <strong>이전 Off 횟수가 적은 근무자</strong>에게 우선순위를 부여합니다. 이를 통해 모든 근무자에게 공정한 휴식 기회를 제공합니다.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          <n-button
+            size="small"
+            text
+            type="info"
+            class="shrink-0 font-medium"
+            @click="isOffRequestGuideExpanded = !isOffRequestGuideExpanded"
+          >
+            {{ isOffRequestGuideExpanded ? '접기' : '자세히 보기' }}
+          </n-button>
+        </div>
+      </div>
+
       <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div class="space-y-2">
@@ -510,6 +578,7 @@ const requestComposerRef = ref<{
 } | null>(null);
 const isRequestDrawerOpen = ref(false);
 const isRequestDrawerOpenedFromGridShortcut = ref(false);
+const isOffRequestGuideExpanded = ref(false);
 
 const selectedEmployeeIds = ref<string[]>([]);
 const draftRequestTypeId = ref<Step4RequestTypeId>('off');
