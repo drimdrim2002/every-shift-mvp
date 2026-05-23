@@ -11,7 +11,7 @@ const PAGE_SIZE = 1000;
 
 interface LoadSolverYearlyEmployeeStatsInput {
   organizationId: string;
-  year: number;
+  targetMonth: string;
   employeeIds: string[];
 }
 
@@ -142,12 +142,24 @@ export async function loadSolverYearlyEmployeeStats(
     return [];
   }
 
-  if (!Number.isInteger(input.year) || input.year < 1) {
+  const targetMonthMatch = /^(\d{4})-(\d{2})$/.exec(input.targetMonth);
+  if (!targetMonthMatch) {
     throw createLoadError();
   }
 
-  const startDate = `${input.year}-01-01`;
-  const endDate = `${input.year}-12-31`;
+  const target = dayjs(`${input.targetMonth}-01`);
+  const year = target.year();
+  const monthNum = target.month() + 1;
+
+  if (monthNum === 1) {
+    return [...statsByEmployeeId.values()];
+  }
+
+  const startMonth = `${year}-01`;
+  const endMonth = target.subtract(1, 'month').format('YYYY-MM');
+
+  const startDate = `${year}-01-01`;
+  const endDate = target.subtract(1, 'month').endOf('month').format('YYYY-MM-DD');
 
   let holidayDatesSet = new Set<string>();
   try {
@@ -162,8 +174,8 @@ export async function loadSolverYearlyEmployeeStats(
 
   const finalizedVersionIds = await loadFinalizedVersionIds(
     input.organizationId,
-    `${input.year}-01`,
-    `${input.year}-12`,
+    startMonth,
+    endMonth,
   );
 
   if (finalizedVersionIds.length === 0) {

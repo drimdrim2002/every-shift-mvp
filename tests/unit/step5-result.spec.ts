@@ -3697,7 +3697,7 @@ describe('Step5Result', () => {
     expect(listPublicHolidayDatesInRangeMock).toHaveBeenCalledWith('2025-04-01', '2025-04-30')
     expect(loadSolverYearlyEmployeeStatsMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
-      year: 2025,
+      targetMonth: '2025-04',
       employeeIds: ['emp-1'],
     })
     expect(solverMock.startSolver).toHaveBeenCalledWith(

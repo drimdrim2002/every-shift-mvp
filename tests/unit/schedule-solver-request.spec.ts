@@ -271,7 +271,7 @@ describe('useScheduleSolverRequest', () => {
 
     expect(loadSolverYearlyEmployeeStatsMock).toHaveBeenCalledWith({
       organizationId: 'org-1',
-      year: 2026,
+      targetMonth: '2026-01',
       employeeIds: ['emp-1'],
     });
     expect(bundle.solverRequest.yearlyEmployeeStats).toEqual([
@@ -315,7 +315,7 @@ describe('useScheduleSolverRequest', () => {
       '[solver] Failed to load yearly employee stats; falling back to zero stats.',
       expect.objectContaining({
         organizationId: 'org-1',
-        year: 2026,
+        targetMonth: '2026-01',
         error: expect.any(Error),
       }),
     );

@@ -215,7 +215,7 @@ describe('solver yearly employee stats api', () => {
     await expect(
       loadSolverYearlyEmployeeStats({
         organizationId: 'org-1',
-        year: 2026,
+        targetMonth: '2026-05',
         employeeIds: ['emp-1', 'emp-2', 'emp-3'],
       }),
     ).resolves.toEqual([
@@ -243,25 +243,25 @@ describe('solver yearly employee stats api', () => {
     expect(publicHolidayQuery.eq).toContainEqual(['country_code', 'KR']);
     expect(publicHolidayQuery.eq).toContainEqual(['is_holiday', true]);
     expect(publicHolidayQuery.gte).toContainEqual(['holiday_date', '2026-01-01']);
-    expect(publicHolidayQuery.lte).toContainEqual(['holiday_date', '2026-12-31']);
+    expect(publicHolidayQuery.lte).toContainEqual(['holiday_date', '2026-04-30']);
 
     const scheduleQuery = calls.find((call) => call.table === 'schedules')!;
     expect(scheduleQuery.eq).toContainEqual(['organization_id', 'org-1']);
     expect(scheduleQuery.gte).toContainEqual(['month', '2026-01']);
-    expect(scheduleQuery.lte).toContainEqual(['month', '2026-12']);
+    expect(scheduleQuery.lte).toContainEqual(['month', '2026-04']);
     expect(scheduleQuery.not).toContainEqual(['finalized_version_id', 'is', null]);
 
     const assignmentQuery = calls.find((call) => call.table === 'schedule_assignments')!;
     expect(assignmentQuery.in).toContainEqual(['schedule_version_id', ['version-jan', 'version-feb']]);
     expect(assignmentQuery.in).toContainEqual(['employee_id', ['emp-1', 'emp-2', 'emp-3']]);
     expect(assignmentQuery.gte).toContainEqual(['date', '2026-01-01']);
-    expect(assignmentQuery.lte).toContainEqual(['date', '2026-12-31']);
+    expect(assignmentQuery.lte).toContainEqual(['date', '2026-04-30']);
 
     const preferenceQuery = calls.find((call) => call.table === 'schedule_preferences')!;
     expect(preferenceQuery.eq).toContainEqual(['request_code', 'O']);
     expect(preferenceQuery.eq).toContainEqual(['resolution_status', 'fulfilled']);
     expect(preferenceQuery.gte).toContainEqual(['date', '2026-01-01']);
-    expect(preferenceQuery.lte).toContainEqual(['date', '2026-12-31']);
+    expect(preferenceQuery.lte).toContainEqual(['date', '2026-04-30']);
   });
 
   it('returns zero stats without loading detail tables when no finalized schedules exist', async () => {
@@ -275,7 +275,7 @@ describe('solver yearly employee stats api', () => {
     await expect(
       loadSolverYearlyEmployeeStats({
         organizationId: 'org-1',
-        year: 2026,
+        targetMonth: '2026-05',
         employeeIds: ['emp-1'],
       }),
     ).resolves.toEqual([
@@ -289,5 +289,28 @@ describe('solver yearly employee stats api', () => {
 
     expect(calls.some((call) => call.table === 'schedule_assignments')).toBe(false);
     expect(calls.some((call) => call.table === 'schedule_preferences')).toBe(false);
+  });
+
+  it('returns zero stats immediately for January without loading any tables', async () => {
+    const calls = createSupabaseMock({});
+
+    const { loadSolverYearlyEmployeeStats } = await import('@/api/solverYearlyEmployeeStats');
+
+    await expect(
+      loadSolverYearlyEmployeeStats({
+        organizationId: 'org-1',
+        targetMonth: '2026-01',
+        employeeIds: ['emp-1'],
+      }),
+    ).resolves.toEqual([
+      {
+        employee_id: 'emp-1',
+        night_shift_count: 0,
+        weekend_holiday_work_count: 0,
+        approved_off_request_count: 0,
+      },
+    ]);
+
+    expect(calls.length).toBe(0);
   });
 });

@@ -63,7 +63,7 @@ export function resolveSolverHolidayRange(
 
 export async function loadSolverYearlyEmployeeStatsWithFallback(input: {
   organizationId: string;
-  year: number;
+  targetMonth: string;
   employeeIds: string[];
 }): Promise<SolverYearlyEmployeeStats[]> {
   try {
@@ -71,7 +71,7 @@ export async function loadSolverYearlyEmployeeStatsWithFallback(input: {
   } catch (error) {
     console.warn('[solver] Failed to load yearly employee stats; falling back to zero stats.', {
       organizationId: input.organizationId,
-      year: input.year,
+      targetMonth: input.targetMonth,
       error,
     });
 
@@ -258,7 +258,7 @@ export function useScheduleSolverRequest() {
     );
     solverRequest.yearlyEmployeeStats = await loadSolverYearlyEmployeeStatsWithFallback({
       organizationId: input.basicInfo.organizationId,
-      year: dayjs(`${input.basicInfo.month}-01`).year(),
+      targetMonth: input.basicInfo.month,
       employeeIds: planningEmployees.map((employee) => employee.employee_id),
     });
 
