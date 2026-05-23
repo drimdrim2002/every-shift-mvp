@@ -319,4 +319,25 @@ router.afterEach((to) => {
   document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
 });
 
+router.onError((error) => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const isChunkLoadFailed =
+    errorMessage.includes('Failed to fetch dynamically imported module') ||
+    errorMessage.includes('Failed to load module script');
+
+  if (isChunkLoadFailed) {
+    const now = Date.now();
+    const lastReload = sessionStorage.getItem('last-chunk-error-reload');
+
+    // 15초 이내에 이미 재시도(reload)를 한 적이 있다면, 무한 루프 방지를 위해 리로드하지 않고 콘솔에만 기록합니다.
+    if (lastReload && now - parseInt(lastReload, 10) < 15000) {
+      console.error('Infinite reload loop prevented. Actual dynamic import error:', error);
+      return;
+    }
+
+    sessionStorage.setItem('last-chunk-error-reload', String(now));
+    window.location.reload();
+  }
+});
+
 export default router;
