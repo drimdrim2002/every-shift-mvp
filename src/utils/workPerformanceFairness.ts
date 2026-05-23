@@ -16,7 +16,7 @@ const KOREAN_DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as c
 const OFF_SHIFT_CODE = 'O'
 const NIGHT_SHIFT_CODE = 'N'
 
-const METRIC_KEYS = ['night', 'weekend', 'holiday', 'offRequestAccepted'] as const
+const METRIC_KEYS = ['night', 'weekend', 'holiday', 'offRequestAccepted', 'holidayWork'] as const
 type ActiveMetricKey = (typeof METRIC_KEYS)[number]
 
 
@@ -332,6 +332,8 @@ export function computeWorkPerformanceFairness({
       }
     })
 
+    const holidayWorkEvidenceDates = [...new Set([...weekendEvidenceDates, ...holidayEvidenceDates])]
+
     return {
       employee,
       counts: {
@@ -339,12 +341,14 @@ export function computeWorkPerformanceFairness({
         weekend: weekendEvidenceDates.length,
         holiday: holidayEvidenceDates.length,
         offRequestAccepted: offAcceptedEvidenceDates.length,
+        holidayWork: holidayWorkEvidenceDates.length,
       } satisfies Record<ActiveMetricKey, number>,
       evidenceDates: {
         night: nightEvidenceDates,
         weekend: weekendEvidenceDates,
         holiday: holidayEvidenceDates,
         offRequestAccepted: offAcceptedEvidenceDates,
+        holidayWork: holidayWorkEvidenceDates,
       } satisfies Record<ActiveMetricKey, string[]>,
     }
   })

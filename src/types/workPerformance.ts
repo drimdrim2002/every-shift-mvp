@@ -1,4 +1,4 @@
-export type WorkPerformanceMetricKey = 'night' | 'weekend' | 'holiday' | 'offRequestAccepted'
+export type WorkPerformanceMetricKey = 'night' | 'weekend' | 'holiday' | 'offRequestAccepted' | 'holidayWork'
 
 export type WorkPerformanceMetricDirection = 'aboveAverage' | 'belowAverage'
 

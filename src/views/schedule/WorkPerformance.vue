@@ -6,7 +6,7 @@
           근무 기록
         </h1>
         <p class="mt-2 text-sm text-slate-500">
-          확정된 근무표 기준으로 야간 근무, 주말 근무, 공휴일 근무, Off 요청 수락 건수를 비교합니다.
+          확정된 근무표 기준으로 야간 근무, 휴일 근무, Off 요청 수락 건수를 비교합니다.
         </p>
         <details
           data-test="work-performance-calculation-guide"
@@ -21,7 +21,7 @@
               ▾
             </span>
           </summary>
-          <dl class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <dl class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             <div
               data-test="work-performance-calculation-card-night"
               class="rounded-md border border-slate-200 bg-white/75 p-3"
@@ -34,25 +34,14 @@
               </dd>
             </div>
             <div
-              data-test="work-performance-calculation-card-weekend"
+              data-test="work-performance-calculation-card-holidayWork"
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                주말 근무 횟수
+                휴일 근무 일수
               </dt>
               <dd class="mt-1 font-semibold text-slate-900">
-                금요일 야간(N), 토요일 전체(D/E/N), 일요일 주간/이브닝(D/E) 근무 횟수입니다.
-              </dd>
-            </div>
-            <div
-              data-test="work-performance-calculation-card-holiday"
-              class="rounded-md border border-slate-200 bg-white/75 p-3"
-            >
-              <dt class="text-xs font-medium text-slate-500">
-                공휴일 근무 횟수
-              </dt>
-              <dd class="mt-1 font-semibold text-slate-900">
-                공휴일 당일 주간/이브닝(D/E) 및 공휴일 전날 야간(N) 근무 횟수입니다.
+                주말(금요일 야간, 토요일 전체, 일요일 주간/이브닝) 및 공휴일(당일 주간/이브닝, 전날 야간) 근무 일수입니다. 같은 날짜가 주말과 공휴일에 모두 해당하면 1일로 계산합니다.
               </dd>
             </div>
             <div
@@ -239,33 +228,33 @@
       >
         <div
           data-test="work-performance-summary"
-          class="grid gap-3 md:grid-cols-4"
+          class="grid gap-3 md:grid-cols-3"
         >
           <div
-            v-for="definition in fairnessResult.metricDefinitions"
-            :key="definition.key"
+            v-for="key in summaryMetricKeys"
+            :key="key"
             class="rounded-lg border border-slate-200 bg-white p-4"
           >
             <p class="text-sm font-semibold text-slate-700">
               <span class="inline-flex items-center gap-1.5">
-                {{ definition.label }}
-                <span
-                  class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                  :title="getMetricTooltip(definition.key)"
-                  :aria-label="getMetricTooltip(definition.key)"
-                >
-                  ?
-                </span>
+                {{ metricLabels[key] }}
+                <n-tooltip :content="getMetricTooltip(key)">
+                  <span
+                    class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                  >
+                    ?
+                  </span>
+                </n-tooltip>
               </span>
             </p>
             <p class="mt-2 text-2xl font-bold text-slate-900">
-              전체 평균 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].average) }}
+              전체 평균 {{ formatMetricValue(key, fairnessResult.summary[key].average) }}
             </p>
             <p class="mt-1 text-sm text-slate-500">
-              최소 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].min) }} · 최대 {{ formatMetricValue(definition.key, fairnessResult.summary[definition.key].max) }}
+              최소 {{ formatMetricValue(key, fairnessResult.summary[key].min) }} · 최대 {{ formatMetricValue(key, fairnessResult.summary[key].max) }}
             </p>
             <p class="mt-1 text-sm font-medium text-slate-600">
-              가장 큰 차이 {{ formatMetricValue(definition.key, getMaxDeviation(definition.key)) }}
+              가장 큰 차이 {{ formatMetricValue(key, getMaxDeviation(key)) }}
             </p>
           </div>
         </div>
@@ -291,16 +280,16 @@
               </div>
               <div class="flex flex-wrap gap-2 text-xs font-medium text-slate-600">
                 <span
-                  v-for="definition in fairnessResult.metricDefinitions"
-                  :key="definition.key"
+                  v-for="key in summaryMetricKeys"
+                  :key="key"
                   class="inline-flex items-center gap-1.5"
                 >
                   <span
                     class="size-2.5 rounded-full"
-                    :class="getRiskSegmentClass(definition.key)"
+                    :class="getRiskSegmentClass(key)"
                     aria-hidden="true"
                   />
-                  {{ definition.label }}
+                  {{ metricLabels[key] }}
                 </span>
               </div>
             </div>
@@ -399,7 +388,7 @@
                 전체 평균과의 차이가 큰 직원부터 표시됩니다
               </p>
               <div
-                class="grid grid-cols-[10rem_repeat(4,minmax(12rem,1fr))_6rem] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                class="grid grid-cols-[10rem_repeat(3,minmax(12rem,1fr))_6rem] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"
                 role="row"
               >
                 <div
@@ -431,61 +420,37 @@
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
                       야간 근무 일수
-                      <span
-                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        :title="getMetricTooltip('night')"
-                        :aria-label="getMetricTooltip('night')"
-                      >
-                        ?
-                      </span>
+                      <n-tooltip :content="getMetricTooltip('night')">
+                        <span
+                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        >
+                          ?
+                        </span>
+                      </n-tooltip>
                     </span>
                   </button>
                 </div>
                 <div
                   class="px-4 py-3 text-center"
                   role="columnheader"
-                  :aria-sort="getAriaSort('weekend')"
-                  data-test="work-performance-sort-weekend"
-                  @click="changeSort('weekend')"
+                  :aria-sort="getAriaSort('holidayWork')"
+                  data-test="work-performance-sort-holidayWork"
+                  @click="changeSort('holidayWork')"
                 >
                   <button
                     type="button"
                     class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    @click.stop="changeSort('weekend')"
+                    @click.stop="changeSort('holidayWork')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
-                      주말 근무 횟수
-                      <span
-                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        :title="getMetricTooltip('weekend')"
-                        :aria-label="getMetricTooltip('weekend')"
-                      >
-                        ?
-                      </span>
-                    </span>
-                  </button>
-                </div>
-                <div
-                  class="px-4 py-3 text-center"
-                  role="columnheader"
-                  :aria-sort="getAriaSort('holiday')"
-                  data-test="work-performance-sort-holiday"
-                  @click="changeSort('holiday')"
-                >
-                  <button
-                    type="button"
-                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    @click.stop="changeSort('holiday')"
-                  >
-                    <span class="inline-flex items-center justify-center gap-1.5">
-                      공휴일 근무 횟수
-                      <span
-                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        :title="getMetricTooltip('holiday')"
-                        :aria-label="getMetricTooltip('holiday')"
-                      >
-                        ?
-                      </span>
+                      휴일 근무 일수
+                      <n-tooltip :content="getMetricTooltip('holidayWork')">
+                        <span
+                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        >
+                          ?
+                        </span>
+                      </n-tooltip>
                     </span>
                   </button>
                 </div>
@@ -503,13 +468,13 @@
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
                       Off 요청 수락 일수
-                      <span
-                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        :title="getMetricTooltip('offRequestAccepted')"
-                        :aria-label="getMetricTooltip('offRequestAccepted')"
-                      >
-                        ?
-                      </span>
+                      <n-tooltip :content="getMetricTooltip('offRequestAccepted')">
+                        <span
+                          class="inline-flex size-5 cursor-help items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        >
+                          ?
+                        </span>
+                      </n-tooltip>
                     </span>
                   </button>
                 </div>
@@ -528,7 +493,7 @@
                 role="rowgroup"
               >
                 <div
-                  class="grid grid-cols-[10rem_repeat(4,minmax(12rem,1fr))_6rem] items-stretch bg-white"
+                  class="grid grid-cols-[10rem_repeat(3,minmax(12rem,1fr))_6rem] items-stretch bg-white"
                   role="row"
                 >
                   <div
@@ -690,7 +655,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { NButton, NSpin } from 'naive-ui'
+import { NButton, NSpin, NTooltip } from 'naive-ui'
 import AppContainer from '@/components/layout/AppContainer.vue'
 import {
   loadLatestFinalizedWorkPerformanceMonth,
@@ -727,24 +692,28 @@ const router = useRouter()
 const orgStore = useOrganizationStore()
 
 const currentDate = new Date()
-const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekend', 'holiday', 'offRequestAccepted']
+const metricKeys: WorkPerformanceMetricKey[] = ['night', 'holidayWork', 'offRequestAccepted']
+const summaryMetricKeys: readonly WorkPerformanceMetricKey[] = ['night', 'holidayWork', 'offRequestAccepted']
 const showRiskSummary = false
 const metricLabels: Record<WorkPerformanceMetricKey, string> = {
   night: '야간 근무 횟수',
   weekend: '주말 근무 횟수',
   holiday: '공휴일 근무 횟수',
+  holidayWork: '휴일 근무 일수',
   offRequestAccepted: 'Off 요청 수락 건수',
 }
 const metricUnits: Record<WorkPerformanceMetricKey, string> = {
   night: '회',
   weekend: '회',
   holiday: '회',
+  holidayWork: '일',
   offRequestAccepted: '건',
 }
 const metricTooltips: Record<WorkPerformanceMetricKey, string> = {
   night: '근무표의 N 배정 개수입니다.',
   weekend: '금요일 야간·토요일·일요일 주간/이브닝 근무 개수입니다.',
   holiday: '공휴일 당일 주간/이브닝 및 공휴일 전날 야간 근무 개수입니다.',
+  holidayWork: '주말·공휴일 근무 일수입니다. 같은 날짜가 주말과 공휴일에 모두 해당하면 1일로 계산합니다.',
   offRequestAccepted: 'Off 요청이 수락된 건수입니다.',
 }
 
@@ -826,8 +795,7 @@ const maxRiskScore = computed(() =>
 )
 const metricDeltaScale = computed<Record<string, number>>(() => ({
   night: getMaxDeviation('night'),
-  weekend: getMaxDeviation('weekend'),
-  holiday: getMaxDeviation('holiday'),
+  holidayWork: getMaxDeviation('holidayWork'),
   offRequestAccepted: getMaxDeviation('offRequestAccepted'),
 }))
 
@@ -1152,6 +1120,10 @@ function getRiskSegmentClass(metric: WorkPerformanceMetricKey): string {
 
   if (metric === 'holiday') {
     return 'bg-orange-500'
+  }
+
+  if (metric === 'holidayWork') {
+    return 'bg-purple-500'
   }
 
   return 'bg-teal-500'
