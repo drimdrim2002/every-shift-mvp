@@ -2949,9 +2949,7 @@ describe('Step5Result', () => {
         },
       }))
     )
-    const warningDialog = vi.fn((options: { onPositiveClick?: () => Promise<void> | void }) => {
-      return options.onPositiveClick?.()
-    })
+    const warningDialog = vi.fn(() => ({ loading: false }))
     ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
       warning: warningDialog,
     }
@@ -2967,6 +2965,13 @@ describe('Step5Result', () => {
       positiveText: '확정 취소',
       negativeText: '닫기',
     }))
+
+    const dialogConfig = warningDialog.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await dialogConfig.onPositiveClick?.()
+    await flushPromises()
+
     expect(unfinalizePhase2ScheduleVersionMock).toHaveBeenCalledWith('version-2')
     expect(showSuccessMock).toHaveBeenCalledWith('근무표 확정을 취소했습니다.')
     expect(getPhase2ScheduleCompareMock).toHaveBeenCalled()

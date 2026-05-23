@@ -3187,12 +3187,22 @@ async function handleFocusVersionChange(versionId: string) {
   };
 
   if (changedCells.value.size > 0) {
-    window.$dialog?.warning({
+    const d = window.$dialog?.warning({
       title: '저장되지 않은 변경사항',
       content: `${changedCells.value.size}개의 변경사항이 저장되지 않았습니다. 다른 안을 자세히 보면 현재 수정 내용이 사라집니다.`,
       positiveText: '다른 안 보기',
       negativeText: '계속 편집',
-      onPositiveClick: () => switchFocusedVersion(),
+      onPositiveClick: () => {
+        if (d) d.loading = true;
+        return switchFocusedVersion()
+          .catch((error) => {
+            console.warn('상세 보기 버전 전환 중 오류:', error);
+            showError(toUserFacingErrorMessage(error, '자세히 보는 안을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'));
+          })
+          .finally(() => {
+            if (d) d.loading = false;
+          });
+      },
     });
     return;
   }
@@ -3277,25 +3287,29 @@ async function handleDeleteVersion(versionId: string) {
     return;
   }
 
-  window.$dialog?.warning({
+  const d = window.$dialog?.warning({
     title: '근무표안 삭제',
     content: '이 근무표안을 삭제할까요? 삭제한 근무표안의 생성 결과와 비교 이력은 사라집니다. 현재 보는 근무표안은 유지됩니다.',
     positiveText: '삭제',
     negativeText: '취소',
-    onPositiveClick: async () => {
-      try {
-        await deletePhase2ScheduleVersion(versionId, {
-          replacementSelectedVersionId: getDeleteVersionReplacement(versionId),
-        });
-
-        await hub.hydrate(undefined, {
+    onPositiveClick: () => {
+      if (d) d.loading = true;
+      return deletePhase2ScheduleVersion(versionId, {
+        replacementSelectedVersionId: getDeleteVersionReplacement(versionId),
+      })
+        .then(() => hub.hydrate(undefined, {
           loadComparedReviews: isCompareModalOpen.value,
+        }))
+        .then(() => {
+          showSuccess('근무표안을 삭제했습니다.');
+        })
+        .catch((error) => {
+          console.warn('비교안 삭제 중 오류:', error);
+          showError(toUserFacingErrorMessage(error, '근무표안을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+        })
+        .finally(() => {
+          if (d) d.loading = false;
         });
-        showSuccess('근무표안을 삭제했습니다.');
-      } catch (error) {
-        console.warn('비교안 삭제 중 오류:', error);
-        showError(toUserFacingErrorMessage(error, '근무표안을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.'));
-      }
     },
   });
 }
@@ -3377,30 +3391,33 @@ function handleUnfinalizeAction() {
     return;
   }
 
-  window.$dialog?.warning({
+  const d = window.$dialog?.warning({
     title: '확정 취소',
     content: '확정을 취소하면 이 월은 실적 계산에서 제외되고 다시 편집할 수 있습니다. 계속할까요?',
     positiveText: '확정 취소',
     negativeText: '닫기',
-    onPositiveClick: async () => {
+    onPositiveClick: () => {
+      if (d) d.loading = true;
       isPrimaryActionRunning.value = true;
 
-      try {
-        await unfinalizePhase2ScheduleVersion(versionId);
-        showSuccess('근무표 확정을 취소했습니다.');
-
-        await hub.hydrate();
-        await syncPreviewWorkspace({
+      return unfinalizePhase2ScheduleVersion(versionId)
+        .then(() => {
+          showSuccess('근무표 확정을 취소했습니다.');
+          return hub.hydrate();
+        })
+        .then(() => syncPreviewWorkspace({
           syncOriginal: true,
           clearChanges: true,
           forceAssignmentSync: true,
+        }))
+        .catch((error) => {
+          console.warn('확정 취소 중 오류:', error);
+          showError(toUserFacingErrorMessage(error, '확정을 취소하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+        })
+        .finally(() => {
+          isPrimaryActionRunning.value = false;
+          if (d) d.loading = false;
         });
-      } catch (error) {
-        console.warn('확정 취소 중 오류:', error);
-        showError(toUserFacingErrorMessage(error, '확정을 취소하지 못했습니다. 잠시 후 다시 시도해주세요.'));
-      } finally {
-        isPrimaryActionRunning.value = false;
-      }
     },
   });
 }
