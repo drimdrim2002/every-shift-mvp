@@ -104,6 +104,7 @@ function createSupabaseMock(responses: Record<string, QueryResponse[]>) {
         call.operations.push('limit');
         return resolveNext();
       }),
+      maybeSingle: vi.fn(() => builder),
       then: vi.fn((onFulfilled, onRejected) => resolveNext().then(onFulfilled, onRejected)),
     };
 
@@ -203,6 +204,10 @@ describe('work performance api boundary', () => {
           ],
           error: null,
         },
+        {
+          data: { finalized_version_id: 'version-dec' },
+          error: null,
+        },
       ],
       public_holidays: [
         { data: [{ holiday_date: '2026-01-01' }], error: null },
@@ -255,7 +260,7 @@ describe('work performance api boundary', () => {
       endDate: '2026-02-28',
     });
     expect(result.finalizedMonths).toEqual(['2026-01', '2026-02']);
-    expect(result.finalizedVersionIds).toEqual(['version-jan', 'version-feb']);
+    expect(result.finalizedVersionIds).toEqual(['version-dec', 'version-jan', 'version-feb']);
     expect(result.missingMonths).toEqual([]);
     expect(result.assignments).toHaveLength(1001);
     expect(result.assignments[1]).toMatchObject({
@@ -282,25 +287,30 @@ describe('work performance api boundary', () => {
     expect(result.employees[1000]).toEqual({ id: 'emp-1001', employeeId: 'N1001', name: '간호사 1001' });
     expect(result.publicHolidayDates).toEqual(['2026-01-01', '2026-02-17']);
 
-    const scheduleQuery = calls.find((call) => call.table === 'schedules')!;
-    expect(scheduleQuery.select).toBe('id, month, finalized_version_id');
-    expect(scheduleQuery.eq).toContainEqual(['organization_id', 'org-1']);
-    expect(scheduleQuery.gte).toContainEqual(['month', '2026-01']);
-    expect(scheduleQuery.lte).toContainEqual(['month', '2026-02']);
-    expect(scheduleQuery.order).toContainEqual(['month', { ascending: true }]);
+    const scheduleQueries = calls.filter((call) => call.table === 'schedules');
+    expect(scheduleQueries).toHaveLength(2);
+    expect(scheduleQueries[0].select).toBe('id, month, finalized_version_id');
+    expect(scheduleQueries[0].eq).toContainEqual(['organization_id', 'org-1']);
+    expect(scheduleQueries[0].gte).toContainEqual(['month', '2026-01']);
+    expect(scheduleQueries[0].lte).toContainEqual(['month', '2026-02']);
+    expect(scheduleQueries[0].order).toContainEqual(['month', { ascending: true }]);
+
+    expect(scheduleQueries[1].select).toBe('finalized_version_id');
+    expect(scheduleQueries[1].eq).toContainEqual(['organization_id', 'org-1']);
+    expect(scheduleQueries[1].eq).toContainEqual(['month', '2025-12']);
 
     const holidayQueries = calls.filter((call) => call.table === 'public_holidays');
     expect(holidayQueries[0].gte).toContainEqual(['holiday_date', '2026-01-01']);
     expect(holidayQueries[0].lte).toContainEqual(['holiday_date', '2026-12-31']);
     expect(holidayQueries[0].limit).toEqual([1]);
     expect(holidayQueries[1].gte).toContainEqual(['holiday_date', '2026-01-01']);
-    expect(holidayQueries[1].lte).toContainEqual(['holiday_date', '2026-02-28']);
+    expect(holidayQueries[1].lte).toContainEqual(['holiday_date', '2026-03-01']);
 
     const assignmentQueries = calls.filter((call) => call.table === 'schedule_assignments');
     expect(assignmentQueries).toHaveLength(2);
     expect(assignmentQueries[0].select).toBe('schedule_version_id, employee_id, date, shift_id, shifts(code, name)');
-    expect(assignmentQueries[0].in).toContainEqual(['schedule_version_id', ['version-jan', 'version-feb']]);
-    expect(assignmentQueries[0].gte).toContainEqual(['date', '2026-01-01']);
+    expect(assignmentQueries[0].in).toContainEqual(['schedule_version_id', ['version-dec', 'version-jan', 'version-feb']]);
+    expect(assignmentQueries[0].gte).toContainEqual(['date', '2025-12-31']);
     expect(assignmentQueries[0].lte).toContainEqual(['date', '2026-02-28']);
     expect(assignmentQueries[0].order).toEqual([
       ['schedule_version_id', { ascending: true }],
@@ -319,7 +329,7 @@ describe('work performance api boundary', () => {
     const preferenceQueries = calls.filter((call) => call.table === 'schedule_preferences');
     expect(preferenceQueries).toHaveLength(2);
     expect(preferenceQueries[0].select).toBe('schedule_version_id, employee_id, date, request_code, resolution_status');
-    expect(preferenceQueries[0].in).toContainEqual(['schedule_version_id', ['version-jan', 'version-feb']]);
+    expect(preferenceQueries[0].in).toContainEqual(['schedule_version_id', ['version-dec', 'version-jan', 'version-feb']]);
     expect(preferenceQueries[0].eq).toContainEqual(['request_code', 'O']);
     expect(preferenceQueries[0].gte).toContainEqual(['date', '2026-01-01']);
     expect(preferenceQueries[0].lte).toContainEqual(['date', '2026-02-28']);
@@ -389,6 +399,10 @@ describe('work performance api boundary', () => {
           ],
           error: null,
         },
+        {
+          data: null,
+          error: null,
+        },
       ],
       public_holidays: [
         { data: [{ holiday_date: '2026-01-01' }], error: null },
@@ -432,7 +446,7 @@ describe('work performance api boundary', () => {
 
     const assignmentQuery = calls.find((call) => call.table === 'schedule_assignments')!;
     expect(assignmentQuery.in).toContainEqual(['schedule_version_id', ['version-jan']]);
-    expect(assignmentQuery.gte).toContainEqual(['date', '2026-01-01']);
+    expect(assignmentQuery.gte).toContainEqual(['date', '2025-12-31']);
     expect(assignmentQuery.lte).toContainEqual(['date', '2026-03-31']);
   });
 
@@ -441,6 +455,10 @@ describe('work performance api boundary', () => {
       schedules: [
         {
           data: [{ id: 'schedule-jan', month: '2026-01', finalized_version_id: 'version-jan' }],
+          error: null,
+        },
+        {
+          data: null,
           error: null,
         },
       ],
@@ -465,6 +483,10 @@ describe('work performance api boundary', () => {
       schedules: [
         {
           data: [{ id: 'schedule-jan', month: '2026-01', finalized_version_id: 'version-jan' }],
+          error: null,
+        },
+        {
+          data: null,
           error: null,
         },
       ],

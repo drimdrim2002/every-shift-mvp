@@ -94,6 +94,19 @@ function getMonthLabels(year: number, startMonth: number, endMonth: number): str
   );
 }
 
+export function getPreviousDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() - 1);
+  return date.toISOString().split('T')[0];
+}
+
+export function getNextDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().split('T')[0];
+}
+
+
 function buildPeriod(params: WorkPerformanceLoadParams): WorkPerformancePeriod {
   const dates = listPeriodDates(params.year, params.startMonth, params.endMonth);
   const startDate = dates[0];
@@ -343,16 +356,33 @@ export async function loadWorkPerformancePeriod(
       assertRequiredString(schedulesByMonth.get(month)?.finalized_version_id),
     );
 
+    const prevDateStr = getPreviousDate(period.startDate);
+    const prevMonthLabel = prevDateStr.substring(0, 7); // "YYYY-MM"
+
+    if (!selectedMonths.includes(prevMonthLabel)) {
+      const { data: prevSchedule } = await supabase
+        .from('schedules')
+        .select('finalized_version_id')
+        .eq('organization_id', params.organizationId)
+        .eq('month', prevMonthLabel)
+        .maybeSingle();
+
+      if (prevSchedule?.finalized_version_id) {
+        finalizedVersionIds.unshift(prevSchedule.finalized_version_id);
+      }
+    }
+
     if (!(await hasPublicHolidayCoverageForYear(params.year))) {
       return { status: 'missingHolidayCoverage' };
     }
 
-    const publicHolidayDates = await listPublicHolidayDatesInRange(period.startDate, period.endDate);
+    const publicHolidayDates = await listPublicHolidayDatesInRange(period.startDate, getNextDate(period.endDate));
     const [assignments, offRequests, employees] = await Promise.all([
-      loadAssignments(finalizedVersionIds, period.startDate, period.endDate),
+      loadAssignments(finalizedVersionIds, getPreviousDate(period.startDate), period.endDate),
       loadOffRequests(finalizedVersionIds, period.startDate, period.endDate),
       loadEmployees(params.organizationId),
     ]);
+
 
     return {
       status: 'success',
