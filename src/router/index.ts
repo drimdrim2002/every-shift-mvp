@@ -324,7 +324,8 @@ const handleChunkError = (error: unknown) => {
   const isChunkLoadFailed =
     errorMessage.includes('Failed to fetch dynamically imported module') ||
     errorMessage.includes('Failed to load module script') ||
-    errorMessage.includes('Expected a JavaScript-or-Wasm module script');
+    errorMessage.includes('Expected a JavaScript-or-Wasm module script') ||
+    errorMessage.includes('Failed to load stylesheet');
 
   if (isChunkLoadFailed) {
     const now = Date.now();
@@ -351,10 +352,26 @@ if (typeof window !== 'undefined') {
     'error',
     (event) => {
       const target = event.target || event.srcElement;
+      
+      // 1. Script loading errors (JS Chunks)
       if (target instanceof HTMLScriptElement) {
-        // Hashed chunk script tag failed to load (e.g. 404 falling back to HTML)
-        handleChunkError(new Error('Failed to load module script'));
-      } else if (event.message) {
+        const src = target.src || '';
+        // 외부 서드파티 스크립트(애드블록 등으로 인한 차단)가 아닌, 앱 자체 애셋(청크) 로드 실패만 감지
+        const isAppAsset = src.includes('/assets/') || src.includes('/src/') || src.startsWith(window.location.origin);
+        if (isAppAsset) {
+          handleChunkError(new Error(`Failed to load module script: ${src}`));
+        }
+      }
+      // 2. Stylesheet loading errors (CSS Chunks)
+      else if (target instanceof HTMLLinkElement && target.rel === 'stylesheet') {
+        const href = target.href || '';
+        const isAppAsset = href.includes('/assets/') || href.startsWith(window.location.origin);
+        if (isAppAsset) {
+          handleChunkError(new Error(`Failed to load stylesheet: ${href}`));
+        }
+      }
+      // 3. General errors with text matching
+      else if (event.message) {
         handleChunkError(event.message);
       }
     },
