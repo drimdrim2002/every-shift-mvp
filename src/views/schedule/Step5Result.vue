@@ -2,7 +2,7 @@
   <AppContainer>
     <StepIndicator :current-step="5" />
 
-    <n-card title="근무표 생성 - 결과 확인">
+    <n-card :title="cardTitle">
       <n-alert
         v-if="initialLoadErrorMessage"
         type="error"
@@ -980,6 +980,14 @@ const isDeleteScopeConfirmDisabled = computed(() => {
 const previousMonthPrefix = computed(() => {
   if (!scheduleStore.basicInfo?.month) return '';
   return dayjs(`${scheduleStore.basicInfo.month}-01`).subtract(1, 'month').format('YYYY-MM');
+});
+
+const cardTitle = computed(() => {
+  const month = scheduleStore.basicInfo?.month;
+  if (month) {
+    return `${dayjs(month).format('YYYY년 M월')} 근무표 생성 - 결과 확인`;
+  }
+  return '근무표 생성 - 결과 확인';
 });
 
 const statusText = computed(() => {
