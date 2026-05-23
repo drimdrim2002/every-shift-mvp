@@ -6,7 +6,7 @@
           근무 기록
         </h1>
         <p class="mt-2 text-sm text-slate-500">
-          확정된 근무표 기준으로 야간 근무 일수, 주말·휴일 근무 일수, Off 요청 수락 일수를 비교합니다.
+          확정된 근무표 기준으로 야간 근무, 주말 근무, 공휴일 근무, Off 요청 수락 건수를 비교합니다.
         </p>
         <details
           data-test="work-performance-calculation-guide"
@@ -21,30 +21,38 @@
               ▾
             </span>
           </summary>
-          <dl class="mt-3 grid gap-2 md:grid-cols-3">
+          <dl class="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
             <div
               data-test="work-performance-calculation-card-night"
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                야간 근무 일수
+                야간 근무 횟수
               </dt>
               <dd class="mt-1 font-semibold text-slate-900">
                 N 배정 개수
               </dd>
             </div>
             <div
-              data-test="work-performance-calculation-card-weekendHoliday"
+              data-test="work-performance-calculation-card-weekend"
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                주말·휴일 근무 일수
+                주말 근무 횟수
               </dt>
-              <dd class="mt-1 grid gap-2 font-semibold text-slate-900 lg:grid-cols-[minmax(0,1fr)_minmax(8rem,0.9fr)]">
-                <span>토·일·공휴일 날짜 배정 개수</span>
-                <span class="border-t border-slate-200 pt-2 text-xs font-normal leading-relaxed text-slate-500 lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0">
-                  자정을 넘는 근무도 시간 분할 없이 배정 날짜에 귀속합니다.
-                </span>
+              <dd class="mt-1 font-semibold text-slate-900">
+                금요일 야간(N), 토요일 전체(D/E/N), 일요일 주간/이브닝(D/E) 근무 횟수입니다.
+              </dd>
+            </div>
+            <div
+              data-test="work-performance-calculation-card-holiday"
+              class="rounded-md border border-slate-200 bg-white/75 p-3"
+            >
+              <dt class="text-xs font-medium text-slate-500">
+                공휴일 근무 횟수
+              </dt>
+              <dd class="mt-1 font-semibold text-slate-900">
+                공휴일 당일 주간/이브닝(D/E) 및 공휴일 전날 야간(N) 근무 횟수입니다.
               </dd>
             </div>
             <div
@@ -52,10 +60,10 @@
               class="rounded-md border border-slate-200 bg-white/75 p-3"
             >
               <dt class="text-xs font-medium text-slate-500">
-                Off 요청 수락 일수
+                Off 요청 수락 건수
               </dt>
               <dd class="mt-1 font-semibold text-slate-900">
-                수락 처리된 Off 요청 개수
+                수락 처리된 Off 요청 개수 (전날 야간 없음 + 당일 휴무 조건)
               </dd>
             </div>
           </dl>
@@ -231,7 +239,7 @@
       >
         <div
           data-test="work-performance-summary"
-          class="grid gap-3 md:grid-cols-3"
+          class="grid gap-3 md:grid-cols-4"
         >
           <div
             v-for="definition in fairnessResult.metricDefinitions"
@@ -383,7 +391,7 @@
             class="overflow-x-auto"
           >
             <div
-              class="min-w-[920px] divide-y divide-slate-100 text-sm"
+              class="min-w-[1100px] divide-y divide-slate-100 text-sm"
               role="table"
               aria-label="직원별 근무 기록 비교"
             >
@@ -391,7 +399,7 @@
                 전체 평균과의 차이가 큰 직원부터 표시됩니다
               </p>
               <div
-                class="grid grid-cols-[10rem_repeat(3,minmax(13rem,1fr))_6rem] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"
+                class="grid grid-cols-[10rem_repeat(4,minmax(12rem,1fr))_6rem] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500"
                 role="row"
               >
                 <div
@@ -436,21 +444,45 @@
                 <div
                   class="px-4 py-3 text-center"
                   role="columnheader"
-                  :aria-sort="getAriaSort('weekendHoliday')"
-                  data-test="work-performance-sort-weekendHoliday"
-                  @click="changeSort('weekendHoliday')"
+                  :aria-sort="getAriaSort('weekend')"
+                  data-test="work-performance-sort-weekend"
+                  @click="changeSort('weekend')"
                 >
                   <button
                     type="button"
                     class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    @click.stop="changeSort('weekendHoliday')"
+                    @click.stop="changeSort('weekend')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
-                      주말·휴일 근무 일수
+                      주말 근무 횟수
                       <span
                         class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
-                        :title="getMetricTooltip('weekendHoliday')"
-                        :aria-label="getMetricTooltip('weekendHoliday')"
+                        :title="getMetricTooltip('weekend')"
+                        :aria-label="getMetricTooltip('weekend')"
+                      >
+                        ?
+                      </span>
+                    </span>
+                  </button>
+                </div>
+                <div
+                  class="px-4 py-3 text-center"
+                  role="columnheader"
+                  :aria-sort="getAriaSort('holiday')"
+                  data-test="work-performance-sort-holiday"
+                  @click="changeSort('holiday')"
+                >
+                  <button
+                    type="button"
+                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    @click.stop="changeSort('holiday')"
+                  >
+                    <span class="inline-flex items-center justify-center gap-1.5">
+                      공휴일 근무 횟수
+                      <span
+                        class="inline-flex size-5 items-center justify-center rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+                        :title="getMetricTooltip('holiday')"
+                        :aria-label="getMetricTooltip('holiday')"
                       >
                         ?
                       </span>
@@ -496,7 +528,7 @@
                 role="rowgroup"
               >
                 <div
-                  class="grid grid-cols-[10rem_repeat(3,minmax(13rem,1fr))_6rem] items-stretch bg-white"
+                  class="grid grid-cols-[10rem_repeat(4,minmax(12rem,1fr))_6rem] items-stretch bg-white"
                   role="row"
                 >
                   <div
@@ -617,6 +649,12 @@
                         >
                           {{ formatKoreanMonthDay(date) }}
                           <span
+                            v-if="getShiftCode(row.employeeId, date)"
+                            class="ml-0.5 font-medium text-slate-500"
+                          >
+                            ({{ getShiftCode(row.employeeId, date) }})
+                          </span>
+                          <span
                             v-if="isPublicHoliday(date)"
                             class="ml-1 text-xs font-semibold text-red-700"
                           >
@@ -689,21 +727,24 @@ const router = useRouter()
 const orgStore = useOrganizationStore()
 
 const currentDate = new Date()
-const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekendHoliday', 'offRequestAccepted']
+const metricKeys: WorkPerformanceMetricKey[] = ['night', 'weekend', 'holiday', 'offRequestAccepted']
 const showRiskSummary = false
 const metricLabels: Record<WorkPerformanceMetricKey, string> = {
-  night: '야간 근무 일수',
-  weekendHoliday: '주말·휴일 근무 일수',
-  offRequestAccepted: 'Off 요청 수락 일수',
+  night: '야간 근무 횟수',
+  weekend: '주말 근무 횟수',
+  holiday: '공휴일 근무 횟수',
+  offRequestAccepted: 'Off 요청 수락 건수',
 }
 const metricUnits: Record<WorkPerformanceMetricKey, string> = {
-  night: '일',
-  weekendHoliday: '일',
-  offRequestAccepted: '일',
+  night: '회',
+  weekend: '회',
+  holiday: '회',
+  offRequestAccepted: '건',
 }
 const metricTooltips: Record<WorkPerformanceMetricKey, string> = {
   night: '근무표의 N 배정 개수입니다.',
-  weekendHoliday: '토·일·공휴일 날짜에 배정된 근무 개수입니다.',
+  weekend: '금요일 야간·토요일·일요일 주간/이브닝 근무 개수입니다.',
+  holiday: '공휴일 당일 주간/이브닝 및 공휴일 전날 야간 근무 개수입니다.',
   offRequestAccepted: 'Off 요청이 수락된 건수입니다.',
 }
 
@@ -783,11 +824,31 @@ const riskSummaryRows = computed(() => {
 const maxRiskScore = computed(() =>
   Math.max(...riskSummaryRows.value.map((row) => row.priorityScore), 0),
 )
-const metricDeltaScale = computed<Record<WorkPerformanceMetricKey, number>>(() => ({
+const metricDeltaScale = computed<Record<string, number>>(() => ({
   night: getMaxDeviation('night'),
-  weekendHoliday: getMaxDeviation('weekendHoliday'),
+  weekend: getMaxDeviation('weekend'),
+  holiday: getMaxDeviation('holiday'),
   offRequestAccepted: getMaxDeviation('offRequestAccepted'),
 }))
+
+const employeeDateShiftMap = computed(() => {
+  const map = new Map<string, string>()
+  if (!successResult.value) {
+    return map
+  }
+
+  successResult.value.assignments.forEach((assignment) => {
+    if (assignment.shiftCode) {
+      map.set(`${assignment.employeeId}-${assignment.date}`, assignment.shiftCode)
+    }
+  })
+
+  return map
+})
+
+function getShiftCode(employeeId: string, date: string): string {
+  return employeeDateShiftMap.value.get(`${employeeId}-${date}`) ?? ''
+}
 
 onMounted(() => {
   void initializeDefaultPeriod()
@@ -1085,8 +1146,12 @@ function getRiskSegmentClass(metric: WorkPerformanceMetricKey): string {
     return 'bg-blue-500'
   }
 
-  if (metric === 'weekendHoliday') {
+  if (metric === 'weekend') {
     return 'bg-amber-500'
+  }
+
+  if (metric === 'holiday') {
+    return 'bg-orange-500'
   }
 
   return 'bg-teal-500'
@@ -1153,7 +1218,7 @@ function getMetricBarStyle(
 ): Record<string, string> {
   const scale = metricDeltaScale.value[metricKey]
 
-  if (scale <= 0 || metric.delta === 0) {
+  if (!scale || scale <= 0 || metric.delta === 0) {
     return { width: '0%' }
   }
 

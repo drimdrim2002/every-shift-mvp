@@ -95,16 +95,25 @@ function getMonthLabels(year: number, startMonth: number, endMonth: number): str
 }
 
 export function getPreviousDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() - 1);
-  return date.toISOString().split('T')[0];
+  const [year = 0, month = 1, day = 1] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - 1);
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 export function getNextDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().split('T')[0];
+  const [year = 0, month = 1, day = 1] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + 1);
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
+
 
 
 function buildPeriod(params: WorkPerformanceLoadParams): WorkPerformancePeriod {

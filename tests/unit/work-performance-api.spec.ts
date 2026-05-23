@@ -10,7 +10,7 @@ vi.mock('@/api/supabase', () => ({
   },
 }));
 
-const LOAD_ERROR_MESSAGE = '근무 실적을 불러오지 못했습니다';
+const LOAD_ERROR_MESSAGE = '근무 기록을 불러오지 못했습니다';
 
 interface QueryResponse {
   data: unknown[] | null;

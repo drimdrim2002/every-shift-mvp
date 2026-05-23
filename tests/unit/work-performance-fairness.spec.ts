@@ -223,9 +223,9 @@ describe('computeWorkPerformanceFairness', () => {
 
     expect(result.rows.map((row) => row.employeeId)).toEqual(['employee-a', 'employee-b'])
     expect(result.excludedEmployeeCount).toBe(1)
-    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.night.count).toBe(1)
-    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.weekendHoliday.count).toBe(1)
-    expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.weekendHoliday.count).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.holiday.count).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-a')?.metrics.weekend.count).toBe(1)
+    expect(result.rows.find((row) => row.employeeId === 'employee-b')?.metrics.weekend.count).toBe(1)
   })
 
   it('counts only fulfilled Off requests without inferring acceptance from Off assignments', () => {
@@ -313,9 +313,13 @@ describe('computeWorkPerformanceFairness', () => {
       count: 2,
       evidenceDates: ['2026-01-02', '2026-01-03'],
     })
-    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
       count: 2,
-      evidenceDates: ['2026-01-03', '2026-01-05'],
+      evidenceDates: ['2026-01-02', '2026-01-03'],
+    })
+    expect(result.rows[0]?.metrics.holiday).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-05'],
     })
   })
 
@@ -334,13 +338,15 @@ describe('computeWorkPerformanceFairness', () => {
     expect(result.excludedEmployeeCount).toBe(1)
     expect(result.metricDefinitions).toEqual([
       { key: 'night', label: '야간 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
-      { key: 'weekendHoliday', label: '주말·휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+      { key: 'weekend', label: '주말 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+      { key: 'holiday', label: '공휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
       { key: 'offRequestAccepted', label: 'Off 요청 수락 건수', unit: '건', unfavorableDirection: 'belowAverage' },
     ])
     expect(result.summary).toEqual({
       night: { average: 4, min: 1, max: 7 },
-      weekendHoliday: { average: 8 / 3, min: 1, max: 4 },
-      offRequestAccepted: { average: 16 / 3, min: 4, max: 6 },
+      weekend: { average: 3, min: 1, max: 5 },
+      holiday: { average: 8 / 3, min: 2, max: 3 },
+      offRequestAccepted: { average: 4, min: 0, max: 6 },
     })
 
     expect(result.rows.map((row) => row.employeeName)).toEqual(['김민지', '박서준', '이지은'])
@@ -360,20 +366,28 @@ describe('computeWorkPerformanceFairness', () => {
         '2026-01-12',
       ],
     })
-    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
-      count: 4,
-      average: 8 / 3,
-      delta: 4 - 8 / 3,
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
+      count: 5,
+      average: 3,
+      delta: 2,
       highlighted: false,
-      evidenceDates: ['2026-01-01', '2026-01-03', '2026-01-04', '2026-01-10'],
+      evidenceDates: ['2026-01-02', '2026-01-03', '2026-01-04', '2026-01-09', '2026-01-10'],
+    })
+    expect(result.rows[0]?.metrics.holiday).toMatchObject({
+      count: 3,
+      average: 8 / 3,
+      delta: 3 - 8 / 3,
+      highlighted: false,
+      evidenceDates: ['2026-01-01', '2026-01-02', '2026-01-03'],
     })
     expect(result.rows[0]?.metrics.offRequestAccepted).toMatchObject({
-      count: 4,
-      average: 16 / 3,
-      delta: 4 - 16 / 3,
-      highlighted: false,
-      evidenceDates: ['2026-01-01', '2026-01-03', '2026-01-04', '2026-01-10'],
+      count: 0,
+      average: 4,
+      delta: -4,
+      highlighted: true,
+      evidenceDates: [],
     })
+
 
     expect(result.rows[1]?.metrics.offRequestAccepted).toMatchObject({
       count: 6,
@@ -461,7 +475,7 @@ describe('computeWorkPerformanceFairness', () => {
     expect(clampWorkPerformanceThresholdDays(Number.NaN)).toBe(1)
     expect(clampWorkPerformanceThresholdDays(Number.POSITIVE_INFINITY)).toBe(1)
     expect(result.highlightThresholdDays).toBe(1)
-    expect(result.rows.find((row) => row.employeeName === '김민지')?.metrics.weekendHoliday.highlighted).toBe(true)
+    expect(result.rows.find((row) => row.employeeName === '김민지')?.metrics.weekend.highlighted).toBe(true)
   })
 
   it('does not count null, empty, or whitespace shift codes as weekend or holiday work', () => {
@@ -482,7 +496,11 @@ describe('computeWorkPerformanceFairness', () => {
       highlightThresholdDays: 1,
     })
 
-    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
+      count: 0,
+      evidenceDates: [],
+    })
+    expect(result.rows[0]?.metrics.holiday).toMatchObject({
       count: 0,
       evidenceDates: [],
     })
@@ -492,7 +510,7 @@ describe('computeWorkPerformanceFairness', () => {
     const employee: WorkPerformanceEmployeeRow = { id: 'normalized-employee', name: '정규화간호사' }
     const assignments = fullOffAssignments(employee.id)
 
-    assignments.find((assignment) => assignment.date === '2026-01-02')!.shiftCode = ' n '
+    assignments.find((assignment) => assignment.date === '2026-01-05')!.shiftCode = ' n '
     assignments.find((assignment) => assignment.date === '2026-01-03')!.shiftCode = ' o '
     assignments.find((assignment) => assignment.date === '2026-01-04')!.shiftCode = ' d '
 
@@ -507,15 +525,160 @@ describe('computeWorkPerformanceFairness', () => {
 
     expect(result.rows[0]?.metrics.night).toMatchObject({
       count: 1,
-      evidenceDates: ['2026-01-02'],
+      evidenceDates: ['2026-01-05'],
     })
-    expect(result.rows[0]?.metrics.weekendHoliday).toMatchObject({
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
       count: 1,
       evidenceDates: ['2026-01-04'],
     })
     expect(result.rows[0]?.metrics.offRequestAccepted).toMatchObject({
       count: 1,
       evidenceDates: ['2026-01-03'],
+    })
+  })
+
+  // Test A: Weekend and holiday metrics are counted independently
+  it('(A) counts weekend and holiday work as fully independent metrics', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'emp-a', name: '분리검증' }
+    // 2026-01-01 Thu = holiday (D shift → holiday only)
+    // 2026-01-03 Sat = weekend (D shift → weekend only, not a holiday)
+    // 2026-01-04 Sun = weekend (D shift → weekend only)
+    // 2026-01-10 Sat = holiday + weekend overlap (D shift → counts in both)
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      workedAssignment('emp-a', '2026-01-01', 'D'), // holiday D/E
+      workedAssignment('emp-a', '2026-01-03', 'D'), // weekend (Sat)
+      workedAssignment('emp-a', '2026-01-04', 'D'), // weekend (Sun)
+      workedAssignment('emp-a', '2026-01-10', 'D'), // both: Sat + holiday
+    ]
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments,
+      offRequests: [],
+      publicHolidayDates: ['2026-01-01', '2026-01-10'],
+      highlightThresholdDays: 1,
+    })
+
+    // holiday: Jan 1 (D on holiday), Jan 10 (D on holiday)
+    expect(result.rows[0]?.metrics.holiday).toMatchObject({
+      count: 2,
+      evidenceDates: ['2026-01-01', '2026-01-10'],
+    })
+    // weekend: Jan 3 (Sat), Jan 4 (Sun), Jan 10 (Sat)
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
+      count: 3,
+      evidenceDates: ['2026-01-03', '2026-01-04', '2026-01-10'],
+    })
+  })
+
+  // Test B: T-1 night shift prevents Off request from being counted as accepted
+  it('(B) does not count Off request as accepted when the previous day has a night shift', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'emp-b', name: '전날야간' }
+    // Jan 9 (Fri) = N shift (previous day night)
+    // Jan 10 (Sat) = Off request fulfilled + no work assignment → should NOT count (hasPrevNight)
+    // Jan 11 (Sun) = Off request fulfilled + no work assignment + no prev night → SHOULD count
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      workedAssignment('emp-b', '2026-01-09', 'N'), // T-1 night (previous month boundary T-1 test is below)
+      // Jan 10: assigned as Off
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'emp-b',
+        date: '2026-01-10',
+        shiftId: 'shift-off',
+        shiftCode: 'O',
+        shiftName: 'Off',
+      },
+      // Jan 11: Off (no explicit assignment, so no work)
+    ]
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments,
+      offRequests: [
+        offRequest('emp-b', '2026-01-10'), // blocked by prev-night Jan 9
+        offRequest('emp-b', '2026-01-11'), // allowed: prev Jan 10 = O (not N)
+      ],
+      publicHolidayDates: [],
+      highlightThresholdDays: 1,
+    })
+
+    expect(result.rows[0]?.metrics.offRequestAccepted).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-11'], // Jan 10 excluded because prev-night, Jan 11 accepted
+    })
+  })
+
+  // Test C: Last-day night shift counts as holiday work when T+1 is a public holiday
+  it('(C) counts last-period-day night shift as holiday work when the next day is a public holiday', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'emp-c', name: '말일야간' }
+    // Period: Jan 2026. Jan 31 (Sat) = N shift. Feb 1 = holiday.
+    // Jan 31 N → next day (Feb 1) is holiday → should count as holiday work
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      workedAssignment('emp-c', '2026-01-31', 'N'),
+    ]
+
+    const result = computeWorkPerformanceFairness({
+      period,
+      employees: [employee],
+      assignments,
+      offRequests: [],
+      publicHolidayDates: ['2026-02-01'], // T+1 day of last-period day
+      highlightThresholdDays: 1,
+    })
+
+    // Jan 31 is Sat + night (weekend), and next day Feb 1 is holiday → also holiday
+    expect(result.rows[0]?.metrics.holiday).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-31'],
+    })
+    expect(result.rows[0]?.metrics.weekend).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-31'],
+    })
+  })
+
+  // Test D: Missing previous month schedule safely falls back to "no night shift"
+  it('(D) safely falls back to no prev-night when T-1 assignment is missing (prev month not finalized)', () => {
+    const employee: WorkPerformanceEmployeeRow = { id: 'emp-d', name: '이전달없음' }
+    // Jan 1 Off request: T-1 = Dec 31 of previous month, no assignment data → should default to no prev night
+    // so Jan 1 Off request (no work on Jan 1) should count as accepted
+    const assignments: WorkPerformanceAssignmentRow[] = [
+      // Intentionally no Dec 31 assignment (previous month not finalized)
+      // Jan 1: Off
+      {
+        scheduleVersionId: 'version-1',
+        employeeId: 'emp-d',
+        date: '2026-01-01',
+        shiftId: 'shift-off',
+        shiftCode: 'O',
+        shiftName: 'Off',
+      },
+      workedAssignment('emp-d', '2026-01-02', 'D'), // need at least one worked day to be included
+    ]
+
+    let thrownError: unknown = null
+    let result
+    try {
+      result = computeWorkPerformanceFairness({
+        period,
+        employees: [employee],
+        assignments,
+        offRequests: [offRequest('emp-d', '2026-01-01')],
+        publicHolidayDates: [],
+        highlightThresholdDays: 1,
+      })
+    } catch (error) {
+      thrownError = error
+    }
+
+    // Must not throw a runtime error
+    expect(thrownError).toBeNull()
+    // Jan 1 Off request accepted: no prev night (Dec 31 missing → fallback = false) and Jan 1 = Off (no work)
+    expect(result?.rows[0]?.metrics.offRequestAccepted).toMatchObject({
+      count: 1,
+      evidenceDates: ['2026-01-01'],
     })
   })
 })

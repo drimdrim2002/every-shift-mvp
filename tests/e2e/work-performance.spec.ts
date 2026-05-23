@@ -209,7 +209,7 @@ async function openWorkPerformance(page: Page, fixture: WorkPerformanceFixture) 
   await seedSelectedOrganization(page, organizationId)
   await mockDashboardReadiness(page, 'complete')
   await page.goto(getWorkPerformanceRoutePath())
-  await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '근무 기록', exact: true })).toBeVisible()
 }
 
 async function mockWorkPerformanceRest(page: Page, fixture: WorkPerformanceFixture) {
@@ -347,13 +347,13 @@ test.describe('work performance', () => {
     await topNav.getByRole('button', { name: '근무자별', exact: true }).click()
 
     await expect(page).toHaveURL((url) => url.pathname === getWorkPerformanceRoutePath())
-    await expect(page.getByRole('heading', { name: '근무 실적', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '근무 기록', exact: true })).toBeVisible()
     const calculationGuide = page.getByTestId('work-performance-calculation-guide')
     await expect(calculationGuide).toContainText('계산 기준')
     await calculationGuide.getByText('계산 기준', { exact: true }).click()
     await expect(calculationGuide).toContainText('N 배정 개수')
-    await expect(calculationGuide).toContainText('토·일·공휴일 날짜 배정 개수')
-    await expect(page.getByTestId('work-performance-calculation-card-weekendHoliday')).toContainText('자정을 넘는 근무도 시간 분할 없이 배정 날짜에 귀속합니다.')
+    await expect(calculationGuide).toContainText('금요일 야간(N), 토요일 전체(D/E/N)')
+    await expect(page.getByTestId('work-performance-calculation-card-weekend')).toBeVisible()
     await expect(calculationGuide).not.toContainText('근로기준법')
     await expect(page.getByTestId('work-performance-initial')).toBeVisible()
   })

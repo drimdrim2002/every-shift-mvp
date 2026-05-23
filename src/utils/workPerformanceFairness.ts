@@ -9,17 +9,21 @@ import type {
   WorkPerformanceMetricSummary,
   WorkPerformancePreferenceRow,
 } from '@/types/workPerformance'
+import { getPreviousDate, getNextDate } from '@/api/workPerformance'
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 const KOREAN_DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const
 const OFF_SHIFT_CODE = 'O'
 const NIGHT_SHIFT_CODE = 'N'
 
-const METRIC_KEYS = ['night', 'weekendHoliday', 'offRequestAccepted'] as const
+const METRIC_KEYS = ['night', 'weekend', 'holiday', 'offRequestAccepted'] as const
+type ActiveMetricKey = (typeof METRIC_KEYS)[number]
+
 
 export const metricDefinitions = [
   { key: 'night', label: '야간 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
-  { key: 'weekendHoliday', label: '주말·휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+  { key: 'weekend', label: '주말 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
+  { key: 'holiday', label: '공휴일 근무 횟수', unit: '회', unfavorableDirection: 'aboveAverage' },
   { key: 'offRequestAccepted', label: 'Off 요청 수락 건수', unit: '건', unfavorableDirection: 'belowAverage' },
 ] as const satisfies readonly WorkPerformanceMetricDefinition[]
 
@@ -229,20 +233,23 @@ export function computeWorkPerformanceFairness({
 }: ComputeWorkPerformanceFairnessInput): WorkPerformanceFairnessResult {
   const requiredDates = listPeriodDates(period.year, period.startMonth, period.endMonth)
   const requiredDateSet = new Set(requiredDates)
-  const holidayDateSet = new Set(publicHolidayDates.filter((date) => requiredDateSet.has(date)))
+  const holidayDateSet = new Set(publicHolidayDates)
   const threshold = clampWorkPerformanceThresholdDays(highlightThresholdDays)
   const employeeById = new Map(employees.map((employee) => [employee.id, employee]))
   const assignmentsByEmployeeDate = new Map<string, WorkPerformanceAssignmentRow>()
   const workedDatesByEmployee = new Map<string, Set<string>>()
+  const prevStartDate = getPreviousDate(period.startDate)
 
   assignments.forEach((assignment) => {
-    if (!employeeById.has(assignment.employeeId) || !requiredDateSet.has(assignment.date)) {
+    if (!employeeById.has(assignment.employeeId)) {
       return
     }
 
-    assignmentsByEmployeeDate.set(mapKey(assignment.employeeId, assignment.date), assignment)
+    if (requiredDateSet.has(assignment.date) || assignment.date === prevStartDate) {
+      assignmentsByEmployeeDate.set(mapKey(assignment.employeeId, assignment.date), assignment)
+    }
 
-    if (isWorkedAssignment(assignment)) {
+    if (requiredDateSet.has(assignment.date) && isWorkedAssignment(assignment)) {
       const workedDates = workedDatesByEmployee.get(assignment.employeeId) ?? new Set<string>()
       workedDates.add(assignment.date)
       workedDatesByEmployee.set(assignment.employeeId, workedDates)
@@ -268,26 +275,60 @@ export function computeWorkPerformanceFairness({
 
   const countRows = includedEmployees.map((employee) => {
     const nightEvidenceDates: string[] = []
-    const weekendHolidayEvidenceDates: string[] = []
+    const weekendEvidenceDates: string[] = []
+    const holidayEvidenceDates: string[] = []
     const offAcceptedEvidenceDates: string[] = []
     const offRequestDates = offRequestDatesByEmployee.get(employee.id) ?? new Set<string>()
 
     requiredDates.forEach((date) => {
       const assignment = assignmentsByEmployeeDate.get(mapKey(employee.id, date))
-      const worked = isWorkedAssignment(assignment)
-      const isWeekend = getIsoDayOfWeek(date) === 0 || getIsoDayOfWeek(date) === 6
-      const isHoliday = holidayDateSet.has(date)
 
+      // 1. 야간 근무 (night)
       if (normalizeShiftCode(assignment?.shiftCode) === NIGHT_SHIFT_CODE) {
         nightEvidenceDates.push(date)
       }
 
-      if (worked && (isWeekend || isHoliday)) {
-        weekendHolidayEvidenceDates.push(date)
+      // 2. 주말 근무 (weekend): 금요일 야간(N), 토요일 전체(D/E/N), 일요일 주간/이브닝(D/E)
+      const dayOfWeek = getIsoDayOfWeek(date)
+      const isWorked = isWorkedAssignment(assignment)
+      if (isWorked) {
+        const shift = normalizeShiftCode(assignment?.shiftCode)
+        if (
+          (dayOfWeek === 5 && shift === NIGHT_SHIFT_CODE) || // 금요일 야간
+          (dayOfWeek === 6 && (shift === 'D' || shift === 'E' || shift === NIGHT_SHIFT_CODE)) || // 토요일 전체
+          (dayOfWeek === 0 && (shift === 'D' || shift === 'E')) // 일요일 주간/이브닝
+        ) {
+          weekendEvidenceDates.push(date)
+        }
       }
 
+      // 3. 공휴일 근무 (holiday): 공휴일 당일 주간/이브닝(D/E), 공휴일 전날 야간(N)
+      const isHoliday = holidayDateSet.has(date)
+      const nextDateStr = getNextDate(date)
+      const isNextDayHoliday = holidayDateSet.has(nextDateStr)
+      if (isWorked) {
+        const shift = normalizeShiftCode(assignment?.shiftCode)
+        if (
+          (isHoliday && (shift === 'D' || shift === 'E')) || // 공휴일 당일 D/E
+          (isNextDayHoliday && shift === NIGHT_SHIFT_CODE) // 공휴일 전날 야간 N
+        ) {
+          holidayEvidenceDates.push(date)
+        }
+      }
+
+      // 4. Off 요청 수락 (offRequestAccepted): 해당일에 Off 신청('O')이 존재할 때, 조건 A(전날 N 근무 없음) & 조건 B(당일 D/E/N 근무 없음)를 모두 만족하는 경우
       if (offRequestDates.has(date)) {
-        offAcceptedEvidenceDates.push(date)
+        const prevDateStr = getPreviousDate(date)
+        const prevAssignment = assignmentsByEmployeeDate.get(mapKey(employee.id, prevDateStr))
+        // If previous assignment is missing (e.g., previous month's schedule not finalized), default to no night shift
+        const hasPrevNight = prevAssignment
+          ? normalizeShiftCode(prevAssignment.shiftCode) === NIGHT_SHIFT_CODE
+          : false
+        const hasCurrentWork = isWorkedAssignment(assignment) // D, E, N 근무 배정이 없어야 함
+        
+        if (!hasPrevNight && !hasCurrentWork) {
+          offAcceptedEvidenceDates.push(date)
+        }
       }
     })
 
@@ -295,14 +336,16 @@ export function computeWorkPerformanceFairness({
       employee,
       counts: {
         night: nightEvidenceDates.length,
-        weekendHoliday: weekendHolidayEvidenceDates.length,
+        weekend: weekendEvidenceDates.length,
+        holiday: holidayEvidenceDates.length,
         offRequestAccepted: offAcceptedEvidenceDates.length,
-      } satisfies Record<WorkPerformanceMetricKey, number>,
+      } satisfies Record<ActiveMetricKey, number>,
       evidenceDates: {
         night: nightEvidenceDates,
-        weekendHoliday: weekendHolidayEvidenceDates,
+        weekend: weekendEvidenceDates,
+        holiday: holidayEvidenceDates,
         offRequestAccepted: offAcceptedEvidenceDates,
-      } satisfies Record<WorkPerformanceMetricKey, string[]>,
+      } satisfies Record<ActiveMetricKey, string[]>,
     }
   })
 
@@ -311,20 +354,21 @@ export function computeWorkPerformanceFairness({
       ...result,
       [key]: calculateSummary(countRows.map((row) => row.counts[key])),
     }),
-    {} as Record<WorkPerformanceMetricKey, WorkPerformanceMetricSummary>,
+    {} as Record<ActiveMetricKey, WorkPerformanceMetricSummary>,
   )
 
   const rows: WorkPerformanceEmployeeResult[] = countRows.map(({ employee, counts, evidenceDates }) => {
     const metrics = METRIC_KEYS.reduce(
       (result, key) => ({
         ...result,
-        [key]: buildMetricResult(key, counts[key], summary[key].average, evidenceDates[key], threshold),
+        [key]: buildMetricResult(key, counts[key], summary[key]!.average, evidenceDates[key], threshold),
       }),
       {} as Record<WorkPerformanceMetricKey, WorkPerformanceMetricResult>,
     )
     const priorityScore =
       getUnfavorableDeviation('night', metrics.night) +
-      getUnfavorableDeviation('weekendHoliday', metrics.weekendHoliday) +
+      getUnfavorableDeviation('weekend', metrics.weekend) +
+      getUnfavorableDeviation('holiday', metrics.holiday) +
       getUnfavorableDeviation('offRequestAccepted', metrics.offRequestAccepted)
 
     return {
@@ -351,12 +395,20 @@ export function computeWorkPerformanceFairness({
       return nightDelta
     }
 
-    const weekendHolidayDelta =
-      getUnfavorableDeviation('weekendHoliday', right.metrics.weekendHoliday) -
-      getUnfavorableDeviation('weekendHoliday', left.metrics.weekendHoliday)
+    const weekendDelta =
+      getUnfavorableDeviation('weekend', right.metrics.weekend) -
+      getUnfavorableDeviation('weekend', left.metrics.weekend)
 
-    if (weekendHolidayDelta !== 0) {
-      return weekendHolidayDelta
+    if (weekendDelta !== 0) {
+      return weekendDelta
+    }
+
+    const holidayDelta =
+      getUnfavorableDeviation('holiday', right.metrics.holiday) -
+      getUnfavorableDeviation('holiday', left.metrics.holiday)
+
+    if (holidayDelta !== 0) {
+      return holidayDelta
     }
 
     const offRequestAcceptedDelta =
@@ -376,7 +428,7 @@ export function computeWorkPerformanceFairness({
     metricDefinitions,
     highlightThresholdDays: threshold,
     rows,
-    summary,
+    summary: summary as Record<WorkPerformanceMetricKey, WorkPerformanceMetricSummary>,
     excludedEmployeeCount,
   }
 }
