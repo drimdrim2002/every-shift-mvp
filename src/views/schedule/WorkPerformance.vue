@@ -256,10 +256,7 @@
               전체 평균 {{ formatMetricValue(key, fairnessResult.summary[key].average) }}
             </p>
             <p class="mt-1 text-sm text-slate-500">
-              최소 {{ formatMetricValue(key, fairnessResult.summary[key].min) }} · 최대 {{ formatMetricValue(key, fairnessResult.summary[key].max) }}
-            </p>
-            <p class="mt-1 text-sm font-medium text-slate-600">
-              가장 큰 차이 {{ formatMetricValue(key, getMaxDeviation(key)) }}
+              {{ formatNumber(fairnessResult.summary[key].min) }}일 ~ {{ formatNumber(fairnessResult.summary[key].max) }}일
             </p>
           </div>
         </div>

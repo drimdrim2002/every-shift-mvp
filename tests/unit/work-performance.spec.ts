@@ -231,17 +231,18 @@ describe('WorkPerformance', () => {
     const wrapper = createWrapper()
 
     expect(wrapper.text()).toContain('근무 기록')
-    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간 근무, 주말 근무, 공휴일 근무, Off 요청 수락 건수를 비교합니다.')
+    expect(wrapper.text()).toContain('확정된 근무표 기준으로 야간 근무, 휴일 근무, Off 요청 수락 건수를 비교합니다.')
     const calculationGuide = wrapper.get('[data-test="work-performance-calculation-guide"]').text()
     expect(calculationGuide).toContain('계산 기준')
     expect(calculationGuide).toContain('야간 근무 횟수')
     expect(calculationGuide).toContain('N 배정 개수')
-    expect(calculationGuide).toContain('주말 근무 횟수')
-    expect(calculationGuide).toContain('금요일 야간(N), 토요일 전체(D/E/N), 일요일 주간/이브닝(D/E)')
+    expect(calculationGuide).toContain('휴일 근무 일수')
+    expect(calculationGuide).toContain('주말(금요일 야간, 토요일 전체, 일요일 주간/이브닝) 및 공휴일')
     expect(calculationGuide).toContain('Off 요청 수락 건수')
     expect(calculationGuide).toContain('수락 처리된 Off 요청 개수')
-    expect(wrapper.find('[data-test="work-performance-calculation-card-weekend"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="work-performance-calculation-card-holiday"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="work-performance-calculation-card-holidayWork"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="work-performance-calculation-card-weekend"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="work-performance-calculation-card-holiday"]').exists()).toBe(false)
     expect(calculationGuide).not.toContain('근로기준법')
     expect(wrapper.get('[data-test="work-performance-initial"]').text()).toContain('기간을 선택한 뒤 조회를 눌러 근무 기록을 확인하세요')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
@@ -263,7 +264,7 @@ describe('WorkPerformance', () => {
 
     await flush()
 
-    expect(wrapper.get('[data-test="work-performance-month-range"]').text()).toContain('2026-04 ~ 2026-04')
+    expect(wrapper.get('[data-test="work-performance-month-range"]').text()).toContain('2026-01 ~ 2026-04')
     expect(loadLatestFinalizedWorkPerformanceMonthMock).toHaveBeenCalledWith('org-1')
     expect(loadWorkPerformancePeriodMock).not.toHaveBeenCalled()
   })
@@ -330,7 +331,6 @@ describe('WorkPerformance', () => {
     await runQuery(wrapper)
 
     expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('야간 근무 횟수')
-    expect(wrapper.get('[data-test="work-performance-summary"]').text()).toContain('가장 큰 차이')
     expect(wrapper.find('[data-test="work-performance-risk-summary"]').exists()).toBe(false)
     expect(wrapper.get('[data-test="work-performance-matrix"]').text()).toContain('김민지')
     expect(
@@ -484,14 +484,15 @@ describe('WorkPerformance', () => {
     await flush()
 
     expect(wrapper.get('[data-test="work-performance-sort-night"]').attributes('aria-sort')).toBe('descending')
-    expect(wrapper.get('[data-test="work-performance-sort-weekend"]').attributes('aria-sort')).toBe('none')
+    expect(wrapper.find('[data-test="work-performance-sort-weekend"]').exists()).toBe(false)
+    expect(wrapper.get('[data-test="work-performance-sort-holidayWork"]').attributes('aria-sort')).toBe('none')
     expect(getEmployeeRowNames(wrapper)).toEqual(['김민지', '이서연', '박하늘'])
 
-    await wrapper.get('[data-test="work-performance-sort-weekend"]').trigger('click')
+    await wrapper.get('[data-test="work-performance-sort-holidayWork"]').trigger('click')
     await flush()
 
     expect(wrapper.get('[data-test="work-performance-sort-night"]').attributes('aria-sort')).toBe('none')
-    expect(wrapper.get('[data-test="work-performance-sort-weekend"]').attributes('aria-sort')).toBe('descending')
+    expect(wrapper.get('[data-test="work-performance-sort-holidayWork"]').attributes('aria-sort')).toBe('descending')
     expect(getEmployeeRowNames(wrapper)).toEqual(['박하늘', '이서연', '김민지'])
   })
 
