@@ -52,6 +52,10 @@ import { useAuthStore } from '@/stores/auth'
 import type { SocialAuthProviderId } from '@/types/auth'
 import type { SignupNextState, SignupRole } from '@/types/signup'
 import { showError } from '@/utils/message'
+import { signupSeoMeta } from '@/seo/siteMeta'
+import { usePublicRouteSeo } from '@/seo/usePublicRouteSeo'
+
+usePublicRouteSeo({ ...signupSeoMeta, noindex: true })
 
 function resolveInitialSignupRole(value: unknown): SignupRole {
   return value === 'user' ? 'user' : 'admin'

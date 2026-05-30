@@ -113,6 +113,10 @@ import { showError, showSuccess } from '@/utils/message'
 import type { SocialAuthProviderId } from '@/types/auth'
 import type { SignupNextState } from '@/types/signup'
 import type { AccessState } from '@/types/rbac'
+import { loginSeoMeta } from '@/seo/siteMeta'
+import { usePublicRouteSeo } from '@/seo/usePublicRouteSeo'
+
+usePublicRouteSeo({ ...loginSeoMeta, noindex: true })
 
 const route = useRoute()
 const router = useRouter()

@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
+    "seo:og-image": "node scripts/seo/generate-og-image.mjs",
     "preview": "vite preview",
     "check-env": "node scripts/check-env.js",
     "sync:public-holidays": "tsx scripts/ops/sync-public-holidays.ts",
@@ -27,6 +28,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.81.1",
     "@tanstack/vue-table": "^8.21.3",
+    "@unhead/vue": "^2.1.15",
     "@vercel/oidc": "^3.3.1",
     "@vueuse/core": "^14.0.0",
     "dayjs": "^1.11.19",
@@ -59,6 +61,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.7.1",
+    "sharp": "^0.34.5",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.21.0",
     "typescript": "5.8.3",

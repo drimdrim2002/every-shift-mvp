@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { createHead } from '@unhead/vue/client';
 import { createDiscreteApi } from 'naive-ui';
 import App from './App.vue';
 import router from './router';
@@ -20,7 +21,9 @@ window.$notification = notification;
 window.$loadingBar = loadingBar;
 
 const app = createApp(App);
+const head = createHead();
 
+app.use(head);
 app.use(createPinia());
 app.use(router);
 

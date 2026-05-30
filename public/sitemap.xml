@@ -1,23 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- 메인 랜딩 페이지 -->
   <url>
     <loc>https://www.everyshift.co.kr/</loc>
-    <lastmod>2026-05-22</lastmod>
+    <lastmod>2026-05-30</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
-  <!-- 로그인 페이지 -->
   <url>
     <loc>https://www.everyshift.co.kr/login</loc>
-    <lastmod>2026-05-22</lastmod>
+    <lastmod>2026-05-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
-  <!-- 회원가입 페이지 -->
   <url>
     <loc>https://www.everyshift.co.kr/signup</loc>
-    <lastmod>2026-05-22</lastmod>
+    <lastmod>2026-05-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>

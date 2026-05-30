@@ -70,3 +70,8 @@ export const publicLandingSections: readonly PublicLandingValueSection[] = [
     preview: 'compare',
   },
 ] as const
+
+/** Sections shown on the public landing page and in static SEO HTML (excludes compare-only preview). */
+export const visiblePublicLandingSections = publicLandingSections.filter(
+  (section) => section.preview !== 'compare',
+)

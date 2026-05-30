@@ -3,6 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import type { ProxyOptions } from 'vite'
+import { seoHtmlInjectPlugin } from './scripts/seo/vite-plugin-seo-html-inject'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -52,7 +53,7 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [vue()],
+    plugins: [vue(), seoHtmlInjectPlugin(env)],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))

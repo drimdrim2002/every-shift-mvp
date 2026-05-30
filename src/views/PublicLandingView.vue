@@ -142,9 +142,13 @@ import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
 import { SIGNUP_ROUTE_PATH } from '@/constants/routes'
 import {
   publicLandingHero,
-  publicLandingSections,
+  visiblePublicLandingSections,
   type LandingPreviewVariant,
 } from '@/data/publicLandingContent'
+import { landingSeoMeta } from '@/seo/siteMeta'
+import { usePublicRouteSeo } from '@/seo/usePublicRouteSeo'
+
+usePublicRouteSeo(landingSeoMeta)
 
 const signupRouteLocation: RouteLocationRaw = {
   path: SIGNUP_ROUTE_PATH,
@@ -152,7 +156,6 @@ const signupRouteLocation: RouteLocationRaw = {
 }
 
 const inquiryFormUrl = getPublicInquiryFormUrl()
-const visiblePublicLandingSections = publicLandingSections.filter((section) => section.preview !== 'compare')
 const sectionRefs = new Map<string, Element>()
 const visibleSectionIds = ref<Set<string>>(createVisibleSectionIds())
 const isRevealEnabled = ref(false)

@@ -51,13 +51,13 @@ const baseRoutes: RouteRecordRaw[] = [
     path: LOGIN_ROUTE_PATH,
     name: 'Login',
     component: () => import('@/views/auth/Login.vue'),
-    meta: { requiresAuth: false, title: '로그인' },
+    meta: { requiresAuth: false, title: '로그인', manageTitle: false },
   },
   {
     path: SIGNUP_ROUTE_PATH,
     name: 'Signup',
     component: () => import('@/views/auth/Signup.vue'),
-    meta: { requiresAuth: false, title: '회원가입' },
+    meta: { requiresAuth: false, title: '회원가입', manageTitle: false },
   },
   {
     path: OAUTH_CALLBACK_ROUTE_PATH,
@@ -87,7 +87,7 @@ const baseRoutes: RouteRecordRaw[] = [
     path: PUBLIC_ROOT_ROUTE_PATH,
     name: 'PublicLanding',
     component: () => import('@/views/PublicLandingView.vue'),
-    meta: { requiresAuth: false, title: 'everyshift' },
+    meta: { requiresAuth: false, title: 'EveryShift | 교대 근무표 AI 솔루션', manageTitle: false },
   },
   {
     path: APP_HOME_ROUTE_PATH,
@@ -313,8 +313,12 @@ router.beforeEach(async (to, from, next) => {
 });
 
 router.afterEach((to) => {
+  if (to.matched.some((record) => record.meta.manageTitle === false)) {
+    return;
+  }
+
   const baseTitle = 'everyshift';
-  const pageTitle = to.meta.title as string;
+  const pageTitle = to.meta.title as string | undefined;
 
   document.title = pageTitle ? `${pageTitle} - ${baseTitle}` : baseTitle;
 });
