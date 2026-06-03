@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import mainLogo from '@/assets/brand/main_logo.png'
+import solidLogo from '@/assets/brand/solid_log.png'
 
 const props = withDefaults(defineProps<{
   size?: 'sm' | 'md'
@@ -20,13 +21,19 @@ const imageClass = computed(() => {
 </script>
 
 <template>
-  <img
-    data-test="brand-logo"
-    :src="mainLogo"
-    :alt="alt"
-    :class="imageClass"
-    class="brand-logo-image"
-  >
+  <picture>
+    <source
+      :srcset="solidLogo"
+      media="(prefers-color-scheme: dark)"
+    >
+    <img
+      data-test="brand-logo"
+      :src="mainLogo"
+      :alt="alt"
+      :class="imageClass"
+      class="brand-logo-image"
+    >
+  </picture>
 </template>
 
 <style scoped>
