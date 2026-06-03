@@ -39,5 +39,8 @@ const imageClass = computed(() => {
 <style scoped>
 .brand-logo-image {
   color-scheme: only light;
+  background-color: #ffffff;
+  border-radius: 6px;
+  padding: 2px 4px;
 }
 </style>
