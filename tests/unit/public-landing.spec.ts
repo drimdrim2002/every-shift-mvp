@@ -1,3 +1,4 @@
+import { createHead } from '@unhead/vue/client'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import LandingProductPreview from '@/components/public/LandingProductPreview.vue'
@@ -20,6 +21,7 @@ const previewTrustSignalEntries = Object.entries(previewTrustSignals) as Array<
 function mountLanding() {
   return mount(PublicLandingView, {
     global: {
+      plugins: [createHead()],
       stubs: {
         RouterLink: RouterLinkStub,
       },
@@ -225,6 +227,15 @@ describe('PublicLandingView', () => {
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+  })
+
+  it('locks the public header to light color-scheme for brand assets', () => {
+    const wrapper = mountLanding()
+    const header = wrapper.get('[data-test="public-header"]')
+
+    expect(header.classes()).toContain('[color-scheme:light]')
+    expect(wrapper.get('[data-test="public-landing"]').classes()).toContain('[color-scheme:light]')
+    expect(wrapper.get('[data-test="brand-logo"]').exists()).toBe(true)
   })
 
   it('renders header actions in order with expected destinations', () => {

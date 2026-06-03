@@ -1,7 +1,7 @@
 <template>
   <header
     data-test="public-header"
-    class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur"
+    class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur [color-scheme:light]"
   >
     <div
       class="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"
@@ -10,11 +10,10 @@
         :to="PUBLIC_ROOT_ROUTE_PATH"
         class="flex shrink-0 items-center"
       >
-        <img
-          :src="mainLogo"
+        <BrandLogo
+          size="sm"
           alt=""
-          class="h-8 w-auto"
-        >
+        />
         <span class="sr-only">EveryShift</span>
       </RouterLink>
 
@@ -52,7 +51,7 @@
 
 <script setup lang="ts">
 import type { RouteLocationRaw } from 'vue-router'
-import mainLogo from '@/assets/brand/main_logo.png'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
 import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
 import {
   LOGIN_ROUTE_PATH,

@@ -24,6 +24,18 @@ describe('AuthPageShell', () => {
     expect(wrapper.get('[data-test="slot"]').text()).toBe('content')
   })
 
+  it('locks auth shells to light color-scheme', () => {
+    const wrapper = mount(AuthPageShell, {
+      props: {
+        eyebrow: 'EveryShift 계정',
+        title: '로그인',
+        description: '승인된 계정으로 근무표 작업 공간에 들어갑니다.',
+      },
+    })
+
+    expect(wrapper.get('[data-test="auth-shell-root"]').classes()).toContain('[color-scheme:light]')
+  })
+
   it('keeps EveryShift as the default product label', () => {
     const wrapper = mount(AuthPageShell, {
       props: {

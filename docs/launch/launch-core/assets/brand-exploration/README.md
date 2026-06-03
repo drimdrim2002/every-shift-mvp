@@ -23,3 +23,10 @@ This folder archives the generated PNG boards from the launch-core logo explorat
 | `everyshift-logo-selected-saas-e4.png`  | E4               | `src/assets/brand/saas_log.png`  |
 
 Source generated images remain in `/Users/brown/.codex/generated_images/` and were not deleted.
+
+## App Export Rules
+
+- `main_logo.png` is for light UI surfaces only (`bg-white`, public header, app header).
+- Export with true transparency; do not embed a white `bKGD` chunk or bake white anti-aliasing for a light page.
+- When re-cropping from exploration boards, run `-background white -alpha background` (or equivalent) before committing so dark OS/browser modes do not show white halos around the wordmark.
+- MVP does not ship a dark-mode logo variant; keep `color-scheme: light` on public and app shells instead of adding `dark:` logo swaps.

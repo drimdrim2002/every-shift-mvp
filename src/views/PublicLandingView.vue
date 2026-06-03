@@ -1,7 +1,7 @@
 <template>
   <div
     data-test="public-landing"
-    class="min-h-screen bg-white text-gray-950"
+    class="min-h-screen bg-white text-gray-950 [color-scheme:light]"
   >
     <PublicHeader />
 
