@@ -1,5 +1,5 @@
 <template>
-  <n-layout class="h-screen [color-scheme:light]">
+  <n-layout class="h-screen [color-scheme:only_light]">
     <n-layout-header
       bordered
       class="sticky top-0 z-20 flex h-16 items-center border-b border-gray-200 bg-white shadow-none"

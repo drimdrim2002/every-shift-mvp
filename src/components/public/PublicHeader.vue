@@ -1,7 +1,7 @@
 <template>
   <header
     data-test="public-header"
-    class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur [color-scheme:light]"
+    class="sticky top-0 z-30 border-b border-gray-200 bg-white/95 backdrop-blur [color-scheme:only_light]"
   >
     <div
       class="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"

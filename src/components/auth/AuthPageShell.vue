@@ -52,7 +52,7 @@ const props = withDefaults(defineProps<{
 })
 
 const rootClasses = computed(() => [
-  'min-h-screen px-5 text-slate-950 [color-scheme:light] sm:px-6 lg:px-8',
+  'min-h-screen px-5 text-slate-950 [color-scheme:only_light] sm:px-6 lg:px-8',
   props.variant === 'compact' ? 'bg-white py-8' : 'bg-slate-50 py-10',
 ])
 

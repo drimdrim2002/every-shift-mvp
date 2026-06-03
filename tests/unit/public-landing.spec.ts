@@ -233,8 +233,8 @@ describe('PublicLandingView', () => {
     const wrapper = mountLanding()
     const header = wrapper.get('[data-test="public-header"]')
 
-    expect(header.classes()).toContain('[color-scheme:light]')
-    expect(wrapper.get('[data-test="public-landing"]').classes()).toContain('[color-scheme:light]')
+    expect(header.classes()).toContain('[color-scheme:only_light]')
+    expect(wrapper.get('[data-test="public-landing"]').classes()).toContain('[color-scheme:only_light]')
     expect(wrapper.get('[data-test="brand-logo"]').exists()).toBe(true)
   })
 

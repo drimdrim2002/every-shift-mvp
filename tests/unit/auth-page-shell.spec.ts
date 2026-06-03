@@ -33,7 +33,7 @@ describe('AuthPageShell', () => {
       },
     })
 
-    expect(wrapper.get('[data-test="auth-shell-root"]').classes()).toContain('[color-scheme:light]')
+    expect(wrapper.get('[data-test="auth-shell-root"]').classes()).toContain('[color-scheme:only_light]')
   })
 
   it('keeps EveryShift as the default product label', () => {
