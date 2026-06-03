@@ -9,11 +9,7 @@
         aria-label="대시보드로 이동"
         @click="closeOpenNavigationItem"
       >
-        <img
-          :src="mainLogo"
-          alt="everyshift"
-          class="h-9 w-auto max-w-[160px] object-contain"
-        >
+        <BrandLogo size="md" />
       </RouterLink>
     </div>
 
@@ -59,7 +55,7 @@
             v-for="child in item.children"
             :key="child.key"
             type="button"
-            class="block w-full cursor-pointer px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800 focus:bg-teal-50 focus:text-teal-800 focus:outline-none"
+            class="block w-full cursor-pointer bg-transparent px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800 focus:bg-teal-50 focus:text-teal-800 focus:outline-none"
             @click="handleNavigationChildClick(child.key)"
           >
             {{ child.label }}
@@ -93,7 +89,7 @@
 import { computed, ref } from 'vue'
 import { NButton } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import mainLogo from '@/assets/brand/main_logo.png'
+import BrandLogo from '@/components/brand/BrandLogo.vue'
 import OrganizationSwitcher from '@/components/layout/OrganizationSwitcher.vue'
 import { useAppNavigation, type AppNavigationItem } from '@/components/layout/useAppNavigation'
 import { getAppHomeRoutePath, LOGIN_ROUTE_PATH } from '@/constants/routes'

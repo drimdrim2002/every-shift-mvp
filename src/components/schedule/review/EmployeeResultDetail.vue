@@ -370,7 +370,7 @@ function formatReflectionStatus(fulfilled: boolean) {
                     v-if="cell.hasOffRequest"
                     type="button"
                     data-test="employee-calendar-off-request-button"
-                    class="mt-auto w-fit rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    class="mt-auto w-fit rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     :aria-label="`${cell.date} Off 요청 상세`"
                     @click="openOffRequestDetail(cell.date)"
                   >
@@ -396,7 +396,7 @@ function formatReflectionStatus(fulfilled: boolean) {
               v-if="selectedViolations.length > 0"
               type="button"
               data-test="employee-violation-reveal"
-              class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
               :aria-expanded="isViolationOpen ? 'true' : 'false'"
               @click="toggleViolationOpen"
             >
@@ -451,7 +451,7 @@ function formatReflectionStatus(fulfilled: boolean) {
               <button
                 type="button"
                 data-test="employee-off-request-detail-button"
-                class="shrink-0 rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                class="shrink-0 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 :aria-label="`${row.date} Off 요청 상세`"
                 @click="openOffRequestDetail(row.date)"
               >

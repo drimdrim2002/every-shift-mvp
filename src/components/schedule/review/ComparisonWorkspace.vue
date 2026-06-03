@@ -158,7 +158,7 @@ function isFocused(versionId: string | null | undefined) {
               type="button"
               data-test="off-diff-list-view"
               class="rounded-md px-3 py-1.5 text-xs font-medium transition"
-              :class="offDiffView === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              :class="offDiffView === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-800'"
               @click="offDiffView = 'list'"
             >
               목록 보기
@@ -167,7 +167,7 @@ function isFocused(versionId: string | null | undefined) {
               type="button"
               data-test="off-diff-calendar-view"
               class="rounded-md px-3 py-1.5 text-xs font-medium transition"
-              :class="offDiffView === 'calendar' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+              :class="offDiffView === 'calendar' ? 'bg-white text-slate-900 shadow-sm' : 'bg-transparent text-slate-500 hover:text-slate-800'"
               @click="offDiffView = 'calendar'"
             >
               캘린더 보기

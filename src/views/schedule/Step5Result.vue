@@ -74,7 +74,7 @@
                 v-if="isSummaryCardActionVisible(card)"
                 type="button"
                 :data-test="summaryCardActionDataTest(card)"
-                class="rounded-md text-left text-lg font-semibold text-slate-950 underline underline-offset-4 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
+                class="rounded-md bg-transparent text-left text-lg font-semibold text-slate-950 underline underline-offset-4 transition hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900"
                 :aria-label="summaryCardActionLabel(card)"
                 @click="handleSummaryCardAction(card)"
               >

@@ -120,10 +120,10 @@ const offRequestTooltipText = computed(() => {
 
 // 색상 맵을 컴포넌트 레벨에서 한 번만 정의 (성능 최적화)
 const colorMap: Record<string, string> = {
-  D: 'border-shift-day text-green-700',
-  E: 'border-shift-evening text-orange-700',
-  N: 'border-shift-night text-blue-700',
-  O: 'border-shift-off text-gray-700',
+  D: 'bg-white border-shift-day text-green-700',
+  E: 'bg-white border-shift-evening text-orange-700',
+  N: 'bg-white border-shift-night text-blue-700',
+  O: 'bg-white border-shift-off text-gray-700',
 }
 
 const selectedColorMap: Record<string, string> = {

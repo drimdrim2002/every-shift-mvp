@@ -347,7 +347,7 @@
               <button
                 type="button"
                 data-test="work-performance-sort-priority"
-                class="min-h-11 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                class="min-h-11 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 :aria-pressed="sortKey === 'priority'"
                 @click="changeSort('priority')"
               >
@@ -402,7 +402,7 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md bg-transparent px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('employeeName')"
                   >
                     직원
@@ -417,7 +417,7 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md bg-transparent px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('night')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
@@ -446,7 +446,7 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md bg-transparent px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('holidayWork')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
@@ -475,7 +475,7 @@
                 >
                   <button
                     type="button"
-                    class="min-h-11 rounded-md px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    class="min-h-11 rounded-md bg-transparent px-2 text-center font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500"
                     @click.stop="changeSort('offRequestAccepted')"
                   >
                     <span class="inline-flex items-center justify-center gap-1.5">
@@ -598,7 +598,7 @@
                   >
                     <button
                       type="button"
-                      class="min-h-11 rounded-md border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      class="min-h-11 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       :aria-expanded="isDetailExpanded(row.employeeId)"
                       :aria-controls="getDetailId(row.employeeId)"
                       :data-test="`work-performance-detail-${row.employeeId}`"
