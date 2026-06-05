@@ -248,7 +248,7 @@ describe('SocialSignupComplete view', () => {
 
   async function fillAdminSignupForm(wrapper: ReturnType<typeof mount>) {
     await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
-    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브란스병원')
+    await wrapper.get('input[placeholder="병원명 입력"]').setValue('세브란스병원')
   }
 
   it('shows the session email and omits password signup fields', () => {
@@ -259,12 +259,12 @@ describe('SocialSignupComplete view', () => {
     expect(wrapper.find('[data-test="signup-submit"]').exists()).toBe(true)
   })
 
-  it('shows a persistent manual hospital entry hint', () => {
+  it('shows only the direct hospital name input on admin signup', () => {
     const wrapper = mount(SocialSignupComplete)
 
-    expect(wrapper.get('[data-test="signup-manual-hospital-info"]').text()).toContain(
-      '병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.',
-    )
+    expect(wrapper.find('input[placeholder="병원명 입력"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="signup-manual-hospital-info"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="signup-search"]').exists()).toBe(false)
   })
 
   it('redirects to login when the auth session user is missing', async () => {
@@ -361,33 +361,5 @@ describe('SocialSignupComplete view', () => {
 
     expect(authStoreState.refreshSessionContext).toHaveBeenCalled()
     expect(replaceMock).toHaveBeenCalledWith('/app/home/user')
-  })
-
-  it('fills the hospital name from a searched result when selected', async () => {
-    const wrapper = mount(SocialSignupComplete)
-
-    await wrapper.get('input[placeholder="이름 입력"]').setValue('관리자')
-    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('세브')
-    await wrapper.get('[data-test="signup-search"]').trigger('click')
-    await nextTick()
-    await wrapper.get('[data-test="signup-hospital-select"]').setValue('hospital-1')
-    await nextTick()
-
-    expect(
-      (wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').element as HTMLInputElement).value,
-    ).toBe('세브란스병원')
-  })
-
-  it('shows an inline manual-entry warning when hospital search returns no results', async () => {
-    searchHospitalsMock.mockResolvedValueOnce([])
-    const wrapper = mount(SocialSignupComplete)
-
-    await wrapper.get('input[placeholder="병원명을 직접 입력하거나 검색하세요"]').setValue('없는병원')
-    await wrapper.get('[data-test="signup-search"]').trigger('click')
-    await nextTick()
-
-    expect(wrapper.get('[data-test="signup-manual-hospital-empty"]').text()).toContain(
-      "'없는병원' 검색 결과가 없습니다. 입력한 병원명으로 가입을 계속 진행할 수 있습니다.",
-    )
   })
 })

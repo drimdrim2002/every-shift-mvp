@@ -110,12 +110,8 @@ test.describe('/signup flow', () => {
     await page.goto('/signup?role=admin')
     await openSignupForm(page)
 
-    await expect(
-      page.getByText('병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.'),
-    ).toBeVisible()
-    await expect(page.getByTestId('signup-hospital-search-source')).toContainText(
-      '검색 출처: 공공데이터포털(data.go.kr)',
-    )
+    await expect(page.getByPlaceholder('병원명 입력')).toBeVisible()
+    await expect(page.getByTestId('signup-hospital-search-source')).toHaveCount(0)
     await expect(page.getByPlaceholder('초대코드 입력')).toHaveCount(0)
   })
 
@@ -130,7 +126,7 @@ test.describe('/signup flow', () => {
   test('routes admin signup success through pending approval login handoff', async ({ page }) => {
     await openSignupForm(page)
     await fillCommonFields(page, 'admin-success@example.com')
-    await page.getByPlaceholder('병원명을 직접 입력하거나 검색하세요').fill('세브란스병원')
+    await page.getByPlaceholder('병원명 입력').fill('세브란스병원')
 
     const visitedUrls: string[] = []
     const onFrameNavigated = (frame: { url: () => string }) => {

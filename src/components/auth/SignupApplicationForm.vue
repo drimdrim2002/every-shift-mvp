@@ -91,75 +91,19 @@
         label="병원명"
         path="hospitalName"
       >
-        <div class="w-full space-y-1">
-          <div
-            ref="hospitalSearchFieldRef"
-            class="flex w-full gap-2"
-          >
-            <n-input
-              v-model:value="formValue.hospitalName"
-              placeholder="병원명을 직접 입력하거나 검색하세요"
-              @keydown.enter.prevent="handleHospitalSearch"
-            />
-            <n-button
-              data-test="signup-search"
-              secondary
-              :disabled="!canSearchHospital"
-              :loading="hospitalLoading"
-              @click="handleHospitalSearch"
-            >
-              검색
-            </n-button>
-          </div>
-          <p
-            class="text-xs text-gray-500"
-            data-test="signup-hospital-search-source"
-          >
-            검색 출처: 공공데이터포털(data.go.kr)
-          </p>
-        </div>
-      </n-form-item>
-
-      <n-alert
-        type="info"
-        class="mb-2"
-        data-test="signup-manual-hospital-info"
-      >
-        병원명은 검색 결과에서 선택하거나 직접 입력할 수 있습니다.
-      </n-alert>
-
-      <n-form-item
-        label="검색 결과에서 선택 (선택사항)"
-      >
-        <n-select
-          :value="formValue.hospitalId"
-          data-test="signup-hospital-select"
-          :options="hospitalOptions"
-          :loading="hospitalLoading"
-          placeholder="검색 결과를 선택하면 병원명이 자동 입력됩니다"
-          filterable
-          clearable
-          @update:value="handleHospitalSelect"
+        <n-input
+          v-model:value="formValue.hospitalName"
+          placeholder="병원명 입력"
+          @keydown.enter.prevent="handleHospitalSearchEnter"
         />
       </n-form-item>
 
-      <n-alert
-        v-if="hospitalSearchFeedback?.type === 'empty'"
-        type="warning"
-        class="mb-2"
-        data-test="signup-manual-hospital-empty"
-      >
-        '{{ hospitalSearchFeedback.keyword }}' 검색 결과가 없습니다. 입력한 병원명으로 가입을 계속 진행할 수 있습니다.
-      </n-alert>
-
-      <n-alert
-        v-else-if="hospitalSearchFeedback?.type === 'error'"
-        type="warning"
-        class="mb-2"
-        data-test="signup-manual-hospital-error"
-      >
-        병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.
-      </n-alert>
+      <HospitalSearchSection
+        v-if="HOSPITAL_SEARCH_ENABLED"
+        ref="hospitalSearchSectionRef"
+        v-model:hospital-name="formValue.hospitalName"
+        v-model:hospital-id="formValue.hospitalId"
+      />
     </div>
 
     <div
@@ -203,21 +147,20 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { FormInst, FormItemRule, FormRules, SelectOption } from 'naive-ui'
+import type { FormInst, FormItemRule, FormRules } from 'naive-ui'
 import {
-  NAlert,
   NButton,
   NForm,
   NFormItem,
   NInput,
   NRadioButton,
   NRadioGroup,
-  NSelect,
 } from 'naive-ui'
-import { searchHospitals } from '@/api/hospital'
+import HospitalSearchSection from '@/components/auth/HospitalSearchSection.vue'
+import { HOSPITAL_SEARCH_ENABLED } from '@/constants/signupFeatures'
 import { getSignupErrorMessage, submitSignup } from '@/api/signup'
 import type { SignupNextState, SignupRole, SignupSubmitRequest } from '@/types/signup'
-import { showError, showInfo, showSuccess } from '@/utils/message'
+import { showError, showSuccess } from '@/utils/message'
 
 interface SignupFormValue {
   name: string
@@ -228,11 +171,6 @@ interface SignupFormValue {
   hospitalName: string
   hospitalId: string | null
   inviteCode: string
-}
-
-interface HospitalSearchFeedback {
-  type: 'empty' | 'error'
-  keyword: string
 }
 
 const props = withDefaults(
@@ -255,11 +193,8 @@ const emit = defineEmits<{
 }>()
 
 const formRef = ref<FormInst | null>(null)
-const hospitalSearchFieldRef = ref<HTMLElement | null>(null)
-const hospitalLoading = ref(false)
+const hospitalSearchSectionRef = ref<InstanceType<typeof HospitalSearchSection> | null>(null)
 const submitting = ref(false)
-const hospitalOptions = ref<SelectOption[]>([])
-const hospitalSearchFeedback = ref<HospitalSearchFeedback | null>(null)
 
 const formValue = ref<SignupFormValue>({
   name: '',
@@ -350,8 +285,6 @@ const rules = computed<FormRules>(() => ({
   inviteCode: inviteCodeValidationRule,
 }))
 
-const canSearchHospital = computed(() => formValue.value.hospitalName.trim().length >= 2)
-
 const isRoleSpecificFieldMissing = computed(() => {
   if (formValue.value.role === 'admin') {
     return formValue.value.hospitalName.trim().length === 0
@@ -368,7 +301,6 @@ watch(
   () => formValue.value.role,
   (role) => {
     emit('state-reset')
-    hospitalSearchFeedback.value = null
 
     if (role === 'admin') {
       formValue.value.inviteCode = ''
@@ -377,25 +309,7 @@ watch(
 
     formValue.value.hospitalName = ''
     formValue.value.hospitalId = null
-    hospitalOptions.value = []
-  },
-)
-
-watch(
-  () => formValue.value.hospitalName,
-  (hospitalName) => {
-    if (hospitalSearchFeedback.value && hospitalSearchFeedback.value.keyword !== hospitalName.trim()) {
-      hospitalSearchFeedback.value = null
-    }
-
-    if (formValue.value.role !== 'admin' || !formValue.value.hospitalId) {
-      return
-    }
-
-    const selectedHospitalName = resolveSelectedHospitalName(formValue.value.hospitalId)
-    if (!selectedHospitalName || selectedHospitalName !== hospitalName.trim()) {
-      formValue.value.hospitalId = null
-    }
+    hospitalSearchSectionRef.value?.resetHospitalSearchState()
   },
 )
 
@@ -408,90 +322,42 @@ watch(
   },
 )
 
-function resolveHospitalSearchKeyword(): string {
-  const inputValue = hospitalSearchFieldRef.value
-    ?.querySelector('input')
-    ?.value
-
-  const keyword = (inputValue ?? formValue.value.hospitalName).trim()
-
-  if (keyword !== formValue.value.hospitalName) {
-    formValue.value.hospitalName = keyword
-  }
-
-  return keyword
-}
-
-function resolveSelectedHospitalName(hospitalId: string | null): string | null {
-  if (!hospitalId) {
-    return null
-  }
-
-  const option = hospitalOptions.value.find((candidate) => candidate.value === hospitalId)
-  return option?.label?.toString().trim() || null
-}
-
-function handleHospitalSelect(value: string | null) {
-  formValue.value.hospitalId = value
-
-  const hospitalName = resolveSelectedHospitalName(value)
-  if (hospitalName) {
-    formValue.value.hospitalName = hospitalName
-  }
-}
-
-async function handleHospitalSearch() {
-  const keyword = resolveHospitalSearchKeyword()
-
-  if (keyword.length < 2) {
-    showInfo('병원명을 2글자 이상 입력하세요.')
+function handleHospitalSearchEnter() {
+  if (!HOSPITAL_SEARCH_ENABLED) {
     return
   }
 
-  hospitalLoading.value = true
+  void hospitalSearchSectionRef.value?.handleHospitalSearch()
+}
 
-  try {
-    const items = await searchHospitals(keyword)
-    hospitalOptions.value = items.map((item) => ({
-      label: item.name,
-      value: item.id,
-    }))
+function buildAdminHospitalFields() {
+  const hospitalName = formValue.value.hospitalName.trim()
 
-    if (hospitalOptions.value.length === 0) {
-      hospitalSearchFeedback.value = {
-        type: 'empty',
-        keyword,
-      }
-      showInfo('검색 결과가 없어도 병원명을 직접 입력하고 가입 신청할 수 있습니다.')
-      return
+  if (!HOSPITAL_SEARCH_ENABLED) {
+    return {
+      hospitalName,
+      hospitalSource: 'manual' as const,
     }
+  }
 
-    hospitalSearchFeedback.value = null
-  } catch {
-    hospitalSearchFeedback.value = {
-      type: 'error',
-      keyword,
-    }
-    showInfo('병원 검색이 원활하지 않습니다. 병원명을 직접 입력해 가입을 계속 진행할 수 있습니다.')
-  } finally {
-    hospitalLoading.value = false
+  const hospitalId = formValue.value.hospitalId ?? undefined
+
+  return {
+    ...(hospitalId ? { hospitalId } : {}),
+    hospitalName,
+    hospitalSource: hospitalId ? ('data.go.kr' as const) : ('manual' as const),
   }
 }
 
 function buildPasswordSignupRequest(): SignupSubmitRequest {
   if (formValue.value.role === 'admin') {
-    const hospitalName = formValue.value.hospitalName.trim()
-    const hospitalId = formValue.value.hospitalId ?? undefined
-
     return {
       authMode: 'password',
       role: 'admin',
       name: formValue.value.name.trim(),
       email: formValue.value.email.trim(),
       password: formValue.value.password,
-      ...(hospitalId ? { hospitalId } : {}),
-      hospitalName,
-      hospitalSource: hospitalId ? 'data.go.kr' : 'manual',
+      ...buildAdminHospitalFields(),
     }
   }
 
@@ -507,16 +373,11 @@ function buildPasswordSignupRequest(): SignupSubmitRequest {
 
 function buildExistingSessionSignupRequest(): SignupSubmitRequest {
   if (formValue.value.role === 'admin') {
-    const hospitalName = formValue.value.hospitalName.trim()
-    const hospitalId = formValue.value.hospitalId ?? undefined
-
     return {
       authMode: 'existing_session',
       role: 'admin',
       name: formValue.value.name.trim(),
-      ...(hospitalId ? { hospitalId } : {}),
-      hospitalName,
-      hospitalSource: hospitalId ? 'data.go.kr' : 'manual',
+      ...buildAdminHospitalFields(),
     }
   }
 

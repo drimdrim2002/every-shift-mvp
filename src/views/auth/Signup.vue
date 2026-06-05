@@ -3,7 +3,7 @@
     eyebrow="everyshift 시작하기"
     product-label="everyshift"
     title="회원가입"
-    description="병원 검색을 통해 병원을 입력하시거나 직접 입력하실 수 있습니다."
+    description="병원명을 직접 입력해 가입 신청하세요."
     variant="compact"
   >
     <n-card class="mx-auto w-full max-w-lg">
