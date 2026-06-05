@@ -39,4 +39,10 @@ export const signupSeoMeta = {
   canonicalPath: '/signup',
 } as const
 
+export const faqSeoMeta = {
+  title: '자주 묻는 질문 (FAQ)',
+  description: 'everyshift가 타사 스케줄링 솔루션 및 기존 엑셀 작업 방식 대비 갖는 확실한 차별점과 핵심 가치를 소개합니다.',
+  canonicalPath: '/faq',
+} as const
+
 export const NOINDEX_ROBOTS = 'noindex, follow'

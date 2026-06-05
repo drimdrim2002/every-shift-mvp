@@ -35,6 +35,13 @@
         >
           회원 가입
         </RouterLink>
+        <RouterLink
+          data-test="public-header-faq"
+          :to="PUBLIC_FAQ_ROUTE_PATH"
+          class="whitespace-nowrap rounded-md px-1.5 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100 hover:text-gray-950 sm:px-3 sm:text-sm"
+        >
+          FAQ
+        </RouterLink>
         <a
           data-test="public-header-inquiry"
           :href="inquiryFormUrl"
@@ -55,6 +62,7 @@ import BrandLogo from '@/components/brand/BrandLogo.vue'
 import { getPublicInquiryFormUrl } from '@/config/publicInquiry'
 import {
   LOGIN_ROUTE_PATH,
+  PUBLIC_FAQ_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
 } from '@/constants/routes'

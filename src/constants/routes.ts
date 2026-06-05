@@ -2,6 +2,7 @@ import type { LocationQuery, RouteLocationRaw } from 'vue-router'
 import type { AccessState } from '@/types/rbac'
 
 export const PUBLIC_ROOT_ROUTE_PATH = '/'
+export const PUBLIC_FAQ_ROUTE_PATH = '/faq'
 export const APP_HOME_ROUTE_PATH = '/app'
 export const APP_APPROVAL_QUEUE_ROUTE_PATH = `${APP_HOME_ROUTE_PATH}/admin/approval-queue`
 export const APP_USER_HOME_ROUTE_PATH = `${APP_HOME_ROUTE_PATH}/home/user`

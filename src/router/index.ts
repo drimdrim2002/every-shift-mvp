@@ -11,6 +11,7 @@ import {
   LEGACY_SCHEDULE_STEP5_ROUTE_PREFIX,
   LOGIN_ROUTE_PATH,
   OAUTH_CALLBACK_ROUTE_PATH,
+  PUBLIC_FAQ_ROUTE_PATH,
   PUBLIC_ROOT_ROUTE_PATH,
   SIGNUP_ROUTE_PATH,
   SOCIAL_SIGNUP_COMPLETE_ROUTE_PATH,
@@ -88,6 +89,12 @@ const baseRoutes: RouteRecordRaw[] = [
     name: 'PublicLanding',
     component: () => import('@/views/PublicLandingView.vue'),
     meta: { requiresAuth: false, title: 'EveryShift | 교대 근무표 AI 솔루션', manageTitle: false },
+  },
+  {
+    path: PUBLIC_FAQ_ROUTE_PATH,
+    name: 'PublicFaq',
+    component: () => import('@/views/PublicFaqView.vue'),
+    meta: { requiresAuth: false, title: 'EveryShift | FAQ', manageTitle: false },
   },
   {
     path: APP_HOME_ROUTE_PATH,
