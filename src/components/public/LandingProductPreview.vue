@@ -15,7 +15,97 @@
     </div>
 
     <div
-      v-if="variant === 'ai'"
+      v-if="variant === 'overview'"
+      data-test="landing-overview-mock"
+    >
+      <div class="flex flex-col">
+        <!-- Image -->
+        <img
+          src="/images/ai-schedule-hero.png"
+          alt="남녀 두 진행자가 마이크 앞에서 근무표 솔루션에 대해 대화하는 팟캐스트 일러스트"
+          class="aspect-video h-auto w-full border-b border-gray-100 object-cover"
+        >
+
+        <!-- Audio Player -->
+        <div
+          class="group block cursor-pointer p-5 transition-all duration-300 hover:bg-gray-50/50 sm:p-6"
+          @click="toggleAudio"
+        >
+          <audio
+            ref="audioRef"
+            src="/audio/overview.m4a"
+            @timeupdate="onTimeUpdate"
+            @loadedmetadata="onLoadedMetadata"
+            @ended="onEnded"
+          />
+          <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <span class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                  🎙️ Podcast
+                </span>
+                <h3 class="text-base font-bold text-gray-950">
+                  모두의 근무표, 뭐가 다를까?
+                </h3>
+              </div>
+              <p class="max-w-sm break-keep text-xs leading-5 text-gray-600">
+                다른 스케줄링 솔루션과 비교해 모두의 근무표만의 강점을 두 진행자가 쉽고 재미있게 풀어드립니다.
+              </p>
+            </div>
+
+            <div class="flex items-center gap-4">
+              <!-- Play Button -->
+              <button
+                type="button"
+                class="flex size-11 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm shadow-emerald-600/30 transition-all duration-300 group-hover:scale-110 group-hover:bg-emerald-700"
+                :aria-label="isPlaying ? '일시정지' : '재생'"
+              >
+                <svg
+                  v-if="!isPlaying"
+                  class="ml-0.5 size-5 fill-current"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg
+                  v-else
+                  class="size-5 fill-current"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                </svg>
+              </button>
+
+              <!-- Audio Waveform Mock & Duration -->
+              <div class="flex min-w-[140px] flex-col gap-1.5">
+                <div class="flex h-8 items-end gap-1">
+                  <!-- 16 Waveform Bars -->
+                  <span
+                    v-for="(h, i) in [3, 5, 8, 4, 6, 9, 7, 3, 6, 10, 5, 8, 4, 7, 6, 3]"
+                    :key="i"
+                    class="w-1 rounded-t transition-all duration-300"
+                    :class="[
+                      isPlaying ? 'animate-pulse' : '',
+                      (currentTime / duration) > (i / 16) ? 'bg-emerald-500' : 'bg-emerald-100'
+                    ]"
+                    :style="`height: ${h * 0.25}rem; animation-delay: ${0.1 * (i + 1)}s`"
+                  />
+                </div>
+                <div class="flex justify-between font-mono text-[10px] font-semibold text-gray-400">
+                  <span>{{ currentTimeDisplay }}</span>
+                  <span>{{ durationDisplay }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      v-else-if="variant === 'ai'"
       data-test="landing-ai-schedule-mock"
       class="p-4"
     >
@@ -774,7 +864,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { LandingPreviewVariant } from '@/data/publicLandingContent'
 
 type ShiftCode = 'D' | 'E' | 'N' | 'OFF'
@@ -832,6 +922,58 @@ interface GuideResultSummaryPreview {
   label: string
   value: string
 }
+
+// --- Audio Player Logic ---
+const audioRef = ref<HTMLAudioElement | null>(null)
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const duration = ref(0) // Will be set on loadedmetadata
+
+function formatTime(seconds: number) {
+  if (!seconds || isNaN(seconds)) return '0:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+const currentTimeDisplay = computed(() => formatTime(currentTime.value))
+const durationDisplay = computed(() => formatTime(duration.value))
+
+function toggleAudio(event: Event) {
+  // Prevent default if clicking directly on elements that might bubble
+  event.preventDefault()
+  if (!audioRef.value) return
+
+  if (isPlaying.value) {
+    audioRef.value.pause()
+    isPlaying.value = false
+  } else {
+    audioRef.value.play().then(() => {
+      isPlaying.value = true
+    }).catch(e => {
+      console.error('Audio play failed', e)
+    })
+  }
+}
+
+function onTimeUpdate() {
+  if (audioRef.value) {
+    currentTime.value = audioRef.value.currentTime
+  }
+}
+
+function onLoadedMetadata() {
+  if (audioRef.value) {
+    duration.value = audioRef.value.duration
+  }
+}
+
+function onEnded() {
+  isPlaying.value = false
+  currentTime.value = 0
+}
+// -------------------------
+
 
 interface OperationEditPreview {
   id: string

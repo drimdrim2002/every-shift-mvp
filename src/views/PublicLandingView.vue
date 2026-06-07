@@ -52,6 +52,10 @@
                 도입 문의
               </a>
             </div>
+
+            <div class="mx-auto mt-10 max-w-xl">
+              <LandingProductPreview variant="overview" />
+            </div>
           </div>
         </div>
       </section>
