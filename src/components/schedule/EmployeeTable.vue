@@ -85,6 +85,18 @@
             </n-space>
           </n-checkbox-group>
         </n-form-item>
+
+        <n-form-item
+          label="프리셉터"
+          path="preceptorEmployeeId"
+        >
+          <n-select
+            v-model:value="formData.preceptorEmployeeId"
+            :options="preceptorOptions"
+            clearable
+            placeholder="프리셉터 선택 (선택)"
+          />
+        </n-form-item>
       </n-form>
 
       <template #footer>
@@ -116,6 +128,7 @@ import {
   NCheckboxGroup,
   NCheckbox,
   NSpace,
+  NSelect,
   NPopconfirm,
   type FormInst,
   type FormRules,
@@ -123,6 +136,8 @@ import {
 } from 'naive-ui';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
+import { buildPreceptorCandidateOptions, validatePreceptorAssignment } from '@/utils/preceptorValidation';
+import { showError } from '@/utils/message';
 
 // Props
 interface Props {
@@ -152,7 +167,12 @@ const formData = ref<EmployeeInput>({
   employeeId: '',
   name: '',
   availableShifts: [],
+  preceptorEmployeeId: null,
 });
+
+const preceptorOptions = computed(() =>
+  buildPreceptorCandidateOptions(props.employees, editingIndex.value)
+);
 
 // 시프트 옵션 (O는 제외)
 const availableShiftOptions = computed(() => {
@@ -288,7 +308,7 @@ const columns = computed<DataTableColumns<EmployeeInput>>(() => [
   },
 ]);
 
-defineExpose({ columns });
+defineExpose({ columns, handleEdit, handleConfirm, formData, showModal });
 
 // 직원 추가 핸들러
 function handleAdd() {
@@ -302,6 +322,7 @@ function handleAdd() {
       .filter((s) => s.code !== 'O')
       .map((s) => s.code),
     rankCode: null,
+    preceptorEmployeeId: null,
   };
   showModal.value = true;
 }
@@ -317,6 +338,7 @@ function handleEdit(index: number) {
     name: employee.name,
     availableShifts: [...employee.availableShifts],
     rankCode: employee.rankCode ?? null,
+    preceptorEmployeeId: employee.preceptorEmployeeId ?? null,
   };
   showModal.value = true;
 }
@@ -340,11 +362,27 @@ async function handleConfirm() {
     return;
   }
 
+  const preceptorEmployeeId =
+    formData.value.preceptorEmployeeId === '__separator__'
+      ? null
+      : formData.value.preceptorEmployeeId ?? null;
+
+  const validationMessage = validatePreceptorAssignment({
+    employees: props.employees,
+    targetIndex: isEditing.value ? editingIndex.value : props.employees.length,
+    preceptorEmployeeId,
+  });
+  if (validationMessage) {
+    showError(validationMessage);
+    return;
+  }
+
   const employeeData: EmployeeInput = {
     employeeId: formData.value.employeeId || generateEmployeeId(),
     name: formData.value.name,
     availableShifts: [...formData.value.availableShifts],
     rankCode: formData.value.rankCode ?? null,
+    preceptorEmployeeId,
   };
 
   if (isEditing.value) {
