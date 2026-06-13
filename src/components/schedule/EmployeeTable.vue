@@ -133,6 +133,7 @@ import {
   type FormInst,
   type FormRules,
   type DataTableColumns,
+  type SelectOption,
 } from 'naive-ui';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
@@ -170,9 +171,25 @@ const formData = ref<EmployeeInput>({
   preceptorEmployeeId: null,
 });
 
-const preceptorOptions = computed(() =>
-  buildPreceptorCandidateOptions(props.employees, editingIndex.value)
-);
+function getPreceptorValidationRoster(): { employees: EmployeeInput[]; targetIndex: number } {
+  if (isEditing.value) {
+    return { employees: props.employees, targetIndex: editingIndex.value };
+  }
+
+  const draftEmployee: EmployeeInput = {
+    employeeId: formData.value.employeeId || '__draft__',
+    name: formData.value.name,
+    availableShifts: formData.value.availableShifts,
+    preceptorEmployeeId: formData.value.preceptorEmployeeId ?? null,
+  };
+  const employees = [...props.employees, draftEmployee];
+  return { employees, targetIndex: employees.length - 1 };
+}
+
+const preceptorOptions = computed((): SelectOption[] => {
+  const { employees, targetIndex } = getPreceptorValidationRoster();
+  return buildPreceptorCandidateOptions(employees, targetIndex) as unknown as SelectOption[];
+});
 
 // 시프트 옵션 (O는 제외)
 const availableShiftOptions = computed(() => {
@@ -367,9 +384,10 @@ async function handleConfirm() {
       ? null
       : formData.value.preceptorEmployeeId ?? null;
 
+  const { employees: validationRoster, targetIndex } = getPreceptorValidationRoster();
   const validationMessage = validatePreceptorAssignment({
-    employees: props.employees,
-    targetIndex: isEditing.value ? editingIndex.value : props.employees.length,
+    employees: validationRoster,
+    targetIndex,
     preceptorEmployeeId,
   });
   if (validationMessage) {
