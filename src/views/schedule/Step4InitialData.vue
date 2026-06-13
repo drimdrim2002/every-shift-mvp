@@ -1593,6 +1593,12 @@ async function applyDraftRequest(): Promise<void> {
 }
 
 function handleDeleteRequest(requestKey: string): void {
+  const blocked = assertOffWritesAllowed();
+  if (blocked) {
+    showInfo(blocked);
+    return;
+  }
+
   const requestRow = findCurrentEmployeeRequest(requestKey);
   if (!requestRow) return;
   if (!guardDraftTransition([requestRow.employeeId], requestRow.dates, requestRow.requestKey)) {
@@ -1600,11 +1606,21 @@ function handleDeleteRequest(requestKey: string): void {
   }
 
   clearRequestApplyStatus();
-  requestRow.dates.forEach((date) => {
+  const pair = resolvePreceptorPair(grid.employees.value, requestRow.employeeId);
+  const datesToDelete = requestRow.dates;
+
+  datesToDelete.forEach((date) => {
     if (constraints.value[requestRow.employeeId]) {
       constraints.value[requestRow.employeeId]![date] = '';
     }
     removeConstraintNote(requestRow.employeeId, date);
+
+    if (pair) {
+      if (constraints.value[pair.peerId]) {
+        constraints.value[pair.peerId]![date] = '';
+      }
+      removeConstraintNote(pair.peerId, date);
+    }
   });
 
   constraints.value = { ...constraints.value };
@@ -1612,6 +1628,11 @@ function handleDeleteRequest(requestKey: string): void {
 
   if (editingRequestKey.value === requestKey) {
     resetDraftState({ preserveEmployee: true });
+  }
+
+  if (pair) {
+    const peerName = grid.employees.value.find((employee) => employee.id === pair.peerId)?.name ?? pair.peerId;
+    showSuccess(`${formatDateChip(datesToDelete[0]!)} Off 삭제 — ${peerName}의 같은 날짜 Off도 삭제되었습니다.`);
   }
 }
 

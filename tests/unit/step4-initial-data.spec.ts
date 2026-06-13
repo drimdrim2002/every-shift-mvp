@@ -350,6 +350,12 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
         >
           변경사항 저장
         </button>
+        <button
+          data-test="delete-request-uuid-preceptee::2026-05-15::::off"
+          @click="$emit('delete-request', 'uuid-preceptee::2026-05-15::::off')"
+        >
+          delete-request
+        </button>
       </div>
     `,
   }),
@@ -657,6 +663,37 @@ async function mountStep4WithPreceptorPair() {
     ],
   })
   const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
+}
+
+async function mountStep4WithPairedOffInMemory() {
+  setupPreceptorPairEmployees()
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getScheduleVersionPreferencesMock.mockResolvedValue({
+    constraints: {
+      'uuid-preceptee': { '2026-05-15': 'O' },
+      'uuid-preceptor': { '2026-05-15': 'O' },
+    },
+    notes: {},
+    preferences: [
+      { employeeId: 'uuid-preceptee', date: '2026-05-15', shiftCode: 'O' },
+      { employeeId: 'uuid-preceptor', date: '2026-05-15', shiftCode: 'O' },
+    ],
+  })
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  await openRequestDrawer(wrapper)
+  await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
   await flushPromises()
   return wrapper
 }
@@ -4353,6 +4390,21 @@ describe('Step4InitialData', () => {
 
     expect(getOffRequestPoliciesMock).toHaveBeenCalledTimes(2)
     expect(wrapper.find('[data-test="off-policy-error-alert"]').exists()).toBe(false)
+  })
+
+  describe('preceptor off sync on delete', () => {
+    it('deletes preceptor off when preceptee off row is deleted in memory', async () => {
+      const wrapper = await mountStep4WithPairedOffInMemory()
+      showSuccessMock.mockClear()
+      const deleteKey = 'uuid-preceptee::2026-05-15::::off'
+
+      await wrapper.find(`[data-test="delete-request-${deleteKey}"]`).trigger('click')
+      await flushPromises()
+
+      expect(wrapper.vm.constraints?.['uuid-preceptee']?.['2026-05-15']).not.toBe('O')
+      expect(wrapper.vm.constraints?.['uuid-preceptor']?.['2026-05-15']).not.toBe('O')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('삭제'))
+    })
   })
 
   describe('preceptor off sync on apply', () => {
