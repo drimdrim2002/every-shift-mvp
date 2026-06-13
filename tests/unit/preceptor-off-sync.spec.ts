@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   expandOffDeltaWithPair,
+  reconcilePreceptorOffPairs,
   resolvePreceptorPair,
   validatePairedOffChanges,
 } from '@/utils/preceptorOffSync';
@@ -94,6 +95,62 @@ describe('expandOffDeltaWithPair', () => {
       { employeeId: 'uuid-preceptor', date: '2026-05-15', action: 'add' },
     ]);
     expect(edits).toHaveLength(2);
+  });
+});
+
+describe('reconcilePreceptorOffPairs', () => {
+  it('adds missing dates only for A={1,2} B={2,3} union', () => {
+    const constraints = {
+      'uuid-preceptee': { '2026-05-01': 'O', '2026-05-02': 'O' },
+      'uuid-preceptor': { '2026-05-02': 'O', '2026-05-03': 'O' },
+    };
+
+    const { nextConstraints, corrections } = reconcilePreceptorOffPairs({
+      constraints,
+      employees,
+      policyRules: [],
+      scheduleMonth: '2026-05',
+    });
+
+    expect(nextConstraints['uuid-preceptee']?.['2026-05-03']).toBe('O');
+    expect(nextConstraints['uuid-preceptor']?.['2026-05-01']).toBe('O');
+    expect(corrections).toHaveLength(1);
+    expect(corrections[0]?.correctedCount).toBe(2);
+  });
+
+  it('does not delete extra off dates on either side', () => {
+    const constraints = {
+      'uuid-preceptee': { '2026-05-01': 'O' },
+      'uuid-preceptor': {},
+    };
+
+    const { nextConstraints } = reconcilePreceptorOffPairs({
+      constraints,
+      employees,
+      policyRules: [],
+      scheduleMonth: '2026-05',
+    });
+
+    expect(nextConstraints['uuid-preceptee']?.['2026-05-01']).toBe('O');
+    expect(nextConstraints['uuid-preceptor']?.['2026-05-01']).toBe('O');
+  });
+
+  it('skips correction date when peer policy limit exceeded and reports skip count', () => {
+    const constraints = {
+      'uuid-preceptee': { '2026-05-01': 'O', '2026-05-02': 'O' },
+      'uuid-preceptor': {},
+    };
+
+    const { nextConstraints, skipped } = reconcilePreceptorOffPairs({
+      constraints,
+      employees,
+      policyRules,
+      scheduleMonth: '2026-05',
+    });
+
+    // annual limit 2 already on preceptor side after first add — second date skipped
+    expect(nextConstraints['uuid-preceptor']?.['2026-05-01']).toBe('O');
+    expect(skipped.some((item) => item.skippedCount > 0)).toBe(true);
   });
 });
 
