@@ -336,6 +336,12 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
           composer-select-five-paired-employees
         </button>
         <button
+          data-test="composer-select-solo-1"
+          @click="$emit('select-employee', ['uuid-solo-1'])"
+        >
+          composer-select-solo-1
+        </button>
+        <button
           data-test="composer-update-selected-dates"
           @click="$emit('update:selected-dates', ['2025-12-01'])"
         >
@@ -352,6 +358,18 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
           @click="$emit('update:selected-dates', ['2026-05-20'])"
         >
           composer-update-selected-dates-may20
+        </button>
+        <button
+          data-test="composer-update-selected-dates-editing"
+          @click="$emit('update:selected-dates', ['2026-05-15', '2026-05-20'])"
+        >
+          composer-update-selected-dates-editing
+        </button>
+        <button
+          data-test="composer-edit-preceptee-off"
+          @click="$emit('edit-request', 'uuid-preceptee::2026-05-14,2026-05-15::::off')"
+        >
+          composer-edit-preceptee-off
         </button>
         <button data-test="composer-update-note" @click="$emit('update:note', '연차')">
           composer-update-note
@@ -856,6 +874,54 @@ function setupThreePairsWithSoloEmployees() {
   gridMock.employees.value = [...THREE_PRECEPTOR_PAIR_EMPLOYEES, ...SOLO_EMPLOYEES]
 }
 
+async function mountStep4WithPairedOffForEditing() {
+  setupPreceptorPairEmployees()
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getScheduleVersionPreferencesMock.mockResolvedValue({
+    constraints: {
+      'uuid-preceptee': { '2026-05-14': 'O', '2026-05-15': 'O' },
+      'uuid-preceptor': { '2026-05-14': 'O', '2026-05-15': 'O' },
+    },
+    notes: {},
+    preferences: [
+      { employeeId: 'uuid-preceptee', date: '2026-05-14', shiftCode: 'O' },
+      { employeeId: 'uuid-preceptee', date: '2026-05-15', shiftCode: 'O' },
+      { employeeId: 'uuid-preceptor', date: '2026-05-14', shiftCode: 'O' },
+      { employeeId: 'uuid-preceptor', date: '2026-05-15', shiftCode: 'O' },
+    ],
+  })
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
+}
+
+async function mountStep4WithSoloEmployees() {
+  organizationStoreMock.employees = SOLO_EMPLOYEES
+  gridMock.employees.value = SOLO_EMPLOYEES
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
+}
+
 async function mountStep4WithThreePairs() {
   setupThreePairsWithSoloEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
@@ -901,7 +967,7 @@ describe('Step4InitialData', () => {
     )
 
     scheduleStoreMock.basicInfo = {
-      scheduleId: undefined,
+      scheduleId: 'schedule-1',
       schedulePublicId: undefined,
       month: '2025-12',
       organizationId: 'org-1',
@@ -995,7 +1061,10 @@ describe('Step4InitialData', () => {
     getOffRequestPoliciesMock.mockResolvedValue({
       organizationId: 'org-1',
       rankCodes: [],
-      policyRules: [],
+      policyRules: [
+        { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+        { rankCode: null, periodType: 'annual', limitCount: 99, isActive: true },
+      ],
     })
   })
 
@@ -4515,6 +4584,7 @@ describe('Step4InitialData', () => {
   })
 
   it('does not call ensurePhase2Schedule on mount when no schedule container exists yet', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = undefined
     createWrapper()
     await flushPromises()
 
@@ -4709,6 +4779,50 @@ describe('Step4InitialData', () => {
 
       expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
       expect(showErrorMock).toHaveBeenCalledWith(expect.stringContaining('박선배'))
+    })
+
+    it('propagates editing date diff to preceptor peer on apply', async () => {
+      const wrapper = await mountStep4WithPairedOffForEditing()
+      saveScheduleVersionPreferencesMock.mockClear()
+      showSuccessMock.mockClear()
+
+      await openRequestDrawer(wrapper)
+      await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
+      await wrapper.find('[data-test="composer-edit-preceptee-off"]').trigger('click')
+      await wrapper.find('[data-test="composer-update-selected-dates-editing"]').trigger('click')
+      await flushPromises()
+
+      await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+      await flushPromises()
+
+      const [, , constraints] = saveScheduleVersionPreferencesMock.mock.calls.at(-1) ?? []
+      expect(constraints['uuid-preceptee']?.['2026-05-14']).not.toBe('O')
+      expect(constraints['uuid-preceptee']?.['2026-05-15']).toBe('O')
+      expect(constraints['uuid-preceptee']?.['2026-05-20']).toBe('O')
+      expect(constraints['uuid-preceptor']?.['2026-05-14']).not.toBe('O')
+      expect(constraints['uuid-preceptor']?.['2026-05-15']).toBe('O')
+      expect(constraints['uuid-preceptor']?.['2026-05-20']).toBe('O')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('프리셉터'))
+    })
+
+    it('applies off for solo employee without pair sync toast', async () => {
+      const wrapper = await mountStep4WithSoloEmployees()
+      saveScheduleVersionPreferencesMock.mockClear()
+      showSuccessMock.mockClear()
+
+      await openRequestDrawer(wrapper)
+      await wrapper.find('[data-test="composer-select-solo-1"]').trigger('click')
+      await wrapper.find('[data-test="composer-update-selected-dates-custom"]').trigger('click')
+      await flushPromises()
+
+      await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+      await flushPromises()
+
+      const [, , constraints] = saveScheduleVersionPreferencesMock.mock.calls.at(-1) ?? []
+      expect(constraints['uuid-solo-1']?.['2026-05-15']).toBe('O')
+      expect(constraints['uuid-solo-2']?.['2026-05-15']).toBeUndefined()
+      expect(showSuccessMock).toHaveBeenCalledWith('요청이 저장되었습니다.')
+      expect(showSuccessMock).not.toHaveBeenCalledWith(expect.stringContaining('프리셉터'))
     })
   })
 })
