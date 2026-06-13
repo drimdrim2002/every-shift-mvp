@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolvePreceptorPair } from '@/utils/preceptorOffSync';
+import {
+  expandOffDeltaWithPair,
+  resolvePreceptorPair,
+  validatePairedOffChanges,
+} from '@/utils/preceptorOffSync';
 import type { Employee } from '@/types/employee';
+import type { OffRequestPolicyRule } from '@/types/ops';
 
 const employees: Employee[] = [
   {
@@ -19,6 +24,11 @@ const employees: Employee[] = [
     availableShifts: ['D'],
     preceptorId: 'uuid-preceptor',
   },
+];
+
+const policyRules: OffRequestPolicyRule[] = [
+  { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+  { rankCode: null, periodType: 'annual', limitCount: 2, isActive: true },
 ];
 
 describe('resolvePreceptorPair', () => {
@@ -60,5 +70,51 @@ describe('resolvePreceptorPair', () => {
     expect(resolvePreceptorPair(abnormal, 'p1')).toBeNull();
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe('expandOffDeltaWithPair', () => {
+  it('expands preceptee add to include preceptor on same date', () => {
+    const edits = expandOffDeltaWithPair(employees, [
+      { employeeId: 'uuid-preceptee', date: '2026-05-15', action: 'add' },
+    ]);
+
+    expect(edits).toEqual(
+      expect.arrayContaining([
+        { employeeId: 'uuid-preceptee', date: '2026-05-15', action: 'add' },
+        { employeeId: 'uuid-preceptor', date: '2026-05-15', action: 'add' },
+      ])
+    );
+    expect(edits).toHaveLength(2);
+  });
+
+  it('dedupes when batch already includes both sides of a pair', () => {
+    const edits = expandOffDeltaWithPair(employees, [
+      { employeeId: 'uuid-preceptee', date: '2026-05-15', action: 'add' },
+      { employeeId: 'uuid-preceptor', date: '2026-05-15', action: 'add' },
+    ]);
+    expect(edits).toHaveLength(2);
+  });
+});
+
+describe('validatePairedOffChanges', () => {
+  it('blocks entire paired operation when peer would exceed annual limit', () => {
+    const constraints = {
+      'uuid-preceptor': { '2026-05-01': 'O', '2026-05-02': 'O' },
+    } as const;
+
+    const result = validatePairedOffChanges({
+      constraints,
+      edits: [{ employeeId: 'uuid-preceptee', date: '2026-05-03', action: 'add' }],
+      employees,
+      policyRules,
+      scheduleMonth: '2026-05',
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.blockedEmployeeName).toBe('박선배');
+      expect(result.role).toBe('preceptor');
+    }
   });
 });
