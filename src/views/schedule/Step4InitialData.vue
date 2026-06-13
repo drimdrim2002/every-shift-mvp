@@ -86,6 +86,15 @@
       </n-alert>
 
       <n-alert
+        v-if="preceptorReconcileAlertSummary"
+        data-test="preceptor-reconcile-alert"
+        type="info"
+        class="mb-4"
+      >
+        {{ preceptorReconcileAlertSummary }}
+      </n-alert>
+
+      <n-alert
         v-if="hasPendingLocalDraft"
         data-test="pending-local-draft-alert"
         type="info"
@@ -573,9 +582,12 @@ import {
 import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import {
   expandOffDeltaWithPair,
+  reconcilePreceptorOffPairs,
   resolvePreceptorPair,
   validatePairedOffChanges,
   type OffEdit,
+  type PairCorrectionSummary,
+  type PairSkipSummary,
 } from '@/utils/preceptorOffSync';
 
 const router = useRouter();
@@ -614,6 +626,7 @@ const requestComposerRef = ref<{
 const isRequestDrawerOpen = ref(false);
 const isRequestDrawerOpenedFromGridShortcut = ref(false);
 const isOffRequestGuideExpanded = ref(false);
+const preceptorReconcileAlertSummary = ref<string | null>(null);
 
 const selectedEmployeeIds = ref<string[]>([]);
 const draftRequestTypeId = ref<Step4RequestTypeId>('off');
@@ -1180,6 +1193,51 @@ function commitPreferenceMaps(nextConstraints: ConstraintMap, nextNotes: Comment
   scheduleStore.setComments(nextNotes);
 }
 
+function notifyPreceptorReconcileResults(
+  corrections: PairCorrectionSummary[],
+  skipped: PairSkipSummary[]
+): void {
+  const pairCount = corrections.length;
+  if (pairCount === 0 && skipped.length === 0) return;
+
+  corrections.forEach((item) => {
+    showSuccess(
+      `프리셉터 짝 Off ${item.correctedCount}건이 자동 맞춤되었습니다 (${item.preceptorName} ↔ ${item.precepteeName}).`
+    );
+  });
+
+  skipped.forEach((item) => {
+    showInfo(
+      `${item.skippedCount}건은 ${item.employeeName}(${item.role === 'preceptor' ? '프리셉터' : '프리셉티'}) Off 한도 초과로 맞추지 못했습니다.`
+    );
+  });
+
+  if (pairCount >= 3) {
+    preceptorReconcileAlertSummary.value = `${pairCount}쌍의 프리셉터 짝 Off가 자동 맞춤되었습니다.`;
+  }
+}
+
+function reconcileAndNotifyPreferenceMaps(
+  nextConstraints: ConstraintMap,
+  nextNotes: CommentMap
+): void {
+  const blocked = assertOffWritesAllowed();
+  if (blocked) {
+    showInfo(blocked);
+    return;
+  }
+
+  const { nextConstraints: reconciled, corrections, skipped } = reconcilePreceptorOffPairs({
+    constraints: nextConstraints,
+    employees: grid.employees.value,
+    policyRules: offRequestPolicyRules.value,
+    scheduleMonth: scheduleStore.basicInfo?.month ?? '',
+  });
+
+  commitPreferenceMaps(reconciled, nextNotes);
+  notifyPreceptorReconcileResults(corrections, skipped);
+}
+
 function clearCurrentScopedTempPreferencesStorage(): void {
   clearScopedTempPreferencesStorage({
     userId: authStore.user?.id,
@@ -1241,7 +1299,7 @@ function replacePreferenceMapsFromSnapshot(snapshot: {
   removedNoteCount: number;
 } {
   const sanitized = sanitizeSnapshotToCurrentEmployees(snapshot);
-  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  reconcileAndNotifyPreferenceMaps(sanitized.constraints, sanitized.notes);
   return {
     removedEmployeeIds: sanitized.removedEmployeeIds,
     removedOffRequestCount: sanitized.removedOffRequestCount,
@@ -1945,7 +2003,7 @@ function handleLoadPendingLocalDraft(): void {
     return;
   }
 
-  commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+  reconcileAndNotifyPreferenceMaps(sanitized.constraints, sanitized.notes);
   pendingLocalDraftSnapshot.value = null;
   showSuccess('이전에 입력하던 Off 요청을 불러왔습니다.');
 }
@@ -1992,12 +2050,9 @@ function handleRequestDrawerVisibility(show: boolean): void {
 }
 
 function handleOpenOffRequestExcelUploadModal(): void {
-  if (step4MutationBlockedReason.value) {
-    showInfo(step4MutationBlockedReason.value);
-    return;
-  }
-  if (pageLevelBlockedReason.value) {
-    showInfo(pageLevelBlockedReason.value ?? '미반영 요청이 있습니다.');
+  const blocked = assertOffWritesAllowed();
+  if (blocked) {
+    showInfo(blocked);
     return;
   }
 
@@ -2034,7 +2089,7 @@ function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void 
   showCommentModal.value = false;
   blockedTransitionReason.value = null;
   resetDraftState();
-  commitPreferenceMaps(nextConstraints, {});
+  reconcileAndNotifyPreferenceMaps(nextConstraints, {});
   clearCurrentScopedTempPreferencesStorage();
   isOffRequestExcelUploadModalOpen.value = false;
   showSuccess('Excel Off 요청을 현재 화면에 반영했습니다. 저장하려면 변경사항 저장을 눌러 주세요.');
@@ -2273,7 +2328,7 @@ async function restoreData(forceRefresh = false) {
         const hasNotes = hasAnyConstraintNotes(sanitized.notes);
 
         if (offRequestCount > 0 || hasNotes) {
-          commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+          reconcileAndNotifyPreferenceMaps(sanitized.constraints, sanitized.notes);
         } else {
           replacePreferenceMapsFromSnapshot({
             constraints: {},

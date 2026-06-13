@@ -22,6 +22,7 @@ const {
   prefillSearchQueryMock,
   dialogWarningMock,
   getOffRequestPoliciesMock,
+  excelApplyPayloadMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -42,6 +43,11 @@ const {
   prefillSearchQueryMock: vi.fn(),
   dialogWarningMock: vi.fn(),
   getOffRequestPoliciesMock: vi.fn(),
+  excelApplyPayloadMock: {
+    'emp-2': {
+      '2025-12-01': 'O',
+    },
+  } as Record<string, Record<string, string>>,
 }))
 
 vi.mock('vue-router', () => ({
@@ -387,6 +393,13 @@ vi.mock('@/components/schedule/Step4OffRequestExcelUploadModal.vue', () => ({
       },
     },
     emits: ['update:show', 'apply'],
+    setup(_, { emit }) {
+      return {
+        applyUpload: () => {
+          emit('apply', excelApplyPayloadMock)
+        },
+      }
+    },
     template: `
       <div v-if="show" data-test="off-request-excel-modal-stub">
         <button
@@ -397,7 +410,7 @@ vi.mock('@/components/schedule/Step4OffRequestExcelUploadModal.vue', () => ({
         </button>
         <button
           data-test="off-request-excel-modal-apply"
-          @click="$emit('apply', { 'emp-2': { '2025-12-01': 'O' } })"
+          @click="applyUpload"
         >
           apply-upload
         </button>
@@ -564,18 +577,44 @@ function writeScopedTempPreferences(payload: {
   constraintNotes?: Record<string, Record<string, string>>;
   savedAt?: string;
 }) {
+  writeScopedTempPreferencesForMonth('2025-12', payload)
+}
+
+function writeScopedTempPreferencesForMonth(
+  month: string,
+  payload: {
+    constraints: Record<string, Record<string, string>>;
+    constraintNotes?: Record<string, Record<string, string>>;
+    savedAt?: string;
+  }
+) {
   localStorage.setItem(
-    'everyshift_temp_preferences_v2:user-1:org-1:2025-12',
+    `everyshift_temp_preferences_v2:user-1:org-1:${month}`,
     JSON.stringify({
       schemaVersion: 2,
       ownerUserId: 'user-1',
       ownerOrganizationId: 'org-1',
-      month: '2025-12',
+      month,
       savedAt: payload.savedAt ?? new Date().toISOString(),
       constraints: payload.constraints,
       constraintNotes: payload.constraintNotes ?? {},
     })
   )
+}
+
+async function applyExcelUpload(
+  wrapper: ReturnType<typeof createWrapper>,
+  constraints: Record<string, Record<string, string>>
+) {
+  Object.keys(excelApplyPayloadMock).forEach((key) => {
+    delete excelApplyPayloadMock[key]
+  })
+  Object.assign(excelApplyPayloadMock, constraints)
+
+  await wrapper.find('[data-test="step4-excel-upload-button"]').trigger('click')
+  await flushPromises()
+  await wrapper.find('[data-test="off-request-excel-modal-apply"]').trigger('click')
+  await flushPromises()
 }
 
 async function clickButtonByText(wrapper: ReturnType<typeof createWrapper>, text: string) {
@@ -705,6 +744,79 @@ async function selectPrecepteeAndDate(
   await openRequestDrawer(wrapper)
   await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
   await wrapper.find(dateButton).trigger('click')
+}
+
+const THREE_PRECEPTOR_PAIR_EMPLOYEES = [
+  {
+    id: 'uuid-p1',
+    organizationId: 'org-1',
+    employeeId: 'P001',
+    name: '선배1',
+    availableShifts: ['D'],
+    preceptorId: null,
+  },
+  {
+    id: 'uuid-e1',
+    organizationId: 'org-1',
+    employeeId: 'E001',
+    name: '신규1',
+    availableShifts: ['D'],
+    preceptorId: 'uuid-p1',
+  },
+  {
+    id: 'uuid-p2',
+    organizationId: 'org-1',
+    employeeId: 'P002',
+    name: '선배2',
+    availableShifts: ['D'],
+    preceptorId: null,
+  },
+  {
+    id: 'uuid-e2',
+    organizationId: 'org-1',
+    employeeId: 'E002',
+    name: '신규2',
+    availableShifts: ['D'],
+    preceptorId: 'uuid-p2',
+  },
+  {
+    id: 'uuid-p3',
+    organizationId: 'org-1',
+    employeeId: 'P003',
+    name: '선배3',
+    availableShifts: ['D'],
+    preceptorId: null,
+  },
+  {
+    id: 'uuid-e3',
+    organizationId: 'org-1',
+    employeeId: 'E003',
+    name: '신규3',
+    availableShifts: ['D'],
+    preceptorId: 'uuid-p3',
+  },
+]
+
+function setupThreePreceptorPairEmployees() {
+  organizationStoreMock.employees = THREE_PRECEPTOR_PAIR_EMPLOYEES
+  gridMock.employees.value = THREE_PRECEPTOR_PAIR_EMPLOYEES
+}
+
+async function mountStep4WithThreePreceptorPairs() {
+  setupThreePreceptorPairEmployees()
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
 }
 
 describe('Step4InitialData', () => {
@@ -4404,6 +4516,56 @@ describe('Step4InitialData', () => {
       expect(wrapper.vm.constraints?.['uuid-preceptee']?.['2026-05-15']).not.toBe('O')
       expect(wrapper.vm.constraints?.['uuid-preceptor']?.['2026-05-15']).not.toBe('O')
       expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('삭제'))
+    })
+  })
+
+  describe('preceptor off reconcile', () => {
+    it('reconciles one-sided excel off before commitPreferenceMaps', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      showSuccessMock.mockClear()
+
+      await applyExcelUpload(wrapper, { 'uuid-preceptee': { '2026-05-10': 'O' } })
+
+      const vm = wrapper.vm as { constraints: Record<string, Record<string, string>> }
+      expect(vm.constraints['uuid-preceptor']?.['2026-05-10']).toBe('O')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('자동 맞춤'))
+    })
+
+    it('reconciles draft load mismatch', async () => {
+      writeScopedTempPreferencesForMonth('2026-05', {
+        constraints: {
+          'uuid-preceptee': {
+            '2026-05-10': 'O',
+          },
+        },
+      })
+
+      const wrapper = await mountStep4WithPreceptorPair()
+      showSuccessMock.mockClear()
+
+      expect(wrapper.find('[data-test="pending-local-draft-alert"]').exists()).toBe(true)
+
+      await clickExactButtonByText(wrapper, '불러오기')
+      await flushPromises()
+
+      const vm = wrapper.vm as { constraints: Record<string, Record<string, string>> }
+      expect(vm.constraints['uuid-preceptor']?.['2026-05-10']).toBe('O')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('자동 맞춤'))
+      expect(showSuccessMock).toHaveBeenCalledWith('이전에 입력하던 Off 요청을 불러왔습니다.')
+    })
+
+    it('shows n-alert when 3+ pair corrections occur', async () => {
+      const wrapper = await mountStep4WithThreePreceptorPairs()
+      showSuccessMock.mockClear()
+
+      await applyExcelUpload(wrapper, {
+        'uuid-e1': { '2026-05-01': 'O' },
+        'uuid-e2': { '2026-05-02': 'O' },
+        'uuid-e3': { '2026-05-03': 'O' },
+      })
+
+      expect(wrapper.text()).toContain('3쌍의 프리셉터 짝 Off가 자동 맞춤되었습니다.')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('자동 맞춤'))
     })
   })
 
