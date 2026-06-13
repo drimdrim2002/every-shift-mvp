@@ -227,6 +227,28 @@ const columns = computed<DataTableColumns<EmployeeInput>>(() => [
     },
   },
   {
+    title: '프리셉터',
+    key: 'preceptorEmployeeId',
+    width: 180,
+    render(row) {
+      if (!row.preceptorEmployeeId) {
+        return h('span', { class: 'text-gray-500' }, '—');
+      }
+
+      const preceptor = props.employees.find(
+        (employee) => employee.employeeId === row.preceptorEmployeeId
+      );
+      const label = preceptor?.name ?? '(미지정)';
+      const employeeId = row.preceptorEmployeeId;
+
+      return h('span', { 'data-test': 'preceptor-cell' }, [
+        `${label} (`,
+        h('span', { class: 'font-mono' }, employeeId),
+        ')',
+      ]);
+    },
+  },
+  {
     title: '작업',
     key: 'actions',
     width: 120,
@@ -265,6 +287,8 @@ const columns = computed<DataTableColumns<EmployeeInput>>(() => [
     },
   },
 ]);
+
+defineExpose({ columns });
 
 // 직원 추가 핸들러
 function handleAdd() {
