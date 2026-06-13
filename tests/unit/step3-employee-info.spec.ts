@@ -1052,6 +1052,164 @@ describe('Step3EmployeeInfo', () => {
     expect(applyEmployeeImportMock).not.toHaveBeenCalled()
   })
 
+  it('maps preceptor_id UUID to preceptorEmployeeId on load', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+    scheduleStoreMock.employees = []
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'employees') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: 'uuid-p',
+                    employee_id: 'P-1',
+                    name: '박선배',
+                    available_shifts: ['D'],
+                    rank_code: null,
+                    preceptor_id: null,
+                  },
+                  {
+                    id: 'uuid-t',
+                    employee_id: 'T-1',
+                    name: '김신규',
+                    available_shifts: ['D'],
+                    rank_code: null,
+                    preceptor_id: 'uuid-p',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
+        }),
+      }
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.vm.employees[1].preceptorEmployeeId).toBe('P-1')
+    expect(wrapper.vm.employees[0].preceptorEmployeeId).toBeNull()
+  })
+
+  it('buildEmployeePayload includes preceptorEmployeeId', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+    scheduleStoreMock.employees = []
+
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === 'employees') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
+                data: [
+                  {
+                    id: 'uuid-p',
+                    employee_id: 'P-1',
+                    name: '박선배',
+                    available_shifts: ['D'],
+                    rank_code: null,
+                    preceptor_id: null,
+                  },
+                  {
+                    id: 'uuid-t',
+                    employee_id: 'T-1',
+                    name: '김신규',
+                    available_shifts: ['D'],
+                    rank_code: null,
+                    preceptor_id: 'uuid-p',
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
+        }),
+      }
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleEditEmployee(1, {
+      ...wrapper.vm.employees[1],
+      name: '김신규(수정)',
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(replaceOrganizationRosterMock).toHaveBeenCalledWith({
+      organizationId: 'org-1',
+      employees: expect.arrayContaining([
+        expect.objectContaining({
+          employeeId: 'T-1',
+          preceptorEmployeeId: 'P-1',
+        }),
+      ]),
+    })
+  })
+
+  it('detects dirty state when preceptorEmployeeId changes', async () => {
+    scheduleStoreMock.employees = [
+      {
+        employeeId: 'P-1',
+        name: '박선배',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorEmployeeId: null,
+      },
+      {
+        employeeId: 'T-1',
+        name: '김신규',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorEmployeeId: null,
+      },
+    ]
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleEditEmployee(1, {
+      ...wrapper.vm.employees[1],
+      preceptorEmployeeId: 'P-1',
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
+    expect(dialogMock.warning).toHaveBeenCalled()
+  })
+
   it('blocks finalized month on the next-step path before showing the confirm dialog', async () => {
     getPhase2ScheduleCompareMock.mockResolvedValue({
       scheduleId: 'schedule-123',

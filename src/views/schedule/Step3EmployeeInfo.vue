@@ -274,18 +274,34 @@ onMounted(async () => {
     }
 
     if (data && data.length > 0) {
+      const idToEmployeeIdMap = new Map(
+        data.map((emp: { id: string; employee_id: string }) => [emp.id, emp.employee_id])
+      );
+
       // DB 데이터를 EmployeeInput 형식으로 변환
       employees.value = data.map((emp: {
         employee_id: string;
         name: string;
         available_shifts: string[];
         rank_code?: string | null;
-      }) => ({
-        employeeId: emp.employee_id,
-        name: emp.name,
-        availableShifts: emp.available_shifts,
-        rankCode: emp.rank_code ?? null,
-      }));
+        preceptor_id?: string | null;
+      }) => {
+        const preceptorEmployeeId = emp.preceptor_id
+          ? idToEmployeeIdMap.get(emp.preceptor_id) ?? null
+          : null;
+
+        if (emp.preceptor_id && !preceptorEmployeeId) {
+          console.warn('[Step3] Preceptor UUID not found in roster:', emp.preceptor_id);
+        }
+
+        return {
+          employeeId: emp.employee_id,
+          name: emp.name,
+          availableShifts: emp.available_shifts,
+          rankCode: emp.rank_code ?? null,
+          preceptorEmployeeId,
+        };
+      });
 
       setBaselineEmployeesSnapshot(employees.value);
       showInfo(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
@@ -307,6 +323,7 @@ function cloneEmployees(list: EmployeeInput[]): EmployeeInput[] {
     name: employee.name,
     availableShifts: [...employee.availableShifts],
     rankCode: employee.rankCode ?? null,
+    preceptorEmployeeId: employee.preceptorEmployeeId ?? null,
   }));
 }
 
@@ -318,6 +335,7 @@ function serializeEmployees(list: EmployeeInput[]): string {
         name: employee.name,
         availableShifts: [...employee.availableShifts].sort(),
         rankCode: employee.rankCode ?? null,
+        preceptorEmployeeId: employee.preceptorEmployeeId ?? null,
       }))
       .sort((left, right) => {
         if (left.employeeId !== right.employeeId) {
@@ -328,7 +346,11 @@ function serializeEmployees(list: EmployeeInput[]): string {
           return left.name.localeCompare(right.name);
         }
 
-        return (left.rankCode ?? '').localeCompare(right.rankCode ?? '');
+        if ((left.rankCode ?? '') !== (right.rankCode ?? '')) {
+          return (left.rankCode ?? '').localeCompare(right.rankCode ?? '');
+        }
+
+        return (left.preceptorEmployeeId ?? '').localeCompare(right.preceptorEmployeeId ?? '');
       })
   );
 }
@@ -343,6 +365,7 @@ function buildEmployeePayload() {
     name: employee.name,
     availableShifts: employee.availableShifts,
     rankCode: employee.rankCode ?? null,
+    preceptorEmployeeId: employee.preceptorEmployeeId ?? null,
   }));
 }
 
