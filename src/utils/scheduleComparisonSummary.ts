@@ -87,6 +87,7 @@ const COMPLIANCE_REQUIREMENT_DEFINITIONS: Array<{
   label: string;
 }> = [
   { code: 'nod_pattern', label: 'NOD 근무 불가' },
+  { code: 'preceptor_pairing', label: '프리셉터 동일 시프트' },
   { code: 'triple_night', label: '4연속 야간(N) 근무 불가 (3연속 허용)' },
   { code: 'rest_after_two_nights', label: '연속 야간(N) 후 48시간 이상 휴식' },
   { code: 'monthly_night_limit', label: '야간 근무 월 15회 이하' },

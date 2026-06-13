@@ -1,10 +1,12 @@
 # 간호사 프리셉터 — UI 설계
 
-> **상태:** 설계 확정 (구현 전)  
+> **상태:** 설계 확정 · UI 구현 대기 (API/util 완료)  
 > **작성일:** 2026-06-11  
+> **갱신:** 2026-06-13 — writing-plans 구현 계획 분리·갭 분석 추가  
 > **순서:** 3/3 — [DB](./2026-06-11-nurse-preceptor-db.ko.md) → [API](./2026-06-11-nurse-preceptor-api.ko.md) → UI  
 > **상위 문서:** [개요](./2026-06-11-nurse-preceptor-design.ko.md)  
-> **선행:** DB migration + API 타입·validation util
+> **선행:** DB migration + API 타입·validation util ✅  
+> **구현 계획 (TDD·태스크):** [superpowers/plans/2026-06-11-nurse-preceptor-ui.ko.md](../superpowers/plans/2026-06-11-nurse-preceptor-ui.ko.md)
 
 ---
 
@@ -254,31 +256,56 @@ Evaluator는 [API 문서](./2026-06-11-nurse-preceptor-api.ko.md) §8. UI copy�
 
 ## 8. 구현 슬라이스 (UI만)
 
-| Step | 작업                             | 파일                                    |
-| ---- | -------------------------------- | --------------------------------------- |
-| U1   | validation util (API와 공유)     | `src/utils/preceptorValidation.ts`      |
-| U2   | EmployeeTable 컬럼 + 모달 select | `EmployeeTable.vue`                     |
-| U3   | Step3 load/save/dirty            | `Step3EmployeeInfo.vue`                 |
-| U4   | Excel template/parse/validate    | `EmployeeExcelUpload.vue`               |
-| U5   | Compliance panel copy 확인       | `ScheduleCompliancePanel.vue` (필요 시) |
+> **상세 TDD 태스크·코드·명령어:** [구현 계획](../superpowers/plans/2026-06-11-nurse-preceptor-ui.ko.md)
 
-**완료 기준:**
+### 8.1 갭 분석 (2026-06-13)
+
+| Step | 작업                             | 파일                               | 상태                            |
+| ---- | -------------------------------- | ---------------------------------- | ------------------------------- |
+| U1   | validation util (API와 공유)     | `src/utils/preceptorValidation.ts` | ✅ 완료                         |
+| U2   | EmployeeTable 컬럼 + 모달 select | `EmployeeTable.vue`                | ❌ 컬럼·`NSelect` 없음          |
+| U3   | Step3 load/save/dirty            | `Step3EmployeeInfo.vue`            | ❌ `preceptorEmployeeId` 미포함 |
+| U4   | Excel template/parse/validate    | `EmployeeExcelUpload.vue`          | ❌ 3열만 지원                   |
+| U5   | Compliance panel copy            | evaluator + spec                   | ✅ `preceptor_pairing` 연결됨   |
+
+**추가 작업 (구현 계획 Task 1):** 엑셀 행 단위 오류 코드용 `validatePreceptorExcelRows()` — 설계 §5.5 메시지와 매핑.
+
+### 8.2 완료 기준
 
 - [ ] setup·월별 Step3에서 프리셉터 지정·저장·reload 일치
-- [ ] 엑셀 4열 업로드·오류 메시지
-- [ ] Step5 compliance에 「프리셉터 동일 시프트」 표시
+- [ ] 엑셀 4열 업로드·오류 메시지 (`PRECEPTOR_*` 코드)
+- [ ] Step5 compliance에 「프리셉터 동일 시프트」 표시 (회귀 테스트)
+
+### 8.3 구현 순서 (권장)
+
+```text
+U1 확인 → 엑셀 배치 검증 util → EmployeeTable 컬럼 → EmployeeTable 모달
+       → Step3 load/save → Excel 4열 → compliance 회귀 → lint/build
+```
 
 ---
 
 ## 9. 테스트 계획
 
-| 파일                                           | 케이스                              |
-| ---------------------------------------------- | ----------------------------------- |
-| `tests/unit/preceptor-validation.spec.ts`      | 후보 필터, 규칙 1–6                 |
-| `tests/unit/step3-employee-info.spec.ts`       | load UUID→직번, save payload, dirty |
-| `EmployeeTable` (신규 또는 step3 spec)         | 컬럼 render, 모달 select            |
-| `EmployeeExcelUpload` spec                     | 4열 parse, 오류 코드                |
-| `tests/unit/schedule-compliance-panel.spec.ts` | summary copy `프리셉터 동일 시프트` |
+| 파일                                              | 케이스                              | 상태         |
+| ------------------------------------------------- | ----------------------------------- | ------------ |
+| `tests/unit/preceptor-validation.spec.ts`         | 후보 필터, 규칙 1–6                 | ✅           |
+| `tests/unit/preceptor-validation.spec.ts`         | `validatePreceptorExcelRows`        | ❌ 추가 예정 |
+| `tests/unit/step3-employee-info.spec.ts`          | load UUID→직번, save payload, dirty | ❌           |
+| `tests/unit/employee-table.spec.ts` (신규)        | 컬럼 render, 모달 검증              | ❌           |
+| `tests/unit/employee-excel-upload.spec.ts` (신규) | 4열 parse, 오류 코드                | ❌           |
+| `tests/unit/schedule-compliance-panel.spec.ts`    | summary copy `프리셉터 동일 시프트` | ✅           |
+
+**검증 명령 (구현 완료 후):**
+
+```bash
+pnpm exec vitest run tests/unit/preceptor-validation.spec.ts \
+  tests/unit/employee-table.spec.ts \
+  tests/unit/employee-excel-upload.spec.ts \
+  tests/unit/step3-employee-info.spec.ts \
+  tests/unit/schedule-compliance-panel.spec.ts -v
+pnpm lint:check && pnpm run build
+```
 
 **E2E (선택):**
 

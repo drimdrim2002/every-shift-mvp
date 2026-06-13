@@ -1206,7 +1206,7 @@ export async function getPlanningShifts(organizationId: string): Promise<Plannin
 export async function getPlanningEmployees(organizationId: string): Promise<PlanningEmployee[]> {
   const { data, error } = await supabase
     .from('employees')
-    .select('id, name, available_shifts')
+    .select('id, name, available_shifts, preceptor_id')
     .eq('organization_id', organizationId)
     .order('name');
 
@@ -1217,6 +1217,7 @@ export async function getPlanningEmployees(organizationId: string): Promise<Plan
     employee_id: emp.id,
     name: emp.name,
     available_shifts: emp.available_shifts || ['D', 'E', 'N', 'O'],
+    preceptor_id: emp.preceptor_id ?? null,
   }));
 }
 

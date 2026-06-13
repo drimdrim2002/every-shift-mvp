@@ -543,6 +543,15 @@ function normalizeEmployeeImportEmployee(
     normalized.rankCode = employee.rankCode.trim();
   }
 
+  if (employee.preceptorEmployeeId === null) {
+    normalized.preceptorEmployeeId = null;
+  } else if (
+    typeof employee.preceptorEmployeeId === 'string'
+    && employee.preceptorEmployeeId.trim().length > 0
+  ) {
+    normalized.preceptorEmployeeId = employee.preceptorEmployeeId.trim();
+  }
+
   return normalized;
 }
 
@@ -955,6 +964,7 @@ async function callResetRosterBoundary(
       name: employee.name,
       available_shifts: employee.availableShifts,
       rank_code: employee.rankCode ?? null,
+      preceptor_employee_id: employee.preceptorEmployeeId ?? null,
     })),
   });
 
@@ -987,6 +997,7 @@ async function callReplaceOrganizationRosterBoundary(
       name: employee.name,
       available_shifts: employee.availableShifts,
       rank_code: employee.rankCode ?? null,
+      preceptor_employee_id: employee.preceptorEmployeeId ?? null,
     })),
   });
 

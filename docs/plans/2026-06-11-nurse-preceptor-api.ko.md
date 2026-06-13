@@ -1,6 +1,6 @@
 # 간호사 프리셉터 — API / TypeScript 설계
 
-> **상태:** 설계 확정 (구현 전)  
+> **상태:** 구현 완료  
 > **작성일:** 2026-06-11  
 > **순서:** 2/3 — [DB](./2026-06-11-nurse-preceptor-db.ko.md) → API → [UI](./2026-06-11-nurse-preceptor-ui.ko.md)  
 > **상위 문서:** [개요](./2026-06-11-nurse-preceptor-design.ko.md)  
@@ -470,5 +470,17 @@ UI 표시 copy는 [UI 문서](./2026-06-11-nurse-preceptor-ui.ko.md) §6.
 | `supabase/functions/phase2-ops/contracts.ts`, `repository.ts`                    |
 
 ---
+
+## 12. 구현 체크리스트
+
+- [x] A1 타입 확장 (`employee.ts`, `ops.ts`, `schedule.ts`, `scheduleCompliance.ts`)
+- [x] A2 Ops contracts/repository payload (`preceptor_employee_id`)
+- [x] A3 `getPlanningEmployees` — `preceptor_id` SELECT·매핑
+- [x] A4 `preceptorValidation.ts` (규칙 1–5)
+- [x] A5 `solverMapper` + `scheduleInputSnapshot` + snapshot rebuild
+- [x] A6 `scheduleCompliance` — `preceptor_pairing` mandatory rule
+- [x] A7 Step5 compliance wiring (`preceptorId` 전달)
+- [x] A8 목 솔버 pairing (`mockSolverPairing.ts`)
+- [x] §10 unit tests
 
 **다음 단계:** [UI 설계](./2026-06-11-nurse-preceptor-ui.ko.md)

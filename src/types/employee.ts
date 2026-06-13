@@ -5,6 +5,7 @@ export interface Employee {
   name: string // 이름 (예: "박지현")
   availableShifts: string[] // ["D", "E", "N", "O"]
   rankCode?: string | null
+  preceptorId?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -15,4 +16,5 @@ export interface EmployeeInput {
   name: string // 이름
   availableShifts: string[] // ["D", "E", "N", "O"]
   rankCode?: string | null
+  preceptorEmployeeId?: string | null
 }

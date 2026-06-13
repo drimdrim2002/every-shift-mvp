@@ -1,6 +1,6 @@
 # 간호사 프리셉터 — DB 설계
 
-> **상태:** 설계 확정 (구현 전)  
+> **상태:** DB 슬라이스 구현 완료 (2026-06-11)  
 > **작성일:** 2026-06-11  
 > **순서:** 1/3 — DB → [API](./2026-06-11-nurse-preceptor-api.ko.md) → [UI](./2026-06-11-nurse-preceptor-ui.ko.md)  
 > **상위 문서:** [개요](./2026-06-11-nurse-preceptor-design.ko.md)
@@ -221,10 +221,10 @@ Pass 2 전 **§6 검증** 통과 필수 (Edge Function 또는 RPC 내부).
 
 **완료 기준:**
 
-- [ ] 원격/로컬 `employees.preceptor_id` 존재
-- [ ] partial unique index 동작
-- [ ] roster replace 후 preceptor_id UUID resolve 확인
-- [ ] `ON DELETE SET NULL` 확인
+- [x] 원격/로컬 `employees.preceptor_id` 존재
+- [x] partial unique index 동작
+- [ ] roster replace 후 preceptor_id UUID resolve 확인 (RPC는 service_role 전용 — E2E/통합 테스트에서 검증)
+- [ ] `ON DELETE SET NULL` 확인 (통합 테스트에서 검증)
 
 ---
 

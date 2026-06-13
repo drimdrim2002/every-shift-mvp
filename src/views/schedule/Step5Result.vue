@@ -1165,10 +1165,17 @@ const rightComparisonVersionData = computed<ComparisonVersionData | null>(() => 
 const primaryAction = computed(() => {
   return review.value?.primaryAction ?? EMPTY_PRIMARY_ACTION;
 });
+const complianceEmployees = computed(() =>
+  grid.employees.value.map((employee) => ({
+    id: employee.id,
+    name: employee.name,
+    preceptorId: employee.preceptorId ?? null,
+  }))
+);
 const liveComplianceResult = computed(() => {
   return evaluateScheduleCompliance({
     month: scheduleStore.basicInfo?.month ?? '',
-    employees: grid.employees.value,
+    employees: complianceEmployees.value,
     assignments: activeComplianceAssignments.value,
     offRequests: offRequestsCurrentMonth.value,
     shifts: organizationStore.shifts,
@@ -2476,7 +2483,11 @@ async function loadComparisonVersionData(versionId: string): Promise<ComparisonV
   const complianceResult = applyPreviousMonthFallbackWarning(
     evaluateScheduleCompliance({
       month: currentMonth,
-      employees: grid.employees.value,
+      employees: grid.employees.value.map((employee) => ({
+        id: employee.id,
+        name: employee.name,
+        preceptorId: employee.preceptorId ?? null,
+      })),
       assignments: mergeComplianceAssignments(
         mergedPreviousAssignments,
         currentAssignments,

@@ -735,6 +735,7 @@ describe('phase2 ops repository', () => {
               name: 'Kim',
               available_shifts: ['D'],
               rank_code: 'RN',
+              preceptor_employee_id: null,
             },
           ],
         },
@@ -785,12 +786,14 @@ describe('phase2 ops repository', () => {
               name: 'Kim',
               available_shifts: ['D'],
               rank_code: 'RN',
+              preceptor_employee_id: null,
             },
             {
               employee_id: 'EMP-2',
               name: 'Lee',
               available_shifts: ['E'],
               rank_code: null,
+              preceptor_employee_id: null,
             },
           ],
         },
@@ -830,6 +833,60 @@ describe('phase2 ops repository', () => {
               name: 'Kim',
               available_shifts: ['D'],
               rank_code: 'RN',
+              preceptor_employee_id: null,
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('maps preceptorEmployeeId to preceptor_employee_id in org-level roster replace RPC payload', async () => {
+    const { client, rpcCalls } = createRepositoryClient({
+      shifts: [
+        { id: 'shift-d', code: 'D' },
+        { id: 'shift-e', code: 'E' },
+      ],
+    });
+
+    await replaceOrganizationRoster(client, AUTH_CONTEXT, {
+      organizationId: REQUEST.organizationId,
+      employees: [
+        {
+          employeeId: 'EMP-1',
+          name: 'Kim',
+          availableShifts: ['D', 'E'],
+          rankCode: 'RN',
+          preceptorEmployeeId: 'EMP-2',
+        },
+        {
+          employeeId: 'EMP-2',
+          name: 'Lee',
+          availableShifts: ['D', 'E'],
+          rankCode: null,
+        },
+      ],
+    });
+
+    expect(rpcCalls).toEqual([
+      {
+        fn: 'replace_organization_roster_atomic',
+        params: {
+          p_organization_id: REQUEST.organizationId,
+          p_employees: [
+            {
+              employee_id: 'EMP-1',
+              name: 'Kim',
+              available_shifts: ['D', 'E'],
+              rank_code: 'RN',
+              preceptor_employee_id: 'EMP-2',
+            },
+            {
+              employee_id: 'EMP-2',
+              name: 'Lee',
+              available_shifts: ['D', 'E'],
+              rank_code: null,
+              preceptor_employee_id: null,
             },
           ],
         },

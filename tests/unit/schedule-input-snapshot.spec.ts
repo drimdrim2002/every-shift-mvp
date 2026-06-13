@@ -196,4 +196,56 @@ describe('schedule input snapshot', () => {
 
     expect(changedSnapshot.solverInputHash).not.toBe(baseSnapshot.solverInputHash);
   });
+
+  it('includes preceptorId in normalized employees', () => {
+    const solverRequest = createSolverRequest();
+    solverRequest.employees[0] = {
+      ...solverRequest.employees[0]!,
+      preceptor_id: 'preceptor-1',
+    };
+
+    const solverInput = normalizeScheduleSolverInput({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest,
+    });
+
+    expect(solverInput.employees[0]).toMatchObject({
+      employeeId: 'emp-1',
+      preceptorId: 'preceptor-1',
+    });
+  });
+
+  it('changes the snapshot hash when preceptorId changes', async () => {
+    const baseRequest = createSolverRequest();
+    const changedRequest = createSolverRequest();
+    changedRequest.employees[0] = {
+      ...changedRequest.employees[0]!,
+      preceptor_id: 'preceptor-1',
+    };
+
+    const baseSnapshot = await buildScheduleInputSnapshot({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest: baseRequest,
+      generatorVersion: 'test-generator',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const changedSnapshot = await buildScheduleInputSnapshot({
+      scheduleId: 'schedule-1',
+      siteId: 'site-1',
+      month: '2026-01',
+      lastMonthDays: 5,
+      solverRequest: changedRequest,
+      generatorVersion: 'test-generator',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    expect(changedSnapshot.solverInputHash).not.toBe(baseSnapshot.solverInputHash);
+  });
 });

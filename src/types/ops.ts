@@ -135,6 +135,7 @@ export interface EmployeeImportEmployeePreview {
   name: string;
   availableShifts: string[];
   rankCode?: string | null;
+  preceptorEmployeeId?: string | null;
 }
 
 export interface EmployeeImportValidateRequest {

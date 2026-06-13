@@ -7,7 +7,8 @@ export type ScheduleComplianceRuleCode =
   | 'triple_night'
   // Legacy key kept for API compatibility: evaluates 48h rest after the end of a consecutive night streak.
   | 'rest_after_two_nights'
-  | 'monthly_night_limit';
+  | 'monthly_night_limit'
+  | 'preceptor_pairing';
 
 export type ScheduleComplianceRuleStatus = 'passed' | 'failed' | 'check_required';
 
@@ -47,7 +48,7 @@ export interface ScheduleComplianceResult {
 
 export interface EvaluateScheduleComplianceInput {
   month: string;
-  employees: Array<{ id: string; name: string }>;
+  employees: Array<{ id: string; name: string; preceptorId?: string | null }>;
   assignments: AssignmentMap;
   offRequests: ConstraintMap;
   shifts: Shift[];

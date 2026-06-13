@@ -75,6 +75,7 @@ export function normalizeScheduleSolverInput(
         employeeId: employee.employee_id,
         availableShifts: [...employee.available_shifts].sort(compareByText),
         skillSet: [...employee.skill_set].sort(compareByText),
+        preceptorId: employee.preceptor_id ?? null,
       }))
       .sort((left, right) => compareByText(left.employeeId, right.employeeId)),
     assignments: solverRequest.history

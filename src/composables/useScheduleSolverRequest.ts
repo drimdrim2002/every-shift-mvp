@@ -151,6 +151,7 @@ function buildSolverRequestFromSnapshot(
       name: employeeNameById.get(employee.employeeId) ?? employee.employeeId,
       available_shifts: [...employee.availableShifts],
       skill_set: [...employee.skillSet],
+      preceptor_id: employee.preceptorId ?? null,
     })),
     history: solverInput.assignments.map((assignment) => ({
       employee_id: assignment.employeeId,

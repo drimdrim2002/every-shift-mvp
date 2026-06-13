@@ -104,6 +104,7 @@ export interface ScheduleInputSnapshotEmployee {
   employeeId: string;
   availableShifts: string[];
   skillSet: string[];
+  preceptorId?: string | null;
 }
 
 export interface ScheduleInputSnapshotAssignment {
@@ -529,6 +530,7 @@ export interface PlanningEmployee {
   employee_id: string;
   name: string;
   available_shifts: string[];
+  preceptor_id?: string | null;
 }
 
 export interface PlanningAssignment {
@@ -552,6 +554,7 @@ export interface SolverRequestEmployee {
   name: string;
   available_shifts: string[];
   skill_set: string[]; // 예: ["ALL"]
+  preceptor_id?: string | null;
 }
 
 export interface SolverRequestHistoryItem {

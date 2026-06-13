@@ -84,6 +84,7 @@ export interface EmployeeImportEmployeePayload {
   name: string;
   availableShifts: string[];
   rankCode?: string | null;
+  preceptorEmployeeId?: string | null;
 }
 
 export interface EmployeeImportRequest {
@@ -889,6 +890,17 @@ function parseEmployeeImportEmployeePayload(value: unknown): EmployeeImportEmplo
 
   if (rankCode !== undefined) {
     payload.rankCode = rankCode;
+  }
+
+  const preceptorEmployeeId =
+    typeof record.preceptorEmployeeId === 'string' && record.preceptorEmployeeId.trim().length > 0
+      ? record.preceptorEmployeeId.trim()
+      : record.preceptorEmployeeId === null
+        ? null
+        : undefined;
+
+  if (preceptorEmployeeId !== undefined) {
+    payload.preceptorEmployeeId = preceptorEmployeeId;
   }
 
   return payload;

@@ -65,6 +65,7 @@ describe('evaluateScheduleCompliance', () => {
     expect(result.violations).toEqual([]);
     expect(result.summaries.map((summary) => [summary.code, summary.status])).toEqual([
       ['nod_pattern', 'passed'],
+      ['preceptor_pairing', 'passed'],
       ['triple_night', 'passed'],
       ['rest_after_two_nights', 'passed'],
       ['monthly_night_limit', 'passed'],
@@ -401,6 +402,93 @@ describe('evaluateScheduleCompliance', () => {
       fulfilledRequests: 3,
       unfulfilledRequests: 4,
       reflectionRate: 43,
+    });
+  });
+
+  describe('preceptor_pairing', () => {
+    const pairedEmployees = [
+      { id: 'p1', name: '박선배' },
+      { id: 't1', name: '김신규', preceptorId: 'p1' },
+    ];
+
+    function evaluatePairing(assignments: AssignmentMap) {
+      return evaluateScheduleCompliance({
+        month,
+        employees: pairedEmployees,
+        assignments,
+        offRequests: {},
+        shifts,
+      });
+    }
+
+    function buildSameShiftAssignments(shiftCode: string, days: number): AssignmentMap {
+      const dates = Array.from({ length: days }, (_, index) =>
+        `2026-05-${String(index + 1).padStart(2, '0')}`
+      );
+      const byDate = Object.fromEntries(dates.map((date) => [date, shiftCode]));
+
+      return {
+        p1: { ...byDate },
+        t1: { ...byDate },
+      };
+    }
+
+    it('C1 passes when paired employees share the same shift every day', () => {
+      const result = evaluatePairing(buildSameShiftAssignments('D', 31));
+
+      expect(result.mandatoryPassed).toBe(true);
+      expect(result.violations.some((violation) => violation.ruleCode === 'preceptor_pairing')).toBe(false);
+      expect(result.summaries.find((summary) => summary.code === 'preceptor_pairing')?.status).toBe('passed');
+    });
+
+    it('C2 fails when paired employees differ on one day', () => {
+      const assignments = buildSameShiftAssignments('D', 31);
+      assignments.t1!['2026-05-15'] = 'E';
+
+      const result = evaluatePairing(assignments);
+
+      expect(result.mandatoryPassed).toBe(false);
+      expect(result.canFinalizeLocally).toBe(false);
+      expect(result.violations).toContainEqual(
+        expect.objectContaining({
+          ruleCode: 'preceptor_pairing',
+          employeeId: 't1',
+          dates: ['2026-05-15'],
+        }),
+      );
+    });
+
+    it('C3 skips employees without a preceptor', () => {
+      const result = evaluateScheduleCompliance({
+        month,
+        employees: [{ id: 't1', name: '김신규', preceptorId: null }],
+        assignments: {
+          t1: {
+            '2026-05-01': 'D',
+            '2026-05-02': 'E',
+          },
+        },
+        offRequests: {},
+        shifts,
+      });
+
+      expect(result.violations.some((violation) => violation.ruleCode === 'preceptor_pairing')).toBe(false);
+      expect(result.summaries.find((summary) => summary.code === 'preceptor_pairing')?.status).toBe('passed');
+    });
+
+    it('C4 fails when preceptee is O and preceptor is D', () => {
+      const assignments = buildSameShiftAssignments('D', 31);
+      assignments.t1!['2026-05-10'] = 'O';
+
+      const result = evaluatePairing(assignments);
+
+      expect(result.violations).toContainEqual(
+        expect.objectContaining({
+          ruleCode: 'preceptor_pairing',
+          employeeId: 't1',
+          dates: ['2026-05-10'],
+        }),
+      );
     });
   });
 

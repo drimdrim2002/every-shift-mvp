@@ -13,6 +13,7 @@ import type {
 
 const ruleLabels: Record<ScheduleComplianceRuleCode, string> = {
   nod_pattern: 'NOD 금지',
+  preceptor_pairing: '프리셉터 동일 시프트',
   triple_night: '4연속 야간 금지 (3연속 허용)',
   rest_after_two_nights: '연속 야간 후 48시간 휴식',
   monthly_night_limit: '월 야간 15회 이하',
@@ -41,6 +42,7 @@ function createResult(overrides: Partial<ScheduleComplianceResult> = {}): Schedu
     checkRequiredCount: 0,
     summaries: [
       createSummary('nod_pattern'),
+      createSummary('preceptor_pairing'),
       createSummary('triple_night'),
       createSummary('rest_after_two_nights'),
       createSummary('monthly_night_limit'),
@@ -83,7 +85,7 @@ describe('ScheduleCompliancePanel', () => {
     expect(wrapper.get('[data-test="compliance-panel"]').text()).toContain('보건복지부 가이드라인 확인 결과');
     expect(wrapper.get('[role="list"]').attributes('aria-label')).toBe('보건복지부 가이드라인 확인 결과');
     expect(wrapper.get('[data-test="compliance-decision-status"]').text()).toContain('보건복지부 가이드라인 충족');
-    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(5);
     expect(wrapper.get('[data-test="compliance-panel"]').text()).toContain('위반 없음');
     expect(wrapper.get('[data-test="compliance-violation-empty"]').text()).toContain(
       '보건복지부 가이드라인 위반 항목이 없습니다.',
@@ -107,7 +109,7 @@ describe('ScheduleCompliancePanel', () => {
     });
 
     expect(wrapper.find('[data-test="compliance-decision-status"]').exists()).toBe(false);
-    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(5);
     expect(wrapper.get('[data-test="compliance-rule-nod_pattern"]').text()).toContain('NOD 금지');
   });
 
@@ -127,7 +129,7 @@ describe('ScheduleCompliancePanel', () => {
     });
 
     expect(wrapper.find('[data-test="compliance-off-summary"]').exists()).toBe(false);
-    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(4);
+    expect(wrapper.findAll('[data-test^="compliance-rule-"]')).toHaveLength(5);
   });
 
   it('renders the fail decision with capped violation details', () => {
@@ -141,6 +143,7 @@ describe('ScheduleCompliancePanel', () => {
           mandatoryViolationCount: violations.length,
           summaries: [
             createSummary('nod_pattern'),
+            createSummary('preceptor_pairing'),
             createSummary('triple_night', 'failed', violations.length),
             createSummary('rest_after_two_nights'),
             createSummary('monthly_night_limit'),
@@ -169,6 +172,7 @@ describe('ScheduleCompliancePanel', () => {
           mandatoryViolationCount: 1,
           summaries: [
             createSummary('nod_pattern'),
+            createSummary('preceptor_pairing'),
             createSummary('triple_night'),
             createSummary('rest_after_two_nights', 'failed', 1),
             createSummary('monthly_night_limit'),
@@ -201,6 +205,7 @@ describe('ScheduleCompliancePanel', () => {
           checkRequiredCount: 1,
           summaries: [
             createSummary('nod_pattern'),
+            createSummary('preceptor_pairing'),
             createSummary('triple_night', 'check_required', 0, '확인 필요'),
             createSummary('rest_after_two_nights'),
             createSummary('monthly_night_limit'),
@@ -255,6 +260,7 @@ describe('ScheduleCompliancePanel', () => {
           mandatoryViolationCount: 3,
           summaries: [
             createSummary('nod_pattern'),
+            createSummary('preceptor_pairing'),
             createSummary('triple_night', 'failed', 3),
             createSummary('rest_after_two_nights'),
             createSummary('monthly_night_limit'),
@@ -294,6 +300,7 @@ describe('ScheduleCompliancePanel', () => {
         mandatoryViolationCount: 3,
         summaries: [
           createSummary('nod_pattern'),
+          createSummary('preceptor_pairing'),
           createSummary('triple_night', 'failed', 3),
           createSummary('rest_after_two_nights'),
           createSummary('monthly_night_limit'),
@@ -316,6 +323,7 @@ describe('ScheduleCompliancePanel', () => {
         mandatoryViolationCount: 3,
         summaries: [
           createSummary('nod_pattern'),
+          createSummary('preceptor_pairing'),
           createSummary('triple_night', 'failed', 3),
           createSummary('rest_after_two_nights'),
           createSummary('monthly_night_limit'),
@@ -336,6 +344,7 @@ describe('ScheduleCompliancePanel', () => {
       mandatoryViolationCount: 3,
       summaries: [
         createSummary('nod_pattern'),
+        createSummary('preceptor_pairing'),
         createSummary('triple_night', 'failed', 3),
         createSummary('rest_after_two_nights'),
         createSummary('monthly_night_limit'),

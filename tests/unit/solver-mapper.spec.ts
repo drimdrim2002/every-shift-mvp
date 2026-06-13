@@ -117,6 +117,46 @@ function createAssignments(): PlanningAssignment[] {
 }
 
 describe('mapToSolverRequest', () => {
+  it('maps preceptor_id from planning employees to solver employees', () => {
+    const shifts = createShifts();
+    const employees: PlanningEmployee[] = [
+      {
+        employee_id: 'preceptor-1',
+        name: '박선배',
+        available_shifts: ['D', 'E', 'N', 'O'],
+        preceptor_id: null,
+      },
+      {
+        employee_id: 'preceptee-1',
+        name: '김신규',
+        available_shifts: ['D', 'E', 'O'],
+        preceptor_id: 'preceptor-1',
+      },
+    ];
+
+    const payload = mapToSolverRequest(
+      createBasicInfo(shifts),
+      createSiteRequirements(),
+      createConstraints(),
+      employees,
+      shifts,
+      [],
+      4,
+      [],
+    );
+
+    expect(payload.employees).toEqual([
+      expect.objectContaining({
+        employee_id: 'preceptor-1',
+        preceptor_id: null,
+      }),
+      expect.objectContaining({
+        employee_id: 'preceptee-1',
+        preceptor_id: 'preceptor-1',
+      }),
+    ]);
+  });
+
   it('sets rolling metadata and uses fallback finalized rows when preview history is empty', () => {
     const shifts = createShifts();
     const payload = mapToSolverRequest(

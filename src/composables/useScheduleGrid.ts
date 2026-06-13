@@ -21,6 +21,7 @@ export function useScheduleGrid() {
     employee_id: string;
     name: string;
     available_shifts: string[];
+    preceptor_id?: string | null;
     created_at?: string;
     updated_at?: string;
   }
@@ -47,6 +48,7 @@ export function useScheduleGrid() {
         employeeId: emp.employee_id,
         name: emp.name,
         availableShifts: emp.available_shifts,
+        preceptorId: emp.preceptor_id ?? null,
         createdAt: emp.created_at,
         updatedAt: emp.updated_at,
       }));

@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import type { AssignmentMap, ConstraintMap } from '@/types/schedule';
 import type {
   EvaluateScheduleComplianceInput,
@@ -39,7 +40,7 @@ interface EmployeeTimeline {
 
 interface NormalizedInput {
   month: string;
-  employees: Array<{ id: string; name: string }>;
+  employees: Array<{ id: string; name: string; preceptorId?: string | null }>;
   employeeNames: Map<string, string>;
   employeeOrder: Map<string, number>;
   assignments: AssignmentMap;
@@ -56,6 +57,7 @@ interface ShiftTime {
 
 const RULE_ORDER: ScheduleComplianceRuleCode[] = [
   'nod_pattern',
+  'preceptor_pairing',
   'triple_night',
   'rest_after_two_nights',
   'monthly_night_limit',
@@ -63,6 +65,7 @@ const RULE_ORDER: ScheduleComplianceRuleCode[] = [
 
 export const RULE_LABELS: Record<ScheduleComplianceRuleCode, string> = {
   nod_pattern: 'NOD 금지',
+  preceptor_pairing: '프리셉터 동일 시프트',
   triple_night: '4연속 야간 금지 (3연속 허용)',
   rest_after_two_nights: '연속 야간 후 48시간 휴식',
   monthly_night_limit: '월 야간 15회 이하',
@@ -89,6 +92,7 @@ export function evaluateScheduleCompliance(
   const timelines = buildEmployeeTimelines(normalized);
   const violations = [
     ...evaluateNodPattern(timelines, normalized.month),
+    ...evaluatePreceptorPairing(normalized),
     ...evaluateConsecutiveNightLimit(timelines, normalized.month),
     ...evaluateRestAfterTwoNights(timelines, normalized.shiftTimes, normalized.month),
     ...evaluateMonthlyNightLimit(timelines, normalized.month),
@@ -140,7 +144,7 @@ function normalizeInput(input: EvaluateScheduleComplianceInput): NormalizedInput
 
   const employeeNames = new Map<string, string>();
   const knownEmployeeIds = new Set<string>();
-  const validEmployees: Array<{ id: string; name: string }> = [];
+  const validEmployees: Array<{ id: string; name: string; preceptorId?: string | null }> = [];
 
   for (const employee of employees) {
     if (!employee || typeof employee.id !== 'string' || employee.id.trim() === '') {
@@ -152,6 +156,11 @@ function normalizeInput(input: EvaluateScheduleComplianceInput): NormalizedInput
     const name = typeof employee.name === 'string' && employee.name.trim() !== ''
       ? employee.name
       : id;
+    const preceptorId = typeof employee.preceptorId === 'string'
+      ? employee.preceptorId
+      : employee.preceptorId === null
+        ? null
+        : undefined;
 
     if (knownEmployeeIds.has(id)) {
       checkRequiredReasons.push(`${id} 직원 ID 중복 확인 필요`);
@@ -160,7 +169,7 @@ function normalizeInput(input: EvaluateScheduleComplianceInput): NormalizedInput
 
     knownEmployeeIds.add(id);
     employeeNames.set(id, name);
-    validEmployees.push({ id, name });
+    validEmployees.push({ id, name, preceptorId });
   }
 
   const unknownEmployeeIds = findUnknownEmployeeIds(assignments, offRequests, knownEmployeeIds);
@@ -215,6 +224,60 @@ function buildEmployeeTimelines(input: NormalizedInput): EmployeeTimeline[] {
       entries,
     };
   });
+}
+
+function evaluatePreceptorPairing(input: NormalizedInput): ScheduleComplianceViolation[] {
+  const violations: ScheduleComplianceViolation[] = [];
+  const employeeById = new Map(input.employees.map((employee) => [employee.id, employee]));
+  const monthDates = collectTargetMonthDates(input.month);
+
+  for (const employee of input.employees) {
+    if (!employee.preceptorId) {
+      continue;
+    }
+
+    const preceptor = employeeById.get(employee.preceptorId);
+    if (!preceptor) {
+      continue;
+    }
+
+    const preceptorName = input.employeeNames.get(preceptor.id) ?? preceptor.id;
+
+    for (const date of monthDates) {
+      const precepteeShift = normalizeShiftCode(input.assignments[employee.id]?.[date] ?? '');
+      const preceptorShift = normalizeShiftCode(input.assignments[preceptor.id]?.[date] ?? '');
+
+      if (precepteeShift === preceptorShift) {
+        continue;
+      }
+
+      violations.push({
+        id: `preceptor-${employee.id}-${date}`,
+        ruleCode: 'preceptor_pairing',
+        employeeId: employee.id,
+        employeeName: input.employeeNames.get(employee.id) ?? employee.id,
+        dates: [date],
+        message: `${date}: ${employee.name}(${precepteeShift || '미배정'}) ↔ ${preceptorName}(${preceptorShift || '미배정'}) 시프트 불일치`,
+      });
+    }
+  }
+
+  return violations;
+}
+
+function collectTargetMonthDates(month: string): string[] {
+  if (!isValidMonth(month)) {
+    return [];
+  }
+
+  const daysInMonth = dayjs(`${month}-01`).daysInMonth();
+  const dates: string[] = [];
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    dates.push(dayjs(`${month}-01`).date(day).format('YYYY-MM-DD'));
+  }
+
+  return dates;
 }
 
 function evaluateNodPattern(

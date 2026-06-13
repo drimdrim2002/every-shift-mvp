@@ -73,6 +73,7 @@ export function mapToSolverRequest(
     name: e.name,
     available_shifts: e.available_shifts,
     skill_set: ['ALL'], // Default skill set
+    preceptor_id: e.preceptor_id ?? null,
   }));
 
   // Generate History (Locked Assignments)
