@@ -105,6 +105,9 @@
                 <th class="border border-gray-300 px-3 py-2">
                   가능시프트 (필수)
                 </th>
+                <th class="border border-gray-300 px-3 py-2">
+                  프리셉터직번 (선택)
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -118,16 +121,20 @@
                 <td class="border border-gray-300 px-3 py-2">
                   D,E,N
                 </td>
+                <td class="border border-gray-300 px-3 py-2" />
               </tr>
               <tr>
                 <td class="border border-gray-300 px-3 py-2">
-                  (자동생성)
+                  EMP002
                 </td>
                 <td class="border border-gray-300 px-3 py-2">
                   김철수
                 </td>
                 <td class="border border-gray-300 px-3 py-2">
                   D,E
+                </td>
+                <td class="border border-gray-300 px-3 py-2">
+                  EMP001
                 </td>
               </tr>
             </tbody>
@@ -156,6 +163,8 @@ import * as XLSX from 'xlsx';
 import type { Shift } from '@/types/shift';
 import type { EmployeeInput } from '@/types/employee';
 import type { EmployeeImportValidateResponse } from '@/types/ops';
+import { parseEmployeeExcelRows } from '@/utils/employeeExcelParser';
+import { validatePreceptorExcelRows } from '@/utils/preceptorValidation';
 
 // Props
 interface Props {
@@ -255,7 +264,7 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
 
         // 시트를 JSON으로 변환
         const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
-          header: ['employeeId', 'name', 'availableShifts'],
+          header: ['employeeId', 'name', 'availableShifts', 'preceptorEmployeeId'],
           range: 1, // 헤더 행 건너뛰기
         });
 
@@ -264,45 +273,7 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
           .filter((s) => s.code !== 'O')
           .map((s) => s.code.toUpperCase());
 
-        // 데이터 변환 및 검증
-        const employees: EmployeeInput[] = [];
-        const errors: string[] = [];
-
-        jsonData.forEach((row, index) => {
-          const rowNum = index + 2; // 헤더 + 1-indexed
-
-          // 이름 필수 검증 (숫자도 문자열로 변환)
-          const nameValue = row.name ? String(row.name).trim() : '';
-          if (!nameValue) {
-            errors.push(`${rowNum}행: 이름이 비어있습니다.`);
-            return;
-          }
-
-          // 가능 시프트 파싱 (숫자도 문자열로 변환)
-          const shiftsStr = row.availableShifts ? String(row.availableShifts) : '';
-          const shiftCodes = shiftsStr
-            .split(/[,\s]+/)
-            .map((s) => s.trim().toUpperCase())
-            .filter((s) => s !== '');
-
-          // 시프트 유효성 검증
-          const validShifts = shiftCodes.filter((s) => validShiftCodes.includes(s));
-
-          if (validShifts.length === 0) {
-            errors.push(`${rowNum}행: 유효한 시프트가 없습니다. (가능: ${validShiftCodes.join(', ')})`);
-            return;
-          }
-
-          // 직원 ID 생성 (비어있으면 자동 생성, 숫자도 문자열로 변환)
-          const employeeIdValue = row.employeeId ? String(row.employeeId).trim() : '';
-          const employeeId = employeeIdValue || generateEmployeeId();
-
-          employees.push({
-            employeeId,
-            name: nameValue,
-            availableShifts: validShifts,
-          });
-        });
+        const { employees, errors } = parseEmployeeExcelRows(jsonData, validShiftCodes);
 
         if (errors.length > 0) {
           reject(new Error(`데이터 오류:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... 외 ${errors.length - 5}건` : ''}`));
@@ -311,6 +282,12 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
 
         if (employees.length === 0) {
           reject(new Error('유효한 직원 데이터가 없습니다.'));
+          return;
+        }
+
+        const preceptorErrors = validatePreceptorExcelRows(employees);
+        if (preceptorErrors.length > 0) {
+          reject(new Error(preceptorErrors.map((error) => error.message).join('\n')));
           return;
         }
 
@@ -331,15 +308,6 @@ async function parseExcelFile(file: File): Promise<EmployeeInput[]> {
 }
 
 /**
- * 자동 직원 ID 생성
- */
-function generateEmployeeId(): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `EMP${timestamp}${random}`;
-}
-
-/**
  * 템플릿 다운로드 핸들러
  */
 function downloadTemplate() {
@@ -355,10 +323,9 @@ function downloadTemplate() {
 
     // 샘플 데이터
     const sampleData = [
-      ['직원ID', '이름', '가능시프트'],
-      ['EMP001', '홍길동', shiftCodesStr],
-      ['EMP002', '김철수', shiftCodesStr],
-      ['', '박영희', shiftCodesStr], // 직원ID 자동 생성 예시
+      ['직원ID', '이름', '가능시프트', '프리셉터직번'],
+      ['EMP001', '홍길동', shiftCodesStr, ''],
+      ['EMP002', '김철수', shiftCodesStr, 'EMP001'],
     ];
 
     // 워크시트 생성
@@ -369,6 +336,7 @@ function downloadTemplate() {
       { wch: 15 }, // 직원ID
       { wch: 20 }, // 이름
       { wch: 25 }, // 가능시프트
+      { wch: 18 }, // 프리셉터직번
     ];
 
     XLSX.utils.book_append_sheet(wb, worksheet, '직원정보');
