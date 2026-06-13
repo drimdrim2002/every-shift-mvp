@@ -21,6 +21,7 @@ const {
   showErrorMock,
   prefillSearchQueryMock,
   dialogWarningMock,
+  getOffRequestPoliciesMock,
 } = vi.hoisted(() => ({
   pushMock: vi.fn(),
   replaceMock: vi.fn(),
@@ -40,6 +41,7 @@ const {
   showErrorMock: vi.fn(),
   prefillSearchQueryMock: vi.fn(),
   dialogWarningMock: vi.fn(),
+  getOffRequestPoliciesMock: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -134,6 +136,10 @@ vi.mock('@/utils/message', () => ({
   showSuccess: showSuccessMock,
   showInfo: showInfoMock,
   showError: showErrorMock,
+}))
+
+vi.mock('@/api/ops', () => ({
+  getOffRequestPolicies: getOffRequestPoliciesMock,
 }))
 
 vi.mock('@/utils/offRequestExcel', async (importOriginal) => ({
@@ -712,9 +718,15 @@ describe('Step4InitialData', () => {
       finalizedVersionId: null,
       versions: [],
     })
+    getOffRequestPoliciesMock.mockResolvedValue({
+      organizationId: 'org-1',
+      rankCodes: [],
+      policyRules: [],
+    })
   })
 
   it('shows a Step4 initial loading panel until all initial data is restored', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     const pendingSchedule = createDeferred<typeof defaultEnsurePhase2ScheduleResponse>()
     ensurePhase2ScheduleMock.mockReturnValueOnce(pendingSchedule.promise)
 
@@ -733,6 +745,7 @@ describe('Step4InitialData', () => {
   })
 
   it('uses the selected DB version on plain Step4 entry even when the store has a stale preview version', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     scheduleStoreMock.previewVersionId = 'version-1'
 
     createWrapper()
@@ -753,6 +766,7 @@ describe('Step4InitialData', () => {
   })
 
   it('ignores an explicit Step4 version query and keeps the canonical schedule version', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     scheduleStoreMock.previewVersionId = 'version-2'
     routeQueryMock.version = 'version-1'
 
@@ -765,6 +779,7 @@ describe('Step4InitialData', () => {
   })
 
   it('falls back to the selected DB version when an explicit Step4 version query is invalid', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     scheduleStoreMock.previewVersionId = 'version-1'
     routeQueryMock.version = 'missing-version'
 
@@ -777,6 +792,7 @@ describe('Step4InitialData', () => {
   })
 
   it('falls back to the selected version when there is no preferred preview', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     createWrapper()
     await flushPromises()
 
@@ -786,6 +802,7 @@ describe('Step4InitialData', () => {
   })
 
   it('renders the review workspace by default while the request drawer stays closed on Step4 entry', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
     scheduleStoreMock.previewVersionId = 'version-2'
 
     const wrapper = createWrapper()
@@ -4221,5 +4238,49 @@ describe('Step4InitialData', () => {
       },
       'emp-2': {},
     })
+  })
+
+  it('does not call ensurePhase2Schedule on mount when no schedule container exists yet', async () => {
+    createWrapper()
+    await flushPromises()
+
+    expect(ensurePhase2ScheduleMock).not.toHaveBeenCalled()
+    expect(getScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+  })
+
+  it('blocks applyDraftRequest when off policy rules fail to load', async () => {
+    getOffRequestPoliciesMock.mockRejectedValueOnce(new Error('network'))
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Off 정책을 불러오지 못해 요청을 반영할 수 없습니다.')
+
+    await openRequestDrawer(wrapper)
+    await wrapper.find('[data-test="composer-select-employee"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await flushPromises()
+
+    saveScheduleVersionPreferencesMock.mockClear()
+    showErrorMock.mockClear()
+
+    await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalled()
+  })
+
+  it('retries off policy load and unblocks writes after success', async () => {
+    getOffRequestPoliciesMock
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ organizationId: 'org-1', rankCodes: [], policyRules: [] })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    await wrapper.find('[data-test="off-policy-retry"]').trigger('click')
+    await flushPromises()
+
+    expect(getOffRequestPoliciesMock).toHaveBeenCalledTimes(2)
+    expect(wrapper.find('[data-test="off-policy-error-alert"]').exists()).toBe(false)
   })
 })

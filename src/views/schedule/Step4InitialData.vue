@@ -31,6 +31,30 @@
       </div>
     </n-alert>
 
+    <n-alert
+      v-if="offPolicyLoadError"
+      type="error"
+      class="mb-4"
+      data-test="off-policy-error-alert"
+    >
+      <template #header>
+        Off 정책 로드 실패
+      </template>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm">
+          {{ offPolicyLoadError }}
+        </p>
+        <n-button
+          size="small"
+          data-test="off-policy-retry"
+          :loading="isOffPolicyLoading"
+          @click="handleRetryOffPolicyLoad"
+        >
+          다시 시도
+        </n-button>
+      </div>
+    </n-alert>
+
     <div
       v-if="isInitialDataLoading && !baselineErrorMessage"
       data-test="step4-initial-loading"
@@ -510,6 +534,7 @@ import {
   recheckPhase2ScheduleVersion,
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
+import { getOffRequestPolicies } from '@/api/ops';
 import { NAlert, NButton, NDrawer, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
@@ -536,6 +561,7 @@ import type {
   SchedulePreference,
   ScheduleVersionSummary,
 } from '@/types/schedule';
+import type { OffRequestPolicyRule } from '@/types/ops';
 import {
   buildTempPreferencesStorageKey,
   buildTempPreferencesStorageScope,
@@ -558,6 +584,9 @@ const isInitialDataLoading = ref(true);
 const isSavingStep4Preferences = ref(false);
 const isBaselineLoading = ref(false);
 const baselineErrorMessage = ref<string | null>(null);
+const offRequestPolicyRules = ref<OffRequestPolicyRule[]>([]);
+const offPolicyLoadError = ref<string | null>(null);
+const isOffPolicyLoading = ref(false);
 const isReturningToDashboard = ref(false);
 const cameFromDashboard = computed(() => route.query.from === 'dashboard');
 
@@ -669,6 +698,8 @@ const requestCatalog = STEP4_REQUEST_CATALOG;
 const OPEN_DRAFT_BLOCKED_REASON = '미반영 요청이 있습니다. 먼저 반영하거나 선택을 초기화해 주세요.';
 const HIDDEN_DRAFT_BLOCKED_REASON =
   '미반영 요청이 있습니다. 요청 입력을 다시 열어 마무리해 주세요.';
+const OFF_POLICY_LOAD_ERROR_MESSAGE =
+  'Off 정책을 불러오지 못해 요청을 반영할 수 없습니다.';
 const selectedEmployeeId = computed(() => selectedEmployeeIds.value[0] ?? null);
 const selectedEmployees = computed(() => {
   const selectedEmployeeIdSet = new Set(selectedEmployeeIds.value);
@@ -728,6 +759,7 @@ const pageLevelBlockedReason = computed(() => {
     : OPEN_DRAFT_BLOCKED_REASON;
 });
 const applyDisabledReason = computed(() => {
+  if (offPolicyLoadError.value) return offPolicyLoadError.value;
   if (selectedEmployeeIds.value.length === 0) return '근무자를 먼저 선택해 주세요.';
   if (draftSelectedDates.value.length === 0) return '날짜를 먼저 선택해 주세요.';
   return null;
@@ -772,6 +804,7 @@ const saveAppliedChangesDisabledReason = computed(() => {
   if (isInitialDataLoading.value) return '데이터를 불러오는 중입니다.';
   if (isBaselineLoading.value) return '기준 버전을 확인하는 중입니다.';
   if (baselineErrorMessage.value) return baselineErrorMessage.value;
+  if (offPolicyLoadError.value) return offPolicyLoadError.value;
   if (!baselineState.value) return '기준 버전을 먼저 확인해 주세요.';
   if (grid.employees.value.length === 0) return '직원 정보가 없습니다.';
   if (step4MutationBlockedReason.value) return step4MutationBlockedReason.value;
@@ -1397,6 +1430,13 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 }
 
 async function applyDraftRequest(): Promise<void> {
+  const blockedReason = assertOffWritesAllowed();
+  if (blockedReason) {
+    setRequestApplyStatus(blockedReason, 'error');
+    showError(blockedReason);
+    return;
+  }
+
   const employeeIds = [...selectedEmployeeIds.value];
 
   if (step4MutationBlockedReason.value) {
@@ -1994,6 +2034,40 @@ async function ensureBaselineVersion(forceRefresh = false): Promise<BaselineStat
   }
 }
 
+async function loadOffRequestPolicyRules(force = false): Promise<void> {
+  const organizationId = scheduleStore.basicInfo?.organizationId ?? orgStore.current?.id;
+  if (!organizationId) {
+    offRequestPolicyRules.value = [];
+    offPolicyLoadError.value = null;
+    return;
+  }
+
+  isOffPolicyLoading.value = true;
+  if (force) offPolicyLoadError.value = null;
+
+  try {
+    const response = await getOffRequestPolicies(organizationId);
+    offRequestPolicyRules.value = response.policyRules.filter((rule) => rule.isActive);
+    offPolicyLoadError.value = null;
+  } catch {
+    offPolicyLoadError.value = OFF_POLICY_LOAD_ERROR_MESSAGE;
+    showError(OFF_POLICY_LOAD_ERROR_MESSAGE);
+  } finally {
+    isOffPolicyLoading.value = false;
+  }
+}
+
+async function handleRetryOffPolicyLoad(): Promise<void> {
+  await loadOffRequestPolicyRules(true);
+}
+
+function assertOffWritesAllowed(): string | null {
+  if (offPolicyLoadError.value) return offPolicyLoadError.value;
+  if (step4MutationBlockedReason.value) return step4MutationBlockedReason.value;
+  if (pageLevelBlockedReason.value) return pageLevelBlockedReason.value;
+  return null;
+}
+
 // Lifecycle
 onMounted(async () => {
   window.addEventListener('keydown', handleWindowKeydown);
@@ -2035,6 +2109,7 @@ async function loadStep4InitialData(forceRefresh = false) {
 
     grid.generateDates(scheduleStore.basicInfo.month, 0);
     ensureEmployeeMaps();
+    await loadOffRequestPolicyRules();
     await restoreData(forceRefresh);
   } finally {
     isInitialDataLoading.value = false;
@@ -2053,6 +2128,40 @@ async function restoreData(forceRefresh = false) {
     pendingLocalDraftSnapshot.value = null;
     migrateLegacyTempPreferencesIfNeeded();
 
+    const scopedLocalSnapshot = loadTempPreferencesFromLocalStorage();
+
+    if (!scheduleStore.basicInfo?.scheduleId) {
+      logRestoreTrace('Skipping ensure on restoreData(); using local draft only', {
+        month: scheduleStore.basicInfo?.month,
+      });
+
+      if (scopedLocalSnapshot) {
+        const sanitized = sanitizeSnapshotToCurrentEmployees(scopedLocalSnapshot);
+        const offRequestCount = countStoredOffRequests(sanitized.constraints);
+        const hasNotes = hasAnyConstraintNotes(sanitized.notes);
+
+        if (offRequestCount > 0 || hasNotes) {
+          commitPreferenceMaps(sanitized.constraints, sanitized.notes);
+        } else {
+          replacePreferenceMapsFromSnapshot({
+            constraints: {},
+            notes: {},
+          });
+        }
+      } else {
+        replacePreferenceMapsFromSnapshot({
+          constraints: {},
+          notes: {},
+        });
+      }
+
+      baselineState.value = null;
+      baselinePreferenceSnapshot.value = null;
+      syncPolicyRejectionDisplay([]);
+      storePendingLocalDraftSnapshot(scopedLocalSnapshot);
+      return;
+    }
+
     const { scheduleId, previewVersionId, selectedVersionId } = await ensureBaselineVersion(
       forceRefresh
     );
@@ -2067,8 +2176,6 @@ async function restoreData(forceRefresh = false) {
       selectedVersionId,
       versionCandidates,
     });
-
-    const scopedLocalSnapshot = loadTempPreferencesFromLocalStorage();
 
     for (const versionId of versionCandidates) {
       const versionPreferenceData = await getScheduleVersionPreferences(versionId);
