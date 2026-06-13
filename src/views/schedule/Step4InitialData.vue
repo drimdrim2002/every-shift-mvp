@@ -571,6 +571,12 @@ import {
   writeTempPreferencesEnvelopeV2,
 } from '@/utils/tempPreferencesStorage';
 import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
+import {
+  expandOffDeltaWithPair,
+  resolvePreceptorPair,
+  validatePairedOffChanges,
+  type OffEdit,
+} from '@/utils/preceptorOffSync';
 
 const router = useRouter();
 const route = useRoute();
@@ -1086,6 +1092,77 @@ function removeConstraintNoteFromMap(map: CommentMap, employeeId: string, date: 
   delete map[employeeId]![date];
 }
 
+function deriveDraftOffEdits(): OffEdit[] {
+  const edits: OffEdit[] = [];
+  const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
+
+  if (editingRow) {
+    const nextDateSet = new Set(draftSelectedDates.value);
+
+    editingRow.dates.forEach((date) => {
+      if (!nextDateSet.has(date)) {
+        edits.push({ employeeId: editingRow.employeeId, date, action: 'remove' });
+      }
+    });
+
+    draftSelectedDates.value.forEach((date) => {
+      if (!editingRow.dates.includes(date)) {
+        edits.push({ employeeId: editingRow.employeeId, date, action: 'add' });
+      }
+    });
+
+    return edits;
+  }
+
+  selectedEmployeeIds.value.forEach((employeeId) => {
+    draftSelectedDates.value.forEach((date) => {
+      edits.push({ employeeId, date, action: 'add' });
+    });
+  });
+
+  return edits;
+}
+
+function formatPreceptorPairToastDate(date: string): string {
+  const [, month = '0', day = '0'] = date.split('-');
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function buildPreceptorPairApplyToasts(baseEdits: OffEdit[], expandedEdits: OffEdit[]): string[] {
+  const employees = grid.employees.value;
+  const toasts: string[] = [];
+
+  expandedEdits.forEach((edit) => {
+    if (edit.action !== 'add') return;
+
+    const isRequesterEdit = baseEdits.some(
+      (baseEdit) =>
+        baseEdit.employeeId === edit.employeeId
+        && baseEdit.date === edit.date
+        && baseEdit.action === 'add'
+    );
+    if (isRequesterEdit) return;
+
+    const triggerEdit = baseEdits.find((baseEdit) => {
+      if (baseEdit.action !== 'add' || baseEdit.date !== edit.date) return false;
+      return resolvePreceptorPair(employees, baseEdit.employeeId)?.peerId === edit.employeeId;
+    });
+    if (!triggerEdit) return;
+
+    const requester = employees.find((employee) => employee.id === triggerEdit.employeeId);
+    const peer = employees.find((employee) => employee.id === edit.employeeId);
+    const pair = resolvePreceptorPair(employees, triggerEdit.employeeId);
+    if (!requester || !peer || !pair) return;
+
+    const peerRoleLabel = pair.role === 'preceptee' ? '프리셉터' : '프리셉티';
+    toasts.push(
+      `${requester.name} Off 반영 — ${peerRoleLabel} ${peer.name}에도 ${formatPreceptorPairToastDate(edit.date)} Off가 추가되었습니다.`
+    );
+  });
+
+  return toasts;
+}
+
 function clearRequestApplyStatus(): void {
   requestApplyStatusMessage.value = null;
   requestApplyStatusTone.value = 'neutral';
@@ -1117,29 +1194,30 @@ function buildDraftAppliedPreferenceMaps(): {
 } {
   const nextConstraints = cloneConstraintMap(constraints.value);
   const nextNotes = cloneCommentMap(constraintNotes.value);
-  const editingRow = editingRequestKey.value ? findCurrentEmployeeRequest(editingRequestKey.value) : null;
+  const baseEdits = deriveDraftOffEdits();
+  const expandedEdits = expandOffDeltaWithPair(grid.employees.value, baseEdits);
 
-  if (editingRow) {
-    if (!nextConstraints[editingRow.employeeId]) {
-      nextConstraints[editingRow.employeeId] = {};
+  expandedEdits.forEach((edit) => {
+    if (!nextConstraints[edit.employeeId]) {
+      nextConstraints[edit.employeeId] = {};
     }
-    editingRow.dates.forEach((date) => {
-      nextConstraints[editingRow.employeeId]![date] = '';
-      removeConstraintNoteFromMap(nextNotes, editingRow.employeeId, date);
-    });
-  }
+
+    if (edit.action === 'add') {
+      nextConstraints[edit.employeeId]![edit.date] = 'O';
+      return;
+    }
+
+    nextConstraints[edit.employeeId]![edit.date] = '';
+    removeConstraintNoteFromMap(nextNotes, edit.employeeId, edit.date);
+  });
 
   const normalizedNote = draftNote.value.trim();
   selectedEmployeeIds.value.forEach((employeeId) => {
-    if (!nextConstraints[employeeId]) {
-      nextConstraints[employeeId] = {};
-    }
     if (!nextNotes[employeeId]) {
       nextNotes[employeeId] = {};
     }
 
     draftSelectedDates.value.forEach((date) => {
-      nextConstraints[employeeId]![date] = 'O';
       if (normalizedNote.length > 0) {
         nextNotes[employeeId]![date] = normalizedNote;
       } else {
@@ -1430,7 +1508,7 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
 }
 
 async function applyDraftRequest(): Promise<void> {
-  const blockedReason = assertOffWritesAllowed();
+  const blockedReason = assertOffWritesAllowed({ includeDraftBlock: false });
   if (blockedReason) {
     setRequestApplyStatus(blockedReason, 'error');
     showError(blockedReason);
@@ -1453,7 +1531,38 @@ async function applyDraftRequest(): Promise<void> {
   setRequestApplyStatus('요청을 저장하는 중입니다.', 'info');
 
   try {
+    const baseEdits = deriveDraftOffEdits();
+    const validation = validatePairedOffChanges({
+      constraints: constraints.value,
+      edits: baseEdits,
+      employees: grid.employees.value,
+      policyRules: offRequestPolicyRules.value,
+      scheduleMonth: scheduleStore.basicInfo?.month ?? '',
+    });
+
+    if (!validation.ok) {
+      const roleLabel =
+        validation.role === 'preceptor'
+          ? '프리셉터'
+          : validation.role === 'preceptee'
+            ? '프리셉티'
+            : '';
+      const message = `${validation.blockedEmployeeName}(${roleLabel})의 Off 한도 초과로 함께 반영할 수 없습니다.`;
+      setRequestApplyStatus(message, 'error');
+      showError(message);
+      return;
+    }
+
     const nextPreferenceMaps = buildDraftAppliedPreferenceMaps();
+    const pairToasts = buildPreceptorPairApplyToasts(
+      baseEdits,
+      expandOffDeltaWithPair(grid.employees.value, baseEdits)
+    );
+
+    pairToasts.forEach((message) => {
+      showSuccess(message);
+    });
+
     const result = await persistStep4PreferenceMaps(
       nextPreferenceMaps.constraints,
       nextPreferenceMaps.notes,
@@ -2061,10 +2170,12 @@ async function handleRetryOffPolicyLoad(): Promise<void> {
   await loadOffRequestPolicyRules(true);
 }
 
-function assertOffWritesAllowed(): string | null {
+function assertOffWritesAllowed(options?: { includeDraftBlock?: boolean }): string | null {
   if (offPolicyLoadError.value) return offPolicyLoadError.value;
   if (step4MutationBlockedReason.value) return step4MutationBlockedReason.value;
-  if (pageLevelBlockedReason.value) return pageLevelBlockedReason.value;
+  if (options?.includeDraftBlock !== false && pageLevelBlockedReason.value) {
+    return pageLevelBlockedReason.value;
+  }
   return null;
 }
 

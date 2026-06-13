@@ -311,13 +311,34 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
           composer-select-two-employees
         </button>
         <button
+          data-test="composer-select-preceptee"
+          @click="$emit('select-employee', ['uuid-preceptee'])"
+        >
+          composer-select-preceptee
+        </button>
+        <button
           data-test="composer-update-selected-dates"
           @click="$emit('update:selected-dates', ['2025-12-01'])"
         >
           composer-update-selected-dates
         </button>
+        <button
+          data-test="composer-update-selected-dates-custom"
+          @click="$emit('update:selected-dates', ['2026-05-15'])"
+        >
+          composer-update-selected-dates-custom
+        </button>
+        <button
+          data-test="composer-update-selected-dates-may20"
+          @click="$emit('update:selected-dates', ['2026-05-20'])"
+        >
+          composer-update-selected-dates-may20
+        </button>
         <button data-test="composer-update-note" @click="$emit('update:note', '연차')">
           composer-update-note
+        </button>
+        <button data-test="composer-update-note-personal" @click="$emit('update:note', '개인 사유')">
+          composer-update-note-personal
         </button>
         <button data-test="composer-apply-request" @click="$emit('apply-request')">
           composer-apply-request
@@ -597,6 +618,56 @@ async function clickComposerSaveAppliedChanges(wrapper: ReturnType<typeof create
   expect(saveButton.exists()).toBe(true)
   await saveButton.trigger('click')
   await flushPromises()
+}
+
+const PRECEPTOR_PAIR_EMPLOYEES = [
+  {
+    id: 'uuid-preceptor',
+    organizationId: 'org-1',
+    employeeId: '40501',
+    name: '박선배',
+    availableShifts: ['D', 'E'],
+    preceptorId: null,
+  },
+  {
+    id: 'uuid-preceptee',
+    organizationId: 'org-1',
+    employeeId: '40601',
+    name: '김신규',
+    availableShifts: ['D'],
+    preceptorId: 'uuid-preceptor',
+  },
+]
+
+function setupPreceptorPairEmployees() {
+  organizationStoreMock.employees = PRECEPTOR_PAIR_EMPLOYEES
+  gridMock.employees.value = PRECEPTOR_PAIR_EMPLOYEES
+}
+
+async function mountStep4WithPreceptorPair() {
+  setupPreceptorPairEmployees()
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
+}
+
+async function selectPrecepteeAndDate(
+  wrapper: ReturnType<typeof createWrapper>,
+  dateButton = '[data-test="composer-update-selected-dates-custom"]'
+) {
+  await openRequestDrawer(wrapper)
+  await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
+  await wrapper.find(dateButton).trigger('click')
 }
 
 describe('Step4InitialData', () => {
@@ -4282,5 +4353,64 @@ describe('Step4InitialData', () => {
 
     expect(getOffRequestPoliciesMock).toHaveBeenCalledTimes(2)
     expect(wrapper.find('[data-test="off-policy-error-alert"]').exists()).toBe(false)
+  })
+
+  describe('preceptor off sync on apply', () => {
+    it('adds preceptor off on same date when preceptee applies off (note stays preceptee-only)', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      saveScheduleVersionPreferencesMock.mockClear()
+      showSuccessMock.mockClear()
+
+      await selectPrecepteeAndDate(wrapper)
+      await wrapper.find('[data-test="composer-update-note-personal"]').trigger('click')
+      await flushPromises()
+
+      await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+      await flushPromises()
+
+      const [, , constraints, notes] = saveScheduleVersionPreferencesMock.mock.calls.at(-1) ?? []
+      expect(constraints['uuid-preceptor']?.['2026-05-15']).toBe('O')
+      expect(notes['uuid-preceptor']?.['2026-05-15']).toBeUndefined()
+      expect(notes['uuid-preceptee']?.['2026-05-15']).toBe('개인 사유')
+      expect(showSuccessMock).toHaveBeenCalledWith(expect.stringContaining('프리셉터'))
+    })
+
+    it('does not persist when paired pre-block hits policy limit', async () => {
+      setupPreceptorPairEmployees()
+      scheduleStoreMock.basicInfo.month = '2026-05'
+      scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+      getScheduleVersionPreferencesMock.mockResolvedValue({
+        constraints: {
+          'uuid-preceptor': { '2026-05-01': 'O', '2026-05-02': 'O' },
+        },
+        notes: {},
+        preferences: [
+          { employeeId: 'uuid-preceptor', date: '2026-05-01', shiftCode: 'O' },
+          { employeeId: 'uuid-preceptor', date: '2026-05-02', shiftCode: 'O' },
+        ],
+      })
+      getOffRequestPoliciesMock.mockResolvedValue({
+        organizationId: 'org-1',
+        rankCodes: [],
+        policyRules: [
+          { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+          { rankCode: null, periodType: 'annual', limitCount: 2, isActive: true },
+        ],
+      })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+      saveScheduleVersionPreferencesMock.mockClear()
+      showErrorMock.mockClear()
+
+      await selectPrecepteeAndDate(wrapper, '[data-test="composer-update-selected-dates-may20"]')
+      await flushPromises()
+
+      await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+      await flushPromises()
+
+      expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+      expect(showErrorMock).toHaveBeenCalledWith(expect.stringContaining('박선배'))
+    })
   })
 })
