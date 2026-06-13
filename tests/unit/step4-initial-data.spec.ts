@@ -285,6 +285,10 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
         type: String,
         default: null,
       },
+      preceptorPairHints: {
+        type: Array,
+        default: () => [],
+      },
     },
     emits: [
       'select-employee',
@@ -310,6 +314,9 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
     },
     template: `
       <div data-test="step4-request-composer">
+        <div v-if="preceptorPairHints.length" data-test="preceptor-pair-hints">
+          <p v-for="(hint, index) in preceptorPairHints" :key="index">{{ hint.label }}</p>
+        </div>
         <button data-test="composer-select-employee" @click="$emit('select-employee', ['emp-1'])">
           composer-select-employee
         </button>
@@ -321,6 +328,12 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
           @click="$emit('select-employee', ['uuid-preceptee'])"
         >
           composer-select-preceptee
+        </button>
+        <button
+          data-test="composer-select-five-paired-employees"
+          @click="$emit('select-employee', ['uuid-p1', 'uuid-e1', 'uuid-p2', 'uuid-e2', 'uuid-p3'])"
+        >
+          composer-select-five-paired-employees
         </button>
         <button
           data-test="composer-update-selected-dates"
@@ -746,6 +759,25 @@ async function selectPrecepteeAndDate(
   await wrapper.find(dateButton).trigger('click')
 }
 
+const SOLO_EMPLOYEES = [
+  {
+    id: 'uuid-solo-1',
+    organizationId: 'org-1',
+    employeeId: 'S001',
+    name: '솔로1',
+    availableShifts: ['D'],
+    preceptorId: null,
+  },
+  {
+    id: 'uuid-solo-2',
+    organizationId: 'org-1',
+    employeeId: 'S002',
+    name: '솔로2',
+    availableShifts: ['D'],
+    preceptorId: null,
+  },
+]
+
 const THREE_PRECEPTOR_PAIR_EMPLOYEES = [
   {
     id: 'uuid-p1',
@@ -804,6 +836,28 @@ function setupThreePreceptorPairEmployees() {
 
 async function mountStep4WithThreePreceptorPairs() {
   setupThreePreceptorPairEmployees()
+  scheduleStoreMock.basicInfo.month = '2026-05'
+  scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  getOffRequestPoliciesMock.mockResolvedValue({
+    organizationId: 'org-1',
+    rankCodes: [],
+    policyRules: [
+      { rankCode: null, periodType: 'monthly', limitCount: 99, isActive: true },
+      { rankCode: null, periodType: 'annual', limitCount: 10, isActive: true },
+    ],
+  })
+  const wrapper = createWrapper()
+  await flushPromises()
+  return wrapper
+}
+
+function setupThreePairsWithSoloEmployees() {
+  organizationStoreMock.employees = [...THREE_PRECEPTOR_PAIR_EMPLOYEES, ...SOLO_EMPLOYEES]
+  gridMock.employees.value = [...THREE_PRECEPTOR_PAIR_EMPLOYEES, ...SOLO_EMPLOYEES]
+}
+
+async function mountStep4WithThreePairs() {
+  setupThreePairsWithSoloEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
   getOffRequestPoliciesMock.mockResolvedValue({
@@ -4502,6 +4556,36 @@ describe('Step4InitialData', () => {
 
     expect(getOffRequestPoliciesMock).toHaveBeenCalledTimes(2)
     expect(wrapper.find('[data-test="off-policy-error-alert"]').exists()).toBe(false)
+  })
+
+  describe('preceptor pair UX hints', () => {
+    it('shows preceptor pair banner only inside expanded off guide', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      expect(wrapper.text()).not.toContain('프리셉터 짝 Off 연동')
+
+      await wrapper.find('[data-test="off-guide-toggle"]').trigger('click')
+      expect(wrapper.text()).toContain('🔗 프리셉터 짝 Off 연동')
+      expect(wrapper.text()).toContain('같은 날짜 Off가 함께 반영')
+    })
+
+    it('shows single-employee pair hint in request composer', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      await openRequestDrawer(wrapper)
+      await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('연결된 프리셉터: 박선배 (40501)')
+    })
+
+    it('shows multi-select pair summary with overflow copy', async () => {
+      const wrapper = await mountStep4WithThreePairs()
+      await openRequestDrawer(wrapper)
+      await wrapper.find('[data-test="composer-select-five-paired-employees"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('프리셉터 짝 연동 대상:')
+      expect(wrapper.text()).toContain('외')
+    })
   })
 
   describe('preceptor off sync on delete', () => {

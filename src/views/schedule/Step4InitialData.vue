@@ -179,6 +179,14 @@
                     </li>
                   </ul>
                 </div>
+                <div class="rounded-xl bg-white/70 px-4 py-3">
+                  <p class="mb-2 font-medium text-slate-700">
+                    🔗 프리셉터 짝 Off 연동
+                  </p>
+                  <p class="leading-relaxed">
+                    프리셉터 짝으로 지정된 근무자는 같은 날짜 Off가 함께 반영됩니다.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -187,6 +195,7 @@
             text
             type="info"
             class="shrink-0 font-medium"
+            data-test="off-guide-toggle"
             @click="isOffRequestGuideExpanded = !isOffRequestGuideExpanded"
           >
             {{ isOffRequestGuideExpanded ? '접기' : '자세히 보기' }}
@@ -428,6 +437,7 @@
               :request-apply-status-tone="requestApplyStatusTone"
               :apply-disabled-reason="applyDisabledReason"
               :blocked-transition-reason="blockedTransitionReason"
+              :preceptor-pair-hints="preceptorPairHints"
               @select-employee="handleSelectEmployee"
               @update:request-type="draftRequestTypeId = $event"
               @update:selection-mode="handleDraftSelectionModeUpdate"
@@ -694,6 +704,10 @@ type EmployeeRequestRowVM = {
   policyRejectionReason: string | null;
 };
 
+type PreceptorPairHint = {
+  label: string;
+};
+
 const STEP4_REQUEST_CATALOG: Step4RequestCatalogItem[] = [
   {
     id: 'off',
@@ -803,6 +817,56 @@ const policyRejectionSummaries = computed(() => {
   });
 
   return summaries.sort((left, right) => left.localeCompare(right));
+});
+
+const preceptorPairHints = computed<PreceptorPairHint[]>(() => {
+  const selectedIds = selectedEmployeeIds.value;
+  if (selectedIds.length === 0) return [];
+
+  if (selectedIds.length === 1) {
+    const selectedId = selectedIds[0]!;
+    const pair = resolvePreceptorPair(grid.employees.value, selectedId);
+    if (!pair) return [];
+
+    const peer = grid.employees.value.find((employee) => employee.id === pair.peerId);
+    if (!peer) return [];
+
+    const roleLabel = pair.role === 'preceptee' ? '프리셉터' : '프리셉티';
+    return [{
+      label: `연결된 ${roleLabel}: ${peer.name} (${peer.employeeId}) — Off는 같은 날짜로 자동 반영`,
+    }];
+  }
+
+  const pairKeys = new Set<string>();
+  const pairLabels: string[] = [];
+
+  selectedIds.forEach((employeeId) => {
+    const pair = resolvePreceptorPair(grid.employees.value, employeeId);
+    if (!pair) return;
+
+    const self = grid.employees.value.find((employee) => employee.id === employeeId);
+    const peer = grid.employees.value.find((employee) => employee.id === pair.peerId);
+    if (!self || !peer) return;
+
+    const pairKey = [employeeId, pair.peerId].sort().join('::');
+    if (pairKeys.has(pairKey)) return;
+    pairKeys.add(pairKey);
+
+    const preceptor = pair.role === 'preceptee' ? peer : self;
+    const preceptee = pair.role === 'preceptee' ? self : peer;
+    pairLabels.push(`${preceptor.name} ↔ ${preceptee.name}`);
+  });
+
+  if (pairLabels.length === 0) return [];
+
+  const visiblePairs = pairLabels.slice(0, 2);
+  const overflowCount = pairLabels.length - visiblePairs.length;
+  let summary = `프리셉터 짝 연동 대상: ${visiblePairs.join(', ')}`;
+  if (overflowCount > 0) {
+    summary += ` 외 ${overflowCount}쌍`;
+  }
+
+  return [{ label: summary }];
 });
 
 const canPersistStep4 = computed(() => {

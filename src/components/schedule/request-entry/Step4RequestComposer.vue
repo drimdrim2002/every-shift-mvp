@@ -23,6 +23,20 @@
       />
     </div>
 
+    <div
+      v-if="preceptorPairHints.length"
+      class="rounded-2xl border border-sky-100 bg-sky-50/60 px-4 py-3 text-sm text-slate-600"
+      data-test="preceptor-pair-hints"
+    >
+      <p
+        v-for="(hint, index) in preceptorPairHints"
+        :key="index"
+        class="leading-relaxed"
+      >
+        {{ hint.label }}
+      </p>
+    </div>
+
     <div class="space-y-2">
       <label class="text-sm font-medium text-slate-700">요청 유형</label>
       <div class="flex flex-wrap gap-2">
@@ -180,6 +194,10 @@ interface EmployeeRequestRowVM {
   policyRejectionReason: string | null;
 }
 
+interface PreceptorPairHint {
+  label: string;
+}
+
 interface Props {
   employees: Employee[];
   dates: GridColumn[];
@@ -201,6 +219,7 @@ interface Props {
   requestApplyStatusTone: RequestApplyStatusTone;
   applyDisabledReason: string | null;
   blockedTransitionReason: string | null;
+  preceptorPairHints?: PreceptorPairHint[];
 }
 
 interface Emits {
@@ -216,7 +235,9 @@ interface Emits {
   (e: 'delete-request', requestKey: string): void;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  preceptorPairHints: () => [],
+});
 const emit = defineEmits<Emits>();
 
 type EmployeeSelectValue = string | number | (string | number)[] | null;
