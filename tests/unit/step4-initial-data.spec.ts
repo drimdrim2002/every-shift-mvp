@@ -1066,6 +1066,38 @@ describe('Step4InitialData', () => {
         { rankCode: null, periodType: 'annual', limitCount: 99, isActive: true },
       ],
     })
+
+    organizationStoreMock.loadOrganization = vi.fn(async () => {
+      if (organizationStoreMock.employees.some((employee) => employee.id === 'old-uuid-1')) {
+        organizationStoreMock.employees = [
+          {
+            id: 'new-uuid-1',
+            organizationId: 'org-1',
+            employeeId: 'E001',
+            name: 'Kim',
+            availableShifts: ['D'],
+          },
+        ]
+      } else {
+        organizationStoreMock.employees = [
+          {
+            id: 'emp-1',
+            organizationId: 'org-1',
+            employeeId: 'E001',
+            name: 'Kim',
+            availableShifts: ['D'],
+          },
+          {
+            id: 'emp-2',
+            organizationId: 'org-1',
+            employeeId: 'E002',
+            name: 'Lee',
+            availableShifts: ['D'],
+          },
+        ]
+      }
+      return { success: true }
+    })
   })
 
   it('shows a Step4 initial loading panel until all initial data is restored', async () => {
@@ -4590,6 +4622,25 @@ describe('Step4InitialData', () => {
 
     expect(ensurePhase2ScheduleMock).not.toHaveBeenCalled()
     expect(getScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+  })
+
+  it('reloads organization when scheduleId is undefined and orgStore has stale non-empty employees', async () => {
+    organizationStoreMock.employees = [
+      {
+        id: 'old-uuid-1',
+        organizationId: 'org-1',
+        employeeId: 'E001',
+        name: 'Kim',
+        availableShifts: ['D'],
+      },
+    ]
+    scheduleStoreMock.basicInfo.scheduleId = undefined
+
+    createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
+    expect(gridMock.employees.value[0]?.id).toBe('new-uuid-1')
   })
 
   it('blocks applyDraftRequest when off policy rules fail to load', async () => {

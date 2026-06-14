@@ -2335,6 +2335,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleWindowKeydown);
 });
 
+function shouldReloadOrganizationEmployees(forceRefresh: boolean): boolean {
+  if (forceRefresh) return true;
+  if (!orgStore.current || orgStore.employees.length === 0) return true;
+  if (!scheduleStore.basicInfo?.scheduleId) return true;
+  return false;
+}
+
 async function loadStep4InitialData(forceRefresh = false) {
   if (!scheduleStore.basicInfo) return;
 
@@ -2342,7 +2349,7 @@ async function loadStep4InitialData(forceRefresh = false) {
   baselineErrorMessage.value = null;
 
   try {
-    if (!orgStore.current || orgStore.employees.length === 0) {
+    if (shouldReloadOrganizationEmployees(forceRefresh)) {
       const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
       if (!loadResult.success) {
         baselineErrorMessage.value = `직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`;
