@@ -31,6 +31,15 @@ vi.mock('@/stores/organization', () => ({
   useOrganizationStore: () => organizationStoreMock,
 }))
 
+const scheduleStoreMock = reactive({
+  reset: vi.fn(),
+  setBasicInfo: vi.fn(),
+})
+
+vi.mock('@/stores/schedule', () => ({
+  useScheduleStore: () => scheduleStoreMock,
+}))
+
 import ScheduleResults from '@/views/schedule/ScheduleResults.vue'
 
 function createSchedule(overrides: Partial<{
@@ -106,7 +115,33 @@ describe('ScheduleResults', () => {
     expect(wrapper.get('[data-test="schedule-results-month-01"]').attributes('disabled')).toBeDefined()
     expect(wrapper.get('[data-test="schedule-results-month-01"]').text()).toContain('생성 전')
     expect(wrapper.get('[data-test="schedule-results-month-03"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-test="schedule-results-month-03"]').text()).toContain('결과 보기')
     expect(getScheduleListMock).toHaveBeenCalledWith('org-1')
+  })
+
+  it('labels draft schedules as in-progress instead of result review', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      createSchedule({ month: '2026-05', status: 'created', hard_score: null, soft_score: null }),
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="schedule-results-month-05"]').text()).toContain('이어서 진행')
+    expect(wrapper.get('[data-test="schedule-results-month-05"]').attributes('data-display-state')).toBe('draft')
+  })
+
+  it('routes error schedules to Step4', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      createSchedule({ month: '2026-05', status: 'error', hard_score: null, soft_score: null }),
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.get('[data-test="schedule-results-month-05"]').trigger('click')
+
+    expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(4))
   })
 
   it('routes generated months to the canonical Step5 review path', async () => {

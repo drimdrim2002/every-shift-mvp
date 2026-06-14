@@ -262,7 +262,7 @@
             </div>
 
             <div
-              v-else-if="!latestDisplaySchedule"
+              v-else-if="!latestDisplaySchedule && inProgressSchedules.length === 0"
               class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-8"
             >
               <h3 class="text-base font-semibold text-slate-900">
@@ -274,7 +274,8 @@
             </div>
 
             <div
-              v-else
+              v-else-if="latestDisplaySchedule"
+              data-test="dashboard-latest-schedule-card"
               class="rounded-lg border border-slate-200 bg-slate-50/60 p-4"
             >
               <div class="flex flex-wrap items-start justify-between gap-4">
@@ -307,6 +308,47 @@
                 </n-button>
               </div>
             </div>
+
+            <div
+              v-if="!scheduleListLoadFailed && !scheduleLoading && inProgressSchedules.length > 0"
+              data-test="dashboard-in-progress-schedules"
+              class="mt-4 space-y-3"
+            >
+              <h3 class="text-base font-semibold text-slate-900">
+                진행 중 근무표
+              </h3>
+              <div
+                v-for="schedule in inProgressSchedules"
+                :key="schedule.id"
+                :data-test="`dashboard-in-progress-schedule-${schedule.month}`"
+                class="rounded-lg border border-teal-200 bg-teal-50/50 p-4"
+              >
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <h4 class="text-base font-semibold text-slate-900">
+                        {{ schedule.month }} 근무표
+                      </h4>
+                      <n-badge
+                        :value="getStatusText(schedule.status)"
+                        :type="getStatusType(schedule.status)"
+                      />
+                    </div>
+                    <p class="mt-2 text-sm text-slate-600">
+                      입력은 시작했지만 AI 생성 전이거나 오류 상태입니다.
+                    </p>
+                  </div>
+                  <n-button
+                    secondary
+                    type="primary"
+                    :data-test="`dashboard-resume-schedule-${schedule.month}`"
+                    @click="handleViewSchedule(schedule)"
+                  >
+                    이어서 진행
+                  </n-button>
+                </div>
+              </div>
+            </div>
           </section>
         </template>
       </div>
@@ -332,7 +374,7 @@
             data-test="dashboard-month-picker-help"
             class="mb-4 text-sm text-slate-500"
           >
-            현재 기준 과거 12개월부터 미래 12개월 사이에서, 아직 생성하지 않은 월만 선택할 수 있습니다.
+            현재 기준 과거 12개월부터 미래 12개월 사이에서, 완료·생성 중인 월은 선택할 수 없습니다. 진행 중인 월은 이어서 진행하세요.
           </p>
           <n-form-item
             label="계획월"
@@ -366,6 +408,7 @@ import AppContainer from '@/components/layout/AppContainer.vue';
 import {
   getPhase2ScheduleCompare,
   getScheduleList,
+  getScheduleVersionPreferences,
   type ScheduleSummary,
 } from '@/api/schedule';
 import { getChecklist } from '@/api/ops';
@@ -379,6 +422,13 @@ import {
 import {
   resolveStep5VersionState,
 } from '@/utils/scheduleVersionResolver';
+import {
+  getBlockedScheduleMonths,
+  isInProgressScheduleMonth,
+  isScheduleMonthBlockedForCreation,
+  resolveResumeStepFromCompare,
+  getResumePreviewVersionId,
+} from '@/utils/scheduleMonthState';
 import { buildScheduleEntryQuery } from '@/utils/scheduleEntryMode';
 import {
   buildCanonicalStep5RouteLocation,
@@ -403,7 +453,7 @@ const opsReadinessLoadFailed = ref(false);
 const scheduleLoading = ref(false);
 const scheduleListLoadFailed = ref(false);
 const schedules = ref<ScheduleSummary[]>([]);
-const verifiedExistingScheduleMonths = ref<Set<string>>(new Set());
+const verifiedBlockedScheduleMonths = ref<Set<string>>(new Set());
 const checklist = ref<ChecklistResponse | null>(null);
 const dashboardLoadRunId = ref(0);
 
@@ -423,14 +473,14 @@ type DatePickerDisableDetail =
   | { type: 'input' };
 
 const schedulableMonthWindow = computed(() => buildSchedulableMonthWindow());
-const existingScheduleMonthSet = computed(() =>
+const blockedScheduleMonthSet = computed(() =>
   new Set([
-    ...schedules.value.map((schedule) => schedule.month),
-    ...verifiedExistingScheduleMonths.value,
+    ...getBlockedScheduleMonths(schedules.value),
+    ...verifiedBlockedScheduleMonths.value,
   ])
 );
 const nextSchedulableMonth = computed(() =>
-  getDefaultSchedulableMonth(existingScheduleMonthSet.value)
+  getDefaultSchedulableMonth(blockedScheduleMonthSet.value)
 );
 
 function getScheduleSortTime(schedule: ScheduleSummary) {
@@ -459,7 +509,14 @@ const sortedSchedulesByRecency = computed(() => {
   });
 });
 
-const latestDisplaySchedule = computed(() => sortedSchedulesByRecency.value[0] ?? null);
+const latestDisplaySchedule = computed(() =>
+  sortedSchedulesByRecency.value.find((schedule) =>
+    schedule.status === 'complete' || schedule.status === 'changed' || schedule.status === 'running'
+  ) ?? null
+);
+const inProgressSchedules = computed(() =>
+  sortedSchedulesByRecency.value.filter((schedule) => isInProgressScheduleMonth(schedule))
+);
 const runningSchedule = computed(() =>
   sortedSchedulesByRecency.value.find((schedule) => schedule.status === 'running') ?? null
 );
@@ -715,7 +772,7 @@ function startDashboardLoadRun() {
 
 function resetDashboardData() {
   schedules.value = [];
-  verifiedExistingScheduleMonths.value = new Set();
+  verifiedBlockedScheduleMonths.value = new Set();
   checklist.value = null;
   opsReadinessLoadFailed.value = false;
   scheduleListLoadFailed.value = false;
@@ -873,7 +930,7 @@ async function loadSchedules(
     }
 
     schedules.value = data;
-    verifiedExistingScheduleMonths.value = new Set(data.map((schedule) => schedule.month));
+    verifiedBlockedScheduleMonths.value = new Set(getBlockedScheduleMonths(data));
   } catch (error) {
     if (runId !== dashboardLoadRunId.value || organizationId !== orgStore.current?.id) {
       return;
@@ -881,7 +938,7 @@ async function loadSchedules(
 
     console.warn('근무표 목록 로드 실패:', error);
     schedules.value = [];
-    verifiedExistingScheduleMonths.value = new Set();
+    verifiedBlockedScheduleMonths.value = new Set();
     scheduleListLoadFailed.value = true;
   } finally {
     if (runId === dashboardLoadRunId.value && organizationId === orgStore.current?.id) {
@@ -921,11 +978,17 @@ async function loadChecklist(
   }
 }
 
-function extractScheduleMonths(rows: Array<{ month?: string | null }> | null) {
-  return rows
-    ?.map((row) => row.month)
-    .filter((month): month is string => typeof month === 'string' && month.length > 0)
-    ?? [];
+function extractBlockedScheduleMonths(
+  rows: Array<{ month?: string | null; status?: ScheduleSummary['status'] | null }> | null
+) {
+  return getBlockedScheduleMonths(
+    rows
+      ?.filter((row): row is { month: string; status: ScheduleSummary['status'] } =>
+        typeof row.month === 'string'
+        && row.month.length > 0
+        && typeof row.status === 'string'
+      ) ?? []
+  );
 }
 
 async function refreshExistingScheduleMonths() {
@@ -936,14 +999,14 @@ async function refreshExistingScheduleMonths() {
 
   const { data, error } = await supabase
     .from('schedules')
-    .select('month')
+    .select('month, status')
     .eq('organization_id', organizationId);
 
   if (error) {
     throw error;
   }
 
-  verifiedExistingScheduleMonths.value = new Set(extractScheduleMonths(data));
+  verifiedBlockedScheduleMonths.value = new Set(extractBlockedScheduleMonths(data));
 }
 
 async function handleCreateNew() {
@@ -959,7 +1022,7 @@ async function handleCreateNew() {
     return;
   }
 
-  const defaultMonth = getDefaultSchedulableMonth(existingScheduleMonthSet.value);
+  const defaultMonth = getDefaultSchedulableMonth(blockedScheduleMonthSet.value);
 
   if (!defaultMonth) {
     monthForm.value.month = '';
@@ -1089,7 +1152,70 @@ async function navigateToCanonicalStep5(scheduleKey: string) {
 }
 
 function isSelectableDashboardMonth(month: string) {
-  return isSchedulableMonthAvailable(month, existingScheduleMonthSet.value);
+  return isSchedulableMonthAvailable(month, blockedScheduleMonthSet.value);
+}
+
+function toScheduleSummaryFromRow(row: {
+  id: string;
+  month: string;
+  status: ScheduleSummary['status'];
+  public_id?: string | null;
+}): ScheduleSummary {
+  const existing = schedules.value.find((schedule) => schedule.id === row.id || schedule.month === row.month);
+  if (existing) {
+    return existing;
+  }
+
+  return {
+    id: row.id,
+    public_id: row.public_id ?? null,
+    organization_id: orgStore.current!.id,
+    month: row.month,
+    status: row.status,
+    hard_score: null,
+    soft_score: null,
+    solver_execution_id: null,
+    created_at: '',
+    updated_at: '',
+  };
+}
+
+async function resumeScheduleWorkflow(schedule: ScheduleSummary) {
+  const scheduleKey = schedule.public_id ?? schedule.id;
+  const compareResponse = await getPhase2ScheduleCompare(scheduleKey);
+  const previewVersionId = getResumePreviewVersionId(compareResponse);
+  let hasSavedPreferences = false;
+
+  if (previewVersionId) {
+    const preferenceData = await getScheduleVersionPreferences(previewVersionId);
+    hasSavedPreferences = preferenceData.preferences.length > 0;
+  }
+
+  const resumeStep = resolveResumeStepFromCompare(schedule, compareResponse, hasSavedPreferences);
+  const schedulePublicId = compareResponse.schedulePublicId ?? compareResponse.scheduleId;
+
+  scheduleStore.setBasicInfo({
+    ...(scheduleStore.basicInfo ?? buildChecklistBasicInfo(compareResponse.month ?? schedule.month, compareResponse.scheduleId, schedulePublicId)),
+    scheduleId: compareResponse.scheduleId,
+    schedulePublicId,
+    month: compareResponse.month ?? schedule.month,
+    organizationId: compareResponse.organizationId ?? orgStore.current!.id,
+    organizationName: orgStore.current!.name,
+    organizationType: orgStore.current!.type,
+    shifts: orgStore.shifts,
+    employeeCount: orgStore.employees.length,
+  });
+
+  const resolvedState = resolveStep5VersionState(compareResponse, null);
+  scheduleStore.setSelectedVersionId(resolvedState.selectedVersionId);
+  scheduleStore.setPreviewVersionId(resolvedState.previewVersionId);
+
+  if (resumeStep === 'step4') {
+    await router.push(getScheduleStepRoutePath(4));
+    return;
+  }
+
+  await router.push(buildCanonicalStep5RouteLocation(schedulePublicId));
 }
 
 function formatDatePickerMonth(year: number, zeroBasedMonth: number) {
@@ -1134,7 +1260,7 @@ async function handleMonthConfirm() {
   try {
     const { data, error } = await supabase
       .from('schedules')
-      .select('id, month, status')
+      .select('id, month, status, public_id')
       .eq('organization_id', orgStore.current!.id)
       .eq('month', monthForm.value.month)
       .maybeSingle();
@@ -1142,8 +1268,23 @@ async function handleMonthConfirm() {
     if (error) throw error;
 
     if (data) {
-      showError(`${monthForm.value.month} 근무표가 이미 존재합니다. 다른 월을 선택해주세요.`);
-      return false; // 모달 닫기 방지
+      const existingSchedule = toScheduleSummaryFromRow(data);
+
+      if (isScheduleMonthBlockedForCreation(existingSchedule)) {
+        showError(`${monthForm.value.month} 근무표가 이미 존재합니다. 다른 월을 선택해주세요.`);
+        return false;
+      }
+
+      scheduleStore.reset();
+      try {
+        await resumeScheduleWorkflow(existingSchedule);
+      } catch (resumeError) {
+        console.warn('Resume schedule workflow failed:', resumeError);
+        showError('진행 중인 근무표를 이어서 열지 못했습니다. 잠시 후 다시 시도해주세요.');
+        return false;
+      }
+
+      return true;
     }
 
     // 중복 없음 - scheduleStore에 month 저장 후 Step1으로 이동
@@ -1185,12 +1326,12 @@ async function handleViewSchedule(schedule: ScheduleSummary) {
     ),
   });
 
-  if (schedule.status === 'error') {
+  if (isInProgressScheduleMonth(schedule)) {
     try {
-      await router.push(getScheduleStepRoutePath(4));
+      await resumeScheduleWorkflow(schedule);
     } catch (error) {
-      console.warn('Step4 navigation failed:', error);
-      showError('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.');
+      console.warn('Resume schedule workflow failed:', error);
+      showError('진행 중인 근무표를 이어서 열지 못했습니다. 잠시 후 다시 시도해주세요.');
     }
     return;
   }

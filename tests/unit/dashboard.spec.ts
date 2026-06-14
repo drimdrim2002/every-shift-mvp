@@ -13,6 +13,7 @@ const {
   replaceMock,
   getScheduleListMock,
   getPhase2ScheduleCompareMock,
+  getScheduleVersionPreferencesMock,
   getChecklistMock,
   loadCanonicalSiteRequirementsMock,
   resetMock,
@@ -28,6 +29,7 @@ const {
   replaceMock: vi.fn(),
   getScheduleListMock: vi.fn(),
   getPhase2ScheduleCompareMock: vi.fn(),
+  getScheduleVersionPreferencesMock: vi.fn(),
   getChecklistMock: vi.fn(),
   loadCanonicalSiteRequirementsMock: vi.fn(),
   resetMock: vi.fn(),
@@ -56,6 +58,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/api/schedule', () => ({
   getScheduleList: getScheduleListMock,
   getPhase2ScheduleCompare: getPhase2ScheduleCompareMock,
+  getScheduleVersionPreferences: getScheduleVersionPreferencesMock,
 }))
 
 vi.mock('@/api/ops', () => ({
@@ -318,9 +321,16 @@ function createScheduleSummary(overrides: Partial<ScheduleSummary> = {}): Schedu
   }
 }
 
-function mockExistingScheduleMonthLookup(months: string[]) {
+function mockExistingScheduleMonthLookup(
+  entries: Array<string | { month: string; status: ScheduleSummary['status'] }>
+) {
+  const rows = entries.map((entry) =>
+    typeof entry === 'string'
+      ? { month: entry, status: 'complete' as const }
+      : entry
+  )
   const eqMock = vi.fn().mockResolvedValue({
-    data: months.map((month) => ({ month })),
+    data: rows,
     error: null,
   })
   const selectMock = vi.fn(() => ({
@@ -450,6 +460,11 @@ describe('Dashboard', () => {
           isFinalized: false,
         },
       ],
+    })
+    getScheduleVersionPreferencesMock.mockResolvedValue({
+      constraints: {},
+      notes: {},
+      preferences: [],
     })
     supabaseFromMock.mockReset()
     mockExistingScheduleMonthLookup([])
@@ -649,9 +664,9 @@ describe('Dashboard', () => {
 
     const recentSchedules = wrapper.findAll('[data-test="dashboard-recent-schedule"]')
     expect(recentSchedules).toHaveLength(1)
-    expect(recentSchedules[0].text()).toContain('2026-06')
-    expect(recentSchedules[0].text()).not.toContain('2026-04')
-    expect(recentSchedules[0].text()).not.toContain('2026-12')
+    expect(wrapper.get('[data-test="dashboard-latest-schedule-card"]').text()).toContain('2026-06')
+    expect(wrapper.get('[data-test="dashboard-latest-schedule-card"]').text()).not.toContain('2026-04')
+    expect(wrapper.get('[data-test="dashboard-latest-schedule-card"]').text()).not.toContain('2026-12')
     expect(apiResponse.map((schedule) => schedule.id)).toEqual([
       'older-valid-updated',
       'b-schedule',
@@ -755,7 +770,42 @@ describe('Dashboard', () => {
     expect(pushMock).not.toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('sch_a1b2c3d4e5f6'))
   })
 
-  it('routes a recent error schedule to Step4 and sets basic schedule context', async () => {
+  it('routes a recent error schedule through the in-progress resume flow', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValueOnce({
+      scheduleId: 'error-schedule',
+      schedulePublicId: 'sch_error123456',
+      organizationId: 'org-1',
+      month: '2026-05',
+      selectedVersionId: 'version-draft',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-draft',
+          scheduleId: 'error-schedule',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 0,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
     getScheduleListMock.mockResolvedValueOnce([
       createScheduleSummary({
         id: 'error-schedule',
@@ -768,15 +818,14 @@ describe('Dashboard', () => {
     const wrapper = createWrapper()
     await flushPromises()
 
-    await wrapper.get('[data-test="dashboard-view-recent-schedule"]').trigger('click')
+    await wrapper.get('[data-test="dashboard-resume-schedule-2026-05"]').trigger('click')
     await flushPromises()
 
-    expect(getPhase2ScheduleCompareMock).not.toHaveBeenCalled()
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_error123456')
     expect(setBasicInfoMock).toHaveBeenCalledWith(expect.objectContaining({
       organizationId: 'org-1',
       organizationName: '서울병원',
       scheduleId: 'error-schedule',
-      schedulePublicId: 'sch_error123456',
       month: '2026-05',
     }))
     expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
@@ -1081,7 +1130,7 @@ describe('Dashboard', () => {
     expect(monthPicker.props('format')).toBe('yyyy-MM')
     expect(monthPicker.props('valueFormat')).toBe('yyyy-MM')
     expect(document.body.textContent).toContain(
-      '현재 기준 과거 12개월부터 미래 12개월 사이에서, 아직 생성하지 않은 월만 선택할 수 있습니다.'
+      '완료·생성 중인 월은 선택할 수 없습니다. 진행 중인 월은 이어서 진행하세요.'
     )
   })
 
@@ -1176,11 +1225,11 @@ describe('Dashboard', () => {
     })
   })
 
-  it('disables months outside the +/-12 month window and existing schedule months', async () => {
+  it('disables only completed or running months in the month picker', async () => {
     getScheduleListMock.mockResolvedValueOnce([
       createScheduleSummary({
-        id: 'schedule-current',
-        public_id: 'sch-current',
+        id: 'schedule-draft',
+        public_id: 'sch-draft',
         month: '2026-05',
         status: 'created',
         hard_score: null,
@@ -1189,14 +1238,20 @@ describe('Dashboard', () => {
         updated_at: '2026-05-01T00:00:00Z',
       }),
       createScheduleSummary({
-        id: 'schedule-next',
-        public_id: 'sch-next',
+        id: 'schedule-error',
+        public_id: 'sch-error',
         month: '2026-06',
         status: 'error',
         hard_score: null,
         soft_score: null,
         created_at: '2026-06-01T00:00:00Z',
         updated_at: '2026-06-01T00:00:00Z',
+      }),
+      createScheduleSummary({
+        id: 'schedule-complete',
+        public_id: 'sch-complete',
+        month: '2026-04',
+        status: 'complete',
       }),
     ])
 
@@ -1222,16 +1277,21 @@ describe('Dashboard', () => {
       year: 2027,
       month: 5,
     })).toBe(true)
+    expect(isDateDisabled(new Date('2026-04-01T00:00:00+09:00').getTime(), {
+      type: 'month',
+      year: 2026,
+      month: 3,
+    })).toBe(true)
     expect(isDateDisabled(new Date('2026-05-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
       month: 4,
-    })).toBe(true)
+    })).toBe(false)
     expect(isDateDisabled(new Date('2026-06-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
       month: 5,
-    })).toBe(true)
+    })).toBe(false)
     expect(isDateDisabled(new Date('2026-07-01T00:00:00+09:00').getTime(), {
       type: 'month',
       year: 2026,
@@ -1243,12 +1303,13 @@ describe('Dashboard', () => {
     })).toBe(true)
   })
 
-  it('keeps the month after an existing schedule selectable when date picker month detail is zero-based', async () => {
+  it('keeps the month after a completed schedule selectable when date picker month detail is zero-based', async () => {
     getScheduleListMock.mockResolvedValueOnce([
       createScheduleSummary({
         id: 'schedule-march',
         public_id: 'sch-march',
         month: '2026-03',
+        status: 'complete',
       }),
     ])
 
@@ -1282,6 +1343,7 @@ describe('Dashboard', () => {
         id: 'schedule-next',
         public_id: 'sch-next',
         month: '2026-06',
+        status: 'complete',
       }),
     ])
 
@@ -1295,15 +1357,19 @@ describe('Dashboard', () => {
     expect(monthPicker.props('formattedValue')).toBe('2026-05')
   })
 
-  it('refreshes created months before opening the creation modal and skips months missing from the loaded list', async () => {
+  it('refreshes blocked months before opening the creation modal and skips draft months missing from the loaded list', async () => {
     getScheduleListMock.mockResolvedValueOnce([
       createScheduleSummary({
         id: 'schedule-next',
         public_id: 'sch-next',
         month: '2026-06',
+        status: 'complete',
       }),
     ])
-    mockExistingScheduleMonthLookup(['2026-05', '2026-06'])
+    mockExistingScheduleMonthLookup([
+      { month: '2026-05', status: 'complete' },
+      { month: '2026-06', status: 'complete' },
+    ])
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -1344,12 +1410,87 @@ describe('Dashboard', () => {
     expect(wrapper.findComponent('[data-test="dashboard-month-picker"]').exists()).toBe(false)
   })
 
-  it('blocks creation when the final duplicate check finds an existing month', async () => {
+  it('resumes a draft month from the duplicate check instead of blocking creation', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValueOnce({
+      scheduleId: 'schedule-dup',
+      schedulePublicId: 'sch_dup123456',
+      organizationId: 'org-1',
+      month: '2026-07',
+      selectedVersionId: 'version-draft',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        {
+          id: 'version-draft',
+          scheduleId: 'schedule-dup',
+          versionNo: 1,
+          name: 'V1',
+          sourceType: 'initial_solve',
+          baseVersionId: null,
+          status: 'draft',
+          currentRevision: 0,
+          manualEditCount: 0,
+          inputDiffSummary: {
+            changedOffRequests: 0,
+            changedLockedAssignments: 0,
+            changedSiteRequirements: 0,
+            note: null,
+          },
+          latestEvaluationId: null,
+          latestEvaluationResultStatus: null,
+          comparisonMetrics: null,
+          finalizationGate: null,
+          activeSolverExecutionId: null,
+          isSelected: true,
+          isFinalized: false,
+        },
+      ],
+    })
     const maybeSingleMock = vi.fn().mockResolvedValue({
       data: {
         id: 'schedule-dup',
         month: '2026-07',
         status: 'created',
+        public_id: 'sch_dup123456',
+      },
+      error: null,
+    })
+    const monthEqMock = vi.fn(() => ({
+      maybeSingle: maybeSingleMock,
+    }))
+    const organizationEqMock = vi.fn(() => ({
+      eq: monthEqMock,
+    }))
+    const selectMock = vi.fn(() => ({
+      eq: organizationEqMock,
+    }))
+
+    supabaseFromMock.mockReturnValue({
+      select: selectMock,
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    ;(wrapper.vm as unknown as { monthForm: { month: string } }).monthForm.month = '2026-07'
+
+    const result = await (wrapper.vm as unknown as {
+      handleMonthConfirm: () => Promise<boolean>
+    }).handleMonthConfirm()
+
+    expect(result).toBe(true)
+    expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_dup123456')
+    expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
+    expect(showErrorMock).not.toHaveBeenCalledWith('2026-07 근무표가 이미 존재합니다. 다른 월을 선택해주세요.')
+  })
+
+  it('blocks creation when the final duplicate check finds a completed month', async () => {
+    const maybeSingleMock = vi.fn().mockResolvedValue({
+      data: {
+        id: 'schedule-dup',
+        month: '2026-07',
+        status: 'complete',
+        public_id: 'sch_dup123456',
       },
       error: null,
     })
@@ -1413,6 +1554,30 @@ describe('Dashboard', () => {
     expect(result).toBe(false)
     expect(pushMock).toHaveBeenCalledWith('/app/schedule/step1')
     expect(showErrorMock).toHaveBeenCalledWith('요청한 화면으로 이동하지 못했습니다. 다시 시도해주세요.')
+  })
+
+  it('shows draft schedules in the in-progress section alongside completed recent results', async () => {
+    getScheduleListMock.mockResolvedValueOnce([
+      createScheduleSummary({
+        id: 'complete-schedule',
+        month: '2026-04',
+        status: 'complete',
+        updated_at: '2026-05-07T00:00:00.000Z',
+      }),
+      createScheduleSummary({
+        id: 'draft-schedule',
+        month: '2026-05',
+        status: 'created',
+        updated_at: '2026-05-01T00:00:00.000Z',
+      }),
+    ])
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="dashboard-recent-schedule"]').text()).toContain('2026-04')
+    expect(wrapper.get('[data-test="dashboard-in-progress-schedules"]').text()).toContain('2026-05')
+    expect(wrapper.get('[data-test="dashboard-resume-schedule-2026-05"]').text()).toContain('이어서 진행')
   })
 
   it('renders a restricted fallback without schedule creation actions for user-only access', async () => {

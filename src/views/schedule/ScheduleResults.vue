@@ -6,6 +6,9 @@
           <h1 class="text-2xl font-bold text-slate-900">
             생성된 근무표
           </h1>
+          <p class="mt-2 text-sm text-slate-500">
+            이어서 진행은 입력은 시작했지만 AI 생성 전인 월입니다.
+          </p>
         </div>
         <div>
           <select
@@ -99,19 +102,18 @@
           <button
             :data-test="`schedule-results-month-${month.monthNumber}`"
             :data-month="month.month"
+            :data-display-state="month.displayState"
             type="button"
-            :disabled="!month.schedule"
+            :disabled="!month.isInteractive"
             class="min-h-28 w-full rounded-lg border p-4 text-left transition-colors disabled:cursor-not-allowed"
-            :class="month.schedule
-              ? 'border-slate-300 bg-white hover:border-teal-500 hover:bg-teal-50'
-              : 'border-slate-200 bg-slate-50 text-slate-400'"
+            :class="getMonthTileClass(month.displayState)"
             @click="openSchedule(month)"
           >
             <span class="text-lg font-semibold">
               {{ Number(month.monthNumber) }}월
             </span>
             <span class="mt-3 block text-sm">
-              {{ month.schedule ? '결과 보기' : '생성 전' }}
+              {{ month.label }}
             </span>
           </button>
         </div>
@@ -127,7 +129,14 @@ import { NButton, NSpin } from 'naive-ui';
 import AppContainer from '@/components/layout/AppContainer.vue';
 import { getScheduleList } from '@/api/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { useScheduleStore } from '@/stores/schedule';
 import { buildCanonicalStep5RouteLocation, getScheduleStepRoutePath } from '@/constants/routes';
+import {
+  getScheduleMonthDisplayState,
+  getScheduleMonthTileLabel,
+  isScheduleMonthTileInteractive,
+  type ScheduleMonthDisplayState,
+} from '@/utils/scheduleMonthState';
 
 interface ScheduleListItem {
   id: string;
@@ -145,10 +154,14 @@ interface MonthTile {
   month: string;
   monthNumber: string;
   schedule: ScheduleListItem | null;
+  displayState: ScheduleMonthDisplayState;
+  label: string;
+  isInteractive: boolean;
 }
 
 const router = useRouter();
 const orgStore = useOrganizationStore();
+const scheduleStore = useScheduleStore();
 
 const loading = ref(false);
 const loadError = ref<string | null>(null);
@@ -186,14 +199,35 @@ const monthTiles = computed<MonthTile[]>(() => {
   return Array.from({ length: 12 }, (_, index) => {
     const monthNumber = String(index + 1).padStart(2, '0');
     const month = `${selectedYear.value}-${monthNumber}`;
+    const schedule = scheduleByMonth.value.get(month) ?? null;
+    const displayState = getScheduleMonthDisplayState(schedule);
 
     return {
       month,
       monthNumber,
-      schedule: scheduleByMonth.value.get(month) ?? null,
+      schedule,
+      displayState,
+      label: getScheduleMonthTileLabel(displayState),
+      isInteractive: isScheduleMonthTileInteractive(displayState),
     };
   });
 });
+
+function getMonthTileClass(displayState: ScheduleMonthDisplayState) {
+  if (displayState === 'empty') {
+    return 'border-slate-200 bg-slate-50 text-slate-400';
+  }
+
+  if (displayState === 'draft' || displayState === 'error') {
+    return 'border-teal-200 bg-teal-50/60 text-slate-900 hover:border-teal-500 hover:bg-teal-50';
+  }
+
+  if (displayState === 'running') {
+    return 'border-sky-200 bg-sky-50/60 text-slate-900 hover:border-sky-500 hover:bg-sky-50';
+  }
+
+  return 'border-slate-300 bg-white hover:border-teal-500 hover:bg-teal-50';
+}
 
 async function loadSchedules() {
   loading.value = true;
@@ -223,6 +257,22 @@ async function loadSchedules() {
 
 function openSchedule(month: MonthTile) {
   if (!month.schedule) {
+    return;
+  }
+
+  if (month.displayState === 'error') {
+    scheduleStore.reset();
+    scheduleStore.setBasicInfo({
+      month: month.schedule.month,
+      organizationId: month.schedule.organization_id,
+      organizationName: orgStore.current?.name ?? '',
+      organizationType: orgStore.current?.type ?? '',
+      employeeCount: 0,
+      shifts: [],
+      scheduleId: month.schedule.id,
+      schedulePublicId: month.schedule.public_id ?? undefined,
+    });
+    void router.push(getScheduleStepRoutePath(4));
     return;
   }
 
