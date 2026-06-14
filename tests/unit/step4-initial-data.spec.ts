@@ -730,6 +730,7 @@ async function mountStep4WithPreceptorPair() {
   setupPreceptorPairEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount = PRECEPTOR_PAIR_EMPLOYEES.length
   getOffRequestPoliciesMock.mockResolvedValue({
     organizationId: 'org-1',
     rankCodes: [],
@@ -747,6 +748,7 @@ async function mountStep4WithPairedOffInMemory() {
   setupPreceptorPairEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount = PRECEPTOR_PAIR_EMPLOYEES.length
   getScheduleVersionPreferencesMock.mockResolvedValue({
     constraints: {
       'uuid-preceptee': { '2026-05-15': 'O' },
@@ -862,6 +864,7 @@ async function mountStep4WithThreePreceptorPairs() {
   setupThreePreceptorPairEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount = THREE_PRECEPTOR_PAIR_EMPLOYEES.length
   getOffRequestPoliciesMock.mockResolvedValue({
     organizationId: 'org-1',
     rankCodes: [],
@@ -884,6 +887,7 @@ async function mountStep4WithPairedOffForEditing() {
   setupPreceptorPairEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount = PRECEPTOR_PAIR_EMPLOYEES.length
   getScheduleVersionPreferencesMock.mockResolvedValue({
     constraints: {
       'uuid-preceptee': { '2026-05-14': 'O', '2026-05-15': 'O' },
@@ -915,6 +919,7 @@ async function mountStep4WithSoloEmployees() {
   gridMock.employees.value = SOLO_EMPLOYEES
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount = SOLO_EMPLOYEES.length
   getOffRequestPoliciesMock.mockResolvedValue({
     organizationId: 'org-1',
     rankCodes: [],
@@ -932,6 +937,8 @@ async function mountStep4WithThreePairs() {
   setupThreePairsWithSoloEmployees()
   scheduleStoreMock.basicInfo.month = '2026-05'
   scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+  scheduleStoreMock.basicInfo.employeeCount =
+    THREE_PRECEPTOR_PAIR_EMPLOYEES.length + SOLO_EMPLOYEES.length
   getOffRequestPoliciesMock.mockResolvedValue({
     organizationId: 'org-1',
     rankCodes: [],
@@ -1210,6 +1217,18 @@ describe('Step4InitialData', () => {
     expect(wrapper.vm.draftNote).toBe('')
     expect(wrapper.vm.hasUnappliedDraft).toBe(false)
     expect(wrapper.vm.currentEmployeeRequests).toEqual([])
+  })
+
+  it('shows employee count and scroll guidance in the calendar workspace', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step4-calendar-scroll-region"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="step4-calendar-employee-count"]').text()).toContain('근무자 2명')
+    expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').text()).toContain(
+      '근무자 2명이 모두 표시됩니다'
+    )
+    expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').text()).toContain('세로로 스크롤')
   })
 
   it('shows the Step4 Off request Excel upload button in the calendar header', async () => {
@@ -4771,11 +4790,31 @@ describe('Step4InitialData', () => {
 
   it('does not reload organization when scheduleId exists and forceRefresh is false', async () => {
     scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+    scheduleStoreMock.basicInfo.employeeCount = 2
 
     createWrapper()
     await flushPromises()
 
     expect(organizationStoreMock.loadOrganization).not.toHaveBeenCalled()
+  })
+
+  it('reloads organization when scheduleId exists but employeeCount metadata drifts', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+    scheduleStoreMock.basicInfo.employeeCount = 19
+    organizationStoreMock.employees = [
+      {
+        id: 'emp-1',
+        organizationId: 'org-1',
+        employeeId: 'E001',
+        name: 'Kim',
+        availableShifts: ['D'],
+      },
+    ]
+
+    createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
   })
 
   it('always reloads when forceRefresh is true via handleRetryBaseline', async () => {

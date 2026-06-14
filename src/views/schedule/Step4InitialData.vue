@@ -2,7 +2,7 @@
   <AppContainer
     width="full"
     data-test="step4-app-container"
-    class="flex h-full flex-col"
+    class="flex h-full min-h-0 flex-col"
   >
     <StepIndicator
       :current-step="4"
@@ -67,441 +67,460 @@
     </div>
 
     <template v-else>
-      <n-alert
-        v-if="policyRejectionSummaries.length > 0"
-        type="warning"
-        class="mb-4"
-      >
-        <template #header>
-          정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
-        </template>
-        <ul class="space-y-1 text-sm">
-          <li
-            v-for="summary in policyRejectionSummaries.slice(0, 3)"
-            :key="summary"
-          >
-            {{ summary }}
-          </li>
-        </ul>
-      </n-alert>
-
-      <n-alert
-        v-if="preceptorReconcileAlertSummary"
-        data-test="preceptor-reconcile-alert"
-        type="info"
-        class="mb-4"
-      >
-        {{ preceptorReconcileAlertSummary }}
-      </n-alert>
-
-      <n-alert
-        v-if="hasPendingLocalDraft"
-        data-test="pending-local-draft-alert"
-        type="info"
-        class="mb-4"
-      >
-        <template #header>
-          이전에 입력하던 Off 요청이 있습니다
-        </template>
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <p class="text-sm leading-6 text-slate-600">
-            저장된 데이터와 다를 수 있어 자동으로 반영하지 않았습니다. 필요한 경우 직접 불러와 이어서 작업하세요.
-          </p>
-          <div class="flex gap-2">
-            <n-button
-              size="small"
-              type="primary"
-              @click="handleLoadPendingLocalDraft"
-            >
-              불러오기
-            </n-button>
-            <n-button
-              size="small"
-              secondary
-              @click="handleDiscardPendingLocalDraft"
-            >
-              삭제
-            </n-button>
-          </div>
-        </div>
-      </n-alert>
-
-      <!-- Off 요청 규칙 안내 배너 -->
-      <div class="mb-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-3.5">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="flex items-start gap-3">
-            <div class="mt-0.5 shrink-0 rounded-full bg-sky-100 p-1.5">
-              <svg
-                class="size-4 text-sky-600"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                />
-                <path d="M12 16v-4" />
-                <path d="M12 8h.01" />
-              </svg>
-            </div>
-            <div class="space-y-2">
-              <p class="text-sm font-medium text-slate-700">
-                Off 요청은 전일 야간 근무 및 당일 근무 배정을 지양하며, 인력 상황에 따라 수락되지 않을 수 있습니다.
-              </p>
-              <div
-                v-if="isOffRequestGuideExpanded"
-                class="space-y-2 text-sm text-slate-600"
-              >
-                <div class="rounded-xl bg-white/70 px-4 py-3">
-                  <p class="mb-2 font-medium text-slate-700">
-                    🛡️ 근무자 휴식 보장 원칙
-                  </p>
-                  <p class="leading-relaxed">
-                    근무자가 특정 날짜에 Off를 요청한 경우, <strong>해당 날짜의 모든 근무 배정</strong>을 지양합니다. 또한 <strong>전날 야간 근무 배정</strong>도 함께 지양하여 충분한 휴식을 보장합니다. 예를 들어 5월 5일 Off를 요청했다면, 5월 4일 야간 근무와 5월 5일 모든 근무를 배정하지 않도록 합니다.
-                  </p>
-                </div>
-                <div class="rounded-xl bg-white/70 px-4 py-3">
-                  <p class="mb-2 font-medium text-slate-700">
-                    ⚖️ Off 요청 수락 우선순위 기준
-                  </p>
-                  <ul class="list-inside list-disc space-y-1 leading-relaxed">
-                    <li>
-                      해당 일자에 가용한 근무자가 부족한 경우 Off 요청이 수락되지 않을 수 있습니다.
-                    </li>
-                    <li>
-                      같은 날짜에 Off를 요청한 근무자가 많은 경우, <strong>이전 Off 횟수가 적은 근무자</strong>에게 우선순위를 부여합니다. 이를 통해 모든 근무자에게 공정한 휴식 기회를 제공합니다.
-                    </li>
-                  </ul>
-                </div>
-                <div class="rounded-xl bg-white/70 px-4 py-3">
-                  <p class="mb-2 font-medium text-slate-700">
-                    🔗 프리셉터 짝 Off 연동
-                  </p>
-                  <p class="leading-relaxed">
-                    프리셉터 짝으로 지정된 근무자는 같은 날짜 Off가 함께 반영됩니다.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-          <n-button
-            size="small"
-            text
-            type="info"
-            class="shrink-0 font-medium"
-            data-test="off-guide-toggle"
-            @click="isOffRequestGuideExpanded = !isOffRequestGuideExpanded"
-          >
-            {{ isOffRequestGuideExpanded ? '접기' : '자세히 보기' }}
-          </n-button>
-        </div>
-      </div>
-
-      <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="space-y-2">
-            <div class="flex items-center gap-2">
-              <h2 class="text-lg font-bold text-slate-900">
-                {{ scheduleStore.basicInfo?.month }} 사전 Off 요청 입력
-              </h2>
-              <span
-                v-if="orgStore.current"
-                class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
-              >
-                {{ orgStore.current.name }}
-              </span>
-            </div>
-            <p class="text-sm text-slate-600">
-              사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.
-            </p>
-          </div>
-          <div class="flex flex-col items-end gap-2 text-right">
-            <p class="text-xs font-medium text-slate-500">
-              {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 요청 입력에서 저장 필요' : '저장된 변경 없음' }}
-            </p>
-            <p
-              v-if="pageLevelBlockedReason"
-              class="text-sm font-medium text-amber-700"
-            >
-              {{ pageLevelBlockedReason }}
-            </p>
-            <n-button
-              v-if="!isRequestDrawerOpen"
-              data-test="request-drawer-toggle"
-              type="primary"
-              size="large"
-              strong
-              class="min-w-[168px] font-semibold shadow-sm"
-              @click="handleOpenRequestDrawerClick"
-            >
-              {{ requestDrawerCtaLabel }}
-            </n-button>
-          </div>
-        </div>
-      </div>
-
-      <div class="flex min-h-[780px] flex-1 flex-col gap-4 xl:min-h-[860px] 2xl:min-h-[920px]">
-        <div
-          class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+      <div class="flex min-h-0 flex-1 flex-col gap-4">
+        <n-alert
+          v-if="policyRejectionSummaries.length > 0"
+          type="warning"
+          class="mb-4"
         >
-          <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="space-y-1">
-                <h3 class="text-base font-semibold text-slate-900">
-                  사전 Off 요청 캘린더
-                </h3>
-                <p
-                  v-if="selectedEmployeeName || selectedDateSummary"
-                  class="text-sm text-slate-600"
-                >
-                  <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
-                  <span v-if="selectedDateSummary">
-                    <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
-                  </span>
-                </p>
-              </div>
-              <div class="flex flex-wrap items-center justify-end gap-2">
-                <n-button
-                  data-test="step4-excel-download-button"
-                  size="small"
-                  secondary
-                  type="success"
-                  class="font-semibold"
-                  @click="handleDownloadOffRequestExcel"
-                >
-                  <template #icon>
-                    <svg
-                      class="size-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <path d="M7 10l5 5 5-5" />
-                      <path d="M12 15V3" />
-                    </svg>
-                  </template>
-                  Excel 다운로드
-                </n-button>
-                <n-button
-                  data-test="step4-excel-upload-button"
-                  size="small"
-                  secondary
-                  type="success"
-                  class="font-semibold"
-                  @click="handleOpenOffRequestExcelUploadModal"
-                >
-                  <template #icon>
-                    <svg
-                      class="size-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <path d="M17 8l-5-5-5 5" />
-                      <path d="M12 3v12" />
-                    </svg>
-                  </template>
-                  Excel 업로드
-                </n-button>
-              </div>
-            </div>
-          </div>
+          <template #header>
+            정책상 거부된 요청 {{ policyRejectionSummaries.length }}건
+          </template>
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="summary in policyRejectionSummaries.slice(0, 3)"
+              :key="summary"
+            >
+              {{ summary }}
+            </li>
+          </ul>
+        </n-alert>
 
-          <n-alert
-            v-if="hasHiddenUnappliedDraft"
-            data-test="hidden-request-draft-alert"
-            type="warning"
-            class="mx-5 mt-4"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="text-sm font-medium">
-                {{ requestDrawerStatusCopy }}
-              </p>
+        <n-alert
+          v-if="preceptorReconcileAlertSummary"
+          data-test="preceptor-reconcile-alert"
+          type="info"
+          class="mb-4"
+        >
+          {{ preceptorReconcileAlertSummary }}
+        </n-alert>
+
+        <n-alert
+          v-if="hasPendingLocalDraft"
+          data-test="pending-local-draft-alert"
+          type="info"
+          class="mb-4"
+        >
+          <template #header>
+            이전에 입력하던 Off 요청이 있습니다
+          </template>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm leading-6 text-slate-600">
+              저장된 데이터와 다를 수 있어 자동으로 반영하지 않았습니다. 필요한 경우 직접 불러와 이어서 작업하세요.
+            </p>
+            <div class="flex gap-2">
               <n-button
-                data-test="request-drawer-toggle"
+                size="small"
+                type="primary"
+                @click="handleLoadPendingLocalDraft"
+              >
+                불러오기
+              </n-button>
+              <n-button
                 size="small"
                 secondary
-                type="warning"
+                @click="handleDiscardPendingLocalDraft"
+              >
+                삭제
+              </n-button>
+            </div>
+          </div>
+        </n-alert>
+
+        <!-- Off 요청 규칙 안내 배너 -->
+        <div class="mb-4 rounded-2xl border border-sky-100 bg-sky-50/60 px-5 py-3.5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <div class="mt-0.5 shrink-0 rounded-full bg-sky-100 p-1.5">
+                <svg
+                  class="size-4 text-sky-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                  />
+                  <path d="M12 16v-4" />
+                  <path d="M12 8h.01" />
+                </svg>
+              </div>
+              <div class="space-y-2">
+                <p class="text-sm font-medium text-slate-700">
+                  Off 요청은 전일 야간 근무 및 당일 근무 배정을 지양하며, 인력 상황에 따라 수락되지 않을 수 있습니다.
+                </p>
+                <div
+                  v-if="isOffRequestGuideExpanded"
+                  class="space-y-2 text-sm text-slate-600"
+                >
+                  <div class="rounded-xl bg-white/70 px-4 py-3">
+                    <p class="mb-2 font-medium text-slate-700">
+                      🛡️ 근무자 휴식 보장 원칙
+                    </p>
+                    <p class="leading-relaxed">
+                      근무자가 특정 날짜에 Off를 요청한 경우, <strong>해당 날짜의 모든 근무 배정</strong>을 지양합니다. 또한 <strong>전날 야간 근무 배정</strong>도 함께 지양하여 충분한 휴식을 보장합니다. 예를 들어 5월 5일 Off를 요청했다면, 5월 4일 야간 근무와 5월 5일 모든 근무를 배정하지 않도록 합니다.
+                    </p>
+                  </div>
+                  <div class="rounded-xl bg-white/70 px-4 py-3">
+                    <p class="mb-2 font-medium text-slate-700">
+                      ⚖️ Off 요청 수락 우선순위 기준
+                    </p>
+                    <ul class="list-inside list-disc space-y-1 leading-relaxed">
+                      <li>
+                        해당 일자에 가용한 근무자가 부족한 경우 Off 요청이 수락되지 않을 수 있습니다.
+                      </li>
+                      <li>
+                        같은 날짜에 Off를 요청한 근무자가 많은 경우, <strong>이전 Off 횟수가 적은 근무자</strong>에게 우선순위를 부여합니다. 이를 통해 모든 근무자에게 공정한 휴식 기회를 제공합니다.
+                      </li>
+                    </ul>
+                  </div>
+                  <div class="rounded-xl bg-white/70 px-4 py-3">
+                    <p class="mb-2 font-medium text-slate-700">
+                      🔗 프리셉터 짝 Off 연동
+                    </p>
+                    <p class="leading-relaxed">
+                      프리셉터 짝으로 지정된 근무자는 같은 날짜 Off가 함께 반영됩니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <n-button
+              size="small"
+              text
+              type="info"
+              class="shrink-0 font-medium"
+              data-test="off-guide-toggle"
+              @click="isOffRequestGuideExpanded = !isOffRequestGuideExpanded"
+            >
+              {{ isOffRequestGuideExpanded ? '접기' : '자세히 보기' }}
+            </n-button>
+          </div>
+        </div>
+
+        <div class="mb-4 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-bold text-slate-900">
+                  {{ scheduleStore.basicInfo?.month }} 사전 Off 요청 입력
+                </h2>
+                <span
+                  v-if="orgStore.current"
+                  class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700"
+                >
+                  {{ orgStore.current.name }}
+                </span>
+              </div>
+              <p class="text-sm text-slate-600">
+                사전 Off 요청을 입력하고 아래 캘린더에서 반영 내용을 확인하세요.
+              </p>
+            </div>
+            <div class="flex flex-col items-end gap-2 text-right">
+              <p class="text-xs font-medium text-slate-500">
+                {{ hasUnpersistedAppliedChanges ? '로컬 반영됨 · 요청 입력에서 저장 필요' : '저장된 변경 없음' }}
+              </p>
+              <p
+                v-if="pageLevelBlockedReason"
+                class="text-sm font-medium text-amber-700"
+              >
+                {{ pageLevelBlockedReason }}
+              </p>
+              <n-button
+                v-if="!isRequestDrawerOpen"
+                data-test="request-drawer-toggle"
+                type="primary"
+                size="large"
+                strong
+                class="min-w-[168px] font-semibold shadow-sm"
                 @click="handleOpenRequestDrawerClick"
               >
                 {{ requestDrawerCtaLabel }}
               </n-button>
             </div>
-          </n-alert>
+          </div>
+        </div>
 
-          <div class="relative min-h-0 flex-1 overflow-hidden">
-            <n-spin
-              :show="grid.loading.value"
-              class="h-full"
-            >
-              <div class="h-full overflow-hidden">
-                <ScheduleGrid
-                  v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
-                  class="h-full"
-                  mode="planning"
-                  :employees="grid.employees.value"
-                  :dates="grid.dates.value"
-                  :constraints="constraints"
-                  :comments="displayConstraintNotes"
-                  :readonly="Boolean(step4MutationBlockedReason)"
-                  :show-last-month="false"
-                  :selected-employee-id="selectedEmployeeId"
-                  :selected-dates="draftSelectedDates"
-                  planning-interaction-mode="select"
-                  @update:assignment="handleAssignmentUpdate"
-                  @context-menu="handleContextMenu"
-                  @header-click="handleHeaderClick"
-                  @cell-select="handleGridCellSelect"
-                />
-                <div
-                  v-else-if="!grid.loading.value"
-                  class="flex h-full items-center justify-center text-gray-400"
-                >
-                  직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }},
-                  Date: {{ grid.dates.value.length }})
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div
+            class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+          >
+            <div class="shrink-0 border-b border-slate-200 bg-slate-50 px-5 py-4">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="space-y-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h3 class="text-base font-semibold text-slate-900">
+                      사전 Off 요청 캘린더
+                    </h3>
+                    <span
+                      v-if="grid.employees.value.length > 0"
+                      data-test="step4-calendar-employee-count"
+                      class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+                    >
+                      근무자 {{ grid.employees.value.length }}명
+                    </span>
+                  </div>
+                  <p
+                    v-if="selectedEmployeeName || selectedDateSummary"
+                    class="text-sm text-slate-600"
+                  >
+                    <span v-if="selectedEmployeeName">{{ selectedEmployeeName }}</span>
+                    <span v-if="selectedDateSummary">
+                      <span v-if="selectedEmployeeName"> · </span>{{ selectedDateSummary }}
+                    </span>
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center justify-end gap-2">
+                  <n-button
+                    data-test="step4-excel-download-button"
+                    size="small"
+                    secondary
+                    type="success"
+                    class="font-semibold"
+                    @click="handleDownloadOffRequestExcel"
+                  >
+                    <template #icon>
+                      <svg
+                        class="size-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <path d="M7 10l5 5 5-5" />
+                        <path d="M12 15V3" />
+                      </svg>
+                    </template>
+                    Excel 다운로드
+                  </n-button>
+                  <n-button
+                    data-test="step4-excel-upload-button"
+                    size="small"
+                    secondary
+                    type="success"
+                    class="font-semibold"
+                    @click="handleOpenOffRequestExcelUploadModal"
+                  >
+                    <template #icon>
+                      <svg
+                        class="size-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <path d="M17 8l-5-5-5 5" />
+                        <path d="M12 3v12" />
+                      </svg>
+                    </template>
+                    Excel 업로드
+                  </n-button>
                 </div>
               </div>
-            </n-spin>
+            </div>
+
+            <n-alert
+              v-if="hasHiddenUnappliedDraft"
+              data-test="hidden-request-draft-alert"
+              type="warning"
+              class="mx-5 mt-4"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm font-medium">
+                  {{ requestDrawerStatusCopy }}
+                </p>
+                <n-button
+                  data-test="request-drawer-toggle"
+                  size="small"
+                  secondary
+                  type="warning"
+                  @click="handleOpenRequestDrawerClick"
+                >
+                  {{ requestDrawerCtaLabel }}
+                </n-button>
+              </div>
+            </n-alert>
+
+            <div
+              data-test="step4-calendar-scroll-region"
+              class="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
+            >
+              <n-spin :show="grid.loading.value">
+                <div class="min-h-[240px]">
+                  <ScheduleGrid
+                    v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
+                    class="step4-calendar-grid"
+                    mode="planning"
+                    :employees="grid.employees.value"
+                    :dates="grid.dates.value"
+                    :constraints="constraints"
+                    :comments="displayConstraintNotes"
+                    :readonly="Boolean(step4MutationBlockedReason)"
+                    :show-last-month="false"
+                    :selected-employee-id="selectedEmployeeId"
+                    :selected-dates="draftSelectedDates"
+                    planning-interaction-mode="select"
+                    @update:assignment="handleAssignmentUpdate"
+                    @context-menu="handleContextMenu"
+                    @header-click="handleHeaderClick"
+                    @cell-select="handleGridCellSelect"
+                  />
+                  <div
+                    v-else-if="!grid.loading.value"
+                    class="flex min-h-[240px] items-center justify-center text-gray-400"
+                  >
+                    직원 데이터 또는 날짜 데이터가 없습니다. (Emp: {{ grid.employees.value.length }},
+                    Date: {{ grid.dates.value.length }})
+                  </div>
+                </div>
+              </n-spin>
+            </div>
+
+            <p
+              v-if="grid.employees.value.length > 0"
+              data-test="step4-calendar-scroll-hint"
+              class="shrink-0 border-t border-slate-100 bg-slate-50/80 px-5 py-2 text-xs text-slate-500"
+            >
+              근무자 {{ grid.employees.value.length }}명이 모두 표시됩니다. 목록이 길면 캘린더 영역을 세로로 스크롤해 전체를 확인하세요.
+            </p>
           </div>
         </div>
-      </div>
 
-      <n-drawer
-        :show="isRequestDrawerOpen"
-        placement="right"
-        width="min(100vw, 720px)"
-        :auto-focus="false"
-        @update:show="handleRequestDrawerVisibility"
-      >
-        <div
-          data-test="step4-request-drawer"
-          class="flex h-full flex-col bg-white"
+        <n-drawer
+          :show="isRequestDrawerOpen"
+          placement="right"
+          width="min(100vw, 720px)"
+          :auto-focus="false"
+          @update:show="handleRequestDrawerVisibility"
         >
-          <div class="border-b border-slate-200 px-5 py-4">
-            <div class="flex items-start justify-between gap-4">
-              <div class="space-y-1">
-                <h3 class="text-base font-semibold text-slate-900">
-                  요청 입력
-                </h3>
-                <p class="text-sm text-slate-600">
-                  {{ requestDrawerHelpCopy }}
-                </p>
+          <div
+            data-test="step4-request-drawer"
+            class="flex h-full flex-col bg-white"
+          >
+            <div class="border-b border-slate-200 px-5 py-4">
+              <div class="flex items-start justify-between gap-4">
+                <div class="space-y-1">
+                  <h3 class="text-base font-semibold text-slate-900">
+                    요청 입력
+                  </h3>
+                  <p class="text-sm text-slate-600">
+                    {{ requestDrawerHelpCopy }}
+                  </p>
+                </div>
+                <n-button
+                  data-test="request-drawer-close-button"
+                  size="small"
+                  secondary
+                  @click="handleCloseRequestDrawer"
+                >
+                  닫기
+                </n-button>
               </div>
-              <n-button
-                data-test="request-drawer-close-button"
-                size="small"
-                secondary
-                @click="handleCloseRequestDrawer"
-              >
-                닫기
-              </n-button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-5 py-4">
+              <Step4RequestComposer
+                ref="requestComposerRef"
+                :employees="grid.employees.value"
+                :dates="grid.dates.value"
+                :selected-employee-ids="selectedEmployeeIds"
+                :request-catalog="requestCatalog"
+                :draft-request-type-id="draftRequestTypeId"
+                :draft-selection-mode="draftSelectionMode"
+                :draft-selected-dates="draftSelectedDates"
+                :draft-note="draftNote"
+                :selected-date-summary="selectedDateSummary"
+                :current-employee-requests="currentEmployeeRequests"
+                :has-unapplied-draft="hasUnappliedDraft"
+                :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
+                :can-save-applied-changes="canSaveAppliedChanges"
+                :is-save-applied-changes-saving="isSavingStep4Preferences"
+                :save-applied-changes-disabled-reason="saveAppliedChangesDisabledReason"
+                :is-apply-request-saving="isApplyRequestSaving"
+                :request-apply-status-message="requestApplyStatusMessage"
+                :request-apply-status-tone="requestApplyStatusTone"
+                :apply-disabled-reason="applyDisabledReason"
+                :blocked-transition-reason="blockedTransitionReason"
+                :preceptor-pair-hints="preceptorPairHints"
+                @select-employee="handleSelectEmployee"
+                @update:request-type="draftRequestTypeId = $event"
+                @update:selection-mode="handleDraftSelectionModeUpdate"
+                @update:selected-dates="handleDraftSelectedDatesUpdate"
+                @update:note="handleDraftNoteUpdate"
+                @apply-request="applyDraftRequest"
+                @save-applied-changes="handleSaveAppliedChanges"
+                @reset-draft="resetDraftState({ preserveEmployee: true })"
+                @edit-request="hydrateDraftFromRequestRow"
+                @delete-request="handleDeleteRequest"
+              />
             </div>
           </div>
+        </n-drawer>
 
-          <div class="flex-1 overflow-y-auto px-5 py-4">
-            <Step4RequestComposer
-              ref="requestComposerRef"
-              :employees="grid.employees.value"
-              :dates="grid.dates.value"
-              :selected-employee-ids="selectedEmployeeIds"
-              :request-catalog="requestCatalog"
-              :draft-request-type-id="draftRequestTypeId"
-              :draft-selection-mode="draftSelectionMode"
-              :draft-selected-dates="draftSelectedDates"
-              :draft-note="draftNote"
-              :selected-date-summary="selectedDateSummary"
-              :current-employee-requests="currentEmployeeRequests"
-              :has-unapplied-draft="hasUnappliedDraft"
-              :has-unpersisted-applied-changes="hasUnpersistedAppliedChanges"
-              :can-save-applied-changes="canSaveAppliedChanges"
-              :is-save-applied-changes-saving="isSavingStep4Preferences"
-              :save-applied-changes-disabled-reason="saveAppliedChangesDisabledReason"
-              :is-apply-request-saving="isApplyRequestSaving"
-              :request-apply-status-message="requestApplyStatusMessage"
-              :request-apply-status-tone="requestApplyStatusTone"
-              :apply-disabled-reason="applyDisabledReason"
-              :blocked-transition-reason="blockedTransitionReason"
-              :preceptor-pair-hints="preceptorPairHints"
-              @select-employee="handleSelectEmployee"
-              @update:request-type="draftRequestTypeId = $event"
-              @update:selection-mode="handleDraftSelectionModeUpdate"
-              @update:selected-dates="handleDraftSelectedDatesUpdate"
-              @update:note="handleDraftNoteUpdate"
-              @apply-request="applyDraftRequest"
-              @save-applied-changes="handleSaveAppliedChanges"
-              @reset-draft="resetDraftState({ preserveEmployee: true })"
-              @edit-request="hydrateDraftFromRequestRow"
-              @delete-request="handleDeleteRequest"
-            />
-          </div>
-        </div>
-      </n-drawer>
-
-      <!-- Bottom Actions -->
-      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t bg-white py-4">
-        <div class="flex gap-3">
-          <n-popconfirm
-            v-if="cameFromDashboard"
-            @positive-click="handleReturnToDashboard"
-          >
-            <template #trigger>
-              <n-button size="large">
-                근무표 관리로 돌아가기
-              </n-button>
-            </template>
-            근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
-          </n-popconfirm>
-          <n-button
-            v-if="!cameFromDashboard"
-            size="large"
-            @click="handlePrev"
-          >
-            ← 이전 단계
-          </n-button>
-          <n-button
-            size="large"
-            secondary
-            type="error"
-            :disabled="Boolean(step4MutationBlockedReason)"
-            @click="handleClearAllOffRequests"
-          >
-            모든 Off 요청 초기화
-          </n-button>
-        </div>
-
-        <div class="flex flex-col items-end gap-2">
-          <p
-            v-if="pageLevelBlockedReason"
-            class="text-sm text-amber-700"
-          >
-            {{ pageLevelBlockedReason }}
-          </p>
+        <!-- Bottom Actions -->
+        <div class="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 border-t bg-white py-4">
           <div class="flex gap-3">
-            <n-button
-              type="primary"
-              size="large"
-              :loading="isSubmitting"
-              :disabled="isSubmitting || !canPersistStep4"
-              @click="handleNext"
+            <n-popconfirm
+              v-if="cameFromDashboard"
+              @positive-click="handleReturnToDashboard"
             >
-              {{ nextStepLabel }}
+              <template #trigger>
+                <n-button size="large">
+                  근무표 관리로 돌아가기
+                </n-button>
+              </template>
+              근무표 관리로 돌아가면 현재 입력한 데이터가 초기화됩니다. 계속하시겠습니까?
+            </n-popconfirm>
+            <n-button
+              v-if="!cameFromDashboard"
+              size="large"
+              @click="handlePrev"
+            >
+              ← 이전 단계
             </n-button>
+            <n-button
+              size="large"
+              secondary
+              type="error"
+              :disabled="Boolean(step4MutationBlockedReason)"
+              @click="handleClearAllOffRequests"
+            >
+              모든 Off 요청 초기화
+            </n-button>
+          </div>
+
+          <div class="flex flex-col items-end gap-2">
+            <p
+              v-if="pageLevelBlockedReason"
+              class="text-sm text-amber-700"
+            >
+              {{ pageLevelBlockedReason }}
+            </p>
+            <div class="flex gap-3">
+              <n-button
+                type="primary"
+                size="large"
+                :loading="isSubmitting"
+                :disabled="isSubmitting || !canPersistStep4"
+                @click="handleNext"
+              >
+                {{ nextStepLabel }}
+              </n-button>
+            </div>
           </div>
         </div>
       </div>
@@ -2171,9 +2190,27 @@ function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void 
 
 function scrollEmployeeRowIntoView(employeeId: string): void {
   void nextTick(() => {
-    document
-      .querySelector<HTMLElement>(`[data-employee-id="${employeeId}"]`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    const row = document.querySelector<HTMLElement>(`[data-employee-id="${employeeId}"]`);
+    if (!row) return;
+
+    const scrollRegion = document.querySelector<HTMLElement>('[data-test="step4-calendar-scroll-region"]');
+    if (scrollRegion) {
+      const rowRect = row.getBoundingClientRect();
+      const regionRect = scrollRegion.getBoundingClientRect();
+      const targetTop =
+        scrollRegion.scrollTop
+        + (rowRect.top - regionRect.top)
+        - (regionRect.height / 2)
+        + (rowRect.height / 2);
+
+      scrollRegion.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth',
+      });
+      return;
+    }
+
+    row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
   });
 }
 
@@ -2349,6 +2386,8 @@ function shouldReloadOrganizationEmployees(forceRefresh: boolean): boolean {
   if (forceRefresh) return true;
   if (!orgStore.current || orgStore.employees.length === 0) return true;
   if (!scheduleStore.basicInfo?.scheduleId) return true;
+  const metaCount = scheduleStore.basicInfo?.employeeCount ?? 0;
+  if (metaCount > 0 && metaCount !== orgStore.employees.length) return true;
   return false;
 }
 
@@ -2824,3 +2863,10 @@ async function handleNext() {
   }
 }
 </script>
+
+<style scoped>
+:deep(.step4-calendar-grid .schedule-grid-container) {
+  flex: none;
+  overflow-y: visible;
+}
+</style>
