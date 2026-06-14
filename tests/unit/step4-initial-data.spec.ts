@@ -4643,6 +4643,28 @@ describe('Step4InitialData', () => {
     expect(gridMock.employees.value[0]?.id).toBe('new-uuid-1')
   })
 
+  it('does not reload organization when scheduleId exists and forceRefresh is false', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+
+    createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).not.toHaveBeenCalled()
+  })
+
+  it('always reloads when forceRefresh is true via handleRetryBaseline', async () => {
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+    organizationStoreMock.loadOrganization.mockClear()
+
+    await wrapper.vm.handleRetryBaseline()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(1)
+  })
+
   it('blocks applyDraftRequest when off policy rules fail to load', async () => {
     getOffRequestPoliciesMock.mockRejectedValueOnce(new Error('network'))
     const wrapper = createWrapper()
