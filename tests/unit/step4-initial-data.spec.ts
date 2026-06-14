@@ -320,6 +320,12 @@ vi.mock('@/components/schedule/request-entry/Step4RequestComposer.vue', () => ({
         <button data-test="composer-select-employee" @click="$emit('select-employee', ['emp-1'])">
           composer-select-employee
         </button>
+        <button
+          data-test="composer-select-new-uuid-1"
+          @click="$emit('select-employee', ['new-uuid-1'])"
+        >
+          composer-select-new-uuid-1
+        </button>
         <button data-test="composer-select-two-employees" @click="$emit('select-employee', ['emp-1', 'emp-2'])">
           composer-select-two-employees
         </button>
@@ -4622,6 +4628,73 @@ describe('Step4InitialData', () => {
 
     expect(ensurePhase2ScheduleMock).not.toHaveBeenCalled()
     expect(getScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+  })
+
+  it('drops stale employee keys from persist payload using orgStore employee ids', async () => {
+    const freshEmployee = {
+      id: 'new-uuid-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+    }
+    const staleEmployee = {
+      id: 'old-uuid-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+    }
+
+    organizationStoreMock.loadOrganization.mockImplementation(async () => {
+      organizationStoreMock.employees = [freshEmployee]
+      return { success: true }
+    })
+    organizationStoreMock.employees = [freshEmployee]
+    scheduleStoreMock.basicInfo.scheduleId = undefined
+
+    writeScopedTempPreferences({
+      constraints: {
+        'old-uuid-1': {
+          '2025-12-01': 'O',
+        },
+      },
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(gridMock.employees.value[0]?.id).toBe('new-uuid-1')
+
+    gridMock.employees.value = [staleEmployee]
+    wrapper.vm.constraints = {
+      'old-uuid-1': {
+        '2025-12-01': 'O',
+      },
+      'new-uuid-1': {},
+    }
+    wrapper.vm.constraintNotes = {
+      'old-uuid-1': {},
+      'new-uuid-1': {},
+    }
+
+    saveScheduleVersionPreferencesMock.mockClear()
+    showInfoMock.mockClear()
+
+    await openRequestDrawer(wrapper)
+    await wrapper.find('[data-test="composer-select-new-uuid-1"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalled()
+    const [, , constraintsArg, notesArg] = saveScheduleVersionPreferencesMock.mock.calls.at(-1) ?? []
+    expect(constraintsArg).not.toHaveProperty('old-uuid-1')
+    expect(constraintsArg?.['new-uuid-1']?.['2025-12-01']).toBe('O')
+    expect(notesArg).not.toHaveProperty('old-uuid-1')
+    expect(showInfoMock).toHaveBeenCalledWith(expect.stringContaining('임시 데이터는 제외'))
   })
 
   it('reloads organization when scheduleId is undefined and orgStore has stale non-empty employees', async () => {

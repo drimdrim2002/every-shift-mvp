@@ -1092,6 +1092,14 @@ function sanitizePreferenceMapsToCurrentEmployees(): {
   };
 }
 
+function getAuthoritativeEmployeeIds(): Set<string> {
+  const orgIds = orgStore.employees.map((employee) => employee.id);
+  if (orgIds.length > 0) {
+    return new Set(orgIds);
+  }
+  return new Set(grid.employees.value.map((employee) => employee.id));
+}
+
 function sanitizeSnapshotToCurrentEmployees(snapshot: {
   constraints: ConstraintMap;
   notes: CommentMap;
@@ -1102,7 +1110,7 @@ function sanitizeSnapshotToCurrentEmployees(snapshot: {
   removedOffRequestCount: number;
   removedNoteCount: number;
 } {
-  const currentEmployeeIds = new Set(grid.employees.value.map((employee) => employee.id));
+  const currentEmployeeIds = getAuthoritativeEmployeeIds();
   if (currentEmployeeIds.size === 0) {
     return {
       constraints: {},
@@ -1138,7 +1146,9 @@ function sanitizeSnapshotToCurrentEmployees(snapshot: {
     sanitizedNotes[employeeId] = { ...dateMap };
   });
 
-  for (const employee of grid.employees.value) {
+  const authoritativeEmployees =
+    orgStore.employees.length > 0 ? orgStore.employees : grid.employees.value;
+  for (const employee of authoritativeEmployees) {
     if (!sanitizedConstraints[employee.id]) sanitizedConstraints[employee.id] = {};
     if (!sanitizedNotes[employee.id]) sanitizedNotes[employee.id] = {};
   }
