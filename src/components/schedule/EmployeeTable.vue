@@ -138,6 +138,7 @@ import {
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
 import { buildPreceptorCandidateOptions, validatePreceptorAssignment } from '@/utils/preceptorValidation';
+import { generateEmployeeId } from '@/utils/employeeRosterMapping';
 import { showError } from '@/utils/message';
 
 // Props
@@ -421,12 +422,5 @@ async function handleConfirm() {
   }
 
   showModal.value = false;
-}
-
-// 자동 직원 ID 생성
-function generateEmployeeId(): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `EMP${timestamp}${random}`;
 }
 </script>

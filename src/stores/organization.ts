@@ -17,6 +17,7 @@ import {
   resolveAuthScope,
   type AuthScope,
 } from '@/utils/authScope'
+import { sortByEmployeeId } from '@/utils/employeeRosterMapping'
 
 // Supabase 응답 타입 정의 (snake_case)
 interface OrganizationRow {
@@ -33,6 +34,8 @@ interface EmployeeRow {
   employee_id: string
   name: string
   available_shifts: string[]
+  rank_code?: string | null
+  preceptor_id?: string | null
   created_at?: string
   updated_at?: string
 }
@@ -146,19 +149,24 @@ export const useOrganizationStore = defineStore('organization', () => {
         .from('employees')
         .select('*')
         .eq('organization_id', resolvedOrgId)
+        .order('employee_id', { ascending: true })
 
       if (empError) throw empError
 
       // Snake_case to camelCase 변환
-      employees.value = (empData as EmployeeRow[]).map((emp) => ({
-        id: emp.id,
-        organizationId: emp.organization_id,
-        employeeId: emp.employee_id,
-        name: emp.name,
-        availableShifts: emp.available_shifts,
-        createdAt: emp.created_at,
-        updatedAt: emp.updated_at,
-      }))
+      employees.value = sortByEmployeeId(
+        (empData as EmployeeRow[]).map((emp) => ({
+          id: emp.id,
+          organizationId: emp.organization_id,
+          employeeId: emp.employee_id,
+          name: emp.name,
+          availableShifts: emp.available_shifts,
+          rankCode: emp.rank_code ?? null,
+          preceptorId: emp.preceptor_id ?? null,
+          createdAt: emp.created_at,
+          updatedAt: emp.updated_at,
+        })),
+      )
 
       // 시프트 정의
       const { data: shiftData, error: shiftError } = await supabase

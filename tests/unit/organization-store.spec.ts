@@ -42,16 +42,18 @@ function createFromQuery(table: string) {
 
   const query = {
     select: vi.fn(() => query),
-    order: vi.fn(() => query),
-    eq: vi.fn((column: string, value: string) => {
-      filters[column] = value;
-
-      if (table === 'employees' && column === 'organization_id') {
+    order: vi.fn(() => {
+      if (table === 'employees' && filters.organization_id) {
         return Promise.resolve({
-          data: employeeRowsByOrganizationId.get(value) ?? [],
+          data: employeeRowsByOrganizationId.get(filters.organization_id) ?? [],
           error: null,
         });
       }
+
+      return query;
+    }),
+    eq: vi.fn((column: string, value: string) => {
+      filters[column] = value;
 
       if (table === 'shifts' && column === 'organization_id') {
         return Promise.resolve({
@@ -169,8 +171,136 @@ describe('useOrganizationStore', () => {
     });
     expect(store.employees).toHaveLength(1);
     expect(store.employees[0]?.organizationId).toBe('org-2');
+    expect(store.employees[0]?.rankCode).toBeNull();
+    expect(store.employees[0]?.preceptorId).toBeNull();
     expect(store.shifts).toHaveLength(1);
     expect(store.shifts[0]?.organizationId).toBe('org-2');
+  });
+
+  it('sorts employees by employee_id even when DB rows arrive out of order', async () => {
+    organizationRowsById.set('org-2', {
+      id: 'org-2',
+      name: 'Correct Org',
+      type: 'hospital',
+    });
+    employeeRowsByOrganizationId.set('org-2', [
+      {
+        id: 'emp-3',
+        organization_id: 'org-2',
+        employee_id: '43338',
+        name: 'Trainee C',
+        available_shifts: ['D'],
+        preceptor_id: 'emp-2',
+      },
+      {
+        id: 'emp-1',
+        organization_id: 'org-2',
+        employee_id: '101',
+        name: 'Alpha',
+        available_shifts: ['D'],
+        preceptor_id: null,
+      },
+      {
+        id: 'emp-2',
+        organization_id: 'org-2',
+        employee_id: '42865',
+        name: 'Trainee B',
+        available_shifts: ['D'],
+        preceptor_id: 'emp-4',
+      },
+      {
+        id: 'emp-4',
+        organization_id: 'org-2',
+        employee_id: '43580',
+        name: 'Preceptor',
+        available_shifts: ['D'],
+        preceptor_id: null,
+      },
+    ]);
+    shiftRowsByOrganizationId.set('org-2', []);
+
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser(),
+        },
+      },
+      error: null,
+    });
+
+    const store = useOrganizationStore();
+    rbacStoreState.selectedOrganizationId = 'org-2';
+
+    const result = await store.loadOrganization();
+
+    expect(result).toEqual({ success: true });
+    expect(store.employees.map((employee) => employee.employeeId)).toEqual([
+      '101',
+      '42865',
+      '43338',
+      '43580',
+    ]);
+  });
+
+  it('maps preceptor_id and rank_code when loading employees', async () => {
+    organizationRowsById.set('org-2', {
+      id: 'org-2',
+      name: 'Correct Org',
+      type: 'hospital',
+    });
+    employeeRowsByOrganizationId.set('org-2', [
+      {
+        id: 'emp-p',
+        organization_id: 'org-2',
+        employee_id: 'P-1',
+        name: 'Preceptor',
+        available_shifts: ['D', 'E', 'N', 'O'],
+        rank_code: 'RN',
+        preceptor_id: null,
+      },
+      {
+        id: 'emp-t',
+        organization_id: 'org-2',
+        employee_id: 'T-1',
+        name: 'Trainee',
+        available_shifts: ['D'],
+        rank_code: 'NEW',
+        preceptor_id: 'emp-p',
+      },
+    ]);
+    shiftRowsByOrganizationId.set('org-2', []);
+
+    getSessionMock.mockResolvedValue({
+      data: {
+        session: {
+          user: createSessionUser({
+            user_metadata: {},
+            app_metadata: {
+              organization_id: 'org-legacy',
+            },
+          }),
+        },
+      },
+      error: null,
+    });
+
+    const store = useOrganizationStore();
+    rbacStoreState.selectedOrganizationId = 'org-2';
+
+    const result = await store.loadOrganization();
+
+    expect(result).toEqual({ success: true });
+    expect(store.employees).toHaveLength(2);
+    expect(store.employees[0]).toMatchObject({
+      employeeId: 'P-1',
+      rankCode: 'RN',
+      preceptorId: null,
+    });
+    expect(store.employees[1]).toMatchObject({
+      employeeId: 'T-1',
+      rankCode: 'NEW',
+      preceptorId: 'emp-p',
+    });
   });
 
   it('fails fast when no selected or effective organization is available from RBAC', async () => {
