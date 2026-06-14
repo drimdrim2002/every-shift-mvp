@@ -2587,6 +2587,17 @@ function handleClearAllOffRequests(): void {
   });
 }
 
+function gridEmployeeIdsMismatchOrgStore(): boolean {
+  if (orgStore.employees.length === 0) return false;
+  const orgIds = new Set(orgStore.employees.map((employee) => employee.id));
+  const gridIds = new Set(grid.employees.value.map((employee) => employee.id));
+  if (orgIds.size !== gridIds.size) return true;
+  for (const id of orgIds) {
+    if (!gridIds.has(id)) return true;
+  }
+  return false;
+}
+
 async function persistStep4PreferenceMaps(
   nextConstraints: ConstraintMap,
   nextNotes: CommentMap,
@@ -2600,6 +2611,15 @@ async function persistStep4PreferenceMaps(
   if (grid.employees.value.length === 0) {
     showError('직원 정보가 없습니다. Step3에서 최소 1명 저장 후 다시 진행해주세요.');
     return;
+  }
+
+  if (orgStore.employees.length === 0 || gridEmployeeIdsMismatchOrgStore()) {
+    const loadResult = await orgStore.loadOrganization(scheduleStore.basicInfo.organizationId);
+    if (!loadResult.success) {
+      showError(`직원 정보를 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`);
+      return;
+    }
+    grid.employees.value = orgStore.employees;
   }
 
   const sanitized = sanitizeSnapshotToCurrentEmployees({

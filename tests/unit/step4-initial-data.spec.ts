@@ -4697,6 +4697,59 @@ describe('Step4InitialData', () => {
     expect(showInfoMock).toHaveBeenCalledWith(expect.stringContaining('임시 데이터는 제외'))
   })
 
+  it('reloads organization before persist when grid and orgStore employee ids diverge', async () => {
+    const freshEmployee = {
+      id: 'new-uuid-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+    }
+    const staleEmployee = {
+      id: 'old-uuid-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+    }
+
+    organizationStoreMock.employees = [freshEmployee]
+    scheduleStoreMock.basicInfo.scheduleId = 'schedule-1'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    gridMock.employees.value = [staleEmployee]
+    wrapper.vm.constraints = {
+      'new-uuid-1': {
+        '2025-12-01': 'O',
+      },
+    }
+    wrapper.vm.constraintNotes = {
+      'new-uuid-1': {},
+    }
+
+    organizationStoreMock.loadOrganization.mockClear()
+    organizationStoreMock.loadOrganization.mockImplementation(async () => {
+      organizationStoreMock.employees = [freshEmployee]
+      return { success: true }
+    })
+
+    saveScheduleVersionPreferencesMock.mockClear()
+
+    await openRequestDrawer(wrapper)
+    await wrapper.find('[data-test="composer-select-new-uuid-1"]').trigger('click')
+    await wrapper.find('[data-test="composer-update-selected-dates"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="composer-apply-request"]').trigger('click')
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
+    expect(gridMock.employees.value[0]?.id).toBe('new-uuid-1')
+    expect(saveScheduleVersionPreferencesMock).toHaveBeenCalled()
+  })
+
   it('reloads organization when scheduleId is undefined and orgStore has stale non-empty employees', async () => {
     organizationStoreMock.employees = [
       {
