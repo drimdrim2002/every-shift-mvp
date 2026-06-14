@@ -365,13 +365,15 @@
                     v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
                     class="step4-calendar-grid"
                     mode="planning"
-                    :employees="grid.employees.value"
+                    :employees="displayEmployees"
                     :dates="grid.dates.value"
                     :constraints="constraints"
                     :comments="displayConstraintNotes"
                     :readonly="Boolean(step4MutationBlockedReason)"
                     :show-last-month="false"
                     :selected-employee-id="selectedEmployeeId"
+                    :selected-employee-ids="selectedEmployeeIds"
+                    :pair-display-meta-by-employee-id="pairDisplayMetaByEmployeeId"
                     :selected-dates="draftSelectedDates"
                     planning-interaction-mode="select"
                     @update:assignment="handleAssignmentUpdate"
@@ -618,6 +620,11 @@ import {
   type PairCorrectionSummary,
   type PairSkipSummary,
 } from '@/utils/preceptorOffSync';
+import {
+  expandSelectedEmployeeIdsWithPairs,
+  getPreceptorPairDisplayMeta,
+  orderEmployeesForPreceptorPairs,
+} from '@/utils/preceptorPairDisplayOrder';
 
 const router = useRouter();
 const route = useRoute();
@@ -658,6 +665,7 @@ const isOffRequestGuideExpanded = ref(false);
 const preceptorReconcileAlertSummary = ref<string | null>(null);
 
 const selectedEmployeeIds = ref<string[]>([]);
+const primarySelectedEmployeeIds = ref<string[]>([]);
 const draftRequestTypeId = ref<Step4RequestTypeId>('off');
 const draftSelectionMode = ref<Step4SelectionMode>('single');
 const draftSelectedDates = ref<string[]>([]);
@@ -753,6 +761,8 @@ const HIDDEN_DRAFT_BLOCKED_REASON =
 const OFF_POLICY_LOAD_ERROR_MESSAGE =
   'Off 정책을 불러오지 못해 요청을 반영할 수 없습니다.';
 const selectedEmployeeId = computed(() => selectedEmployeeIds.value[0] ?? null);
+const displayEmployees = computed(() => orderEmployeesForPreceptorPairs(grid.employees.value));
+const pairDisplayMetaByEmployeeId = computed(() => getPreceptorPairDisplayMeta(grid.employees.value));
 const selectedEmployees = computed(() => {
   const selectedEmployeeIdSet = new Set(selectedEmployeeIds.value);
   return grid.employees.value.filter((employee) => selectedEmployeeIdSet.has(employee.id));
@@ -1220,7 +1230,7 @@ function deriveDraftOffEdits(): OffEdit[] {
     return edits;
   }
 
-  selectedEmployeeIds.value.forEach((employeeId) => {
+  primarySelectedEmployeeIds.value.forEach((employeeId) => {
     draftSelectedDates.value.forEach((date) => {
       edits.push({ employeeId, date, action: 'add' });
     });
@@ -1363,7 +1373,7 @@ function buildDraftAppliedPreferenceMaps(): {
   });
 
   const normalizedNote = draftNote.value.trim();
-  selectedEmployeeIds.value.forEach((employeeId) => {
+  primarySelectedEmployeeIds.value.forEach((employeeId) => {
     if (!nextNotes[employeeId]) {
       nextNotes[employeeId] = {};
     }
@@ -1510,6 +1520,7 @@ function resetDraftState(options: { preserveEmployee?: boolean } = {}): void {
   isRequestDrawerOpenedFromGridShortcut.value = false;
   if (!options.preserveEmployee) {
     selectedEmployeeIds.value = [];
+    primarySelectedEmployeeIds.value = [];
   }
   draftRequestTypeId.value = 'off';
   draftSelectionMode.value = 'single';
@@ -1566,13 +1577,16 @@ function guardDraftTransition(
 }
 
 function handleSelectEmployee(employeeIds: string[]): void {
-  if (!guardDraftTransition(employeeIds, [], null)) {
+  const expandedEmployeeIds = expandSelectedEmployeeIdsWithPairs(grid.employees.value, employeeIds);
+
+  if (!guardDraftTransition(expandedEmployeeIds, [], null)) {
     return;
   }
 
   clearRequestApplyStatus();
   isRequestDrawerOpenedFromGridShortcut.value = false;
-  selectedEmployeeIds.value = [...employeeIds];
+  primarySelectedEmployeeIds.value = [...employeeIds];
+  selectedEmployeeIds.value = [...expandedEmployeeIds];
   draftSelectedDates.value = [];
   draftNote.value = '';
   editingRequestKey.value = null;
@@ -1613,7 +1627,7 @@ function handleGridCellSelect(payload: { employeeId: string; date: string }): vo
     buildCurrentEmployeeRequests(payload.employeeId).find((row) => row.dates.includes(payload.date)) ?? null;
   const nextDates = existingRow?.dates ?? [payload.date];
   const nextEditingRequestKey = existingRow?.requestKey ?? null;
-  const nextEmployeeIds = [payload.employeeId];
+  const nextEmployeeIds = expandSelectedEmployeeIdsWithPairs(grid.employees.value, [payload.employeeId]);
 
   if (shouldResetGridShortcutDraft(nextEmployeeIds, nextDates, nextEditingRequestKey)) {
     resetDraftState();
@@ -1625,6 +1639,7 @@ function handleGridCellSelect(payload: { employeeId: string; date: string }): vo
   }
 
   isRequestDrawerOpenedFromGridShortcut.value = true;
+  primarySelectedEmployeeIds.value = [payload.employeeId];
   selectedEmployeeIds.value = nextEmployeeIds;
   clearRequestApplyStatus();
   draftRequestTypeId.value = 'off';
@@ -1646,6 +1661,7 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
   }
 
   selectedEmployeeIds.value = [requestRow.employeeId];
+  primarySelectedEmployeeIds.value = [requestRow.employeeId];
   clearRequestApplyStatus();
   isRequestDrawerOpenedFromGridShortcut.value = false;
   draftRequestTypeId.value = requestRow.requestTypeId;

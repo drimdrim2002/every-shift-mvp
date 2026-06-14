@@ -4876,13 +4876,14 @@ describe('Step4InitialData', () => {
       expect(wrapper.text()).toContain('같은 날짜 Off가 함께 반영')
     })
 
-    it('shows single-employee pair hint in request composer', async () => {
+    it('shows pair linkage hint when preceptee selection auto-includes preceptor', async () => {
       const wrapper = await mountStep4WithPreceptorPair()
       await openRequestDrawer(wrapper)
       await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
       await flushPromises()
 
-      expect(wrapper.text()).toContain('연결된 프리셉터: 박선배 (40501)')
+      expect(wrapper.vm.selectedEmployeeIds).toEqual(['uuid-preceptee', 'uuid-preceptor'])
+      expect(wrapper.text()).toContain('프리셉터 짝 연동 대상: 박선배 ↔ 김신규')
     })
 
     it('shows multi-select pair summary with overflow copy', async () => {
@@ -4893,6 +4894,35 @@ describe('Step4InitialData', () => {
 
       expect(wrapper.text()).toContain('프리셉터 짝 연동 대상:')
       expect(wrapper.text()).toContain('외')
+    })
+
+    it('auto-includes preceptor peer when preceptee is selected', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      await openRequestDrawer(wrapper)
+      await wrapper.find('[data-test="composer-select-preceptee"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.vm.selectedEmployeeIds).toEqual(['uuid-preceptee', 'uuid-preceptor'])
+    })
+
+    it('orders paired employees adjacently for calendar display', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      await flushPromises()
+
+      expect(wrapper.vm.displayEmployees.map((employee: { id: string }) => employee.id)).toEqual([
+        'uuid-preceptor',
+        'uuid-preceptee',
+      ])
+    })
+
+    it('auto-includes preceptor peer when grid cell is selected', async () => {
+      const wrapper = await mountStep4WithPreceptorPair()
+      await flushPromises()
+
+      await wrapper.vm.handleGridCellSelect({ employeeId: 'uuid-preceptee', date: '2026-05-10' })
+      await flushPromises()
+
+      expect(wrapper.vm.selectedEmployeeIds).toEqual(['uuid-preceptee', 'uuid-preceptor'])
     })
   })
 

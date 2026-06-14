@@ -99,7 +99,9 @@
             v-for="employee in employees"
             :key="employee.id"
             class="data-row"
+            :class="getEmployeeRowClass(employee.id)"
             :data-employee-id="employee.id"
+            :data-test="getPairDisplayMeta(employee.id) ? 'preceptor-pair-row' : undefined"
           >
             <td
               class="sticky-column employee-cell text-center"
@@ -110,6 +112,23 @@
               </div>
               <div class="text-xs text-gray-500">
                 {{ employee.employeeId }}
+              </div>
+              <span
+                v-if="getPairDisplayMeta(employee.id)"
+                class="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                :class="getPairDisplayMeta(employee.id)?.role === 'preceptor'
+                  ? 'bg-sky-100 text-sky-800'
+                  : 'bg-emerald-100 text-emerald-800'"
+                :data-test="`preceptor-pair-role-${getPairDisplayMeta(employee.id)?.role}`"
+              >
+                {{ getPairDisplayMeta(employee.id)?.role === 'preceptor' ? '프리셉터' : '프리셉티' }}
+              </span>
+              <div
+                v-if="getPairPeerLabel(employee.id)"
+                class="mt-0.5 text-[11px] text-slate-500"
+                :data-test="`preceptor-pair-peer-${getPairDisplayMeta(employee.id)?.role}`"
+              >
+                {{ getPairPeerLabel(employee.id) }}
               </div>
             </td>
 
@@ -280,6 +299,7 @@ import type { GridColumn, AssignmentMap, ConstraintMap, OffReasonMap, CommentMap
 import { useScheduleGridStatistics } from '@/composables/useScheduleGridStatistics';
 import ShiftSelector from './ShiftSelector.vue';
 import ConstraintSelector from './ConstraintSelector.vue';
+import type { PreceptorPairDisplayMeta } from '@/utils/preceptorPairDisplayOrder';
 
 interface Props {
   employees: Employee[];
@@ -298,6 +318,8 @@ interface Props {
   preferenceDisplayMode?: 'pre-run' | 'post-run';
   allowPreRunFallbackWhenEmpty?: boolean;
   selectedEmployeeId?: string | null;
+  selectedEmployeeIds?: string[];
+  pairDisplayMetaByEmployeeId?: Record<string, PreceptorPairDisplayMeta>;
   selectedDates?: string[];
   planningInteractionMode?: 'toggle' | 'select';
 }
@@ -332,6 +354,8 @@ const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   showLastMonth: false,
   selectedEmployeeId: null,
+  selectedEmployeeIds: () => [],
+  pairDisplayMetaByEmployeeId: () => ({}),
   selectedDates: () => [],
   planningInteractionMode: 'toggle',
 });
@@ -339,6 +363,17 @@ const emit = defineEmits<Emits>();
 const isPlanning = computed(() => props.mode === 'planning');
 const statColumnCount = computed(() => (isPlanning.value ? 1 : 4));
 const selectedDateSet = computed(() => new Set(props.selectedDates));
+const selectedEmployeeIdSet = computed(() => {
+  if (props.selectedEmployeeIds.length > 0) {
+    return new Set(props.selectedEmployeeIds);
+  }
+
+  if (props.selectedEmployeeId) {
+    return new Set([props.selectedEmployeeId]);
+  }
+
+  return new Set<string>();
+});
 
 // 성능 측정
 if (import.meta.env.DEV) {
@@ -495,13 +530,37 @@ const headerLevel2 = computed(() => {
   return groups;
 });
 
+function isSelectedEmployee(employeeId: string): boolean {
+  return selectedEmployeeIdSet.value.has(employeeId);
+}
+
+function getPairDisplayMeta(employeeId: string): PreceptorPairDisplayMeta | null {
+  return props.pairDisplayMetaByEmployeeId[employeeId] ?? null;
+}
+
+function getPairPeerLabel(employeeId: string): string | null {
+  const meta = getPairDisplayMeta(employeeId);
+  if (!meta) return null;
+
+  const peerRoleLabel = meta.role === 'preceptor' ? '프리셉티' : '프리셉터';
+  return `${peerRoleLabel}: ${meta.peerName} (${meta.peerEmployeeId})`;
+}
+
 function isPlanningCellSelected(employeeId: string, date: string): boolean {
-  return props.selectedEmployeeId === employeeId && selectedDateSet.value.has(date);
+  return isSelectedEmployee(employeeId) && selectedDateSet.value.has(date);
+}
+
+function getEmployeeRowClass(employeeId: string) {
+  if (!getPairDisplayMeta(employeeId)) {
+    return undefined;
+  }
+
+  return 'border-l-2 border-sky-300 bg-sky-50/40';
 }
 
 function getEmployeeCellClass(employeeId: string) {
   return {
-    'bg-emerald-50': props.selectedEmployeeId === employeeId,
+    'bg-emerald-50': isSelectedEmployee(employeeId),
   };
 }
 
@@ -509,7 +568,7 @@ function getCellClass(date: GridColumn, employeeId: string) {
   return {
     'bg-gray-50': date.isLastMonth,
     'bg-white': !date.isLastMonth,
-    'bg-emerald-50/70': !date.isLastMonth && props.selectedEmployeeId === employeeId,
+    'bg-emerald-50/70': !date.isLastMonth && isSelectedEmployee(employeeId),
     'bg-sky-50': !date.isLastMonth && selectedDateSet.value.has(date.date),
     'ring-1 ring-inset ring-sky-200': !date.isLastMonth && selectedDateSet.value.has(date.date),
   };
