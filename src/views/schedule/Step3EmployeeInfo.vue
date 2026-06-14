@@ -439,6 +439,12 @@ async function performWizardEmployeeSave(orgId: string): Promise<boolean> {
       console.log('[Step3] Applied roster and removed schedule:', applyResult.deletedScheduleId);
     }
 
+    const loadResult = await orgStore.loadOrganization(orgId);
+    if (!loadResult.success) {
+      showError(`직원 정보를 다시 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`);
+      return false;
+    }
+
     scheduleStore.setEmployees(cloneEmployees(employees.value));
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,

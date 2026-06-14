@@ -128,6 +128,7 @@ const organizationStoreMock = reactive({
       endTime: '18:00:00',
     },
   ],
+  loadOrganization: vi.fn().mockResolvedValue({ success: true }),
 })
 
 const authStoreMock = reactive({
@@ -302,6 +303,7 @@ describe('Step3EmployeeInfo', () => {
       organizationId: 'org-1',
       employeeCount: 2,
     })
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
 
     ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = dialogMock
   })
@@ -737,6 +739,62 @@ describe('Step3EmployeeInfo', () => {
     expect(scheduleStoreMock.setEmployees).toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('직원 기본 정보가 저장되었습니다.')
     expect(pushMock).toHaveBeenCalledWith('/app')
+  })
+
+  it('reloads organization employees after wizard roster apply succeeds', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const addButton = wrapper.find('[data-test="employee-table-add"]')
+    expect(addButton.exists()).toBe(true)
+    await addButton.trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(1)
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
+    expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
+  })
+
+  it('does not show success when loadOrganization fails after wizard roster apply', async () => {
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({
+      success: false,
+      error: '직원 조회 실패',
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const addButton = wrapper.find('[data-test="employee-table-add"]')
+    expect(addButton.exists()).toBe(true)
+    await addButton.trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith(
+      '직원 정보를 다시 불러오지 못했습니다: 직원 조회 실패'
+    )
   })
 
   it('saves dirty employee changes without navigating to Step4', async () => {
