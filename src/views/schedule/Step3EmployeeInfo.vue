@@ -483,6 +483,12 @@ async function performSetupEmployeeSave(orgId: string): Promise<boolean> {
       employees: buildEmployeePayload(),
     });
 
+    const loadResult = await orgStore.loadOrganization(orgId);
+    if (!loadResult.success) {
+      showError(`직원 정보를 다시 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`);
+      return false;
+    }
+
     scheduleStore.setEmployees(cloneEmployees(employees.value));
     scheduleStore.setSelectedVersionId(null);
     scheduleStore.setPreviewVersionId(null);

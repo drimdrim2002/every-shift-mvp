@@ -766,6 +766,33 @@ describe('Step3EmployeeInfo', () => {
     expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
   })
 
+  it('reloads organization employees after setup roster replace succeeds', async () => {
+    routeQueryMock.context = 'setup'
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const addButton = wrapper.find('[data-test="employee-table-add"]')
+    expect(addButton.exists()).toBe(true)
+    await addButton.trigger('click')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(replaceOrganizationRosterMock).toHaveBeenCalledTimes(1)
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
+    expect(showSuccessMock).toHaveBeenCalledWith('직원 기본 정보가 저장되었습니다.')
+  })
+
   it('does not show success when loadOrganization fails after wizard roster apply', async () => {
     organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({
       success: false,
