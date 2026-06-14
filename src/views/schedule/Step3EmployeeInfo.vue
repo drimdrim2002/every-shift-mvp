@@ -184,16 +184,21 @@ import EmployeeExcelUpload from '@/components/schedule/EmployeeExcelUpload.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useScheduleStore } from '@/stores/schedule';
 import { useOrganizationStore } from '@/stores/organization';
+import { useRbacStore } from '@/stores/rbac';
 import { applyEmployeeImport, replaceOrganizationRoster } from '@/api/ops';
 import {
   getLatestScheduleByOrganizationMonth,
   getPhase2ScheduleCompare,
   getScheduleStatus,
 } from '@/api/schedule';
-import { supabase } from '@/api/supabase';
 import { showError, showInfo, showSuccess, showWarning } from '@/utils/message';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
 import { isSetupEntryMode } from '@/utils/scheduleEntryMode';
+import {
+  mapEmployeesToInput,
+  normalizeEmployeeInputs,
+  sortByEmployeeId,
+} from '@/utils/employeeRosterMapping';
 import { getAppHomeRoutePath, getScheduleStepRoutePath } from '@/constants/routes';
 import type { EmployeeInput } from '@/types/employee';
 import type { Shift } from '@/types/shift';
@@ -203,6 +208,7 @@ const route = useRoute();
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
+const rbacStore = useRbacStore();
 
 // State
 const activeTab = ref<'manual' | 'excel'>('manual');
@@ -215,11 +221,17 @@ const pageTitle = computed(() =>
   isSetupEntry.value ? '운영 준비 - 직원 기준 설정' : '근무표 생성 - 직원 정보 입력'
 );
 const resolvedOrganizationId = computed(() => {
+  const activeOrganizationId =
+    rbacStore.selectedOrganizationId ?? rbacStore.effectiveMembership?.organizationId ?? null;
+
   if (isSetupEntry.value) {
-    return orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null;
+    return orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? activeOrganizationId;
   }
 
-  return scheduleStore.basicInfo?.organizationId ?? orgStore.current?.id ?? orgStore.foundationSite?.organizationId ?? null;
+  return scheduleStore.basicInfo?.organizationId
+    ?? orgStore.current?.id
+    ?? orgStore.foundationSite?.organizationId
+    ?? activeOrganizationId;
 });
 
 // 시프트 목록
@@ -243,14 +255,6 @@ onMounted(async () => {
     return;
   }
 
-  // 1. Store에 저장된 데이터가 있으면 복원 (새로 생성하는 경우)
-  if (!isSetupEntry.value && scheduleStore.employees.length > 0) {
-    employees.value = cloneEmployees(scheduleStore.employees);
-    setBaselineEmployeesSnapshot(employees.value);
-    isInitialLoading.value = false;
-    return;
-  }
-
   const orgId = resolvedOrganizationId.value;
   if (!orgId) {
     employees.value = [];
@@ -259,56 +263,31 @@ onMounted(async () => {
     return;
   }
 
-  // 2. DB에서 기존 직원 정보 불러오기 (수정하는 경우)
   try {
-    const { data, error } = await supabase
-      .from('employees')
-      .select('*')
-      .eq('organization_id', orgId)
-      .order('employee_id');
-
-    if (error) {
-      console.error('[Step3] Load employees error:', error);
+    const loaded = await reloadEmployeesFromOrganization(orgId);
+    if (!loaded) {
+      console.error('[Step3] Load employees error: organization reload failed');
       setBaselineEmployeesSnapshot(employees.value);
       return;
     }
 
-    if (data && data.length > 0) {
-      const idToEmployeeIdMap = new Map(
-        data.map((emp: { id: string; employee_id: string }) => [emp.id, emp.employee_id])
-      );
-
-      // DB 데이터를 EmployeeInput 형식으로 변환
-      employees.value = data.map((emp: {
-        employee_id: string;
-        name: string;
-        available_shifts: string[];
-        rank_code?: string | null;
-        preceptor_id?: string | null;
-      }) => {
-        const preceptorEmployeeId = emp.preceptor_id
-          ? idToEmployeeIdMap.get(emp.preceptor_id) ?? null
-          : null;
-
-        if (emp.preceptor_id && !preceptorEmployeeId) {
-          console.warn('[Step3] Preceptor UUID not found in roster:', emp.preceptor_id);
-        }
-
-        return {
-          employeeId: emp.employee_id,
-          name: emp.name,
-          availableShifts: emp.available_shifts,
-          rankCode: emp.rank_code ?? null,
-          preceptorEmployeeId,
-        };
-      });
-
+    if (employees.value.length > 0) {
       setBaselineEmployeesSnapshot(employees.value);
+      if (!isSetupEntry.value) {
+        scheduleStore.setEmployees(cloneEmployees(employees.value));
+      }
       showInfo(`기존 직원 ${employees.value.length}명을 불러왔습니다.`);
+      return;
+    }
+
+    // DB roster is empty — restore in-memory wizard draft when present.
+    if (!isSetupEntry.value && scheduleStore.employees.length > 0) {
+      employees.value = cloneEmployees(scheduleStore.employees);
     } else {
       employees.value = [];
-      setBaselineEmployeesSnapshot([]);
     }
+
+    setBaselineEmployeesSnapshot(employees.value);
   } catch (error) {
     console.error('[Step3] Failed to load employees:', error);
     setBaselineEmployeesSnapshot(employees.value);
@@ -360,6 +339,8 @@ function setBaselineEmployeesSnapshot(list: EmployeeInput[]) {
 }
 
 function buildEmployeePayload() {
+  employees.value = sortByEmployeeId(normalizeEmployeeInputs(employees.value));
+
   return employees.value.map((employee) => ({
     employeeId: employee.employeeId,
     name: employee.name,
@@ -369,16 +350,30 @@ function buildEmployeePayload() {
   }));
 }
 
+function syncEmployeesFromOrgStore() {
+  employees.value = mapEmployeesToInput(orgStore.employees);
+}
+
+async function reloadEmployeesFromOrganization(orgId: string): Promise<boolean> {
+  const loadResult = await orgStore.loadOrganization(orgId);
+  if (!loadResult.success) {
+    return false;
+  }
+
+  syncEmployeesFromOrgStore();
+  return true;
+}
+
 // 직원 추가 핸들러
 function handleAddEmployee(employee: EmployeeInput) {
-  employees.value = [...employees.value, employee];
+  employees.value = sortByEmployeeId([...employees.value, employee]);
 }
 
 // 직원 수정 핸들러
 function handleEditEmployee(index: number, employee: EmployeeInput) {
   const updated = [...employees.value];
   updated[index] = employee;
-  employees.value = updated;
+  employees.value = sortByEmployeeId(updated);
 }
 
 // 직원 삭제 핸들러
@@ -388,7 +383,7 @@ function handleDeleteEmployee(index: number) {
 
 // 엑셀 업로드 핸들러
 function handleExcelUpload(uploadedEmployees: EmployeeInput[]) {
-  employees.value = uploadedEmployees;
+  employees.value = sortByEmployeeId(uploadedEmployees);
   showSuccess(`${uploadedEmployees.length}명의 직원이 업로드되었습니다.`);
 }
 
@@ -429,19 +424,28 @@ async function performWizardEmployeeSave(orgId: string): Promise<boolean> {
       throw new Error('기본 정보가 없습니다. 다시 시도해주세요.');
     }
 
+    const payload = buildEmployeePayload();
+
     const applyResult = await applyEmployeeImport({
       organizationId: orgId,
       month: scheduleStore.basicInfo.month,
-      employees: buildEmployeePayload(),
+      employees: payload,
     });
+
+    if (applyResult.employeeCount !== payload.length) {
+      showError(
+        `직원 저장 결과가 일치하지 않습니다. (요청 ${payload.length}명, 저장 ${applyResult.employeeCount}명) 다시 시도해주세요.`
+      );
+      return false;
+    }
 
     if (applyResult.deletedScheduleId) {
       console.log('[Step3] Applied roster and removed schedule:', applyResult.deletedScheduleId);
     }
 
-    const loadResult = await orgStore.loadOrganization(orgId);
-    if (!loadResult.success) {
-      showError(`직원 정보를 다시 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`);
+    const reloaded = await reloadEmployeesFromOrganization(orgId);
+    if (!reloaded) {
+      showError('직원 정보를 다시 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       return false;
     }
 
@@ -449,7 +453,7 @@ async function performWizardEmployeeSave(orgId: string): Promise<boolean> {
     scheduleStore.setBasicInfo({
       ...scheduleStore.basicInfo,
       scheduleId: undefined,
-      employeeCount: employees.value.length,
+      employeeCount: orgStore.employees.length,
     });
     scheduleStore.setSelectedVersionId(null);
     scheduleStore.setPreviewVersionId(null);
@@ -478,14 +482,23 @@ async function performSetupEmployeeSave(orgId: string): Promise<boolean> {
   isSaving.value = true;
 
   try {
-    await replaceOrganizationRoster({
+    const payload = buildEmployeePayload();
+
+    const replaceResult = await replaceOrganizationRoster({
       organizationId: orgId,
-      employees: buildEmployeePayload(),
+      employees: payload,
     });
 
-    const loadResult = await orgStore.loadOrganization(orgId);
-    if (!loadResult.success) {
-      showError(`직원 정보를 다시 불러오지 못했습니다: ${loadResult.error ?? 'Unknown error'}`);
+    if (replaceResult.employeeCount !== payload.length) {
+      showError(
+        `직원 저장 결과가 일치하지 않습니다. (요청 ${payload.length}명, 저장 ${replaceResult.employeeCount}명) 다시 시도해주세요.`
+      );
+      return false;
+    }
+
+    const reloaded = await reloadEmployeesFromOrganization(orgId);
+    if (!reloaded) {
+      showError('직원 정보를 다시 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
       return false;
     }
 

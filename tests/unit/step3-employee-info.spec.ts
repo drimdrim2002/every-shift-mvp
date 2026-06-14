@@ -16,6 +16,7 @@ const {
   setBasicInfoMock,
   setSelectedVersionIdMock,
   setPreviewVersionIdMock,
+  rbacStoreMock,
   showErrorMock,
   showInfoMock,
   showSuccessMock,
@@ -36,6 +37,12 @@ const {
   setBasicInfoMock: vi.fn(),
   setSelectedVersionIdMock: vi.fn(),
   setPreviewVersionIdMock: vi.fn(),
+  rbacStoreMock: {
+    selectedOrganizationId: 'org-1' as string | null,
+    effectiveMembership: {
+      organizationId: 'org-1',
+    } as { organizationId: string } | null,
+  },
   showErrorMock: vi.fn(),
   showInfoMock: vi.fn(),
   showSuccessMock: vi.fn(),
@@ -128,6 +135,26 @@ const organizationStoreMock = reactive({
       endTime: '18:00:00',
     },
   ],
+  employees: [
+    {
+      id: 'emp-1',
+      organizationId: 'org-1',
+      employeeId: 'E001',
+      name: 'Kim',
+      availableShifts: ['D'],
+      rankCode: null,
+      preceptorId: null,
+    },
+    {
+      id: 'emp-2',
+      organizationId: 'org-1',
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
+      preceptorId: null,
+    },
+  ],
   loadOrganization: vi.fn().mockResolvedValue({ success: true }),
 })
 
@@ -147,6 +174,10 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/stores/organization', () => ({
   useOrganizationStore: () => organizationStoreMock,
+}))
+
+vi.mock('@/stores/rbac', () => ({
+  useRbacStore: () => rbacStoreMock,
 }))
 
 vi.mock('@/components/schedule/StepIndicator.vue', () => ({
@@ -214,10 +245,16 @@ describe('Step3EmployeeInfo', () => {
     authStoreMock.user = {
       id: 'user-1',
     }
+    organizationStoreMock.employees = []
     organizationStoreMock.current = {
       id: 'org-1',
       name: '서울병원',
       type: 'hospital',
+    }
+    organizationStoreMock.foundationSite = null
+    rbacStoreMock.selectedOrganizationId = 'org-1'
+    rbacStoreMock.effectiveMembership = {
+      organizationId: 'org-1',
     }
 
     getScheduleStatusMock.mockResolvedValue({
@@ -281,62 +318,32 @@ describe('Step3EmployeeInfo', () => {
       }
     })
 
-    applyEmployeeImportMock.mockResolvedValue({
-      organizationId: 'org-1',
-      month: '2025-12',
+    applyEmployeeImportMock.mockImplementation(async (request) => ({
+      organizationId: request.organizationId,
+      month: request.month,
       deletedScheduleId: 'schedule-123',
-      employeeCount: 1,
+      employeeCount: request.employees.length,
       duplicateEmployeeIds: [],
       missingShiftCodes: [],
       isFinalized: false,
       isValid: true,
-      previewEmployees: [
-        {
-          employeeId: 'E001',
-          name: 'Kim',
-          availableShifts: ['D'],
-          rankCode: null,
-        },
-      ],
-    })
-    replaceOrganizationRosterMock.mockResolvedValue({
-      organizationId: 'org-1',
-      employeeCount: 2,
-    })
+      previewEmployees: request.employees,
+    }))
+    replaceOrganizationRosterMock.mockImplementation(async (request) => ({
+      organizationId: request.organizationId,
+      employeeCount: request.employees.length,
+    }))
     organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
 
     ;(window as typeof window & { $dialog?: typeof dialogMock }).$dialog = dialogMock
   })
 
   it('waits for the initial employee preload before rendering the editor surface', async () => {
-    const employeesDeferred = createDeferred<{
-      data: Array<{
-        employee_id: string
-        name: string
-        available_shifts: string[]
-        rank_code?: string | null
-      }>
-      error: null
-    }>()
+    const loadDeferred = createDeferred<{ success: boolean }>()
 
     scheduleStoreMock.employees = []
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'employees') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockReturnValue(employeesDeferred.promise),
-            }),
-          }),
-        }
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
-        }),
-      }
-    })
+    organizationStoreMock.employees = []
+    organizationStoreMock.loadOrganization = vi.fn().mockReturnValue(loadDeferred.promise)
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -345,10 +352,7 @@ describe('Step3EmployeeInfo', () => {
     expect(wrapper.find('[data-test="employee-upload"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('직원 정보를 불러오는 중입니다.')
 
-    employeesDeferred.resolve({
-      data: [],
-      error: null,
-    })
+    loadDeferred.resolve({ success: true })
     await flushPromises()
 
     expect(wrapper.find('[data-test="employee-table"]').exists()).toBe(true)
@@ -458,6 +462,8 @@ describe('Step3EmployeeInfo', () => {
     }
     organizationStoreMock.current = null
     organizationStoreMock.foundationSite = null
+    rbacStoreMock.selectedOrganizationId = null
+    rbacStoreMock.effectiveMembership = null
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -482,6 +488,54 @@ describe('Step3EmployeeInfo', () => {
         organizationId: 'org-stale',
       })
     )
+  })
+
+  it('uses selected rbac organization when setup entry loads before org cache is hydrated', async () => {
+    routeQueryMock.context = 'setup'
+    scheduleStoreMock.basicInfo = null
+    scheduleStoreMock.employees = []
+    organizationStoreMock.current = null
+    organizationStoreMock.foundationSite = null
+    rbacStoreMock.selectedOrganizationId = 'org-1'
+    rbacStoreMock.effectiveMembership = {
+      organizationId: 'org-1',
+    }
+    organizationStoreMock.employees = [
+      {
+        id: 'uuid-p',
+        organizationId: 'org-1',
+        employeeId: 'P-1',
+        name: '박선배',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: null,
+      },
+      {
+        id: 'uuid-t',
+        organizationId: 'org-1',
+        employeeId: 'T-1',
+        name: '김신규',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: 'uuid-p',
+      },
+    ]
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
+    expect(wrapper.vm.employees).toEqual([
+      expect.objectContaining({
+        employeeId: 'P-1',
+        preceptorEmployeeId: null,
+      }),
+      expect.objectContaining({
+        employeeId: 'T-1',
+        preceptorEmployeeId: 'P-1',
+      }),
+    ])
   })
 
   it('uses current organization shifts in setup mode instead of stale wizard shifts', async () => {
@@ -657,26 +711,9 @@ describe('Step3EmployeeInfo', () => {
   it('keeps setup-mode baseline clean when employee preload fails', async () => {
     routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
-
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'employees') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: null,
-                error: new Error('employee preload failed'),
-              }),
-            }),
-          }),
-        }
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
-        }),
-      }
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({
+      success: false,
+      error: 'employee preload failed',
     })
 
     const wrapper = createWrapper()
@@ -761,7 +798,7 @@ describe('Step3EmployeeInfo', () => {
     await warningConfig.onPositiveClick?.()
     await flushPromises()
 
-    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(1)
+    expect(organizationStoreMock.loadOrganization).toHaveBeenCalledTimes(2)
     expect(organizationStoreMock.loadOrganization).toHaveBeenCalledWith('org-1')
     expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
   })
@@ -820,11 +857,38 @@ describe('Step3EmployeeInfo', () => {
 
     expect(showSuccessMock).not.toHaveBeenCalled()
     expect(showErrorMock).toHaveBeenCalledWith(
-      '직원 정보를 다시 불러오지 못했습니다: 직원 조회 실패'
+      '직원 정보를 다시 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
     )
   })
 
   it('saves dirty employee changes without navigating to Step4', async () => {
+    organizationStoreMock.loadOrganization = vi
+      .fn()
+      .mockResolvedValueOnce({ success: true })
+      .mockImplementationOnce(async () => {
+        organizationStoreMock.employees = [
+          {
+            id: 'emp-1',
+            organizationId: 'org-1',
+            employeeId: 'E001',
+            name: 'Kim',
+            availableShifts: ['D'],
+            rankCode: null,
+            preceptorId: null,
+          },
+          {
+            id: 'emp-2',
+            organizationId: 'org-1',
+            employeeId: 'E002',
+            name: 'Lee',
+            availableShifts: ['D'],
+            rankCode: null,
+            preceptorId: null,
+          },
+        ]
+        return { success: true }
+      })
+
     const wrapper = createWrapper()
     await flushPromises()
 
@@ -879,6 +943,86 @@ describe('Step3EmployeeInfo', () => {
     expect(pushMock).not.toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('직원 정보가 저장되었습니다.')
     expect(validateEmployeeImportMock).not.toHaveBeenCalled()
+    expect(scheduleStoreMock.setEmployees).toHaveBeenCalledWith([
+      expect.objectContaining({
+        employeeId: 'E001',
+        name: 'Kim',
+      }),
+      expect.objectContaining({
+        employeeId: 'E002',
+        name: 'Lee',
+      }),
+    ])
+  })
+
+  it('fails save when applyEmployeeImport employeeCount does not match payload length', async () => {
+    applyEmployeeImportMock.mockResolvedValueOnce({
+      organizationId: 'org-1',
+      month: '2025-12',
+      deletedScheduleId: null,
+      employeeCount: 1,
+      duplicateEmployeeIds: [],
+      missingShiftCodes: [],
+      isFinalized: false,
+      isValid: true,
+      previewEmployees: [],
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleAddEmployee({
+      employeeId: 'E002',
+      name: 'Lee',
+      availableShifts: ['D'],
+      rankCode: null,
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(showSuccessMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith(
+      '직원 저장 결과가 일치하지 않습니다. (요청 2명, 저장 1명) 다시 시도해주세요.'
+    )
+  })
+
+  it('normalizes empty employeeId in payload before applyEmployeeImport', async () => {
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleAddEmployee({
+      employeeId: '',
+      name: 'NoId',
+      availableShifts: ['D'],
+      rankCode: null,
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    const applyCall = applyEmployeeImportMock.mock.calls[0]?.[0] as {
+      employees: Array<{ employeeId: string; name: string }>
+    }
+    const noIdEmployee = applyCall.employees.find((employee) => employee.name === 'NoId')
+
+    expect(noIdEmployee?.employeeId.trim().length).toBeGreaterThan(0)
   })
 
   it('moves to Step4 without a no-change message when nothing changed', async () => {
@@ -1042,33 +1186,18 @@ describe('Step3EmployeeInfo', () => {
 
   it('treats DB-preloaded employees as unchanged baseline data', async () => {
     scheduleStoreMock.employees = []
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'employees') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    employee_id: 'E001',
-                    name: 'Kim',
-                    available_shifts: ['D'],
-                    rank_code: 'RN',
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
-        }),
-      }
-    })
+    organizationStoreMock.employees = [
+      {
+        id: 'emp-1',
+        organizationId: 'org-1',
+        employeeId: 'E001',
+        name: 'Kim',
+        availableShifts: ['D'],
+        rankCode: 'RN',
+        preceptorId: null,
+      },
+    ]
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -1141,44 +1270,27 @@ describe('Step3EmployeeInfo', () => {
     routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
     scheduleStoreMock.employees = []
-
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'employees') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: 'uuid-p',
-                    employee_id: 'P-1',
-                    name: '박선배',
-                    available_shifts: ['D'],
-                    rank_code: null,
-                    preceptor_id: null,
-                  },
-                  {
-                    id: 'uuid-t',
-                    employee_id: 'T-1',
-                    name: '김신규',
-                    available_shifts: ['D'],
-                    rank_code: null,
-                    preceptor_id: 'uuid-p',
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
-        }),
-      }
-    })
+    organizationStoreMock.employees = [
+      {
+        id: 'uuid-p',
+        organizationId: 'org-1',
+        employeeId: 'P-1',
+        name: '박선배',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: null,
+      },
+      {
+        id: 'uuid-t',
+        organizationId: 'org-1',
+        employeeId: 'T-1',
+        name: '김신규',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: 'uuid-p',
+      },
+    ]
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -1191,44 +1303,27 @@ describe('Step3EmployeeInfo', () => {
     routeQueryMock.context = 'setup'
     scheduleStoreMock.basicInfo = null
     scheduleStoreMock.employees = []
-
-    supabaseFromMock.mockImplementation((table: string) => {
-      if (table === 'employees') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [
-                  {
-                    id: 'uuid-p',
-                    employee_id: 'P-1',
-                    name: '박선배',
-                    available_shifts: ['D'],
-                    rank_code: null,
-                    preceptor_id: null,
-                  },
-                  {
-                    id: 'uuid-t',
-                    employee_id: 'T-1',
-                    name: '김신규',
-                    available_shifts: ['D'],
-                    rank_code: null,
-                    preceptor_id: 'uuid-p',
-                  },
-                ],
-                error: null,
-              }),
-            }),
-          }),
-        }
-      }
-
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockResolvedValue({ count: 1, error: null }),
-        }),
-      }
-    })
+    organizationStoreMock.employees = [
+      {
+        id: 'uuid-p',
+        organizationId: 'org-1',
+        employeeId: 'P-1',
+        name: '박선배',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: null,
+      },
+      {
+        id: 'uuid-t',
+        organizationId: 'org-1',
+        employeeId: 'T-1',
+        name: '김신규',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: 'uuid-p',
+      },
+    ]
+    organizationStoreMock.loadOrganization = vi.fn().mockResolvedValue({ success: true })
 
     const wrapper = createWrapper()
     await flushPromises()
@@ -1293,6 +1388,87 @@ describe('Step3EmployeeInfo', () => {
 
     expect(showInfoMock).not.toHaveBeenCalledWith('변경된 데이터가 없습니다')
     expect(dialogMock.warning).toHaveBeenCalled()
+  })
+
+  it('syncs preceptorEmployeeId from orgStore after wizard save', async () => {
+    scheduleStoreMock.employees = []
+    organizationStoreMock.employees = [
+      {
+        id: 'uuid-p',
+        organizationId: 'org-1',
+        employeeId: 'P-1',
+        name: '박선배',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: null,
+      },
+      {
+        id: 'uuid-t',
+        organizationId: 'org-1',
+        employeeId: 'T-1',
+        name: '김신규',
+        availableShifts: ['D'],
+        rankCode: null,
+        preceptorId: null,
+      },
+    ]
+    organizationStoreMock.loadOrganization = vi.fn().mockImplementation(async () => {
+      return { success: true }
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    wrapper.vm.handleEditEmployee(1, {
+      ...wrapper.vm.employees[1],
+      preceptorEmployeeId: 'P-1',
+    })
+
+    const saveButton = wrapper.findAll('button').find((button) => button.text() === '저장')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    const warningConfig = dialogMock.warning.mock.calls[0]?.[0] as {
+      onPositiveClick?: () => Promise<void> | void
+    }
+
+    organizationStoreMock.loadOrganization = vi.fn().mockImplementation(async () => {
+      organizationStoreMock.employees = [
+        {
+          id: 'uuid-p',
+          organizationId: 'org-1',
+          employeeId: 'P-1',
+          name: '박선배',
+          availableShifts: ['D'],
+          rankCode: null,
+          preceptorId: null,
+        },
+        {
+          id: 'uuid-t',
+          organizationId: 'org-1',
+          employeeId: 'T-1',
+          name: '김신규',
+          availableShifts: ['D'],
+          rankCode: null,
+          preceptorId: 'uuid-p',
+        },
+      ]
+      return { success: true }
+    })
+
+    await warningConfig.onPositiveClick?.()
+    await flushPromises()
+
+    expect(wrapper.vm.employees[1].preceptorEmployeeId).toBe('P-1')
+    expect(scheduleStoreMock.setEmployees).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          employeeId: 'T-1',
+          preceptorEmployeeId: 'P-1',
+        }),
+      ])
+    )
   })
 
   it('blocks finalized month on the next-step path before showing the confirm dialog', async () => {
