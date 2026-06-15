@@ -1,0 +1,25 @@
+/* src/components/brand/brand-logo.tokens.css */
+:root {
+  --brand-logo-mark-1: #c9a227;
+  --brand-logo-mark-2: #14b8a6;
+  --brand-logo-mark-3: #1e3a5f;
+  --brand-logo-wordmark: #134e4a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-logo-mark-1: #e8c547;
+    --brand-logo-mark-2: #5eead4;
+    --brand-logo-mark-3: #7ba3d4;
+    --brand-logo-wordmark: #e2f5f2;
+  }
+}
+
+/* Future app dark mode hook — wire when product ships dark UI */
+.dark,
+[data-theme='dark'] {
+  --brand-logo-mark-1: #e8c547;
+  --brand-logo-mark-2: #5eead4;
+  --brand-logo-mark-3: #7ba3d4;
+  --brand-logo-wordmark: #e2f5f2;
+}
