@@ -407,8 +407,6 @@
                 v-if="totalCalendarPages > 1"
                 v-model:page="calendarPage"
                 data-test="step4-calendar-pagination"
-                :page-size="CALENDAR_PAGE_SIZE"
-                :item-count="displayEmployees.length"
                 :page-count="totalCalendarPages"
                 size="small"
               />
