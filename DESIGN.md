@@ -215,6 +215,15 @@ Use these for shift chips, cells, legends, and Excel-aligned affordances. Do not
 - Do not let the default Vite `color-scheme: light dark` behavior define the product.
 - If dark mode is added later, it must be intentionally designed and documented instead of inherited from browser defaults.
 
+### Brand Logo Tokens
+
+- Logo is vector (`BrandLogo.vue`); do not ship raster wordmarks for UI chrome.
+- Colors use `--brand-logo-mark-{1,2,3}` and `--brand-logo-wordmark`.
+- Light surfaces: default `:root` tokens.
+- Dark OS preference: `@media (prefers-color-scheme: dark)` overrides.
+- Future in-app dark mode: `.dark` / `[data-theme='dark']` uses the same overrides.
+- Do not add white background patches behind the logo.
+
 ### Token Mapping Rule
 
 - Global color decisions should prefer semantic CSS variables over raw Tailwind color literals.
