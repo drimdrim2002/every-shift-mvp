@@ -398,12 +398,13 @@
               class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-2"
             >
               <p
-                data-test="step4-calendar-pagination-range"
+                data-test="step4-calendar-page-info"
                 class="text-xs text-slate-500"
               >
                 {{ paginatedEmployeeRangeLabel }}
               </p>
               <n-pagination
+                v-if="totalCalendarPages > 1"
                 v-model:page="calendarPage"
                 data-test="step4-calendar-pagination"
                 :page-size="CALENDAR_PAGE_SIZE"

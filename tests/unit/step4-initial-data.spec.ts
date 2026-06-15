@@ -1305,6 +1305,33 @@ describe('Step4InitialData', () => {
       expect(wrapper.vm.paginatedDisplayEmployees[0]?.id).toBe('emp-11')
     })
 
+    it('focuses page 2 when selecting an employee on page 2 from page 1', async () => {
+      const manyEmployees = Array.from({ length: 12 }, (_, index) => {
+        const number = String(index + 1).padStart(2, '0')
+        return {
+          id: `emp-${number}`,
+          organizationId: 'org-1',
+          employeeId: `E${number}`,
+          name: `직원 ${number}`,
+          availableShifts: ['D'],
+        }
+      })
+      organizationStoreMock.employees = manyEmployees
+      gridMock.employees.value = manyEmployees
+      scheduleStoreMock.basicInfo.employeeCount = manyEmployees.length
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      expect(wrapper.vm.calendarPage).toBe(1)
+
+      await wrapper.vm.handleGridCellSelect({ employeeId: 'emp-11', date: '2025-12-01' })
+      await nextTick()
+
+      expect(wrapper.vm.calendarPage).toBe(2)
+      expect(wrapper.vm.paginatedDisplayEmployees[0]?.id).toBe('emp-11')
+    })
+
     it('applies step4-calendar-grid class to ScheduleGrid for scoped overrides', async () => {
       const wrapper = createWrapper()
       await flushPromises()
