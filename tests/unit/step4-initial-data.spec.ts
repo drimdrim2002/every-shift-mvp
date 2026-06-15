@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, nextTick, reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -256,9 +259,10 @@ vi.mock('@/components/schedule/StepIndicator.vue', () => ({
 
 vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
   default: defineComponent({
+    inheritAttrs: false,
     emits: ['update:assignment', 'context-menu', 'header-click', 'cell-select'],
     template: `
-      <div data-test="schedule-grid-stub">
+      <div data-test="schedule-grid-stub" v-bind="$attrs">
         <button
           data-test="grid-emit-cell-select"
           @click="$emit('cell-select', { employeeId: 'emp-1', date: '2025-12-01' })"
@@ -1229,6 +1233,37 @@ describe('Step4InitialData', () => {
       '근무자 2명이 모두 표시됩니다'
     )
     expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').text()).toContain('세로로 스크롤')
+  })
+
+  describe('calendar sticky scroll contract', () => {
+    it('uses the calendar card scroll region as the grid scrollport', async () => {
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      const scrollRegion = wrapper.get('[data-test="step4-calendar-scroll-region"]')
+      expect(scrollRegion.classes()).toContain('overflow-auto')
+      expect(scrollRegion.classes()).not.toContain('overflow-y-auto')
+    })
+
+    it('applies step4-calendar-grid class to ScheduleGrid for scoped overrides', async () => {
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="schedule-grid-stub"]').classes()).toContain('step4-calendar-grid')
+    })
+
+    // jsdom does not resolve scoped :deep styles, so assert the SFC rule directly.
+    it('keeps schedule-grid-container overflow visible so sticky targets the card scrollport', () => {
+      const source = readFileSync(
+        resolve(__dirname, '../../src/views/schedule/Step4InitialData.vue'),
+        'utf8'
+      )
+      const styleBlock = source.slice(source.lastIndexOf('<style scoped>'))
+
+      expect(source).toContain(':deep(.step4-calendar-grid .schedule-grid-container)')
+      expect(styleBlock).toMatch(/overflow:\s*visible/)
+      expect(styleBlock).not.toMatch(/overflow-y:\s*visible/)
+    })
   })
 
   it('shows the Step4 Off request Excel upload button in the calendar header', async () => {

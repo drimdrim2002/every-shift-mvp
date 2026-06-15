@@ -357,7 +357,7 @@
 
             <div
               data-test="step4-calendar-scroll-region"
-              class="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain"
+              class="relative min-h-0 flex-1 overflow-auto overscroll-y-contain"
             >
               <n-spin :show="grid.loading.value">
                 <div class="min-h-[240px]">
@@ -2881,8 +2881,13 @@ async function handleNext() {
 </script>
 
 <style scoped>
+/*
+ * Step4 scroll lives on step4-calendar-scroll-region so thead/stat-row sticky
+ * targets that ancestor. overflow-x on the grid container would compute
+ * overflow-y to auto and steal the scrollport from the card region.
+ */
 :deep(.step4-calendar-grid .schedule-grid-container) {
   flex: none;
-  overflow-y: visible;
+  overflow: visible;
 }
 </style>
