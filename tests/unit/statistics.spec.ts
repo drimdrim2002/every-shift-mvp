@@ -367,4 +367,60 @@ describe('useScheduleGridStatistics', () => {
       expect(rowNSum).toBe(3)
     })
   })
+
+  describe('columnEmployees 분리 (pagination)', () => {
+    it('planning mode: column stats use full roster, row stats use displayed employees only', () => {
+      const displayedEmployees = [mockEmployees[0]];
+      const fullRoster = mockEmployees.slice(0, 2);
+
+      const assignments: AssignmentMap = {
+        'emp-1': {
+          '2024-01-01': 'O',
+        },
+        'emp-2': {
+          '2024-01-01': 'O',
+        },
+      };
+
+      const statistics = useScheduleGridStatistics(
+        () => displayedEmployees,
+        () => mockDates.slice(0, 1),
+        () => assignments,
+        () => 'planning',
+        () => fullRoster,
+      );
+
+      expect(statistics.value.rowStats['emp-1'].total).toBe(1);
+      expect(statistics.value.rowStats['emp-2']).toBeUndefined();
+      expect(statistics.value.columnStats['2024-01-01'].total).toBe(2);
+    });
+
+    it('result mode: column stats use full roster, row stats use displayed employees only', () => {
+      const displayedEmployees = [mockEmployees[0]];
+      const fullRoster = mockEmployees.slice(0, 2);
+
+      const assignments: AssignmentMap = {
+        'emp-1': {
+          '2024-01-01': 'D',
+        },
+        'emp-2': {
+          '2024-01-01': 'E',
+        },
+      };
+
+      const statistics = useScheduleGridStatistics(
+        () => displayedEmployees,
+        () => mockDates.slice(0, 1),
+        () => assignments,
+        () => 'result',
+        () => fullRoster,
+      );
+
+      expect(statistics.value.rowStats['emp-1'].total).toBe(1);
+      expect(statistics.value.rowStats['emp-2']).toBeUndefined();
+      expect(statistics.value.columnStats['2024-01-01'].D).toBe(1);
+      expect(statistics.value.columnStats['2024-01-01'].E).toBe(1);
+      expect(statistics.value.columnStats['2024-01-01'].total).toBe(2);
+    });
+  })
 })

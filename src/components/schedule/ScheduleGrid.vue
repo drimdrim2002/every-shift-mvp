@@ -322,6 +322,7 @@ interface Props {
   pairDisplayMetaByEmployeeId?: Record<string, PreceptorPairDisplayMeta>;
   selectedDates?: string[];
   planningInteractionMode?: 'toggle' | 'select';
+  statisticsEmployees?: Employee[];
 }
 
 interface Emits {
@@ -385,7 +386,8 @@ const statistics = useScheduleGridStatistics(
   () => props.employees,
   () => props.dates,
   () => (props.mode === 'planning' ? (props.constraints as AssignmentMap) : props.assignments),
-  () => props.mode
+  () => props.mode,
+  () => props.statisticsEmployees ?? props.employees,
 );
 
 // 성능 측정: 초기 렌더링
