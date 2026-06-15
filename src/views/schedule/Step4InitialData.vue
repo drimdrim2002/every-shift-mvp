@@ -357,7 +357,7 @@
 
             <div
               data-test="step4-calendar-scroll-region"
-              class="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
+              class="relative min-h-0 flex-1 overflow-auto overscroll-y-contain"
             >
               <n-spin :show="grid.loading.value">
                 <div class="min-h-[240px]">
@@ -365,8 +365,7 @@
                     v-if="grid.employees.value.length > 0 && grid.dates.value.length > 0"
                     class="step4-calendar-grid"
                     mode="planning"
-                    :employees="paginatedDisplayEmployees"
-                    :statistics-employees="displayEmployees"
+                    :employees="displayEmployees"
                     :dates="grid.dates.value"
                     :constraints="constraints"
                     :comments="displayConstraintNotes"
@@ -393,24 +392,13 @@
               </n-spin>
             </div>
 
-            <div
+            <p
               v-if="grid.employees.value.length > 0"
-              class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-2"
+              data-test="step4-calendar-scroll-hint"
+              class="shrink-0 border-t border-slate-100 bg-slate-50/80 px-5 py-2 text-xs text-slate-500"
             >
-              <p
-                data-test="step4-calendar-page-info"
-                class="text-xs text-slate-500"
-              >
-                {{ paginatedEmployeeRangeLabel }}
-              </p>
-              <n-pagination
-                v-if="totalCalendarPages > 1"
-                v-model:page="calendarPage"
-                data-test="step4-calendar-pagination"
-                :page-count="totalCalendarPages"
-                size="small"
-              />
-            </div>
+              근무자 {{ grid.employees.value.length }}명이 모두 표시됩니다. 목록이 길면 캘린더 영역을 세로로 스크롤해 전체를 확인하세요.
+            </p>
           </div>
         </div>
 
@@ -570,7 +558,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import AppContainer from '@/components/layout/AppContainer.vue';
 import { useScheduleStore } from '@/stores/schedule';
@@ -587,7 +575,7 @@ import {
   saveScheduleVersionPreferences,
 } from '@/api/schedule';
 import { getOffRequestPolicies } from '@/api/ops';
-import { NAlert, NButton, NDrawer, NPagination, NPopconfirm, NSpin } from 'naive-ui';
+import { NAlert, NButton, NDrawer, NPopconfirm, NSpin } from 'naive-ui';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import CommentModal from '@/components/schedule/CommentModal.vue';
@@ -637,7 +625,6 @@ import {
   getPreceptorPairDisplayMeta,
   orderEmployeesForPreceptorPairs,
 } from '@/utils/preceptorPairDisplayOrder';
-import { buildEmployeeCalendarPages, findEmployeePageIndex } from '@/utils/employeeCalendarPagination';
 
 const router = useRouter();
 const route = useRoute();
@@ -645,7 +632,6 @@ const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const orgStore = useOrganizationStore();
 const grid = useScheduleGrid();
-const CALENDAR_PAGE_SIZE = 10;
 
 const isSubmitting = ref(false);
 const isInitialDataLoading = ref(true);
@@ -677,7 +663,6 @@ const isRequestDrawerOpen = ref(false);
 const isRequestDrawerOpenedFromGridShortcut = ref(false);
 const isOffRequestGuideExpanded = ref(false);
 const preceptorReconcileAlertSummary = ref<string | null>(null);
-const calendarPage = ref(1);
 
 const selectedEmployeeIds = ref<string[]>([]);
 const primarySelectedEmployeeIds = ref<string[]>([]);
@@ -777,20 +762,6 @@ const OFF_POLICY_LOAD_ERROR_MESSAGE =
   'Off 정책을 불러오지 못해 요청을 반영할 수 없습니다.';
 const selectedEmployeeId = computed(() => selectedEmployeeIds.value[0] ?? null);
 const displayEmployees = computed(() => orderEmployeesForPreceptorPairs(grid.employees.value));
-const employeeCalendarPages = computed(() =>
-  buildEmployeeCalendarPages(displayEmployees.value, CALENDAR_PAGE_SIZE),
-);
-const totalCalendarPages = computed(() => Math.max(1, employeeCalendarPages.value.length));
-const paginatedDisplayEmployees = computed(
-  () => employeeCalendarPages.value[calendarPage.value - 1] ?? [],
-);
-const paginatedEmployeeRangeLabel = computed(() => {
-  if (displayEmployees.value.length === 0) return '근무자 0명';
-
-  const start = (calendarPage.value - 1) * CALENDAR_PAGE_SIZE + 1;
-  const end = Math.min(start + CALENDAR_PAGE_SIZE - 1, displayEmployees.value.length);
-  return `${start}–${end}번째`;
-});
 const pairDisplayMetaByEmployeeId = computed(() => getPreceptorPairDisplayMeta(grid.employees.value));
 const selectedEmployees = computed(() => {
   const selectedEmployeeIdSet = new Set(selectedEmployeeIds.value);
@@ -1051,19 +1022,6 @@ const tempPreferenceScope = computed(() => {
     organizationId: scheduleStore.basicInfo?.organizationId,
     month: scheduleStore.basicInfo?.month,
   });
-});
-
-watch(
-  () => [grid.employees.value.length, scheduleStore.basicInfo?.month] as const,
-  () => {
-    calendarPage.value = 1;
-  },
-);
-
-watch(totalCalendarPages, (nextTotalCalendarPages) => {
-  if (calendarPage.value > nextTotalCalendarPages) {
-    calendarPage.value = nextTotalCalendarPages;
-  }
 });
 
 function normalizeRouteQueryString(value: unknown): string | null {
@@ -1691,7 +1649,7 @@ function handleGridCellSelect(payload: { employeeId: string; date: string }): vo
   editingRequestKey.value = nextEditingRequestKey;
   dirtySinceLastApply.value = existingRow === null;
   blockedTransitionReason.value = null;
-  focusEmployeeCalendarPage(payload.employeeId);
+  scrollEmployeeRowIntoView(payload.employeeId);
   void handleOpenRequestDrawer();
 }
 
@@ -1713,7 +1671,7 @@ function hydrateDraftFromRequestRow(requestKey: string): void {
   editingRequestKey.value = requestRow.requestKey;
   dirtySinceLastApply.value = false;
   blockedTransitionReason.value = null;
-  focusEmployeeCalendarPage(requestRow.employeeId);
+  scrollEmployeeRowIntoView(requestRow.employeeId);
 }
 
 async function applyDraftRequest(): Promise<void> {
@@ -2246,11 +2204,30 @@ function handleApplyOffRequestExcelUpload(nextConstraints: ConstraintMap): void 
   showSuccess('Excel Off 요청을 현재 화면에 반영했습니다. 저장하려면 변경사항 저장을 눌러 주세요.');
 }
 
-function focusEmployeeCalendarPage(employeeId: string): void {
-  const page = findEmployeePageIndex(displayEmployees.value, CALENDAR_PAGE_SIZE, employeeId);
-  if (page > 0) {
-    calendarPage.value = page;
-  }
+function scrollEmployeeRowIntoView(employeeId: string): void {
+  void nextTick(() => {
+    const row = document.querySelector<HTMLElement>(`[data-employee-id="${employeeId}"]`);
+    if (!row) return;
+
+    const scrollRegion = document.querySelector<HTMLElement>('[data-test="step4-calendar-scroll-region"]');
+    if (scrollRegion) {
+      const rowRect = row.getBoundingClientRect();
+      const regionRect = scrollRegion.getBoundingClientRect();
+      const targetTop =
+        scrollRegion.scrollTop
+        + (rowRect.top - regionRect.top)
+        - (regionRect.height / 2)
+        + (rowRect.height / 2);
+
+      scrollRegion.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth',
+      });
+      return;
+    }
+
+    row.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+  });
 }
 
 function handleWindowKeydown(event: KeyboardEvent): void {

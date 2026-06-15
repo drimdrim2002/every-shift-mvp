@@ -29,9 +29,6 @@ test-results/
 opencode.jsonc
 .sisyphus
 qa-screenshots
-scratch/
-.pnpm-store/
-.vitest-report-*.txt
 
 .cursor
 .gemini/

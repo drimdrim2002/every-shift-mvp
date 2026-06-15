@@ -12,8 +12,7 @@ export function useScheduleGridStatistics(
   employees: () => Employee[],
   dates: () => GridColumn[],
   assignments: () => AssignmentMap,
-  mode: () => 'planning' | 'result' = () => 'result',
-  columnEmployees: () => Employee[] = employees,
+  mode: () => 'planning' | 'result' = () => 'result'
 ) {
   // 통계 데이터 (computed로 최적화, 캐싱 적용)
   const statistics = computed<GridStatistics>(() => {
@@ -61,7 +60,7 @@ export function useScheduleGridStatistics(
     dates().forEach((date) => {
       const stat: ColumnStat = { D: 0, E: 0, N: 0, total: 0 };
 
-      columnEmployees().forEach((emp) => {
+      employees().forEach((emp) => {
         const shiftCode = assignments()[emp.id]?.[date.date];
 
         if (currentMode === 'planning') {

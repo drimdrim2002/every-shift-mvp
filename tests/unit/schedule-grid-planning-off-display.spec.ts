@@ -75,47 +75,4 @@ describe('ScheduleGrid planning Off display', () => {
     expect(offCells).toHaveLength(0);
     expect(wrapper.findAll('.constraint-selector')).toHaveLength(2);
   });
-
-  it('aggregates column Total from full roster when statisticsEmployees is provided', () => {
-    const employee1 = buildEmployee({
-      id: 'uuid-employee-1',
-      employeeId: '101',
-      name: '소한지',
-    });
-    const employee2 = buildEmployee({
-      id: 'uuid-employee-2',
-      employeeId: '102',
-      name: '김간호',
-    });
-
-    const constraints: ConstraintMap = {
-      'uuid-employee-1': {
-        '2026-05-04': 'O',
-      },
-      'uuid-employee-2': {
-        '2026-05-04': 'O',
-      },
-    };
-
-    const wrapper = mount(ScheduleGrid, {
-      props: {
-        employees: [employee1],
-        statisticsEmployees: [employee1, employee2],
-        dates: [dates[0]],
-        mode: 'planning',
-        constraints,
-        planningInteractionMode: 'select',
-      },
-    });
-
-    const totalRow = wrapper.find('.stat-row-total-only');
-    expect(totalRow.exists()).toBe(true);
-
-    const totalCells = totalRow.findAll('td.shift-cell');
-    expect(totalCells).toHaveLength(1);
-    expect(totalCells[0].text()).toBe('2');
-
-    const rowTotalCell = wrapper.find('tbody tr.data-row td.sticky-right-total');
-    expect(rowTotalCell.text()).toBe('1');
-  });
 });

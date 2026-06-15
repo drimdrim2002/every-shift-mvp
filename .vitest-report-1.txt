@@ -1,0 +1,461 @@
+
+ RUN  v4.0.12 /Users/brown/workspace/every-shift-mvp
+
+ ✓ tests/unit/schedule-month-state.spec.ts (6 tests) 2ms
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > renders the title, current year, 12 month tiles, and disabled empty months
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > labels draft schedules as in-progress instead of result review
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > routes error schedules to Step4
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > routes generated months to the canonical Step5 review path
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > shows an empty state with a primary route to schedule step1 when no schedules exist
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > defaults to the latest generated schedule year so off-year schedules remain clickable
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > lets users switch between generated schedule years when multiple years exist
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > shows load error with retry instead of the empty create action when the API rejects
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/schedule-results.spec.ts > ScheduleResults > does not render month grid content while loading or in the empty state
+[Vue warn]: Invalid vnode type when creating vnode: undefined. 
+  at <ScheduleResults ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+ ❯ tests/unit/schedule-results.spec.ts (9 tests | 9 failed) 11ms
+     × renders the title, current year, 12 month tiles, and disabled empty months 7ms
+     × labels draft schedules as in-progress instead of result review 1ms
+     × routes error schedules to Step4 1ms
+     × routes generated months to the canonical Step5 review path 0ms
+     × shows an empty state with a primary route to schedule step1 when no schedules exist 0ms
+     × defaults to the latest generated schedule year so off-year schedules remain clickable 0ms
+     × lets users switch between generated schedule years when multiple years exist 0ms
+     × shows load error with retry instead of the empty create action when the API rejects 0ms
+     × does not render month grid content while loading or in the empty state 0ms
+stderr | tests/unit/dashboard.spec.ts > Dashboard > prioritizes schedule-list retry over creating a new schedule
+근무표 목록 로드 실패: Error: schedule list failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:520:43
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > prioritizes schedule-list retry over creating a new schedule
+근무표 목록 로드 실패: Error: schedule list failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:520:43
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > ignores stale schedule-list retry failures after a newer retry succeeds
+근무표 목록 로드 실패: Error: initial schedule list failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:562:30
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > falls back to schedule results when schedule management is not allowed and there is no recent result
+[Vue warn]: Unhandled error during execution of render function 
+  at <AppContainer data-test="dashboard-app-container" class="space-y-6" > 
+  at <Dashboard ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+[Vue warn]: Unhandled error during execution of component update 
+  at <AppContainer data-test="dashboard-app-container" class="space-y-6" > 
+  at <Dashboard ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > blocks navigation and shows an error when compare fails
+Step5 preview version resolve 실패: Error: compare failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:760:52
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > routes a recent error schedule through the in-progress resume flow
+[Vue warn]: Unhandled error during execution of render function 
+  at <AppContainer data-test="dashboard-app-container" class="space-y-6" > 
+  at <Dashboard ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+[Vue warn]: Unhandled error during execution of component update 
+  at <AppContainer data-test="dashboard-app-container" class="space-y-6" > 
+  at <Dashboard ref="VTU_COMPONENT" > 
+  at <VTUROOT>
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > hides schedule actions when checklist readiness cannot be loaded
+체크리스트 로드 실패: Error: checklist failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:801:40
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > shows a retry action instead of an empty state when schedule list loading fails after readiness is complete
+근무표 목록 로드 실패: Error: schedule list failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:922:43
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > keeps onboarding visible and shows an error when onboarding route navigation fails
+Readiness navigation failed: Error: navigation failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:1045:36
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:20
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > consumes the Dashboard createSchedule query without opening the modal when schedule loading fails
+근무표 목록 로드 실패: Error: schedule list failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:1178:43
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+stderr | tests/unit/dashboard.spec.ts > Dashboard > keeps the creation modal open and shows an error when Step1 navigation fails
+Schedule creation navigation failed: Error: navigation failed
+    at /Users/brown/workspace/every-shift-mvp/tests/unit/dashboard.spec.ts:1473:36
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:912:26
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1237:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1203:10)
+    at file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:37
+    at Traces.$ (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/traces.U4xDYhzZ.js:115:27)
+    at trace (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/vitest@4.0.12_@types+node@24.10.1_happy-dom@20.0.10_jiti@1.21.7_tsx@4.21.0_yaml@2.8.3/node_modules/vitest/dist/chunks/test.DqQZzsWf.js:234:21)
+    at runTest (file:///Users/brown/workspace/every-shift-mvp/node_modules/.pnpm/@vitest+runner@4.0.12/node_modules/@vitest/runner/dist/index.js:1647:12)
+
+ ❯ tests/unit/dashboard.spec.ts (42 tests | 3 failed) 359ms
+     ✓ renders the operational briefing instead of legacy dashboard sections when ready 27ms
+     ✓ routes to schedule results from the full-list action with text distinct from the primary CTA 14ms
+     ✓ prioritizes schedule-list retry over creating a new schedule 14ms
+     ✓ keeps briefing visible with a section-local spinner while schedules are still loading 7ms
+     ✓ ignores stale schedule-list retry failures after a newer retry succeeds 10ms
+     ✓ prioritizes a running schedule over a creatable month 8ms
+     ✓ falls back to recent result instead of create when schedule management is not allowed 9ms
+     ✓ falls back to schedule results when schedule management is not allowed and there is no recent result 7ms
+     × shows one recent schedule sorted by updated_at, created_at, month, then id without mutating the API array 17ms
+     ✓ ignores stale schedule responses after the selected organization changes 8ms
+     ✓ navigates to Step5 with a canonical preview query when viewing an existing schedule 5ms
+     ✓ falls back to the legacy uuid route key when a public id is unavailable 4ms
+     ✓ blocks navigation and shows an error when compare fails 6ms
+     × routes a recent error schedule through the in-progress resume flow 7ms
+     ✓ hides schedule actions when checklist readiness cannot be loaded 2ms
+     ✓ keeps schedule actions hidden while ops readiness is still loading 5ms
+     ✓ shows onboarding only and skips schedule loading when required readiness is incomplete 4ms
+     ✓ shows readiness unavailable and skips schedule loading when a required readiness item is missing 2ms
+     ✓ treats blocked optional readiness as ready for dashboard briefing sections 5ms
+     ✓ keeps dashboard briefing sections available when only schedule review is blocked 7ms
+     ✓ shows a retry action instead of an empty state when schedule list loading fails after readiness is complete 6ms
+     ✓ routes onboarding organization profile action to Step1 setup mode 4ms
+     ✓ routes onboarding schedule foundation action to Step2 setup mode 3ms
+     ✓ routes onboarding employee roster action to Step3 setup mode 3ms
+     ✓ keeps onboarding visible and shows an error when onboarding route navigation fails 3ms
+     ✓ routes schedule foundation checklist entries to Step2 setup even when the backend route drifts to Step1 3ms
+     ✓ renders a month picker instead of the legacy select when opening the creation modal 23ms
+     ✓ opens the month picker from the Dashboard createSchedule query after data is ready 20ms
+     ✓ opens the month picker when createSchedule query is added after Dashboard is already mounted 13ms
+     ✓ consumes the Dashboard createSchedule query without opening the modal when readiness is incomplete 4ms
+     ✓ consumes the Dashboard createSchedule query without opening the modal when schedule loading fails 6ms
+     ✓ disables only completed or running months in the month picker 17ms
+     ✓ keeps the month after a completed schedule selectable when date picker month detail is zero-based 18ms
+     ✓ defaults to the nearest available month using the planned priority order 14ms
+     ✓ refreshes blocked months before opening the creation modal and skips draft months missing from the loaded list 14ms
+     ✓ shows a warning and does not open the modal when every month in range is already taken 9ms
+     × resumes a draft month from the duplicate check instead of blocking creation 7ms
+     ✓ blocks creation when the final duplicate check finds a completed month 5ms
+     ✓ keeps the creation modal open and shows an error when Step1 navigation fails 5ms
+     ✓ shows draft schedules in the in-progress section alongside completed recent results 5ms
+     ✓ renders a restricted fallback without schedule creation actions for user-only access 1ms
+     ✓ reloads organization-scoped dashboard data when the active organization changes 9ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/unit/dashboard.spec.ts > Dashboard > shows one recent schedule sorted by updated_at, created_at, month, then id without mutating the API array
+AssertionError: expected '최근 근무표  마지막 작업 결과를 확인합니다  전체 목록 보기 20…' to contain '2026-12'
+
+Expected: "2026-12"
+Received: "최근 근무표  마지막 작업 결과를 확인합니다  전체 목록 보기 2026-06 근무표 완료생성일: 2026-05-03 09:00 Hard Score: 0 / Soft Score: 0 보기"
+
+ ❯ tests/unit/dashboard.spec.ts:667:39
+    665|     const recentSchedules = wrapper.findAll('[data-test="dashboard-rec…
+    666|     expect(recentSchedules).toHaveLength(1)
+    667|     expect(recentSchedules[0].text()).toContain('2026-12')
+       |                                       ^
+    668|     expect(recentSchedules[0].text()).not.toContain('2026-04')
+    669|     expect(recentSchedules[0].text()).not.toContain('2026-06')
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/unit/dashboard.spec.ts > Dashboard > routes a recent error schedule through the in-progress resume flow
+Error: Unable to get [data-test="dashboard-resume-schedule-2026-05"] within: <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6" data-test="dashboard-app-container">
+  <div>
+    <h1 class="text-2xl font-bold"> 근무표 관리 </h1>
+  </div>
+  <div>
+    <div class="space-y-8">
+      <section data-test="dashboard-next-action" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-5">
+          <div class="min-w-0 flex-1 space-y-2">
+            <p class="text-sm font-medium tracking-wide text-slate-500"> 오늘의 다음 작업 </p>
+            <h2 class="mt-1 text-xl font-semibold text-slate-900">새 근무표를 만들 수 있습니다</h2>
+            <p class="text-sm text-slate-600">아직 생성하지 않은 다음 계획월을 선택해 생성 흐름을 시작합니다.</p>
+            <!--v-if-->
+          </div><button class="n-button n-button--primary-type n-button--large-type min-h-11" tabindex="0" type="button" style="--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-bezier-ease-out: cubic-bezier(0, 0, .2, 1); --n-ripple-duration: .6s; --n-opacity-disabled: 0.5; --n-wave-opacity: 0.6; --n-font-weight: 400; --n-color: #18a058; --n-color-hover: #36ad6a; --n-color-pressed: #0c7a43; --n-color-focus: #36ad6a; --n-color-disabled: #18a058; --n-ripple-color: #18a058; --n-text-color: #FFF; --n-text-color-hover: #FFF; --n-text-color-pressed: #FFF; --n-text-color-focus: #FFF; --n-text-color-disabled: #FFF; --n-border: 1px solid #18a058; --n-border-hover: 1px solid #36ad6a; --n-border-pressed: 1px solid #0c7a43; --n-border-focus: 1px solid #36ad6a; --n-border-disabled: 1px solid #18a058; --n-width: initial; --n-height: 40px; --n-font-size: 15px; --n-padding: 0 18px; --n-icon-size: 20px; --n-icon-margin: 6px; --n-border-radius: 3px;" data-test="dashboard-primary-action">
+            <!---->
+            <transition-stub name="fade-in-width-expand-transition" appear="false" persisted="false" css="true">
+              <!---->
+            </transition-stub><span class="n-button__content">새 근무표 생성하기</span>
+            <div aria-hidden="true" class="n-base-wave"></div>
+            <div aria-hidden="true" class="n-button__border"></div>
+            <div aria-hidden="true" class="n-button__state-border"></div>
+          </button>
+        </div>
+      </section>
+      <section data-test="dashboard-operational-status" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4">
+          <p class="text-sm font-medium tracking-wide text-slate-500"> 운영 상태 </p>
+          <h2 class="mt-1 text-xl font-semibold text-slate-900"> 지금 확인해야 할 상태를 요약합니다 </h2>
+        </div>
+        <div class="divide-y divide-slate-200 rounded-lg border border-slate-200">
+          <div class="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <p class="text-sm font-medium text-slate-600">운영 기준</p><span class="w-fit rounded-full px-2.5 py-1 text-xs font-medium ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">준비 완료</span>
+          </div>
+          <div class="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <p class="text-sm font-medium text-slate-600">최근 완료 근무표</p><span class="w-fit rounded-full px-2.5 py-1 text-xs font-medium ring-1 bg-slate-100 text-slate-600 ring-slate-200">없음</span>
+          </div>
+        </div>
+      </section>
+      <section data-test="dashboard-recent-schedule" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium tracking-wide text-slate-500"> 최근 근무표 </p>
+            <h2 class="mt-1 text-xl font-semibold text-slate-900"> 마지막 작업 결과를 확인합니다 </h2>
+          </div><button class="n-button n-button--default-type n-button--medium-type n-button--secondary" tabindex="0" type="button" style="--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-bezier-ease-out: cubic-bezier(0, 0, .2, 1); --n-ripple-duration: .6s; --n-opacity-disabled: 0.5; --n-wave-opacity: 0.6; --n-font-weight: 400; --n-color: rgba(46, 51, 56, .05); --n-color-hover: rgba(46, 51, 56, .09); --n-color-pressed: rgba(46, 51, 56, .13); --n-color-focus: rgba(46, 51, 56, .09); --n-color-disabled: rgba(46, 51, 56, .05); --n-ripple-color: #0000; --n-text-color: rgb(51, 54, 57); --n-text-color-hover: rgb(51, 54, 57); --n-text-color-pressed: rgb(51, 54, 57); --n-text-color-focus: rgb(51, 54, 57); --n-text-color-disabled: rgb(51, 54, 57); --n-border: 1px solid rgb(224, 224, 230); --n-border-hover: 1px solid #36ad6a; --n-border-pressed: 1px solid #0c7a43; --n-border-focus: 1px solid #36ad6a; --n-border-disabled: 1px solid rgb(224, 224, 230); --n-width: initial; --n-height: 34px; --n-font-size: 14px; --n-padding: 0 14px; --n-icon-size: 18px; --n-icon-margin: 6px; --n-border-radius: 3px;" data-test="dashboard-view-all-schedules">
+            <!---->
+            <transition-stub name="fade-in-width-expand-transition" appear="false" persisted="false" css="true">
+              <!---->
+            </transition-stub><span class="n-button__content"> 전체 목록 보기 </span>
+            <div aria-hidden="true" class="n-base-wave"></div>
+            <!---->
+            <!---->
+          </button>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-slate-50/70 px-5 py-8 text-center">
+          <div class="n-spin-body">
+            <div class="n-base-loading n-spin" role="img" aria-label="loading" style="--n-bezier: cubic-bezier(.4, 0, .2, 1); --n-opacity-spinning: 0.5; --n-size: 34px; --n-color: #18a058; --n-text-color: #18a058;">
+              <transition-stub name="icon-switch-transition" appear="true" persisted="false" css="true">
+                <div class="n-base-loading__transition-wrapper">
+                  <div class="n-base-loading__container"><svg class="n-base-loading__icon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                      <g>
+                        <animateTransform attributeName="transform" type="rotate" values="0 100 100;270 100 100" begin="0s" dur="1.6s" fill="freeze" repeatCount="indefinite"></animateTransform>
+                        <circle class="n-base-loading__icon" fill="none" stroke="currentColor" stroke-width="18" stroke-linecap="round" cx="100" cy="100" r="91" stroke-dasharray="567" stroke-dashoffset="1848">
+                          <animateTransform attributeName="transform" type="rotate" values="0 100 100;135 100 100;450 100 100" begin="0s" dur="1.6s" fill="freeze" repeatCount="indefinite"></animateTransform>
+                          <animate attributeName="stroke-dashoffset" values="567;142;567" begin="0s" dur="1.6s" fill="freeze" repeatCount="indefinite"></animate>
+                        </circle>
+                      </g>
+                    </svg></div>
+                </div>
+              </transition-stub>
+            </div>
+            <!---->
+          </div>
+          <p class="mt-4 text-sm text-slate-500"> 근무표 목록을 불러오는 중입니다. </p>
+        </div>
+        <!--v-if-->
+      </section>
+    </div>
+  </div><!-- 월 선택 모달 -->
+  <!---->
+</div>
+ ❯ VueWrapper.BaseWrapper.get node_modules/.pnpm/@vue+test-utils@2.4.6/node_modules/@vue/test-utils/dist/vue-test-utils.cjs.js:7279:15
+ ❯ tests/unit/dashboard.spec.ts:786:19
+    784|     await flushPromises()
+    785| 
+    786|     await wrapper.get('[data-test="dashboard-resume-schedule-2026-05"]…
+       |                   ^
+    787|     await flushPromises()
+    788| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/unit/dashboard.spec.ts > Dashboard > resumes a draft month from the duplicate check instead of blocking creation
+AssertionError: expected "vi.fn()" to be called with arguments: [ '/app/schedule/step4' ]
+
+Received: 
+
+  1st vi.fn() call:
+
+  [
+-   "/app/schedule/step4",
++   {
++     "path": "/app/schedule/step5/sch_a1b2c3d4e5f6",
++   },
+  ]
+
+
+Number of calls: 1
+
+ ❯ tests/unit/dashboard.spec.ts:1413:22
+    1411|     expect(result).toBe(true)
+    1412|     expect(getPhase2ScheduleCompareMock).toHaveBeenCalledWith('sch_dup…
+    1413|     expect(pushMock).toHaveBeenCalledWith('/app/schedule/step4')
+       |                      ^
+    1414|     expect(showErrorMock).not.toHaveBeenCalledWith('2026-07 근무표가 이미 존재…
+    1415|   })
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > renders the title, current year, 12 month tiles, and disabled empty months
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > labels draft schedules as in-progress instead of result review
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > routes error schedules to Step4
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > routes generated months to the canonical Step5 review path
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > shows an empty state with a primary route to schedule step1 when no schedules exist
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > defaults to the latest generated schedule year so off-year schedules remain clickable
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > lets users switch between generated schedule years when multiple years exist
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > shows load error with retry instead of the empty create action when the API rejects
+ FAIL  tests/unit/schedule-results.spec.ts > ScheduleResults > does not render month grid content while loading or in the empty state
+Error: [🍍]: "getActivePinia()" was called but there was no active Pinia. Are you trying to use a store before calling "app.use(pinia)"?
+See https://pinia.vuejs.org/core-concepts/outside-component-usage.html for help.
+This will fail in production.
+ ❯ useStore node_modules/.pnpm/pinia@3.0.4_typescript@5.8.3_vue@3.5.17_typescript@5.8.3_/node_modules/pinia/dist/pinia.mjs:1706:19
+ ❯ setup src/views/schedule/ScheduleResults.vue:164:23
+    162| const router = useRouter();
+    163| const orgStore = useOrganizationStore();
+    164| const scheduleStore = useScheduleStore();
+       |                       ^
+    165| 
+    166| const loading = ref(false);
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:19
+ ❯ setupStatefulComponent node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:7903:25
+ ❯ setupComponent node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:7864:36
+ ❯ mountComponent node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5187:7
+ ❯ processComponent node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5153:9
+ ❯ patch node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:4680:11
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5298:11
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.17/node_modules/@vue/reactivity/dist/reactivity.cjs.js:241:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of null (reading 'month')
+ ❯ src/views/Dashboard.vue:284:48
+    282|                   <div class="flex flex-wrap items-center gap-3">
+    283|                     <h3 class="text-lg font-semibold text-slate-900">
+    284|                       {{ latestDisplaySchedule.month }} 근무표
+       |                                                ^
+    285|                     </h3>
+    286|                     <n-badge
+ ❯ renderFnWithContext node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:689:13
+ ❯ renderSlot node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:2986:53
+ ❯ Proxy._sfc_render src/components/layout/AppContainer.vue:3:5
+ ❯ renderComponentRoot node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6500:16
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5369:26
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.17/node_modules/@vue/reactivity/dist/reactivity.cjs.js:241:19
+ ❯ ReactiveEffect.runIfDirty node_modules/.pnpm/@vue+reactivity@3.5.17/node_modules/@vue/reactivity/dist/reactivity.cjs.js:279:12
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:33
+ ❯ flushJobs node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:405:9
+
+This error originated in "tests/unit/dashboard.spec.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "falls back to schedule results when schedule management is not allowed and there is no recent result". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of null (reading 'month')
+ ❯ src/views/Dashboard.vue:284:48
+    282|                   <div class="flex flex-wrap items-center gap-3">
+    283|                     <h3 class="text-lg font-semibold text-slate-900">
+    284|                       {{ latestDisplaySchedule.month }} 근무표
+       |                                                ^
+    285|                     </h3>
+    286|                     <n-badge
+ ❯ renderFnWithContext node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:689:13
+ ❯ renderSlot node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:2986:53
+ ❯ Proxy._sfc_render src/components/layout/AppContainer.vue:3:5
+ ❯ renderComponentRoot node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:6500:16
+ ❯ ReactiveEffect.componentUpdateFn [as fn] node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:5369:26
+ ❯ ReactiveEffect.run node_modules/.pnpm/@vue+reactivity@3.5.17/node_modules/@vue/reactivity/dist/reactivity.cjs.js:241:19
+ ❯ ReactiveEffect.runIfDirty node_modules/.pnpm/@vue+reactivity@3.5.17/node_modules/@vue/reactivity/dist/reactivity.cjs.js:279:12
+ ❯ callWithErrorHandling node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:200:33
+ ❯ flushJobs node_modules/.pnpm/@vue+runtime-core@3.5.17/node_modules/@vue/runtime-core/dist/runtime-core.cjs.js:405:9
+
+This error originated in "tests/unit/dashboard.spec.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "routes a recent error schedule through the in-progress resume flow". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  12 failed | 45 passed (57)
+     Errors  2 errors
+   Start at  00:25:21
+   Duration  1.44s (transform 337ms, setup 0ms, collect 1.85s, tests 372ms, environment 330ms, prepare 12ms)
+

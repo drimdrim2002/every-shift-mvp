@@ -139,28 +139,6 @@ vi.mock('naive-ui', () => ({
     template:
       '<div><slot name="trigger" /><button data-test="popconfirm-confirm" @click="$emit(\'positive-click\')">confirm</button><slot /></div>',
   },
-  NPagination: defineComponent({
-    props: {
-      page: {
-        type: Number,
-        default: 1,
-      },
-      pageCount: {
-        type: Number,
-        default: 1,
-      },
-      pageSize: {
-        type: Number,
-        default: 10,
-      },
-      itemCount: {
-        type: Number,
-        default: 0,
-      },
-    },
-    emits: ['update:page'],
-    template: '<div v-bind="$attrs" :data-page="page" :data-page-count="pageCount" :data-page-size="pageSize" :data-item-count="itemCount"><slot /></div>',
-  }),
 }))
 
 vi.mock('@/utils/message', () => ({
@@ -1245,91 +1223,26 @@ describe('Step4InitialData', () => {
     expect(wrapper.vm.currentEmployeeRequests).toEqual([])
   })
 
-  it('paginates calendar employees instead of vertical scroll guidance', async () => {
-    const manyEmployees = Array.from({ length: 12 }, (_, index) => {
-      const number = String(index + 1).padStart(2, '0')
-      return {
-        id: `emp-${number}`,
-        organizationId: 'org-1',
-        employeeId: `E${number}`,
-        name: `직원 ${number}`,
-        availableShifts: ['D'],
-      }
-    })
-    organizationStoreMock.employees = manyEmployees
-    gridMock.employees.value = manyEmployees
-    scheduleStoreMock.basicInfo.employeeCount = manyEmployees.length
-
+  it('shows employee count and scroll guidance in the calendar workspace', async () => {
     const wrapper = createWrapper()
     await flushPromises()
 
     expect(wrapper.find('[data-test="step4-calendar-scroll-region"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="step4-calendar-employee-count"]').text()).toContain('근무자 12명')
-    expect(wrapper.find('[data-test="step4-calendar-pagination"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="step4-calendar-scroll-region"]').classes()).toContain('overflow-y-hidden')
+    expect(wrapper.find('[data-test="step4-calendar-employee-count"]').text()).toContain('근무자 2명')
+    expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').text()).toContain(
+      '근무자 2명이 모두 표시됩니다'
+    )
+    expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').text()).toContain('세로로 스크롤')
   })
 
-  describe('calendar pagination contract', () => {
-    it('locks vertical scrolling on the calendar scroll region', async () => {
+  describe('calendar sticky scroll contract', () => {
+    it('uses the calendar card scroll region as the grid scrollport', async () => {
       const wrapper = createWrapper()
       await flushPromises()
 
       const scrollRegion = wrapper.get('[data-test="step4-calendar-scroll-region"]')
-      expect(scrollRegion.classes()).toContain('overflow-y-hidden')
-      expect(scrollRegion.classes()).toContain('overflow-x-auto')
-    })
-
-    it('shows the 11th employee on page 2', async () => {
-      const manyEmployees = Array.from({ length: 12 }, (_, index) => {
-        const number = String(index + 1).padStart(2, '0')
-        return {
-          id: `emp-${number}`,
-          organizationId: 'org-1',
-          employeeId: `E${number}`,
-          name: `직원 ${number}`,
-          availableShifts: ['D'],
-        }
-      })
-      organizationStoreMock.employees = manyEmployees
-      gridMock.employees.value = manyEmployees
-      scheduleStoreMock.basicInfo.employeeCount = manyEmployees.length
-
-      const wrapper = createWrapper()
-      await flushPromises()
-
-      wrapper.vm.calendarPage = 2
-      await nextTick()
-
-      expect(wrapper.vm.paginatedDisplayEmployees).toHaveLength(2)
-      expect(wrapper.vm.paginatedDisplayEmployees[0]?.id).toBe('emp-11')
-    })
-
-    it('focuses page 2 when selecting an employee on page 2 from page 1', async () => {
-      const manyEmployees = Array.from({ length: 12 }, (_, index) => {
-        const number = String(index + 1).padStart(2, '0')
-        return {
-          id: `emp-${number}`,
-          organizationId: 'org-1',
-          employeeId: `E${number}`,
-          name: `직원 ${number}`,
-          availableShifts: ['D'],
-        }
-      })
-      organizationStoreMock.employees = manyEmployees
-      gridMock.employees.value = manyEmployees
-      scheduleStoreMock.basicInfo.employeeCount = manyEmployees.length
-
-      const wrapper = createWrapper()
-      await flushPromises()
-
-      expect(wrapper.vm.calendarPage).toBe(1)
-
-      await wrapper.vm.handleGridCellSelect({ employeeId: 'emp-11', date: '2025-12-01' })
-      await nextTick()
-
-      expect(wrapper.vm.calendarPage).toBe(2)
-      expect(wrapper.vm.paginatedDisplayEmployees[0]?.id).toBe('emp-11')
+      expect(scrollRegion.classes()).toContain('overflow-auto')
+      expect(scrollRegion.classes()).not.toContain('overflow-y-auto')
     })
 
     it('applies step4-calendar-grid class to ScheduleGrid for scoped overrides', async () => {
