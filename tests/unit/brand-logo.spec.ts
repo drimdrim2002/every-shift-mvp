@@ -23,17 +23,21 @@ describe('BrandLogo', () => {
 
     const image = wrapper.get('[data-test="brand-logo"]')
 
-    expect(image.classes()).toContain('h-9')
-    expect(image.classes()).toContain('max-w-[160px]')
+    expect(image.classes()).toContain('h-10')
+    expect(image.classes()).toContain('brand-logo--md')
+    expect(image.classes()).toContain('object-center')
   })
 
-  it('allows decorative alt text override', () => {
+  it('hides decorative alt text when alt is empty', () => {
     const wrapper = mount(BrandLogo, {
       props: {
         alt: '',
       },
     })
 
-    expect(wrapper.get('[data-test="brand-logo"]').attributes('alt')).toBe('')
+    const image = wrapper.get('[data-test="brand-logo"]')
+
+    expect(image.attributes('alt')).toBe('')
+    expect(image.attributes('aria-hidden')).toBe('true')
   })
 })

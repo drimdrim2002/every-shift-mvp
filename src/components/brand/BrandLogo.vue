@@ -12,10 +12,10 @@ const props = withDefaults(defineProps<{
 
 const imageClass = computed(() => {
   if (props.size === 'md') {
-    return 'h-9 w-auto max-w-[160px] object-contain'
+    return 'brand-logo brand-logo--md h-10 w-auto object-contain object-center'
   }
 
-  return 'h-8 w-auto object-contain'
+  return 'brand-logo brand-logo--sm h-8 w-auto object-contain object-center'
 })
 </script>
 
@@ -25,7 +25,9 @@ const imageClass = computed(() => {
     :src="mainLogo"
     :alt="alt"
     :class="imageClass"
-    class="brand-logo-image"
+    class="brand-logo-image block shrink-0"
+    :aria-hidden="alt ? undefined : 'true'"
+    decoding="async"
   >
 </template>
 
@@ -35,5 +37,13 @@ const imageClass = computed(() => {
   background-color: #ffffff;
   border-radius: 6px;
   padding: 2px 4px;
+}
+
+.brand-logo--md {
+  max-height: 2.5rem;
+}
+
+.brand-logo--sm {
+  max-height: 2rem;
 }
 </style>
