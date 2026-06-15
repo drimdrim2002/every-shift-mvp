@@ -1,5 +1,4 @@
 import type { Employee } from '@/types/employee';
-import { resolvePreceptorPair } from '@/utils/preceptorOffSync';
 
 type PairableEmployee = Pick<Employee, 'id' | 'employeeId' | 'name' | 'preceptorId'>;
 
@@ -11,8 +10,12 @@ export function buildEmployeeCalendarPages<T extends PairableEmployee>(
   let current: T[] = [];
 
   const pairMateId = (emp: T): string | null => {
-    const pair = resolvePreceptorPair(employees as Employee[], emp.id);
-    return pair?.peerId ?? null;
+    if (emp.preceptorId) return emp.preceptorId;
+
+    const preceptee = employees.find((employee) => employee.preceptorId === emp.id);
+    if (preceptee) return preceptee.id;
+
+    return null;
   };
 
   employees.forEach((employee) => {
