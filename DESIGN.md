@@ -219,9 +219,9 @@ Use these for shift chips, cells, legends, and Excel-aligned affordances. Do not
 
 - Logo is vector (`BrandLogo.vue`); do not ship raster wordmarks for UI chrome.
 - Colors use `--brand-logo-mark-{1,2,3}` and `--brand-logo-wordmark`.
-- Light surfaces: default `:root` tokens.
-- Dark OS preference: `@media (prefers-color-scheme: dark)` overrides.
-- Future in-app dark mode: `.dark` / `[data-theme='dark']` uses the same overrides.
+- Light surfaces: default `:root` tokens; `[color-scheme='only light']` shells re-lock light tokens when OS prefers dark.
+- Do not apply dark logo tokens from OS `prefers-color-scheme` alone on light MVP chrome.
+- Future in-app dark mode: `.dark` / `[data-theme='dark']` uses dark overrides.
 - Do not add white background patches behind the logo.
 
 ### Token Mapping Rule
