@@ -3,41 +3,33 @@ import { describe, expect, it } from 'vitest'
 import BrandLogo from '@/components/brand/BrandLogo.vue'
 
 describe('BrandLogo', () => {
-  it('renders the default logo with sm sizing and alt text', () => {
+  it('renders vector mark and wordmark with sm sizing', () => {
     const wrapper = mount(BrandLogo)
 
-    const image = wrapper.get('[data-test="brand-logo"]')
+    const logo = wrapper.get('[data-test="brand-logo"]')
 
-    expect(image.attributes('alt')).toBe('everyshift')
-    expect(image.classes()).toContain('h-8')
-    expect(image.classes()).toContain('brand-logo-image')
-    expect(image.attributes('src')).toBeTruthy()
+    expect(logo.attributes('aria-label')).toBe('everyshift')
+    expect(logo.classes()).toContain('h-8')
+    expect(logo.find('[data-test="brand-logo-mark"]').exists()).toBe(true)
+    expect(logo.find('.brand-logo-wordmark').text()).toBe('everyshift')
+    expect(logo.find('img').exists()).toBe(false)
   })
 
   it('renders md sizing when requested', () => {
-    const wrapper = mount(BrandLogo, {
-      props: {
-        size: 'md',
-      },
-    })
-
-    const image = wrapper.get('[data-test="brand-logo"]')
-
-    expect(image.classes()).toContain('h-10')
-    expect(image.classes()).toContain('brand-logo--md')
-    expect(image.classes()).toContain('object-center')
+    const wrapper = mount(BrandLogo, { props: { size: 'md' } })
+    expect(wrapper.get('[data-test="brand-logo"]').classes()).toContain('h-10')
   })
 
-  it('hides decorative alt text when alt is empty', () => {
-    const wrapper = mount(BrandLogo, {
-      props: {
-        alt: '',
-      },
-    })
+  it('applies CSS variable fills on mark paths', () => {
+    const wrapper = mount(BrandLogo)
+    const paths = wrapper.findAll('[data-test="brand-logo-mark"] path')
+    expect(paths.length).toBe(3)
+    expect(paths[0]?.attributes('fill')).toBe('var(--brand-logo-mark-1)')
+  })
 
-    const image = wrapper.get('[data-test="brand-logo"]')
-
-    expect(image.attributes('alt')).toBe('')
-    expect(image.attributes('aria-hidden')).toBe('true')
+  it('hides decorative label when alt is empty', () => {
+    const wrapper = mount(BrandLogo, { props: { alt: '' } })
+    const logo = wrapper.get('[data-test="brand-logo"]')
+    expect(logo.attributes('aria-hidden')).toBe('true')
   })
 })
