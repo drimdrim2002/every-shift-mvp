@@ -14,6 +14,7 @@ export function useScheduleGridStatistics(
   assignments: () => AssignmentMap,
   mode: () => 'planning' | 'result' = () => 'result',
   columnEmployees: () => Employee[] = employees,
+  rowStatisticsDates: () => GridColumn[] = dates,
 ) {
   // 통계 데이터 (computed로 최적화, 캐싱 적용)
   const statistics = computed<GridStatistics>(() => {
@@ -31,7 +32,7 @@ export function useScheduleGridStatistics(
         const stat: RowStat = { D: 0, E: 0, N: 0, total: 0 };
 
         // 버그 수정: 그리드에 표시된 날짜만 계산, 단 전월 데이터는 요약(row)에서 제외
-        dates().forEach((date) => {
+        rowStatisticsDates().forEach((date) => {
           if (date.isLastMonth) return;
 
           const shiftCode = empAssignments[date.date];

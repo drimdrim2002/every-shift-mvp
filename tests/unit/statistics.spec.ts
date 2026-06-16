@@ -423,4 +423,32 @@ describe('useScheduleGridStatistics', () => {
       expect(statistics.value.columnStats['2024-01-01'].total).toBe(2);
     });
   })
+
+  describe('rowStatisticsDates 분리 (week view)', () => {
+    it('planning mode: row stats use rowStatisticsDates, column stats use visible dates only', () => {
+      const displayedEmployees = [mockEmployees[0]];
+      const visibleDates = mockDates.slice(0, 1); // one visible day
+      const fullMonthDates = mockDates.slice(0, 2); // two days for row total
+
+      const assignments: AssignmentMap = {
+        'emp-1': {
+          '2024-01-01': 'O',
+          '2024-01-02': 'O',
+        },
+      };
+
+      const statistics = useScheduleGridStatistics(
+        () => displayedEmployees,
+        () => visibleDates,
+        () => assignments,
+        () => 'planning',
+        () => displayedEmployees,
+        () => fullMonthDates,
+      );
+
+      expect(statistics.value.rowStats['emp-1'].total).toBe(2);
+      expect(statistics.value.columnStats['2024-01-01'].total).toBe(1);
+      expect(statistics.value.columnStats['2024-01-02']).toBeUndefined();
+    });
+  })
 })

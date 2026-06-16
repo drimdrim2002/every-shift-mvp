@@ -190,10 +190,17 @@
             data-test="step5-site-view"
           >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+              <div class="flex flex-wrap items-center gap-2">
                 <p class="text-sm font-semibold text-slate-900">
                   배정표
                 </p>
+                <span
+                  v-if="grid.employees.value.length > 0"
+                  data-test="step5-calendar-employee-count"
+                  class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600"
+                >
+                  근무자 {{ grid.employees.value.length }}명
+                </span>
               </div>
               <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                 <span
@@ -243,23 +250,52 @@
               />
             </div>
 
-            <ScheduleGrid
+            <div
               v-if="grid.employees.value.length > 0"
-              class="mt-4"
-              mode="result"
-              :employees="grid.employees.value"
-              :dates="grid.dates.value"
-              :assignments="grid.assignments.value"
-              :shift-colors="shiftColors"
-              :off-requests="offRequestsCurrentMonth"
-              :off-request-notes="offRequestNotesCurrentMonth"
-              :preference-display-mode="preferenceDisplayMode"
-              :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
-              :readonly="isReadonlyGrid"
-              :show-last-month="true"
-              result-cell-layout="single-box"
-              @update:assignment="handleAssignmentUpdate"
-            />
+              class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white"
+            >
+              <div
+                data-test="step5-calendar-scroll-region"
+                class="relative min-h-0 min-w-0 overflow-auto"
+              >
+                <ScheduleGrid
+                  class="step5-calendar-grid"
+                  mode="result"
+                  :employees="paginatedDisplayEmployees"
+                  :statistics-employees="displayEmployees"
+                  :dates="grid.dates.value"
+                  :assignments="grid.assignments.value"
+                  :shift-colors="shiftColors"
+                  :off-requests="offRequestsCurrentMonth"
+                  :off-request-notes="offRequestNotesCurrentMonth"
+                  :preference-display-mode="preferenceDisplayMode"
+                  :allow-pre-run-fallback-when-empty="allowPreRunFallbackWhenEmpty"
+                  :readonly="isReadonlyGrid"
+                  :show-last-month="true"
+                  :pair-display-meta-by-employee-id="pairDisplayMetaByEmployeeId"
+                  result-cell-layout="single-box"
+                  @update:assignment="handleAssignmentUpdate"
+                />
+              </div>
+
+              <div
+                class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-5 py-2"
+              >
+                <p
+                  data-test="step5-calendar-page-info"
+                  class="text-xs text-slate-500"
+                >
+                  {{ paginatedEmployeeRangeLabel }}
+                </p>
+                <n-pagination
+                  v-if="totalCalendarPages > 1"
+                  v-model:page="calendarPage"
+                  data-test="step5-calendar-pagination"
+                  :page-count="totalCalendarPages"
+                  size="small"
+                />
+              </div>
+            </div>
             <div
               v-else
               class="mt-4 text-center text-gray-500"
@@ -649,7 +685,7 @@
 import dayjs from 'dayjs';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { NCard, NButton, NBadge, NProgress, NAlert, NInputNumber, NSpin, NModal } from 'naive-ui';
+import { NCard, NButton, NBadge, NProgress, NAlert, NInputNumber, NSpin, NModal, NPagination } from 'naive-ui';
 import AppContainer from '@/components/layout/AppContainer.vue';
 import StepIndicator from '@/components/schedule/StepIndicator.vue';
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue';
@@ -701,6 +737,11 @@ import {
   mergeAssignmentMapsWithFallback,
 } from '@/utils/rollingHistory';
 import { clearScopedTempPreferencesStorage } from '@/utils/tempPreferencesStorage';
+import { buildEmployeeCalendarPages } from '@/utils/employeeCalendarPagination';
+import {
+  getPreceptorPairDisplayMeta,
+  orderEmployeesForPreceptorPairs,
+} from '@/utils/preceptorPairDisplayOrder';
 import type { ScheduleComplianceResult } from '@/types/scheduleCompliance';
 import type { ScheduleComparisonOffInputSnapshot } from '@/utils/scheduleComparisonSummary';
 import type {
@@ -722,6 +763,8 @@ const router = useRouter();
 const solver = useAISolver();
 const hub = useScheduleReviewHub();
 const grid = useScheduleGrid();
+const CALENDAR_PAGE_SIZE = 10;
+const calendarPage = ref(1);
 const authStore = useAuthStore();
 const scheduleStore = useScheduleStore();
 const organizationStore = useOrganizationStore();
@@ -810,6 +853,22 @@ const currentScheduleAssignments = ref<AssignmentMap>({});
 const offRequestsCurrentMonth = ref<ConstraintMap>({});
 const offRequestNotesCurrentMonth = ref<CommentMap>({});
 const policyRejectionSummariesCurrentMonth = ref<string[]>([]);
+const displayEmployees = computed(() => orderEmployeesForPreceptorPairs(grid.employees.value));
+const employeeCalendarPages = computed(() =>
+  buildEmployeeCalendarPages(displayEmployees.value, CALENDAR_PAGE_SIZE),
+);
+const totalCalendarPages = computed(() => Math.max(1, employeeCalendarPages.value.length));
+const paginatedDisplayEmployees = computed(
+  () => employeeCalendarPages.value[calendarPage.value - 1] ?? [],
+);
+const paginatedEmployeeRangeLabel = computed(() => {
+  if (displayEmployees.value.length === 0) return '근무자 0명';
+
+  const start = (calendarPage.value - 1) * CALENDAR_PAGE_SIZE + 1;
+  const end = Math.min(start + CALENDAR_PAGE_SIZE - 1, displayEmployees.value.length);
+  return `${start}–${end}번째`;
+});
+const pairDisplayMetaByEmployeeId = computed(() => getPreceptorPairDisplayMeta(grid.employees.value));
 const EMPTY_PRIMARY_ACTION: SchedulePrimaryAction = {
   kind: 'none',
   targetVersionId: null,
@@ -2941,6 +3000,19 @@ watch(lastMonthDays, (newDays) => {
   rebuildDisplayAssignments();
 });
 
+watch(
+  () => [grid.employees.value.length, scheduleStore.basicInfo?.month] as const,
+  () => {
+    calendarPage.value = 1;
+  },
+);
+
+watch(totalCalendarPages, (nextTotalCalendarPages) => {
+  if (calendarPage.value > nextTotalCalendarPages) {
+    calendarPage.value = nextTotalCalendarPages;
+  }
+});
+
 function handleSelectedResultEmployeeUpdate(employeeId: string | null) {
   selectedResultEmployeeId.value = employeeId;
   autoSelectedResultEmployeeId.value = null;
@@ -3780,3 +3852,21 @@ function clearTempPreferenceStorage() {
   });
 }
 </script>
+
+<style scoped>
+/*
+ * Step5 scroll lives on step5-calendar-scroll-region so thead/stat-row sticky
+ * targets that ancestor. overflow-x on the grid container would compute
+ * overflow-y to auto and steal the scrollport from the card region.
+ */
+:deep(.step5-calendar-grid .schedule-grid-container) {
+  flex: none;
+  overflow: visible;
+}
+
+:deep(.step5-calendar-grid thead th.date-col-header) {
+  min-height: 2.5rem;
+  white-space: normal;
+  vertical-align: middle;
+}
+</style>

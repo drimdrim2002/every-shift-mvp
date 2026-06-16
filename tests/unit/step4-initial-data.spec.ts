@@ -297,6 +297,12 @@ vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
         >
           grid-second-cell-select
         </button>
+        <button
+          data-test="grid-emit-week-3-cell-select"
+          @click="$emit('cell-select', { employeeId: 'emp-1', date: '2026-05-11' })"
+        >
+          grid-week-3-cell-select
+        </button>
       </div>
     `,
   }),
@@ -1267,17 +1273,16 @@ describe('Step4InitialData', () => {
     expect(wrapper.find('[data-test="step4-calendar-employee-count"]').text()).toContain('근무자 12명')
     expect(wrapper.find('[data-test="step4-calendar-pagination"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="step4-calendar-scroll-hint"]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="step4-calendar-scroll-region"]').classes()).toContain('overflow-y-hidden')
+    expect(wrapper.get('[data-test="step4-calendar-scroll-region"]').classes()).toContain('overflow-auto')
   })
 
   describe('calendar pagination contract', () => {
-    it('locks vertical scrolling on the calendar scroll region', async () => {
+    it('allows scrolling on the calendar scroll region', async () => {
       const wrapper = createWrapper()
       await flushPromises()
 
       const scrollRegion = wrapper.get('[data-test="step4-calendar-scroll-region"]')
-      expect(scrollRegion.classes()).toContain('overflow-y-hidden')
-      expect(scrollRegion.classes()).toContain('overflow-x-auto')
+      expect(scrollRegion.classes()).toContain('overflow-auto')
     })
 
     it('shows the 11th employee on page 2', async () => {
@@ -1352,6 +1357,50 @@ describe('Step4InitialData', () => {
       expect(styleBlock).not.toMatch(/overflow-y:\s*visible/)
     })
   })
+
+  describe('calendar full-month scroll contract', () => {
+    function buildMay2026GridDates() {
+      return Array.from({ length: 31 }, (_, index) => {
+        const day = index + 1;
+        return {
+          date: `2026-05-${String(day).padStart(2, '0')}`,
+          day,
+          dayOfWeek: (5 + index) % 7,
+          dayName: ['일', '월', '화', '수', '목', '금', '토'][(5 + index) % 7],
+          isLastMonth: false,
+        };
+      });
+    }
+
+    beforeEach(() => {
+      gridMock.dates.value = buildMay2026GridDates();
+      scheduleStoreMock.basicInfo.month = '2026-05';
+    });
+
+    it('does not render week navigation controls', async () => {
+      const wrapper = createWrapper();
+      await flushPromises();
+
+      expect(wrapper.find('[data-test="step4-calendar-week-nav"]').exists()).toBe(false);
+      expect(wrapper.find('[data-test="step4-calendar-week-prev"]').exists()).toBe(false);
+      expect(wrapper.find('[data-test="step4-calendar-week-next"]').exists()).toBe(false);
+    });
+
+    it('exposes all current-month dates for the grid', async () => {
+      const wrapper = createWrapper();
+      await flushPromises();
+
+      expect(wrapper.vm.currentMonthStatisticsDates).toHaveLength(31);
+    });
+
+    it('enables horizontal and vertical scroll on the calendar scroll region', async () => {
+      const wrapper = createWrapper();
+      await flushPromises();
+
+      const scrollRegion = wrapper.get('[data-test="step4-calendar-scroll-region"]');
+      expect(scrollRegion.classes()).toContain('overflow-auto');
+    });
+  });
 
   it('shows the Step4 Off request Excel upload button in the calendar header', async () => {
     const wrapper = createWrapper()

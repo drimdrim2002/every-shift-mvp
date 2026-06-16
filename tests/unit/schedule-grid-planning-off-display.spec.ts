@@ -118,4 +118,83 @@ describe('ScheduleGrid planning Off display', () => {
     const rowTotalCell = wrapper.find('tbody tr.data-row td.sticky-right-total');
     expect(rowTotalCell.text()).toBe('1');
   });
+
+  const weekWithPlaceholders: Array<GridColumn | null> = [
+    null,
+    null,
+    null,
+    null,
+    null,
+    dates[0]!,
+    dates[1]!,
+  ];
+
+  it('renders placeholder cells without ConstraintSelector when displayDateCells has nulls', () => {
+    const wrapper = mount(ScheduleGrid, {
+      props: {
+        employees: [employee],
+        dates: [dates[0]!, dates[1]!],
+        displayDateCells: weekWithPlaceholders,
+        mode: 'planning',
+        constraints,
+        planningInteractionMode: 'select',
+      },
+    });
+
+    expect(wrapper.findAll('.constraint-selector')).toHaveLength(2);
+    expect(wrapper.findAll('[data-test="schedule-grid-placeholder-cell"]')).toHaveLength(5);
+  });
+
+  it('does not emit header-click for placeholder header cells', async () => {
+    const wrapper = mount(ScheduleGrid, {
+      props: {
+        employees: [employee],
+        dates: [dates[0]!],
+        displayDateCells: weekWithPlaceholders,
+        mode: 'planning',
+        constraints: {},
+        planningInteractionMode: 'select',
+      },
+    });
+
+    const placeholderHeaders = wrapper.findAll('[data-test="schedule-grid-placeholder-header"]');
+    expect(placeholderHeaders.length).toBeGreaterThan(0);
+    await placeholderHeaders[0]!.trigger('click');
+    expect(wrapper.emitted('header-click')).toBeUndefined();
+  });
+
+  it('uses 2-row planning header with 당월 colspan 7 when displayDateCells is set', () => {
+    const wrapper = mount(ScheduleGrid, {
+      props: {
+        employees: [employee],
+        dates: dates,
+        displayDateCells: weekWithPlaceholders,
+        mode: 'planning',
+        constraints,
+        planningInteractionMode: 'select',
+      },
+    });
+
+    const level1 = wrapper.find('.header-level-1');
+    expect(level1.text()).toBe('당월');
+    expect(level1.attributes('colspan')).toBe('7');
+    expect(wrapper.find('.header-level-2').exists()).toBe(false);
+  });
+
+  it('keeps row Total as full month when rowStatisticsDates spans more days than displayDateCells', () => {
+    const wrapper = mount(ScheduleGrid, {
+      props: {
+        employees: [employee],
+        dates: dates,
+        displayDateCells: [dates[0]!],
+        rowStatisticsDates: dates,
+        mode: 'planning',
+        constraints,
+        planningInteractionMode: 'select',
+      },
+    });
+
+    expect(wrapper.find('tbody tr.data-row td.sticky-right-total').text()).toBe('2');
+    expect(wrapper.find('.stat-row-total-only td.shift-cell').text()).toBe('1');
+  });
 });

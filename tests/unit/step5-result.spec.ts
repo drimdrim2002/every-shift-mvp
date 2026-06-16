@@ -1,6 +1,8 @@
 import dayjs from 'dayjs'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive, ref } from 'vue'
+import { defineComponent, reactive, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildCanonicalStep5RouteLocation,
@@ -354,10 +356,23 @@ vi.mock('@/components/schedule/StepIndicator.vue', () => ({
 }))
 
 vi.mock('@/components/schedule/ScheduleGrid.vue', () => ({
-  default: {
+  default: defineComponent({
+    inheritAttrs: false,
+    props: {
+      employees: { type: Array, default: () => [] },
+      statisticsEmployees: { type: Array, default: undefined },
+      pairDisplayMetaByEmployeeId: { type: Object, default: undefined },
+    },
     emits: ['update:assignment'],
-    template: `<button data-test="grid-edit" @click="$emit('update:assignment', { employeeId: 'emp-1', date: '2025-12-01', shiftCode: 'D' })">grid-edit</button>`,
-  },
+    template: `
+      <div data-test="schedule-grid-stub" v-bind="$attrs">
+        <span data-test="schedule-grid-employee-count">{{ employees.length }}</span>
+        <span data-test="schedule-grid-statistics-employee-count">{{ statisticsEmployees?.length ?? 0 }}</span>
+        <span data-test="schedule-grid-has-pair-meta">{{ pairDisplayMetaByEmployeeId ? 'yes' : 'no' }}</span>
+        <button data-test="grid-edit" @click="$emit('update:assignment', { employeeId: 'emp-1', date: '2025-12-01', shiftCode: 'D' })">grid-edit</button>
+      </div>
+    `,
+  }),
 }))
 
 import Step5Result from '@/views/schedule/Step5Result.vue'
@@ -5021,5 +5036,138 @@ describe('Step5Result', () => {
     expect(replaceMock).not.toHaveBeenCalled()
     expect(pushMock).not.toHaveBeenCalled()
     expect(showSuccessMock).toHaveBeenCalledWith('저장되었습니다')
+  })
+
+  describe('site calendar pagination contract', () => {
+    function buildManyEmployees(count: number) {
+      return Array.from({ length: count }, (_, index) => {
+        const number = String(index + 1).padStart(2, '0')
+        return {
+          id: `emp-${number}`,
+          organizationId: 'org-1',
+          employeeId: `E${number}`,
+          name: `직원 ${number}`,
+          availableShifts: ['D'],
+          preceptorId: null,
+        }
+      })
+    }
+
+    function buildEmployeesWithBoundaryPair() {
+      const soloEmployees = Array.from({ length: 9 }, (_, index) => ({
+        id: `uuid-solo-${index + 1}`,
+        organizationId: 'org-1',
+        employeeId: `${40100 + index}`,
+        name: `단독${index + 1}`,
+        availableShifts: ['D'],
+        preceptorId: null,
+      }))
+
+      return [
+        ...soloEmployees,
+        {
+          id: 'uuid-preceptor',
+          organizationId: 'org-1',
+          employeeId: '41001',
+          name: '박선배',
+          availableShifts: ['D'],
+          preceptorId: null,
+        },
+        {
+          id: 'uuid-preceptee',
+          organizationId: 'org-1',
+          employeeId: '41101',
+          name: '김신규',
+          availableShifts: ['D'],
+          preceptorId: 'uuid-preceptor',
+        },
+        {
+          id: 'emp-on-page-2',
+          organizationId: 'org-1',
+          employeeId: '41201',
+          name: '이둘째페이지',
+          availableShifts: ['D'],
+          preceptorId: null,
+        },
+      ]
+    }
+
+    it('shows the 11th employee on page 2 in site view', async () => {
+      gridMock.employees.value = buildManyEmployees(12)
+
+      const wrapper = createWrapper()
+      await flushPromises()
+      await switchToSiteView(wrapper)
+
+      expect(wrapper.find('[data-test="step5-calendar-scroll-region"]').exists()).toBe(true)
+      expect(wrapper.get('[data-test="step5-calendar-employee-count"]').text()).toBe('근무자 12명')
+      expect(wrapper.find('[data-test="schedule-grid-stub"]').classes()).toContain('step5-calendar-grid')
+      expect(wrapper.get('[data-test="schedule-grid-employee-count"]').text()).toBe('10')
+      expect(wrapper.get('[data-test="schedule-grid-statistics-employee-count"]').text()).toBe('12')
+      expect(wrapper.get('[data-test="schedule-grid-has-pair-meta"]').text()).toBe('yes')
+
+      wrapper.vm.calendarPage = 2
+      await flushPromises()
+
+      expect(wrapper.get('[data-test="schedule-grid-employee-count"]').text()).toBe('2')
+      expect(wrapper.get('[data-test="step5-calendar-page-info"]').text()).toBe('11–12번째')
+      expect(wrapper.find('[data-test="step5-calendar-pagination"]').exists()).toBe(true)
+    })
+
+    it('enables horizontal and vertical scroll on the calendar scroll region', async () => {
+      gridMock.employees.value = buildManyEmployees(12)
+
+      const wrapper = createWrapper()
+      await flushPromises()
+      await switchToSiteView(wrapper)
+
+      const scrollRegion = wrapper.get('[data-test="step5-calendar-scroll-region"]')
+      expect(scrollRegion.classes()).toContain('overflow-auto')
+    })
+
+    it('orders paired employees adjacently and keeps the pair on the same page', async () => {
+      gridMock.employees.value = buildEmployeesWithBoundaryPair()
+
+      const wrapper = createWrapper()
+      await flushPromises()
+      await switchToSiteView(wrapper)
+
+      const displayIds = wrapper.vm.displayEmployees.map((employee: { id: string }) => employee.id)
+      expect(displayIds.indexOf('uuid-preceptor')).toBeLessThan(displayIds.indexOf('uuid-preceptee'))
+      expect(displayIds.indexOf('uuid-preceptee') - displayIds.indexOf('uuid-preceptor')).toBe(1)
+
+      const pageWithPair = wrapper.vm.employeeCalendarPages[0]
+      expect(pageWithPair.some((employee: { id: string }) => employee.id === 'uuid-preceptor')).toBe(true)
+      expect(pageWithPair.some((employee: { id: string }) => employee.id === 'uuid-preceptee')).toBe(true)
+      expect(pageWithPair).toHaveLength(11)
+      expect(wrapper.vm.paginatedDisplayEmployees).toHaveLength(11)
+    })
+
+    it('keeps schedule-grid-container overflow visible so sticky targets the card scrollport', () => {
+      const source = readFileSync(
+        resolve(__dirname, '../../src/views/schedule/Step5Result.vue'),
+        'utf8',
+      )
+      const styleBlock = source.slice(source.lastIndexOf('<style scoped>'))
+
+      expect(source).toContain(':deep(.step5-calendar-grid .schedule-grid-container)')
+      expect(styleBlock).toMatch(/overflow:\s*visible/)
+      expect(styleBlock).not.toMatch(/overflow-y:\s*visible/)
+    })
+
+    it('applies two-line centered date headers in the site grid', () => {
+      const source = readFileSync(
+        resolve(__dirname, '../../src/components/schedule/ScheduleGrid.vue'),
+        'utf8',
+      )
+      const step5Source = readFileSync(
+        resolve(__dirname, '../../src/views/schedule/Step5Result.vue'),
+        'utf8',
+      )
+
+      expect(source).toContain('{{ cell.day }}일</span>')
+      expect(source).toContain('({{ cell.dayName }})</span>')
+      expect(step5Source).toContain(':deep(.step5-calendar-grid thead th.date-col-header)')
+    })
   })
 })

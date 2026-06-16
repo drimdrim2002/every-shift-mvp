@@ -72,6 +72,18 @@ describe('ScheduleGrid preceptor peer label', () => {
       },
     });
 
+    expect(wrapper.get('[data-test="preceptor-pair-primary-preceptor"]').text()).toBe(
+      '정다래Q (42635) 프리셉터',
+    );
+    expect(wrapper.get('[data-test="preceptor-pair-primary-preceptee"]').text()).toBe(
+      '이민지 (43178) 프리셉티',
+    );
+    expect(wrapper.get('[data-test="preceptor-pair-role-preceptor"]').classes()).toEqual(
+      expect.arrayContaining(['bg-sky-100', 'text-sky-800']),
+    );
+    expect(wrapper.get('[data-test="preceptor-pair-role-preceptee"]').classes()).toEqual(
+      expect.arrayContaining(['bg-emerald-100', 'text-emerald-800']),
+    );
     expect(wrapper.get('[data-test="preceptor-pair-peer-preceptor"]').text()).toBe(
       '프리셉티: 이민지 (43178)',
     );
@@ -80,7 +92,7 @@ describe('ScheduleGrid preceptor peer label', () => {
     );
   });
 
-  it('does not render peer labels for unpaired employees', () => {
+  it('renders unpaired employees on a single identity line', () => {
     const solo = buildEmployee({
       id: 'uuid-solo',
       employeeId: '50001',
@@ -96,6 +108,6 @@ describe('ScheduleGrid preceptor peer label', () => {
       },
     });
 
-    expect(wrapper.find('[data-test^="preceptor-pair-peer-"]').exists()).toBe(false);
+    expect(wrapper.get('.employee-cell').text()).toBe('이단독 (50001)');
   });
 });

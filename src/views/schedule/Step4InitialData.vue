@@ -357,7 +357,7 @@
 
             <div
               data-test="step4-calendar-scroll-region"
-              class="relative min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
+              class="relative min-h-0 min-w-0 flex-1 overflow-auto"
             >
               <n-spin :show="grid.loading.value">
                 <div class="min-h-[240px]">
@@ -367,7 +367,7 @@
                     mode="planning"
                     :employees="paginatedDisplayEmployees"
                     :statistics-employees="displayEmployees"
-                    :dates="grid.dates.value"
+                    :dates="currentMonthStatisticsDates"
                     :constraints="constraints"
                     :comments="displayConstraintNotes"
                     :readonly="Boolean(step4MutationBlockedReason)"
@@ -638,6 +638,7 @@ import {
   orderEmployeesForPreceptorPairs,
 } from '@/utils/preceptorPairDisplayOrder';
 import { buildEmployeeCalendarPages, findEmployeePageIndex } from '@/utils/employeeCalendarPagination';
+import { getCurrentMonthGridDates } from '@/components/schedule/request-entry/requestEntryUtils';
 
 const router = useRouter();
 const route = useRoute();
@@ -791,6 +792,9 @@ const paginatedEmployeeRangeLabel = computed(() => {
   const end = Math.min(start + CALENDAR_PAGE_SIZE - 1, displayEmployees.value.length);
   return `${start}–${end}번째`;
 });
+const currentMonthStatisticsDates = computed(() =>
+  getCurrentMonthGridDates(grid.dates.value),
+);
 const pairDisplayMetaByEmployeeId = computed(() => getPreceptorPairDisplayMeta(grid.employees.value));
 const selectedEmployees = computed(() => {
   const selectedEmployeeIdSet = new Set(selectedEmployeeIds.value);

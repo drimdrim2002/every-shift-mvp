@@ -128,3 +128,26 @@ export function buildSelectedDateSummary(selectedDates: string[], dates: GridCol
 
   return `${formatShortDate(normalizedSelectedDates[0]!)} 외 ${normalizedSelectedDates.length - 1}일`
 }
+
+export function formatCalendarWeekLabel(week: Step4MonthCalendarWeek): string {
+  const monthDates = week.filter((cell): cell is GridColumn => cell !== null)
+  if (monthDates.length === 0) return ''
+  if (monthDates.length === 1) {
+    const d = monthDates[0]!
+    return `${d.day}일(${d.dayName})`
+  }
+  const first = monthDates[0]!
+  const last = monthDates[monthDates.length - 1]!
+  return `${first.day}일(${first.dayName}) ~ ${last.day}일(${last.dayName})`
+}
+
+export function findWeekPageIndexForDate(
+  dates: GridColumn[],
+  targetDate: string,
+): number | null {
+  const weeks = buildMonthCalendarMatrix(dates)
+  const index = weeks.findIndex((week) =>
+    week.some((cell) => cell?.date === targetDate),
+  )
+  return index === -1 ? null : index + 1
+}
