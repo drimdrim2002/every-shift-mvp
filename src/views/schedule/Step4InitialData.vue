@@ -2861,16 +2861,43 @@ async function handleNext() {
   try {
     const { context, hasStep4Changes, hasConstraintChanges } = await buildPendingHandoffContext();
     const { baseline } = context;
+    const regenerationIntent =
+      nextStepLabel.value === '근무표 생성(AI)'
+      && (!baseline.hasCurrentMonthAssignments || hasConstraintChanges);
     const shouldRegenerate = !baseline.hasCurrentMonthAssignments || hasConstraintChanges;
     const blockedReason = step4MutationBlockedReason.value;
 
-    if (blockedReason && (hasStep4Changes || shouldRegenerate)) {
+    if (!regenerationIntent && !hasStep4Changes && !shouldRegenerate) {
+      routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
+        defaultVersionId: baseline.defaultRouteFocusVersionId,
+      });
+      return;
+    }
+
+    if (blockedReason && (hasStep4Changes || regenerationIntent || shouldRegenerate)) {
       showInfo(blockedReason);
       return;
     }
 
-    if (!hasStep4Changes && !shouldRegenerate) {
+    if (regenerationIntent) {
+      if (hasStep4Changes) {
+        await saveScheduleVersionPreferences(
+          baseline.scheduleId,
+          baseline.previewVersionId,
+          constraints.value,
+          constraintNotes.value
+        );
+        setBaselinePreferenceSnapshot(baseline.previewVersionId, context.currentSnapshot);
+      }
+
+      await deleteThisMonthVersionAssignments(
+        baseline.scheduleId,
+        baseline.previewVersionId,
+        scheduleStore.basicInfo!.month
+      );
+
       routeToStep5(baseline.schedulePublicId ?? baseline.scheduleId, baseline.previewVersionId, {
+        autoStart: true,
         defaultVersionId: baseline.defaultRouteFocusVersionId,
       });
       return;

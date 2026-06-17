@@ -2675,7 +2675,11 @@ describe('Step4InitialData', () => {
     expect(wrapper.text()).not.toContain('새 근무표안 이름')
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(buildScheduleSolverRequestMock).not.toHaveBeenCalled()
-    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      '2025-12'
+    )
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
       query: {
@@ -2696,6 +2700,49 @@ describe('Step4InitialData', () => {
     expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(pushMock).toHaveBeenCalledWith({
       path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+    })
+  })
+
+  it('deletes assignments and routes with autoStart after apply/save syncs baseline and regeneration CTA', async () => {
+    getScheduleVersionAssignmentsMock.mockImplementation(async () => ({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    }))
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    await wrapper.vm.handleAssignmentUpdate({
+      employeeId: 'emp-1',
+      date: '2025-12-01',
+      shiftCode: 'O',
+    })
+    await flushPromises()
+
+    await clickComposerSaveAppliedChanges(wrapper)
+    await flushPromises()
+
+    saveScheduleVersionPreferencesMock.mockClear()
+    pushMock.mockClear()
+    deleteThisMonthVersionAssignmentsMock.mockClear()
+
+    expect(wrapper.text()).toContain('근무표 생성(AI)')
+
+    await clickButtonByText(wrapper, '근무표 생성(AI)')
+    await flushPromises()
+
+    expect(saveScheduleVersionPreferencesMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      '2025-12'
+    )
+    expect(pushMock).toHaveBeenCalledWith({
+      path: `/app/schedule/step5/${SCHEDULE_PUBLIC_ID}`,
+      query: {
+        autoStart: '1',
+      },
     })
   })
 

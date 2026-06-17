@@ -1369,9 +1369,16 @@ const reviewAttentionMessages = computed(() => {
 
   return Array.from(new Set(messages));
 });
+const isPreSolveRecheckEvaluation = computed(() => {
+  return !hasCurrentMonthAssignments.value && !isRunning.value;
+});
 const shouldShowReviewAttentionPanel = computed(() => {
   const evaluation = latestReviewEvaluation.value;
   if (!evaluation || evaluation.resultStatus !== 'review_blocked') {
+    return false;
+  }
+
+  if (isPreSolveRecheckEvaluation.value || isRunning.value) {
     return false;
   }
 
@@ -2784,11 +2791,18 @@ async function consumeRouteAutoStart(shouldAutoStart = parseStep5RouteQuery(rout
     return;
   }
 
-  if (
-    !canMutatePreviewVersion.value
-    || hasCurrentMonthAssignments.value
-    || hasOtherActiveSolvingVersion()
-  ) {
+  if (!canMutatePreviewVersion.value) {
+    showInfo('현재 보는 근무표안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
+    return;
+  }
+
+  if (hasCurrentMonthAssignments.value) {
+    showInfo('기존 배정이 있어 자동 생성을 건너뛰었습니다. 필요하면 배정을 초기화한 뒤 다시 생성해주세요.');
+    return;
+  }
+
+  if (hasOtherActiveSolvingVersion()) {
+    showInfo('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
     return;
   }
 

@@ -2406,6 +2406,154 @@ describe('Step5Result', () => {
     expect(selectPhase2ScheduleVersionMock).not.toHaveBeenCalled()
   })
 
+  it('hides review attention for recheck-only review_blocked evaluation before solver assignments exist', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_blocked',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        selectedVersionId: 'version-2',
+        version: {
+          status: 'review_blocked',
+          isSelected: true,
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'review_blocked',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 300,
+          },
+          violationDetails: [
+            {
+              code: 'staffing_shortfall',
+              message: 'Staffing shortfall on 2025-12-01: required 2, assigned 0.',
+              severity: 'error',
+              affectedEmployeeIds: [],
+              dates: ['2025-12-01'],
+              metadata: {
+                requiredCount: 2,
+                assignedCount: 0,
+              },
+            },
+          ],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: null,
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: [],
+          },
+          assignmentHash: 'hash-2',
+          solverExecutionId: null,
+          evaluatorVersion: 'test',
+          createdAt: '2026-04-02T00:00:00Z',
+        },
+      })
+    )
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step5-review-attention-panel"]').exists()).toBe(false)
+  })
+
+  it('hides stale post-solve review attention when assignments were cleared before re-run', async () => {
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+          status: 'review_ready',
+        }),
+      ],
+    })
+    getPhase2ScheduleReviewMock.mockResolvedValue(
+      createReviewResponse('version-2', {
+        selectedVersionId: 'version-2',
+        version: {
+          status: 'review_ready',
+          isSelected: true,
+        },
+        latestEvaluation: {
+          id: 'evaluation-2',
+          scheduleId: 'schedule-1',
+          scheduleVersionId: 'version-2',
+          revisionNo: 2,
+          resultStatus: 'review_blocked',
+          proofSummary: {
+            weeklyHoursViolations: 0,
+            nnnViolations: 0,
+            nodViolations: 0,
+            minimumRestViolations: 0,
+            staffingShortfalls: 2,
+          },
+          violationDetails: [
+            {
+              code: 'staffing_shortfall',
+              message: 'Staffing shortfall on 2025-12-01: required 2, assigned 1.',
+              severity: 'error',
+              affectedEmployeeIds: [],
+              dates: ['2025-12-01'],
+              metadata: {
+                requiredCount: 2,
+                assignedCount: 1,
+              },
+            },
+          ],
+          infeasibility: null,
+          offRequestResults: [],
+          comparisonMetrics: null,
+          finalizationGate: {
+            allowed: false,
+            blockingReasons: [],
+          },
+          assignmentHash: 'hash-2',
+          solverExecutionId: 'exec-stale-1',
+          evaluatorVersion: 'test',
+          createdAt: '2026-04-02T00:00:00Z',
+        },
+      })
+    )
+    getScheduleVersionAssignmentsMock.mockResolvedValue({
+      assignments: {},
+      offReasons: {},
+      comments: {},
+    })
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="step5-review-attention-panel"]').exists()).toBe(false)
+  })
+
   it('keeps review-blocked previews in the local site result shell', async () => {
     getPhase2ScheduleReviewMock.mockResolvedValue(
       createReviewResponse('version-2', {
@@ -4470,6 +4618,7 @@ describe('Step5Result', () => {
     expect(replaceMock).toHaveBeenCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(resetPreferenceResolutionByVersionMock).not.toHaveBeenCalled()
     expect(solverMock.startSolver).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.')
   })
 
   it('strips autoStart without starting the solver when current-month assignments already exist', async () => {
@@ -4489,6 +4638,9 @@ describe('Step5Result', () => {
     )
     expect(replaceMock).toHaveBeenLastCalledWith(buildCanonicalStep5RouteLocation('schedule-1'))
     expect(solverMock.startSolver).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith(
+      '기존 배정이 있어 자동 생성을 건너뛰었습니다. 필요하면 배정을 초기화한 뒤 다시 생성해주세요.'
+    )
   })
 
   it('blocks re-solve when there are unsaved manual changes', async () => {
