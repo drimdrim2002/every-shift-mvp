@@ -1,0 +1,32 @@
+name: Supabase Keepalive
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub Actions cron uses UTC. This runs at 09:17 KST.
+    - cron: '17 0 * * *'
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_KEEPALIVE_TABLE: ${{ vars.SUPABASE_KEEPALIVE_TABLE }}
+
+    steps:
+      - name: Validate configuration
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Query Supabase
+        run: |
+          table="${SUPABASE_KEEPALIVE_TABLE:-employees}"
+          curl --fail --show-error --silent --output /dev/null --retry 3 --retry-delay 5 \
+            --get "$SUPABASE_URL/rest/v1/$table" \
+            --data-urlencode "select=id" \
+            --data-urlencode "limit=1" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
