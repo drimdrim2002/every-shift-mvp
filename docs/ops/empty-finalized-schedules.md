@@ -38,4 +38,6 @@ ORDER BY s.month;
 3. Re-run AI generation (or restore assignments) so `schedule_assignments` has rows.
 4. Recheck → finalize again (finalize now fails with `empty_assignments` if still empty).
 
+Step5 **결과 확인** also surfaces empty finals as a warning (가이드라인 「배정 없음」, 확정 「확정됨 · 배정 없음」) rather than a success state; unfinalize remains available without current-month assignments.
+
 Do **not** auto-unfinalize in bulk migrations without product approval.

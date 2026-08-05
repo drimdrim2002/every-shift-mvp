@@ -99,6 +99,20 @@
         </section>
 
         <n-alert
+          v-if="shouldShowEmptyAssignmentsAlert"
+          type="warning"
+          class="mb-6"
+          data-test="step5-empty-assignments-alert"
+        >
+          <template #header>
+            {{ emptyAssignmentsAlertTitle }}
+          </template>
+          <p class="text-sm">
+            {{ emptyAssignmentsAlertDescription }}
+          </p>
+        </n-alert>
+
+        <n-alert
           v-if="!isRunning && policyRejectionSummariesCurrentMonth.length > 0"
           type="warning"
           class="mb-6"
@@ -720,6 +734,7 @@ import {
 } from '@/api/schedule';
 import { useScheduleSolverRequest } from '@/composables/useScheduleSolverRequest';
 import { evaluateScheduleCompliance } from '@/utils/scheduleCompliance';
+import { hasUsableAssignments } from '@/utils/scheduleAssignments';
 import { exportToExcel } from '@/utils/excel';
 import { showSuccess, showError, showInfo } from '@/utils/message';
 import { selectDefaultResultEmployeeId } from '@/utils/employeeResultDetail';
@@ -1095,12 +1110,6 @@ const preferenceDisplayMode = computed<'pre-run' | 'post-run'>(() => {
 });
 const allowPreRunFallbackWhenEmpty = computed(() => solver.status.value === 'running');
 
-const visibleCurrentMonthAssignments = computed<AssignmentMap>(() => {
-  return extractCurrentMonthAssignments(
-    grid.assignments.value,
-    scheduleStore.basicInfo?.month,
-  );
-});
 const complianceCurrentMonthAssignments = computed<AssignmentMap>(() => {
   return buildCurrentMonthComplianceAssignments(
     grid.assignments.value,
@@ -1126,9 +1135,10 @@ const activeComplianceAssignments = computed<AssignmentMap>(() => {
   );
 });
 const hasCurrentMonthAssignments = computed(() => {
-  return Object.values(visibleCurrentMonthAssignments.value).some((dateMap) => {
-    return Object.values(dateMap || {}).some((shiftCode) => Boolean(shiftCode));
-  });
+  return hasUsableAssignments(
+    grid.assignments.value,
+    scheduleStore.basicInfo?.month,
+  );
 });
 const hasSolverExecutionHistory = computed(() => {
   return Boolean(
@@ -1139,6 +1149,25 @@ const hasSolverExecutionHistory = computed(() => {
 const shouldShowResultDetails = computed(() => !isRunning.value && hasCurrentMonthAssignments.value);
 const shouldShowStatusCard = computed(() => {
   return !isRunning.value && (hasCurrentMonthAssignments.value || hasSolverExecutionHistory.value);
+});
+const shouldShowEmptyAssignmentsAlert = computed(() => {
+  return (
+    !isRunning.value
+    && !hasCurrentMonthAssignments.value
+    && (isFinalizedMonth.value || hasSolverExecutionHistory.value)
+  );
+});
+const emptyAssignmentsAlertTitle = computed(() => {
+  return isFinalizedMonth.value
+    ? '확정 상태이지만 배정이 없습니다'
+    : '생성 이력은 있으나 배정이 없습니다';
+});
+const emptyAssignmentsAlertDescription = computed(() => {
+  if (isFinalizedMonth.value) {
+    return '이 달은 확정 상태이지만 저장된 당월 배정이 없습니다. 생성된 근무표 목록의 「배정 없음」·근무 기록 조회 불가와 같은 상태입니다. 확정 취소 후 다시 생성하세요.';
+  }
+
+  return '생성 이력은 있으나 당월 배정이 없습니다. 다시 생성해 주세요.';
 });
 const shouldShowFirstRunEmptyState = computed(() => {
   return (
@@ -1247,6 +1276,10 @@ const complianceResult = computed<ScheduleComplianceResult>(() => {
   return applyPreviousMonthFallbackWarning(result);
 });
 const complianceFinalizeBlockReason = computed(() => {
+  if (!hasCurrentMonthAssignments.value) {
+    return '당월 배정이 없어 확정할 수 없습니다. 근무표를 생성하거나 배정을 저장한 뒤 다시 시도해 주세요.';
+  }
+
   if (complianceResult.value.checkRequiredCount > 0) {
     return '보건복지부 가이드라인을 확인한 뒤 확정할 수 있습니다.';
   }
@@ -1418,7 +1451,8 @@ const shouldShowFinalizeAction = computed(() => {
   return isFinished.value && shouldShowResultDetails.value && !isFinalizedMonth.value;
 });
 const shouldShowUnfinalizeAction = computed(() => {
-  return isFinished.value && shouldShowResultDetails.value && isFinalizedMonth.value;
+  // Keep unfinalize available for empty finalized months so ops recovery works in UI.
+  return isFinished.value && !isRunning.value && isFinalizedMonth.value;
 });
 const isFinalizeActionDisabled = computed(() => {
   return (
@@ -1435,23 +1469,41 @@ const isUnfinalizeActionDisabled = computed(() => {
 });
 const generationSummaryCard = computed<Step5SummaryCard>(() => {
   const progress = Math.round(solver.progress.value);
-  const description = isRunning.value
-    ? `생성 진행률 ${progress}%입니다.`
-    : hasCurrentMonthAssignments.value
-      ? '검토할 생성 결과가 준비되었습니다.'
-      : hasSolverExecutionHistory.value
-        ? '생성 이력을 확인하세요.'
-        : '생성을 시작하면 결과 상태가 표시됩니다.';
+  const isEmptyResult = !isRunning.value && !hasCurrentMonthAssignments.value;
+
+  let description: string;
+  if (isRunning.value) {
+    description = `생성 진행률 ${progress}%입니다.`;
+  } else if (hasCurrentMonthAssignments.value) {
+    description = '검토할 생성 결과가 준비되었습니다.';
+  } else if (isFinalizedMonth.value || hasSolverExecutionHistory.value) {
+    description = '저장된 당월 배정이 없습니다. 생성 이력을 확인하세요.';
+  } else {
+    description = '생성을 시작하면 결과 상태가 표시됩니다.';
+  }
 
   return {
     key: 'generation',
     title: '생성 상태',
     value: statusText.value,
     description,
-    tone: statusType.value,
+    // Empty finalized/history must not look like a successful outcome.
+    tone: isEmptyResult && (isFinalizedMonth.value || hasSolverExecutionHistory.value)
+      ? 'warning'
+      : statusType.value,
   };
 });
 const guidelineSummaryCard = computed<Step5SummaryCard>(() => {
+  if (!hasCurrentMonthAssignments.value) {
+    return {
+      key: 'guideline',
+      title: '보건복지부 가이드라인',
+      value: '배정 없음',
+      description: '당월 저장된 배정이 없어 가이드라인 통과 여부를 판단할 수 없습니다.',
+      tone: 'warning',
+    };
+  }
+
   const { checkRequiredCount, mandatoryViolationCount } = complianceResult.value;
 
   if (checkRequiredCount > 0) {
@@ -1505,6 +1557,16 @@ const offRequestSummaryCard = computed<Step5SummaryCard>(() => {
   };
 });
 const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
+  if (isFinalizedMonth.value && !hasCurrentMonthAssignments.value) {
+    return {
+      key: 'finalization',
+      title: '확정',
+      value: '확정됨 · 배정 없음',
+      description: '상태만 확정되어 있고 저장된 배정이 없습니다. 확정 취소 후 다시 생성하세요.',
+      tone: 'warning',
+    };
+  }
+
   if (isFinalizedMonth.value) {
     return {
       key: 'finalization',
@@ -1522,7 +1584,9 @@ const finalizationSummaryCard = computed<Step5SummaryCard>(() => {
       value: isRunning.value ? '대기 중' : '대기',
       description: isRunning.value
         ? '생성 완료 후 확정 여부를 확인합니다.'
-        : '생성 결과를 확인한 뒤 확정할 수 있습니다.',
+        : !hasCurrentMonthAssignments.value
+          ? '당월 배정이 없어 확정할 수 없습니다. 먼저 근무표를 생성하세요.'
+          : '생성 결과를 확인한 뒤 확정할 수 있습니다.',
       tone: isRunning.value ? 'info' : 'default',
     };
   }
@@ -2177,31 +2241,6 @@ function mergeComplianceAssignments(
   }
 
   return merged;
-}
-
-function extractCurrentMonthAssignments(
-  assignments: AssignmentMap,
-  month: string | null | undefined,
-): AssignmentMap {
-  if (!month) {
-    return {};
-  }
-
-  const currentAssignments: AssignmentMap = {};
-  for (const [employeeId, dateMap] of Object.entries(assignments || {})) {
-    for (const [date, shiftCode] of Object.entries(dateMap || {})) {
-      if (!shiftCode || !date.startsWith(month)) {
-        continue;
-      }
-
-      if (!currentAssignments[employeeId]) {
-        currentAssignments[employeeId] = {};
-      }
-      currentAssignments[employeeId]![date] = shiftCode;
-    }
-  }
-
-  return currentAssignments;
 }
 
 function buildCurrentMonthComplianceAssignments(

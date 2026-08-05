@@ -1155,6 +1155,108 @@ describe('Step5Result', () => {
     expect(wrapper.text()).toContain('근무표 생성 (AI)')
   })
 
+  describe('Step5 empty assignment truth', () => {
+    function mockEmptySolverHistoryResult(options: {
+      finalized?: boolean
+      versionStatus?: string
+    } = {}) {
+      const finalized = options.finalized ?? false
+      const versionStatus = options.versionStatus ?? (finalized ? 'finalized' : 'review_ready')
+      const versionId = finalized ? 'version-2' : 'version-2'
+
+      getPhase2ScheduleCompareMock.mockResolvedValue({
+        scheduleId: 'schedule-1',
+        selectedVersionId: versionId,
+        finalizedVersionId: finalized ? versionId : null,
+        activeSolvingVersionId: null,
+        versions: [
+          createVersionSummary({
+            id: versionId,
+            versionNo: 2,
+            isSelected: true,
+            isFinalized: finalized,
+            status: versionStatus,
+            activeSolverExecutionId: null,
+          }),
+        ],
+      })
+      getPhase2ScheduleReviewMock.mockResolvedValue(
+        createReviewResponse(versionId, {
+          selectedVersionId: versionId,
+          finalizedVersionId: finalized ? versionId : null,
+          version: {
+            status: versionStatus,
+            isSelected: true,
+            isFinalized: finalized,
+            activeSolverExecutionId: null,
+          },
+          latestEvaluation: {
+            solverExecutionId: 'exec-empty-1',
+            resultStatus: 'review_ready',
+          },
+          primaryAction: {
+            kind: finalized ? 'none' : 'finalize',
+            targetVersionId: finalized ? null : versionId,
+            label: finalized ? 'No primary action' : 'Finalize',
+            disabledReason: null,
+          },
+        }),
+      )
+      getScheduleStatusMock.mockResolvedValue({
+        status: 'complete',
+        hard_score: null,
+        soft_score: null,
+        solver_execution_id: 'exec-empty-1',
+      })
+      getScheduleVersionAssignmentsMock.mockResolvedValue({
+        assignments: {},
+        offReasons: {},
+        comments: {},
+      })
+      solverMock.status.value = 'complete'
+    }
+
+    it('does not present empty finalized months as guideline 충족 or success finalization', async () => {
+      mockEmptySolverHistoryResult({ finalized: true, versionStatus: 'finalized' })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      const generation = wrapper.get('[data-test="step5-summary-card-generation"]')
+      const guideline = wrapper.get('[data-test="step5-summary-card-guideline"]')
+      const finalization = wrapper.get('[data-test="step5-summary-card-finalization"]')
+      const alert = wrapper.get('[data-test="step5-empty-assignments-alert"]')
+
+      expect(guideline.text()).toContain('배정 없음')
+      expect(guideline.get('button, strong').text()).toBe('배정 없음')
+      expect(finalization.text()).toContain('확정됨 · 배정 없음')
+      expect(finalization.get('strong').text()).toBe('확정됨 · 배정 없음')
+      expect(generation.text()).toContain('저장된 당월 배정이 없습니다')
+      expect(alert.text()).toContain('확정 상태이지만')
+      expect(alert.text()).toContain('배정')
+      expect(wrapper.find('[data-test="unfinalize-schedule-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="result-empty-state"]').exists()).toBe(false)
+    })
+
+    it('does not mark empty non-finalized history as 충족 or 확정 가능', async () => {
+      mockEmptySolverHistoryResult({ finalized: false, versionStatus: 'review_ready' })
+
+      const wrapper = createWrapper()
+      await flushPromises()
+
+      const guideline = wrapper.get('[data-test="step5-summary-card-guideline"]')
+      const finalization = wrapper.get('[data-test="step5-summary-card-finalization"]')
+      const alert = wrapper.get('[data-test="step5-empty-assignments-alert"]')
+
+      expect(guideline.get('button, strong').text()).toBe('배정 없음')
+      expect(finalization.text()).not.toContain('확정 가능')
+      expect(finalization.text()).toMatch(/대기|확인 필요/)
+      expect(alert.text()).toContain('당월 배정이 없습니다')
+      expect(wrapper.find('[data-test="finalize-schedule-button"]').exists()).toBe(false)
+    })
+  })
+
   describe('Step5 result summary cards', () => {
     it('renders reviewer-facing summary cards for a completed result without solver score jargon', async () => {
       getScheduleStatusMock.mockResolvedValue({
