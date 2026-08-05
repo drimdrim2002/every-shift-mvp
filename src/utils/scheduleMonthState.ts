@@ -2,10 +2,19 @@ import type { ScheduleSummary } from '@/api/schedule';
 import type { ScheduleCompareResponse } from '@/types/schedule';
 import { getCanonicalScheduleVersionId, hasExecutedVersionHistory } from '@/utils/scheduleVersionResolver';
 
-export type ScheduleMonthDisplayState = 'empty' | 'draft' | 'running' | 'ready' | 'error';
+export type ScheduleMonthDisplayState =
+  | 'empty'
+  | 'draft'
+  | 'running'
+  | 'ready'
+  | 'ready_empty'
+  | 'error';
 export type ScheduleMonthResumeStep = 'step4' | 'step5';
 
-export type ScheduleMonthLike = Pick<ScheduleSummary, 'month' | 'status'>;
+export type ScheduleMonthLike = Pick<
+  ScheduleSummary,
+  'month' | 'status' | 'has_assignments'
+>;
 
 const READY_STATUSES = new Set<ScheduleSummary['status']>(['complete', 'changed']);
 
@@ -21,6 +30,11 @@ export function getScheduleMonthDisplayState(
   }
 
   if (READY_STATUSES.has(schedule.status)) {
+    // Explicit false only: undefined keeps prior "ready" behavior for callers
+    // that have not evaluated assignment presence.
+    if (schedule.has_assignments === false) {
+      return 'ready_empty';
+    }
     return 'ready';
   }
 
@@ -57,6 +71,7 @@ export function getScheduleMonthTileLabel(state: ScheduleMonthDisplayState): str
     draft: '이어서 진행',
     running: '생성 중',
     ready: '결과 보기',
+    ready_empty: '배정 없음',
     error: '오류 · 재시도',
   };
 

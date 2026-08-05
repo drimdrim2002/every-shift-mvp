@@ -209,6 +209,28 @@
       </div>
 
       <div
+        v-else-if="hasEmptyFinalizedAssignments"
+        data-test="work-performance-state"
+        aria-live="polite"
+        class="rounded-lg border border-amber-200 bg-amber-50/70 px-5 py-10 text-center"
+      >
+        <h2 class="text-xl font-semibold text-amber-950">
+          확정된 근무표에 배정이 없습니다
+        </h2>
+        <p class="mt-2 text-sm text-amber-800">
+          선택한 기간의 확정 버전에 저장된 근무 배정이 없어 기록을 계산할 수 없습니다. 생성된 근무표에서 배정을 확인한 뒤 다시 확정해 주세요.
+        </p>
+        <n-button
+          data-test="work-performance-results-from-empty-assignments"
+          class="mt-6"
+          type="primary"
+          @click="goToScheduleResults"
+        >
+          생성된 근무표 보기
+        </n-button>
+      </div>
+
+      <div
         v-else-if="fairnessResult && fairnessResult.rows.length === 0"
         data-test="work-performance-state"
         aria-live="polite"
@@ -761,6 +783,17 @@ const successResult = computed<WorkPerformanceLoadSuccess | null>(() =>
 const missingFinalizedMonths = computed(() =>
   successResult.value?.missingMonths ?? [],
 )
+/** Finalized months exist but no assignment rows were loaded for those versions. */
+const hasEmptyFinalizedAssignments = computed(() => {
+  if (!successResult.value) {
+    return false
+  }
+
+  return (
+    successResult.value.finalizedMonths.length > 0 &&
+    successResult.value.assignments.length === 0
+  )
+})
 const fairnessResult = computed<WorkPerformanceFairnessResult | null>(() => {
   if (!successResult.value) {
     return null

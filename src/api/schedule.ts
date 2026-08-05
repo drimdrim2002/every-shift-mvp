@@ -106,6 +106,14 @@ export interface ScheduleSummary {
   solver_execution_id: string | null;
   created_at: string;
   updated_at: string;
+  /** Canonical version used for presence checks (finalized preferred). */
+  finalized_version_id?: string | null;
+  selected_version_id?: string | null;
+  /**
+   * Whether the canonical version has at least one schedule_assignments row.
+   * Undefined means presence was not evaluated.
+   */
+  has_assignments?: boolean;
 }
 
 function normalizePreferenceCode(requestCode: string): ConstraintCode | null {
@@ -1151,7 +1159,7 @@ async function deleteThisMonthAssignmentsByScope(
 }
 
 // 조직의 근무표 목록 조회
-export async function getScheduleList(orgId: string) {
+export async function getScheduleList(orgId: string): Promise<ScheduleSummary[]> {
   const { data, error } = await supabase
     .from('schedules')
     .select('*')
@@ -1159,7 +1167,50 @@ export async function getScheduleList(orgId: string) {
     .order('month', { ascending: false });
 
   if (error) throw error;
-  return data;
+
+  const schedules = (data ?? []) as ScheduleSummary[];
+  const versionIds = Array.from(
+    new Set(
+      schedules
+        .map((schedule) => schedule.finalized_version_id ?? schedule.selected_version_id ?? null)
+        .filter((versionId): versionId is string => typeof versionId === 'string' && versionId.length > 0),
+    ),
+  );
+
+  if (versionIds.length === 0) {
+    return schedules.map((schedule) => ({
+      ...schedule,
+      has_assignments: false,
+    }));
+  }
+
+  const versionsWithAssignments = new Set<string>();
+
+  await Promise.all(
+    versionIds.map(async (versionId) => {
+      const { count, error: countError } = await supabase
+        .from('schedule_assignments')
+        .select('id', { count: 'exact', head: true })
+        .eq('schedule_version_id', versionId);
+
+      if (countError) {
+        throw countError;
+      }
+
+      if ((count ?? 0) > 0) {
+        versionsWithAssignments.add(versionId);
+      }
+    }),
+  );
+
+  return schedules.map((schedule) => {
+    const versionId = schedule.finalized_version_id ?? schedule.selected_version_id ?? null;
+
+    return {
+      ...schedule,
+      has_assignments: versionId ? versionsWithAssignments.has(versionId) : false,
+    };
+  });
 }
 
 // Planning Payload 데이터 조회 함수들

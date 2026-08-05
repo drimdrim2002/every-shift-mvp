@@ -444,6 +444,45 @@ export async function evaluateScheduleTrust(
   );
 
   const forcedResultStatus = input.forcedResultStatus ?? null;
+
+  // Empty grids must never become review_ready / finalizable, even when site requirements
+  // are missing and staffing shortfalls would otherwise be zero.
+  if (!forcedResultStatus && input.assignments.length === 0) {
+    return {
+      assignmentHash,
+      resultStatus: 'review_blocked',
+      proofSummary,
+      violationDetails: [
+        {
+          code: 'empty_assignments',
+          message: 'No assignments exist for this version. Generate or restore shifts before review.',
+          severity: 'error',
+          affectedEmployeeIds: [],
+          dates: [],
+          metadata: {},
+        },
+        ...violationDetails,
+      ],
+      infeasibility: buildInfeasibilityArtifact(
+        'review_blocked',
+        input.failureReason,
+        input.failureType,
+        input.failureContext
+      ),
+      offRequestResults,
+      comparisonMetrics,
+      finalizationGate: {
+        allowed: false,
+        blockingReasons: [
+          {
+            code: 'empty_assignments',
+            message: 'No assignments exist for this version. Generate or restore shifts before review.',
+          },
+        ],
+      },
+    };
+  }
+
   const resultStatus: ScheduleEvaluationResultStatus = forcedResultStatus
     ?? (proofSummary.staffingShortfalls > 0 ? 'review_blocked' : 'passed');
   const infeasibility = buildInfeasibilityArtifact(

@@ -681,8 +681,30 @@ describe('WorkPerformance', () => {
     expect(pushMock).toHaveBeenCalledWith(getScheduleStepRoutePath(1))
   })
 
-  it('renders the no comparison employees state when all employees are excluded', async () => {
+  it('renders empty finalized assignments state when finalized months have no assignment rows', async () => {
     loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({ assignments: [] }))
+    const wrapper = createWrapper()
+
+    await runQuery(wrapper)
+
+    expect(wrapper.get('[data-test="work-performance-state"]').text()).toContain('확정된 근무표에 배정이 없습니다')
+    expect(wrapper.text()).toContain('확정 버전에 저장된 근무 배정이 없어 기록을 계산할 수 없습니다')
+    expect(wrapper.find('[data-test="work-performance-matrix"]').exists()).toBe(false)
+  })
+
+  it('renders the no comparison employees state when all employees are excluded', async () => {
+    loadWorkPerformancePeriodMock.mockResolvedValueOnce(successResult({
+      assignments: [
+        {
+          scheduleVersionId: 'version-1',
+          employeeId: 'emp-1',
+          date: '2026-01-05',
+          shiftId: 'shift-off',
+          shiftCode: 'O',
+          shiftName: 'Off',
+        },
+      ],
+    }))
     const wrapper = createWrapper()
 
     await runQuery(wrapper)

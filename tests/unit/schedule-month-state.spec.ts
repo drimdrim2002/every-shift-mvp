@@ -79,6 +79,16 @@ describe('scheduleMonthState', () => {
     expect(getScheduleMonthDisplayState(createSchedule({ status: 'error' }))).toBe('error');
   });
 
+  it('marks complete months without assignments as ready_empty', () => {
+    expect(
+      getScheduleMonthDisplayState(createSchedule({ status: 'complete', has_assignments: false })),
+    ).toBe('ready_empty');
+    expect(
+      getScheduleMonthDisplayState(createSchedule({ status: 'complete', has_assignments: true })),
+    ).toBe('ready');
+    expect(getScheduleMonthTileLabel('ready_empty')).toBe('배정 없음');
+  });
+
   it('blocks only running and completed months for creation', () => {
     expect(isScheduleMonthBlockedForCreation(createSchedule({ status: 'created' }))).toBe(false);
     expect(isScheduleMonthBlockedForCreation(createSchedule({ status: 'error' }))).toBe(false);

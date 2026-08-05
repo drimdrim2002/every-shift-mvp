@@ -198,6 +198,23 @@ describe('phase2 schedule trust gate evaluator', () => {
     ]);
   });
 
+  it('blocks review when there are no assignments even without site requirements', async () => {
+    const result = await evaluateScheduleTrust({
+      month: '2026-04',
+      manualEditCount: 0,
+      assignments: [],
+      preferences: [],
+      siteRequirements: [],
+      shifts: [],
+      employees: [{ id: 'employee-1' }],
+    });
+
+    expect(result.resultStatus).toBe('review_blocked');
+    expect(result.finalizationGate.allowed).toBe(false);
+    expect(result.finalizationGate.blockingReasons[0]?.code).toBe('empty_assignments');
+    expect(result.violationDetails.some((detail) => detail.code === 'empty_assignments')).toBe(true);
+  });
+
   it('supports forced infeasible classification for solver failure boundaries', async () => {
     const result = await evaluateScheduleTrust({
       month: '2026-04',

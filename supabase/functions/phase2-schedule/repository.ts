@@ -707,6 +707,14 @@ function remapSlice5RpcConflict(error: unknown): never {
       );
     }
 
+    if (message === 'empty_solver_result') {
+      throw new ContractError(
+        'empty_solver_result',
+        'Solver completed without any assignments for the schedule month',
+        409
+      );
+    }
+
     if (
       message === 'another_version_solving'
       || (code === '23505'
@@ -1375,6 +1383,20 @@ function remapTrustGateRpcConflict(error: unknown): never {
       throw new ContractError(
         'not_selected_version',
         'Finalize target must match selected_version_id',
+        409
+      );
+    }
+    if (message === 'empty_assignments') {
+      throw new ContractError(
+        'empty_assignments',
+        'Cannot finalize a version with no schedule assignments',
+        409
+      );
+    }
+    if (message === 'assignment_hash_mismatch') {
+      throw new ContractError(
+        'assignment_hash_mismatch',
+        'Assignments changed since the latest evaluation',
         409
       );
     }

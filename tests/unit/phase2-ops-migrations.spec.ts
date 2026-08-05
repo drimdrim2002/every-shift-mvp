@@ -62,6 +62,18 @@ describe('phase2 ops migrations', () => {
     expect(sql).not.toMatch(/INTO\s+schedule_id,\s+finalized_version_id/i);
   });
 
+  it('rejects empty solver completed payloads and empty finalize targets', () => {
+    const sql = readMigration('20260805_120000_empty_assignment_guards.sql');
+
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.commit_schedule_version_solver_result_atomic');
+    expect(sql).toContain('CREATE OR REPLACE FUNCTION public.finalize_schedule_version_atomic');
+    expect(sql).toContain("MESSAGE = 'empty_solver_result'");
+    expect(sql).toContain("MESSAGE = 'empty_assignments'");
+    expect(sql).toContain('jsonb_array_length(COALESCE(v_filtered_assignments, \'[]\'::jsonb)) = 0');
+    expect(sql).toContain('FROM schedule_assignments sa');
+    expect(sql).toContain('v_assignment_count');
+  });
+
   it('adds global public holidays without enabling rls', () => {
     const originalSql = readMigration('20260513_130000_public_holidays.sql');
     const sql = originalSql.toLowerCase();

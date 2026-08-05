@@ -226,6 +226,10 @@ function getMonthTileClass(displayState: ScheduleMonthDisplayState) {
     return 'border-sky-200 bg-sky-50/60 text-slate-900 hover:border-sky-500 hover:bg-sky-50';
   }
 
+  if (displayState === 'ready_empty') {
+    return 'border-amber-200 bg-amber-50/70 text-slate-900 hover:border-amber-400 hover:bg-amber-50';
+  }
+
   return 'border-slate-300 bg-white hover:border-teal-500 hover:bg-teal-50';
 }
 
