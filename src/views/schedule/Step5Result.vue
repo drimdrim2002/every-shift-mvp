@@ -434,7 +434,7 @@
                 size="medium"
                 :loading="isStartingSolver"
                 :disabled="isStartingSolver || isVersionReadOnly"
-                @click="handleStartSolver"
+                @click="() => handleStartSolver()"
               >
                 근무표 생성 (AI)
               </n-button>
@@ -442,11 +442,12 @@
               <n-button
                 v-if="isFinished && shouldShowResultDetails"
                 size="medium"
+                data-test="regenerate-solver-button"
                 :loading="isStartingSolver"
                 :disabled="isStartingSolver || isVersionReadOnly"
                 @click="handleRegenerate"
               >
-                더 개선하기
+                다시 생성
               </n-button>
 
               <n-button
@@ -710,6 +711,7 @@ import {
   deletePhase2ScheduleVersion,
   refreshPreferenceResolutionByVersion,
   resetPreferenceResolutionByVersion,
+  deleteThisMonthVersionAssignments,
   selectPhase2ScheduleVersion,
   recheckPhase2ScheduleVersion,
   finalizePhase2ScheduleVersion,
@@ -1651,6 +1653,17 @@ function containsInternalErrorTerm(message: string): boolean {
 function toUserFacingErrorMessage(error: unknown, fallback: string): string {
   if (!(error instanceof Error)) {
     return fallback;
+  }
+
+  const code = readErrorCode(error);
+  if (code === 'empty_solver_result') {
+    return '생성 결과에 근무 배정이 없어 저장하지 않았습니다. 다시 생성해 주세요.';
+  }
+  if (code === 'empty_assignments') {
+    return '배정이 비어 있어 확정할 수 없습니다. 근무표를 생성하거나 배정을 저장한 뒤 다시 시도해 주세요.';
+  }
+  if (code === 'assignment_hash_mismatch') {
+    return '배정이 검토 시점과 달라 확정할 수 없습니다. 다시 검토해 주세요.';
   }
 
   const message = error.message.trim();
@@ -2704,13 +2717,46 @@ async function syncPreviewWorkspace(options: {
   await loadCurrentAssignments(options);
 }
 
-async function handleStartSolver() {
+async function resyncAfterSolverStartFailure() {
+  try {
+    await hub.hydrate();
+    if (getActiveSolvingVersionId() !== previewVersionId.value) {
+      solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
+    } else if (previewVersionStatus.value !== 'solving') {
+      solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
+    }
+    await loadCurrentAssignments({
+      syncOriginal: true,
+      clearChanges: true,
+      forceAssignmentSync: true,
+    });
+  } catch (syncError) {
+    console.warn('Solver start failure resync error:', syncError);
+  }
+}
+
+async function handleStartSolver(options: {
+  skipPreferenceReset?: boolean;
+  successMessage?: string;
+} = {}) {
   if (isStartingSolver.value || solver.status.value === 'running') {
     return;
   }
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
     showInfo('현재 보는 근무표안 상태에서는 생성이나 편집을 진행할 수 없습니다.');
     return;
+  }
+
+  if (hasOtherActiveSolvingVersion()) {
+    showInfo('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
+    try {
+      await hub.hydrate();
+    } catch (hydrateError) {
+      console.warn('Other-version solving hydrate error:', hydrateError);
+    }
+    if (hasOtherActiveSolvingVersion()) {
+      return;
+    }
   }
 
   isStartingSolver.value = true;
@@ -2730,37 +2776,28 @@ async function handleStartSolver() {
       return;
     }
 
-    await resetPreferenceResolutionByVersion(previewVersionId.value);
+    if (!options.skipPreferenceReset) {
+      await resetPreferenceResolutionByVersion(previewVersionId.value);
+    }
 
     const solverRequest = await buildSolverRequest();
     await solver.startSolver(previewVersionId.value, solverRequest);
 
     resetRealtimeState();
     startAssignmentsRefresh();
-    showSuccess('근무표 생성을 시작했습니다.');
+    showSuccess(options.successMessage ?? '근무표 생성을 시작했습니다.');
   } catch (error) {
     shouldFinishLoadingBar = false;
     window.$loadingBar?.error();
     console.warn('근무표 생성 시작 중 오류:', error);
     if (readErrorCode(error) === 'another_version_solving') {
       showError('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
-      try {
-        await hub.hydrate();
-        if (getActiveSolvingVersionId() !== previewVersionId.value) {
-          solver.status.value = mapVersionStatusToSolverStatus(previewVersionStatus.value);
-        }
-        await loadCurrentAssignments({
-          syncOriginal: true,
-          clearChanges: true,
-          forceAssignmentSync: true,
-        });
-      } catch (syncError) {
-        console.warn('충돌 후 상태 새로고침 중 오류:', syncError);
-      }
+      await resyncAfterSolverStartFailure();
       return;
     }
 
     showError(toUserFacingErrorMessage(error, '근무표 생성을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.'));
+    await resyncAfterSolverStartFailure();
   } finally {
     if (shouldFinishLoadingBar) {
       window.$loadingBar?.finish();
@@ -3576,6 +3613,28 @@ function handleReset() {
   });
 }
 
+async function prepareVersionForRegenerate() {
+  const versionId = previewVersionId.value;
+  const month = scheduleStore.basicInfo?.month;
+  if (!versionId || !month) {
+    throw new Error('현재 보는 근무표안 정보를 찾을 수 없습니다. 다시 진입해주세요.');
+  }
+
+  await resetPreferenceResolutionByVersion(versionId);
+  await deleteThisMonthVersionAssignments(
+    ensureScheduleId(),
+    versionId,
+    month,
+  );
+
+  solver.stopPolling();
+  stopAssignmentsRefresh();
+  clearResultOnlyLocalState();
+  hasIntermediateResult.value = false;
+  solver.hardScore.value = 0;
+  solver.softScore.value = 0;
+}
+
 async function handleRegenerate() {
   if (!canMutatePreviewVersion.value || !previewVersionId.value) {
     showInfo('현재 보는 근무표안 상태에서는 생성할 수 없습니다.');
@@ -3587,7 +3646,55 @@ async function handleRegenerate() {
     return;
   }
 
-  await handleStartSolver();
+  if (isStartingSolver.value || solver.status.value === 'running') {
+    return;
+  }
+
+  if (hasOtherActiveSolvingVersion()) {
+    showInfo('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.');
+    try {
+      await hub.hydrate();
+    } catch (hydrateError) {
+      console.warn('Regenerate other-version hydrate error:', hydrateError);
+    }
+    if (hasOtherActiveSolvingVersion()) {
+      return;
+    }
+  }
+
+  const dialogHandle: { current?: { loading?: boolean } } = {};
+  dialogHandle.current = window.$dialog?.warning({
+    title: '근무표 다시 생성',
+    content:
+      '현재 근무표 결과를 지우고 같은 조건으로 AI 근무표를 다시 만듭니다. '
+      + '잠금하지 않은 이전 생성 배정은 새 안에 복사되지 않으며, 저장한 수동 수정도 함께 삭제됩니다. '
+      + '배정이 비어 있으면 확정할 수 없습니다.',
+    positiveText: '다시 생성',
+    negativeText: '취소',
+    onPositiveClick: () => {
+      if (dialogHandle.current) {
+        dialogHandle.current.loading = true;
+      }
+
+      return prepareVersionForRegenerate()
+        .then(() => handleStartSolver({
+          skipPreferenceReset: true,
+          successMessage: '근무표 재생성을 시작했습니다.',
+        }))
+        .catch((error: unknown) => {
+          console.warn('근무표 재생성 시작 중 오류:', error);
+          showError(
+            toUserFacingErrorMessage(error, '재생성을 시작하지 못했습니다. 다시 시도해주세요.'),
+          );
+          return resyncAfterSolverStartFailure();
+        })
+        .finally(() => {
+          if (dialogHandle.current) {
+            dialogHandle.current.loading = false;
+          }
+        });
+    },
+  });
 }
 
 function handleCreateCompareCandidate() {

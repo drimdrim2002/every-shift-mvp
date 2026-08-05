@@ -17,7 +17,7 @@ test.describe('Step5 finalized read-only', () => {
 
     await expect(page.getByText('확정됨')).toBeVisible()
     await expect(page.getByRole('button', { name: '근무표 취소' })).toBeDisabled()
-    await expect(page.getByRole('button', { name: '더 개선하기' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '다시 생성' })).toBeDisabled()
     await expect(page.getByRole('button', { name: '저장' })).toBeDisabled()
   })
 })

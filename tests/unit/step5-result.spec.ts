@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildCanonicalStep5RouteLocation,
   buildStep4RouteLocation,
-  buildStep5RouteLocation,
   getAppHomeRoutePath,
 } from '@/constants/routes'
 
@@ -563,6 +562,28 @@ function installAutoConfirmDialog() {
   }
 
   return dialogInfoMock
+}
+
+function installAutoConfirmWarningDialog() {
+  const dialogState = {
+    loading: false,
+  }
+  const dialogWarningMock = vi.fn((options: {
+    onPositiveClick?: () => Promise<void> | void
+  }) => {
+    // Defer confirmation so the dialog reference is assigned first (matches Naive async click).
+    queueMicrotask(() => {
+      void options.onPositiveClick?.()
+    })
+    return dialogState
+  })
+
+  ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+    info: vi.fn(),
+    warning: dialogWarningMock,
+  }
+
+  return dialogWarningMock
 }
 
 function setVisibleAssignments(assignments: Record<string, Record<string, string>>) {
@@ -4364,77 +4385,140 @@ describe('Step5Result', () => {
         requiredCount: 1,
       },
     ]
-    getPhase2ScheduleCompareMock
-      .mockResolvedValueOnce({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-2',
-        finalizedVersionId: null,
-        activeSolvingVersionId: 'version-3',
-        versions: [
-          createVersionSummary({
-            id: 'version-1',
-            versionNo: 1,
-            isSelected: false,
-          }),
-          createVersionSummary({
-            id: 'version-2',
-            versionNo: 2,
-            isSelected: true,
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        scheduleId: 'schedule-1',
-        selectedVersionId: 'version-2',
-        finalizedVersionId: null,
-        activeSolvingVersionId: 'version-3',
-        versions: [
-          createVersionSummary({
-            id: 'version-1',
-            versionNo: 1,
-            isSelected: false,
-          }),
-          createVersionSummary({
-            id: 'version-2',
-            versionNo: 2,
-            isSelected: true,
-          }),
-          createVersionSummary({
-            id: 'version-3',
-            versionNo: 3,
-            status: 'solving',
-            activeSolverExecutionId: 'exec-1',
-            isSelected: false,
-          }),
-        ],
-      })
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: null,
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+        }),
+      ],
+    })
+    const dialogWarningMock = installAutoConfirmWarningDialog()
 
     const wrapper = createWrapper()
     await flushPromises()
 
     const regenerateButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('더 개선하기'))
+      .find((button) => button.text().includes('다시 생성'))
     expect(regenerateButton).toBeTruthy()
 
     await regenerateButton!.trigger('click')
     await flushPromises()
     await flushPromises()
+    await flushPromises()
 
+    expect(dialogWarningMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: '근무표 다시 생성',
+        positiveText: '다시 생성',
+      }),
+    )
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
     expect(resetPreferenceResolutionByVersionMock).toHaveBeenCalledWith('version-2')
+    expect(deleteThisMonthVersionAssignmentsMock).toHaveBeenCalledWith(
+      'schedule-1',
+      'version-2',
+      '2025-12',
+    )
     expect(solverMock.startSolver).toHaveBeenCalledWith(
       'version-2',
       expect.objectContaining({
         publicHolidays: december2025WeekendAndHolidayDates,
       }),
     )
+    expect(showSuccessMock).toHaveBeenCalledWith('근무표 재생성을 시작했습니다.')
     expect(scheduleStoreMock.selectedVersionId).toBe('version-2')
     expect(scheduleStoreMock.setPreviewVersionId).not.toHaveBeenCalledWith('version-3')
-    expect(replaceMock).not.toHaveBeenCalledWith(
-      buildStep5RouteLocation('schedule-1', {
-        versionId: 'version-3',
-      })
-    )
+  })
+
+  it('blocks regenerate when another version is solving', async () => {
+    solverMock.status.value = 'complete'
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    getPhase2ScheduleCompareMock.mockResolvedValue({
+      scheduleId: 'schedule-1',
+      selectedVersionId: 'version-2',
+      finalizedVersionId: null,
+      activeSolvingVersionId: 'version-3',
+      versions: [
+        createVersionSummary({
+          id: 'version-1',
+          versionNo: 1,
+          isSelected: false,
+        }),
+        createVersionSummary({
+          id: 'version-2',
+          versionNo: 2,
+          isSelected: true,
+        }),
+        createVersionSummary({
+          id: 'version-3',
+          versionNo: 3,
+          status: 'solving',
+          activeSolverExecutionId: 'exec-1',
+          isSelected: false,
+        }),
+      ],
+    })
+    const dialogWarningMock = installAutoConfirmWarningDialog()
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const regenerateButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('다시 생성'))
+    expect(regenerateButton).toBeTruthy()
+
+    await regenerateButton!.trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(dialogWarningMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
+    expect(showInfoMock).toHaveBeenCalledWith('다른 근무표안이 생성 중입니다. 완료 후 다시 시도해주세요.')
+  })
+
+  it('does not delete or start solver when regenerate is cancelled', async () => {
+    solverMock.status.value = 'complete'
+    getScheduleStatusMock.mockResolvedValue({
+      status: 'complete',
+      hard_score: 11,
+      soft_score: 22,
+      solver_execution_id: null,
+    })
+    ;(window as unknown as { $dialog?: Record<string, unknown> }).$dialog = {
+      info: vi.fn(),
+      warning: vi.fn(() => ({ loading: false })),
+    }
+
+    const wrapper = createWrapper()
+    await flushPromises()
+
+    const regenerateButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('다시 생성'))
+    expect(regenerateButton).toBeTruthy()
+
+    await regenerateButton!.trigger('click')
+    await flushPromises()
+
+    expect(window.$dialog?.warning).toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
+    expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 
   it('consumes autoStart from the Step4 handoff and starts the solver once', async () => {
@@ -4658,7 +4742,7 @@ describe('Step5Result', () => {
     await flushPromises()
 
     const regenerateButton = wrapper.findAll('button')
-      .find((button) => button.text().includes('더 개선하기'))
+      .find((button) => button.text().includes('다시 생성'))
     expect(regenerateButton).toBeTruthy()
 
     await regenerateButton!.trigger('click')
@@ -4666,6 +4750,7 @@ describe('Step5Result', () => {
 
     expect(showInfoMock).toHaveBeenCalledWith('변경사항을 먼저 저장하거나 취소한 뒤 다시 생성해주세요.')
     expect(createPhase2ScheduleVersionMock).not.toHaveBeenCalled()
+    expect(deleteThisMonthVersionAssignmentsMock).not.toHaveBeenCalled()
     expect(solverMock.startSolver).not.toHaveBeenCalled()
   })
 

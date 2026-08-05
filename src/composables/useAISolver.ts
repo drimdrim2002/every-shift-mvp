@@ -426,8 +426,11 @@ export function useAISolver() {
     executionIdRef.value = null;
     intermediateResults.value = null;
 
+    let createdExecutionId: string | null = null;
+
     try {
       const executionId = await createSolverExecution(request);
+      createdExecutionId = executionId;
       await solvePhase2ScheduleVersion(scheduleVersionId, {
         solverExecutionId: executionId,
       });
@@ -437,9 +440,16 @@ export function useAISolver() {
       startPolling(executionId, scheduleVersionId);
       return executionId;
     } catch (startError: unknown) {
-      console.error('[useAISolver] Failed to start solver:', startError);
+      console.error('[useAISolver] Failed to start solver:', startError, {
+        scheduleVersionId,
+        createdExecutionId,
+      });
       error.value = toErrorMessage(startError, 'Failed to start solver');
+      // Leave running only if version was linked for polling; otherwise error so UI can retry.
+      // createExecution without mark-solving cannot be polled safely.
       status.value = 'error';
+      executionIdRef.value = null;
+      intermediateResults.value = null;
       throw startError;
     }
   }
